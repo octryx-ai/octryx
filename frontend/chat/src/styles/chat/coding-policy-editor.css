@@ -1,0 +1,95 @@
+/* Coding policy catalog, editor and outcome preview. */
+.coding-policy-catalog {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.coding-policy-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.coding-policy-editor__field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.coding-policy-editor__field span {
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.coding-policy-editor__field input,
+.coding-policy-editor__field select,
+.coding-policy-editor__field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 0.5rem;
+}
+
+.coding-policy-editor__field textarea {
+  min-height: 6rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: var(--ds-text-xs);
+}
+
+.coding-policy-outcome span {
+  color: var(--muted-strong);
+}
+
+.coding-policy-preview__results,
+.coding-policy-preview__result {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.coding-policy-preview__status,
+.coding-policy-outcome {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+}
+
+.coding-policy-preview__status.is-blocked,
+.coding-policy-outcome.is-block {
+  border-color: color-mix(in srgb, var(--status-error) 40%, transparent);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+}
+
+.coding-policy-preview__status.is-review_required,
+.coding-policy-outcome.is-review_required,
+.coding-policy-outcome.is-warn {
+  border-color: color-mix(in srgb, var(--status-attention) 36%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 8%, transparent);
+}
+
+.coding-policy-outcome div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.coding-policy-outcome > span {
+  flex: 0 0 auto;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.work-badge--neutral {
+  color: var(--muted-strong);
+  border-color: var(--border);
+  background: var(--surface-overlay-strong);
+}

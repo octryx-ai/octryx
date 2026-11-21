@@ -1,0 +1,30 @@
+/* Work area layout at narrow widths. */
+@media (max-width: 1180px) {
+  .work-area__filters {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .work-area {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .work-area__sidebar {
+    display: none;
+  }
+
+  .work-area__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .work-area__filters,
+  .work-area__summary {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .work-area__content-grid.has-detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

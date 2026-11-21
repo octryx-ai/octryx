@@ -1,0 +1,50 @@
+key: release-notes
+name: Release notes
+description: >-
+  Collect what a release ships (done Jira tickets of the fix version, merged pull requests) and draft the release
+  notes for the chosen audience; you confirm or send it back with your changes (up to three rounds). The run only
+  reads: publishing the confirmed text to Confluence is a separate, confirmed step in chat (skill release-notes).
+definition:
+  execution_kind: phased
+  plan_node: draft
+  nodes:
+    - {id: start, type: start, label: Start}
+    - id: draft
+      type: phase
+      label: Collect and draft
+      config:
+        agent: assistant
+        workflow_id: release_notes
+        workflow_class: release_notes
+        workflow_contract:
+          workflow_id: release_notes
+          workflow_class: release_notes
+          capability_class: read_only
+          routing_intent: documentation
+          when_to_use: >-
+            Follow the release-notes skill. Find the release (Jira fix version named in the Work item or the
+            request), read its done tickets and the pull requests merged for it, and draft the release notes:
+            New, Improved, Fixed, Known issues, each line with its ticket link, written for the audience in the
+            Work item (customers: no internal names, no ticket jargon; team: with ticket keys and PR links). Mark the
+            text as AI-generated. If the version has no done tickets, say so plainly instead of inventing notes.
+          checks:
+            - {type: tool_called, params: {tools: [search_jira_tickets]}, blocking: true,
+               description: The release's tickets were read from Jira}
+        tool_policy:
+          allowlist: [knowledge_search, knowledge_read, list_jira_projects, list_jira_versions, jira_release_status,
+                      search_jira_tickets, get_jira_ticket, list_bitbucket_pull_requests, get_bitbucket_pull_request,
+                      list_github_pull_requests, get_github_pull_request, list_gitlab_merge_requests]
+          denylist: []
+    - id: confirm
+      type: user_confirmation
+      label: Are these release notes right?
+      config: {subject: advance}
+    - {id: done, type: outcome, label: Done, config: {outcome: done}}
+    - {id: stopped, type: outcome, label: Stopped, config: {outcome: stopped}}
+  edges:
+    - {id: e-start, source_node_id: start, target_node_id: draft}
+    - {id: e-drafted, source_node_id: draft, target_node_id: confirm}
+    - {id: e-confirmed, source_node_id: confirm, target_node_id: done, when: confirmed}
+    - {id: e-changed, source_node_id: confirm, target_node_id: draft, when: changed, kind: loop, max_iterations: 3,
+       label: Draft ↔ your review}
+    - {id: e-stop, source_node_id: confirm, target_node_id: stopped, when: stopped}

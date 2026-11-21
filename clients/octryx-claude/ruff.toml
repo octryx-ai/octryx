@@ -1,0 +1,9 @@
+# Same rule set as backend/pyproject.toml; the kit is its own first-party package.
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+
+[lint.isort]
+known-first-party = ["octryx_claude"]

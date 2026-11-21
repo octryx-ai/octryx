@@ -1,0 +1,136 @@
+/* Server-rendered admin pages: inline security refusal of the /admin/tools config guard, its buttons and field hints. */
+/* Inline security refusal inside a server-rendered admin form (/admin/tools, secret_rebind_required). */
+.tools-guard-refusal {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--admin-status-attention) 32%, transparent);
+  background: var(--admin-status-attention-soft);
+  color: var(--admin-text);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+
+.tools-guard-refusal--error {
+  border-color: color-mix(in srgb, var(--admin-status-error) 32%, transparent);
+  background: var(--admin-status-error-soft);
+  color: var(--admin-status-error-ink);
+}
+
+.tools-guard-refusal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--admin-status-attention-ink);
+}
+
+.tools-guard-refusal__code {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-muted);
+}
+
+.tools-guard-refusal__text {
+  margin: 0;
+  color: var(--admin-text);
+}
+
+.tools-guard-refusal__text--strong {
+  font-weight: 600;
+}
+
+.tools-guard-refusal__error {
+  margin: 0;
+  font-weight: 600;
+  color: var(--admin-status-error-ink);
+}
+
+.tools-guard-refusal__fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: var(--ds-text-xs);
+}
+
+.tools-guard-refusal__fields dt {
+  color: var(--admin-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  align-self: center;
+}
+
+.tools-guard-refusal__fields dd {
+  margin: 0;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+}
+
+.tools-guard-refusal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.tools-guard-btn {
+  min-height: 1.9rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface-soft);
+  color: var(--admin-text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tools-guard-btn--primary {
+  border-color: color-mix(in srgb, var(--admin-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--admin-accent) 16%, transparent);
+}
+
+.tools-guard-btn--danger {
+  border-color: color-mix(in srgb, var(--admin-status-error) 40%, transparent);
+  background: color-mix(in srgb, var(--admin-status-error) 10%, transparent);
+  color: var(--admin-status-error-ink);
+}
+
+.tools-guard-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tools-guard-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--admin-accent) 22%, transparent);
+}
+
+.tools-guard-hint {
+  margin: 0.25rem 0 0;
+  font-size: var(--ds-text-xs);
+}
+
+.tools-guard-hint--attention {
+  color: var(--admin-status-attention-ink);
+}
+
+.tools-guard-hint--error {
+  color: var(--admin-status-error-ink);
+}
+
+.tools-guard-field--attention {
+  border-color: color-mix(in srgb, var(--admin-status-attention) 55%, transparent);
+}
+
+.tools-guard-field--error {
+  border-color: color-mix(in srgb, var(--admin-status-error) 55%, transparent);
+  box-shadow: 0 0 0 3px var(--admin-status-error-soft);
+}

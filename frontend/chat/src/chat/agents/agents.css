@@ -1,0 +1,192 @@
+/* "Agents" area and action-needed bell: local layout, existing theme tokens only. */
+/* The area itself uses the shared work-area layout (sidebar menu, header, body); only its content is styled here. */
+.agents-area__hint,
+.agents-area__lede {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+}
+
+.agents-area__lede { color: var(--muted-strong); max-width: 64rem; }
+
+/* Section and subsection titles inside the design-system cards (admin-panel__section-header carries the look). */
+.agents-area__section-title,
+.agents-area__subsection-title {
+  margin: 0;
+  font: inherit;
+}
+
+.agents-area__subsection-title { color: var(--text); font-size: var(--ds-text-md); font-weight: 600; }
+
+/* Filter toolbar: design-system fields (admin-panel__field) in one row, the action at the end; wraps on phones. */
+.agents-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.agents-toolbar > .admin-panel__field { flex: 1 1 11rem; min-width: 0; max-width: 18rem; }
+.agents-toolbar__end { margin-left: auto; }
+
+@media (max-width: 560px) {
+  .agents-toolbar > .admin-panel__field { flex-basis: 100%; max-width: none; }
+  .agents-toolbar__end { margin-left: 0; }
+}
+
+.agents-allowance {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 9rem;
+  margin-bottom: 0.25rem;
+  font-size: var(--ds-text-xs);
+}
+
+.agents-allowance__track {
+  display: block;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  overflow: hidden;
+}
+
+.agents-allowance__fill {
+  display: block;
+  height: 100%;
+}
+
+.agents-allowance__fill--active { background: var(--status-active); }
+.agents-allowance__fill--attention { background: var(--status-attention); }
+.agents-allowance__fill--danger { background: var(--status-error); }
+
+.agents-allowance__reset { color: var(--muted); }
+
+/* Message board and claims. Bodies are plain text: whitespace kept, long words wrapped. */
+.agents-board { display: grid; gap: 0.5rem; }
+
+.agents-board__actions,
+.agents-board__decision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Button groups follow the design guide: Cancel left, the primary step right. */
+.agents-board__actions--end { justify-content: flex-end; }
+.agents-board__actions--between { justify-content: space-between; }
+
+/* Message and takeover cards are design-system cards (admin-panel__card / __subcard); only spacing and focus here. */
+.agents-board__message { gap: 0.5rem; }
+.agents-board__message.is-focused { border-color: var(--status-attention); }
+.agents-board__footer { padding-top: 0.5rem; border-top: 1px solid var(--border-soft); }
+
+.agents-board__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.agents-board__meta strong { color: inherit; }
+.agents-board__human { font-style: italic; }
+.agents-board__time { margin-left: auto; }
+
+.agents-board__body {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--ds-text-md);
+}
+
+.agents-board__redacted { color: var(--muted); font-style: italic; }
+
+.agents-board__replies {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1.25rem;
+  border-left: 2px solid var(--border-soft);
+}
+
+.agents-board__note { flex: 1 1 14rem; min-width: 0; }
+
+.agents-board__confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.agents-board__path {
+  display: inline-block;
+  margin: 0 0.25rem 0.25rem 0;
+  font-size: var(--ds-text-xs);
+}
+
+/* Claims and handoffs subsections and the structured handoff viewer. */
+.agents-table-actions { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; }
+
+/* Compact design-system buttons inside tables and next to ids (design guide 9.1 "Compact"). */
+.agents-board .work-table .admin-panel__action-btn,
+.agents-copy-id .admin-panel__action-btn { min-height: 1.4rem; padding: 0 0.5rem; font-size: var(--ds-text-2xs); white-space: nowrap; }
+
+.agents-copy-id { display: inline-flex; align-items: center; gap: 0.25rem; }
+.agents-copy-id code { font-size: var(--ds-text-xs); }
+
+.agents-handoff__sections { display: grid; gap: 0.5rem; margin: 0; }
+.agents-handoff__section dt { color: var(--muted); font-size: var(--ds-text-xs); font-weight: 600; text-transform: uppercase; }
+.agents-handoff__section dd { margin: 0.25rem 0 0; }
+
+/* Automatic handoff card and the applied policy of an automatic handoff (freeze 3b). */
+.agents-handoff-policy__fields { display: grid; gap: 0.75rem; min-width: 0; margin: 0; padding: 0; border: 0; }
+.agents-handoff-policy__legend { margin-bottom: 0.25rem; padding: 0; color: var(--muted); font-size: var(--ds-text-xs); font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase; }
+.agents-choice-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: 0.5rem; }
+.agents-handoff-policy__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: 0.75rem; align-items: end; }
+
+/* Long option labels never widen a field past its column (phones included). */
+.agents-handoff-policy__grid > .admin-panel__field,
+.agents-board .admin-panel__field { min-width: 0; }
+.agents-board .admin-panel__field select { width: 100%; min-width: 0; max-width: 100%; }
+.agents-handoff-policy__line { margin: 0.25rem 0; }
+.agents-handoff-policy__snapshot { margin: 0; padding-left: 1rem; color: var(--muted); font-size: var(--ds-text-xs); }
+
+/* The work state of a handoff (freeze 3c). */
+.agents-handoff__work-state { display: grid; gap: 0.25rem; }
+.agents-handoff__command { padding: 0.25rem 0.5rem; border-radius: var(--ds-radius-sm); background: var(--surface-overlay-strong); font-size: var(--ds-text-xs); overflow-wrap: anywhere; }
+
+.agents-clients__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.agents-clients__filter { display: inline-flex; gap: 0.5rem; }
+
+/* Install octryx-claude: one-liners with a copy button and the served client facts. */
+.agents-install { display: grid; gap: 1rem; }
+.agents-install__command {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+}
+.agents-install__command code { flex: 1; font-size: var(--ds-text-sm); overflow-wrap: anywhere; }
+.agents-install__command .admin-panel__action-btn { flex: none; }
+.agents-install__facts { display: grid; gap: 0.5rem; margin: 0; }
+.agents-install__facts dt { color: var(--muted); font-size: var(--ds-text-xs); font-weight: 600; text-transform: uppercase; }
+.agents-install__facts dd { margin: 0.25rem 0 0; font-size: var(--ds-text-sm); overflow-wrap: anywhere; }
+
+/* Dates never wrap ("6 Oct 2026, 09:47" on one line), also when the help panel narrows the page. */
+.agents-clients__when,
+.work-table td.agents-clients__when {
+  white-space: nowrap;
+}

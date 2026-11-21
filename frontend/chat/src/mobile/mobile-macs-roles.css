@@ -1,0 +1,72 @@
+/* Phone Your Macs and My role pages. */
+/* ---- Your Macs ----------------------------------------------------------------------------------- */
+.m-device {
+  gap: 12px;
+}
+.m-device-head {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+.m-device-head h2 {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+}
+.m-device .m-section {
+  margin: 4px 0 0;
+}
+.m-command {
+  display: block;
+  padding: 0.75rem 12px;
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--m-text);
+  font-size: var(--ds-text-xs);
+  user-select: all;
+}
+
+/* ---- My role (roles): read-only; rows and cards are the shared ones ------------------------------- */
+.m-banner-attention {
+  display: grid;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 40%, transparent);
+  background: var(--status-attention-soft);
+  color: var(--m-text);
+}
+.m-banner-attention p {
+  margin: 0;
+}
+.m-banner-hint {
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-sm);
+}
+.m-row-single {
+  min-height: var(--ds-control-touch);
+  align-items: center;
+}
+.m-row-single .m-row-text > b {
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+}
+.m-row-wrap .m-row-text > span {
+  white-space: normal;
+}
+.m-role-stack {
+  display: grid;
+  gap: 8px;
+}
+.m-role-stack .m-section-hint {
+  margin: 0;
+}
+.m-facts-first > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}

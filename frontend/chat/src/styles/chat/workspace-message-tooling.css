@@ -1,0 +1,7 @@
+/* Workspace message tooling stylesheet: imports its partials in cascade order. */
+@import "./message-feed-actions.css";
+@import "./message-code-references.css";
+@import "./message-tool-burst.css";
+@import "./message-tool-evidence.css";
+@import "./composer-attachments.css";
+@import "./message-tooling-light.css";

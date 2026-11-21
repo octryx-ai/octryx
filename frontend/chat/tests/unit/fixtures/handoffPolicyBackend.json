@@ -1,0 +1,170 @@
+{
+ "_source": "Synthetic handoff policy response examples for frontend contract tests. Backend behavior: backend/tests/agent_board/test_auto_takeover.py and Board fixture helpers. Covers member/owner policy reads, refused and accepted PUTs, and automatic takeover confirmation.",
+ "ids": {
+  "anna": "d357e7e8-9749-4200-aa9f-c91fbccf1e3e",
+  "ben": "b39059a9-3130-4625-8864-3448aa9799d9",
+  "owner": "7da41d28-b20a-492c-9ce6-72a1928f39e8",
+  "takeover": "76302c45-39d4-4ead-8900-37b69de05ecc",
+  "workspace": "32b6035d-3827-4a5d-a9e9-d129ce374b9b"
+ },
+ "policy_member_after": {
+  "body": {
+   "can_edit": false,
+   "handoff": {
+    "allowed_requesters": "members",
+    "auto_threshold_pct": 90.0,
+    "mode": "auto",
+    "require_spare_pct": 50.0
+   },
+   "project_id": "32b6035d-3827-4a5d-a9e9-d129ce374b9b",
+   "source": "workspace"
+  },
+  "status": 200
+ },
+ "policy_member_default": {
+  "body": {
+   "can_edit": false,
+   "handoff": {
+    "allowed_requesters": "members",
+    "auto_threshold_pct": 90.0,
+    "mode": "confirm",
+    "require_spare_pct": 50.0
+   },
+   "project_id": "32b6035d-3827-4a5d-a9e9-d129ce374b9b",
+   "source": "default"
+  },
+  "status": 200
+ },
+ "policy_owner_default": {
+  "body": {
+   "can_edit": true,
+   "handoff": {
+    "allowed_requesters": "members",
+    "auto_threshold_pct": 90.0,
+    "mode": "confirm",
+    "require_spare_pct": 50.0
+   },
+   "project_id": "32b6035d-3827-4a5d-a9e9-d129ce374b9b",
+   "source": "default"
+  },
+  "status": 200
+ },
+ "put_invalid": {
+  "body": {
+   "detail": {
+    "errors": [
+     {
+      "code": "invalid_percentage",
+      "field": "agent_gateway_policy.handoff.auto_threshold_pct"
+     }
+    ]
+   },
+   "error": "Request failed",
+   "status_code": 422
+  },
+  "status": 422
+ },
+ "put_member": {
+  "body": {
+   "detail": "Workspace admin or owner role required",
+   "error": "Workspace admin or owner role required",
+   "status_code": 403
+  },
+  "status": 403
+ },
+ "put_owner": {
+  "body": {
+   "can_edit": true,
+   "handoff": {
+    "allowed_requesters": "admins_and_owners",
+    "auto_threshold_pct": 85.0,
+    "mode": "auto",
+    "require_spare_pct": 30.0
+   },
+   "project_id": "32b6035d-3827-4a5d-a9e9-d129ce374b9b",
+   "source": "workspace"
+  },
+  "status": 200
+ },
+ "put_owner_partial": {
+  "body": {
+   "can_edit": true,
+   "handoff": {
+    "allowed_requesters": "members",
+    "auto_threshold_pct": 90.0,
+    "mode": "auto",
+    "require_spare_pct": 50.0
+   },
+   "project_id": "32b6035d-3827-4a5d-a9e9-d129ce374b9b",
+   "source": "workspace"
+  },
+  "status": 200
+ },
+ "put_unknown": {
+  "body": {
+   "detail": {
+    "errors": [
+     {
+      "code": "unknown_field",
+      "field": "agent_gateway_policy.handoff.push"
+     }
+    ]
+   },
+   "error": "Request failed",
+   "status_code": 422
+  },
+  "status": 422
+ },
+ "takeovers_confirmed_ben": {
+  "items": [
+   {
+    "automatic": false,
+    "created_at": "2026-10-05T20:29:13.265979Z",
+    "decided_at": "2026-10-05T20:29:13.270209Z",
+    "decided_by": {
+     "kind": "system"
+    },
+    "expires_at": "2026-10-06T20:29:13.265979Z",
+    "from": {
+     "agent_hash": "36bfb4186c5428223ce3a2dd",
+     "user": {
+      "display_name": "memberd357e7e8",
+      "id": "d357e7e8-9749-4200-aa9f-c91fbccf1e3e"
+     }
+    },
+    "handoff": {
+     "id": "5bca1822-4b0f-481c-a464-b3686c4a8d8a",
+     "version": 1
+    },
+    "id": "76302c45-39d4-4ead-8900-37b69de05ecc",
+    "message_id": "117b39e7-6aed-42bd-b3fb-9cfd4ea3537f",
+    "policy_mode": "auto",
+    "reason": "spare here",
+    "status": "confirmed",
+    "to": {
+     "agent_hash": "0738b9c73d35097d9984640e",
+     "user": {
+      "display_name": "memberb39059a9",
+      "id": "b39059a9-3130-4625-8864-3448aa9799d9"
+     }
+    },
+    "work_item": {
+     "id": "0d7798ce-d9a7-41a1-96b4-6fdd6e8c14e1",
+     "key": "BRD-6",
+     "title": "Login redirect"
+    }
+   }
+  ],
+  "viewer": {
+   "can_admin": false,
+   "user_id": "b39059a9-3130-4625-8864-3448aa9799d9"
+  }
+ },
+ "takeovers_pending_ben": {
+  "items": [],
+  "viewer": {
+   "can_admin": false,
+   "user_id": "b39059a9-3130-4625-8864-3448aa9799d9"
+  }
+ }
+}

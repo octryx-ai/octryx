@@ -1,0 +1,49 @@
+/* Guided Jira setup: local layout only, existing theme tokens.
+   Option groups span the whole form grid, and each radio or checkbox sits beside its text in one
+   row: the control keeps its intrinsic size and the text wraps next to it. */
+
+.jira-setup__group {
+  grid-column: 1 / -1;
+}
+
+.jira-setup__options {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.jira-setup__option {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.jira-setup__option input[type="radio"],
+.jira-setup__option input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: auto;
+  height: auto;
+  margin: 0.25rem 0 0;
+  accent-color: var(--accent);
+}
+
+.jira-setup__option-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jira-setup__notes {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.jira-setup__notes p {
+  margin: 0;
+}

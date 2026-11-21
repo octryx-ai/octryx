@@ -1,0 +1,224 @@
+/* Knowledge graph (Knowledge › Explore › Graph): top bar, stage (list rail · canvas · docked details), legend and
+   canvas marks. Sizes from the UI set (README.md, UI set); colours from theme variables, except the eight entity-type
+   colours below, which the theme has no scale for yet (validated for colour-vision deficiency on both surfaces). */
+.kg {
+  --kg-type-1: #5497d9; --kg-type-2: #ca7d44; --kg-type-3: #19aa8e; --kg-type-4: #b48c2b;
+  --kg-type-5: #c274a9; --kg-type-6: #60a563; --kg-type-7: #9882d4; --kg-type-8: #d2736c;
+  --kg-type-other: var(--muted);
+  --kg-stage-height: clamp(26rem, calc(100vh - 16rem), 60rem);
+  display: grid; gap: var(--ds-space-2); min-width: 0;
+}
+[data-theme="light"] .kg {
+  --kg-type-1: #2a75ba; --kg-type-2: #aa5910; --kg-type-3: #00896d; --kg-type-4: #946900;
+  --kg-type-5: #a25089; --kg-type-6: #38853e; --kg-type-7: #7860b5; --kg-type-8: #b14e49;
+}
+
+/* ---- Top bar ---------------------------------------------------------------------------------------------- */
+.kg-bar { display: grid; gap: var(--ds-space-2); }
+.kg-bar__search { display: flex; gap: var(--ds-space-2); }
+.kg-bar__search input { flex: 1 1 auto; min-width: 0; }
+.kg-bar__row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ds-space-2) var(--ds-space-3); min-height: var(--ds-control-md); }
+.kg-bar__status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-3); min-width: 0; }
+.kg-bar__count { margin: 0; font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); color: var(--text); font-variant-numeric: tabular-nums; }
+.kg-bar__bounded {
+  display: inline-flex; align-items: center; height: 1.25rem; padding: 0 var(--ds-space-2); border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); color: var(--ds-tone-neutral-ink); background: var(--ds-tone-neutral-bg);
+}
+.kg-bar__actions { display: flex; align-items: center; gap: var(--ds-space-2); }
+.kg-bar .kg-bar__btn { min-height: var(--ds-control-md); font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); }
+.kg-bar .kg-bar__btn[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); background: var(--surface-overlay-hover); }
+
+/* Advanced: a small popover under its button. */
+.kg-advanced { position: relative; }
+.kg-advanced > summary { list-style: none; cursor: pointer; }
+.kg-advanced > summary::-webkit-details-marker { display: none; }
+.kg-advanced > summary::after { content: "▾"; margin-left: var(--ds-space-2); color: var(--muted); }
+.kg-advanced__panel {
+  position: absolute; right: 0; top: calc(100% + var(--ds-space-1)); z-index: 20; width: 22rem; max-width: calc(100vw - 2rem);
+  display: grid; gap: var(--ds-space-3); padding: var(--ds-space-4); box-sizing: border-box;
+  border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--panel-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.kg-advanced__field { display: grid; gap: var(--ds-space-1); font-size: var(--ds-text-xs); color: var(--muted-strong); }
+.kg-advanced__field .entity-graph__legend { margin: 0; }
+.kg-advanced__check { display: flex; align-items: center; gap: var(--ds-space-2); font-size: var(--ds-text-sm); }
+.kg-advanced__help { margin: 0; padding-left: var(--ds-space-4); display: grid; gap: var(--ds-space-1); font-size: var(--ds-text-xs); color: var(--muted); line-height: var(--ds-leading); }
+
+/* Focus trail (breadcrumbs). */
+.kg-trail ol { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1); margin: 0; padding: 0; list-style: none; font-size: var(--ds-text-sm); }
+.kg-trail li { display: inline-flex; align-items: center; gap: var(--ds-space-1); min-width: 0; }
+.kg-trail__crumb {
+  max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 var(--ds-space-1);
+  border: 0; border-radius: var(--ds-radius-sm); background: none; color: var(--muted-strong); font: inherit; cursor: pointer;
+}
+.kg-trail__crumb:hover { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.kg-trail__crumb:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kg-trail__sep { color: var(--muted); }
+.kg-trail__current { max-width: 20rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: var(--ds-weight-medium); color: var(--text); }
+
+/* ---- States (loading, empty, error) take the stage's place, so nothing jumps. ------------------------------ */
+.kg-state {
+  display: grid; place-content: center; justify-items: center; gap: var(--ds-space-2); min-height: var(--kg-stage-height);
+  padding: var(--ds-space-8); box-sizing: border-box; text-align: center;
+  border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--surface-overlay);
+}
+.kg-state__title { margin: 0; font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); color: var(--text); }
+.kg-state__text { margin: 0; max-width: 36rem; font-size: var(--ds-text-sm); color: var(--muted-strong); line-height: var(--ds-leading); }
+.kg-state__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--ds-space-2); margin-top: var(--ds-space-2); }
+.kg-state--loading .kg-state__title { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-regular); color: var(--muted-strong); }
+.kg-state__pulse { width: 2.5rem; height: 2.5rem; border-radius: 50%; border: 2px solid var(--border-strong); border-top-color: var(--accent); animation: kg-spin 0.9s linear infinite; }
+@keyframes kg-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .kg-state__pulse { animation: none; } }
+
+/* ---- Stage ----------------------------------------------------------------------------------------------- */
+.kg-stage {
+  display: grid; gap: var(--ds-space-3); min-width: 0; height: var(--kg-stage-height);
+  grid-template-columns: minmax(0, 1fr); grid-template-areas: "canvas";
+}
+.kg-stage[data-list] { grid-template-columns: 17rem minmax(0, 1fr); grid-template-areas: "list canvas"; }
+.kg-stage[data-detail] { grid-template-columns: minmax(0, 1fr) minmax(20rem, 26rem); grid-template-areas: "canvas detail"; }
+.kg-stage[data-list][data-detail] { grid-template-columns: 17rem minmax(0, 1fr) minmax(20rem, 26rem); grid-template-areas: "list canvas detail"; }
+.kg-stage__list { grid-area: list; min-height: 0; }
+.kg-stage__list[hidden] { display: none; }
+.kg-stage__list .entity-graph__entities { height: 100%; max-height: none; }
+.kg-stage__canvas { grid-area: canvas; position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: var(--ds-space-2); }
+.kg-stage .entity-graph__detail { grid-area: detail; min-height: 0; height: 100%; overflow-y: auto; box-sizing: border-box; }
+.kg-stage__wait { display: grid; place-content: center; height: 100%; margin: 0; font-size: var(--ds-text-sm); color: var(--muted-strong); }
+
+/* Phone (narrow stage): list or neighbourhood + details, one column, page scroll instead of a fixed stage. */
+.kg-stage[data-narrow] { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-areas: none; }
+.kg-stage[data-narrow] > * { grid-area: auto; }
+.kg-stage[data-narrow] .entity-graph__entities { max-height: none; }
+.kg-stage[data-narrow] .entity-graph__detail { height: auto; overflow: visible; }
+.kg-stage__ego { height: 20rem; min-width: 0; }
+
+/* Detail pane header: title, close at the top right, then the actions. */
+.kg-stage .entity-graph__detail-header { position: relative; padding-right: var(--ds-space-8); }
+.kg-detail__close {
+  position: absolute; top: 0; right: 0; display: inline-grid; place-items: center; min-width: var(--ds-control-md); height: var(--ds-control-md);
+  border: 0; border-radius: var(--ds-radius-md); background: none; color: var(--muted-strong); font-size: var(--ds-text-xl); cursor: pointer;
+}
+.kg-detail__close:hover { background: var(--surface-overlay-hover); color: var(--text); }
+.kg-detail__close:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kg-stage[data-narrow] .entity-graph__detail-header { padding-right: 0; padding-top: var(--ds-space-10); }
+.kg-stage[data-narrow] .kg-detail__close { font-size: var(--ds-text-sm); padding: 0 var(--ds-space-2); min-height: var(--ds-control-touch); }
+
+/* ---- Canvas ---------------------------------------------------------------------------------------------- */
+.kg-canvas {
+  position: relative; width: 100%; height: 100%; box-sizing: border-box; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--bg);
+}
+.kg-canvas:focus-within { border-color: var(--border-strong); }
+.kg-canvas__defs { position: absolute; width: 0; height: 0; }
+.kg-canvas__arrow { fill: var(--accent); }
+.kg-canvas .react-flow { --xy-background-color: transparent; background: transparent; }
+.kg-canvas .react-flow__node { cursor: pointer; }
+.kg-canvas .react-flow__node:focus-visible { outline: none; }
+.kg-canvas .react-flow__node:focus-visible .kg-node__dot { stroke: var(--accent); stroke-width: calc(3px / var(--kg-zoom, 1)); }
+
+.kg-node { position: relative; }
+.kg-node__handle.react-flow__handle {
+  top: 50%; left: 50%; width: 1px; height: 1px; min-width: 0; min-height: 0; border: 0; opacity: 0; transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.kg-node__svg { display: block; overflow: visible; }
+.kg-node__dot { stroke: var(--bg); stroke-width: calc(1.5px / var(--kg-zoom, 1)); transition: opacity 120ms ease; }
+.kg-node__label {
+  font-size: calc(var(--ds-text-xs) / var(--kg-zoom, 1)); font-weight: var(--ds-weight-medium); fill: var(--muted-strong);
+  paint-order: stroke; stroke: var(--bg); stroke-width: calc(3px / var(--kg-zoom, 1)); stroke-linejoin: round; pointer-events: none;
+}
+.kg-node[data-matched] .kg-node__dot { stroke: var(--accent); stroke-width: calc(2px / var(--kg-zoom, 1)); stroke-dasharray: calc(3px / var(--kg-zoom, 1)) calc(2px / var(--kg-zoom, 1)); }
+.kg-node[data-state="selected"] .kg-node__dot { stroke: var(--accent); stroke-width: calc(3px / var(--kg-zoom, 1)); stroke-dasharray: none; }
+.kg-node[data-state="selected"] .kg-node__label { fill: var(--highlight, var(--text)); font-weight: var(--ds-weight-strong); }
+.kg-node[data-state="linked"] .kg-node__label { fill: var(--text); }
+.kg-node[data-state="dim"] .kg-node__dot { opacity: 0.18; }
+.kg-node[data-state="dim"] .kg-node__label { opacity: 0.3; }
+.kg-node:hover .kg-node__label { fill: var(--text); }
+
+.kg-edge { fill: none; stroke: var(--muted); stroke-width: calc(1px / var(--kg-zoom, 1)); stroke-opacity: 0.28; transition: stroke-opacity 120ms ease; }
+.kg-edge--dim { stroke-opacity: 0.06; }
+.kg-edge--focus { stroke: var(--accent); stroke-opacity: 0.85; stroke-width: calc(1.5px / var(--kg-zoom, 1)); }
+.kg-edge--hover { stroke: var(--text); stroke-opacity: 0.9; stroke-width: calc(2px / var(--kg-zoom, 1)); }
+.kg-edge-label {
+  position: absolute; padding: 0 var(--ds-space-1); box-shadow: 0 0 0 2px var(--bg); border-radius: var(--ds-radius-sm); pointer-events: none; white-space: nowrap;
+  font-size: var(--ds-text-2xs); font-weight: var(--ds-weight-medium); line-height: 1rem;
+  color: var(--muted-strong); background: var(--panel-strong); border: 1px solid var(--border);
+}
+.kg-edge-label--hover { color: var(--text); border-color: var(--border-strong); }
+
+/* Library controls and minimap in the theme. */
+.kg-canvas .react-flow__controls { box-shadow: none; border: 1px solid var(--border); border-radius: var(--ds-radius-md); overflow: hidden; }
+.kg-canvas .react-flow__controls-button {
+  width: var(--ds-control-md); height: var(--ds-control-md); padding: 0; box-sizing: border-box;
+  background: var(--panel-strong); border-bottom: 1px solid var(--border); color: var(--muted-strong); fill: currentColor;
+}
+.kg-canvas .react-flow__controls-button:hover { background: var(--surface-overlay-hover); color: var(--text); }
+.kg-canvas .react-flow__controls-button svg { fill: currentColor; max-width: var(--ds-icon-sm); max-height: var(--ds-icon-sm); }
+.kg-canvas .react-flow__minimap {
+  width: 12rem; height: 8rem; border: 1px solid var(--border); border-radius: var(--ds-radius-md); overflow: hidden;
+  background: var(--panel-strong); --xy-minimap-mask-background-color: rgba(0, 0, 0, 0.35);
+}
+[data-theme="light"] .kg-canvas .react-flow__minimap { --xy-minimap-mask-background-color: rgba(36, 39, 35, 0.12); }
+.kg-canvas .react-flow__minimap svg { width: 100%; height: 100%; }
+.kg-mini { fill: var(--kg-type-other); }
+.kg-mini--1 { fill: var(--kg-type-1); } .kg-mini--2 { fill: var(--kg-type-2); } .kg-mini--3 { fill: var(--kg-type-3); }
+.kg-mini--4 { fill: var(--kg-type-4); } .kg-mini--5 { fill: var(--kg-type-5); } .kg-mini--6 { fill: var(--kg-type-6); }
+.kg-mini--7 { fill: var(--kg-type-7); } .kg-mini--8 { fill: var(--kg-type-8); }
+
+/* ---- Legend (type filter): under the canvas on desktop, above the list on the phone. --------------------- */
+/* Desktop: the legend is a bar under the canvas, so it never covers an entity. */
+.kg-stage__canvas .kg-legend {
+  padding: var(--ds-space-1) var(--ds-space-2); border: 1px solid var(--border); border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.kg-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1); }
+.kg-legend__chip, .kg-legend__all {
+  display: inline-flex; align-items: center; gap: var(--ds-space-2); height: var(--ds-control-sm); padding: 0 var(--ds-space-2);
+  border: 1px solid transparent; border-radius: var(--ds-radius-pill); background: none; color: var(--text);
+  font: inherit; font-size: var(--ds-text-xs); cursor: pointer; white-space: nowrap;
+}
+.kg-legend__chip:hover, .kg-legend__all:hover { background: var(--surface-overlay-hover); }
+.kg-legend__chip:focus-visible, .kg-legend__all:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kg-legend__dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; flex: none; }
+.kg-legend__count { color: var(--muted); font-variant-numeric: tabular-nums; }
+.kg-legend__chip[aria-pressed="false"] { color: var(--muted); }
+.kg-legend__chip[aria-pressed="false"] .kg-legend__name { text-decoration: line-through; }
+.kg-legend__chip[aria-pressed="false"] .kg-legend__dot { background: transparent !important; box-shadow: inset 0 0 0 1px var(--muted); }
+.kg-legend__all { color: var(--muted-strong); border-color: var(--border); }
+
+/* The detail pane fills its docked column (overriding the global rule's fixed 340 px). */
+.kg-stage .entity-graph__detail { width: auto; max-width: none; padding: var(--ds-space-4); }
+
+/* Phone: the list is the first view there, so no list switch; touch-size legend chips; Back above the title. */
+.kg { container: kg / inline-size; }
+@container kg (max-width: 39.99rem) {
+  .kg-bar__list-toggle { display: none; }
+  .kg-legend__chip, .kg-legend__all { height: var(--ds-control-touch); }
+}
+.kg-stage[data-narrow] .entity-graph__detail-header { padding: 0; }
+.kg-stage[data-narrow] .kg-detail__close { position: static; order: -1; flex: 1 0 100%; justify-content: start; justify-items: start; display: flex; align-items: center; }
+.kg-canvas .react-flow__panel { margin: var(--ds-space-3); }
+.kg-detail__close { padding: 0; }
+.kg-stage .entity-graph__detail h4 { font-weight: var(--ds-weight-strong); }
+.kg-legend__note { margin: 0; padding: var(--ds-space-1) var(--ds-space-2); font-size: var(--ds-text-xs); color: var(--muted-strong); }
+
+/* Additive Expand: what was just added glows briefly; the bar says what happened. */
+.kg-bar__note { font-size: var(--ds-text-sm); color: var(--muted-strong); }
+.kg-node[data-fresh] .kg-node__dot { stroke: var(--accent); stroke-width: calc(3px / var(--kg-zoom, 1)); animation: kg-fresh 1.2s ease-out 3; }
+.kg-node[data-fresh] .kg-node__label { fill: var(--text); }
+@keyframes kg-fresh { 0% { stroke-opacity: 1; } 100% { stroke-opacity: 0.2; } }
+@media (prefers-reduced-motion: reduce) { .kg-node[data-fresh] .kg-node__dot { animation: none; } }
+
+/* Type cluster names above each cluster: quiet, uppercase, scaled like the entity labels. */
+.kg-canvas .react-flow__node.kg-cluster-node { pointer-events: none; cursor: default; }
+.kg-cluster { display: block; overflow: visible; }
+.kg-cluster__label {
+  font-size: calc(var(--ds-text-2xs) / var(--kg-zoom, 1)); font-weight: var(--ds-weight-strong); letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase; fill: var(--muted); paint-order: stroke; stroke: var(--bg); stroke-width: calc(3px / var(--kg-zoom, 1));
+}
+.kg-cluster__count { font-weight: var(--ds-weight-regular); }
+.kg-mini--none { fill: transparent; }
+
+/* Groups instead of types: the note explains the colours, on its own row above the chips. */
+.kg-legend__note--row { flex: 1 0 100%; margin: 0; padding: var(--ds-space-1) var(--ds-space-2) 0; font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: var(--ds-leading); }
+.kg-edge--faint { stroke-opacity: 0.08; }

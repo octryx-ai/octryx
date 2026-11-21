@@ -1,0 +1,3 @@
+# Shell scripts must stay LF after checkout even with core.autocrlf=true:
+# a CRLF shebang ("bash\r") makes ./fixture.sh fail to start.
+*.sh text eol=lf

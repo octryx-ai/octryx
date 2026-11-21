@@ -1,0 +1,136 @@
+.composer-shell {
+  flex: 0 0 auto;
+  padding: 0 1rem 0.75rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg) 0%, transparent) 0%,
+    color-mix(in srgb, var(--bg) 84%, transparent) 18%,
+    color-mix(in srgb, var(--bg) 98%, transparent) 100%
+  );
+  position: relative;
+  z-index: 2;
+}
+
+.composer-shell__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* The composer sits under the reading column, a little wider so its controls keep one row. */
+.composer {
+  width: 100%;
+  max-width: calc(var(--chat-column, 54rem) + 4rem);
+  margin: 0 auto;
+  position: relative;
+}
+
+.composer__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.75rem 0.5rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--border-strong);
+  background: var(--panel-elevated);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.composer__card:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 32%, transparent);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.18),
+    0 0 0 3px var(--accent-soft);
+}
+
+.composer__input-region {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 2.4rem;
+}
+
+.composer-selected-agents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.composer-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(100%, 28rem);
+  min-height: 1.5rem;
+  padding: 0.125rem 0.25rem 0.125rem 0.25rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+}
+
+.composer-agent-chip__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.composer-agent-chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: 0.25rem;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.composer-agent-chip__remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.composer-agent-chip__remove:hover {
+  background: color-mix(in srgb, var(--text) 11%, transparent);
+  color: var(--highlight);
+}
+
+@media (max-width: 800px) {
+  .composer-shell {
+    padding: 0 1rem 0.75rem;
+  }
+
+  .composer__card {
+    padding: 0.5rem 0.75rem 0.5rem;
+    border-radius: var(--ds-radius-xl);
+  }
+}
+
+.composer-agent-chip__qualifier,
+.composer-agent-chip__note {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  white-space: nowrap;
+}

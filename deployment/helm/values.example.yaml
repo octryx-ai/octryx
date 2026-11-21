@@ -1,0 +1,52 @@
+# Octryx AI on Kubernetes: the values an installation has to decide (https://octryx.ai/docs/install/kubernetes).
+# Copy this file, adjust it, and install:
+#   helm install octryx deployment/helm/octryx -n octryx -f my-values.yaml
+# Every other setting has a default in deployment/helm/octryx/values.yaml.
+
+# The image. Build and push it yourself; no image is published:
+#   docker build --target api -t <registry>/octryx-api:<tag> . && docker push <registry>/octryx-api:<tag>
+# Pin a digest for reproducible rollouts: digest: "sha256:..."
+images:
+  api:
+    repository: registry.example.com/octryx-api
+    tag: "0.0.1-alpha"
+
+# Public hostname (without https://). The ingress serves it with TLS.
+host: octryx.example.com
+
+ingress:
+  className: nginx          # your ingress controller's class
+  tlsSecretName: ""         # empty: the controller's default certificate
+
+# The Secret the platform reads, created before the install (https://octryx.ai/docs/install/kubernetes shows the command).
+# It never goes into a values file.
+existingSecret: octryx
+
+# Database: internal PostgreSQL with pgvector (StatefulSet), or your own one.
+database:
+  internal: true            # false: put DATABASE_URL into the Secret instead of POSTGRES_PASSWORD
+  storage: 20Gi
+
+# Model access: exactly one of bedrock, anthropic, openai.
+model:
+  provider: bedrock
+  defaultModel: eu.anthropic.claude-sonnet-5
+  awsRegion: eu-central-1   # bedrock: credentials from IRSA (serviceAccount) or AWS_* keys in the Secret
+  # provider: anthropic     # LLM_API_KEY in the Secret; defaultModel e.g. claude-sonnet-5
+  # provider: openai        # LLM_API_KEY in the Secret and:
+  # endpointUrl: https://llm.example.com/v1
+
+# Knowledge originals (S3-compatible). Leave empty to try the platform without Knowledge.
+objectStore:
+  endpoint: ""              # e.g. https://s3.eu-central-1.amazonaws.com
+  bucket: ""
+  region: ""
+
+# IRSA or workload identity for Bedrock and S3, if your cluster uses it.
+serviceAccount:
+  annotations: {}
+  #  eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/<role-name>
+
+# The API keeps session workspaces and uploads on two ReadWriteOnce volumes.
+persistence:
+  storageClass: ""          # empty: the cluster's default StorageClass

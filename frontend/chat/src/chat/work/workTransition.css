@@ -1,0 +1,22 @@
+/* Work Item transition confirmation and refusal (L-f): local layout, existing theme tokens.
+   Each part on its own line with even spacing: the "from → to" heading, what is written to Jira, the actions. */
+.work-transition__block {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-transition__block > p,
+.work-transition__block > ul {
+  margin: 0;
+}
+
+.work-transition__heading {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The quiet "Sync" caption before a workflow's mode badge. */
+.work-transition__caption {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}

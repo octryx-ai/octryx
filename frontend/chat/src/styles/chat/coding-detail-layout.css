@@ -1,0 +1,121 @@
+/* Coding session detail grid, header, body and task chat card. */
+.coding-detail {
+  display: grid;
+  /* Header and the scrolling steps (the session reads as steps, no tab row). */
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel);
+  overflow: hidden;
+}
+
+.coding-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.coding-detail__header h2,
+.coding-detail__header p,
+.coding-detail__evidence h3 {
+  margin: 0;
+}
+
+.coding-detail__header h2 {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-xl);
+}
+
+.coding-detail__header p {
+  margin-top: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.coding-detail__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.coding-detail__body {
+  container-type: inline-size;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.coding-detail__grid,
+.coding-detail__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.coding-detail__stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.coding-task-chat {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  align-items: center;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-running) 24%, transparent);
+  border-radius: var(--ds-radius-md);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--status-running) 11%, transparent),
+      rgba(36, 39, 35, 0.12)
+    ),
+    var(--surface-overlay-strong);
+}
+
+.coding-task-chat h3,
+.coding-task-chat p {
+  margin: 0;
+}
+
+.coding-task-chat h3 {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.coding-task-chat p {
+  margin-top: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+}
+
+.coding-task-chat__meta {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 23rem;
+}
+
+.coding-task-chat__meta span {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}

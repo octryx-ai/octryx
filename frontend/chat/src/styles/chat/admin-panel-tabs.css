@@ -1,0 +1,106 @@
+/* Admin panel sidebar tab groups, tabs and sub-tabs. */
+.admin-panel__tab-group {
+  display: grid;
+  gap: 0;
+}
+
+.admin-panel__tab-tree {
+  display: grid;
+  gap: 0;
+}
+
+.admin-panel__tab-group-label {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 0.75rem 1rem 0.12rem;
+  opacity: 0.6;
+}
+
+.admin-panel__tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.08rem;
+  padding: 0.25rem 0.75rem 0.25rem 1rem;
+  border-radius: 0;
+  border: 0;
+  border-left: 2px solid transparent;
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.admin-panel__tab svg {
+  width: 0.88rem;
+  height: 0.88rem;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.7;
+  flex-shrink: 0;
+  opacity: 0.75;
+}
+
+.admin-panel__tab:hover {
+  color: var(--text);
+  background: var(--surface-overlay-strong);
+}
+
+.admin-panel__tab:hover svg {
+  opacity: 1;
+}
+
+.admin-panel__tab--active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-left-color: var(--accent);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.admin-panel__tab--active svg {
+  opacity: 1;
+  stroke: currentColor;
+}
+
+.admin-panel__subtabs {
+  display: grid;
+  gap: 0.08rem;
+  margin: 0;
+  padding: 0.08rem 0 0.25rem;
+  border-left: 0;
+}
+
+.admin-panel__subtab {
+  min-height: 1.85rem;
+  padding: 0.25rem 0.75rem 0.25rem 2rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.admin-panel__subtab:hover {
+  color: var(--text);
+  background: var(--surface-overlay-strong);
+}
+
+.admin-panel__subtab--active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}

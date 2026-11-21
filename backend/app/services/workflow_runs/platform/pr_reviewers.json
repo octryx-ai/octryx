@@ -1,0 +1,4 @@
+{
+  "about": "Who reviews a run's pull request when its requester cannot (no linked account on the SCM, as for a run started over the API with a service key; otherwise the review is skipped with requester_unresolved). fallback_roles: the Workspace roles asked instead, in this order; the first member with a linked account on that SCM becomes the reviewer (sorted by when they were granted the role, so the Workspace's first owner comes first). An empty list: no reviewer, and the pull request says so in one sentence.",
+  "fallback_roles": ["owner", "admin"]
+}

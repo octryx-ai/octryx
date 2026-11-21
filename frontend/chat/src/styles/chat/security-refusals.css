@@ -1,0 +1,117 @@
+/* Explicit security refusals shown inline, never as a toast or modal:
+   secret_rebind_required on a connector save and egress_refused in a Source Sync run report. */
+
+.security-refusal {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.security-refusal--attention {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 32%, transparent);
+  background: var(--status-attention-soft);
+}
+
+.security-refusal--error {
+  border: 1px solid color-mix(in srgb, var(--status-error) 32%, transparent);
+  background: var(--status-error-soft);
+}
+
+.security-refusal__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--highlight);
+}
+
+.security-refusal--attention .security-refusal__head strong {
+  color: var(--status-attention-ink);
+}
+
+.security-refusal--error .security-refusal__head strong {
+  color: var(--status-error-ink);
+}
+
+.security-refusal__code {
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+}
+
+.security-refusal__text {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.security-refusal__text--strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.security-refusal__error {
+  margin: 0;
+  color: var(--status-error-ink);
+  font-weight: 600;
+}
+
+.security-refusal__fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: var(--ds-text-xs);
+}
+
+.security-refusal__fields dt {
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  align-self: center;
+}
+
+.security-refusal__fields dd {
+  margin: 0;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  color: var(--text);
+}
+
+.security-refusal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.security-field-hint {
+  font-size: var(--ds-text-2xs);
+  line-height: 1.4;
+}
+
+.security-field-hint--attention {
+  color: var(--status-attention-ink);
+}
+
+.security-field-hint--error {
+  color: var(--status-error-ink);
+}
+
+.connector-field__input.security-field--attention {
+  border-color: color-mix(in srgb, var(--status-attention) 55%, transparent);
+}
+
+.connector-field__input.security-field--error {
+  border-color: color-mix(in srgb, var(--status-error) 55%, transparent);
+  box-shadow: 0 0 0 3px var(--status-error-soft);
+}

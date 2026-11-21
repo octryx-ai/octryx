@@ -1,0 +1,200 @@
+/* Turn diff summary: header, change deltas, overview, file rows and footer. */
+.turn-diff-summary {
+  margin-top: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-xl);
+  background:
+    linear-gradient(180deg, var(--surface-overlay-strong), var(--surface-overlay)),
+    color-mix(in srgb, var(--bg) 76%, transparent);
+  overflow: hidden;
+}
+
+.turn-diff-summary[open] {
+  border-color: var(--border-strong);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+}
+
+.turn-diff-summary__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.turn-diff-summary__header::-webkit-details-marker {
+  display: none;
+}
+
+.turn-diff-summary__header-main {
+  min-width: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.turn-diff-summary__headline {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.turn-diff-summary__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.turn-diff-summary__title {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.turn-diff-summary__preview {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.4;
+}
+
+.turn-diff-summary__stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.turn-diff-summary__delta,
+.turn-diff-summary__meta,
+.turn-diff-summary__toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.turn-diff-summary__delta--positive {
+  color: var(--status-active-ink);
+}
+
+.turn-diff-summary__delta--negative {
+  color: var(--status-error-ink);
+}
+
+.turn-diff-summary__delta--neutral {
+  color: var(--muted-strong);
+}
+
+.turn-diff-summary__toggle {
+  gap: 0.25rem;
+  color: var(--muted);
+}
+
+.turn-diff-summary__caret {
+  display: inline-block;
+  transition: transform 160ms ease;
+}
+
+.turn-diff-summary[open] .turn-diff-summary__caret {
+  transform: rotate(90deg);
+}
+
+.turn-diff-summary__body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0 0.75rem 0.75rem;
+}
+
+.turn-diff-summary__overview {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.turn-diff-summary__overview-item {
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.turn-diff-summary__overview-label {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.turn-diff-summary__overview-copy {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.turn-diff-summary__section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.turn-diff-summary__section-label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.turn-diff-summary__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.turn-diff-summary__row-main {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.turn-diff-summary__row-main strong {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.turn-diff-summary__row-subtle {
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.turn-diff-summary__footer {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.turn-diff-summary__open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--status-running-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.turn-diff-summary__open:hover {
+  color: var(--status-running-ink);
+}

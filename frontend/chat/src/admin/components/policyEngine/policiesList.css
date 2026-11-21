@@ -1,0 +1,236 @@
+/* Policy list status cards, draft bar, toolbar, filters, row cells, row menu, empty state and policy references. */
+.policies__status-card {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--ds-control-sm);
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.policies__status-card:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.policies__status-card b {
+  color: var(--text);
+}
+
+.policies__status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--status-running);
+}
+
+.policies__status-dot--enforce {
+  background: var(--status-active);
+}
+
+.policies__status-dot--off {
+  background: var(--muted);
+}
+
+.policies__status-dot--alert {
+  background: var(--status-error);
+}
+
+.policies__status-sep {
+  width: 1px;
+  height: 0.9rem;
+  background: var(--border);
+}
+
+.policies__draft-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-attention) 6%, transparent);
+  font-size: var(--ds-text-sm);
+}
+
+.policies__draft-bar strong {
+  color: var(--text);
+}
+
+.policies__fail {
+  color: var(--status-error-ink);
+  font-weight: 600;
+}
+
+.policies__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.policies__spacer {
+  flex: 1 1 auto;
+}
+
+.policies__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.policies__toolbar .admin-users__toolbar-input {
+  width: auto;
+  flex: 1 1 16rem;
+}
+
+.policies__toolbar .admin-users__toolbar-select {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.policies .admin-panel__table .work-badge {
+  white-space: nowrap;
+}
+
+.policies__table-hint {
+  margin-top: 0.5rem;
+}
+
+.policies__filters {
+  margin: -0.25rem 0 0.75rem;
+}
+
+.policies__chip-clear {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  padding: 0 0 0 0.25rem;
+}
+
+.policies__name {
+  font-weight: 600;
+}
+
+.policies__name--generated {
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+}
+
+.policies__sub {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  margin-top: 0.12rem;
+}
+
+.policies__summary {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}
+
+.policies__summary b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.policies__src {
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.policies__table-row {
+  cursor: pointer;
+}
+
+.policies__table-row:hover td {
+  background: var(--surface-overlay-hover);
+}
+
+.policies__link {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--status-running-ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.policies__menu-shell {
+  position: relative;
+  display: inline-flex;
+}
+
+.policies__menu {
+  position: absolute;
+  top: calc(100% + 0.24rem);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  min-width: 10.5rem;
+  padding: 0.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+.policies__menu button {
+  border: 0;
+  padding: 0.5rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  cursor: pointer;
+}
+
+.policies__menu button:hover {
+  background: var(--surface-overlay-hover);
+}
+
+.policies__menu button:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+
+.policies__empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  max-width: 34rem;
+}
+
+.policies__empty p {
+  margin: 0;
+}
+
+.policies__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* A determining policy by its readable label; the raw id is the tooltip. */
+.policies__ref {
+  font-weight: 600;
+  cursor: help;
+}

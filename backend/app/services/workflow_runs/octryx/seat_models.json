@@ -1,0 +1,21 @@
+{
+  "classes": ["plan", "implement", "review", "role"],
+  "class_of_capability": {"read_only": "plan", "change": "implement", "deliver": "implement"},
+  "installation_defaults": {
+    "plan": "claude-sonnet-5-5",
+    "implement": "claude-haiku-5-5",
+    "review": "claude-sonnet-5-5",
+    "role": "claude-haiku-5-5"
+  },
+  "seat_baseline_also": ["claude-sonnet-5", "claude-opus-5-5"],
+  "seat_baseline_about": "The Claude models a seat session may call when a Workspace names none (agent_gateway/seat_policy_keys.BASELINE_SEAT_MODELS): these, every installation_defaults model above and the reviewer's claude_code default in agent_gateway/review_models.json. One source: the reviewer default claude-sonnet-5-5 was missing from a second, hard-coded list, so every fresh installation with a seat paused review_no_decision (seat_model_not_allowed).",
+  "source_labels": {
+    "node": "the phase's own setting",
+    "run_start": "the model chosen at run start",
+    "thread": "the model chosen on the run's thread",
+    "workflow": "workflow default '{model_class}'",
+    "workspace": "Workspace default '{model_class}'",
+    "installation": "installation default '{model_class}'",
+    "device": "the device's default"
+  }
+}

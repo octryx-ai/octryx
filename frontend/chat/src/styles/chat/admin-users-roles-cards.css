@@ -1,0 +1,232 @@
+/* Admin users page: roles and access cards, row-level rules editor and role assignment. */
+.admin-users {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-users__roles-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay);
+}
+
+.admin-users__toolbar {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(10rem, 0.25fr);
+  gap: 0.5rem;
+}
+
+.admin-users__placeholder {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay);
+}
+
+.admin-users__placeholder h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.admin-users__placeholder p {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.55;
+}
+
+.admin-users__roles-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-users__roles-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+}
+
+.admin-users__roles-text {
+  margin: 0.25rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+
+.admin-users__role-create {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.7fr) minmax(12rem, 1fr) auto;
+  gap: 0.5rem;
+}
+
+.admin-users__role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-users__access-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-users__role-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.admin-users__access-card {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.admin-users__role-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.admin-users__role-name {
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+}
+
+.admin-users__role-card-header p {
+  margin: 0.25rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.admin-users__role-description {
+  min-height: 2.1rem;
+}
+
+.admin-users__rls-editor {
+  min-width: 16rem;
+}
+
+.admin-users__rls-editor summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-users__rls-rows {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-users__rls-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.8fr) minmax(7rem, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-users__access-flags {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.admin-users__access-flags span {
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  background: var(--surface-overlay);
+}
+
+.admin-users__access-flags .is-allowed {
+  color: var(--status-active);
+  border-color: color-mix(in srgb, var(--status-active) 28%, transparent);
+}
+
+.admin-users__access-flags .is-denied {
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 28%, transparent);
+}
+
+.admin-users__access-rules {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.admin-users__access-rules summary {
+  cursor: pointer;
+}
+
+.admin-users__access-rules ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+}
+
+.admin-users__role-assignment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-users__assignment-select {
+  width: min(14rem, 100%);
+  min-height: 2.15rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  background: var(--panel);
+}
+
+.admin-users__create-role-picker {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.admin-users__create-role-hint {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 400;
+}
+
+.admin-users__selected-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.admin-users__selected-summary span {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: var(--ds-text-xs);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}

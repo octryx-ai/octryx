@@ -1,0 +1,118 @@
+/* Governed admin editors (prompt catalog, agents, workflow drafts): page grid, drawers, alerts,
+   eyebrows and sections. Tokens only (design guide §3, §7); status colors only for alerts. */
+.ws-designer {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ws-bar__name {
+  color: var(--highlight, var(--text));
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.ws-mono {
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.ws-muted {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.ws-alert {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border);
+  font-size: var(--ds-text-sm);
+}
+
+.ws-alert--error {
+  border-color: color-mix(in srgb, var(--status-error) 40%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+.ws-alert--success {
+  border-color: color-mix(in srgb, var(--status-active) 32%, transparent);
+  background: var(--status-active-soft);
+  color: var(--status-active-ink);
+}
+
+.ws-eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.ws-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ws-nowrap {
+  white-space: nowrap;
+}
+
+/* Drawers (right side, backdrop, ESC) */
+.ws-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.ws-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(100vw, var(--ws-drawer-width, 28rem));
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--panel-strong);
+  box-shadow: var(--shell-shadow-hard);
+}
+
+.ws-drawer__header,
+.ws-drawer__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.ws-drawer__footer {
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 0;
+}
+
+.ws-drawer__body {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.ws-drawer__close {
+  width: 2.3rem;
+  height: 2.3rem;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}

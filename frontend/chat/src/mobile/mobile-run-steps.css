@@ -1,0 +1,196 @@
+/* Phone run steps timeline, tasks, Work item run cards, connector writes and the start sheet. */
+/* The workflow's steps: a vertical line, a mark per step (done ✓, the current one ringed, the next ones hollow). */
+.m-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+}
+.m-timeline-step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 12px;
+  padding: 0.75rem 0;
+}
+.m-timeline-step + .m-timeline-step::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: -12px;
+  height: 22px;
+  border-left: 1.5px solid var(--m-line);
+}
+.m-timeline-mark {
+  position: relative;
+  z-index: 1;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ds-radius-pill);
+  border: 1.5px solid var(--m-line);
+  background: var(--m-raise);
+}
+.m-timeline-done .m-timeline-mark {
+  border-color: transparent;
+  background: var(--surface-overlay-hover);
+  color: var(--m-muted-strong);
+}
+.m-timeline-current .m-timeline-mark {
+  border-color: var(--m-blue);
+  box-shadow: inset 0 0 0 4px var(--m-raise), inset 0 0 0 10px var(--m-blue);
+}
+.m-timeline-waiting .m-timeline-mark {
+  border-color: var(--m-need);
+  box-shadow: inset 0 0 0 4px var(--m-raise), inset 0 0 0 10px var(--m-need);
+}
+.m-timeline-problem .m-timeline-mark {
+  border-color: var(--m-red);
+  box-shadow: inset 0 0 0 4px var(--m-raise), inset 0 0 0 10px var(--m-red);
+}
+.m-timeline-text {
+  min-width: 0;
+  display: grid;
+}
+.m-timeline-text b {
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.m-timeline-text span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+}
+.m-timeline-next .m-timeline-text b {
+  color: var(--m-muted-strong);
+  font-weight: var(--ds-weight-medium);
+}
+.m-timeline-waiting .m-timeline-text span {
+  color: var(--status-attention-ink);
+}
+.m-timeline-problem .m-timeline-text span {
+  color: var(--status-error-ink);
+}
+
+.m-task {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 12px 16px;
+}
+.m-group > .m-task + .m-task {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-task .m-row-text {
+  gap: 4px;
+  justify-items: start;
+}
+.m-task-mark {
+  width: 28px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--m-radius-sm);
+  background: var(--surface-overlay-strong);
+  color: var(--m-muted);
+  font: var(--ds-weight-strong) var(--ds-text-2xs) var(--font-mono);
+}
+.m-task-done {
+  color: var(--status-active-ink);
+}
+.m-row-text b.m-wrap {
+  white-space: normal;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+}
+
+/* A Work item's run, as one tappable card that opens the run view. */
+.m-run-card {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 16px 12px 16px 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  text-align: left;
+}
+.m-run-card-text {
+  min-width: 0;
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+.m-run-card-text > span:last-child {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-item-title {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+}
+.m-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  justify-self: start;
+  padding: 0;
+}
+.m-sheet-body .m-run-start {
+  border: 0;
+  padding: 0;
+  background: none;
+}
+
+/* A Server chat's connector write waiting for the person. */
+.m-write {
+  display: grid;
+  gap: 0.75rem;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--m-need) 40%, transparent);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+}
+.m-write-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.m-write-fields {
+  margin: 0;
+  display: grid;
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+}
+.m-write-fields > div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 12px;
+}
+.m-write-fields > div + div {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-write-fields dt {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+}
+.m-write-fields dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--ds-text-md);
+}
+/* In the start sheet the sheet's own title names the form. */
+.m-sheet-body .m-run-start > .m-eyebrow {
+  display: none;
+}

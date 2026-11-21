@@ -1,0 +1,147 @@
+/* Design-system blocks: visually hidden text, DataTable, SegmentedTabs, StatusLabel and EmptyLine. */
+.ds-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- DataTable ------------------------------------------------------------------------------- */
+.ds-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface);
+}
+
+.ds-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ds-font-size);
+  color: var(--ds-text);
+}
+
+.ds-table__th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 32px;
+  padding: 0 var(--ds-cell-pad-x);
+  border-bottom: 1px solid var(--ds-line-strong);
+  background: var(--ds-surface-raised);
+  color: var(--ds-header-ink);
+  font-size: var(--ds-font-size-small);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.ds-table__td {
+  height: var(--ds-row-height);
+  padding: 0 var(--ds-cell-pad-x);
+  border-bottom: 1px solid var(--ds-line);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ds-table__th.is-end,
+.ds-table__td.is-end { text-align: right; font-variant-numeric: tabular-nums; }
+.ds-table__td.is-nowrap { white-space: nowrap; }
+/* One line cut with "…" at the column's clip width (DataTable `clip`). */
+.ds-table__clip { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-table__th.is-grow,
+.ds-table__td.is-grow { width: 100%; }
+.ds-table__row:last-child .ds-table__td { border-bottom: 0; }
+
+.ds-table__row.is-interactive { cursor: pointer; }
+.ds-table__row.is-interactive:hover { background: var(--ds-surface-hover); }
+.ds-table__row.is-selected { background: var(--ds-surface-selected); }
+.ds-table__row.is-interactive:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+
+.ds-table__menu-cell { width: 2.5rem; text-align: right; }
+
+/* ---- SegmentedTabs --------------------------------------------------------------------------- */
+.ds-segments {
+  display: inline-flex;
+  /* As wide as its segments wherever it sits: a grid or column parent stretched the second row across the page. */
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ds-line-strong);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface);
+}
+
+.ds-segments__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.9rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-right: 1px solid var(--ds-line);
+  background: transparent;
+  color: var(--ds-muted);
+  font: inherit;
+  font-size: var(--ds-font-size);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ds-segments__tab:last-child { border-right: 0; }
+.ds-segments__tab:hover:not(:disabled) { background: var(--ds-surface-hover); color: var(--ds-text); }
+.ds-segments__tab.is-selected { background: var(--ds-surface-selected); color: var(--ds-text); font-weight: 600; }
+.ds-segments__tab:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.ds-segments__tab:disabled { opacity: 0.5; cursor: default; }
+.ds-segments--small .ds-segments__tab { min-height: 1.6rem; padding: 0 0.5rem; font-size: var(--ds-font-size-small); }
+.ds-segments__count { color: var(--ds-muted); font-variant-numeric: tabular-nums; }
+
+/* ---- StatusLabel ----------------------------------------------------------------------------- */
+.ds-status {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-font-size-small);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.ds-status--neutral { background: var(--ds-tone-neutral-bg); color: var(--ds-tone-neutral-ink); font-weight: 500; }
+.ds-status--attention { background: var(--ds-tone-attention-bg); border-color: var(--ds-tone-attention-line); color: var(--ds-tone-attention-ink); }
+.ds-status--problem { background: var(--ds-tone-problem-bg); border-color: var(--ds-tone-problem-line); color: var(--ds-tone-problem-ink); }
+.ds-status--success { background: var(--ds-tone-success-bg); border-color: var(--ds-tone-success-line); color: var(--ds-tone-success-ink); }
+.ds-status--info { background: var(--ds-tone-info-bg); border-color: var(--ds-tone-info-line); color: var(--ds-tone-info-ink); }
+
+/* ---- EmptyLine ------------------------------------------------------------------------------- */
+.ds-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem 0;
+  color: var(--ds-muted);
+  font-size: var(--ds-font-size);
+}
+
+.ds-link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+  cursor: pointer;
+}
+
+.ds-empty__action:focus-visible,
+.ds-link-button:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }

@@ -1,0 +1,54 @@
+/* Admin panel narrow layout. */
+@media (max-width: 860px) {
+  .admin-panel-backdrop--workspace {
+    padding: 0;
+  }
+
+  .admin-panel--workspace {
+    width: 100vw;
+    height: 100dvh;
+    grid-template-rows: auto minmax(10rem, 32vh) 1fr;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "sidebar"
+      "body";
+    border-radius: 0;
+  }
+
+  .admin-panel--workspace .admin-panel__sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--shell-divider);
+  }
+
+  .admin-panel--workspace .admin-panel__body {
+    min-width: 0;
+    padding: 1rem;
+  }
+
+  /* Knowledge follows Chat, Work and Agents on narrow screens: no sub-navigation between the
+     page header and the page; the page takes the rest of the screen. */
+  .admin-panel--knowledge {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header"
+      "body";
+  }
+
+  .admin-panel--knowledge .admin-panel__sidebar {
+    display: none;
+  }
+
+  /* Admin the same way: its menu sat between the page header and the page and hid "Platform"
+     behind the tab row. Its seven entries are in the compact menu at the top (CompactAreaMenu). */
+  .admin-panel--admin {
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header"
+      "body";
+  }
+
+  .admin-panel--admin .admin-panel__sidebar {
+    display: none;
+  }
+}

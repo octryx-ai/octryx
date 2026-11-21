@@ -1,0 +1,13 @@
+{
+  "about": "Known tab-like controls per file that are not view tabs (see designSystemTabsScan.mjs). Counts may only go down: a new tab-like control must be SegmentedTabs.",
+  "files": {
+    "chat/WorkspaceSidePanelPreviewTabs.tsx": {
+      "count": 2,
+      "reason": "Closable editor-style tabs of the preview files opened in the chat side panel (one per open file, with ✕); a document strip, not page views."
+    },
+    "mobile/TabBar.tsx": {
+      "count": 1,
+      "reason": "The phone app's bottom navigation between its areas (Home, Chats, Runs, Work, More): app navigation in thumb reach, like the desktop's area rail, not view tabs inside a page."
+    }
+  }
+}

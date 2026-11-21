@@ -1,0 +1,181 @@
+/* Message code blocks, reference lists and inline code tokens. */
+.message-code-block {
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: none;
+}
+
+.message-code-block--plain {
+  border-color: var(--border-soft);
+  background: var(--surface-overlay);
+  box-shadow: none;
+}
+
+.message-code-block__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-overlay);
+}
+
+.message-code-block__toolbar--plain {
+  justify-content: flex-end;
+  padding: 0.5rem 0.5rem 0;
+  border-bottom: 0;
+  background: transparent;
+}
+
+.message-code-block__language {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.message-code-block__copy {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.message-code-block__copy:hover {
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+}
+
+.message-code-block__plain-body {
+  margin: 0;
+  padding: 0 0.75rem 0.75rem;
+  color: var(--muted-strong);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-reference-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.08rem 0 1rem;
+}
+
+.message-reference-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.5rem 0 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.message-reference-item:last-of-type {
+  border-bottom: 0;
+}
+
+.message-reference-item__main {
+  min-width: 0;
+  display: grid;
+  gap: 0.12rem;
+}
+
+.message-reference-item__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.message-reference-item__title {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.message-reference-item__kind {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.22rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.message-reference-item__path {
+  display: block;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.42;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-reference-list__copy {
+  justify-self: start;
+  border: 0;
+  border-radius: var(--ds-radius-lg);
+  background: transparent;
+  color: var(--muted-strong);
+  padding: 0.25rem 0.25rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.message-reference-list__copy:hover {
+  color: var(--text);
+  background: var(--surface-overlay-strong);
+}
+
+.message-code-inline {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-height: 0;
+  max-width: min(100%, 54rem);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.message-code-inline--token {
+  align-items: center;
+}
+
+.message-code-inline__value {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  white-space: pre-wrap;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}

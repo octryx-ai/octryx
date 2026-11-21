@@ -1,0 +1,143 @@
+/* Composer notices, role line and plan line. */
+/* ── Composer Notice (generate-task result) ──────────────────────────────── */
+
+.composer-notice {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-overlay-strong);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-xl);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.composer-notices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.composer-notice__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.composer-notice__label {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.composer-notice__text {
+  color: var(--text);
+  line-height: 1.45;
+}
+
+.composer-notice__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+}
+
+.composer-notice a {
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.composer-notice--editing {
+  border-color: color-mix(in srgb, var(--status-running) 25%, transparent);
+  background: var(--status-running-soft);
+}
+
+.composer-notice--resume {
+  border-color: color-mix(in srgb, var(--status-active) 28%, transparent);
+  background: var(--status-active-soft);
+}
+
+.composer-notice--auto-agent {
+  border-color: color-mix(in srgb, var(--status-running) 28%, transparent);
+  background: var(--status-running-soft);
+}
+
+.composer-notice--task {
+  border-color: color-mix(in srgb, var(--status-active) 14%, transparent);
+  background: var(--status-active-soft);
+}
+
+/* Roles (contract §4/§5): no role with role-based tools on is calm attention, not an error; the trusted line is
+   one quiet row with its badge. */
+.composer-notice--role-empty,
+[data-theme="light"] .composer-notice--role-empty {
+  border-color: color-mix(in srgb, var(--status-attention) 30%, transparent);
+  background: var(--status-attention-soft);
+}
+
+.composer-notice__hint {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.composer-role-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  padding: 0 var(--ds-space-1);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+  min-width: 0;
+}
+
+.composer-role-line .ds-status {
+  flex: 0 0 auto;
+}
+
+.composer-role-line__text {
+  min-width: 0;
+  line-height: 1.45;
+}
+
+/* The confirmed write plan: one quiet line, no colour. */
+.composer-notice--plan {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  background: transparent;
+}
+
+.composer-notice--plan .composer-notice__body {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+}
+
+.composer-notice--plan .composer-notice__text {
+  overflow: hidden;
+  color: var(--muted-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-notice__close {
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.composer-notice__close:hover {
+  background: var(--surface-overlay-hover);
+  color: var(--highlight);
+}

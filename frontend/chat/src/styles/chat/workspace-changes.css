@@ -1,0 +1,104 @@
+/* Workspace change list: rails, summaries and statuses. */
+.workspace-sidepanel__file,
+.workspace-sidepanel__change {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  color: inherit;
+  text-align: left;
+}
+
+.workspace-sidepanel__change {
+  display: grid;
+  grid-template-columns: 0.18rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 0.5rem;
+}
+
+.workspace-sidepanel__change-rail {
+  display: block;
+  width: 0.18rem;
+  border-radius: 999px;
+  background: var(--border-strong);
+}
+
+.workspace-sidepanel__change-body {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.workspace-sidepanel__change--pending .workspace-sidepanel__change-rail {
+  background: var(--status-attention);
+}
+
+.workspace-sidepanel__change--approved .workspace-sidepanel__change-rail {
+  background: var(--status-active);
+}
+
+.workspace-sidepanel__change--rejected .workspace-sidepanel__change-rail {
+  background: var(--status-error-ink);
+}
+
+.workspace-sidepanel__file:hover {
+  background: var(--surface-overlay-strong);
+  border-color: var(--border-strong);
+}
+
+.workspace-sidepanel__file-name,
+.workspace-sidepanel__change-summary {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.workspace-sidepanel__file-meta,
+.workspace-sidepanel__change-meta,
+.workspace-sidepanel__change-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.workspace-sidepanel__file-path {
+  margin-top: 0.25rem;
+  color: var(--status-idle);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.workspace-sidepanel__change-tool {
+  font-weight: 600;
+  color: var(--muted-strong);
+}
+
+.workspace-sidepanel__change-status {
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.workspace-sidepanel__change-status--pending {
+  color: var(--status-attention);
+}
+
+.workspace-sidepanel__change-status--approved {
+  color: var(--status-active);
+}
+
+.workspace-sidepanel__change-status--rejected {
+  color: var(--status-error-ink);
+}
+
+.workspace-sidepanel__empty {
+  padding: 0.5rem 0.05rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}

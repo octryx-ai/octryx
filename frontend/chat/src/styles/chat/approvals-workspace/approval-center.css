@@ -1,0 +1,6 @@
+/* Approval center stylesheet: imports its partials in cascade order. */
+@import "./approval-inline.css";
+@import "./approval-card.css";
+@import "./approval-preview.css";
+@import "./tool-burst.css";
+@import "./turn-diff-summary.css";

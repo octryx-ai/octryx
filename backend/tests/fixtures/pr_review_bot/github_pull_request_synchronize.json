@@ -1,0 +1,22 @@
+{
+  "action": "synchronize",
+  "number": 42,
+  "before": "1111111111111111111111111111111111111111",
+  "after": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+  "pull_request": {
+    "url": "https://api.github.com/repos/acme/pay/pulls/42",
+    "html_url": "https://github.com/acme/pay/pull/42",
+    "number": 42,
+    "state": "open",
+    "draft": false,
+    "title": "Round totals half away from zero",
+    "user": {"login": "dev-anna", "type": "User"},
+    "head": {"label": "acme:feature/PAY-1-totals", "ref": "feature/PAY-1-totals",
+             "sha": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+             "repo": {"full_name": "acme/pay", "fork": false}},
+    "base": {"label": "acme:main", "ref": "main", "sha": "2222222222222222222222222222222222222222",
+             "repo": {"full_name": "acme/pay", "fork": false}}
+  },
+  "repository": {"full_name": "acme/pay", "private": true},
+  "sender": {"login": "dev-anna"}
+}

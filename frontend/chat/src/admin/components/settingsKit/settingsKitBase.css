@@ -1,0 +1,146 @@
+/* Settings kit page, text styles, notes, toggle rows, checks, key figures, draft bar, level dots and rules matrix. */
+.sk-page { display: grid; gap: 1rem; align-content: start; grid-template-columns: minmax(0, 1fr); }
+.sk-page .admin-panel__card { display: grid; gap: 0.5rem; grid-template-columns: minmax(0, 1fr); }
+.sk-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.sk-between { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.sk-name { font-weight: 600; }
+.sk-sub { color: var(--muted); font-size: var(--ds-text-xs); margin-top: 0.12rem; line-height: 1.45; }
+.sk-muted { color: var(--muted); font-size: var(--ds-text-xs); }
+.sk-hint { font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: 1.55; margin: 0; }
+.sk-hint b { color: var(--text); font-weight: 600; }
+.sk-link {
+  padding: 0;
+  border: 0;
+  border-bottom: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  background: transparent;
+  color: var(--accent-strong);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+[data-theme="light"] .sk-link { color: var(--accent); }
+.sk-note,
+.sk-warn,
+.sk-ok {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}
+.sk-note {
+  border: 1px solid color-mix(in srgb, var(--status-running) 22%, transparent);
+  background: color-mix(in srgb, var(--status-running) 7%, transparent);
+  color: var(--status-running-ink);
+}
+.sk-warn {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent);
+  color: var(--status-attention-ink);
+}
+.sk-ok {
+  border: 1px solid color-mix(in srgb, var(--status-active) 22%, transparent);
+  background: color-mix(in srgb, var(--status-active) 7%, transparent);
+  color: var(--status-active-ink);
+}
+.sk-err { color: var(--status-error-ink); font-size: var(--ds-text-xs); margin: 0; }
+
+/* Toggle row: text left, switch right. */
+.sk-trow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft);
+}
+.sk-trow:last-child { border-bottom: 0; }
+.sk-trow__txt { min-width: 0; }
+.sk-trow .sk-name { font-size: var(--ds-text-sm); }
+.sk-toggle[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+.sk-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Live checks. */
+.sk-checks { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; font-size: var(--ds-text-xs); }
+.sk-checks li { display: flex; gap: 0.5rem; align-items: flex-start; color: var(--muted-strong); }
+.sk-checks li::before { content: "✓"; color: var(--status-active-ink); font-weight: 600; }
+.sk-checks li.is-bad::before { content: "✕"; color: var(--status-error-ink); }
+.sk-checks li.is-info::before { content: "•"; color: var(--muted); }
+
+/* Header strip of key figures. */
+.sk-headstrip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.sk-kpi {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  padding: 0.75rem 0.75rem;
+}
+.sk-kpi__l { font-size: var(--ds-text-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.sk-kpi__v { font-size: var(--ds-text-lg); font-weight: 600; letter-spacing: -0.02em; }
+
+/* Draft bar. */
+.sk-draftbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-attention) 6%, transparent);
+  font-size: var(--ds-text-sm);
+}
+.sk-draftbar strong { color: var(--text); }
+
+/* Classification level dot. The colour key is stored with the level. */
+.sk-lv { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.sk-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; flex: 0 0 auto; }
+.sk-c-public { background: var(--status-active); }
+.sk-c-internal { background: var(--status-running); }
+.sk-c-confidential { background: var(--status-attention); }
+.sk-c-restricted { background: var(--status-error); }
+.sk-c-secret { background: var(--muted-strong); }
+.sk-c-custom { background: var(--accent); }
+.sk-swatches { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.sk-swatch { width: 1.6rem; height: 1.6rem; border-radius: var(--ds-radius-md); border: 2px solid transparent; cursor: pointer; padding: 0; }
+.sk-swatch[aria-checked="true"] { border-color: var(--text); }
+
+/* Levels × rules matrix. */
+.sk-matrix-wrap { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-lg); }
+.sk-matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--ds-text-xs); min-width: 44rem; }
+.sk-matrix th,
+.sk-matrix td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-soft); text-align: left; vertical-align: middle; }
+.sk-matrix thead th { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: 600; background: var(--surface-overlay); }
+.sk-matrix th small { display: block; color: var(--muted); font-weight: 500; font-size: var(--ds-text-2xs); margin-top: 0.1rem; }
+.sk-matrix tbody th { font-weight: 600; color: var(--text); width: 15rem; background: var(--surface-overlay); }
+.sk-matrix tr.sk-fam th {
+  background: var(--surface-overlay-strong);
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.75rem;
+}
+.sk-matrix .is-draft { background: color-mix(in srgb, var(--status-attention) 6%, transparent); }
+.sk-cell { display: inline-flex; align-items: center; gap: 0.25rem; font-size: var(--ds-text-xs); color: var(--muted-strong); }
+.sk-cell--yes { color: var(--status-active-ink); }
+.sk-cell--no { color: var(--status-error-ink); }
+.sk-cell--part { color: var(--status-attention-ink); }
+[data-theme="light"] .sk-cell--yes { color: var(--status-active); }
+[data-theme="light"] .sk-cell--no { color: var(--status-error); }
+[data-theme="light"] .sk-cell--part { color: var(--status-attention); }
+.sk-cell-btn {
+  padding: 0.25rem 0.25rem;
+  margin: -0.25rem -0.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.sk-cell-btn:hover:not(:disabled) { border-color: var(--border); background: var(--surface-overlay-hover); }
+.sk-cell-btn:disabled { cursor: default; }

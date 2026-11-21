@@ -1,0 +1,4 @@
+/* Shared layout of the Automation pages (automation concept v2): a card grid in a capped column, plain-word
+   status lines, short row lists below the grid and drawer sections. Tokens only; no hard-coded colours. */
+@import "./automationPagesCards.css";
+@import "./automationPagesDrawer.css";

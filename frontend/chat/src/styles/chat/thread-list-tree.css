@@ -1,0 +1,212 @@
+.thread-group {
+  margin-bottom: 0.75rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.thread-group__title {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.1rem;
+  background: var(--sidebar-surface-strong);
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.thread-group__title-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.thread-group__title-button:hover {
+  color: var(--text);
+}
+
+.thread-group__title svg {
+  width: 0.78rem;
+  height: 0.78rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+
+.thread-group__title-button .thread-card__chevron {
+  width: 0.64rem;
+  height: 0.64rem;
+}
+
+.thread-group__title-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.thread-group__title-name {
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-group__title-meta {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.thread-group__items,
+.thread-group__tree {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.08rem;
+  margin-left: 0;
+  padding-left: 0;
+  border-left: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.thread-group__load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  width: calc(100% - 0.2rem);
+  min-height: 1.85rem;
+  margin: 0.25rem 0.1rem 0;
+  border: 1px dashed var(--border);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.thread-group__load-more:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--border-strong);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+}
+
+.thread-group__section-label {
+  padding: 0.5rem 0.5rem 0.25rem 1.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.thread-group__load-more:disabled {
+  cursor: progress;
+  opacity: 0.58;
+}
+
+.thread-node {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.thread-node__row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.04rem;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.thread-node__row--child {
+  margin-left: 0.25rem;
+}
+
+.thread-node__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 0.76rem;
+  width: 0.76rem;
+  height: 0.76rem;
+  border: 0;
+  padding: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--muted);
+  transition:
+    color 160ms ease,
+    background 160ms ease;
+}
+
+.thread-node__toggle:hover {
+  color: var(--highlight);
+  background: var(--surface-overlay-hover);
+}
+
+.thread-node__toggle--placeholder {
+  pointer-events: none;
+  flex-basis: 0.76rem;
+}
+
+.thread-subtree {
+  margin-left: 0.25rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--border-soft);
+}
+
+.thread-card--subthread {
+  color: var(--muted-strong);
+}
+
+.thread-group__title-button:focus-visible,
+.thread-node__toggle:focus-visible,
+.thread-group__load-more:focus-visible,
+.thread-group__banner-link:focus-visible,
+.thread-card:focus-visible,
+.thread-card__menu-trigger:focus-visible,
+.sidebar__archived-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 1px;
+}
+
+/* Folded sub-chats: one quiet line under the parent ("7 subchats") that opens them. */
+.thread-node__more {
+  display: block;
+  margin: 0 0 var(--ds-space-1) var(--ds-space-8);
+  padding: 2px var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+.thread-node__more:hover { background: var(--surface-overlay-hover); color: var(--text); }
+.thread-node__more:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }

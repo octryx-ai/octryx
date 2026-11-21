@@ -1,0 +1,14 @@
+[
+  {"number": 42, "title": "Round totals half away from zero", "draft": false, "html_url": "https://github.com/acme/pay/pull/42",
+   "user": {"login": "dev-anna"},
+   "head": {"ref": "feature/PAY-1-totals", "sha": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00", "repo": {"full_name": "acme/pay"}},
+   "base": {"ref": "main", "repo": {"full_name": "acme/pay"}}},
+  {"number": 43, "title": "WIP: new checkout", "draft": true, "html_url": "https://github.com/acme/pay/pull/43",
+   "user": {"login": "dev-ben"},
+   "head": {"ref": "feature/checkout", "sha": "d00dd00dd00dd00dd00dd00dd00dd00dd00dd00d", "repo": {"full_name": "acme/pay"}},
+   "base": {"ref": "main", "repo": {"full_name": "acme/pay"}}},
+  {"number": 44, "title": "Typo", "draft": false, "html_url": "https://github.com/acme/pay/pull/44",
+   "user": {"login": "outsider"},
+   "head": {"ref": "patch-1", "sha": "beefbeefbeefbeefbeefbeefbeefbeefbeefbeef", "repo": {"full_name": "outsider/pay"}},
+   "base": {"ref": "main", "repo": {"full_name": "acme/pay"}}}
+]

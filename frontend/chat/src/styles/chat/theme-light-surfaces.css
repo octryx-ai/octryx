@@ -1,0 +1,147 @@
+/* Light theme surfaces for the sidebar, workspace, composer, message bubbles and approvals. */
+[data-theme="light"] .sidebar {
+  background: rgba(248, 244, 236, 0.98);
+}
+
+[data-theme="light"] .workspace {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(252, 249, 243, 0.98) 0%,
+      rgba(247, 242, 234, 0.99) 100%
+    ),
+    rgba(251, 248, 241, 0.98);
+}
+
+[data-theme="light"] .workspace-sidepanel {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(250, 246, 239, 0.98) 0%,
+      rgba(246, 241, 233, 0.98) 100%
+    ),
+    rgba(249, 245, 237, 0.98);
+}
+
+[data-theme="light"] .composer-shell {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 241, 232, 0) 0%,
+    rgba(245, 241, 232, 0.86) 18%,
+    rgba(245, 241, 232, 0.98) 100%
+  );
+}
+
+[data-theme="light"] .composer {
+  background: transparent;
+}
+
+[data-theme="light"] .composer__card {
+  border-color: var(--border-strong);
+  background: #fffdf8;
+  box-shadow:
+    0 8px 24px rgba(35, 39, 38, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="light"] .composer textarea {
+  color: var(--text);
+}
+
+[data-theme="light"] .message-bubble--user {
+  background: var(--panel-strong);
+  border-color: var(--border);
+}
+
+[data-theme="light"] .message-markdown blockquote {
+  color: var(--muted-strong);
+}
+
+[data-theme="light"] .workspace__error {
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+[data-theme="light"] .tool-inline,
+[data-theme="light"] .approval-card,
+[data-theme="light"] .composer-action-button,
+[data-theme="light"] .profile-dropdown,
+[data-theme="light"] .stats-panel,
+[data-theme="light"] .workspace-sidepanel,
+[data-theme="light"] .thread-card__menu {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+[data-theme="light"] .approval-card--pending {
+  border-color: rgba(214, 169, 73, 0.28);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 245, 214, 0.96),
+      rgba(254, 248, 228, 0.92)
+    ),
+    rgba(255, 255, 255, 0.94);
+}
+
+[data-theme="light"] .approval-inline {
+  border-color: rgba(214, 169, 73, 0.3);
+  border-left-color: rgba(201, 143, 28, 0.92);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 246, 220, 0.96),
+      rgba(255, 249, 232, 0.92)
+    ),
+    rgba(255, 255, 255, 0.94);
+}
+
+[data-theme="light"] .approval-inline--approved {
+  border-color: color-mix(in srgb, var(--status-active) 22%, transparent);
+  border-left-color: color-mix(in srgb, var(--status-active) 92%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--status-active) 8%, #ffffff),
+      color-mix(in srgb, var(--status-active) 4%, #ffffff)
+    ),
+    rgba(255, 255, 255, 0.94);
+}
+
+[data-theme="light"] .approval-inline--rejected {
+  border-color: rgba(213, 93, 93, 0.2);
+  border-left-color: rgba(210, 70, 70, 0.92);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 239, 239, 0.96),
+      rgba(255, 245, 245, 0.92)
+    ),
+    rgba(255, 255, 255, 0.94);
+}
+
+[data-theme="light"] .approval-inline__icon {
+  background: rgba(201, 143, 28, 0.12);
+  color: #8a6312;
+}
+
+[data-theme="light"] .approval-card__preview-shell,
+[data-theme="light"] .approval-preview {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: rgba(36, 39, 35, 0.08);
+}
+
+[data-theme="light"] .approval-preview__code,
+[data-theme="light"] .approval-card__reason {
+  background: rgba(244, 239, 229, 0.84);
+  border-color: rgba(36, 39, 35, 0.08);
+  color: var(--text);
+}
+
+[data-theme="light"] .approval-card__button--approve {
+  background: var(--status-active);
+  color: #ffffff;
+}
+
+[data-theme="light"] .approval-card__button--approve:hover {
+  background: var(--status-active-ink);
+}

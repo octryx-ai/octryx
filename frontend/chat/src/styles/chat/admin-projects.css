@@ -1,0 +1,117 @@
+.admin-projects {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-projects__list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+/* Workspaces list table: admin/components/projectsTab/workspaceList.css. */
+
+/* Compact table action (design guide 9.1: 1.4rem, full labels). */
+.admin-projects__row-action {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.72rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-projects__row-action:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.admin-projects__row-action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-projects__row-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-projects__row-action--primary {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+/* ── Workspace settings page: section content ── */
+
+.project-settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.project-settings-content .admin-modal__stack {
+  min-width: 0;
+}
+
+.project-settings-content .admin-form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.project-settings-content textarea {
+  max-width: 100%;
+}
+
+/* ── Policies groups ──────────────────────────────────────────── */
+
+.project-policy-group {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.project-policy-group > summary {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.project-policy-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.project-policy-group > summary strong {
+  color: var(--text);
+  font-size: var(--ds-text-md);
+}
+
+.project-policy-group > summary strong::before {
+  content: "▸";
+  display: inline-block;
+  width: 1rem;
+  color: var(--muted);
+  transition: transform 140ms ease;
+}
+
+.project-policy-group[open] > summary strong::before {
+  transform: rotate(90deg);
+}
+
+.project-policy-group > summary span {
+  padding-left: 1rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.project-policy-group__body {
+  padding: 0 1rem 1rem;
+  border-top: 1px solid var(--border-soft);
+}

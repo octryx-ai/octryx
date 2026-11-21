@@ -1,0 +1,624 @@
+{
+ "about": [
+  "The platform's built-in code style: the lowest level under installation, Workspace and repository (code_style/resolve.py). Data, never engine code.",
+  "300 lines per file, tests 500, functions 60; lines 160.",
+  "exclude: generated code, l10n, fixtures, lockfiles, vendored and assets; the SDK platform scaffold; documentation is prose, never judged; stylesheets keep only the line length.",
+  "l10n.merged: the per-language file l10n-merge writes (target) and what the toolchain generates from it (generated); a change to them without a feature file is hand-editing (hand_edit: warning or error).",
+  "l10n.merged.command: the merge command the brief and the hand-edit finding name ({format}, {features}: the feature files with * for the namespace, {target}).",
+  "linter/formatter levels and blocking: a regular expression per output level (one line of the tool's output) and the levels that block; a failed run whose output names only other levels is a note, not an error (Flutter 3.50 reports material.dart imports as an info and flutter analyze exits 1). Without levels every failed run blocks."
+ ],
+ "todo_with_ticket": "TODO\\(([A-Z][A-Z0-9]+-\\d+)\\)",
+ "extensions": {
+  ".dart": "dart",
+  ".py": "python",
+  ".ts": "typescript",
+  ".tsx": "typescript",
+  ".js": "javascript",
+  ".jsx": "javascript",
+  ".kt": "kotlin",
+  ".kts": "kotlin",
+  ".swift": "swift",
+  ".java": "java",
+  ".go": "go",
+  ".rs": "rust"
+ },
+ "profile": {
+  "max_lines_per_file": 300,
+  "tests_max_lines": 500,
+  "max_function_lines": 60,
+  "max_line_length": 160,
+  "exclude": [
+   {
+    "glob": "**/*.g.dart",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.freezed.dart",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/generated/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/l10n/**",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/*.arb",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/fixtures/**",
+    "reason": "fixtures"
+   },
+   {
+    "glob": "**/package-lock.json",
+    "reason": "lockfile"
+   },
+   {
+    "glob": "**/pubspec.lock",
+    "reason": "lockfile"
+   },
+   {
+    "glob": "**/uv.lock",
+    "reason": "lockfile"
+   },
+   {
+    "glob": "**/poetry.lock",
+    "reason": "lockfile"
+   },
+   {
+    "glob": "**/yarn.lock",
+    "reason": "lockfile"
+   },
+   {
+    "glob": "**/*.min.js",
+    "reason": "vendored"
+   },
+   {
+    "glob": "**/*.min.css",
+    "reason": "vendored"
+   },
+   {
+    "glob": "**/*.map",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.svg",
+    "reason": "assets"
+   },
+   {
+    "glob": "**/migrations/versions/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/locales/**",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/locale/**",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/*.po",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/*.ftl",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/messages*.properties",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/l10n/**",
+    "reason": "l10n"
+   },
+   {
+    "glob": "**/*.pbxproj",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.storyboard",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xib",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xcconfig",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.plist",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xcscheme",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xcworkspacedata",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xcodeproj/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.xcworkspace/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.gradle",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/*.gradle.kts",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/AndroidManifest.xml",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/android/app/src/main/res/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/android/gradle/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/ios/Flutter/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/macos/Flutter/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/linux/flutter/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/windows/flutter/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/linux/runner/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/windows/runner/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/ios/Runner/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/macos/Runner/**",
+    "reason": "generated"
+   },
+   {
+    "glob": "**/.octryx/**",
+    "reason": "other"
+   },
+   {
+    "glob": "**/*.md",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.mdx",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.markdown",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.rst",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.adoc",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.txt",
+    "reason": "documentation"
+   },
+   {
+    "glob": "**/*.css",
+    "reason": "stylesheet",
+    "keep": [
+     "max_line_length"
+    ]
+   },
+   {
+    "glob": "**/*.scss",
+    "reason": "stylesheet",
+    "keep": [
+     "max_line_length"
+    ]
+   },
+   {
+    "glob": "**/*.sass",
+    "reason": "stylesheet",
+    "keep": [
+     "max_line_length"
+    ]
+   },
+   {
+    "glob": "**/*.less",
+    "reason": "stylesheet",
+    "keep": [
+     "max_line_length"
+    ]
+   },
+   {
+    "glob": "**/*.styl",
+    "reason": "stylesheet",
+    "keep": [
+     "max_line_length"
+    ]
+   }
+  ],
+  "test_globs": [
+   "tests/**",
+   "test/**",
+   "**/test_*.py",
+   "**/*_test.py",
+   "**/*_test.dart",
+   "**/*.test.ts",
+   "**/*.spec.ts",
+   "**/*.test.tsx",
+   "**/*.test.js"
+  ],
+  "comments": {
+   "public_api_doc": true,
+   "no_commented_code": true,
+   "todo_requires_ticket": true,
+   "todo_pattern": "TODO\\(([A-Z][A-Z0-9]+-\\d+)\\)"
+  },
+  "rules": "",
+  "missing_tool": "warning",
+  "diagrams": {
+   "enabled": true,
+   "folder": "docs/diagrams",
+   "images": "docs/images",
+   "kinds": [
+    "architecture",
+    "navigation",
+    "data_flow"
+   ]
+  },
+  "l10n": {
+   "source_locale": "en",
+   "key_pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-zA-Z0-9]*){2,}$",
+   "max_keys_per_file": 400,
+   "hardcoded_text": "warning",
+   "enabled": true
+  },
+  "languages": {
+   "dart": {
+    "formatter": {
+     "command": "dart format --output=none --set-exit-if-changed {files}",
+     "outside_sandbox": true,
+     "enabled": true
+    },
+    "linter": {
+     "command": "flutter analyze --no-pub",
+     "outside_sandbox": true,
+     "repo_config_command": "flutter analyze --no-pub",
+     "config_files": [
+      "analysis_options.yaml"
+     ],
+     "enabled": true,
+     "levels": {
+      "info": "^\\s*info [•-] ",
+      "warning": "^\\s*warning [•-] ",
+      "error": "^\\s*error [•-] "
+     },
+     "blocking": [
+      "warning",
+      "error"
+     ]
+    },
+    "layout": {
+     "roots": [
+      "lib/",
+      "test/",
+      "integration_test/"
+     ],
+     "patterns": [
+      "lib/main*.dart",
+      "lib/app/**",
+      "lib/core/**",
+      "lib/features/*/data/**",
+      "lib/features/*/domain/**",
+      "lib/features/*/presentation/**",
+      "lib/l10n/**",
+      "test/**",
+      "integration_test/**"
+     ]
+    },
+    "naming": {
+     "file": "^[a-z][a-z0-9_]*\\.dart$",
+     "test_suffix": "_test.dart"
+    },
+    "l10n": {
+     "format": "arb",
+     "files": [
+      "lib/features/<namespace>/l10n/<lang>.arb"
+     ],
+     "merged": {
+      "target": "lib/l10n/app_<lang>.arb",
+      "generated": [
+       "lib/l10n/app_localizations*.dart"
+      ],
+      "hand_edit": "error",
+      "command": "octryx-claude l10n-merge {format} '{features}' {target}"
+     },
+     "key_pattern": "^[a-z][a-zA-Z0-9]*$"
+    }
+   },
+   "python": {
+    "naming": {
+     "file": "^[a-z_][a-z0-9_]*\\.py$",
+     "test_suffix": ".py"
+    },
+    "l10n": {
+     "format": "gettext",
+     "files": [
+      "**/<namespace>/l10n/<lang>.po"
+     ],
+     "merged": {
+      "target": "locale/<lang>/LC_MESSAGES/messages.po",
+      "command": "octryx-claude l10n-merge {format} '{features}' {target}"
+     },
+     "hardcoded_text": "off",
+     "key_pattern": ""
+    },
+    "formatter": {
+     "command": "ruff format --check {files}",
+     "enabled": true
+    },
+    "linter": {
+     "command": "ruff check --select E,F,I,B {files}",
+     "repo_config_command": "ruff check {files}",
+     "config_files": [
+      "ruff.toml",
+      ".ruff.toml",
+      "pyproject.toml:[tool.ruff]"
+     ],
+     "enabled": true
+    }
+   },
+   "typescript": {
+    "l10n": {
+     "format": "i18next",
+     "files": [
+      "src/features/<namespace>/l10n/<lang>.json"
+     ]
+    },
+    "naming": {
+     "file": "^[A-Za-z][A-Za-z0-9.-]*\\.(ts|tsx)$",
+     "test_suffix": ".test.ts"
+    },
+    "formatter": {
+     "command": "prettier --check {files}",
+     "enabled": true
+    },
+    "linter": {
+     "command": "eslint --config {platform_config} {files}",
+     "repo_config_command": "eslint {files}",
+     "config_files": [
+      "eslint.config.*",
+      ".eslintrc*"
+     ],
+     "enabled": true
+    }
+   },
+   "javascript": {
+    "l10n": {
+     "format": "i18next",
+     "files": [
+      "src/features/<namespace>/l10n/<lang>.json"
+     ]
+    },
+    "formatter": {
+     "command": "prettier --check {files}",
+     "enabled": true
+    },
+    "linter": {
+     "command": "eslint --config {platform_config} {files}",
+     "repo_config_command": "eslint {files}",
+     "config_files": [
+      "eslint.config.*",
+      ".eslintrc*"
+     ],
+     "enabled": true
+    }
+   },
+   "go": {
+    "formatter": {
+     "command": "gofmt -l {files}",
+     "enabled": true
+    },
+    "linter": {
+     "command": "go vet ./...",
+     "enabled": true
+    }
+   },
+   "rust": {
+    "layout": {
+     "roots": [
+      "src/",
+      "tests/",
+      "benches/",
+      "examples/"
+     ],
+     "patterns": [
+      "src/**",
+      "tests/**",
+      "benches/**",
+      "examples/**",
+      "build.rs",
+      "**/src/**",
+      "**/tests/**",
+      "**/benches/**"
+     ]
+    },
+    "naming": {
+     "file": "^[a-z][a-z0-9_]*\\.rs$",
+     "test_suffix": ".rs"
+    },
+    "l10n": {
+     "format": "fluent",
+     "files": [
+      "src/<namespace>/l10n/<lang>.ftl"
+     ],
+     "hardcoded_text": "off",
+     "key_pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+){2,}$"
+    },
+    "formatter": {
+     "command": "cargo fmt --check",
+     "enabled": true
+    },
+    "linter": {
+     "command": "cargo clippy --all-targets -- -D warnings",
+     "enabled": true
+    }
+   },
+   "java": {
+    "l10n": {
+     "format": "properties",
+     "files": [
+      "src/main/resources/**/<namespace>/messages_<lang>.properties"
+     ],
+     "key_pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-zA-Z0-9]*){2,}$"
+    },
+    "layout": {
+     "roots": [
+      "src/main/java/",
+      "src/test/java/"
+     ],
+     "patterns": [
+      "src/main/java/**",
+      "src/test/java/**",
+      "**/src/main/java/**",
+      "**/src/test/java/**"
+     ]
+    },
+    "naming": {
+     "file": "^[A-Z][A-Za-z0-9]*\\.java$",
+     "test_suffix": "Test.java"
+    },
+    "formatter": {
+     "variants": [
+      {
+       "when": [
+        "build.gradle*:spotless"
+       ],
+       "command": "./gradlew -q spotlessCheck"
+      },
+      {
+       "when": [
+        "pom.xml:spotless"
+       ],
+       "command": "mvn -q spotless:check"
+      }
+     ],
+     "command": "google-java-format --dry-run --set-exit-if-changed {files}",
+     "enabled": true
+    },
+    "linter": {
+     "variants": [
+      {
+       "when": [
+        "build.gradle*:checkstyle",
+        "build.gradle*:pmd",
+        "build.gradle*:spotbugs"
+       ],
+       "command": "./gradlew -q check -x test"
+      },
+      {
+       "when": [
+        "pom.xml:maven-checkstyle-plugin"
+       ],
+       "command": "mvn -q checkstyle:check"
+      }
+     ],
+     "repo_config_command": "checkstyle -c checkstyle.xml {files}",
+     "config_files": [
+      "checkstyle.xml"
+     ],
+     "command": "checkstyle -c /google_checks.xml {files}",
+     "enabled": true
+    },
+    "rules": "One public top-level class per file, named like the file; the package is the folder path."
+   },
+   "kotlin": {
+    "l10n": {
+     "format": "properties",
+     "files": [
+      "src/main/resources/**/<namespace>/messages_<lang>.properties"
+     ],
+     "key_pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-zA-Z0-9]*){2,}$"
+    },
+    "layout": {
+     "roots": [
+      "src/main/kotlin/",
+      "src/test/kotlin/"
+     ],
+     "patterns": [
+      "src/main/kotlin/**",
+      "src/test/kotlin/**",
+      "**/src/main/kotlin/**",
+      "**/src/test/kotlin/**",
+      "*.gradle.kts",
+      "**/*.gradle.kts"
+     ]
+    },
+    "naming": {
+     "file": "^[A-Za-z][A-Za-z0-9]*\\.kts?$",
+     "test_suffix": "Test.kt"
+    },
+    "formatter": {
+     "variants": [
+      {
+       "when": [
+        "build.gradle*:ktlint"
+       ],
+       "command": "./gradlew -q ktlintCheck"
+      }
+     ],
+     "command": "ktlint {files}",
+     "enabled": true
+    },
+    "linter": {
+     "variants": [
+      {
+       "when": [
+        "build.gradle*:detekt"
+       ],
+       "command": "./gradlew -q detekt"
+      }
+     ],
+     "repo_config_command": "detekt --config detekt.yml --input {files}",
+     "config_files": [
+      "detekt.yml",
+      "config/detekt/detekt.yml"
+     ],
+     "command": "detekt --input {files}",
+     "enabled": true
+    }
+   }
+  }
+ }
+}

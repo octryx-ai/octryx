@@ -1,0 +1,79 @@
+/* Coding workspace stylesheet: imports its partials in cascade order; the breakpoints and container queries follow here. */
+@import "./coding-session-list.css";
+@import "./coding-start-form.css";
+@import "./coding-detail.css";
+@import "./coding-audit.css";
+@import "./coding-review.css";
+@import "./coding-policy-editor.css";
+
+@media (max-width: 1220px) {
+  .coding-area__layout,
+  .coding-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coding-area__layout.has-detail .coding-detail {
+    min-height: min(42rem, calc(100vh - 8rem));
+  }
+
+  .coding-session-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coding-detail__grid,
+  .coding-detail__metrics,
+  .coding-runtime-observability__metrics,
+  .coding-runtime-observability__columns,
+  .coding-audit__grid,
+  .coding-audit__gates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .coding-task-chat {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coding-task-chat__meta {
+    justify-content: flex-start;
+  }
+}
+
+@container (max-width: 64rem) {
+  .coding-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coding-review__editor-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .coding-session-list,
+  .coding-detail__grid,
+  .coding-detail__metrics,
+  .coding-runtime-observability__metrics,
+  .coding-runtime-observability__columns,
+  .coding-audit__grid,
+  .coding-audit__gates,
+  .coding-review,
+  .coding-policy-editor__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .coding-execution-trace__header,
+  .coding-execution-trace__topline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .coding-audit__hero {
+    flex-direction: column;
+  }
+
+  .coding-area__layout.has-detail .coding-detail {
+    min-height: min(44rem, calc(100vh - 6.5rem));
+  }
+
+}

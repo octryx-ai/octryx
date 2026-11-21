@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "title": "Release notes",
+  "properties": {
+    "audience": {"type": "string", "enum": ["customers", "team"], "default": "customers",
+                 "title": "Default audience"},
+    "language": {"type": "string", "enum": ["de", "en"], "default": "de", "title": "Default language"},
+    "confluence_space": {"type": "string", "title": "Confluence space for release pages"},
+    "confluence_parent_page": {"type": "string", "title": "Parent page id (optional)"}
+  }
+}

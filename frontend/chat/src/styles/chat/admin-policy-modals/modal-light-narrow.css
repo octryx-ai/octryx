@@ -1,0 +1,24 @@
+/* Light theme for the admin modal and the narrow trace usage grid. */
+[data-theme="light"] .admin-modal-backdrop {
+  background:
+    radial-gradient(
+      circle at top,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 34%
+    ),
+    rgba(228, 222, 210, 0.48);
+}
+
+[data-theme="light"] .admin-modal__body {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+@media (max-width: 720px) {
+  .turn-trace-usage {
+    grid-template-columns: 1fr;
+  }
+
+  .turn-trace-usage--working-set {
+    grid-template-columns: 1fr 1fr;
+  }
+}

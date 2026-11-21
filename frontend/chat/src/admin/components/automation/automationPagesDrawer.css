@@ -1,0 +1,161 @@
+/* Automation pages: explain box, flow, drawer sections, copy and status boxes, toolbar, phone breakpoint, choices, links and panel layer. */
+.automation-explain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-sm);
+  color: var(--muted-strong);
+}
+
+.automation-explain p {
+  margin: 0;
+}
+
+.automation-flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.automation-flow__node {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-xs);
+}
+
+.automation-flow__node b {
+  display: block;
+  color: var(--text);
+}
+
+.automation-flow__arrow {
+  color: var(--muted);
+}
+
+.automation-drawer-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.automation-drawer-section:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.automation-drawer-section h3 {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--text);
+}
+
+.automation-copy {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.automation-copy code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.automation-okbox,
+.automation-warnbox {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+}
+
+.automation-okbox {
+  border: 1px solid color-mix(in srgb, var(--status-active) 35%, transparent);
+  color: var(--status-active-ink);
+}
+
+.automation-warnbox {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 35%, transparent);
+  color: var(--status-attention-ink);
+}
+
+.automation-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.automation-details > summary {
+  cursor: pointer;
+  font-size: var(--ds-text-sm);
+  color: var(--muted-strong);
+}
+
+.automation-details[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 760px) {
+  .automation-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .automation-row {
+    flex-wrap: wrap;
+  }
+}
+
+.connector-danger-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.automation-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.automation-choice[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.automation-link {
+  font-size: var(--ds-text-xs);
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.automation-link:hover {
+  text-decoration: underline;
+}
+
+/* A side panel opened from inside a SettingsDrawer (z-index 1100) must lie above it. */
+.automation-panel-layer {
+  position: relative;
+  z-index: 1150;
+}

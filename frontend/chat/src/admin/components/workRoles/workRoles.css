@@ -1,0 +1,199 @@
+/* Work roles (board 8): Admin › People & sign-in › Roles & functions, and Workspace › Roles. Tokens only (README.md, UI set). */
+
+.wr-page { display: grid; gap: var(--ds-space-4); min-width: 0; }
+
+.wr-card { display: grid; gap: var(--ds-space-3); min-width: 0; }
+.wr-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ds-space-4); }
+.wr-card__copy { display: grid; gap: var(--ds-space-1); min-width: 0; }
+.wr-card__meta { margin: 0; max-width: 72ch; line-height: var(--ds-leading); }
+.wr-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); flex-shrink: 0; }
+.wr-hint { margin: 0; color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.wr-muted { color: var(--muted); }
+.wr-mono { font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: var(--ds-text-xs); }
+
+/* Role name with its badges and a muted second line. */
+.wr-name { display: grid; gap: var(--ds-space-1); min-width: 0; }
+.wr-name__line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+.wr-name__title { font-weight: var(--ds-weight-medium); }
+.wr-name__sub { color: var(--muted); font-size: var(--ds-text-xs); }
+.wr-badges { display: inline-flex; flex-wrap: wrap; gap: var(--ds-space-1); }
+.wr-is-muted { opacity: 0.55; }
+
+/* Two-line cells (name + muted line) need room above and below; the row keeps its 36 px minimum. */
+.wr-page .ds-table__td { padding-block: var(--ds-space-2); }
+.wr-name { gap: 2px; }
+
+/* Matrix: one narrow column per function, headers may wrap to two lines. */
+.wr-matrix .ds-table__th:not(:first-child) { white-space: normal; text-align: center; line-height: var(--ds-leading-tight); }
+.wr-matrix .ds-table__td:not(:first-child) { text-align: center; }
+.wr-tick { color: var(--text); font-size: var(--ds-text-sm); }
+.wr-tick--no { color: var(--muted); }
+
+/* Chips for roles in assignments and previews. */
+.wr-chips { display: flex; flex-wrap: wrap; gap: var(--ds-space-1); }
+.wr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  min-height: 1.25rem;
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-tone-neutral-bg);
+  color: var(--ds-tone-neutral-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  white-space: nowrap;
+}
+.wr-chip--trusted { border-color: var(--ds-tone-attention-line); background: var(--ds-tone-attention-bg); color: var(--ds-tone-attention-ink); }
+.wr-chip__note { font-weight: var(--ds-weight-regular); }
+.wr-chip__remove {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-size: var(--ds-text-sm);
+  line-height: 1;
+}
+
+/* Errors: the API's message, then setting / who can change it. */
+.wr-error {
+  display: grid;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-tone-problem-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-problem-bg);
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-sm);
+}
+.wr-error p { margin: 0; }
+.wr-error--info { border-color: var(--ds-tone-info-line); background: var(--ds-tone-info-bg); color: var(--ds-tone-info-ink); }
+.wr-error__meta { font-size: var(--ds-text-xs); }
+
+/* A notice in the attention tone (trusted, members without role). */
+.wr-notice {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-tone-attention-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-attention-bg);
+  color: var(--ds-tone-attention-ink);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+.wr-notice--neutral { border-color: var(--border); background: var(--ds-tone-neutral-bg); color: var(--muted-strong); }
+
+/* Checkbox rows with a description. */
+.wr-checks { display: grid; gap: var(--ds-space-1); }
+.wr-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-1) 0;
+  cursor: pointer;
+  font-size: var(--ds-text-sm);
+}
+.wr-check input { margin-top: var(--ds-space-1); accent-color: var(--accent); }
+.wr-check.is-disabled { cursor: not-allowed; opacity: 0.7; }
+.wr-check__text { display: grid; gap: 2px; min-width: 0; }
+.wr-check__title { color: var(--text); }
+.wr-check__sub { color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+
+/* Fields inside side panels. */
+.wr-form { display: grid; gap: var(--ds-space-4); }
+.wr-field { display: grid; gap: var(--ds-space-1); font-size: var(--ds-text-sm); }
+.wr-field > span:first-child { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+.wr-field input,
+.wr-field select,
+.wr-field textarea,
+.wr-input {
+  width: 100%;
+  min-height: var(--ds-control-md);
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+}
+.wr-field textarea { min-height: calc(var(--ds-control-md) * 2.5); padding: var(--ds-space-2) var(--ds-space-3); resize: vertical; }
+.wr-field textarea.wr-mono-input { font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: var(--ds-text-xs); }
+.wr-field input:focus-visible,
+.wr-field select:focus-visible,
+.wr-field textarea:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 1px; }
+.wr-field__key {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ds-control-md);
+  color: var(--muted);
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: var(--ds-text-xs);
+}
+.wr-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--ds-space-3); }
+.wr-radios { display: flex; flex-wrap: wrap; gap: var(--ds-space-4); font-size: var(--ds-text-sm); }
+.wr-radios label { display: inline-flex; align-items: center; gap: var(--ds-space-2); cursor: pointer; }
+.wr-radios input { accent-color: var(--accent); }
+.wr-footer { display: flex; align-items: center; gap: var(--ds-space-2); width: 100%; }
+.wr-footer__spacer { flex: 1; }
+.wr-switch-row { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-4); }
+.wr-switch-row__text { display: grid; gap: var(--ds-space-1); }
+.wr-switch-row__title { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); color: var(--text); }
+
+/* SSO mapping card. */
+.wr-sso { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ds-space-4); align-items: start; }
+.wr-sso__col { display: grid; gap: var(--ds-space-2); min-width: 0; }
+.wr-sso__label { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+.wr-sso__value { font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); }
+.wr-sso__claims { color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.wr-sso__claims code, .wr-code {
+  padding: 0 var(--ds-space-1);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-tone-neutral-bg);
+  color: var(--text);
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: var(--ds-text-xs);
+}
+
+/* Workspace roles: switch strip and assignments header. */
+.wr-switch {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+}
+.wr-assign-title { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+.wr-assign-title .wr-input { width: auto; }
+.wr-row-actions { display: inline-flex; flex-wrap: nowrap; gap: var(--ds-space-1); }
+.wr-preview-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--ds-space-2); font-size: var(--ds-text-sm); }
+
+/* Effective permission preview. */
+.wr-facts { display: grid; gap: var(--ds-space-3); margin: 0; }
+.wr-facts dt { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+.wr-facts dd { margin: var(--ds-space-1) 0 0; font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.wr-role-line { display: grid; gap: 2px; padding: var(--ds-space-1) 0; }
+
+/* Tool-set editor. */
+.wr-tools-group { display: grid; gap: var(--ds-space-2); padding-bottom: var(--ds-space-3); border-bottom: 1px solid var(--border); }
+.wr-tools-group:last-child { border-bottom: 0; }
+.wr-tools-group__title { margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); }
+.wr-tools-risk { display: grid; gap: var(--ds-space-1); }
+.wr-tools-risk__head { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); }
+.wr-tools-risk__label { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); text-transform: uppercase; letter-spacing: var(--ds-tracking-caps); }
+.wr-tools-risk .wr-check__title { font-family: var(--font-mono, "IBM Plex Mono", monospace); font-size: var(--ds-text-xs); }
+.wr-add-entry { display: flex; gap: var(--ds-space-2); }
+.wr-add-entry input { flex: 1; }
+
+/* Audit list. */
+.wr-audit-what { display: grid; gap: 2px; }
+.wr-audit-change { color: var(--muted); font-size: var(--ds-text-xs); }
+.wr-more { display: flex; justify-content: center; }
+
+@media (max-width: 900px) {
+  .wr-sso { grid-template-columns: minmax(0, 1fr); }
+  .wr-grid-2 { grid-template-columns: minmax(0, 1fr); }
+  .wr-card__head { flex-direction: column; }
+}

@@ -1,0 +1,223 @@
+/* The UI set, component layer (README.md, UI set). Loaded last on desktop (chat.css) and phone (mobile/main.tsx), so the
+   product's button, title, card, badge and empty-state families all take one geometry and one type style from the
+   scales in ds-tokens.css. Colours stay with each family (they already follow the theme tokens); this file fixes the
+   shape. New code uses the .ds-* classes directly. */
+
+/* ---- Buttons: one height, one radius, one type style per size. --------------------------------------------------- */
+.ds-btn,
+.admin-panel__action-btn,
+.admin-panel__danger-btn,
+.work-area__button,
+.approval-card__button,
+.ob-row-button,
+.flow-conditional__button,
+.octryx-panel__buttons > button,
+.ds-empty__action {
+  min-height: var(--ds-control-md);
+  padding: 0 var(--ds-control-pad-x);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1.2;
+  gap: var(--ds-space-2);
+}
+
+.ds-btn--primary,
+.admin-panel__action-btn--primary,
+.work-area__button--primary {
+  font-weight: var(--ds-weight-strong);
+}
+
+/* Small buttons inside table rows and cards. */
+.ds-btn--sm,
+.admin-users__row-btn,
+.corp-btn-xs,
+.ds-table .admin-panel__action-btn,
+.ds-table .work-area__button {
+  min-height: var(--ds-control-sm);
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+
+.ds-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ds-btn:hover { background: var(--surface-overlay-hover); }
+.ds-btn--primary { border-color: var(--accent); background: var(--accent); color: var(--ds-on-accent); }
+.ds-btn--primary:hover { background: var(--accent-strong); }
+.ds-btn--danger { border-color: var(--ds-tone-problem-line); background: var(--ds-tone-problem-bg); color: var(--ds-tone-problem-ink); }
+.ds-btn--ghost { border-color: transparent; background: transparent; color: var(--muted-strong); }
+.ds-btn:focus-visible,
+.admin-panel__action-btn:focus-visible,
+.work-area__button:focus-visible {
+  outline: 2px solid var(--ds-focus);
+  outline-offset: 2px;
+}
+.ds-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Icon-only buttons: square, same height as a control. */
+.admin-panel__icon-btn,
+.sidebar__icon-btn,
+.icon-button,
+.diagram-viewer__btn {
+  min-width: var(--ds-control-md);
+  min-height: var(--ds-control-md);
+  border-radius: var(--ds-radius-md);
+}
+
+/* ---- Inputs and selects: the same height and radius as buttons. -------------------------------------------------- */
+.admin-panel input[type="text"],
+.admin-panel input[type="search"],
+.admin-panel input[type="number"],
+.admin-panel input[type="email"],
+.admin-panel input[type="url"],
+.admin-panel select,
+.work-area input[type="search"],
+.work-area input[type="text"],
+.work-area select,
+.ds-input {
+  min-height: var(--ds-control-md);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+}
+
+/* ---- Page header: one title style on every page, desktop and phone. ---------------------------------------------- */
+.page-header__eyebrow,
+.m-eyebrow {
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+}
+.page-header__title,
+.m-page-title,
+.m-title {
+  font-size: var(--ds-text-2xl);
+  font-weight: var(--ds-weight-strong);
+  line-height: var(--ds-leading-tight);
+  letter-spacing: -0.01em;
+}
+.page-header__purpose {
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+
+/* Section titles inside a page (cards, panels, groups). */
+.ds-section-title,
+.ds-form-section__title,
+.ds-panel__title {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  line-height: var(--ds-leading-tight);
+}
+
+/* ---- Cards: one surface, one radius, one padding. ---------------------------------------------------------------- */
+.ds-card {
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-strong);
+  padding: var(--ds-space-4);
+}
+.ds-card__title {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.ds-card__meta {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+/* ---- KPI tile: a card with one big number and its label (Spec Studio). ------------------------------- */
+.ds-kpi {
+  display: grid;
+  gap: var(--ds-space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-strong);
+  padding: var(--ds-space-4);
+}
+.ds-kpi__value {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--ds-text-3xl);
+  font-weight: var(--ds-weight-strong);
+  line-height: var(--ds-leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.ds-kpi__label { color: var(--muted); font-size: var(--ds-text-xs); }
+
+/* ---- Badges and status labels: one shape. ------------------------------------------------------------------------ */
+.ds-status,
+.ds-badge {
+  min-height: 1.25rem;
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* ---- Tables: header and cell type from the scale. ---------------------------------------------------------------- */
+.ds-table { font-size: var(--ds-text-sm); }
+.ds-table__th { font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+
+/* ---- Empty states. ----------------------------------------------------------------------------------------------- */
+.ds-empty {
+  font-size: var(--ds-text-sm);
+  color: var(--muted-strong);
+}
+
+/* ---- Admin, Work, Operations, Knowledge, Setup and Profile (consistency pass). ------------------------------------ */
+/* Bold runs inside text take the set's strong weight; the browser's `bolder` gave 700 or 900. */
+.admin-panel b,
+.admin-panel strong,
+.work-area b,
+.work-area strong,
+.work-detail b,
+.work-detail strong,
+.setup-guide b,
+.setup-guide strong {
+  font-weight: var(--ds-weight-strong);
+}
+
+/* Single-line inputs, selects and filter triggers are exactly one control high, text 13. */
+.admin-users__toolbar-input,
+.admin-users__toolbar-select,
+input.admin-panel__input,
+select.admin-panel__input:not([multiple]),
+.admin-panel__field select:not([multiple]),
+.admin-panel__field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]),
+.work-area__filters input,
+.work-area__filters select,
+.work-filter-multi__trigger {
+  height: var(--ds-control-md);
+  min-height: var(--ds-control-md);
+  padding-block: 0;
+  font-size: var(--ds-text-sm);
+}
+
+/* Icon squares in rows and the navigation collapse: the small control size. */
+.admin-users__row-btn,
+.admin-panel__sidebar-collapse,
+.work-area__collapse {
+  width: var(--ds-control-sm);
+  height: var(--ds-control-sm);
+  min-height: var(--ds-control-sm);
+  padding: 0;
+}
+
+/* A clickable table row (.ob-row-button) is a row, not a button: it keeps the table's cell type (13/400). */
+tr.ob-row-button {
+  font-weight: var(--ds-weight-regular);
+}

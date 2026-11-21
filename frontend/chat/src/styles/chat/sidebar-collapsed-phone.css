@@ -1,0 +1,130 @@
+/* Collapsed sessions state, icon button focus, the archived link and the phone layout. */
+.chat-app--sessions-collapsed .sidebar__pane {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.chat-app--sessions-collapsed .sidebar__header {
+  padding-inline: 0.5rem;
+}
+
+.chat-app--sessions-collapsed .sidebar__chrome--chat-workspace {
+  justify-content: center;
+}
+
+.chat-app--sessions-collapsed .brand--chat-workspace,
+.chat-app--sessions-collapsed .sidebar__section-heading,
+.chat-app--sessions-collapsed .sidebar__bulk-bar,
+.chat-app--sessions-collapsed .thread-search,
+.chat-app--sessions-collapsed .sidebar__threads,
+.chat-app--sessions-collapsed .sidebar__footer {
+  display: none;
+}
+
+.chat-app--sessions-collapsed .sidebar__section {
+  justify-items: center;
+  padding: 0.5rem 0.5rem;
+}
+
+.chat-app--sessions-collapsed .sidebar__section-row {
+  display: flex;
+  justify-content: center;
+}
+
+.chat-app--sessions-collapsed .sidebar__section-actions {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.chat-app--sessions-collapsed
+  .sidebar__section-actions
+  .icon-button.sidebar__icon-btn:not(:first-child) {
+  display: none;
+}
+
+.chat-app--sessions-collapsed
+  .sidebar__section-actions
+  .icon-button.sidebar__icon-btn {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: var(--ds-radius-lg);
+  border-color: transparent;
+}
+
+.sidebar__section-actions .icon-button.sidebar__icon-btn:focus-visible,
+.sidebar__bulk-head .sidebar__icon-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 1px;
+}
+
+.sidebar__archived-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  text-align: left;
+}
+
+.sidebar__archived-link:hover {
+  color: var(--text);
+}
+
+.sidebar__archived-link svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+}
+
+.sidebar__archived-link span:nth-child(2) {
+  flex: 1;
+}
+
+/* Phone (<= 760px, WP chat sidebar S6): 44px targets, visible row actions, 16px search (no iOS zoom). */
+@media (max-width: 760px) {
+  .thread-card {
+    min-height: 2.75rem;
+    padding-right: 2.5rem;
+    font-size: var(--ds-text-md);
+  }
+
+  .thread-card__checkbox {
+    width: 2.4rem;
+    height: 2.75rem;
+  }
+
+  .thread-card__menu-trigger {
+    width: 2.2rem;
+    height: 2.2rem;
+    opacity: 1;
+  }
+
+  .sidebar__section-actions .icon-button.sidebar__icon-btn,
+  .sidebar__bulk-head .sidebar__icon-btn {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+
+  .thread-search input {
+    min-height: 2.5rem;
+    font-size: var(--ds-text-lg);
+  }
+
+  .thread-search__kbd,
+  .sidebar__bulk-hint {
+    display: none;
+  }
+
+  .sidebar__bulk-bar .admin-panel__action-btn {
+    min-height: 2.5rem;
+  }
+}

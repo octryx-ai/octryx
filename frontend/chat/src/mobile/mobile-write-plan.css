@@ -1,0 +1,146 @@
+/* Phone Server chat write plan card. */
+/* A Server chat's write plan: the m-write card with the scope as wrapping chips and the
+   writes as compact rows at the touch height that open to every field. */
+.m-plan-request {
+  margin: 0;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-md);
+  overflow-wrap: anywhere;
+}
+.m-plan-scope {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.m-plan-scope > div {
+  display: grid;
+  gap: 4px;
+}
+.m-plan-scope dt {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+}
+.m-plan-scope dd {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.m-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ds-control-sm);
+  max-width: 100%;
+  padding: 0 8px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay-strong);
+  color: var(--m-text);
+  font-size: var(--ds-text-sm);
+  overflow-wrap: anywhere;
+}
+.m-plan-writes {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius-md);
+  overflow: hidden;
+}
+.m-plan-writes > li + li {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-plan-writes summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--ds-control-touch);
+  padding: 8px 12px;
+  list-style: none;
+  cursor: pointer;
+}
+.m-plan-writes summary::-webkit-details-marker {
+  display: none;
+}
+.m-plan-number {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay-strong);
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.m-plan-write-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.m-plan-write-text b {
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+  overflow-wrap: anywhere;
+}
+.m-plan-write-text .m-muted {
+  font-size: var(--ds-text-xs);
+}
+.m-plan-subject {
+  color: var(--m-muted-strong);
+  font-weight: var(--ds-weight-regular);
+}
+.m-plan-write-body {
+  display: grid;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+.m-plan-lines {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.m-plan-pre {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.m-plan-confirmed > summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--ds-control-touch);
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-sm);
+}
+.m-plan-confirmed[open] > summary {
+  margin-bottom: 8px;
+}
+.m-plan-result {
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-sm);
+}
+.m-plan-expand {
+  justify-self: end;
+  min-height: var(--ds-control-touch);
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--m-muted-strong);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+}

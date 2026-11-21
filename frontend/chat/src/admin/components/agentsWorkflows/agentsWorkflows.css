@@ -1,0 +1,132 @@
+/* Agents & workflows area .
+   Layout rules of the approved mock, tokens only; controls use the design-system classes. */
+.aw-page { display: grid; gap: 0.75rem; align-content: start; }
+/* An open workflow takes the whole window (designer D2a): the page is only the canvas, the admin body drops its
+   padding and the admin navigation steps aside until "← All workflows". The flow builder sizes itself with
+   height: 100%, so the page takes the admin body's height and gives the builder its one row (a short viewport
+   scrolls instead of squashing). */
+.aw-page--canvas { height: 100%; min-height: 26rem; grid-template-rows: minmax(24rem, 1fr); align-content: stretch; }
+.admin-panel__body:has(.aw-page--canvas) { padding: 0; }
+.admin-panel:has(.aw-page--canvas) {
+  grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "header" "body";
+}
+.admin-panel:has(.aw-page--canvas) .admin-panel__sidebar { display: none; }
+/* An open workflow has its own header; the page's ("Agents · Build / Workflows") would say it twice. */
+.admin-panel:has(.aw-page--canvas) { grid-template-rows: minmax(0, 1fr); grid-template-areas: "body"; }
+.admin-panel:has(.aw-page--canvas) .admin-panel__header { display: none; }
+.aw-num { font-variant-numeric: tabular-nums; }
+.aw-list-head { display: grid; gap: 0.5rem; min-width: 0; }
+.aw-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.aw-between { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.aw-toolbar { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.aw-toolbar .admin-users__toolbar-input { flex: 1 1 14rem; }
+.aw-toolbar .admin-users__toolbar-select { width: auto; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+.aw-toolbar__spacer { flex: 1; }
+.aw-name { font-weight: 600; }
+.aw-sub { color: var(--muted); font-size: var(--ds-text-xs); margin-top: 0.12rem; line-height: 1.45; }
+.aw-sub--flush { margin: 0; }
+.aw-mono { font-family: var(--font-mono); font-size: var(--ds-text-xs); }
+.aw-note, .aw-warn, .aw-err { padding: 0.5rem 0.75rem; border-radius: var(--ds-radius-lg); font-size: var(--ds-text-xs); line-height: 1.5; }
+.aw-note {
+  border: 1px solid color-mix(in srgb, var(--status-running) 22%, transparent);
+  background: color-mix(in srgb, var(--status-running) 7%, transparent);
+  color: var(--status-running-ink);
+}
+.aw-warn {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent);
+  color: var(--status-attention-ink);
+}
+.aw-err {
+  border: 1px solid color-mix(in srgb, var(--status-error) 25%, transparent);
+  background: color-mix(in srgb, var(--status-error) 7%, transparent);
+  color: var(--status-error-ink);
+}
+.aw-pickers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.5rem; }
+.aw-split { display: grid; grid-template-columns: minmax(0, 1fr) 20rem; gap: 1rem; align-items: start; }
+.aw-side { display: grid; gap: 0.75rem; position: sticky; top: 0; }
+.aw-layers { display: grid; gap: 0.5rem; }
+.aw-layer { border: 1px solid var(--border-soft); border-radius: var(--ds-radius-lg); background: var(--surface-overlay); overflow: hidden; }
+.aw-layer__head {
+  display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: center;
+  padding: 0.75rem 0.75rem; cursor: pointer; list-style: none;
+}
+.aw-layer__head::-webkit-details-marker { display: none; }
+.aw-layer__head:hover { background: var(--surface-overlay-strong); }
+.aw-layer__n {
+  display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 999px;
+  border: 1px solid var(--border-strong); font-size: var(--ds-text-2xs); font-weight: 600; color: var(--muted-strong);
+}
+.aw-layer__title { font-size: var(--ds-text-sm); font-weight: 600; }
+.aw-layer__src { font-size: var(--ds-text-xs); color: var(--muted); margin-top: 0.1rem; }
+.aw-layer__body { display: grid; gap: 0.5rem; padding: 0.25rem 0.75rem 0.75rem 3rem; font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: 1.55; }
+.aw-code {
+  margin: 0; font-family: var(--font-mono); font-size: var(--ds-text-2xs); line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  color: var(--muted-strong); background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); padding: 0.75rem 0.75rem;
+}
+.aw-budget { display: grid; gap: 0.25rem; }
+.aw-bar { display: flex; height: 0.55rem; border-radius: 999px; overflow: hidden; background: var(--surface-overlay-strong); border: 1px solid var(--border-soft); }
+.aw-bar span { display: block; height: 100%; }
+.aw-sw.b1, .aw-bar .b1 { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.aw-sw.b2, .aw-bar .b2 { background: color-mix(in srgb, var(--status-running) 55%, transparent); }
+.aw-sw.b3, .aw-bar .b3 { background: color-mix(in srgb, var(--status-active) 55%, transparent); }
+.aw-legend { display: grid; grid-template-columns: auto 1fr auto; gap: 0.25rem 0.5rem; font-size: var(--ds-text-xs); color: var(--muted-strong); }
+.aw-sw { width: 0.6rem; height: 0.6rem; border-radius: var(--ds-radius-sm); margin-top: 0.25rem; }
+.aw-kv { display: grid; grid-template-columns: 9rem 1fr; gap: 0.5rem 0.75rem; margin: 0; font-size: var(--ds-text-sm); }
+.aw-kv dt { font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); padding-top: 0.25rem; }
+.aw-kv dd { margin: 0; }
+.aw-steps { display: grid; gap: 0.5rem; }
+.aw-step {
+  display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.5rem; align-items: start; padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft); border-radius: var(--ds-radius-lg); background: var(--surface-overlay);
+}
+.aw-step__n {
+  display: grid; place-items: center; width: 1.4rem; height: 1.4rem; border-radius: 999px; background: var(--accent-soft);
+  color: var(--accent-strong); font-size: var(--ds-text-2xs); font-weight: 600;
+}
+.aw-step b { font-size: var(--ds-text-sm); }
+.aw-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.aw-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.75rem; }
+.aw-card {
+  display: grid; gap: 0.5rem; align-content: start; border: 1px solid var(--border); border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay); padding: 1rem; box-shadow: inset 0 1px 0 var(--surface-overlay);
+}
+.aw-card h4 { margin: 0; font-size: var(--ds-text-md); }
+.aw-card p { margin: 0; font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: 1.5; }
+.aw-choice-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.aw-strike { text-decoration: line-through; color: var(--muted); }
+.aw-enf { display: grid; grid-template-columns: auto auto; gap: 0.25rem 0.5rem; align-items: center; justify-content: start; }
+.aw-enf > span:not(.work-badge) { color: var(--muted); font-size: var(--ds-text-2xs); }
+.aw-tabs-host .admin-channels__tabs { margin-bottom: 0.5rem; }
+.aw-link { color: var(--accent-strong); border-bottom: 1px dotted currentColor; cursor: pointer; }
+.aw-textarea {
+  width: 100%; min-height: 9rem; border: 1px solid var(--border); border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong); color: var(--text); padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono); font-size: var(--ds-text-xs); line-height: 1.55; resize: vertical;
+}
+.aw-findings { display: grid; gap: 0.5rem; }
+.aw-finding { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.5rem; align-items: start; font-size: var(--ds-text-xs); line-height: 1.45; }
+.aw-diff { font-family: var(--font-mono); font-size: var(--ds-text-2xs); line-height: 1.6; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); overflow: hidden; }
+.aw-diff div { padding: 0.1rem 0.5rem; white-space: pre-wrap; }
+.aw-diff .del { background: color-mix(in srgb, var(--status-error) 9%, transparent); color: var(--status-error-ink); }
+.aw-diff .add { background: color-mix(in srgb, var(--status-active) 9%, transparent); color: var(--status-active-ink); }
+.aw-table tbody tr { cursor: pointer; }
+@media (max-width: 760px) {
+  .aw-pickers, .aw-grid3, .aw-choice-grid { grid-template-columns: minmax(0, 1fr); }
+  .aw-split { grid-template-columns: minmax(0, 1fr); }
+  .aw-side { position: static; }
+  .aw-kv { grid-template-columns: minmax(0, 1fr); }
+  .aw-cards thead { display: none; }
+  .aw-cards, .aw-cards tbody, .aw-cards tr, .aw-cards td { display: block; width: 100%; }
+  .aw-cards tr { border-bottom: 1px solid var(--border-soft); padding: 0.5rem 0; }
+  .aw-cards td { border-bottom: 0 !important; padding: 0.25rem 0.75rem; }
+  .aw-cards td[data-l]::before {
+    content: attr(data-l); display: block; font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .aw-layer__body { padding-left: 0.75rem; }
+}
+
+/* On/Off per workflow (a native checkbox with the switch role): the word says the state, not the colour alone. */
+.aw-switch { display: inline-flex; align-items: center; gap: .4rem; cursor: pointer; }
+.aw-switch input { accent-color: var(--accent); width: 1rem; height: 1rem; cursor: pointer; }
+.aw-switch input:disabled { cursor: progress; }

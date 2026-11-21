@@ -1,0 +1,160 @@
+{
+ "_source": "Synthetic client-handoff response examples for frontend contract tests. Backend behavior: backend/tests/agent_board/test_client_handoff.py and Board fixture helpers with an in-memory fake object store. Covers work state, bundle download, hand-over actions and handoff policy.",
+ "commit": {
+  "body": {
+   "handoff": {
+    "id": "4a5068d1-d622-41e3-a471-6abc230d0a24",
+    "version": 2
+   },
+   "state": "handed_over",
+   "takeover": null,
+   "work_item": {
+    "id": "fa4f2ebd-8c65-4e2d-8de7-c53a7cbab132",
+    "key": "BRD-6",
+    "title": "Login redirect"
+   }
+  },
+  "status": 200
+ },
+ "download": {
+  "content_disposition": "attachment; filename=\"handoff-2b936f59-80ac-4f3d-8746-f139450dfdc0.bundle\"",
+  "content_type": "application/octet-stream",
+  "same_bytes": true,
+  "sha256_header": true,
+  "status": 200
+ },
+ "hand_over_member": {
+  "body": {
+   "detail": "Workspace admin or owner role required",
+   "error": "Workspace admin or owner role required",
+   "status_code": 403
+  },
+  "status": 403
+ },
+ "hand_over_owner": {
+  "body": {
+   "claim_id": "68361226-c1e4-4ed2-b957-29253b1227ea",
+   "requested": true,
+   "session_asked": true,
+   "viewer": {
+    "can_admin": true,
+    "user_id": "82f5aa96-90f8-42d6-84a9-1edce30d165f"
+   }
+  },
+  "status": 200
+ },
+ "hand_over_released": {
+  "body": {
+   "detail": {
+    "code": "claim_released"
+   },
+   "error": "Request failed",
+   "status_code": 409
+  },
+  "status": 409
+ },
+ "ids": {
+  "bundle": "2b936f59-80ac-4f3d-8746-f139450dfdc0",
+  "claim": "68361226-c1e4-4ed2-b957-29253b1227ea",
+  "item": "fa4f2ebd-8c65-4e2d-8de7-c53a7cbab132",
+  "workspace": "24d1499b-0a53-4474-a3c9-7c6c91657d9c"
+ },
+ "policy_owner": {
+  "can_edit": true,
+  "handoff": {
+   "allowed_requesters": "members",
+   "auto_threshold_pct": 90.0,
+   "auto_trigger_pct": 99.0,
+   "mode": "confirm",
+   "push": "branch",
+   "require_spare_pct": 50.0
+  },
+  "project_id": "24d1499b-0a53-4474-a3c9-7c6c91657d9c",
+  "source": "default"
+ },
+ "put_bad_push": {
+  "body": {
+   "detail": {
+    "errors": [
+     {
+      "code": "invalid_push_mode",
+      "field": "agent_gateway_policy.handoff.push"
+     }
+    ]
+   },
+   "error": "Request failed",
+   "status_code": 422
+  },
+  "status": 422
+ },
+ "versions_ben": {
+  "items": [
+   {
+    "author": {
+     "agent_hash": "9d54ce99c99c22fbab4b2a30",
+     "type": "agent",
+     "user": {
+      "display_name": "member64950160",
+      "id": "64950160-4872-48b8-84d6-c27f46192011"
+     }
+    },
+    "created_at": "2026-10-05T21:07:21.290607Z",
+    "id": "4a5068d1-d622-41e3-a471-6abc230d0a24",
+    "sections": {
+     "changed_files": [
+      "src/app.py",
+      "README.md"
+     ],
+     "excluded_files": [
+      ".env"
+     ],
+     "last_commits": [
+      "abc123 Fix redirect"
+     ],
+     "linked_sessions": [],
+     "notes": "Tests are red on CI",
+     "repo": {
+      "base_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "branch": "octryx-handoff/BRD-6/anna-20261006-1000",
+      "bundle_id": "2b936f59-80ac-4f3d-8746-f139450dfdc0",
+      "url": "https://git.example.com/acme/app.git",
+      "wip_commit": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+     },
+     "state": "agent wrote this"
+    },
+    "version": 2,
+    "work_item": {
+     "id": "fa4f2ebd-8c65-4e2d-8de7-c53a7cbab132",
+     "key": "BRD-6",
+     "title": "Login redirect"
+    }
+   },
+   {
+    "author": {
+     "agent_hash": "9d54ce99c99c22fbab4b2a30",
+     "type": "agent",
+     "user": {
+      "display_name": "member64950160",
+      "id": "64950160-4872-48b8-84d6-c27f46192011"
+     }
+    },
+    "created_at": "2026-10-05T21:07:21.163890Z",
+    "id": "b2443ff3-43d7-4581-846e-e57d236aba17",
+    "sections": {
+     "linked_sessions": [],
+     "state": "agent wrote this"
+    },
+    "version": 1,
+    "work_item": {
+     "id": "fa4f2ebd-8c65-4e2d-8de7-c53a7cbab132",
+     "key": "BRD-6",
+     "title": "Login redirect"
+    }
+   }
+  ],
+  "viewer": {
+   "can_admin": false,
+   "user_id": "f53436e3-8aec-4f21-9a7c-64b1c5db7a9b"
+  }
+ }
+}

@@ -1,0 +1,165 @@
+/* Admin panel tables, state badges, danger button and overview cards. */
+.admin-panel__table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--ds-font-size, 0.82rem);
+  border: 1px solid var(--ds-line, var(--border-soft));
+  border-radius: var(--ds-radius, 0.45rem);
+  overflow: hidden;
+  background: var(--ds-surface, var(--surface-overlay));
+}
+
+.admin-panel__table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2rem;
+  text-align: left;
+  padding: 0 var(--ds-cell-pad-x, 0.75rem);
+  color: var(--ds-header-ink, var(--muted));
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--ds-line-strong, var(--border));
+  background: var(--ds-surface-raised, var(--surface-overlay-strong));
+}
+
+.admin-panel__table td {
+  height: var(--ds-row-height, 36px);
+  padding: 0.5rem var(--ds-cell-pad-x, 0.75rem);
+  border-bottom: 1px solid var(--ds-line, var(--border-soft));
+  color: var(--text);
+  vertical-align: middle;
+  transition: background 140ms ease;
+}
+
+.admin-panel__table th:first-child,
+.admin-panel__table td:first-child { padding-left: 1rem; }
+
+.admin-panel__table th:last-child,
+.admin-panel__table td:last-child { padding-right: 1rem; }
+
+.admin-panel__table tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-panel__table tbody tr:hover td {
+  background: var(--ds-surface-hover, var(--surface-overlay-strong));
+}
+
+.admin-panel__row--inactive td {
+  opacity: 0.45;
+}
+
+.admin-panel__cell--muted {
+  color: var(--muted) !important;
+  font-size: var(--ds-text-sm);
+}
+
+/* Admin badges are state labels: the same shape, size and tones as StatusLabel (ds-status), in the words of the
+   page (sentence case), never shouted in capitals. */
+.admin-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid transparent;
+  background: var(--ds-tone-neutral-bg, var(--surface-overlay));
+  color: var(--ds-tone-neutral-ink, var(--muted-strong));
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.admin-panel__badge--active {
+  background: var(--ds-tone-success-bg);
+  border-color: var(--ds-tone-success-line);
+  color: var(--ds-tone-success-ink);
+}
+
+.admin-panel__badge--secondary {
+  background: var(--ds-tone-info-bg);
+  border-color: var(--ds-tone-info-line);
+  color: var(--ds-tone-info-ink);
+}
+
+.admin-panel__badge--inactive {
+  font-weight: 500;
+}
+
+.admin-panel__badge--warning {
+  background: var(--ds-tone-attention-bg);
+  border-color: var(--ds-tone-attention-line);
+  color: var(--ds-tone-attention-ink);
+}
+
+.admin-panel__badge--danger {
+  background: var(--ds-tone-problem-bg);
+  border-color: var(--ds-tone-problem-line);
+  color: var(--ds-tone-problem-ink);
+}
+
+.admin-panel__danger-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.72rem;
+  padding: 0 0.5rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid color-mix(in srgb, var(--status-error) 30%, transparent);
+  background: color-mix(in srgb, var(--status-error) 7%, transparent);
+  color: var(--status-error);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.admin-panel__danger-btn:hover {
+  background: color-mix(in srgb, var(--status-error) 15%, transparent);
+  border-color: color-mix(in srgb, var(--status-error) 40%, transparent);
+}
+
+.admin-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-overview-card {
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  padding: 1rem 1rem;
+}
+
+.admin-overview-card__label {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+.admin-overview-card__value {
+  margin-top: 0.5rem;
+  font-size: var(--ds-text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  color: var(--text);
+}
+
+.admin-overview-card__meta {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  line-height: 1.55;
+}

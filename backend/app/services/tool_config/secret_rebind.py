@@ -1,0 +1,252 @@
+"""A stored secret never silently follows its connection to another host.
+
+When a tool configuration is saved (or tested) with a changed target (``*_url``, ``*_host``,
+``*_port``: another scheme, host or port; an OIDC token endpoint is a ``*_url`` too) or a changed
+client id of a client-credentials grant (``connection_fields.client_id_fields``), every secret
+the save keeps from the stored entry instead of receiving it again would be sent to the new target.
+That is refused with the explicit state ``secret_rebind_required`` unless the request either
+re-enters every such secret or an admin re-confirms the rebind in the same request
+(``confirm_secret_rebind``). Both outcomes are audited with field names only, never a value, URL or host.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+from urllib.parse import urlsplit
+
+from fastapi import HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from ..admin.governance.admin_config_audit_service import record_admin_config_audit
+from ..secret import secret_ref_field_name
+from .connection_fields import client_id_fields, secret_fields, target_fields
+
+SECRET_REBIND_REQUIRED = "secret_rebind_required"
+CONFIRM_SECRET_REBIND_FIELD = "confirm_secret_rebind"
+AUDIT_ACTION_REFUSED = "tool_config.secret_rebind_refused"
+AUDIT_ACTION_CONFIRMED = "tool_config.secret_rebind_confirmed"
+
+
+@dataclass(frozen=True, slots=True)
+class SecretRebind:
+    """A target change that keeps stored secrets; names only."""
+
+    tool_name: str
+    project_id: str | None
+    changed_target_fields: tuple[str, ...]
+    carried_secret_fields: tuple[str, ...]
+
+
+class SecretRebindRequiredError(Exception):
+    """The save would move kept secrets to a new target without re-entry or confirmation."""
+
+    def __init__(self, rebind: SecretRebind) -> None:
+        super().__init__(SECRET_REBIND_REQUIRED)
+        self.rebind = rebind
+
+    def detail(self) -> dict[str, Any]:
+        return {
+            "state": SECRET_REBIND_REQUIRED,
+            "tool_name": self.rebind.tool_name,
+            "changed_target_fields": list(self.rebind.changed_target_fields),
+            "kept_fields": list(self.rebind.carried_secret_fields),
+            "remediation": (
+                "Re-enter the listed secrets for the new target, or confirm the rebind explicitly "
+                f"with {CONFIRM_SECRET_REBIND_FIELD}=true."
+            ),
+        }
+
+
+def _target_identity(field: str, value: Any) -> tuple[str, ...] | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if not field.endswith("_url"):
+        return (text.lower(),)
+    try:
+        parts = urlsplit(text)
+        return (parts.scheme.lower(), (parts.hostname or "").lower().rstrip("."), str(parts.port or ""))
+    except ValueError:
+        return ("unparseable", text)
+
+
+def changed_target_fields(
+    tool_name: str, stored: dict | None, proposed: dict | None, inherited: dict | None = None
+) -> tuple[str, ...]:
+    """Target fields whose *effective* scheme, host or port the proposal changes (setting one counts).
+
+    ``inherited`` is the target a Workspace entry would inherit from the active global entry:
+    a Workspace request that clears or omits its own target moves to that one, which counts as a
+    change too. Without ``inherited`` (a global save) a cleared target goes nowhere.
+    Both sides are compared as effective targets: a field the stored entry never set already
+    resolved to the inherited one, so omitting it again moves nothing.
+    """
+    changed = []
+    for field in target_fields(tool_name):
+        new = _target_identity(field, (proposed or {}).get(field))
+        old = _target_identity(field, (stored or {}).get(field))
+        if inherited:
+            inherited_identity = _target_identity(field, inherited.get(field))
+            new = new if new is not None else inherited_identity
+            old = old if old is not None else inherited_identity
+        if new is not None and new != old:
+            changed.append(field)
+    for field in client_id_fields(tool_name):  # exact: client ids are case-sensitive at the IdP
+        new_id, old_id = (str((config or {}).get(field) or "").strip() for config in (proposed, stored))
+        if new_id and new_id != old_id:
+            changed.append(field)
+    return tuple(changed)
+
+
+def carried_secret_fields(tool_name: str, stored: dict | None, submitted: set[str]) -> tuple[str, ...]:
+    """Secret fields the save keeps from the stored entry (their secret ref) because no new value was submitted."""
+    return tuple(
+        field
+        for field in secret_fields(tool_name)
+        if field not in submitted and str((stored or {}).get(secret_ref_field_name(field)) or "").strip()
+    )
+
+
+def evaluate_secret_rebind(
+    *,
+    tool_name: str,
+    project_id: str | None,
+    stored: dict | None,
+    proposed: dict | None,
+    submitted_secret_fields: set[str],
+    confirmed: bool,
+    inherited: dict | None = None,
+) -> SecretRebind | None:
+    """``None`` when nothing kept moves; the confirmed rebind; or :class:`SecretRebindRequiredError`."""
+    changed = changed_target_fields(tool_name, stored, proposed, inherited)
+    carried = carried_secret_fields(tool_name, stored, submitted_secret_fields) if changed else ()
+    if not changed or not carried:
+        return None
+    rebind = SecretRebind(tool_name, project_id, changed, carried)
+    if not confirmed:
+        raise SecretRebindRequiredError(rebind)
+    return rebind
+
+
+def record_secret_rebind_audit(
+    db: AsyncSession, *, actor_user_id: str | None, rebind: SecretRebind, refused: bool
+) -> None:
+    """Audit a refused or confirmed rebind; the caller commits."""
+    record_admin_config_audit(
+        db,
+        actor_user_id=actor_user_id,
+        action=AUDIT_ACTION_REFUSED if refused else AUDIT_ACTION_CONFIRMED,
+        resource_type="tool_config",
+        resource_id=f"{rebind.tool_name}:{rebind.project_id or 'global'}",
+        before=None,
+        after=None,
+        details={
+            "tool_name": rebind.tool_name,
+            "project_id": rebind.project_id,
+            "changed_target_fields": list(rebind.changed_target_fields),
+            # Key names avoid the audit redactor's markers ("secret"), so the names survive.
+            "kept_fields": list(rebind.carried_secret_fields),
+            "state": SECRET_REBIND_REQUIRED if refused else "secret_rebind_confirmed",
+        },
+    )
+
+
+async def enforce_secret_rebind(
+    db: AsyncSession,
+    *,
+    actor_user_id: str | None,
+    tool_name: str,
+    project_id: str | None,
+    stored: dict | None,
+    proposed: dict | None,
+    submitted_secret_fields: set[str],
+    confirmed: Any,
+    inherits_global_target: bool = True,
+) -> None:
+    """Run before any secret is stored. A confirmed rebind is audited with the save; a refused
+    one commits its audit row alone and raises :class:`SecretRebindRequiredError`.
+
+    For a Workspace entry (``project_id`` set) the effective target includes the one it would
+    inherit from the active global entry, so clearing the Workspace target is a target change too.
+    A named connection is a complete unit of its own and inherits nothing
+    (``inherits_global_target=False``).
+    """
+    inherits = project_id is not None and inherits_global_target
+    inherited = await _inherited_targets(db, tool_name) if inherits else None
+    try:
+        rebind = evaluate_secret_rebind(
+            tool_name=tool_name,
+            project_id=project_id,
+            stored=stored,
+            proposed=proposed,
+            submitted_secret_fields=submitted_secret_fields,
+            confirmed=is_confirmed(confirmed),
+            inherited=inherited,
+        )
+    except SecretRebindRequiredError as refused:
+        await db.rollback()
+        record_secret_rebind_audit(db, actor_user_id=actor_user_id, rebind=refused.rebind, refused=True)
+        await db.commit()
+        raise
+    if rebind is not None:
+        record_secret_rebind_audit(db, actor_user_id=actor_user_id, rebind=rebind, refused=False)
+
+
+async def _inherited_targets(db: AsyncSession, tool_name: str) -> dict:
+    """The target fields of the active global entry, which a Workspace entry without its own inherits."""
+    from . import get_tool_config  # the package imports this module
+
+    entry = await get_tool_config(db, tool_name, None)
+    if entry is None or not entry.is_active:
+        return {}
+    config = dict(entry.config or {})
+    return {field: config[field] for field in target_fields(tool_name) if field in config}
+
+
+async def enforce_global_payload_rebind(
+    db: AsyncSession,
+    *,
+    actor_user_id: str | None,
+    tool_name: str,
+    stored: dict | None,
+    proposed: dict | None,
+    payload: dict[str, Any],
+) -> None:
+    """:func:`enforce_secret_rebind` for a JSON save of the global entry; a refusal is a 409."""
+    submitted = {field for field in secret_fields(tool_name) if str(payload.get(field) or "").strip()}
+    try:
+        await enforce_secret_rebind(
+            db,
+            actor_user_id=actor_user_id,
+            tool_name=tool_name,
+            project_id=None,
+            stored=stored,
+            proposed=proposed,
+            submitted_secret_fields=submitted,
+            confirmed=payload.get(CONFIRM_SECRET_REBIND_FIELD),
+        )
+    except SecretRebindRequiredError as refused:
+        raise HTTPException(status_code=409, detail=refused.detail()) from None
+
+
+def is_confirmed(value: Any) -> bool:
+    """Only an explicit true confirms; absence, empty or anything else does not."""
+    return value is True or str(value or "").strip().lower() == "true"
+
+
+__all__ = [
+    "AUDIT_ACTION_CONFIRMED",
+    "AUDIT_ACTION_REFUSED",
+    "CONFIRM_SECRET_REBIND_FIELD",
+    "SECRET_REBIND_REQUIRED",
+    "SecretRebind",
+    "SecretRebindRequiredError",
+    "carried_secret_fields",
+    "changed_target_fields",
+    "enforce_global_payload_rebind",
+    "enforce_secret_rebind",
+    "evaluate_secret_rebind",
+    "is_confirmed",
+    "record_secret_rebind_audit",
+]

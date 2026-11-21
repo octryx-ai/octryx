@@ -1,0 +1,51 @@
+/* Alert settings (My settings › Notifications, Admin › Channels › Problem alerts). Tokens only. */
+
+.alerts__target {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+}
+
+.alerts__muted {
+  color: var(--muted);
+}
+
+.alerts__check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+  color: var(--text);
+}
+
+.alerts__check input {
+  margin: 0;
+}
+
+.alerts__event {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+  color: var(--text);
+}
+
+.alerts__key {
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.alerts__footer {
+  margin-top: var(--ds-space-4);
+}
+
+.alerts__notice {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--muted-strong, var(--text));
+}

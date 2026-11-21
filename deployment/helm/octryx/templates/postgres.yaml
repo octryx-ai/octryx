@@ -1,0 +1,66 @@
+{{- if .Values.database.internal }}
+# PostgreSQL with pgvector inside the release. For an external database set database.internal=false
+# and put DATABASE_URL into the Secret instead of POSTGRES_PASSWORD.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "octryx.fullname" . }}-postgres
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "octryx.selector" (dict "root" . "component" "postgres") | nindent 4 }}
+  ports: [{name: postgres, port: 5432, targetPort: 5432}]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "octryx.fullname" . }}-postgres
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "octryx.fullname" . }}-postgres
+  replicas: 1
+  selector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "postgres") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "octryx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        {{- include "octryx.podSecurity" . | nindent 8 }}
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: {{ include "octryx.image" .Values.images.postgres }}
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+          env:
+            - {name: POSTGRES_DB, value: {{ .Values.database.name | quote }}}
+            - {name: POSTGRES_USER, value: octryx}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "octryx.secretName" . }}, key: POSTGRES_PASSWORD}}
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+          ports: [{name: postgres, containerPort: 5432}]
+          readinessProbe:
+            exec: {command: ["pg_isready", "-U", "octryx", "-d", {{ .Values.database.name | quote }}]}
+            periodSeconds: 5
+          resources: {{- toYaml .Values.resources.postgres | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: run, mountPath: /var/run/postgresql}
+      volumes:
+        - {name: run, emptyDir: {}}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.persistence.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.database.storage }}
+{{- end }}

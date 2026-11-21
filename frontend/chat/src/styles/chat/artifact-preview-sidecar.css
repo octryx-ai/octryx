@@ -1,0 +1,118 @@
+.artifact-preview__sidecar {
+  border-left: 1px solid var(--shell-divider);
+  background: rgba(255, 255, 255, 0.014);
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.artifact-preview__sidecar--office {
+  overflow: auto;
+}
+
+.artifact-preview__sidecard {
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--shell-divider);
+  background: rgba(255, 255, 255, 0.022);
+  padding: 0.75rem 0.75rem;
+}
+
+.artifact-preview__sidecard-label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+}
+
+.artifact-preview__sidecard-value {
+  font-size: var(--ds-text-md);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.artifact-preview__sidecard-path,
+.artifact-preview__sidecard-copy {
+  font-size: var(--ds-text-sm);
+  color: rgba(255, 255, 255, 0.76);
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.artifact-preview__stat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.artifact-preview__stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  font-size: var(--ds-text-sm);
+}
+
+.artifact-preview__stat-key {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.artifact-preview__stat-value {
+  color: rgba(255, 255, 255, 0.9);
+  text-align: right;
+  word-break: break-word;
+}
+
+.artifact-preview__action-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.artifact-preview__action-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.artifact-preview__action-mode .artifact-preview__tab {
+  padding: 0.25rem 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.artifact-preview__action-item {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--shell-divider);
+  background: rgba(255, 255, 255, 0.022);
+  border-radius: var(--ds-radius-xl);
+  padding: 0.75rem;
+}
+
+.artifact-preview__action-copy {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.artifact-preview__action-copy strong {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--ds-text-md);
+}
+
+.artifact-preview__action-copy span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.artifact-preview__action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.artifact-preview__action-buttons .plain-button {
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ds-text-xs);
+}

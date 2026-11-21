@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Terminal – Octryx{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-4">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-gray-900">Terminal</h1>
+    <button id="btn-new" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm font-medium">
+      + New Terminal
+    </button>
+  </div>
+
+  <!-- Session list -->
+  <div id="session-list" class="flex gap-2 flex-wrap">
+    {% for s in sessions %}
+    <button class="session-tab px-3 py-1 rounded border text-sm font-mono
+                   {% if loop.first %}bg-gray-800 text-white border-gray-800{% else %}bg-white text-gray-700 border-gray-300 hover:border-gray-500{% endif %}"
+            data-session="{{ s.id }}">
+      PID {{ s.pid }} <span class="text-xs opacity-60">[{{ s.status }}]</span>
+      <span class="ml-1 close-tab text-red-400 hover:text-red-600" data-session="{{ s.id }}">✕</span>
+    </button>
+    {% endfor %}
+    {% if not sessions %}
+    <p class="text-gray-500 text-sm italic">No active terminal sessions. Click "New Terminal" to start one.</p>
+    {% endif %}
+  </div>
+
+  <!-- xterm.js terminal container -->
+  <div id="terminal-wrapper" class="rounded overflow-hidden border border-gray-700 bg-black" style="height: 500px;">
+    <div id="terminal" style="height: 100%;"></div>
+  </div>
+
+  <!-- New session form -->
+  <div id="new-session-panel" class="hidden bg-white border rounded p-4 shadow-sm">
+    <h3 class="font-semibold mb-3">New Terminal Session</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Working Directory</label>
+        <input id="input-cwd" type="text" placeholder="/home/user" class="w-full border rounded px-3 py-2 text-sm font-mono">
+      </div>
+      <div>
+        <label class="block text-sm text-gray-600 mb-1">Shell / Command</label>
+        <input id="input-cmd" type="text" placeholder="/bin/bash" class="w-full border rounded px-3 py-2 text-sm font-mono">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-3">
+      <button id="btn-create" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm">Create</button>
+      <button id="btn-cancel" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded text-sm">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- xterm.js from CDN -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+
+<script>
+(function () {
+  const API = '/api/v1/terminal/sessions';
+  let term = null;
+  let fitAddon = null;
+  let ws = null;
+  let activeSession = null;
+
+  function initTerm() {
+    if (term) { term.dispose(); }
+    term = new Terminal({ cursorBlink: true, fontSize: 14, theme: { background: '#000000' } });
+    fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    const el = document.getElementById('terminal');
+    el.innerHTML = '';
+    term.open(el);
+    fitAddon.fit();
+    term.onData(data => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'input', data }));
+      }
+    });
+    window.addEventListener('resize', () => { if (fitAddon) fitAddon.fit(); });
+  }
+
+  function connectSession(sessionId) {
+    if (ws) { ws.close(); ws = null; }
+    activeSession = sessionId;
+    initTerm();
+
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/api/v1/terminal/sessions/${sessionId}/ws`);
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'output') { term.write(msg.data); }
+        else if (msg.type === 'exit') { term.write('\r\n[session ended]\r\n'); }
+      } catch {}
+    };
+
+    ws.onclose = () => { term.write('\r\n[disconnected]\r\n'); };
+
+    // Highlight active tab
+    document.querySelectorAll('.session-tab').forEach(el => {
+      el.classList.toggle('bg-gray-800', el.dataset.session === sessionId);
+      el.classList.toggle('text-white', el.dataset.session === sessionId);
+      el.classList.toggle('border-gray-800', el.dataset.session === sessionId);
+    });
+  }
+
+  // Tab clicks
+  document.getElementById('session-list').addEventListener('click', (e) => {
+    const closeBtn = e.target.closest('.close-tab');
+    if (closeBtn) {
+      const sid = closeBtn.dataset.session;
+      fetch(`${API}/${sid}`, { method: 'DELETE' }).then(() => location.reload());
+      return;
+    }
+    const tab = e.target.closest('.session-tab');
+    if (tab) { connectSession(tab.dataset.session); }
+  });
+
+  // New session button
+  document.getElementById('btn-new').addEventListener('click', () => {
+    document.getElementById('new-session-panel').classList.toggle('hidden');
+  });
+  document.getElementById('btn-cancel').addEventListener('click', () => {
+    document.getElementById('new-session-panel').classList.add('hidden');
+  });
+  document.getElementById('btn-create').addEventListener('click', async () => {
+    const cwd = document.getElementById('input-cwd').value.trim() || null;
+    const command = document.getElementById('input-cmd').value.trim() || null;
+    const resp = await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cwd, command }),
+    });
+    if (resp.ok) { location.reload(); }
+    else { const d = await resp.json(); alert(d.detail || 'Failed to create session'); }
+  });
+
+  // Auto-connect first session
+  const firstTab = document.querySelector('.session-tab');
+  if (firstTab) { connectSession(firstTab.dataset.session); }
+  else { initTerm(); term.write('No session active. Click "+ New Terminal" to start.\r\n'); }
+})();
+</script>
+{% endblock %}

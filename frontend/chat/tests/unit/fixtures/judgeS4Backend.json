@@ -1,0 +1,140 @@
+{
+ "_source": "Synthetic takeover-offer response examples for frontend contract tests. Backend behavior: backend/tests/agent_board/test_auto_takeover.py and Board fixture helpers. Covers offer_timeout_minutes, automatic handoff_request offers, 403/409 confirm refusals and cancelled takeovers.",
+ "confirm_after_claim_changed": {
+  "body": {
+   "detail": {
+    "code": "takeover_not_pending"
+   },
+   "error": "Request failed",
+   "status_code": 409
+  },
+  "status": 409
+ },
+ "confirm_gateway_token": {
+  "body": {
+   "detail": {
+    "code": "interactive_session_required"
+   },
+   "error": "Request failed",
+   "status_code": 403
+  },
+  "status": 403
+ },
+ "ids": {
+  "anna": "18edbfb5-9f80-4d98-bdcb-2a575633c693",
+  "ben": "690c458a-2c55-4afc-8817-700872cbed51",
+  "owner": "0540e15e-74ac-46d1-9105-5528e262195d",
+  "workspace": "aaaffd01-fd97-46d5-8736-8f1be61ba360"
+ },
+ "messages_owner_offer": {
+  "items": [
+   {
+    "acked_by_me": false,
+    "acks": [],
+    "author": {
+     "agent_hash": "f6271f677b19eafbff04ac29",
+     "type": "system",
+     "user": {
+      "display_name": "member18edbfb5",
+      "id": "18edbfb5-9f80-4d98-bdcb-2a575633c693"
+     }
+    },
+    "body": "Automatic handoff request: the agent session holding BRD-6 is at or near its usage limit. A member with spare allowance may request a takeover.",
+    "created_at": "2026-10-05T22:35:30.557397Z",
+    "decided": null,
+    "id": "9b7a1a88-8279-455c-a20a-d26c7b92fc25",
+    "kind": "handoff_request",
+    "on_behalf_of": {
+     "display_name": "member18edbfb5",
+     "id": "18edbfb5-9f80-4d98-bdcb-2a575633c693"
+    },
+    "options": [],
+    "project_id": "aaaffd01-fd97-46d5-8736-8f1be61ba360",
+    "redacted_at": null,
+    "reply_to": null,
+    "to": {
+     "agent_hash": "0f2a3ecb03f6e3f823828ce4",
+     "role": "admins",
+     "user": {
+      "display_name": "member690c458a",
+      "id": "690c458a-2c55-4afc-8817-700872cbed51"
+     }
+    },
+    "work_item": {
+     "id": "5711cc68-736b-4329-b3b9-90f0504930be",
+     "key": "BRD-6",
+     "title": "Login redirect"
+    }
+   }
+  ],
+  "next_cursor": null,
+  "viewer": {
+   "can_admin": true,
+   "user_id": "0540e15e-74ac-46d1-9105-5528e262195d"
+  }
+ },
+ "policy_owner": {
+  "can_edit": true,
+  "handoff": {
+   "allowed_requesters": "members",
+   "auto_threshold_pct": 90.0,
+   "auto_trigger_pct": 99.0,
+   "mode": "confirm",
+   "offer_timeout_minutes": 10.0,
+   "push": "branch",
+   "require_spare_pct": 50.0
+  },
+  "project_id": "aaaffd01-fd97-46d5-8736-8f1be61ba360",
+  "source": "default"
+ },
+ "takeovers_after_offer": {
+  "items": [],
+  "viewer": {
+   "can_admin": true,
+   "user_id": "0540e15e-74ac-46d1-9105-5528e262195d"
+  }
+ },
+ "takeovers_cancelled": {
+  "items": [
+   {
+    "automatic": true,
+    "created_at": "2026-10-05T22:35:30.625364Z",
+    "decided_at": null,
+    "decided_by": null,
+    "expires_at": "2026-10-06T22:35:30.625364Z",
+    "from": {
+     "agent_hash": "f6271f677b19eafbff04ac29",
+     "user": {
+      "display_name": "member18edbfb5",
+      "id": "18edbfb5-9f80-4d98-bdcb-2a575633c693"
+     }
+    },
+    "handoff": {
+     "id": "58a7d72a-9343-4721-bbba-118cf7361fe4",
+     "version": 2
+    },
+    "id": "6d903ce9-983b-4570-84fe-64d0af1f00e6",
+    "message_id": "ed122fc7-044e-495e-be0d-3a9c67b88221",
+    "policy_mode": "confirm",
+    "reason": "spare here",
+    "status": "cancelled",
+    "to": {
+     "agent_hash": "0f2a3ecb03f6e3f823828ce4",
+     "user": {
+      "display_name": "member690c458a",
+      "id": "690c458a-2c55-4afc-8817-700872cbed51"
+     }
+    },
+    "work_item": {
+     "id": "5711cc68-736b-4329-b3b9-90f0504930be",
+     "key": "BRD-6",
+     "title": "Login redirect"
+    }
+   }
+  ],
+  "viewer": {
+   "can_admin": false,
+   "user_id": "690c458a-2c55-4afc-8817-700872cbed51"
+  }
+ }
+}

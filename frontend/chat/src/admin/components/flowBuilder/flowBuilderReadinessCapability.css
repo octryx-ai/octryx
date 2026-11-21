@@ -1,0 +1,167 @@
+/* Flow builder readiness panel, published capability panel, issue list and JSON editor. */
+/* ── Readiness panel ────────────────────────────────────────────────────────── */
+.flow-builder__readiness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 12px;
+}
+
+.flow-builder__readiness > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flow-builder__metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.flow-builder__metrics span {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.25rem 8px;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-builder__issues {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.75rem 0 0 1.25rem;
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-sm);
+}
+
+/* ── Published capability panel ─────────────────────────────────────────────── */
+.flow-builder__capability-panel {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.flow-builder__capability-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 0.75rem;
+}
+
+.flow-builder__capability-card,
+.flow-builder__capability-empty {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.75rem;
+}
+
+.flow-builder__capability-card {
+  display: grid;
+  gap: 8px;
+}
+
+.flow-builder__capability-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 0.32fr) minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  font-size: var(--ds-text-sm);
+}
+
+.flow-builder__capability-row > span:first-child {
+  color: var(--muted);
+}
+
+.flow-builder__capability-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--ds-tone-info-ink);
+}
+
+.flow-builder__capability-process {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+}
+
+.flow-builder__capability-process-title {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.flow-builder__capability-process ol {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.flow-builder__capability-process li {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-builder__capability-process li > span {
+  color: var(--muted);
+}
+
+.flow-builder__capability-process code {
+  color: var(--ds-tone-info-ink);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.flow-builder__capability-empty {
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+}
+
+.flow-builder__danger-button {
+  justify-self: start;
+  border-color: color-mix(in srgb, var(--status-error) 38%, transparent);
+  color: var(--ds-tone-problem-ink);
+}
+
+.flow-builder__issues li {
+  margin-bottom: 0.25rem;
+}
+
+.flow-builder__issues button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.flow-builder__issues button:disabled {
+  cursor: default;
+}
+
+/* ── JSON editor (Expert mode) ──────────────────────────────────────────────── */
+.flow-builder__json {
+  min-height: 300px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  padding: 0.75rem;
+  resize: vertical;
+  width: 100%;
+}

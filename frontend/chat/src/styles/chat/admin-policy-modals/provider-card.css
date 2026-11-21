@@ -1,0 +1,144 @@
+/* Admin toggle switch and the provider card frame, header and body. */
+.admin-panel__toggle {
+  position: relative;
+  display: inline-block;
+  width: 2rem;
+  height: 1.08rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  transition: background 200ms ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.admin-panel__toggle--on {
+  background: color-mix(in srgb, var(--status-active) 60%, transparent);
+}
+
+.admin-panel__toggle--off {
+  background: color-mix(in srgb, var(--status-idle) 45%, transparent);
+}
+
+.admin-panel__toggle span {
+  position: absolute;
+  top: 0.13rem;
+  width: 0.82rem;
+  height: 0.82rem;
+  border-radius: 50%;
+  background: white;
+  transition: left 200ms ease;
+  pointer-events: none;
+}
+
+.admin-panel__toggle--on span {
+  left: calc(100% - 0.95rem);
+}
+
+.admin-panel__toggle--off span {
+  left: 0.13rem;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.provider-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  overflow: hidden;
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.provider-card--guide,
+.provider-card--anchor {
+  border-color: var(--border-strong);
+}
+
+.provider-card--expanded {
+  border-color: var(--border-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 0 0 1px color-mix(in srgb, var(--accent) 5%, transparent);
+}
+
+.provider-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  gap: 1rem;
+}
+
+.provider-card__header:hover {
+  background: var(--surface-overlay-strong);
+}
+
+.provider-card__left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.provider-card__type-badge {
+  flex-shrink: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.provider-card__name {
+  font-weight: 600;
+  font-size: var(--ds-text-md);
+  color: var(--text);
+}
+
+.provider-card__meta {
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.provider-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.provider-card__chevron {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 200ms ease;
+}
+
+.provider-card__chevron--open {
+  transform: rotate(180deg);
+}
+
+.provider-card__body {
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border-soft);
+  background: var(--surface-overlay);
+}

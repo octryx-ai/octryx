@@ -1,0 +1,114 @@
+/* Remote device sessions: My settings → Devices and the chat device target. Tokens only, no new colours. */
+.device-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.device-muted { color: var(--muted); font-size: var(--ds-text-xs); }
+.device-mono { font-family: var(--font-mono); font-size: var(--ds-text-xs); }
+.device-name { font-weight: 600; }
+.device-dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 999px; background: var(--muted); flex: 0 0 auto; }
+.device-dot--on { background: var(--status-active); }
+.device-dot--busy { background: var(--status-running); }
+.device-dot--off { background: var(--muted); opacity: .6; }
+.device-dot--wait { background: var(--status-attention); }
+.device-cmd { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.device-cmd code { flex: 1 1 14rem; min-width: 0; font-family: var(--font-mono); font-size: var(--ds-text-xs); padding: .5rem 0.75rem;
+  border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); background: var(--bg); color: var(--muted-strong); word-break: break-all; }
+.device-folder { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft); font-family: var(--font-mono); font-size: var(--ds-text-xs); word-break: break-all; }
+.device-folder:last-child { border-bottom: 0; }
+.device-warn { padding: 0.5rem .75rem; border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  border-radius: var(--ds-radius-lg); background: color-mix(in srgb, var(--status-attention) 7%, transparent);
+  color: var(--status-attention-ink); font-size: var(--ds-text-xs); line-height: 1.5; }
+.device-rename { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.device-rename input { flex: 1 1 12rem; min-width: 0; }
+@media (max-width: 760px) {
+  .device-cards thead { display: none; }
+  .device-cards, .device-cards tbody, .device-cards tr, .device-cards td { display: block; width: 100%; }
+  .device-cards tr { border-bottom: 1px solid var(--border-soft); padding: 0.25rem 0; }
+  .device-cards td { border: 0 !important; padding: .25rem 0.75rem !important; display: flex; justify-content: space-between;
+    gap: 0.75rem; text-align: right; }
+  .device-cards td::before { content: attr(data-label); color: var(--muted); font-size: var(--ds-text-2xs); font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; text-align: left; flex: 0 0 auto; }
+  .device-cards td:first-child { text-align: left; }
+}
+
+/* The chat's device target and live job. */
+/* Inside the feed, right after the last message; its tool steps fold into one line, so it needs no own scroll. */
+.device-job { display: grid; gap: 0.5rem; margin: 0 auto .5rem; width: min(100%, var(--chat-column-width, 52rem));
+  padding: 0 .25rem; }
+.device-jobbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap;
+  padding: .5rem 0.75rem; border: 1px solid color-mix(in srgb, var(--status-running) 26%, transparent); border-radius: var(--ds-radius-lg);
+  background: var(--status-running-soft); font-size: var(--ds-text-xs); color: var(--status-running-ink); }
+.device-jobbar--done { border-color: color-mix(in srgb, var(--status-active) 26%, transparent);
+  background: color-mix(in srgb, var(--status-active) 8%, transparent); color: var(--status-active-ink); }
+.device-jobbar--stopped { border-color: color-mix(in srgb, var(--status-error) 26%, transparent);
+  background: color-mix(in srgb, var(--status-error) 7%, transparent); color: var(--status-error-ink); }
+.device-jobbar--attention { border-color: color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent); color: var(--status-attention-ink); }
+.device-pre { margin: 0.25rem 0 0; font-family: var(--font-mono); font-size: var(--ds-text-2xs); line-height: 1.6; white-space: pre-wrap;
+  word-break: break-word; color: var(--muted-strong); background: var(--bg); border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md); padding: 0.5rem 0.75rem; max-height: 14rem; overflow: auto; }
+.device-answer { font-size: var(--ds-text-md); line-height: 1.65; color: var(--text); white-space: pre-wrap; }
+.device-approval-actions .admin-panel__action-btn { min-height: 2rem; }
+.device-target { position: relative; display: inline-flex; gap: 0.25rem; flex-wrap: wrap; align-items: center; }
+.device-popover { position: absolute; left: 0; bottom: calc(100% + .45rem); z-index: 30; width: min(25rem, calc(100vw - 2rem));
+  padding: 0.5rem; border: 1px solid var(--border-strong); border-radius: var(--ds-radius-lg); background: var(--panel-elevated);
+  box-shadow: var(--shell-shadow-soft); }
+.device-pop-label { padding: 0.5rem 0.5rem 0.25rem; color: var(--muted); font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: .14em;
+  text-transform: uppercase; }
+.device-opt { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; width: 100%; padding: .5rem 0.5rem;
+  border: 0; border-radius: var(--ds-radius-md); background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.device-opt:hover:not(:disabled) { background: var(--surface-overlay-hover); }
+.device-opt.is-selected { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.device-opt:disabled { cursor: not-allowed; opacity: .55; }
+.device-opt b { font-size: var(--ds-text-sm); font-weight: 600; display: block; }
+.device-opt small { display: block; color: var(--muted); font-size: var(--ds-text-2xs); margin-top: .1rem; line-height: 1.35; }
+.device-opt svg, .device-pill-icon { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round; color: var(--muted-strong); }
+.device-pop-foot { display: flex; justify-content: space-between; gap: .5rem; flex-wrap: wrap; padding: 0.5rem 0.5rem 0.25rem;
+  border-top: 1px solid var(--border-soft); margin-top: 0.25rem; font-size: var(--ds-text-2xs); color: var(--muted); }
+.device-pop-foot button { border: 0; background: none; padding: 0; color: var(--accent-strong); cursor: pointer; font: inherit; }
+.device-pop-note { margin: 0.25rem 0.5rem 0.25rem; padding: 0.5rem 0.5rem; border-radius: var(--ds-radius-md);
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent); color: var(--status-attention-ink); font-size: var(--ds-text-2xs);
+  line-height: 1.45; }
+@media (max-width: 760px) {
+  .device-popover { position: fixed; left: .5rem; right: .5rem; bottom: .6rem; width: auto; }
+}
+.device-between { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.device-card-title { font-weight: 600; font-size: var(--ds-text-md); }
+.device-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; align-items: start; }
+.device-setting { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft); }
+.device-setting:last-child { border-bottom: 0; }
+.device-setting b { font-size: var(--ds-text-sm); font-weight: 600; }
+.device-setting p { margin: 0.25rem 0 0; font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: 1.5; }
+.device-fields--off { opacity: .45; }
+.device-summary { cursor: pointer; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); }
+@media (max-width: 760px) {
+  .device-grid2 { grid-template-columns: minmax(0, 1fr); }
+  .device-setting { flex-wrap: wrap; }
+}
+
+/* "Allow in this Workspace" under a refused tool call (RemedyAction): the button, the in-place confirmation, the result. */
+.remedy { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; margin-top: .25rem; }
+.remedy__confirm {
+  display: grid; gap: .5rem; margin-top: .5rem; padding: .75rem;
+  border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--surface-overlay-strong);
+}
+.remedy__text { margin: 0; color: var(--text); font-size: var(--ds-text-xs); line-height: 1.5; }
+.remedy__result { margin: .25rem 0 0; color: var(--status-active-ink); font-size: var(--ds-text-xs); }
+.remedy__error { margin: 0; color: var(--status-error-ink); font-size: var(--ds-text-xs); }
+
+/* Coding tools & devices › Tool defaults (ToolDefaultsCard): text left, "Default"/"Changed" and the choice right. */
+.tool-default__text { min-width: 0; flex: 1 1 18rem; }
+.tool-default__control { display: flex; align-items: center; gap: .5rem; flex: 0 0 auto; }
+.tool-default__control select { width: 15rem; max-width: 100%; }
+/* The tools that stay allowed while tools without a rule are denied, under that switch. */
+.tool-default__allowed { display: grid; gap: 0.5rem; margin-top: 0.75rem; padding-left: 0.75rem;
+  border-left: 2px solid var(--border-soft); }
+.tool-default__allowed p { margin: 0; }
+.tool-default__add input { flex: 1 1 14rem; max-width: 24rem; min-width: 0; }
+@media (max-width: 760px) {
+  .tool-default__control { flex: 1 1 100%; justify-content: space-between; }
+  .tool-default__control select { flex: 1 1 auto; width: auto; min-width: 0; }
+}

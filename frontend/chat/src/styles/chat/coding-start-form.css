@@ -1,0 +1,218 @@
+/* Coding session start form. */
+.coding-start {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.coding-start__panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(86rem, calc(100vw - 2rem));
+  max-height: min(48rem, calc(100vh - 2rem));
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.38);
+  overflow: hidden;
+}
+
+.coding-start__header,
+.coding-start__actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.coding-start__header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.coding-start__header h2 {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-xl);
+}
+
+.coding-start__body {
+  display: grid;
+  grid-template-columns: minmax(18rem, 26rem) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.coding-start__picker,
+.coding-start__form {
+  min-width: 0;
+  min-height: 0;
+  padding: 0.75rem;
+  overflow: auto;
+}
+
+.coding-start__picker {
+  border-right: 1px solid var(--border-soft);
+  background: var(--surface-overlay);
+}
+
+.coding-start__form {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.coding-start label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.coding-start label span,
+.coding-start__source small {
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.coding-start input,
+.coding-start textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 0.75rem 0.75rem;
+  font: inherit;
+  font-size: var(--ds-text-sm);
+}
+
+.coding-start textarea {
+  resize: vertical;
+}
+
+.coding-start__items {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.coding-start__items button,
+.coding-start__source {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.coding-start__items button {
+  cursor: pointer;
+}
+
+.coding-start__items button:hover,
+.coding-start__items button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+}
+
+.coding-start__items strong,
+.coding-start__items span,
+.coding-start__source strong,
+.coding-start__source span {
+  overflow-wrap: anywhere;
+}
+
+.coding-start__items strong,
+.coding-start__source strong {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.coding-start__items span,
+.coding-start__source span {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.coding-start__items small {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-start__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.coding-start__actions {
+  justify-content: flex-end;
+}
+
+.coding-start__intro {
+  max-width: 44rem;
+  margin: 0.25rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.coding-start label > small {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-start__required {
+  color: var(--status-error-ink);
+}
+
+.coding-start__stack {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.coding-start__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.coding-start__chips button {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  cursor: pointer;
+}
+
+.coding-start__chips button:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
+.coding-start__empty {
+  display: grid;
+  justify-items: start;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}

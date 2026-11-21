@@ -1,0 +1,203 @@
+/* Phone run payloads, operations, held workflow proposals and the coding engine label. */
+/* What a waiting run asks to decide on (phone RunPayload): lines, the agent's text folded at its first lines. */
+.m-payload {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.m-payload .m-section {
+  margin: 0;
+}
+.m-payload-alert {
+  margin: 0;
+  color: var(--m-need);
+  font-weight: var(--ds-weight-strong);
+}
+.m-payload-lines {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--ds-text-md);
+  overflow-wrap: anywhere;
+}
+.m-payload-more {
+  justify-self: start;
+  min-height: var(--ds-control-touch);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--m-accent);
+  font: inherit;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+  cursor: pointer;
+}
+
+/* Operations: counts in three columns, then one card per active run (most urgent first); the card's
+   border takes the state's colour only for an exception. Devices and seats as grouped rows. */
+.m-ops-counts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.m-ops-count {
+  display: grid;
+  gap: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+}
+.m-ops-count-value {
+  font-size: var(--ds-text-2xl);
+  font-weight: var(--ds-weight-strong);
+  font-variant-numeric: tabular-nums;
+  color: var(--m-title);
+  line-height: var(--ds-leading-tight);
+}
+.m-ops-count-label {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+.m-ops-count-attention { border-color: color-mix(in srgb, var(--m-need) 55%, transparent); }
+.m-ops-count-attention .m-ops-count-value { color: var(--status-attention-ink); }
+.m-ops-count-problem { border-color: color-mix(in srgb, var(--m-red) 55%, transparent); }
+.m-ops-count-problem .m-ops-count-value { color: var(--status-error-ink); }
+.m-ops-card-attention { border-color: color-mix(in srgb, var(--m-need) 55%, transparent); }
+.m-ops-card-problem { border-color: color-mix(in srgb, var(--m-red) 55%, transparent); }
+.m-ops-card-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+.m-ops-card-head > .ds-status { margin-top: 4px; }
+.m-ops-line {
+  font-size: var(--ds-text-md);
+  color: var(--m-text);
+  overflow-wrap: anywhere;
+}
+.m-ops-why {
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+  overflow-wrap: anywhere;
+}
+.m-ops-row { align-items: center; }
+.m-ops-labels {
+  display: inline-flex;
+  gap: 4px;
+}
+
+/* ---- A chat's held workflow proposal (on the phone): the start card and the plain prompt. --------------- */
+.m-proposal h2 {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+  overflow-wrap: anywhere;
+}
+.m-proposal p {
+  margin: 0;
+}
+.m-start-done {
+  border-color: color-mix(in srgb, var(--m-green) 55%, transparent);
+  background: var(--m-raise);
+}
+.m-start-failed {
+  border-color: color-mix(in srgb, var(--m-red) 55%, transparent);
+}
+.m-start-quiet {
+  border-color: var(--m-line);
+  background: var(--m-raise);
+}
+.m-start-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  overflow-wrap: anywhere;
+}
+.m-start-item p,
+.m-start-item details p {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+  white-space: pre-wrap;
+}
+.m-start-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-start-meta b {
+  color: var(--m-text);
+  font-weight: var(--ds-weight-medium);
+}
+.m-start-meta code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: var(--ds-text-sm);
+}
+.m-start-jira {
+  font-size: var(--ds-text-sm);
+}
+.m-start-steps {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-start-run-on label {
+  margin: 0;
+}
+.m-start-run-on > p {
+  margin-top: 4px;
+  font-size: var(--ds-text-sm);
+}
+.m-link-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ds-control-touch);
+  border-radius: var(--m-radius-md);
+  text-decoration: none;
+}
+.m-proposal > p.m-muted,
+.m-proposal .m-start-run-on > p {
+  font-size: var(--ds-text-sm);
+}
+.m-start-repository {
+  display: grid;
+  gap: 4px;
+}
+.m-start-repo-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
+  font-size: var(--ds-text-sm);
+  overflow-wrap: anywhere;
+}
+.m-start-repo-line .m-text-button {
+  min-height: var(--ds-control-touch);
+}
+.m-buttons .m-start-blocked {
+  margin: 0;
+  text-align: center;
+}
+
+/* The coding engine at the start of a device chat's subline (Claude Code or Codex). */
+.m-top-text .m-tag--lead {
+  margin: 0 var(--ds-space-2) 0 0;
+  vertical-align: middle;
+}

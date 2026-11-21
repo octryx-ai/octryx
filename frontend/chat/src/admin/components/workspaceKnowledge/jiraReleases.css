@@ -1,0 +1,216 @@
+/* Jira releases block editor (admin U2): right edit drawer (design guide §9.11), chip lists, field refusals. */
+
+.kr-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.kr-drawer {
+  display: flex;
+  flex-direction: column;
+  width: min(100vw, 28rem);
+  height: 100%;
+  border-left: 1px solid var(--border);
+  background: var(--panel-strong);
+  box-shadow: var(--shell-shadow-hard);
+}
+
+.kr-drawer__header,
+.kr-drawer__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.kr-drawer__footer {
+  flex-wrap: wrap;
+  border-top: 1px solid var(--border-soft);
+  border-bottom: 0;
+}
+
+.kr-drawer__footer-spacer {
+  margin-left: auto;
+}
+
+.kr-drawer__body {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.kr-drawer__title {
+  color: var(--highlight, var(--text));
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+}
+
+.kr-drawer__close {
+  width: 2.3rem;
+  height: 2.3rem;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.kr-eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kr-section {
+  display: grid;
+  gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.kr-section:last-child {
+  border-bottom: 0;
+}
+
+.kr-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.kr-row > .admin-panel__form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.kr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--ds-text-sm);
+}
+
+.kr-table th {
+  padding: 0.25rem 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+  text-align: left;
+}
+
+.kr-table td {
+  padding: 0.25rem 0.25rem;
+  vertical-align: top;
+}
+
+.kr-table .admin-panel__form-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.kr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.kr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  white-space: pre;
+}
+
+.kr-chip--error {
+  border-color: color-mix(in srgb, var(--status-error) 55%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+.kr-chip__remove {
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--ds-text-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.kr-chip__remove:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-panel__form-input.kr-input--error {
+  border-color: color-mix(in srgb, var(--status-error) 80%, transparent);
+  box-shadow: 0 0 0 3px var(--status-error-soft);
+}
+
+.kr-field-error {
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-2xs);
+}
+
+.kr-field-error code,
+.kr-alert code {
+  font-family: var(--font-mono);
+}
+
+.kr-help {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.kr-alert {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+}
+
+.kr-alert--error {
+  border-color: color-mix(in srgb, var(--status-error) 40%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+.kr-alert--success {
+  border-color: color-mix(in srgb, var(--status-active) 32%, transparent);
+  background: var(--status-active-soft);
+  color: var(--status-active-ink);
+}
+
+.kr-empty {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0.75rem;
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  text-align: center;
+}

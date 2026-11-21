@@ -1,0 +1,115 @@
+/* Paused Action card: readable at full opacity, marked by a badge and a muted edge,
+   instead of the shared .task-item--inactive fade that also dimmed its controls. */
+.task-item.admin-task--paused {
+  border-left: 3px solid var(--status-idle, var(--border-strong));
+}
+
+.task-item.admin-task--paused .task-item__name {
+  color: var(--muted-strong);
+}
+
+.task-item__badge.admin-task__paused-badge {
+  border-color: var(--status-idle, var(--border-strong));
+  color: var(--muted-strong);
+}
+
+/* Responsive Action card header. The shared .task-item__row is one nowrap flex row whose
+   badges, latest state and actions never shrink, so on a narrow work area the title collapsed to a
+   few characters per line and the card's overflow clipped the actions. Scoped to Action cards
+   (.admin-task-card); the shared task styles and other cards are unchanged. */
+.task-item.admin-task-card {
+  container: admin-task-card / inline-size;
+}
+
+/* Wide: one row, but the title keeps usable space and the badges wrap instead. */
+.admin-task-card > .task-item__row > .task-item__main {
+  flex: 1 1 14rem;
+  min-width: 14rem;
+}
+
+.admin-task-card > .task-item__row > .task-item__meta {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.admin-task-card .task-item__name {
+  overflow-wrap: anywhere;
+}
+
+/* Narrow: title row, badge row, then latest state and actions. Nothing is hidden or truncated. */
+@container admin-task-card (max-width: 56rem) {
+  .admin-task-card > .task-item__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "dot main chevron"
+      ". meta meta"
+      ". last actions";
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+  }
+
+  .admin-task-card > .task-item__row > .task-item__status-dot {
+    grid-area: dot;
+  }
+
+  .admin-task-card > .task-item__row > .task-item__main {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  .admin-task-card > .task-item__row > .task-item__meta {
+    grid-area: meta;
+  }
+
+  .admin-task-card > .task-item__row > .task-item__last-run {
+    grid-area: last;
+    min-width: 0;
+  }
+
+  .admin-task-card > .task-item__row > .task-item__actions {
+    grid-area: actions;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .admin-task-card > .task-item__row > .provider-card__chevron {
+    grid-area: chevron;
+    justify-self: end;
+  }
+}
+
+/* Very narrow: the actions get their own row so they are never squeezed against the latest state. */
+@container admin-task-card (max-width: 34rem) {
+  .admin-task-card > .task-item__row {
+    grid-template-areas:
+      "dot main chevron"
+      ". meta meta"
+      ". last last"
+      ". actions actions";
+  }
+
+  .admin-task-card > .task-item__row > .task-item__actions {
+    justify-content: flex-start;
+  }
+}
+
+/* The Action detail inside its side panel; the panel is the frame, so the card drops its own. */
+.task-item.admin-task-card--panel {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.admin-task-card--panel > .task-item__row {
+  cursor: default;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* The Actions counts above the table: one quiet line. */
+.admin-tasks__summary {
+  margin: 0 0 0.5rem;
+  font-size: var(--ds-text-xs);
+}

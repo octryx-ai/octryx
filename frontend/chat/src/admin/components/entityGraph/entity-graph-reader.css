@@ -1,0 +1,38 @@
+/* Entity graph reading parts: the ranked entity list (the accessible reading path beside the canvas, the first
+   view on the phone) and the full relationship inventory. The stage and canvas live in knowledge-graph.css.
+   Tokens only (design guide §3, §5). */
+.entity-graph.entity-graph { gap: var(--ds-space-2); }
+.entity-graph__entities { min-width: 0; overflow-y: auto; }
+.entity-graph__back-narrow { display: none; }
+.kg-stage[data-narrow] .entity-graph__back-wide { display: none; }
+.kg-stage[data-narrow] .entity-graph__back-narrow { display: inline; }
+
+.entity-graph__entities {
+  border: 1px solid var(--border); border-radius: var(--ds-radius-lg); padding: 8px; background: var(--surface-overlay);
+  box-sizing: border-box;
+}
+.entity-graph__entities-head {
+  margin: 4px 4px 0.5rem; font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted);
+}
+.entity-graph__entity-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; }
+.entity-graph__entity {
+  display: grid; gap: 2px; width: 100%; text-align: left; cursor: pointer;
+  padding: 0.5rem 8px; border: 1px solid transparent; border-radius: var(--ds-radius-md);
+  background: transparent; color: inherit; font: inherit;
+}
+.entity-graph__entity:hover { background: var(--surface-overlay-hover); }
+.entity-graph__entity:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.entity-graph__entity[data-state="selected"] { border-color: var(--accent); background: var(--surface-overlay-strong); }
+.entity-graph__entity[data-state="linked"] { border-color: var(--border-strong); }
+.entity-graph__entity[data-state="dimmed"] { opacity: .55; }
+.entity-graph__entity[data-matched] .entity-graph__entity-name { color: var(--accent); }
+/* Full names: wrap, never truncate. */
+.entity-graph__entity-name { font-size: var(--ds-text-md); font-weight: 600; overflow-wrap: anywhere; }
+.entity-graph__entity-basis { font-size: var(--ds-text-xs); color: var(--text); overflow-wrap: anywhere; }
+.entity-graph__entity-meta { font-size: var(--ds-text-xs); color: var(--muted-strong); }
+
+.entity-graph__self { font-style: italic; color: var(--muted-strong); }
+.entity-graph__all-relations > summary { cursor: pointer; padding: 4px 0; font-size: var(--ds-text-sm); color: var(--muted-strong); border-radius: var(--ds-radius-sm); }
+.entity-graph__all-relations > summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.entity-graph__all-relations[open] > summary { margin-bottom: 8px; }

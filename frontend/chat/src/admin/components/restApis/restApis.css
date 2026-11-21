@@ -1,0 +1,150 @@
+/* Admin › Connections › REST APIs: sizes from the UI set (ds-tokens.css), colours from the theme variables only. */
+
+.rst-page { display: flex; flex-direction: column; gap: var(--ds-space-4); min-width: 0; }
+.rst-stack { display: flex; flex-direction: column; gap: var(--ds-space-4); min-width: 0; }
+.rst-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); min-width: 0; }
+.rst-row--end { justify-content: flex-end; }
+.rst-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--ds-space-3); min-width: 0; }
+
+.rst-muted { margin: 0; color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.rst-text { margin: 0; color: var(--muted-strong); font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.rst-mono { font-family: var(--font-mono); font-size: var(--ds-text-xs); color: var(--muted-strong); overflow-wrap: anywhere; }
+.rst-name { display: flex; flex-direction: column; gap: var(--ds-space-1); min-width: 0; }
+.rst-name__main { color: var(--text); font-weight: var(--ds-weight-medium); }
+
+.rst-field { min-width: 0; }
+.rst-field input, .rst-field select, .rst-field textarea { width: 100%; box-sizing: border-box; }
+.rst-field textarea.rst-code { font-family: var(--font-mono); font-size: var(--ds-text-xs); min-height: 10rem; }
+.rst-hint { color: var(--muted); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-regular); line-height: var(--ds-leading); }
+.rst-field__error { color: var(--ds-tone-problem-ink); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-regular); line-height: var(--ds-leading); }
+
+.rst-error {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-tone-problem-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-problem-bg);
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+
+.rst-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-2) var(--ds-space-6);
+  border: 1px solid var(--ds-tone-attention-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-attention-bg);
+  color: var(--ds-tone-attention-ink);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading);
+}
+
+/* A quiet note (imported operations stay off, Workspace wins, the test call is audited). */
+.rst-note {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading);
+}
+
+/* Cards: a grant, a connection, a parameter. */
+.rst-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-strong);
+  min-width: 0;
+}
+.rst-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); min-width: 0; flex-wrap: wrap; }
+.rst-card__title { margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); color: var(--text); overflow-wrap: anywhere; }
+.rst-subhead { margin: 0; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); color: var(--muted); text-transform: uppercase; letter-spacing: var(--ds-tracking-caps); }
+
+.rst-list { margin: 0; list-style: none; }
+
+.rst-scope-line { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--ds-space-2); align-items: end; }
+
+.rst-back { align-self: flex-start; }
+.rst-op-head { display: flex; flex-direction: column; gap: var(--ds-space-1); min-width: 0; }
+.rst-method { font-family: var(--font-mono); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); color: var(--muted-strong); }
+
+/* Read or write, with the run class a write needs (backend). A write is marked by weight and a hairline, not colour. */
+.rst-kind { font-size: var(--ds-text-xs); color: var(--muted); white-space: nowrap; }
+.rst-kind--write {
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-sm);
+  color: var(--text);
+  font-weight: var(--ds-weight-medium);
+}
+.rst-note p { margin: 0; }
+.rst-note p + p { margin-top: var(--ds-space-1); }
+.rst-filter { white-space: nowrap; }
+
+.rst-secret { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-2); }
+
+.rst-result {
+  margin: 0;
+  max-height: 20rem;
+  overflow: auto;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.rst-scope-details summary { cursor: pointer; color: var(--muted-strong); font-size: var(--ds-text-xs); }
+.rst-scope-details ul { margin: var(--ds-space-1) 0 0; padding-left: var(--ds-space-4); color: var(--muted-strong); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+
+@media (max-width: 720px) {
+  .rst-scope-line { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Two-line cells (path over tool name) keep air above and below inside the 36 px rhythm. */
+.ds-table .rst-name { padding-block: var(--ds-space-1); }
+
+/* The redacted error of a call, under its status: readable, never clipped. */
+.rst-call-error {
+  max-width: 20rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* A server warning that names an operation opens it. */
+.rst-warning-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* One server per row; a refused server's words sit under its own row (backend). */
+.rst-server-row { display: flex; flex-direction: column; gap: var(--ds-space-1); min-width: 0; }
+.rst-server-row__line { display: flex; align-items: center; gap: var(--ds-space-2); min-width: 0; }
+.rst-server-row__line input { flex: 1 1 auto; min-width: 0; }
+
+/* The name an alias is sent under ($select for select): quiet, next to the alias. */
+.rst-wire { font-family: var(--font-mono); font-size: var(--ds-text-xs); color: var(--muted); font-weight: var(--ds-weight-regular); }
+.rst-server-row input[aria-invalid="true"] { border-color: var(--ds-tone-problem-line); }
+.rst-filter-select { width: auto; max-width: 14rem; }

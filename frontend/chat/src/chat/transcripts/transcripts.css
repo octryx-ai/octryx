@@ -1,0 +1,163 @@
+/* Full session transcripts: the viewer sheet, its blocks and the "Transcript" links. Tokens only. */
+
+/* The transcript reads like a document: a wider sheet than a detail panel, the whole screen on a phone. */
+.transcript-layer { --ds-panel-width: min(60rem, 100vw); }
+
+.transcript-note {
+  margin: 0 0 0.75rem;
+  color: var(--ds-muted);
+  font-size: var(--ds-font-size-small);
+}
+
+.transcript-session-pick { margin-bottom: 0.75rem; max-width: 24rem; }
+
+.transcript-stream { display: grid; gap: 0.75rem; min-width: 0; }
+.transcript-stream__lines { display: grid; gap: 0.5rem; min-width: 0; }
+.transcript-stream__hint { margin: 0; color: var(--ds-muted); font-size: var(--ds-font-size-small); }
+.transcript-stream__end { text-align: center; padding: 0.5rem 0; }
+
+.transcript-stream__more {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--ds-line);
+}
+
+/* ---- Blocks ------------------------------------------------------------------------------------ */
+.transcript-block {
+  min-width: 0;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface-raised);
+  font-size: var(--ds-font-size);
+}
+
+.transcript-block--message { padding: 0.5rem 0.75rem 0.75rem; }
+.transcript-block--user { background: var(--ds-surface-selected); }
+
+.transcript-block__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  min-height: 1.5rem;
+}
+
+.transcript-block--message > .transcript-block__head { margin-bottom: 0.25rem; }
+
+.transcript-block__label { font-weight: 600; color: var(--ds-text); font-size: var(--ds-font-size-small); }
+
+.transcript-block__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ds-muted);
+  font-family: var(--font-mono);
+  font-size: var(--ds-font-size-small);
+}
+
+.transcript-block__meta {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--ds-muted);
+  font-size: var(--ds-font-size-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.transcript-block__text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ds-text);
+  line-height: 1.5;
+}
+
+.transcript-block__markdown { min-width: 0; overflow-wrap: anywhere; }
+.transcript-block__markdown pre { max-width: 100%; overflow-x: auto; }
+
+/* Folded blocks: one line, opened on demand. */
+.transcript-block--fold > summary {
+  padding: 0.375rem 0.75rem;
+  cursor: pointer;
+  list-style: none;
+}
+.transcript-block--fold > summary::-webkit-details-marker { display: none; }
+.transcript-block--fold > summary::before {
+  content: "▸";
+  flex-shrink: 0;
+  width: 0.75rem;
+  color: var(--ds-muted);
+}
+.transcript-block--fold[open] > summary::before { content: "▾"; }
+.transcript-block--fold > summary:hover { background: var(--ds-surface-hover); }
+.transcript-block--fold > summary:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.transcript-block--fold[open] > summary { border-bottom: 1px solid var(--ds-line); }
+
+.transcript-block__badge { flex-shrink: 0; letter-spacing: 0.04em; }
+.transcript-block--error { border-color: var(--ds-tone-problem-line); }
+
+/* Long content wraps and scrolls inside its block; the sheet never scrolls sideways. */
+.transcript-block__pre {
+  margin: 0;
+  max-height: 28rem;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--ds-font-size-small);
+  line-height: 1.5;
+  color: var(--ds-text);
+}
+
+.transcript-block__more { margin: 0 0.75rem 0.5rem; font-size: var(--ds-font-size-small); }
+.transcript-block__empty { margin: 0; padding: 0.5rem 0.75rem; color: var(--ds-muted); font-size: var(--ds-font-size-small); }
+
+.transcript-block--note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-style: dashed;
+  background: transparent;
+}
+.transcript-block--note .transcript-block__label { color: var(--ds-muted); font-weight: 500; }
+
+
+/* ---- Entry points ------------------------------------------------------------------------------ */
+.transcript-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--ds-font-size-small);
+}
+.transcript-link svg,
+.transcript-icon svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---- Workspace setting --------------------------------------------------------------------------- */
+.transcripts-retention {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding-top: 0.5rem;
+}
+.transcripts-retention .admin-panel__field { width: 10rem; margin: 0; }
+
+/* Message text in the chat's Markdown, at the transcript's size. */
+.transcript-block__markdown .message-markdown { font-size: var(--ds-font-size); line-height: 1.5; }
+.transcript-block__markdown .message-markdown > :first-child { margin-top: 0; }
+.transcript-block__markdown .message-markdown > :last-child { margin-bottom: 0; }

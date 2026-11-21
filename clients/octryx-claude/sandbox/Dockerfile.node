@@ -1,0 +1,8 @@
+# syntax=docker/dockerfile:1
+# octryx-sandbox-node: sandbox-base + corepack (pnpm, yarn). npm honours NPM_CONFIG_REGISTRY for a mirror.
+ARG BASE_IMAGE=octryx-sandbox-base
+FROM ${BASE_IMAGE}
+USER root
+RUN corepack enable
+ENV COREPACK_HOME=/tmp/home/.cache/corepack
+USER 10001

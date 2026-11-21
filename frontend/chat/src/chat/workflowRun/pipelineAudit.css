@@ -1,0 +1,33 @@
+/* Pipeline audit summary and its wrapping code-style lines. */
+/* The pipeline audit: code-style lines wrap instead of scrolling the page sideways. */
+.pipeline-audit {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.pipeline-audit__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.pipeline-audit__mono,
+.pipeline-audit__code {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.pipeline-audit__code {
+  margin: 0;
+  padding: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  list-style: none;
+}

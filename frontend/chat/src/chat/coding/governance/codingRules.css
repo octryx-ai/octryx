@@ -1,0 +1,120 @@
+/* Coding governance pages. Tokens only. */
+.coding-rules{display:grid;gap:0.75rem;align-content:start}
+.coding-rules .admin-panel__hint{margin:0}
+.coding-rules__rule{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0.5rem;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border-soft);font-size: var(--ds-text-sm)}
+.coding-rules__rule:last-child{border-bottom:0}
+.coding-rules__actions{display:inline-flex;align-items:center;gap:.5rem}
+.coding-rules__stages{display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center}
+.coding-rules__stages>span{display:inline-flex;align-items:center;gap:0.25rem}
+.coding-rules__stage{padding:0.25rem 0.5rem;border:1px solid var(--border);border-radius:var(--ds-radius-md);background:var(--surface-overlay-strong);font-size: var(--ds-text-xs)}
+.coding-rules__stage.is-req{border-color:color-mix(in srgb,var(--accent) 40%,transparent)}
+.coding-rules__arrow{color:var(--muted);font-size: var(--ds-text-2xs)}
+.coding-rules__subhead{margin-top:0.5rem}
+.coding-tabs{margin-bottom:0}
+/* Coding rules table: words with the command, argument or pattern in mono; the source opens its home. */
+.coding-rules__text{display:inline-flex;flex-wrap:wrap;gap:0.25rem;align-items:baseline}
+.coding-rules__code{font-family:var(--font-mono,ui-monospace,monospace);font-size: var(--ds-text-xs);padding:.05rem 0.25rem;border-radius:var(--ds-radius-sm);background:var(--surface-overlay-strong)}
+.coding-rules .coding-rules__source{text-align:left;font-weight:400;color:var(--muted-strong);text-decoration:none}
+.coding-rules .coding-rules__source:hover,.coding-rules .coding-rules__source:focus-visible{color:var(--text);text-decoration:underline}
+/* Rule side panel: read-only facts as label/value pairs; the form's problems only after a save try. */
+.coding-rule-panel__facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0.5rem 1rem;margin:0;font-size: var(--ds-text-sm)}
+.coding-rule-panel__facts dt{color:var(--muted)}
+.coding-rule-panel__facts dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.coding-rule-panel__hint,.coding-rule-panel__source{margin:0;color:var(--muted);font-size: var(--ds-text-xs)}
+.coding-rule-panel__problems{margin:0;padding-left:1rem;color:var(--status-error-ink,var(--status-error));font-size: var(--ds-text-xs)}
+.coding-rules .ds-table__row.is-interactive{cursor:pointer}
+/* Phones (390 px): the table stacks; each row is What, the rule, then "Applies to" and "Source" with
+   their labels, instead of four columns cut off at the edge. */
+@media (max-width:720px){
+  .coding-rules .ds-table-wrap{overflow:visible}
+  .coding-rules .ds-table,.coding-rules .ds-table tbody,.coding-rules .ds-table tr,.coding-rules .ds-table td{display:block;width:auto}
+  .coding-rules .ds-table thead{display:none}
+  .coding-rules .ds-table tr{position:relative;padding:0.5rem 2.25rem 0.5rem 0.25rem;border-bottom:1px solid var(--border-soft)}
+  .coding-rules .ds-table td{padding:.1rem 0;border:0;white-space:normal;height:auto}
+  .coding-rules .ds-table td:first-child{font-weight:600}
+  .coding-rules .ds-table td.ds-table__menu-cell{position:absolute;top:.4rem;right:0;padding:0}
+  .coding-rules__cell[data-label]::before{content:attr(data-label) " · ";color:var(--muted)}
+  .coding-rules__cell{color:var(--muted-strong);font-size: var(--ds-text-xs)}
+}
+
+/* Proposed checks (From Correction to Check): the section above the rules and its side panel. */
+.coding-rules__proposed {
+  display: grid;
+  gap: var(--ds-space-2);
+  margin-bottom: var(--ds-space-6);
+}
+
+.proposed-check {
+  display: grid;
+  gap: var(--ds-space-4);
+}
+
+.proposed-check section {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.proposed-check__list {
+  display: grid;
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding-left: var(--ds-space-4);
+  font-size: var(--ds-text-sm);
+}
+
+.proposed-check__list q {
+  display: block;
+  color: var(--text);
+}
+
+.proposed-check__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ds-space-1) var(--ds-space-3);
+  margin: 0;
+  font-size: var(--ds-text-sm);
+}
+
+.proposed-check__facts dt {
+  color: var(--muted);
+}
+
+.proposed-check__facts dd {
+  margin: 0;
+}
+
+.coding-rules__proposed-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-3);
+}
+
+.coding-rules__proposed-title {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+}
+
+.coding-rules__proposed p,
+.proposed-check p {
+  margin: 0;
+}
+
+.proposed-check__heading {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-strong);
+}
+
+.proposed-check input[type="checkbox"] {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .coding-rules__proposed .ds-table td {
+    text-align: left;
+  }
+}

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Octryx — Authorize application</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: #0e100f; color: #e8eae6;
+      font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    }
+    .card {
+      background: #171a18; border: 1px solid #2a2e2b; border-radius: 12px;
+      padding: 2rem 2.25rem; max-width: 26rem; width: 100%;
+    }
+    h1 { font-size: 1.15rem; margin: 0 0 0.75rem; }
+    p { color: #aab0a9; font-size: 0.9rem; line-height: 1.5; }
+    .client { color: #e8eae6; font-weight: 600; }
+    ul.scopes { list-style: none; padding: 0; margin: 1rem 0; }
+    ul.scopes li {
+      padding: 0.4rem 0.6rem; margin-bottom: 0.35rem; border-radius: 6px;
+      background: #1f2320; font-family: "IBM Plex Mono", monospace; font-size: 0.82rem;
+    }
+    .actions { display: flex; gap: 0.75rem; margin-top: 1.5rem; }
+    button {
+      flex: 1; padding: 0.6rem 0; border-radius: 8px; border: 1px solid #2a2e2b;
+      font-size: 0.9rem; cursor: pointer;
+    }
+    .approve { background: #3fbf62; border-color: #3fbf62; color: #0b0d0c; font-weight: 600; }
+    .deny { background: transparent; color: #e8eae6; }
+    .error { color: #ff8a80; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if error_message %}
+      <h1>Authorization error</h1>
+      <p class="error">{{ error_message }}</p>
+    {% else %}
+      <h1>Authorize application</h1>
+      <p><span class="client">{{ client_name }}</span> requests access to your
+        Octryx account with the following scopes:</p>
+      <ul class="scopes">
+        {% for item in scopes %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      <p>Access is bound to your current login session. When your platform
+        session ends, the application must ask again.</p>
+      <form method="post" action="/oauth/authorize/decision">
+        <input type="hidden" name="client_id" value="{{ client_id }}" />
+        <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}" />
+        <input type="hidden" name="scope" value="{{ scope }}" />
+        <input type="hidden" name="state" value="{{ state }}" />
+        <input type="hidden" name="code_challenge" value="{{ code_challenge }}" />
+        <input type="hidden" name="resource" value="{{ resource }}" />
+        <div class="actions">
+          <button class="deny" type="submit" name="decision" value="deny">Deny</button>
+          <button class="approve" type="submit" name="decision" value="approve">Authorize</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,176 @@
+/* Flow canvas nodes. */
+/* ── Flow Node ──────────────────────────────────────────────────────────────── */
+.flow-node {
+  min-width: 216px;
+  max-width: 250px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--panel-elevated) 96%, transparent),
+    color-mix(in srgb, var(--panel) 92%, transparent)
+  );
+  padding: 0.75rem 1rem 12px;
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.flow-node:hover {
+  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+}
+
+.flow-node--selected {
+  border-color: color-mix(in srgb, var(--accent) 74%, transparent);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 16px 34px rgba(0, 0, 0, 0.36);
+}
+
+.flow-node__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.flow-node__icon {
+  font-size: var(--ds-text-lg);
+  flex-shrink: 0;
+}
+
+.flow-node__label {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.flow-node__sub-label {
+  font-size: var(--ds-text-2xs);
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node--agent-ref {
+  border-left: 3px solid color-mix(in srgb, var(--status-active) 60%, transparent);
+}
+
+.flow-node--agent-ref .flow-node__sub-label {
+  color: var(--ds-tone-success-ink);
+}
+
+.flow-node--tool-ref {
+  border-left: 3px solid rgba(167, 139, 250, 0.6);
+}
+
+.flow-node--tool-ref .flow-node__sub-label {
+  color: #c4b5fd;
+}
+
+.flow-node--trigger-ref {
+  border-left: 3px solid color-mix(in srgb, var(--status-attention) 60%, transparent);
+}
+
+.flow-node--trigger-ref .flow-node__sub-label {
+  color: var(--ds-tone-attention-ink);
+}
+
+.flow-node--run-completed {
+  border-color: color-mix(in srgb, var(--status-active) 42%, transparent);
+}
+
+.flow-node--run-failed {
+  border-color: color-mix(in srgb, var(--status-error) 62%, transparent);
+}
+
+.flow-node--run-paused {
+  border-color: color-mix(in srgb, var(--status-attention) 58%, transparent);
+}
+
+.flow-node--run-skipped {
+  opacity: 0.66;
+}
+
+.flow-node__run-status {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--status-idle);
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
+  flex: 0 0 auto;
+}
+
+.flow-node--run-completed .flow-node__run-status {
+  background: var(--status-active);
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.16);
+}
+
+.flow-node--run-failed .flow-node__run-status {
+  background: var(--status-error);
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18);
+}
+
+.flow-node--run-paused .flow-node__run-status {
+  background: var(--status-attention);
+  box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.16);
+}
+
+.flow-node__type {
+  font-size: var(--ds-text-2xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.flow-node__schemas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.flow-node__schema {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.flow-node__schema-label {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  min-width: 18px;
+}
+
+.flow-node__schema-keys {
+  color: var(--muted-strong);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-2xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node__handle {
+  width: 11px;
+  height: 11px;
+  background: color-mix(in srgb, var(--panel-strong) 80%, black);
+  border: 2px solid color-mix(in srgb, var(--accent) 80%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}

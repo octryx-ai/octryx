@@ -1,0 +1,105 @@
+# Written for the custom REST connector tests (OData phase 2b). It has the shape of an SAP Gateway OData v2 service
+# description as such hubs publish it: a first server whose {host}:{port} have empty defaults, a sandbox server, an
+# OAuth2 scheme whose URLs are unusable templates next to HTTP basic, one entity read by key and one PATCH, no
+# operationId, and x-sap-api-type ODATA. The -with-select variant adds an OData $select query parameter.
+openapi: 3.0.0
+info:
+  title: Business Partner (example)
+  version: 1.0.0
+x-sap-api-type: ODATA
+servers:
+  - url: 'https://{host}:{port}/sap/opu/odata/sap/API_BUSINESS_PARTNER'
+    variables:
+      host:
+        default: ''
+      port:
+        default: ''
+  - url: https://sandbox.example.test/s4hanacloud/sap/opu/odata/sap/API_BUSINESS_PARTNER
+security:
+  - OAuth2Auth: [partner.read]
+  - BasicAuth: []
+paths:
+  "/A_BusinessPartner('{BusinessPartner}')":
+    parameters:
+      - name: BusinessPartner
+        in: path
+        required: true
+        description: Business partner number
+        schema:
+          type: string
+          maxLength: 10
+    get:
+      summary: Retrieves business partner data by using business partner number.
+      responses:
+        '200':
+          description: Retrieved entity
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  d:
+                    $ref: '#/components/schemas/BusinessPartner'
+        4XX:
+          $ref: '#/components/responses/error'
+    patch:
+      summary: Updates business partner general data.
+      requestBody:
+        required: true
+        description: New property values
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                d:
+                  $ref: '#/components/schemas/BusinessPartner'
+      responses:
+        '204':
+          description: Success
+        4XX:
+          $ref: '#/components/responses/error'
+components:
+  schemas:
+    BusinessPartner:
+      type: object
+      properties:
+        BusinessPartner:
+          type: string
+          maxLength: 10
+        BusinessPartnerFullName:
+          type: string
+          maxLength: 81
+        FirstName:
+          type: string
+          maxLength: 40
+        Customer:
+          type: string
+          maxLength: 10
+  responses:
+    error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+  securitySchemes:
+    OAuth2Auth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: 'https://{host}:{port}'
+          tokenUrl: 'https://{host}:{port}'
+          scopes:
+            partner.read: Read business partners
+    BasicAuth:
+      type: http
+      scheme: basic

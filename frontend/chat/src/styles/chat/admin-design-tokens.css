@@ -1,0 +1,4 @@
+/* Stylesheet for the server-rendered admin pages; the build inlines these imports into one file. */
+@import "./admin-design-tokens-shell.css";
+@import "./admin-design-tokens-login.css";
+@import "./admin-design-tokens-refusal.css";

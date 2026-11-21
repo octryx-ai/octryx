@@ -1,0 +1,272 @@
+/* Phone page frame: top bar, sections, list rows, groups, cards and status dots. */
+.m-mark {
+  display: inline-grid;
+  place-items: center;
+  color: var(--m-accent);
+  flex: none;
+}
+.m-mark-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.m-screen,
+.m-sheet {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.m-sheet {
+  position: fixed;
+  inset: 0;
+  background: var(--m-bg);
+  z-index: 5;
+  overflow: auto;
+}
+.m-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: calc(env(safe-area-inset-top, 0px) + 56px);
+  padding: calc(env(safe-area-inset-top, 0px) + 4px) var(--m-gutter-right) 4px var(--m-gutter);
+  background: color-mix(in srgb, var(--m-bg) 92%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--m-line-soft);
+}
+/* A detail page's back (or close) button and its last action sit on the edge, their icons aligned with the page's
+   gutter, on every detail header alike. */
+.m-top > .m-icon-button:first-child {
+  margin-left: -12px;
+  color: var(--m-text);
+}
+.m-top > .m-icon-button:last-child {
+  margin-right: -12px;
+}
+.m-top-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.m-top-text strong {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-top-text span {
+  font-size: var(--ds-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-icon-button {
+  width: var(--ds-control-touch);
+  height: var(--ds-control-touch);
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--m-radius-md);
+  background: none;
+  font-size: var(--ds-text-2xl);
+  color: var(--m-muted-strong);
+  flex: none;
+}
+.m-icon-button:active {
+  background: var(--surface-overlay-hover);
+}
+.m-icon {
+  display: block;
+  flex: none;
+}
+
+.m-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px var(--m-gutter-right) calc(env(safe-area-inset-bottom, 0px) + 32px) var(--m-gutter);
+}
+/* Under a tab bar the page ends above it. */
+.m-tabbed .m-body {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--m-tabbar-height) + 32px);
+}
+.m-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+  color: var(--m-muted);
+}
+.m-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.m-section-row .m-section {
+  margin: 0;
+}
+.m-section-row + * {
+  margin-top: 8px;
+}
+.m-count {
+  min-width: 20px;
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-tone-neutral-bg);
+  color: var(--ds-tone-neutral-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1.25rem;
+  letter-spacing: 0;
+  text-transform: none;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.m-rows,
+.m-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.m-cards {
+  gap: 8px;
+}
+
+/* One list row and one card on every page: title 16/600, its lines 13 muted, the time 12 at the title's height. */
+.m-need-text > span,
+.m-row-text > span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-row-text > b {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  line-height: 1.5;
+  color: var(--m-text);
+}
+/* A grouped list: rows in one panel, hairlines between them (iOS settings style, the design system's panel). */
+.m-group {
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  overflow: hidden;
+}
+.m-group:empty {
+  display: none;
+}
+.m-group > li + li .m-row {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-row {
+  width: 100%;
+  min-height: 60px;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px 16px;
+  border: 0;
+  background: none;
+  text-align: left;
+  color: inherit;
+}
+.m-row:active,
+.m-need:active,
+.m-tile:active {
+  background: var(--surface-overlay-hover);
+}
+.m-row > .m-dot {
+  margin-top: 8px;
+}
+.m-row > .m-when,
+.m-row > .m-tag,
+.m-row > .ds-status {
+  margin-top: 4px;
+}
+.m-row-icon {
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+}
+.m-row-icon > .m-row-chevron,
+.m-row-plain > .m-row-chevron {
+  align-self: center;
+}
+.m-row-glyph {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--m-muted-strong);
+}
+.m-row-chevron {
+  color: var(--m-muted);
+}
+.m-row-text {
+  min-width: 0;
+  display: grid;
+}
+.m-row-text > b,
+.m-row-text > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-when {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.m-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: block;
+}
+/* Idle: nothing going on, a quiet ring instead of a coloured dot. */
+.m-dot-idle {
+  box-shadow: inset 0 0 0 1.5px var(--m-grey);
+  opacity: 0.7;
+}
+.m-dot-need {
+  background: var(--m-need);
+}
+.m-panel {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+}
+.m-panel p {
+  margin: 0;
+}
+.m-dot-blue {
+  background: var(--m-blue);
+}
+.m-dot-red {
+  background: var(--m-red);
+}
+.m-dot-grey {
+  background: var(--m-grey);
+}
+.m-dot-green {
+  background: var(--m-green);
+}

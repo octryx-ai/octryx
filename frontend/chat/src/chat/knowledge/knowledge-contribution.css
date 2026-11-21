@@ -1,0 +1,82 @@
+.knowledge-contribution { line-height:1.6; min-width:0; }
+.knowledge-contribution__heading { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+.knowledge-contribution__heading h2,.knowledge-contribution__heading h3 { margin-right:auto; }
+.knowledge-contribution__heading--actions { justify-content:flex-end; }
+/* Unclassed buttons only: the shared admin button classes keep their own compact geometry. */
+.knowledge-contribution button:not([class]) { padding:0.5rem 0.75rem; font:inherit; color:inherit; background:var(--surface-overlay-strong); border:1px solid var(--border); border-radius:var(--ds-radius-md); cursor:pointer; }
+.knowledge-contribution button:disabled { opacity:.5; cursor:default; }
+.knowledge-contribution label { display:grid; gap:0.25rem; margin:.5rem 0; min-width:0; }
+.knowledge-contribution input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),.knowledge-contribution textarea,.knowledge-contribution select { width:100%; box-sizing:border-box; min-width:0; }
+.knowledge-contribution input:not([class]):not([type="checkbox"]):not([type="radio"]):not([type="file"]),.knowledge-contribution textarea:not([class]),.knowledge-contribution select:not([class]) { padding:.5rem 0.75rem; font:inherit; color:inherit; background:var(--surface-overlay-strong); border:1px solid var(--border); border-radius:var(--ds-radius-md); }
+.knowledge-contribution__form { padding:1rem; margin:1rem 0; border:1px solid var(--border-soft); border-radius:var(--ds-radius-lg); min-width:0; }
+.knowledge-contribution [role="alert"] { color:var(--status-error-ink, var(--status-error)); }
+.knowledge-contribution summary { cursor:pointer; }
+.knowledge-contribution li p { margin:.5rem 0; }
+.knowledge-contribution__inline { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+.knowledge-contribution__inline label { display:flex; align-items:center; gap:0.5rem; margin:0; }
+.knowledge-contribution__fields { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.5rem; }
+@media (max-width: 720px) { .knowledge-contribution__fields { grid-template-columns:minmax(0, 1fr); } }
+.knowledge-relationships__entity { font-weight:600; color:var(--muted-strong); overflow-wrap:anywhere; }
+.knowledge-workspace__sources li h3 { overflow-wrap:anywhere; }
+
+/* Upload uses the shared edit drawer; its body is a form, not an inline card. */
+.knowledge-upload-drawer__form { min-width: 0; }
+.knowledge-upload-drawer__form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.knowledge-upload-drawer__legend { font-size: var(--ds-text-sm); font-weight: 600; margin-bottom: 0.75rem; }
+.knowledge-upload-drawer__form details { margin-top: 1rem; }
+
+/* Knowledge → Documents. Title-first list: the wide title column carries the muted source key;
+   Revisions and the always-visible action keep fixed widths. Below 40rem of list width each document
+   becomes a stacked row with labelled metadata. The container sits on the list only, so the drawers
+   (fixed overlays rendered by the section) keep the viewport as their containing block. */
+.knowledge-sources__toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:0.5rem 1rem; margin:0 0 0.75rem; }
+.knowledge-sources__actions { display:flex; gap:0.5rem; margin-left:auto; }
+/* Two-line title cells (title, then the muted origin) keep the row's breathing room. */
+.knowledge-sources__title-cell { display:grid; gap:2px; padding-block:var(--ds-space-2); }
+.knowledge-sources__filter { display:flex; align-items:center; gap:0.5rem; flex:1 1 18rem; max-width:28rem; min-width:0; }
+.knowledge-contribution .knowledge-sources__filter input { flex:1 1 auto; width:auto; }
+.knowledge-sources__summary { margin:0; }
+.knowledge-sources__sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.knowledge-sources__problem { display:grid; justify-items:start; gap:0.5rem; margin:.5rem 0 .75rem; }
+.knowledge-sources__problem p { margin:0; }
+.knowledge-sources__list { container:knowledge-sources / inline-size; min-width:0; }
+.knowledge-sources__table { table-layout:fixed; }
+.knowledge-sources__table th:nth-child(2) { width:11rem; }
+.knowledge-sources__table th:nth-child(3) { width:9rem; }
+.knowledge-sources__table td { vertical-align:top; min-width:0; }
+.knowledge-sources__title { display:block; color:var(--text); font-weight: 600; line-height:1.4; overflow-wrap:anywhere; }
+.knowledge-sources__key { display:block; margin-top:0.25rem; overflow:hidden; color:var(--muted); font-size: var(--ds-text-xs); text-overflow:ellipsis; white-space:nowrap; }
+.knowledge-sources__revisions-cell { color:var(--muted-strong); font-size: var(--ds-text-sm); }
+.knowledge-sources__actions-cell { text-align:right; }
+/* Compact table action (design guide §9.1): full label, compact geometry. */
+.knowledge-sources__actions-cell .admin-panel__action-btn { min-height:1.4rem; padding:0 .5rem; font-size: var(--ds-text-2xs); white-space:nowrap; }
+.knowledge-sources__more { margin-top:.75rem; }
+@container knowledge-sources (max-width: 40rem) {
+  .knowledge-sources__table, .knowledge-sources__table tbody { display:block; }
+  .knowledge-sources__table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
+  .knowledge-sources__table tr { display:grid; grid-template-areas:"title title" "revisions actions"; grid-template-columns:minmax(0, 1fr) auto; gap:0.5rem 1rem; padding:0.75rem 0.75rem; border-bottom:1px solid var(--border-soft); }
+  .knowledge-sources__table tr:last-child { border-bottom:none; }
+  .knowledge-sources__table tr:hover { background:var(--surface-overlay-strong); }
+  .knowledge-sources__table td { display:block; padding:0; border-bottom:none; }
+  .knowledge-sources__table tr:hover td { background:none; }
+  .knowledge-sources__table td[data-label]::before { content:attr(data-label); display:block; margin-bottom:0.25rem; color:var(--muted); font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing:.11em; text-transform:uppercase; }
+  .knowledge-sources__title-cell { grid-area:title; }
+  .knowledge-sources__key { white-space:normal; overflow-wrap:anywhere; }
+  .knowledge-sources__revisions-cell { grid-area:revisions; }
+  .knowledge-sources__actions-cell { grid-area:actions; align-self:end; }
+}
+
+/* Inline remove confirm inside the document drawer (not a modal). */
+.knowledge-sources__remove { margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border-soft); }
+.knowledge-sources__confirm { display:grid; gap:.5rem; padding:.75rem 1rem; border:1px solid color-mix(in srgb, var(--status-error) 30%, transparent); border-radius:var(--ds-radius-md); background:var(--status-error-soft); }
+.knowledge-sources__confirm-question { margin:0; font-weight: 600; color:var(--text); overflow-wrap:anywhere; }
+.knowledge-sources__confirm-list { margin:0; padding-left:1rem; font-size: var(--ds-text-sm); color:var(--muted-strong); }
+.knowledge-sources__confirm [role="alert"] { margin:0; font-size: var(--ds-text-sm); }
+.knowledge-sources__confirm-actions { display:flex; justify-content:flex-end; gap:0.5rem; }
+
+/* Relationships: a readable column instead of full-width fields, and one clear primary action. */
+.knowledge-relationships { max-width: 60rem; }
+.knowledge-relationships__form { display:grid; gap:.25rem; }
+.knowledge-relationships .knowledge-contribution__form label.knowledge-relationships__check { display:flex; align-items:center; gap:0.5rem; }
+.knowledge-relationships__actions { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:.5rem; }
+.knowledge-relationships__empty { display:grid; justify-items:start; gap:.5rem; text-align:left; padding:1.25rem; }

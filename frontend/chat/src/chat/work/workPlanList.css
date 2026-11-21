@@ -1,0 +1,46 @@
+/* Change Plans and Plan reviews: layout only; tables, badges and buttons use the Work
+   area's existing classes. */
+.work-plan-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.work-plan-list__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.work-plan-list__history {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: auto;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.work-plan-list__summary {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.work-plan-list__table td:nth-child(2) {
+  min-width: 14rem;
+}
+
+.work-plan-list__plan-title,
+.work-plan-list__meta {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted-strong);
+}
+
+.work-plan-list__table tr.is-selected td {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.work-plan-list__more {
+  justify-self: start;
+}

@@ -1,0 +1,5 @@
+/* The admin table reads like the design system's DataTable (ds-table): one frame, a raised sticky header,
+   compact rows and the same tones. The first and last cells keep a wider gutter,
+   so a column never sits against the frame. */
+@import "./admin-panel-data-table.css";
+@import "./admin-panel-data-layout.css";

@@ -1,0 +1,6 @@
+/* Design-system blocks (product inventory): DataTable, SidePanel, SegmentedTabs, StatusLabel, EmptyLine,
+   FormSection/AdvancedSection. Tokens in ds-tokens.css. Lists and tables take the full width; only running text is
+   limited. */
+@import "./design-system-table-tabs.css";
+@import "./design-system-side-panel.css";
+@import "./design-system-form-sections.css";

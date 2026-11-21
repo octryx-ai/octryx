@@ -1,0 +1,155 @@
+/* Theme tokens for the dark default and the light theme. */
+:root {
+  color-scheme: dark;
+  font-family: var(--font-sans);
+  --font-sans:
+    "Inter", "IBM Plex Sans", "Segoe UI", ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  --bg: #0e100f;
+  --bg-soft: #141715;
+  --panel: rgba(24, 26, 24, 0.97);
+  --panel-strong: #171918;
+  --panel-elevated: #1c211e;
+  --sidebar-width: clamp(17.5rem, 20vw, 20rem);
+  --shell-edge: 0.58rem;
+  --shell-radius: 1rem;
+  --shell-radius-lg: 1rem;
+  --shell-header-height: 5rem;
+  /* The chat's reading column: messages, run bar and composer share it. */
+  --chat-column: 54rem;
+  --shell-divider: rgba(255, 255, 255, 0.055);
+  --shell-shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.22);
+  --shell-shadow-hard: 0 10px 24px rgba(0, 0, 0, 0.18);
+  --shell-atmosphere:
+    radial-gradient(
+      circle at top left,
+      rgba(216, 200, 154, 0.05),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(255, 255, 255, 0.018),
+      transparent 28%
+    );
+  --sidebar-surface: rgba(17, 19, 18, 0.985);
+  --sidebar-surface-strong: rgba(19, 21, 20, 0.995);
+  --sidebar-surface-elevated: rgba(27, 30, 28, 0.98);
+  --sidebar-ornament: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.035),
+    rgba(255, 255, 255, 0.01)
+  );
+  --workspace-surface: linear-gradient(
+    180deg,
+    rgba(15, 17, 16, 0.985),
+    rgba(17, 19, 18, 0.995)
+  );
+  --workspace-surface-border: rgba(255, 255, 255, 0.055);
+  --workspace-header-surface: rgba(16, 18, 17, 0.92);
+  --brand-surface: rgba(255, 255, 255, 0.03);
+  --brand-surface-border: rgba(255, 255, 255, 0.065);
+  --border: rgba(255, 255, 255, 0.065);
+  --border-soft: rgba(255, 255, 255, 0.04);
+  --border-strong: rgba(255, 255, 255, 0.095);
+  --surface-overlay: rgba(255, 255, 255, 0.018);
+  --surface-overlay-strong: rgba(255, 255, 255, 0.036);
+  --surface-overlay-hover: rgba(255, 255, 255, 0.06);
+  --text: #efece4;
+  --muted: #898f86;
+  --muted-strong: #cbc7bc;
+  --brand-taupe-deep: #1f1c17;
+  --brand-taupe: #4f4840;
+  --brand-taupe-soft: #807769;
+  --brand-cream: #e8dfc5;
+  --brand-cream-strong: #f3ecd6;
+  --accent: var(--brand-cream);
+  --accent-soft: rgba(216, 200, 154, 0.14);
+  --accent-strong: var(--brand-cream-strong);
+  --status-active: #79b88e;
+  --status-active-soft: rgba(74, 222, 128, 0.1);
+  --status-active-ink: #9ae6b4;
+  --status-running: #6da9d8;
+  --status-running-soft: rgba(125, 211, 252, 0.1);
+  --status-running-ink: #bae6fd;
+  --status-attention: #fbbf24;
+  --status-attention-soft: rgba(251, 146, 60, 0.1);
+  --status-attention-ink: #fdba74;
+  --status-error: #f87171;
+  --status-error-soft: rgba(248, 113, 113, 0.1);
+  --status-error-ink: #fca5a5;
+  --status-idle: #7f8795;
+  --status-idle-soft: rgba(255, 255, 255, 0.04);
+  --status-idle-ink: #cbc7bc;
+  --highlight: #f7f4ec;
+  --shadow: 0 16px 34px rgba(0, 0, 0, 0.24);
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f1e8;
+  --bg-soft: #ede7db;
+  --panel: rgba(251, 248, 241, 0.96);
+  --panel-strong: #fcfaf4;
+  --panel-elevated: #f9f6ee;
+  --shell-divider: rgba(36, 39, 35, 0.075);
+  --shell-shadow-soft: 0 18px 38px rgba(35, 39, 38, 0.08);
+  --shell-shadow-hard: 0 10px 24px rgba(35, 39, 38, 0.065);
+  --shell-atmosphere:
+    radial-gradient(
+      circle at top left,
+      rgba(79, 72, 64, 0.06),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(108, 115, 104, 0.025),
+      transparent 30%
+    );
+  --sidebar-surface: rgba(245, 241, 232, 0.98);
+  --sidebar-surface-strong: rgba(248, 244, 236, 0.985);
+  --sidebar-surface-elevated: rgba(252, 249, 243, 0.98);
+  --sidebar-ornament: linear-gradient(
+    180deg,
+    rgba(36, 39, 35, 0.022),
+    rgba(36, 39, 35, 0.006)
+  );
+  --workspace-surface: linear-gradient(
+    180deg,
+    rgba(251, 248, 241, 0.96),
+    rgba(246, 241, 233, 0.99)
+  );
+  --workspace-surface-border: rgba(36, 39, 35, 0.07);
+  --workspace-header-surface: rgba(248, 244, 236, 0.78);
+  --brand-surface: rgba(36, 39, 35, 0.038);
+  --brand-surface-border: rgba(36, 39, 35, 0.065);
+  --border: rgba(36, 39, 35, 0.1);
+  --border-soft: rgba(36, 39, 35, 0.06);
+  --border-strong: rgba(36, 39, 35, 0.135);
+  --surface-overlay: rgba(36, 39, 35, 0.03);
+  --surface-overlay-strong: rgba(36, 39, 35, 0.048);
+  --surface-overlay-hover: rgba(36, 39, 35, 0.075);
+  --text: #1a1d1c;
+  --muted: #7a8076;
+  --muted-strong: #555a53;
+  --accent: var(--brand-taupe);
+  --accent-soft: rgba(79, 72, 64, 0.1);
+  --accent-strong: #2b261f;
+  --status-active: #226845;
+  --status-active-soft: rgba(34, 134, 73, 0.12);
+  --status-active-ink: #0d5132;
+  --status-running: #0e7490;
+  --status-running-soft: rgba(14, 116, 144, 0.1);
+  --status-running-ink: #075985;
+  --status-attention: #b45309;
+  --status-attention-soft: rgba(180, 83, 9, 0.1);
+  --status-attention-ink: #92400e;
+  --status-error: #dc2626;
+  --status-error-soft: rgba(248, 113, 113, 0.12);
+  --status-error-ink: #b91c1c;
+  --status-idle: #7a8076;
+  --status-idle-soft: rgba(36, 39, 35, 0.05);
+  --status-idle-ink: #555a53;
+  --highlight: #151816;
+  --shadow: 0 18px 32px rgba(35, 39, 38, 0.1);
+}

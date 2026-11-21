@@ -1,0 +1,21 @@
+{
+  "eventKey": "pr:from_ref_updated",
+  "date": "2026-11-17T08:00:00+0100",
+  "actor": {"name": "anna", "displayName": "Anna Dev"},
+  "pullRequest": {
+    "id": 12,
+    "version": 3,
+    "title": "Round totals half away from zero",
+    "state": "OPEN",
+    "draft": false,
+    "author": {"user": {"name": "anna", "displayName": "Anna Dev"}, "role": "AUTHOR"},
+    "fromRef": {"id": "refs/heads/feature/PAY-1-totals", "displayId": "feature/PAY-1-totals",
+                "latestCommit": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00",
+                "repository": {"slug": "demo-shop", "project": {"key": "SHOP"}}},
+    "toRef": {"id": "refs/heads/main", "displayId": "main",
+              "latestCommit": "2222222222222222222222222222222222222222",
+              "repository": {"slug": "demo-shop", "project": {"key": "SHOP"}}},
+    "links": {"self": [{"href": "https://bitbucket.example.test/projects/SHOP/repos/demo-shop/pull-requests/12"}]}
+  },
+  "previousFromHash": "1111111111111111111111111111111111111111"
+}

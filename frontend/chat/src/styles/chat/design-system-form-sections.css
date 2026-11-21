@@ -1,0 +1,53 @@
+/* Design-system FormSection, AdvancedSection and the admin entry tabs. */
+/* ---- FormSection / AdvancedSection ----------------------------------------------------------- */
+.ds-form-section {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+  border: 0;
+}
+
+.ds-form-section__title {
+  margin-bottom: 0.25rem;
+  padding: 0;
+  color: var(--ds-text);
+  font-size: var(--ds-font-size);
+  font-weight: 600;
+}
+
+.ds-form-section__body { display: grid; gap: 0.5rem; min-width: 0; }
+
+.ds-advanced {
+  margin: 0 0 1rem;
+  border-top: 1px solid var(--ds-line);
+  padding-top: 0.5rem;
+}
+
+.ds-advanced__summary {
+  color: var(--ds-muted);
+  font-size: var(--ds-font-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ds-advanced[open] > .ds-advanced__summary { margin-bottom: 0.5rem; color: var(--ds-text); }
+.ds-advanced__summary:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+
+/* Admin entry views: the segments of one Admin entry above its page; a second small row for a view
+   with several pages. */
+.admin-entry-tabs {
+  display: grid;
+  /* The views row keeps to the page width (its segments scroll inside it), so the last views (Repositories,
+     Jira write-back) are never pushed out of the page on a narrow window or beside the page help. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-gap-sm, 0.5rem);
+  margin: 0 0 var(--ds-gap-md, 0.75rem);
+}
+.admin-entry-tabs__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-gap-sm, 0.5rem);
+}

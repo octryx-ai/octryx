@@ -1,0 +1,108 @@
+/* Channels page: sub-tab bar, delivery target form, empty
+   states with a next step. Tokens only. */
+
+.admin-channels__tabs {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.admin-channels__tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  padding: 0.5rem 0.1rem;
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-channels__tab:hover {
+  color: var(--text);
+}
+
+.admin-channels__tab:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-radius: var(--ds-radius-md);
+}
+
+.admin-channels__tab--active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.admin-channels__targets {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-channels__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-channels__form-title {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.admin-channels__formats {
+  margin: 0.25rem 0;
+  padding-left: 1rem;
+}
+
+.admin-channels__formats li + li {
+  margin-top: 0.25rem;
+}
+
+.admin-channels__example {
+  overflow-wrap: anywhere;
+}
+
+.admin-channels__parts {
+  margin: 0.25rem 0 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.admin-channels__parts div {
+  display: contents;
+}
+
+.admin-channels__parts dt {
+  color: var(--muted);
+}
+
+.admin-channels__parts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A long Teams target stays on one line in the compact table; the full value is its tooltip. */
+.admin-channels__target-cell {
+  display: block;
+  max-width: 32rem;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-channels__empty-action {
+  margin-top: 0.5rem;
+}
+
+/* The signing secret of a new outbound webhook, shown once in its side panel. */
+.admin-outbound-webhook__secret {
+  font-size: var(--ds-text-xs);
+  word-break: break-all;
+}

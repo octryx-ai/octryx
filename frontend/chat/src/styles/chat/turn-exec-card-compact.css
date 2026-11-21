@@ -1,0 +1,27 @@
+/* Turn execution card compact form with folded explanation. */
+/* The ordinary finished reply keeps its status row visible and folds the explanation into a
+   native disclosure (keyboard: Tab to "About this status", Enter or Space to open). */
+.turn-exec-card--compact {
+  padding-block: 0.5rem;
+}
+
+.turn-exec-card__explain > summary {
+  width: fit-content;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+
+.turn-exec-card__explain > summary:focus-visible {
+  outline: none;
+  border-radius: var(--ds-radius-sm);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.turn-exec-card__explain[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
+.turn-exec-card__explain > .turn-exec-card__reason + .turn-exec-card__reason {
+  margin-top: 0.25rem;
+}

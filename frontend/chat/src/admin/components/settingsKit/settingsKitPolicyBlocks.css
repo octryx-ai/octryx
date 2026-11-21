@@ -1,0 +1,129 @@
+/* Settings kit step pills, policy code, outcome pills, coverage grid, pipeline, score bar and crumbs. */
+/* Step pills of a multi-step drawer. */
+.sk-steps { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.sk-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+  background: transparent;
+  cursor: pointer;
+}
+.sk-step[aria-current="step"] {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.sk-step:disabled { opacity: 0.5; cursor: not-allowed; }
+.sk-step__n {
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+/* Generated policy text and the rule sentence. */
+.sk-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--muted-strong);
+  background: var(--bg);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  padding: 0.75rem 0.75rem;
+}
+.sk-sentence { font-size: var(--ds-text-md); line-height: 1.6; color: var(--muted-strong); margin: 0; }
+.sk-sentence b { color: var(--text); }
+.sk-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.sk-option-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.sk-num { width: 5.5rem; }
+
+/* Outcome pills (refuse / mask / report / not scanned) and the coverage grid. */
+.sk-out {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  color: var(--muted-strong);
+}
+.sk-out--mask {
+  border-color: color-mix(in srgb, var(--status-running) 35%, transparent);
+  color: var(--status-running-ink);
+  background: color-mix(in srgb, var(--status-running) 8%, transparent);
+}
+.sk-out--refuse {
+  border-color: color-mix(in srgb, var(--status-error) 35%, transparent);
+  color: var(--status-error-ink);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+}
+.sk-out--report {
+  border-color: color-mix(in srgb, var(--status-attention) 35%, transparent);
+  color: var(--status-attention-ink);
+  background: color-mix(in srgb, var(--status-attention) 8%, transparent);
+}
+.sk-out--none { opacity: 0.6; border-style: dashed; }
+.sk-cov {
+  display: grid;
+  grid-template-columns: 11rem repeat(var(--sk-cov-columns, 5), minmax(0, 1fr));
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  overflow: hidden;
+  font-size: var(--ds-text-xs);
+}
+.sk-cov__row { display: contents; }
+.sk-cov > div:not(.sk-cov__row),
+.sk-cov__row > div { padding: 0.5rem 0.5rem; border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); min-width: 0; }
+.sk-cov > .h {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: var(--surface-overlay);
+}
+.sk-cov .s { font-weight: 600; background: var(--surface-overlay); }
+.sk-cov .s small { display: block; color: var(--muted); font-weight: 400; font-size: var(--ds-text-2xs); }
+.sk-pipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.sk-pipe h4 { margin: 0; font-size: var(--ds-text-md); }
+.sk-pipe__n { font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+
+/* Score bar of the AI risk review. */
+.sk-bar {
+  position: relative;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--status-active) 45%, transparent) 0 var(--sk-ask, 40%),
+    color-mix(in srgb, var(--status-attention) 45%, transparent) var(--sk-ask, 40%) var(--sk-block, 80%),
+    color-mix(in srgb, var(--status-error) 45%, transparent) var(--sk-block, 80%) 100%
+  );
+}
+.sk-bar-legend { display: flex; justify-content: space-between; font-size: var(--ds-text-2xs); color: var(--muted); margin-top: 0.25rem; }
+
+.sk-wsec { display: grid; gap: 0.75rem; }
+.sk-crumb {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+.sk-crumb:hover { color: var(--text); }
+.sk-off { opacity: 0.5; }
+.sk-tabs-scroll { overflow-x: auto; }

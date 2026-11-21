@@ -1,0 +1,135 @@
+/* Trace drawer tool list and turn diff. */
+.trace-drawer .tool-list {
+  gap: 0.5rem;
+}
+
+.trace-drawer .tool-list--compact {
+  margin-top: 0;
+}
+
+.trace-turn-diff {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.turn-trace-modal__diff {
+  margin-top: 1rem;
+}
+
+.trace-turn-diff__header {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.trace-turn-diff__section {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.trace-turn-diff__section--command {
+  border: 1px solid color-mix(in srgb, var(--status-running) 12%, transparent);
+}
+
+.trace-turn-diff__section--file {
+  border: 1px solid color-mix(in srgb, var(--status-active) 12%, transparent);
+}
+
+.trace-turn-diff__section--policy {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 12%, transparent);
+}
+
+.trace-turn-diff__label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.trace-turn-diff__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.trace-turn-diff__item-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.05rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.trace-turn-diff__item-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.trace-turn-diff__item strong {
+  color: var(--text);
+  font-weight: 600;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.trace-turn-diff__subtle {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.trace-turn-diff__badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.trace-turn-diff__badge--success {
+  background: color-mix(in srgb, var(--status-active) 12%, transparent);
+  color: var(--status-active-ink);
+}
+
+.trace-turn-diff__badge--warning {
+  background: color-mix(in srgb, var(--status-attention) 12%, transparent);
+  color: var(--status-attention);
+}
+
+.trace-turn-diff__badge--danger {
+  background: color-mix(in srgb, var(--status-error) 12%, transparent);
+  color: var(--status-error-ink);
+}
+
+.trace-turn-diff__badge--muted {
+  background: var(--surface-overlay-hover);
+  color: var(--muted-strong);
+}

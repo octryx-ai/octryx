@@ -1,0 +1,89 @@
+/* Admin users page: toolbar inputs, self badge and row icon actions. */
+.admin-users__toolbar-input,
+.admin-users__toolbar-select {
+  min-height: 2.1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  background: var(--surface-overlay-strong);
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.admin-users__toolbar-input:focus,
+.admin-users__toolbar-select:focus {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.admin-users__toolbar-input {
+  width: 100%;
+}
+
+.admin-users__toolbar-select {
+  width: 100%;
+  cursor: pointer;
+}
+
+.admin-users__self-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-style: italic;
+  background: var(--surface-overlay);
+}
+
+.admin-users__icon-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-start;
+}
+
+.admin-users__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  background: var(--surface-overlay-strong);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.admin-users__icon-btn:hover:not(:disabled) {
+  background: var(--surface-overlay-hover);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
+.admin-users__icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.admin-users__icon-btn--danger {
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 28%, transparent);
+  background: color-mix(in srgb, var(--status-error) 6%, transparent);
+}
+
+.admin-users__icon-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--status-error) 14%, transparent);
+  border-color: color-mix(in srgb, var(--status-error) 45%, transparent);
+  color: var(--status-error-ink);
+}

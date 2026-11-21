@@ -1,0 +1,67 @@
+.confirm-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm-dialog {
+  width: min(28rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-xl);
+  background: var(--panel-elevated, var(--panel-strong));
+  box-shadow: var(--shell-shadow-soft);
+  outline: none;
+}
+
+.confirm-dialog__title {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  color: var(--text);
+}
+
+.confirm-dialog__body {
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+  color: var(--muted-strong);
+}
+
+.confirm-dialog__body ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1rem;
+}
+
+.confirm-dialog__error {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--status-error-ink);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Why the confirm button waits: shown under the field it needs. */
+.confirm-dialog__why {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.confirm-action__notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}

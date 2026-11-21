@@ -1,0 +1,107 @@
+/* Chat workspace Run details disclosure and its facts. */
+/* Run details: governing turn state on request, not as the header. */
+/* A text control at the end of the context line: sentence case with a chevron, no chip. */
+.workspace__run-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workspace__run-details::before {
+  content: "";
+  display: inline-block;
+  width: 0.2rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.workspace__run-details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--muted);
+  font-size: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+  transition: color 160ms ease, background 160ms ease;
+}
+
+.workspace__run-details > summary::after {
+  content: "";
+  width: 0.36rem;
+  height: 0.36rem;
+  margin-top: -0.25rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 160ms ease;
+}
+
+.workspace__run-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.workspace__run-details > summary:hover,
+.workspace__run-details[open] > summary {
+  color: var(--text);
+  background: var(--surface-overlay-strong);
+}
+
+.workspace__run-details > summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.workspace__run-details[open] > summary::after {
+  margin-top: 0.25rem;
+  transform: rotate(225deg);
+}
+
+/* The opened body floats below the header instead of growing it: the header
+   has a fixed height, so in-flow chips cut the title off and overlap the first
+   message. The details element itself stays unpositioned so the body anchors
+   to the sticky header (its containing block), which also keeps it outside
+   the sideways-scrolling signal row on compact layouts. */
+.workspace__run-details-body {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 1.28rem;
+  z-index: 24;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.25rem 1rem;
+  max-width: min(40rem, calc(100% - 2.56rem));
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel);
+  /* Opaque: the panel colour is slightly transparent and the first message would show through. */
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--panel), var(--panel));
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
+}
+
+/* One fact per row, label and value in words (no capitals, no chips): "Model used  bedrock / …". */
+.workspace__run-fact {
+  display: contents;
+}
+
+.workspace__run-fact dt {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+}
+
+.workspace__run-fact dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}

@@ -1,0 +1,3 @@
+/* Research policy admin: imports its partials in cascade order. */
+@import "./admin-research-policies-editor.css";
+@import "./admin-research-policies-drawer.css";

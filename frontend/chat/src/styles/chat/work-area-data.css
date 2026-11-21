@@ -1,0 +1,4 @@
+/* Work area data stylesheet: imports its partials in cascade order. */
+@import "./work-board-table.css";
+@import "./work-pr-sync.css";
+@import "./work-runs-epics.css";

@@ -1,0 +1,407 @@
+{
+ "drift": {
+  "kind": "library",
+  "words": [
+   "drift"
+  ],
+  "packages": [
+   "drift",
+   "drift_flutter"
+  ],
+  "uses": "package:drift(_flutter)?/"
+ },
+ "sqlite": {
+  "kind": "library",
+  "words": [
+   "sqlite",
+   "sqlite3"
+  ],
+  "packages": [
+   "sqflite",
+   "sqflite_common_ffi",
+   "sqlite3",
+   "sqlite3_flutter_libs",
+   "drift",
+   "drift_flutter",
+   "better-sqlite3",
+   "sql.js",
+   "wa-sqlite",
+   "@sqlite.org/sqlite-wasm",
+   "aiosqlite",
+   "sqlite"
+  ],
+  "uses": "package:(sqflite|sqlite3|drift)|['\\\"](better-sqlite3|sql\\.js|wa-sqlite|@sqlite\\.org/sqlite-wasm|sqlite3?)['\\\"]|^\\s*(import|from)\\s+(sqlite3|aiosqlite)\\b|android\\.database\\.sqlite|import\\s+SQLite3"
+ },
+ "hive": {
+  "kind": "library",
+  "words": [
+   "hive"
+  ],
+  "packages": [
+   "hive",
+   "hive_flutter",
+   "hive_ce",
+   "hive_ce_flutter"
+  ],
+  "uses": "package:hive"
+ },
+ "isar": {
+  "kind": "library",
+  "words": [
+   "isar"
+  ],
+  "packages": [
+   "isar",
+   "isar_flutter_libs"
+  ],
+  "uses": "package:isar"
+ },
+ "shared_preferences": {
+  "kind": "library",
+  "words": [
+   "shared_preferences",
+   "shared preferences"
+  ],
+  "packages": [
+   "shared_preferences"
+  ],
+  "uses": "package:shared_preferences/"
+ },
+ "indexeddb": {
+  "kind": "platform_api",
+  "words": [
+   "indexeddb",
+   "indexed db"
+  ],
+  "packages": [
+   "idb",
+   "dexie",
+   "idb_shim",
+   "idb-keyval",
+   "localforage"
+  ],
+  "uses": "indexedDB\\.open|window\\.indexedDB|['\\\"](idb|dexie|idb-keyval|localforage)['\\\"]|package:idb_shim"
+ },
+ "postgres": {
+  "kind": "library",
+  "words": [
+   "postgres",
+   "postgresql"
+  ],
+  "packages": [
+   "pg",
+   "postgres",
+   "psycopg",
+   "psycopg2",
+   "asyncpg",
+   "postgresql"
+  ],
+  "uses": "['\\\"](pg|postgres)['\\\"]|^\\s*(import|from)\\s+(psycopg2?|asyncpg)\\b|package:postgres/"
+ },
+ "riverpod": {
+  "kind": "library",
+  "words": [
+   "riverpod"
+  ],
+  "packages": [
+   "riverpod",
+   "flutter_riverpod",
+   "hooks_riverpod"
+  ],
+  "uses": "package:(flutter_|hooks_)?riverpod/"
+ },
+ "bloc": {
+  "kind": "library",
+  "words": [
+   "bloc"
+  ],
+  "packages": [
+   "bloc",
+   "flutter_bloc"
+  ],
+  "uses": "package:(flutter_)?bloc/"
+ },
+ "go_router": {
+  "kind": "library",
+  "words": [
+   "go_router"
+  ],
+  "packages": [
+   "go_router"
+  ],
+  "uses": "package:go_router/"
+ },
+ "react": {
+  "kind": "library",
+  "words": [
+   "react"
+  ],
+  "packages": [
+   "react"
+  ],
+  "uses": "from\\s+['\\\"]react['\\\"]|require\\(['\\\"]react['\\\"]\\)"
+ },
+ "vue": {
+  "kind": "library",
+  "words": [
+   "vue"
+  ],
+  "packages": [
+   "vue"
+  ],
+  "uses": "from\\s+['\\\"]vue['\\\"]|\\.vue['\\\"]"
+ },
+ "svelte": {
+  "kind": "library",
+  "words": [
+   "svelte"
+  ],
+  "packages": [
+   "svelte"
+  ],
+  "uses": "from\\s+['\\\"]svelte|\\.svelte['\\\"]"
+ },
+ "tailwind": {
+  "kind": "library",
+  "words": [
+   "tailwind",
+   "tailwindcss"
+  ],
+  "packages": [
+   "tailwindcss",
+   "@tailwindcss/vite",
+   "@tailwindcss/postcss"
+  ],
+  "uses": "@tailwind|@import\\s+['\\\"]tailwindcss"
+ },
+ "zustand": {
+  "kind": "library",
+  "words": [
+   "zustand"
+  ],
+  "packages": [
+   "zustand"
+  ],
+  "uses": "from\\s+['\\\"]zustand"
+ },
+ "redux": {
+  "kind": "library",
+  "words": [
+   "redux"
+  ],
+  "packages": [
+   "redux",
+   "@reduxjs/toolkit",
+   "react-redux"
+  ],
+  "uses": "from\\s+['\\\"](@reduxjs/|redux)"
+ },
+ "prisma": {
+  "kind": "library",
+  "words": [
+   "prisma"
+  ],
+  "packages": [
+   "prisma",
+   "@prisma/client"
+  ],
+  "uses": "@prisma/client"
+ },
+ "sqlalchemy": {
+  "kind": "library",
+  "words": [
+   "sqlalchemy"
+  ],
+  "packages": [
+   "sqlalchemy"
+  ],
+  "uses": "^\\s*(import|from)\\s+sqlalchemy\\b"
+ },
+ "fastapi": {
+  "kind": "library",
+  "words": [
+   "fastapi"
+  ],
+  "packages": [
+   "fastapi"
+  ],
+  "uses": "^\\s*(import|from)\\s+fastapi\\b"
+ },
+ "sqflite": {
+  "kind": "library",
+  "words": [
+   "sqflite"
+  ],
+  "packages": [
+   "sqflite",
+   "sqflite_common_ffi"
+  ],
+  "uses": "package:sqflite"
+ },
+ "objectbox": {
+  "kind": "library",
+  "words": [
+   "objectbox"
+  ],
+  "packages": [
+   "objectbox",
+   "objectbox_flutter_libs",
+   "io.objectbox"
+  ],
+  "uses": "package:objectbox/|import\\s+io\\.objectbox"
+ },
+ "room": {
+  "kind": "library",
+  "words": [
+   "androidx room",
+   "room database",
+   "room persistence"
+  ],
+  "packages": [
+   "androidx.room:room-runtime",
+   "androidx.room:room-ktx",
+   "room-runtime"
+  ],
+  "uses": "import\\s+androidx\\.room\\."
+ },
+ "core_data": {
+  "kind": "platform_api",
+  "words": [
+   "core data",
+   "coredata"
+  ],
+  "packages": [],
+  "uses": "import\\s+CoreData\\b|NSPersistentContainer"
+ },
+ "swiftdata": {
+  "kind": "platform_api",
+  "words": [
+   "swiftdata"
+  ],
+  "packages": [],
+  "uses": "import\\s+SwiftData\\b|@Model\\b"
+ },
+ "flutter_secure_storage": {
+  "kind": "library",
+  "words": [
+   "flutter_secure_storage",
+   "secure storage"
+  ],
+  "packages": [
+   "flutter_secure_storage"
+  ],
+  "uses": "package:flutter_secure_storage/"
+ },
+ "provider": {
+  "kind": "library",
+  "words": [
+   "provider package",
+   "package:provider",
+   "provider (state)"
+  ],
+  "packages": [
+   "provider"
+  ],
+  "uses": "package:provider/"
+ },
+ "mobx": {
+  "kind": "library",
+  "words": [
+   "mobx"
+  ],
+  "packages": [
+   "mobx",
+   "flutter_mobx",
+   "mobx-react",
+   "mobx-react-lite"
+  ],
+  "uses": "package:(flutter_)?mobx/|from\\s+['\\\"]mobx"
+ },
+ "next": {
+  "kind": "library",
+  "words": [
+   "next.js",
+   "nextjs"
+  ],
+  "packages": [
+   "next"
+  ],
+  "uses": "from\\s+['\\\"]next/|from\\s+['\\\"]next['\\\"]"
+ },
+ "angular": {
+  "kind": "library",
+  "words": [
+   "angular"
+  ],
+  "packages": [
+   "@angular/core"
+  ],
+  "uses": "from\\s+['\\\"]@angular/"
+ },
+ "django": {
+  "kind": "library",
+  "words": [
+   "django"
+  ],
+  "packages": [
+   "django",
+   "Django"
+  ],
+  "uses": "^\\s*(import|from)\\s+django\\b"
+ },
+ "spring": {
+  "kind": "library",
+  "words": [
+   "spring boot",
+   "spring framework"
+  ],
+  "packages": [
+   "org.springframework.boot",
+   "spring-boot-starter",
+   "spring-boot-starter-web"
+  ],
+  "uses": "import\\s+org\\.springframework\\."
+ },
+ "hibernate": {
+  "kind": "library",
+  "words": [
+   "hibernate",
+   "jpa"
+  ],
+  "packages": [
+   "org.hibernate",
+   "hibernate-core",
+   "spring-boot-starter-data-jpa"
+  ],
+  "uses": "import\\s+(org\\.hibernate|jakarta\\.persistence|javax\\.persistence)\\."
+ },
+ "diesel": {
+  "kind": "library",
+  "words": [
+   "diesel"
+  ],
+  "packages": [
+   "diesel"
+  ],
+  "uses": "\\buse\\s+diesel\\b|diesel::"
+ },
+ "sqlx": {
+  "kind": "library",
+  "words": [
+   "sqlx"
+  ],
+  "packages": [
+   "sqlx"
+  ],
+  "uses": "\\buse\\s+sqlx\\b|sqlx::"
+ },
+ "local_storage": {
+  "kind": "platform_api",
+  "words": [
+   "localstorage",
+   "local storage"
+  ],
+  "packages": [],
+  "uses": "window\\.localStorage|\\blocalStorage\\.(setItem|getItem)|html\\.window\\.localStorage"
+ }
+}

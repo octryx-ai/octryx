@@ -1,0 +1,122 @@
+/* Admin option (radio) cards and metric cards. */
+.admin-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1rem;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface-overlay);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.admin-option-card:hover {
+  background: var(--surface-overlay-strong);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  transform: translateY(-0.5px);
+}
+
+/* Radio card: a <label class="admin-option-card"> around a native radio (keyboard arrows, form semantics). */
+.admin-option-card input[type="radio"],
+.admin-option-card input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 0.25rem 0 0;
+  accent-color: var(--accent);
+}
+
+.admin-option-card:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--surface-overlay-strong);
+}
+
+.admin-option-card:has(input:focus-visible) { box-shadow: 0 0 0 3px var(--accent-soft); }
+.admin-option-card:has(input:disabled) { cursor: not-allowed; transform: none; }
+.admin-option-card:has(input:disabled:not(:checked)) { opacity: 0.6; }
+
+/* Inside a <label> the body parts are spans; they stack like the div variant. */
+.admin-option-card__title,
+.admin-option-card__desc { display: block; }
+
+.admin-option-card__icon {
+  display: grid;
+  place-items: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  flex-shrink: 0;
+}
+
+.admin-option-card__icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.admin-option-card__icon img {
+  width: 1.15rem;
+  height: 1.15rem;
+  object-fit: contain;
+  display: block;
+}
+
+.admin-option-card__body {
+  min-width: 0;
+  flex: 1;
+}
+
+.admin-option-card__title {
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.admin-option-card__desc {
+  margin-top: 0.25rem;
+  font-size: var(--ds-text-sm);
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.admin-metric-grid {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.admin-metric-card {
+  flex: 1 1 160px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  padding: 1rem 1rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.admin-metric-card__label {
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+}
+
+.admin-metric-card__value {
+  font-size: var(--ds-text-2xl);
+  font-weight: 600;
+  color: var(--highlight);
+}

@@ -1,0 +1,149 @@
+/* The run's Tokens view: a stacked bar per phase by category, top consumers, savings hints.
+   Own file: the run card on desktop and the phone's run page both show it. Every grid column is minmax(0, 1fr):
+   a long unbroken label (a file path) must wrap, not widen the panel past a phone's width. */
+.run-tokens > summary {
+  width: fit-content;
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.run-tokens > summary:hover {
+  color: var(--text);
+}
+
+.run-tokens__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: var(--ds-space-3);
+  margin-top: var(--ds-space-2);
+  color: var(--text);
+}
+
+.run-tokens__meta,
+.run-tokens__phase-meta {
+  margin: 0;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.run-tokens__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1) var(--ds-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.run-tokens__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+}
+
+.run-tokens__swatch {
+  width: var(--ds-space-2);
+  height: var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+}
+
+.run-tokens__phases {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.run-tokens__phase {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-1);
+}
+
+.run-tokens__phase-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+}
+
+.run-tokens__phase-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.run-tokens__phase-total,
+.run-tokens__value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-strong);
+}
+
+.run-tokens__bar {
+  display: flex;
+  height: var(--ds-space-3);
+  overflow: hidden;
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay-strong);
+}
+
+.run-tokens__part {
+  display: block;
+  height: 100%;
+}
+
+.run-tokens__part--system_and_tools { background: color-mix(in srgb, var(--muted-strong) 55%, transparent); }
+.run-tokens__part--prompt { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.run-tokens__part--tool_results { background: color-mix(in srgb, var(--status-attention) 75%, transparent); }
+.run-tokens__part--history { background: color-mix(in srgb, var(--status-running) 60%, transparent); }
+.run-tokens__part--subagents { background: color-mix(in srgb, var(--status-active) 65%, transparent); }
+.run-tokens__part--output { background: color-mix(in srgb, var(--status-error) 55%, transparent); }
+
+.run-tokens__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-1);
+}
+
+.run-tokens__title {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-strong);
+  color: var(--text);
+}
+
+.run-tokens__list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ds-text-sm);
+}
+
+.run-tokens__list li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+}
+
+.run-tokens__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .run-tokens__list li {
+    flex-direction: column;
+    gap: 0;
+  }
+}

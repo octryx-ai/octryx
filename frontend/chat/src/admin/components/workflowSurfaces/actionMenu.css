@@ -1,0 +1,86 @@
+/* Header "More" menu shared by the Agents & workflows pages. Tokens only. */
+.action-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.action-menu__list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  min-width: 11rem;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel-strong);
+  box-shadow: var(--shell-shadow-hard);
+}
+
+.action-menu .action-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.action-menu .action-menu__item:hover:not(:disabled),
+.action-menu .action-menu__item:focus-visible {
+  outline: none;
+  background: var(--surface-overlay-hover);
+}
+
+.action-menu .action-menu__item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.action-menu .action-menu__item--danger {
+  color: var(--status-error-ink);
+}
+
+/* The "⋯" menu of a list row: quiet until hovered, its list above every container. */
+.action-menu .action-menu__row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-control-md);
+  height: var(--ds-control-md);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xl);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.action-menu .action-menu__row-btn:hover,
+.action-menu .action-menu__row-btn[aria-expanded="true"] {
+  border-color: var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+}
+
+/* In a table row the "⋯" is a small icon square, like every row button (UI set: 28 in rows). */
+.ds-table .action-menu .action-menu__row-btn,
+.admin-panel__table .action-menu .action-menu__row-btn {
+  width: var(--ds-control-sm);
+  height: var(--ds-control-sm);
+}
+
+.action-menu__list--row {
+  z-index: 120;
+}

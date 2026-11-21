@@ -1,0 +1,178 @@
+/* Admin users API keys, identity providers, group mapping and narrow-screen layout. */
+.admin-users__api-key-form {
+  display: grid;
+  grid-template-columns:
+    minmax(10rem, 1.2fr) minmax(10rem, 1.2fr) minmax(10rem, 0.9fr)
+    auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.admin-users__api-key-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-users__api-key-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.admin-users__secret-once {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.admin-users__secret-once code {
+  overflow-wrap: anywhere;
+  padding: 0.5rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  background: var(--bg-soft);
+}
+
+.admin-users__provider-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.admin-users__provider-create {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.admin-users__provider-create label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.admin-users__provider-create button {
+  align-self: end;
+}
+
+.admin-users__provider-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay-strong);
+}
+
+.admin-users__provider-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-users__provider-header h4 {
+  margin: 0;
+  color: var(--text);
+}
+
+.admin-users__provider-header span {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.admin-users__provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-users__provider-grid label,
+.admin-users__mapping-columns label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.admin-users__provider-wide {
+  grid-column: 1 / -1;
+}
+
+.admin-users__provider-section {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.admin-users__mapping-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.admin-users__provider-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* External group → local roles / groups, picked by name (Sign-in & SSO). */
+.admin-users__mapping-editor {
+  display: grid;
+  gap: 0.5rem;
+  align-content: start;
+}
+
+.admin-users__mapping-row {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+}
+
+.admin-users__mapping-row > button {
+  justify-self: start;
+}
+
+[data-theme="light"] .group-multiselect__dropdown {
+  box-shadow: 0 8px 24px rgba(36, 39, 35, 0.12);
+}
+
+@media (max-width: 760px) {
+  .admin-users__roles-header,
+  .admin-users__role-create,
+  .admin-users__provider-create,
+  .admin-users__provider-grid,
+  .admin-users__provider-header,
+  .admin-users__mapping-columns,
+  .admin-users__api-key-form,
+  .admin-users__api-key-card,
+  .admin-users__toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-users__api-key-card {
+    display: grid;
+  }
+
+  .admin-users__roles-header {
+    display: grid;
+  }
+}

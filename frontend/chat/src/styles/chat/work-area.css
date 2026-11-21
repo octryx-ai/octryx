@@ -1,0 +1,5 @@
+/* Work area stylesheet: imports its partials in cascade order. */
+@import "./work-area-sidebar.css";
+@import "./work-area-main.css";
+@import "./work-area-narrow.css";
+@import "./work-area-compact-filters.css";

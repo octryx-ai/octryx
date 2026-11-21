@@ -1,0 +1,250 @@
+/* The chat's start card for a phased workflow and the "Other workflow…" picker (WorkflowStartCard.tsx,
+   OtherWorkflowPicker.tsx). A card of the UI set (README.md, UI set): border, radius lg, padding 16, title 14/600, meta 12
+   muted; the left edge carries the status tone (attention while it waits, success once started, problem when the
+   start was refused). Theme tokens only. */
+.workflow-start {
+  --workflow-start-tone: var(--status-attention);
+  display: grid;
+  gap: var(--ds-space-3);
+  max-width: 40rem;
+  margin: 0 0 var(--ds-space-2);
+  padding: var(--ds-space-4);
+  border: 1px solid var(--border);
+  border-left: 3px solid color-mix(in srgb, var(--workflow-start-tone) 70%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-strong);
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+
+.workflow-start--success { --workflow-start-tone: var(--status-active); }
+.workflow-start--error { --workflow-start-tone: var(--status-error); }
+.workflow-start--neutral { --workflow-start-tone: var(--status-idle); }
+
+.workflow-start__head { display: grid; gap: var(--ds-space-1); }
+
+.workflow-start__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+}
+
+.workflow-start__title {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+  overflow-wrap: anywhere;
+}
+
+.workflow-start__item {
+  display: grid;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.workflow-start__item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-1) var(--ds-space-3);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start__jira {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start__type { color: var(--muted-strong); font-weight: var(--ds-weight-medium); }
+
+.workflow-start__key {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+a.workflow-start__key,
+.workflow-start__link { color: var(--accent); text-decoration: none; }
+a.workflow-start__key:hover,
+.workflow-start__link:hover { text-decoration: underline; }
+
+.workflow-start__link { justify-self: start; font-size: var(--ds-text-xs); }
+
+.workflow-start__item-title {
+  margin: 0;
+  font-weight: var(--ds-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.workflow-start__description,
+.workflow-start__description > p {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.workflow-start__description > summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+}
+
+.workflow-start__description[open] > summary { margin-bottom: var(--ds-space-1); }
+
+.workflow-start__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1) var(--ds-space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: workflow-step;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start__steps > li { counter-increment: workflow-step; }
+.workflow-start__steps > li::before {
+  content: counter(workflow-step) ". ";
+  color: var(--muted);
+}
+
+.workflow-start__notes {
+  display: grid;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start .admin-panel__field { margin: 0; }
+
+.workflow-start__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ds-space-2);
+}
+
+.workflow-start__problem {
+  margin: 0;
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start__quiet {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.workflow-start__done { margin: 0; }
+.workflow-start__done > a { text-decoration: none; }
+
+/* "Other workflow…": an inline list under the card's buttons. */
+.workflow-other {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+.turn-exec-card .workflow-other { margin-top: var(--ds-space-1); }
+
+.workflow-other__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+
+.workflow-other__label {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-strong);
+}
+
+.workflow-other__search { width: 100%; }
+
+.workflow-other__list {
+  display: grid;
+  gap: var(--ds-space-1);
+  max-height: 16rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.workflow-other__option {
+  display: grid;
+  gap: var(--ds-space-1);
+  width: 100%;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workflow-other__option:hover:not(:disabled) { background: var(--surface-overlay-hover); border-color: var(--border-strong); }
+.workflow-other__option:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.workflow-other__option:disabled { opacity: 0.6; cursor: default; }
+
+.workflow-other__title { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); }
+
+.workflow-other__description {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-other__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+@media (max-width: 640px) {
+  .workflow-start { padding: var(--ds-space-3); }
+  .workflow-start__actions { justify-content: stretch; }
+  .workflow-start__actions > .ds-btn { flex: 1 1 auto; min-height: var(--ds-control-md); }
+}
+
+/* The repository the run works in: a line with its source and "Change", or a required choice. */
+.workflow-start__repository { display: grid; gap: var(--ds-space-1); }
+.workflow-start__repository-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--ds-space-1);
+  margin: 0;
+  font-size: var(--ds-text-xs);
+  color: var(--text);
+}
+.workflow-start__repository-label { color: var(--muted); }
+.workflow-start__meta { color: var(--muted); }
+.workflow-start__change { margin-left: var(--ds-space-1); }
+.workflow-start__hint {
+  order: -1;
+  margin-right: auto;
+  align-self: center;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}

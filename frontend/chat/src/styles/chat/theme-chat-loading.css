@@ -1,0 +1,32 @@
+/* Chat loading state and its pulse animation. */
+.chat-loading {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  gap: 1rem;
+  color: var(--muted-strong);
+}
+
+.chat-loading__orb {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    rgba(232, 223, 197, 0.95),
+    rgba(216, 200, 154, 0.08)
+  );
+  box-shadow: 0 0 0 14px rgba(216, 200, 154, 0.08);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    transform: scale(0.96);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
+}

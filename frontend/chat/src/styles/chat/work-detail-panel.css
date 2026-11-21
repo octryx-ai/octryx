@@ -1,0 +1,214 @@
+/* Work item detail drawer: header, status strip, sections, facts, links, mappings and raw data. */
+.work-detail {
+  display: grid;
+  /* One column as wide as the drawer: long plan content wraps instead of widening it. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  max-height: calc(100vh - 7rem);
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel);
+  padding: 1rem;
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.18);
+}
+
+.work-detail__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+  padding-bottom: 0.75rem;
+}
+
+.work-detail__header h2,
+.work-detail__header p,
+.work-detail__section h3,
+.work-detail__mapping h4,
+.work-detail__section p {
+  margin: 0;
+}
+
+.work-detail__header h2 {
+  color: var(--text);
+  font-size: var(--ds-text-xl);
+  line-height: 1.1;
+}
+
+.work-detail__header p {
+  margin-top: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.32;
+}
+
+.work-detail__close {
+  align-self: start;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+}
+
+.work-detail__close:hover {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.work-detail__status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.work-detail__risk {
+  display: inline-flex;
+  border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.work-detail__risk.is-blocked {
+  border-color: color-mix(in srgb, var(--status-error) 34%, transparent);
+  color: var(--status-error-ink);
+}
+
+.work-detail__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  padding: var(--ds-space-4);
+}
+
+.work-detail__section h3 {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* The start form, shown only after the header's "Start workflow": a title with its Cancel, then the form. */
+.work-detail__start {
+  border-color: var(--border-strong);
+}
+
+.work-detail__start-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.work-detail__start h4 {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.work-detail__section p,
+.work-detail__empty {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.42;
+}
+
+.work-detail__kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.work-detail__kv {
+  min-width: 0;
+}
+
+.work-detail__kv dt {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.work-detail__kv dd {
+  overflow-wrap: anywhere;
+  margin: 0.12rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-detail__source-link,
+.work-detail__external-link,
+.work-detail__raw summary {
+  color: var(--status-running-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.work-detail__external-link:hover,
+.work-detail__source-link:hover {
+  color: var(--highlight);
+  text-decoration: underline;
+}
+
+.work-detail__link-row {
+  display: inline-flex;
+  gap: 0.25rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.work-detail__object-list,
+.work-detail__mapping ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.work-detail__mapping {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.work-detail__mapping > div {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+}
+
+.work-detail__mapping h4 {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-detail__raw pre,
+.work-detail__compact-json {
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+  color: var(--muted-strong);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-2xs);
+}

@@ -1,0 +1,2 @@
+# Line endings stay LF in every checkout (a global core.autocrlf would otherwise mark every file changed).
+* text=auto eol=lf

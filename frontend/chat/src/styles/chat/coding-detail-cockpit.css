@@ -1,0 +1,122 @@
+/* Coding session workspace evidence table, cockpit and session counters. */
+.coding-workspace-evidence {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  padding: 0.75rem;
+}
+
+.coding-workspace-evidence__header,
+.coding-workspace-evidence__row {
+  display: grid;
+  min-width: 0;
+}
+
+.coding-workspace-evidence__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.coding-workspace-evidence__header h3 {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+}
+
+.coding-workspace-evidence__table {
+  display: grid;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.coding-workspace-evidence__row {
+  grid-template-columns: minmax(10rem, 1.1fr) minmax(7rem, 0.7fr) minmax(10rem, 1fr) minmax(14rem, 1.35fr) minmax(6rem, auto);
+  gap: 0.75rem;
+  align-items: start;
+  border-top: 1px solid var(--border-soft);
+  padding: 0.5rem 0;
+}
+
+.coding-workspace-evidence__row--head {
+  border-top: 0;
+  padding-top: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coding-workspace-evidence__row span {
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.coding-workspace-evidence__row strong,
+.coding-workspace-evidence__row small,
+.coding-workspace-evidence__row code {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.coding-workspace-evidence__row small {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-workspace-evidence__row code {
+  color: var(--muted-strong);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-cockpit {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.coding-cockpit__primary {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+}
+
+.coding-cockpit__primary h3,
+.coding-cockpit__primary p {
+  margin: 0;
+}
+
+.coding-cockpit__primary h3 {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.coding-cockpit__primary p {
+  margin-top: 0.5rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+}
+
+/* The session counters inside Details. */
+.coding-detail__counters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem;
+}
+
+.coding-detail__counters .coding-detail__kv {
+  border-radius: var(--ds-radius-md);
+  padding: 0.5rem;
+}

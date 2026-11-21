@@ -1,0 +1,203 @@
+/* Sidebar navigation, section headings, bulk selection head and bar, and section action buttons. */
+.sidebar__nav {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.sidebar__nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-lg);
+  color: var(--muted-strong);
+  transition:
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.sidebar__nav a:hover {
+  background: var(--surface-overlay);
+  color: var(--highlight);
+}
+
+.sidebar__nav span {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.sidebar__section {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0 0.5rem 0.25rem;
+}
+
+.sidebar__section-label {
+  padding: 0.5rem 0.12rem 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sidebar__section-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.sidebar__section-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sidebar__section-label--inline {
+  padding: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.sidebar__section-meta {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__section-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.sidebar__bulk-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.7rem;
+}
+
+.sidebar__bulk-head .sidebar__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.62rem;
+  height: 1.62rem;
+  padding: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+}
+
+.sidebar__bulk-head .sidebar__icon-btn:hover {
+  border-color: var(--border);
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+}
+
+.sidebar__bulk-head .sidebar__icon-btn svg {
+  width: 0.92rem;
+  height: 0.92rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+.sidebar__bulk-count {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.sidebar__bulk-count small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+.sidebar__bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border-top: 1px solid var(--shell-divider);
+  background: var(--panel-strong);
+}
+
+.sidebar__bulk-bar .admin-panel__action-btn {
+  white-space: nowrap;
+}
+
+.sidebar__bulk-bar .admin-panel__action-btn svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sidebar__bulk-spacer {
+  flex: 1;
+}
+
+.sidebar__bulk-hint {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+}
+
+.sidebar__section-actions .icon-button.sidebar__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.42rem;
+  height: 1.42rem;
+  padding: 0.25rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid transparent;
+  color: var(--muted-strong);
+  opacity: 0.82;
+  transition:
+    opacity 160ms,
+    background 160ms,
+    border-color 160ms,
+    color 160ms;
+}
+
+.sidebar__section-actions .icon-button.sidebar__icon-btn:hover {
+  opacity: 1;
+  background: var(--surface-overlay-hover);
+  border-color: var(--shell-divider);
+  color: var(--text);
+}
+
+.sidebar__section-actions .icon-button.sidebar__icon-btn--active {
+  opacity: 1;
+  background: var(--surface-overlay-hover);
+  border-color: var(--border);
+  color: var(--text);
+}

@@ -1,0 +1,73 @@
+# The demo, on top of docker-compose.yml: a local demo, not for production (deployment/demo/README.md).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+#   (or COMPOSE_FILE=docker-compose.yml:docker-compose.demo.yml in .env)
+#
+# Everything the demo needs is in this file and only here: the fake GitHub (demo-git), the seed (demo), the API's
+# loopback exemption for the fake GitHub and its port on the host's 127.0.0.1. docker-compose.yml alone gets none of it.
+
+services:
+  api:
+    environment:
+      # The demo's fake GitHub on the pod loopback. The platform admits exactly this host:port, and only while the
+      # runtime profile is non-production with loopback-only origins (app/acceptance_stub_loopback_policy.py).
+      OCTRYX_SOURCE_SYNC_ALLOW_LOOPBACK_HOSTS: 127.0.0.1:${OCTRYX_DEMO_GIT_PORT:-8434}
+      # The sign-in and setup pages say "Local demo, not for production" (a notice only).
+      OCTRYX_DEMO_NOTICE: "1"
+
+  pod:
+    ports:
+      # The fake GitHub: the same clone URL on the host as in the pod, on the host's loopback only.
+      - "127.0.0.1:${OCTRYX_DEMO_GIT_PORT:-8434}:${OCTRYX_DEMO_GIT_PORT:-8434}"
+
+  # The fake GitHub: REST and git over bare repositories (deployment/demo/fake_github.py), in the pod's network
+  # namespace, so the platform and a local device use the same http://127.0.0.1:<port> URLs.
+  demo-git:
+    image: ${OCTRYX_IMAGE:-octryx-api:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    restart: unless-stopped
+    network_mode: "service:pod"
+    # Root only to own its fresh volume; no capabilities.
+    user: "0:0"
+    cap_drop: [ALL]
+    command: ["python", "/demo/fake_github.py", "--host", "0.0.0.0", "--port", "${OCTRYX_DEMO_GIT_PORT:-8434}",
+              "--public-url", "http://127.0.0.1:${OCTRYX_DEMO_GIT_PORT:-8434}", "--root", "/remotes"]
+    volumes:
+      - ./deployment/demo:/demo:ro
+      - demo_git_remotes:/remotes
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${OCTRYX_DEMO_GIT_PORT:-8434}/_fake/pulls', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+    depends_on:
+      pod:
+        condition: service_started
+
+  # One-shot: the Demo Shop Workspace, its repository on demo-git, Knowledge, connection, review bot and work items
+  # OCX-1/OCX-2 (deployment/demo/seed_demo.py; idempotent). It runs like the API (same image, secrets, settings and
+  # object store) and is the only service with OCTRYX_DEMO=1: the seed changes nothing and signs nothing without it.
+  demo:
+    extends:
+      file: docker-compose.yml
+      service: api
+    restart: "no"
+    command: ["python", "/demo/seed_demo.py"]
+    healthcheck:
+      test: ["NONE"]
+    environment:
+      OCTRYX_DEMO: "1"
+      OCTRYX_DEMO_GIT_PORT: ${OCTRYX_DEMO_GIT_PORT:-8434}
+    volumes:
+      - ./deployment/demo:/demo:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      demo-git:
+        condition: service_healthy
+
+volumes:
+  demo_git_remotes:

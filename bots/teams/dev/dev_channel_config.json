@@ -1,0 +1,19 @@
+{
+  "_comment": "Local dev config for the msteams channel plugin.",
+  "_comment2": "Set this in Octryx under Channels → Microsoft Teams.",
+  "_comment3": "dev_mode=true skips the Azure token fetch only; incoming webhooks stay authenticated (README: Local development).",
+
+  "plugin_id": "msteams",
+  "enabled": true,
+  "config": {
+    "app_id": "dev-local",
+    "app_password": "dev-local",
+    "dev_mode": true,
+    "require_mention": false,
+    "dm_policy": "open",
+    "allow_from": [],
+    "require_registered_user": false,
+    "sender_mappings": "",
+    "allowed_roles": ""
+  }
+}

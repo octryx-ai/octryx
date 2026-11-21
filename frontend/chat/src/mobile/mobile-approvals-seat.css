@@ -1,0 +1,86 @@
+/* Phone approvals and the Seat page. */
+/* ---- Approvals on the go: Home rows and the approval page ---------------------------------------------- */
+.m-approval-title {
+  overflow-wrap: anywhere;
+}
+.m-approval-subtitle {
+  margin: 0;
+  color: var(--m-muted);
+  font-size: 14px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.m-approval-preview {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.m-approval .m-muted {
+  font-size: var(--ds-text-sm);
+}
+.m-approval-preview > p {
+  margin: 0;
+  font-size: var(--ds-text-md);
+}
+.m-approval .m-approval-note {
+  font-size: var(--ds-text-xs);
+}
+.m-approval-link {
+  min-height: var(--ds-control-touch);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius-md);
+  background: none;
+  color: var(--m-text);
+  font-size: var(--ds-text-md);
+  text-align: left;
+}
+.m-approval-fold > summary {
+  padding: 4px 0;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-sm);
+  cursor: pointer;
+}
+.m-approval-fold[open] > summary {
+  margin-bottom: 4px;
+}
+.m-approval-deny {
+  display: grid;
+  gap: 12px;
+}
+.m-buttons .m-danger {
+  border-color: color-mix(in srgb, var(--m-red) 45%, transparent);
+  background: none;
+  color: var(--status-error-ink);
+}
+
+/* ---- More › Seat: the person's own subscription and the Workspace's seat switches (read-only) ------------------- */
+.m-seat-rules > div {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.m-seat-rules dd {
+  text-align: right;
+}
+.m-seat-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+  text-align: left;
+}
+.m-panel.m-facts {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.m-panel.m-facts > div:first-child {
+  border-top: 0;
+}
+.m-seat-section > .m-note {
+  margin-top: 8px;
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+}

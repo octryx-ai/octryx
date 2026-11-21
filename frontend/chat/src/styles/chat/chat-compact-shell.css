@@ -1,0 +1,7 @@
+/* Narrow-viewport chat workspace.
+   Breakpoints mirror `src/chat/responsive/chatLayoutBreakpoints.ts`:
+   980px = compact shell chrome, 720px = phone composer.
+   Loaded after `chat-responsive.css` so it wins the cascade on shared
+   selectors; desktop (> 980px) is deliberately untouched. */
+@import "./chat-compact-shell-chrome.css";
+@import "./chat-compact-shell-phone.css";

@@ -1,0 +1,798 @@
+{
+ "about": [
+  "The stacks an app is built with, as data next to the Engineering Knowledge Packs (a pack's stack_key names one). Loaded by engineering_knowledge/stacks.py under the installation's (system config 'stacks') and the Workspace's (Project.config['stacks']) own, merged per stack key; an entry null removes a built-in one (no stack, file or folder lists in engine code).",
+  "manifests: how an app folder is recognised and where its dependencies stand (format lines: one dependency per line, comment = the line comment; json_dependencies: the named objects; module_lines: a module path between spaces). skip_folders: build output and package caches never read. ui_catalogs: the l10n files whose texts the app shows (english: the file stems of its English catalogs). app_facts: the sources the hands-on facts read and the pattern of the app's window title.",
+  "general.feature_folders: the folder whose child is one feature's screens (lib/features/<name>); general.screen_skip_folders: folders inside it that are no screen (tests, translations).",
+  "tests: the folders whose files are tests and the file-name patterns of a test (fnmatch on the name); a check reads only the app's own code, never its tests.",
+  "test_output.collection_error: a regular expression over one reporter line's text that marks a test file which failed to load (a compile error); its group file is the file (Flutter 'loading <file> [E]' was recorded as a test named 'loading ...').",
+  "test_runner: the runner's command prefixes, the options a phase may pass to it (flags; value_options: option -> regex of its value, as --opt v or --opt=v) and evidence_args, the options whose output the platform attributes per test even when files run concurrently (the fix phase refused 'flutter test -j 1' that the platform's own hint asked for). short_output: the run's command in a form that prints only the result, for a phase whose evidence the platform's pipeline makes itself (two 21 KB and 17 KB Flutter logs cost about 270k tokens, re-read in every later call).",
+  "test_runner.label and hint: how the contract's how_to_run_tests names the runner (with the catalog's run.tests.* wording); a pytest runner's options stay in the shell policy's own rules.",
+  "test_runner.full_run_hint: what a full run of that runner may add (the Stop feedback and the system test rule name it; the shell policy allows exactly the runner's options); general.full_run_hint for a command no runner matches.",
+  "test_runner.report_env: the environment that makes the runner also write a JUnit report to {report} while its own output stays as it is; the platform's own runs (pipeline, red_on_base) set it and read every test's result from that report, never from an agent's (maybe piped) output. summary_only: the runner has no machine-readable per-test report the platform can ask for; there the pipeline's exit code and summary judge. options \"any\": the runner's options are not restricted by this data (the shell policy's own rule applies).",
+  "test_runner.only_files (`python3 -m unittest discover -s tests tests/test_pricing.py` ran no test, because discover reads a file as its start folder): how a runner runs only some test files, for the base-commit run (red_on_base). Per command prefix an argv template; the first that fits wins. 'contains' / 'lacks': a word the command must have / must not have; 'single_file': only for one file (else the full command). {test} the repository's test command as it is, {prefix} that command up to and including the runner prefix, {files} the files, {basename} the one file's name, {modules} the Python files as dotted modules. unittest discover keeps its own -s/-t (its modules import each other from the start folder) and gets -p; a bare `python -m unittest` takes modules. A command without a fitting template runs in full and the platform reads only the asked tests; the device never guesses by appending files.",
+  "ui_paths (the web test shows whether it really works): regular expressions searched in a changed file's repository path that mark it as part of what a person sees; a size class's skip with \"unless_changed\": \"ui_paths\" keeps the step (the hands-on test) when the change touches one.",
+  "build_artifacts (do not rebuild everything every time): a build the device reuses for the same inputs: tool and the args that start the call (a call starting so is served from the cache), ignore_args that do not change the output, the output folder and the inputs (files or folders of the app folder) whose bytes, with the args and the tool's version, make the key. Only an exact key is reused; a stack without the entry builds as before.",
+  "general.hands_on_workers (the web test's depth stays, its scenarios run side by side): how many of a run's hands-on scenarios the device runs at once, each in its own browser profile: one per cores_per_worker of the device's cores, at least 1 and at most max.",
+  "general.restart_settle (closing the browser right after a click can lose what the app was still writing, so 'a bean stays after a restart' failed under load): before a hands-on restart the device waits for network idle (at most network_idle_seconds) and then storage_ms for the app's storage writes.",
+  "general.browser_start_seconds (while the GoogleUpdater ran, no Chrome started and the hands-on test waited for its command's timeout): how long the device waits for the browser to start; then the step is browser_unavailable (cause environment) with the remedy.",
+  "formatting.compare: how an Edit of a protected (confirmed) test is told to change only its layout: python (Python's tokenizer) or tokens (a generic tokenizer for C-like languages); the same tokens apart from line breaks, indentation, trailing commas before a closing bracket and the quotes of string literals let the formatter's wish through. A stack without it keeps every protected test fully protected.",
+  "general.scanners: the static scanners the device runs on a pull request's changed files, each a pinned launcher tool (id = the launcher's tools id). kind: secrets | sast | lint | dependencies; args: the command after the tool, with {root} (the unpacked files), {report} (the SARIF file it writes) and {rules} (the shipped rule folder); when: always | manifests (only if a dependency manifest or lock file changed); rule_sources: each rule set with its license, only licenses that allow redistribution in an OSS product (the Semgrep Registry rules do not). A stack's own scanners list adds to these; the same id replaces.",
+  "general.scenario_hints and a stack's scenario_hints: how the platform's hands-on scenarios use an app, for the scenario writer next to what earlier runs learned about the app (run memory app_fact).",
+  "test_runner.failure_hint: how an agent sees one red test's message without the whole output, appended to the runner's hint.",
+  "check_tools: the checks a proposal may draft per stack, cheapest first: lint (a rule of the stack's linter, its id matching rule_id) and pattern (an ast-grep rule for the language; ast-grep comes with the launcher). The launcher's tool ids name what the device must have; a check kind whose tool is missing on the device is not available and the draft takes the next one."
+ ],
+ "general": {
+  "skip_folders": [
+   ".git",
+   ".idea"
+  ],
+  "data_suffixes": [
+   ".json",
+   ".yaml",
+   ".yml",
+   ".toml"
+  ],
+  "feature_folders": [
+   "features"
+  ],
+  "screen_skip_folders": [
+   "test",
+   "l10n"
+  ],
+  "tests": {
+   "folders": [
+    "system_test"
+   ],
+   "names": []
+  },
+  "full_run_hint": "the runner's own output options and '| tail' are fine",
+  "test_brief": {
+   "about": "What the agent sees of a long test run: Claude Code moves a Bash output above about 30,000 characters into a file the agent may not read, so the agent gets the summary and, per failed test, its id and the start of its message. A stack's test_runner.brief overrides any field.",
+   "min_chars": 20000,
+   "max_failures": 10,
+   "message_chars": 600,
+   "max_chars": 4000
+  },
+  "environment_errors": {
+   "about": "A declared pipeline command that failed because the environment cannot run it, not because of the change (the system test's 'No module named playwright' went to the fix phase four times). Matched against the end of a red command's output that printed no test results and no collection error: the run pauses environment_not_ready instead of a fix round. A stack's test_output.environment_errors adds its own patterns.",
+   "exit_codes": [
+    126,
+    127
+   ],
+   "patterns": [
+    "command not found",
+    "is not recognized as an internal or external command",
+    "^(?:\\S+: )?(?:line \\d+: )?\\S+: (?:No such file or directory|Permission denied)$"
+   ]
+  },
+  "hands_on_workers": {
+   "cores_per_worker": 3,
+   "max": 4
+  },
+  "browser_start_seconds": 60,
+  "scanners": [
+   {
+    "id": "gitleaks",
+    "kind": "secrets",
+    "when": "always",
+    "report": "gitleaks.sarif",
+    "args": [
+     "dir",
+     "--no-banner",
+     "--redact",
+     "--exit-code",
+     "0",
+     "--report-format",
+     "sarif",
+     "--report-path",
+     "{report}",
+     "{root}"
+    ]
+   },
+   {
+    "id": "opengrep",
+    "kind": "sast",
+    "when": "always",
+    "report": "opengrep.sarif",
+    "severity_map": {
+     "error": "high",
+     "warning": "medium",
+     "info": "low",
+     "note": "low"
+    },
+    "args": [
+     "scan",
+     "--metrics",
+     "off",
+     "--disable-version-check",
+     "--quiet",
+     "--config",
+     "{rules}",
+     "--sarif-output",
+     "{report}",
+     "{root}"
+    ],
+    "rule_sources": [
+     {
+      "name": "octryx",
+      "path": "pr_review_bot/scan_rules",
+      "license": "Apache-2.0"
+     }
+    ]
+   },
+   {
+    "id": "osv-scanner",
+    "kind": "dependencies",
+    "when": "manifests",
+    "report": "osv.sarif",
+    "args": [
+     "scan",
+     "source",
+     "--recursive",
+     "--format",
+     "sarif",
+     "--output",
+     "{report}",
+     "{root}"
+    ],
+    "lock_files": [
+     "package-lock.json",
+     "yarn.lock",
+     "pnpm-lock.yaml",
+     "poetry.lock",
+     "uv.lock",
+     "Pipfile.lock",
+     "requirements.txt",
+     "go.sum",
+     "Cargo.lock",
+     "Gemfile.lock",
+     "composer.lock",
+     "pubspec.lock",
+     "gradle.lockfile",
+     "packages.lock.json"
+    ]
+   }
+  ],
+  "restart_settle": {
+   "network_idle_seconds": 5,
+   "storage_ms": 1000
+  },
+  "scenario_hints": [
+   "A form is saved by clicking its Save (or submit) button; Enter moves to the next field in most apps.",
+   "Wait for a saved item to appear in its list (expect_text) before you navigate away."
+  ]
+ },
+ "stacks": {
+  "flutter": {
+   "manifests": [
+    {
+     "file": "pubspec.yaml",
+     "format": "lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".dart"
+   ],
+   "skip_folders": [
+    "build",
+    ".dart_tool"
+   ],
+   "ui_catalogs": [
+    {
+     "glob": "*.arb",
+     "english": [
+      "en",
+      "en_us",
+      "en-us",
+      "*_en",
+      "*_en_us",
+      "*-en"
+     ]
+    }
+   ],
+   "app_facts": {
+    "sources": "*.dart",
+    "skip_suffixes": [
+     ".g.dart",
+     ".freezed.dart"
+    ],
+    "skip_folders": [
+     "build",
+     "l10n"
+    ],
+    "first_start_folder": "onboarding",
+    "title_pattern": "onGenerateTitle\\s*:[^\\n]*\\.(\\w+)\\b|MaterialApp(?:\\.router)?\\([^)]*?\\btitle\\s*:\\s*['\\\"]([^'\\\"]+)",
+    "first_start_key": "onboarding",
+    "skip_key": "skip"
+   },
+   "tests": {
+    "folders": [
+     "test",
+     "integration_test"
+    ],
+    "names": [
+     "*_test.*"
+    ]
+   },
+   "test_output": {
+    "collection_error": "^(?:\\S+\\.dart: )?loading (?P<file>\\S+\\.dart) \\[E\\]$"
+   },
+   "test_runner": {
+    "only_files": [
+     {"commands": [["flutter", "test"], ["dart", "test"]], "argv": "{test} {files}"}
+    ],
+    "commands": [
+     [
+      "flutter",
+      "test"
+     ],
+     [
+      "dart",
+      "test"
+     ]
+    ],
+    "flags": [
+     "--no-pub"
+    ],
+    "value_options": {
+     "-j": "^\\d{1,3}$",
+     "--concurrency": "^\\d{1,3}$",
+     "-r": "^(json|expanded|compact|github)$",
+     "--reporter": "^(json|expanded|compact|github)$",
+     "--name": "^[^`$;&|<>]{1,200}$",
+     "--plain-name": "^[^`$;&|<>]{1,200}$"
+    },
+    "evidence_args": [
+     "--reporter",
+     "json"
+    ],
+    "label": "Flutter / Dart",
+    "hint": "`flutter test` (or `dart test`; the default output names every failing test, and the pipeline after the phase attributes each test from its own report), optionally with test files, -j or --plain-name; `--reporter json` only when the platform asks for it (a phase without a pipeline after it)",
+    "short_output": "flutter test 2>&1 | tail -30",
+    "full_run_hint": "-j or '| tail -40' are fine; no --name or --plain-name",
+    "rerun": {
+     "about": "A red pipeline run of this runner runs its failed tests once more, one at a time (a 16 ms frame-time test went red, then green on the same tree, and cost a fix round). 'failed' reads a failed test's file and name from the runner's output; 'single' runs one test ({file} relative to the command's folder, {name} its full name). A test that passes there is flaky, judged by the pipeline's flaky rule.",
+     "failed": "^\\d+:\\d{2} \\+\\d+(?: ~\\d+)? -\\d+: (?P<file>\\S+\\.dart): (?P<name>.+?) \\[E\\]$",
+     "single": [
+      "flutter",
+      "test",
+      "{file}",
+      "--plain-name",
+      "{name}"
+     ]
+    },
+    "failure_hint": "to see a red test's message: `flutter test <file> --reporter expanded 2>&1 | grep -B2 -A30 '\\[E\\]'`"
+   },
+   "ui_paths": [
+    "(^|/)lib/(.+/)?(presentation|widgets|screens|pages|views|ui|theme|l10n)/",
+    "_(screen|page|view|widget|dialog|sheet|form)\\.dart$",
+    "(^|/)lib/app/",
+    "(^|/)lib/main\\.dart$",
+    "(^|/)web/",
+    "(^|/)assets/",
+    "\\.arb$"
+   ],
+   "build_artifacts": [
+    {
+     "tool": "flutter",
+     "args": [
+      "build",
+      "web"
+     ],
+     "ignore_args": [
+      "--release"
+     ],
+     "output": "build/web",
+     "inputs": [
+      "lib",
+      "web",
+      "assets",
+      "pubspec.yaml",
+      "pubspec.lock",
+      "l10n.yaml"
+     ]
+    }
+   ],
+   "formatting": {
+    "compare": "tokens"
+   },
+   "check_tools": {
+    "lint": {
+     "tool": "dart",
+     "rule_id": "^[a-z][a-z0-9_]+$",
+     "enable": "dart analyze {paths}"
+    }
+   }
+  },
+  "node": {
+   "manifests": [
+    {
+     "file": "package.json",
+     "format": "json_dependencies",
+     "keys": [
+      "dependencies",
+      "devDependencies",
+      "peerDependencies",
+      "optionalDependencies"
+     ]
+    }
+   ],
+   "code_suffixes": [
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".vue",
+    ".svelte"
+   ],
+   "skip_folders": [
+    "node_modules",
+    "dist",
+    ".next",
+    "coverage",
+    "test-results",
+    "playwright-report"
+   ],
+   "tests": {
+    "folders": [
+     "__tests__",
+     "e2e",
+     "spec",
+     "test",
+     "tests"
+    ],
+    "names": [
+     "*.test.*",
+     "*.spec.*"
+    ]
+   },
+   "test_output": {
+    "environment_errors": [
+     "^Error: Cannot find module '(?P<module>[^'./][^']*)'"
+    ]
+   },
+   "test_runner": {
+    "only_files": [
+     {"commands": [["node", "--test"]], "argv": "{test} {files}"}
+    ],
+    "label": "Node.js",
+    "commands": [
+     [
+      "node",
+      "--test"
+     ],
+     [
+      "npm",
+      "test"
+     ],
+     [
+      "npm",
+      "run",
+      "test"
+     ],
+     [
+      "pnpm",
+      "test"
+     ],
+     [
+      "yarn",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "report_env": {
+     "NODE_OPTIONS": "--test-reporter=spec --test-reporter-destination=stdout --test-reporter=junit --test-reporter-destination={report}"
+    },
+    "hint": "the repository's test script (`npm test`) or `node --test`, optionally with test files",
+    "short_output": "npm test 2>&1 | tail -30",
+    "full_run_hint": "'| tail' is fine",
+    "failure_hint": "to see a red test's message: `node --test <file> 2>&1 | grep -B2 -A30 'not ok'`"
+   },
+   "ui_paths": [
+    "(^|/)(public|static|assets|styles)/",
+    "(^|/)src/(.+/)?(components|pages|views|screens|ui|routes)/",
+    "\\.(html|css|scss|jsx|tsx|vue|svelte)$"
+   ],
+   "formatting": {
+    "compare": "tokens"
+   },
+   "check_tools": {
+    "lint": {
+     "tool": "eslint",
+     "rule_id": "^(@[a-z0-9-]+/)?[a-z0-9-]+(/[a-z0-9-]+)?$",
+     "enable": "npx eslint --rule '{rule_id}: error' {paths}"
+    },
+    "pattern": {
+     "tool": "ast-grep",
+     "language": "typescript"
+    }
+   }
+  },
+  "python": {
+   "manifests": [
+    {
+     "file": "pyproject.toml",
+     "format": "lines",
+     "comment": "#"
+    },
+    {
+     "file": "requirements.txt",
+     "format": "lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".py"
+   ],
+   "skip_folders": [
+    ".venv",
+    "venv",
+    "__pycache__"
+   ],
+   "tests": {
+    "folders": [
+     "tests",
+     "test"
+    ],
+    "names": [
+     "test_*",
+     "*_test.*"
+    ]
+   },
+   "test_runner": {
+    "only_files": [
+     {"commands": [["pytest"], ["python", "-m", "pytest"], ["python3", "-m", "pytest"], [".venv/bin/python", "-m", "pytest"]], "argv": "{test} {files}"},
+     {"commands": [["python", "-m", "unittest"], ["python3", "-m", "unittest"], [".venv/bin/python", "-m", "unittest"]], "contains": "discover", "single_file": true, "argv": "{test} -v -p {basename}"},
+     {"commands": [["python", "-m", "unittest"], ["python3", "-m", "unittest"], [".venv/bin/python", "-m", "unittest"]], "lacks": "discover", "argv": "{prefix} -v {modules}"}
+    ],
+    "label": "Python",
+    "commands": [
+     [
+      "pytest"
+     ],
+     [
+      "python",
+      "-m",
+      "pytest"
+     ],
+     [
+      "python3",
+      "-m",
+      "pytest"
+     ],
+     [
+      ".venv/bin/python",
+      "-m",
+      "pytest"
+     ],
+     [
+      "python",
+      "-m",
+      "unittest"
+     ],
+     [
+      "python3",
+      "-m",
+      "unittest"
+     ],
+     [
+      ".venv/bin/python",
+      "-m",
+      "unittest"
+     ]
+    ],
+    "flags": [
+     "-v",
+     "--verbose",
+     "-q",
+     "--quiet",
+     "-f",
+     "--failfast",
+     "-b",
+     "--buffer",
+     "--locals",
+     "discover"
+    ],
+    "value_options": {
+     "-s": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "--start-directory": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "-p": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "--pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "-t": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "--top-level-directory": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_.*/-]{1,100}$",
+     "-k": "^[A-Za-z0-9_.*-]{1,100}$",
+     "--durations": "^\\d{1,3}$"
+    },
+    "hint": "the repository's own environment when it has one (`.venv/bin/python -m pytest -v`), else `python -m pytest -v` (or `pytest -v`: -v names every test, the platform needs the names), optionally with test paths or node ids and common options (-k -m -r --tb -x -s -v --lf --maxfail --ignore, -p no:<plugin>); a repository that declares unittest: `python -m unittest -v` (-v names every test)",
+    "short_output": "python -m pytest -q 2>&1 | tail -15",
+    "full_run_hint": "-q, -x or '| tail' are fine",
+    "report_env": {
+     "PYTEST_ADDOPTS": "--junitxml={report}"
+    },
+    "failure_hint": "to see a red test's message: `python -m pytest <file>::<test> -x -q 2>&1 | tail -40`"
+   },
+   "test_output": {
+    "environment_errors": [
+     "^(?:ModuleNotFoundError|ImportError): No module named '?(?P<module>[A-Za-z0-9_.]+)'?"
+    ]
+   },
+   "ui_paths": [
+    "(^|/)(templates|static)/",
+    "\\.(html|jinja2?|css)$"
+   ],
+   "formatting": {
+    "compare": "python"
+   },
+   "check_tools": {
+    "lint": {
+     "tool": "ruff",
+     "rule_id": "^[A-Z]{1,4}[0-9]{1,4}$",
+     "enable": "ruff check --select {rule_id} {paths}"
+    },
+    "pattern": {
+     "tool": "ast-grep",
+     "language": "python"
+    }
+   }
+  },
+  "jvm": {
+   "manifests": [
+    {
+     "file": "build.gradle",
+     "format": "lines"
+    },
+    {
+     "file": "build.gradle.kts",
+     "format": "lines"
+    },
+    {
+     "file": "pom.xml",
+     "format": "lines"
+    }
+   ],
+   "code_suffixes": [
+    ".kt",
+    ".java"
+   ],
+   "skip_folders": [
+    "target",
+    ".gradle",
+    "build"
+   ],
+   "tests": {
+    "folders": [
+     "test"
+    ],
+    "names": []
+   },
+   "test_runner": {
+    "label": "JVM",
+    "commands": [
+     [
+      "mvn",
+      "test"
+     ],
+     [
+      "mvn",
+      "verify"
+     ],
+     [
+      "./mvnw",
+      "test"
+     ],
+     [
+      "./mvnw",
+      "verify"
+     ],
+     [
+      "gradle",
+      "test"
+     ],
+     [
+      "./gradlew",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`mvn test` / `./gradlew test` (Surefire and Gradle write their own XML reports under target/ or build/)"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  },
+  "ios": {
+   "manifests": [
+    {
+     "file": "Podfile",
+     "format": "lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".swift"
+   ],
+   "skip_folders": [
+    "Pods"
+   ],
+   "test_runner": {
+    "label": "iOS",
+    "commands": [
+     [
+      "xcodebuild",
+      "test"
+     ],
+     [
+      "swift",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`xcodebuild test` / `swift test`"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  },
+  "go": {
+   "manifests": [
+    {
+     "file": "go.mod",
+     "format": "module_lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".go"
+   ],
+   "skip_folders": [],
+   "tests": {
+    "folders": [],
+    "names": [
+     "*_test.*"
+    ]
+   },
+   "test_runner": {
+    "label": "Go",
+    "commands": [
+     [
+      "go",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`go test ./...` (a Go test name names no file, so the pipeline's exit code judges)"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  },
+  "rust": {
+   "manifests": [
+    {
+     "file": "Cargo.toml",
+     "format": "lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".rs"
+   ],
+   "skip_folders": [
+    "target"
+   ],
+   "test_runner": {
+    "label": "Rust",
+    "commands": [
+     [
+      "cargo",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`cargo test`"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  },
+  "ruby": {
+   "manifests": [
+    {
+     "file": "Gemfile",
+     "format": "lines",
+     "comment": "#"
+    }
+   ],
+   "code_suffixes": [
+    ".rb"
+   ],
+   "skip_folders": [],
+   "test_runner": {
+    "label": "Ruby",
+    "commands": [
+     [
+      "bundle",
+      "exec",
+      "rspec"
+     ],
+     [
+      "rspec"
+     ],
+     [
+      "bundle",
+      "exec",
+      "rake",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`bundle exec rspec`"
+   }
+  },
+  "php": {
+   "manifests": [
+    {
+     "file": "composer.json",
+     "format": "json_dependencies",
+     "keys": [
+      "dependencies",
+      "devDependencies",
+      "peerDependencies",
+      "optionalDependencies"
+     ]
+    }
+   ],
+   "code_suffixes": [
+    ".php"
+   ],
+   "skip_folders": [],
+   "test_runner": {
+    "label": "PHP",
+    "commands": [
+     [
+      "vendor/bin/phpunit"
+     ],
+     [
+      "phpunit"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`vendor/bin/phpunit`"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  },
+  "dotnet": {
+   "manifests": [],
+   "code_suffixes": [
+    ".cs"
+   ],
+   "skip_folders": [],
+   "test_runner": {
+    "label": ".NET",
+    "commands": [
+     [
+      "dotnet",
+      "test"
+     ]
+    ],
+    "options": "any",
+    "summary_only": true,
+    "hint": "`dotnet test`"
+   },
+   "formatting": {
+    "compare": "tokens"
+   }
+  }
+ }
+}

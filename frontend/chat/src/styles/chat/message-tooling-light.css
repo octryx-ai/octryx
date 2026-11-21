@@ -1,0 +1,42 @@
+/* Light theme overrides for message code blocks, references and tool bursts. */
+[data-theme="light"] .message-code-block {
+  background: #faf7f0;
+}
+
+[data-theme="light"] .tool-burst {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme="light"] .tool-burst[open] {
+  border-color: rgba(36, 39, 35, 0.12);
+  background:
+    linear-gradient(180deg, rgba(36, 39, 35, 0.02), rgba(255, 255, 255, 0.72)),
+    rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 24px rgba(36, 39, 35, 0.06);
+}
+
+[data-theme="light"] .tool-burst__summary-icon,
+[data-theme="light"] .tool-burst__event-index {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(246, 241, 233, 0.92);
+  color: var(--muted);
+}
+
+[data-theme="light"] .message-code-block--plain {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: color-mix(in srgb, var(--status-idle) 16%, transparent);
+}
+
+[data-theme="light"] .message-reference-item {
+  border-bottom-color: color-mix(in srgb, var(--status-idle) 18%, transparent);
+}
+
+[data-theme="light"] .message-reference-list__copy:hover {
+  background: rgba(36, 39, 35, 0.05);
+}
+
+[data-theme="light"] .message-code-block__toolbar {
+  background: rgba(36, 39, 35, 0.03);
+  border-bottom-color: rgba(36, 39, 35, 0.08);
+}

@@ -1,0 +1,73 @@
+/* Governed writes: choice cards, refusals and notices. Tokens only (design guide). */
+
+.governed-issues {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-error) 30%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-xs);
+  list-style: none;
+}
+
+.governed-issues--warning {
+  border-color: color-mix(in srgb, var(--status-attention) 30%, transparent);
+  background: var(--status-attention-soft);
+  color: var(--status-attention-ink);
+}
+
+.governed-issues code {
+  font-weight: 600;
+}
+
+.governed-notice {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.governed-choices {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.governed-choice {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.5rem;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  cursor: pointer;
+}
+
+.governed-choice--selected {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: var(--accent-soft);
+}
+
+.governed-choice input {
+  grid-row: span 2;
+  margin-top: 0.25rem;
+  accent-color: var(--accent);
+}
+
+.governed-choice__key {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.governed-choice__text {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}

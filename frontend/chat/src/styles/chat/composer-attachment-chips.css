@@ -1,0 +1,152 @@
+/* Composer drag state, attachment list and chips, narrow popup. */
+.composer--drag-active {
+  filter: drop-shadow(0 0 0.65rem color-mix(in srgb, var(--accent) 18%, transparent));
+}
+
+.composer--drag-active .composer__card {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent),
+    0 18px 36px rgba(0, 0, 0, 0.3);
+}
+
+.composer-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.12rem;
+}
+
+.composer-attachments__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.composer-attachments__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.composer-attachments__label svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.composer-attachments__count {
+  display: inline-flex;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.composer-attachments__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.5rem 0.5rem 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+}
+
+.composer-attachment-chip--status {
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+}
+
+.composer-attachment-chip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  flex: 0 0 auto;
+}
+
+.composer-attachment-chip__icon svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.composer-attachment-chip__label {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  max-width: 100%;
+  min-width: 0;
+  text-decoration: none;
+}
+
+.composer-attachment-chip__label span {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.composer-attachment-chip__label small {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.composer-attachment-chip__remove {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  line-height: 1;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  padding: 0.5rem 0.5rem;
+}
+
+.composer-attachment-chip__remove:hover {
+  background: var(--surface-overlay-hover);
+  color: var(--highlight);
+}
+
+@media (max-width: 800px) {
+  .composer-popup {
+    left: 0.75rem;
+    right: 0.75rem;
+  }
+}

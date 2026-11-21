@@ -1,0 +1,21 @@
+{{- if .Values.persistence.enabled }}
+{{- range $suffix, $size := dict "app-data" .Values.persistence.appData "uploads" .Values.persistence.uploads }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "octryx.fullname" $ }}-{{ $suffix }}
+  labels: {{- include "octryx.labels" $ | nindent 4 }}
+  annotations:
+    # Uninstalling the release keeps the data; delete the claim by hand to drop it.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with $.Values.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $size }}
+{{- end }}
+{{- end }}

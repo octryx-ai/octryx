@@ -1,0 +1,151 @@
+/* Coding session pipeline trace, warnings, execution notice and the Work action notice. */
+.coding-pipeline-trace-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.coding-pipeline-trace {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.coding-pipeline-trace__header,
+.coding-pipeline-stage summary {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.coding-pipeline-trace__header strong,
+.coding-pipeline-trace__header small,
+.coding-pipeline-stage summary strong,
+.coding-pipeline-stage summary small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.coding-pipeline-trace__header small,
+.coding-pipeline-stage summary small {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-pipeline-stage {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.coding-pipeline-stage summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.coding-pipeline-stage summary::-webkit-details-marker {
+  display: none;
+}
+
+.coding-pipeline-stage__body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.coding-pipeline-stage__body .coding-detail__wide {
+  grid-column: 1 / -1;
+}
+
+.coding-detail__evidence pre,
+.coding-detail__wide pre {
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0.5rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+}
+
+.coding-detail__warning {
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 24%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--status-attention) 8%, transparent);
+  color: var(--status-attention-ink);
+  padding: 0.75rem;
+  font-size: var(--ds-text-sm);
+}
+
+.coding-execution-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 28%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-attention) 8%, transparent);
+  color: var(--status-attention-ink);
+}
+
+.coding-execution-notice > div:first-child {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.coding-execution-notice strong,
+.coding-execution-notice span {
+  min-width: 0;
+}
+
+.coding-execution-notice span {
+  color: var(--muted-strong);
+}
+
+.coding-execution-notice__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Coding Work action: the guidance notice at the top of the scrolling detail body. The CTA
+   keeps its natural width on one line; long questions wrap inside the text column. */
+.coding-work-action {
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.coding-work-action .coding-execution-notice__actions {
+  flex: none;
+}
+
+.coding-work-action .coding-execution-notice__actions .work-area__button {
+  white-space: nowrap;
+}
+
+.coding-work-action ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+}
+
+.coding-work-action li {
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 40rem) {
+  .coding-work-action {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .coding-work-action .coding-execution-notice__actions {
+    justify-content: flex-start;
+  }
+}

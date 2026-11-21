@@ -1,0 +1,189 @@
+/* Prompt Catalog tab. Tokens only (design guide §3, §7); builds on governedRegistry.css (drawers, alerts,
+   eyebrows, sections). Status colors only for diff lines; the accent marks focus. */
+
+.pc-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pc-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pc-row--end {
+  justify-content: flex-end;
+}
+
+.pc-actions,
+.pc-approval {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pc-field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.pc-label {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.pc-chip {
+  margin-right: 0.25rem;
+}
+
+.pc-textarea {
+  min-height: 18rem;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-sm);
+  resize: vertical;
+}
+
+.pc-body,
+.pc-diff {
+  margin: 0;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.pc-diff__line--added {
+  background: var(--status-active-soft);
+  color: var(--status-active-ink);
+}
+
+.pc-diff__line--removed {
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+.pc-diff__line--hunk,
+.pc-diff__line--header {
+  color: var(--muted);
+}
+
+/* Search and collapsible groups (audits 59, 59a, 59b). */
+.pc-search {
+  max-width: 32rem;
+}
+
+.pc-agent-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pc-group {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.pc-group__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.pc-group__label {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.pc-group[open] > .pc-group__summary {
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.pc-table {
+  width: 100%;
+}
+
+.pc-key {
+  overflow-wrap: anywhere;
+}
+
+.pc-open {
+  min-height: 1.4rem;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+}
+
+/* Run texts: sub-groups inside an area, placeholder meanings, effective text and scope choice. */
+.pc-subgroup > th {
+  padding: var(--ds-space-2) var(--ds-space-3);
+  background: var(--bg-soft);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-strong);
+  text-align: left;
+}
+
+.pc-placeholders {
+  display: grid;
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pc-placeholders > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+}
+
+.pc-placeholders__meaning {
+  color: var(--muted);
+}
+
+.pc-source {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.pc-scope-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--bg-soft);
+  font-size: var(--ds-text-sm);
+}
+
+.pc-scope-select {
+  max-width: 100%;
+}
+
+.pc-review-link {
+  font-size: var(--ds-text-xs);
+  justify-self: start;
+  text-decoration: none;
+}

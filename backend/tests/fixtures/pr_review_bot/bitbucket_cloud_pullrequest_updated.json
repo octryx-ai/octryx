@@ -1,0 +1,17 @@
+{
+  "pullrequest": {
+    "type": "pullrequest",
+    "id": 7,
+    "title": "Round totals half away from zero",
+    "state": "OPEN",
+    "draft": false,
+    "author": {"display_name": "Anna Dev", "account_id": "557058:00000000-0000-0000-0000-00000000000b"},
+    "source": {"branch": {"name": "feature/PAY-1-totals"}, "commit": {"hash": "c0ffee00c0ff"},
+               "repository": {"full_name": "acme/payments"}},
+    "destination": {"branch": {"name": "main"}, "commit": {"hash": "222222222222"},
+                    "repository": {"full_name": "acme/payments"}},
+    "links": {"html": {"href": "https://bitbucket.org/acme/payments/pull-requests/7"}}
+  },
+  "repository": {"full_name": "acme/payments", "is_private": true},
+  "actor": {"display_name": "Anna Dev"}
+}

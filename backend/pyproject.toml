@@ -1,0 +1,211 @@
+[project]
+name = "octryx"
+version = "0.0.1-alpha"
+description = "Octryx AI, the layer above your coding agents"
+requires-python = ">=3.12"
+license = "Apache-2.0"
+dependencies = [
+    "apscheduler>=3.10.4",
+    # Imported directly by the cron schedule (the scheduler's local time zone); apscheduler 3.x requires it too.
+    "tzlocal>=5.3.1",
+    "fastapi>=0.136.1,<0.136.3",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.20.0",
+    "asyncpg>=0.30.0",
+    "alembic>=1.13.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.14.2",
+    # Imported directly (PydanticCustomError); pydantic pins the exact version, this floor matches the lock.
+    "pydantic-core>=2.41.5",
+    "mako>=1.3.12",
+    # authlib 1.9.1: the fixed release for CVE-2026-96760 (critical), CVE-2026-114615, -114616 and -116672
+    # (high), which the CI Trivy scan reports over 1.7.2.
+    "authlib>=1.9.1",
+    # Advisory floors below are the fixed releases pip-audit names for the findings the CI audit reports;
+    # each is the minimum, not an upgrade sweep.
+    # cryptography 50.0.0: the fixed release for PYSEC-2026-3552.
+    "cryptography>=50.0.0",
+    "bcrypt>=4.0.0",
+    "python-multipart>=0.0.31",
+    "anyio>=4.14.2",
+    "httpx>=0.27.0",
+    # httpcore: imported directly by the pinned egress transport (app/services/outbound_egress),
+    # which builds its own connection pool over a pinned network backend; httpx requires it too.
+    "httpcore>=1.0.9",
+    "idna>=3.15",
+    # Pillow 12.3.0: the fixed release for all 13 advisories the audit reports over 12.2.0
+    # (PYSEC-2026-2253..2257, -3451..3454, -3493..3496).
+    # pillow 13.0.0: the fixed release for CVE-2026-112393 (critical), CVE-2026-112398 and the high findings
+    # the CI Trivy scan reports over 12.3.0.
+    "pillow>=13.0.0",
+    # Office identity composer. Both are imported directly by
+    # app/services/office_identity, so both are declared directly even though
+    # python-pptx already requires lxml.
+    # lxml floor 6.1: the tested line, and XXE-safe XMLParser defaults
+    # (resolve_entities="internal", no_network=True, huge_tree=False) only exist
+    # from lxml 5.0 onwards; layout_authoring parses uploaded template XML.
+    "lxml>=6.1",
+    # python-pptx capped below 2: icon_embedding uses OPC and private internals
+    # (Part, PackURI, slide.shapes._spTree), which are version-sensitive.
+    "python-pptx>=1.0.2,<2",
+    # Word composer: office_identity/document_composer.py and document_snapshot.py import
+    # docx directly. 1.2.0 is the tested line; capped below 2 like python-pptx.
+    "python-docx>=1.2.0,<2",
+    # Excel engine of the Office tools and generated workbook scripts (services/office/engine/sheets.py).
+    # 3.1 is the tested line; capped below 4 like the other Office libraries.
+    "openpyxl>=3.1.5,<4",
+    "typer>=0.12.0",
+    "prompt-toolkit>=3.0.43",
+    "rich>=13.0.0",
+    "pygments>=2.20.0",
+    "websockets>=13.1",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.0.0",
+    # Imported unguarded at module level by repo_knowledge, repo_microagent and
+    # knowledge_sync/repo_manifest_scan. It reached the closure only through
+    # uvicorn[standard] until now, which is one dependency-tree change away from
+    # the ModuleNotFoundError recorded for lxml.
+    "pyyaml>=6.0.3",
+    # google-re2 (BSD-3-Clause, no dependencies): the linear-time engine every structured-graph profile
+    # pattern runs on (services/knowledge/structured/profile_patterns.py), so a Workspace-supplied
+    # pattern cannot stall the shared knowledge worker by backtracking. Pinned exactly: the binding
+    # ships compiled RE2/abseil (wheels for CPython 3.11-3.14 on manylinux_2_28 x86_64/aarch64 and
+    # macOS arm64/x86_64), and a new release is reviewed, not floated.
+    "google-re2==1.1.20251105",
+    "tree-sitter>=0.25.0",
+    "tree-sitter-java>=0.23.0",
+    "playwright>=1.52.0",
+    "boto3>=1.35.0",
+    # mcp 1.28.1: the highest fixed release among PYSEC-2026-3481, -3482 and -3483 (fixes 1.27.2 and 1.28.1),
+    # so this one floor clears all three.
+    "mcp>=1.28.1",
+    # msgpack 1.2.3: the fixed release for CVE-2026-114613 (high, CI Trivy scan over 1.2.1).
+    "msgpack>=1.2.3",
+    "redis>=5.0.0",
+    # urllib3 2.8.0: the fixed release for GHSA-8988-9cw3-xx77 and GHSA-vxq7-64xx-v4gw (high) and
+    # GHSA-gh4c-6fx4-qh6g, which the CI pip-audit reports over 2.7.0.
+    "urllib3>=2.8.0",
+    # opentelemetry-api 1.45.2: the fixed release for GHSA-mf5v-w3w3-f6cg and GHSA-xcq7-p3pf-p88h (denial of service in
+    # tracestate parsing) over 1.45.0. Transitive, so declared directly to carry the floor (as urllib3 above).
+    "opentelemetry-api>=1.45.2",  # 0.6.5: the fixed release for the high finding the CI Trivy scan reports over 0.6.4
+    # PyJWT 2.15.0: 2.14.0 fixes GHSA-ffc3-869f-jxw9 (critical), -9j54-fg26-wv3r, -w2cx-738m-mc7w, -9v7f-9g4p-ffgj,
+    # -p4g4-x82p-q773, -r6x4-923q-g947 and the medium findings over 2.13.0; 2.15.0 is the fixed release for
+    # GHSA-42vr-xj54-vc7v, which the CI pip-audit reports over 2.14.0.
+    "pyjwt>=2.15.0",
+    "starlette>=1.3.1",
+    # pydantic-ai-slim 2.51.0 is blocked by CVE-2026-107286; the
+    # pydantic-ai adoption gate is blocked again (dependency_gates/pydantic_ai_slim_decisions.py), so declaring it fails the
+    # drift check until a new gate approves a current release.
+    # The knowledge graph's governed extraction model client and the change-typing evaluation
+    # (services/knowledge/temporal/graphiti_*.py) build on Graphiti. Pinned exactly. Base, not an extra:
+    # app/ imports it unconditionally, which the import contract only accepts from declared dependencies.
+    "graphiti-core==0.30.2",
+    # Cedar policy engine: app/services/policy_engine evaluates the Cedar policy set in-process.
+    # Exact pin (Apache-2.0; bundles the Cedar 4.12 Rust engine): the translator goldens and the decision
+    # latency budget are verified against this version only.
+    "cedarpy==4.12.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.11.2",
+    "pip-audit>=2.10.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.24.0",
+    "pytest-xdist>=3.6.0",
+    "ruff>=0.7.0",
+]
+# In-process semantic embeddings for the knowledge base (on-prem option).
+# Bedrock embeddings use boto3, already a base dependency.
+knowledge = [
+    "fastembed>=0.4.0",
+]
+
+[project.scripts]
+octryx = "app.main:main"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+# PEP 695 rewrites (type statements, class C[T]) change runtime behaviour; not part of the 3.12 floor.
+ignore = ["UP040", "UP046", "UP047"]
+
+[tool.ruff.lint.per-file-ignores]
+"app/agent/**/*.py" = ["E501"]
+"app/models/*/__init__.py" = ["E402"]
+"app/plugins/**/*.py" = ["E501"]
+"app/scheduler/output/*.py" = ["E501"]
+"app/services/admin/*.py" = ["E501"]
+"app/services/code_intelligence/*.py" = ["E501"]
+"app/services/control_plane/*.py" = ["E501"]
+"app/services/corp_identity/*.py" = ["E501"]
+"app/services/database_tool_service.py" = ["E501"]
+"app/services/office/*.py" = ["E501"]
+"app/services/request_analysis/*.py" = ["E501"]
+"app/services/tool_artifact/*.py" = ["E501"]
+"app/services/tool_config/presets_*.py" = ["E501"]
+"app/tools/admin_impl/*.py" = ["E501"]
+"app/tools/bitbucket_impl/*.py" = ["E501"]
+"app/tools/connectors/*.py" = ["E501"]
+"app/tools/definitions/*.py" = ["E501"]
+"app/tools/jira_impl/*.py" = ["E501"]
+"app/tools/knowledge_impl/*.py" = ["E501"]
+"app/tools/office_impl/*.py" = ["E501"]
+"app/tools/runtime_impl/*.py" = ["E501"]
+"app/web/_helpers/*.py" = ["E501"]
+"app/tools/documents.py" = ["E501"]
+"app/tools/sub_agent.py" = ["E501"]
+"tests/*.py" = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+follow_imports = "silent"
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = [
+    "app.agent.engine.runtime._engine_runtime_retry_policy",
+    "app.agent.loops.runtime._loop_runtime_turn",
+]
+check_untyped_defs = true
+
+[build-system]
+# Floor 70.1: the release from which setuptools provides bdist_wheel itself, so building this project needs no
+# separate `wheel` distribution. That is what lets the image build with `pip install --no-build-isolation`
+# against the locked `build` dependency group below instead of resolving a build backend from PyPI.
+requires = ["setuptools>=70.1"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+# The build backend of [build-system] above, as a locked group so `uv export --only-group build` emits it with
+# artifact hashes. The image installs that export before it installs the project, which is why the project
+# install can be `--no-build-isolation`: PEP 517 build isolation would otherwise resolve and download a build
+# backend from PyPI on every build, unpinned and unhashed, outside uv.lock and outside every audit.
+# Not in `default-groups`, so no `uv sync` installs it unless it is asked for by name.
+# 84.1.0: the fixed release for GHSA-xmj3-9gf7-h52w, which the dependency audit reports over 84.0.0.
+build = ["setuptools>=84.1.0"]
+dev = [
+    "anyio>=4.14.2",
+    "httpx>=0.28.1",
+    "mypy>=1.11.2",
+    "pip-audit>=2.10.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "pytest-xdist>=3.6.0",
+    "ruff>=0.7.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.web" = ["templates/*.html"]
+"app.services.policy_engine" = ["*.cedarschema"]

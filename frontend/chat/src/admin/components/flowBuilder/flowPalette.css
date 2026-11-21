@@ -1,0 +1,68 @@
+/* Palette search (design guide §9.3: icon left, field geometry §9.2). Tokens only. */
+.flow-palette__search {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 8px 0.5rem;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.flow-palette__search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  color: var(--muted);
+  transition: border-color 160ms, box-shadow 160ms;
+}
+
+.flow-palette__search-field:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.flow-palette .flow-palette__search-field input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  padding: 0.5rem 0;
+}
+
+.flow-palette__search-count {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+/* Long agent and tool names wrap instead of being cut off. */
+.flow-palette .flow-palette__item-main > span {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Unavailable steps stay disabled (the button keeps `disabled`) but are not faded: the shared
+   `.flow-builder button:disabled { opacity: 0.45 }` rule (specificity 0,2,1) would dim the reason too.
+   This selector (0,3,1) outranks it whatever the stylesheet order is. */
+.flow-palette button.flow-palette__item--disabled:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.flow-palette .flow-palette__item--disabled .flow-palette__item-main small {
+  white-space: normal;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.35;
+}
+
+.flow-palette .flow-palette__item--disabled .flow-palette__item-icon {
+  color: var(--muted);
+}

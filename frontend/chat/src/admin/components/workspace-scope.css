@@ -1,0 +1,52 @@
+/* Workspace scope row (design guide 9.2 field geometry, 9.3 filter bar). */
+.workspace-scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.workspace-scope__label {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.workspace-scope__select {
+  min-width: 0;
+  width: min(100%, 20rem);
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  outline: none;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.workspace-scope__select:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+[data-theme="light"] .workspace-scope__select { background: var(--panel-strong); border-color: rgba(36, 39, 35, 0.14); }
+.workspace-scope__hint { font-size: var(--ds-text-xs); color: var(--muted); }
+
+/* The page's Workspace switch in the header: inline, no box, same place on every scoped page. */
+.workspace-scope--header {
+  flex-wrap: nowrap;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.workspace-scope--header .workspace-scope__select {
+  width: auto;
+  max-width: 16rem;
+  padding: 0.5rem 0.5rem;
+}

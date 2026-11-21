@@ -1,0 +1,126 @@
+.artifact-preview__panel {
+  display: grid;
+  gap: 0.75rem;
+  min-height: 100%;
+  padding: 0.25rem;
+}
+
+.artifact-preview__body--html {
+  min-height: 100%;
+  height: 100%;
+}
+
+.artifact-preview__panel--html {
+  display: flex;
+  min-height: 100%;
+  height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+
+.artifact-preview__panel-title {
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.artifact-preview__panel-copy {
+  font-size: var(--ds-text-md);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.artifact-preview__list {
+  display: grid;
+  gap: 0.75rem;
+  overflow: auto;
+  padding-right: 0.25rem;
+}
+
+.artifact-preview__list-item {
+  border: 1px solid var(--shell-divider);
+  background: rgba(255, 255, 255, 0.022);
+  border-radius: var(--ds-radius-xl);
+  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.artifact-preview__list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.artifact-preview__list-copy {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--ds-text-md);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.artifact-preview__pre {
+  margin: 0;
+  padding: 1rem 1rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--shell-divider);
+  background: rgba(255, 255, 255, 0.022);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--ds-text-sm);
+  line-height: 1.55;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.artifact-preview__pre--text {
+  min-height: min(60vh, 42rem);
+}
+
+.artifact-preview__issue-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.artifact-preview__issue-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 179, 71, 0.16);
+  border: 1px solid rgba(255, 179, 71, 0.28);
+  color: #ffd697;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.artifact-preview__empty {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 20rem;
+  color: var(--muted);
+  font-size: var(--ds-text-md);
+  text-align: center;
+  padding: 2rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px dashed var(--shell-divider);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.artifact-preview__empty-title {
+  font-size: var(--ds-text-lg);
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.5rem;
+}
+
+.artifact-preview__empty-copy {
+  max-width: 28rem;
+}

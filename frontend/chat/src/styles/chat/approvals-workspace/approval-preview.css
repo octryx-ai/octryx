@@ -1,0 +1,108 @@
+/* Approval preview block, the inline card's button and toggle hover, and the narrow-screen approval layout. */
+.approval-preview {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-overlay);
+}
+
+.approval-preview__header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.approval-preview__title {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.approval-preview__summary,
+.approval-preview__meta,
+.approval-preview__list {
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.approval-preview__actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.approval-preview__code {
+  margin: 0;
+  padding: 0.75rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.approval-preview__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+}
+
+.approval-preview__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approval-preview__meta span + span::before {
+  content: "·";
+  opacity: 0.6;
+}
+
+.approval-preview__details summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  margin-bottom: 0.25rem;
+}
+
+.approval-inline .approval-card__button {
+  min-height: 2rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.approval-preview__list {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.approval-card__details-toggle:hover {
+  color: var(--status-running-ink);
+}
+
+@media (max-width: 900px) {
+  .message-row.message-row--approval {
+    width: 100%;
+    padding-left: 0;
+  }
+
+  .approval-inline {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .approval-inline__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .approval-inline__details-stack {
+    padding-left: 0;
+  }
+}

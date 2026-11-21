@@ -1,0 +1,105 @@
+/* Plugins pages (plugins contract §6): sizes from the UI set (ds-tokens.css), colours from the theme variables. */
+
+.plg-page { display: flex; flex-direction: column; gap: var(--ds-space-4); min-width: 0; }
+.plg-intro { max-width: 48rem; }
+
+.plg-muted { margin: 0; color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.plg-mono { font-family: var(--font-mono); font-size: var(--ds-text-xs); overflow-wrap: anywhere; }
+
+.plg-error {
+  margin: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--ds-tone-problem-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-problem-bg);
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-sm);
+}
+
+/* The image's plugins: one row each, the switch on the right. */
+.plg-avail { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--panel-strong); }
+.plg-avail__row { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--ds-space-4); padding: var(--ds-space-4); min-width: 0; }
+.plg-avail__row + .plg-avail__row { border-top: 1px solid var(--border); }
+.plg-avail__main { display: flex; flex-direction: column; gap: var(--ds-space-2); min-width: 0; flex: 1; }
+.plg-avail__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); min-height: var(--ds-space-5); }
+.plg-avail__name { font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); color: var(--text); }
+button.plg-avail__name { padding: 0; font: inherit; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); }
+.plg-avail__text { margin: 0; max-width: 48rem; font-size: var(--ds-text-sm); line-height: var(--ds-leading); color: var(--muted-strong); }
+.plg-avail__lines { display: flex; flex-direction: column; gap: var(--ds-space-1); margin: 0; padding-left: var(--ds-space-4); list-style: disc; color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.plg-avail__error { margin: 0; color: var(--ds-tone-problem-ink); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.plg-avail__side { display: flex; align-items: center; flex: none; min-height: var(--ds-control-md); }
+.plg-avail__flag { display: inline-flex; padding: 0; border: 0; background: none; cursor: pointer; border-radius: var(--ds-radius-sm); }
+.plg-avail__row.is-missing .plg-avail__name, .plg-avail__row.is-missing .plg-avail__text { color: var(--muted); }
+.plg-avail__row.is-missing { background: var(--surface-overlay); }
+
+/* The switch (role="switch"): the skill catalog's shape, in theme colours. */
+.plg-switch-wrap { display: inline-flex; align-items: center; gap: var(--ds-space-2); }
+.plg-switch-state { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); white-space: nowrap; }
+.plg-switch {
+  position: relative; flex: none; width: var(--ds-space-8); height: var(--ds-space-5); padding: 0;
+  border: 1px solid var(--border-strong); border-radius: var(--ds-radius-pill); background: var(--surface-overlay-strong); cursor: pointer;
+}
+.plg-switch::after {
+  content: ""; position: absolute; top: 50%; left: var(--ds-space-1); width: var(--ds-space-3); height: var(--ds-space-3);
+  border-radius: var(--ds-radius-pill); background: var(--muted); transform: translateY(-50%); transition: left 120ms ease;
+}
+.plg-switch.is-on { border-color: color-mix(in srgb, var(--status-active) 40%, transparent); background: color-mix(in srgb, var(--status-active) 22%, transparent); }
+.plg-switch.is-on::after { left: calc(100% - var(--ds-space-1) - var(--ds-space-3)); background: var(--status-active-ink); }
+.plg-switch.is-busy { opacity: 0.6; cursor: progress; }
+.plg-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.plg-stack { display: flex; flex-direction: column; gap: var(--ds-space-4); min-width: 0; }
+.plg-detail__text { margin: 0; font-size: var(--ds-text-sm); line-height: var(--ds-leading); color: var(--muted-strong); }
+
+.plg-block { display: flex; flex-direction: column; gap: var(--ds-space-2); }
+.plg-block__title { margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); }
+.plg-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--ds-radius-md); }
+.plg-item { display: flex; flex-direction: column; gap: var(--ds-space-1); padding: var(--ds-space-2) var(--ds-space-3); font-size: var(--ds-text-sm); min-width: 0; }
+.plg-item + .plg-item { border-top: 1px solid var(--border); }
+.plg-item--row { flex-direction: row; align-items: baseline; gap: var(--ds-space-3); }
+.plg-item__line { display: flex; align-items: center; gap: var(--ds-space-2); flex-wrap: wrap; }
+.plg-item__name { font-weight: var(--ds-weight-medium); }
+.plg-item__meta { color: var(--muted); font-size: var(--ds-text-xs); line-height: var(--ds-leading); }
+.plg-item__kind { width: 6rem; flex: none; color: var(--muted); font-size: var(--ds-text-xs); }
+.plg-item--dropped .plg-item__name, .plg-item--dropped .plg-item__kind { color: var(--muted); font-weight: var(--ds-weight-regular); }
+
+/* Detail facts. */
+.plg-facts { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: var(--ds-space-2) var(--ds-space-4); margin: 0; font-size: var(--ds-text-sm); }
+.plg-facts dt { color: var(--muted); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+.plg-facts dd { margin: 0; min-width: 0; }
+
+@media (max-width: 720px) {
+  .plg-avail__row { flex-direction: column; }
+}
+
+/* A plugin's page in a sandboxed frame (contract §4). The frame paints the host's background
+   (context.theme.tokens.bg), so it sits on the page without a box of its own. */
+.plg-frame { display: flex; flex-direction: column; min-width: 0; }
+.plg-frame__iframe { display: block; width: 100%; border: 0; background: transparent; color-scheme: normal; }
+.plg-frame__loading { padding: var(--ds-space-3) 0; }
+.plg-frame-failed { margin: 0; padding: var(--ds-space-3) 0; color: var(--muted); font-size: var(--ds-text-sm); }
+
+/* The confirmation in the Octryx frame. */
+.plg-confirm { display: flex; flex-direction: column; gap: var(--ds-space-3); min-width: 0; }
+.plg-confirm__lead { margin: 0; font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.plg-confirm__preview { display: flex; flex-direction: column; gap: var(--ds-space-1); padding: var(--ds-space-3);
+  border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--surface-overlay); font-size: var(--ds-text-sm); }
+
+/* Settings form on the plugin detail. */
+.plg-settings { display: flex; flex-direction: column; gap: var(--ds-space-3); }
+.plg-settings__field { display: flex; flex-direction: column; gap: var(--ds-space-1); min-width: 0; }
+.plg-settings__label { font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); color: var(--muted-strong); }
+.plg-settings__check { display: flex; align-items: center; gap: var(--ds-space-2); font-size: var(--ds-text-sm); }
+.plg-settings__check input { margin: 0; }
+.plg-settings__problem { margin: 0; color: var(--ds-tone-problem-ink); font-size: var(--ds-text-xs); }
+.plg-settings__secret { display: flex; align-items: center; gap: var(--ds-space-2); }
+.plg-settings__secret input { flex: 1; min-width: 0; }
+.plg-settings__foot { display: flex; align-items: center; gap: var(--ds-space-3); }
+.plg-settings__value { margin: 0; font-size: var(--ds-text-sm); }
+
+/* The image folder's last start (contract §5/§6). */
+.plg-item__reason { font-weight: var(--ds-weight-medium); color: var(--ds-tone-problem-ink); }
+.plg-sublist { display: flex; flex-direction: column; gap: var(--ds-space-1); margin: 0; padding-left: var(--ds-space-4); list-style: disc; color: var(--muted); }
+.plg-section { display: flex; flex-direction: column; gap: var(--ds-space-3); padding-top: var(--ds-space-4); border-top: 1px solid var(--border); }
+.plg-section__head { display: flex; flex-direction: column; gap: var(--ds-space-1); }
+.plg-section__title { margin: 0; font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); }

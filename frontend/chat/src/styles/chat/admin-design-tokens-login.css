@@ -1,0 +1,111 @@
+/* Server-rendered admin pages: login shell, sign-in providers and the policy registry note. */
+.admin-login-shell {
+  min-height: min(100vh, 100dvh);
+  display: grid;
+  gap: 0.5rem;
+  padding: 2.5rem 1rem 3rem;
+  width: min(440px, calc(100vw - 2rem));
+  margin: 0 auto;
+  align-content: start;
+}
+
+.admin-login-shell__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--admin-text);
+}
+
+.admin-login-shell__brand-mark {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: var(--ds-radius-md);
+  background: linear-gradient(135deg, #e8dfc5, #c9bfa0 55%, #807769);
+  box-shadow: 0 10px 30px rgba(216, 200, 154, 0.18);
+}
+
+.admin-login-shell__brand-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.admin-login-shell h1 {
+  margin: 0;
+  font-size: var(--ds-text-2xl);
+}
+
+.admin-login-shell p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-size: var(--ds-text-md);
+}
+
+.admin-login-shell__field {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.admin-login-shell__label {
+  display: inline-block;
+  font-size: var(--ds-font-size-small, 0.74rem);
+  color: var(--admin-text);
+}
+
+.admin-login-shell__input {
+  width: 100%;
+  height: 2.2rem;
+  border-radius: var(--ds-radius-md);
+  padding: 0 0.75rem;
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-login-shell__submit {
+  width: 100%;
+  margin-top: 0.75rem;
+  height: 2.25rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid color-mix(in srgb, var(--admin-accent) 42%, transparent);
+  color: var(--admin-text);
+  background: color-mix(in srgb, var(--admin-accent) 14%, transparent);
+  font-weight: 600;
+}
+
+.admin-login-shell__submit:hover {
+  background: color-mix(in srgb, var(--admin-accent) 21%, transparent);
+}
+
+.admin-login-shell__error {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: var(--status-error-ink);
+  background: rgba(239, 68, 68, 0.1);
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-xs);
+}
+
+.admin-login-shell__provider-divider {
+  margin: 0.25rem 0;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-login-shell__provider {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.05rem;
+  text-decoration: none;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  background: rgba(23, 25, 24, 0.68);
+}
+
+.admin-login-shell__provider:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(28, 33, 30, 0.9);
+}

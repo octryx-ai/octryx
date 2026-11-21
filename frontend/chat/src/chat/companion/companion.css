@@ -1,0 +1,191 @@
+/* Octryx companion. Colours come from the tokens below, set for both themes. */
+:root {
+  --octryx-run: #8fb0e0;
+  --octryx-wait: #e0b860;
+  --octryx-done: #7fc49a;
+  --octryx-fail: #e2846c;
+  --octryx-idle: #5d5750;
+  --octryx-body: #e7d8c1;
+  --octryx-ink: #1f1c17;
+}
+
+[data-theme="light"] {
+  --octryx-run: #4f78b8;
+  --octryx-wait: #a8741a;
+  --octryx-done: #2f7a4c;
+  --octryx-fail: #b0442c;
+  --octryx-idle: #b5ab9c;
+}
+
+/* The trigger is the Octryx AI logo at the top left (rail, or the compact menu on narrow screens). */
+.octryx-trigger {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin-bottom: 0.5rem;
+  padding: 0.1rem;
+  border: 0;
+  border-radius: var(--ds-radius-lg);
+  background: transparent;
+  color: var(--octryx-body);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.octryx-trigger:hover,
+.octryx-trigger[aria-expanded="true"] { background: var(--panel-elevated, rgba(255, 255, 255, 0.06)); }
+.octryx-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The rail's logo slot keeps its place; the dot may sit outside the logo. */
+.area-rail__logo.octryx-trigger { width: 2.25rem; height: 2.25rem; border-radius: var(--ds-radius-lg); overflow: visible; }
+
+.octryx-logo { display: block; width: 100%; height: 100%; }
+.octryx-trigger .brand__image,
+.octryx-trigger .brand__svg { display: block; width: 1.95rem; height: 1.95rem; border-radius: 999px; object-fit: cover; }
+
+/* The count as a dot at the logo: needs you (amber) or a problem (red). */
+.octryx-trigger__count {
+  position: absolute;
+  top: -0.15rem;
+  right: -0.25rem;
+  min-width: 1rem;
+  padding: 0 0.25rem;
+  border: 2px solid var(--panel-strong);
+  border-radius: 999px;
+  background: var(--octryx-wait);
+  color: var(--octryx-ink);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  line-height: 0.85rem;
+  text-align: center;
+}
+
+.octryx-trigger[data-state="worry"] .octryx-trigger__count { background: var(--octryx-fail); }
+
+/* While runs work, a quiet ring breathes around the logo; never with reduced motion. */
+.octryx-trigger[data-working="true"][data-motion="full"]::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--octryx-run);
+  opacity: 0;
+  animation: octryx-breathe 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes octryx-breathe { 50% { opacity: 0.7; } }
+
+.octryx-trigger--compact { width: 2rem; height: 2rem; margin: 0 0 0 auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .octryx-trigger::after { animation: none !important; }
+}
+
+/* The side panel is the design system's SidePanel (narrow) over the dimmed page; only its content is
+   styled here. */
+.octryx-panel__gear { display: inline-grid; place-items: center; }
+
+.octryx-panel__body {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+}
+
+.octryx-panel__section { display: grid; gap: 0.5rem; }
+.octryx-panel__heading { margin: 0; color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: 600; }
+.octryx-panel__list { display: grid; gap: 0.5rem; margin: 0; padding: 0; list-style: none; }
+
+.octryx-panel__item,
+.octryx-panel__run {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--octryx-idle);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.octryx-panel__item--question,
+.octryx-panel__item--gate,
+.octryx-panel__item--device_approval,
+.octryx-panel__item--handover,
+.octryx-panel__run--needs_you { border-left-color: var(--octryx-wait); }
+.octryx-panel__item--done,
+.octryx-panel__run--done { border-left-color: var(--octryx-done); }
+.octryx-panel__item--problem,
+.octryx-panel__item--budget,
+.octryx-panel__item--allowance,
+.octryx-panel__run--problem { border-left-color: var(--octryx-fail); }
+.octryx-panel__run--working { border-left-color: var(--octryx-run); }
+
+.octryx-panel__item-title { font-size: var(--ds-text-md); }
+.octryx-panel__meta { color: var(--muted); font-size: var(--ds-text-xs); }
+.octryx-panel__text { margin: 0; font-size: var(--ds-text-sm); overflow-wrap: anywhere; }
+.octryx-panel__text p, .octryx-panel__text ul, .octryx-panel__text ol { margin: 0 0 0.25rem; }
+.octryx-panel__text > :last-child { margin-bottom: 0; }
+.octryx-panel__text ul, .octryx-panel__text ol { padding-left: 1rem; }
+.octryx-panel__text code { font-size: var(--ds-text-xs); }
+.octryx-panel__text a { color: var(--accent); text-decoration: underline; }
+.octryx-panel__text-heading { margin: 0 0 0.25rem; font-weight: 600; }
+.octryx-panel__answered { margin: 0; color: var(--octryx-done); font-size: var(--ds-text-sm); font-weight: 600; }
+.octryx-panel__item--answered { opacity: 0.75; }
+.octryx-panel__countdown { color: var(--octryx-wait); font-size: var(--ds-text-xs); font-weight: 600; font-variant-numeric: tabular-nums; }
+.octryx-panel__hint { margin: 0; color: var(--muted); font-size: var(--ds-text-xs); }
+.octryx-panel__refusal { margin: 0; color: var(--status-error-ink); font-size: var(--ds-text-xs); }
+.octryx-panel__link { color: var(--accent); font-size: var(--ds-text-sm); text-decoration: underline; }
+
+.octryx-panel__actions { display: grid; gap: 0.5rem; }
+.octryx-panel__buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.octryx-panel__answer { display: flex; align-items: end; gap: 0.5rem; }
+.octryx-panel__answer .admin-panel__field { flex: 1; min-width: 0; }
+/* The handover form stacks its fields in the narrow panel: full width, no horizontal scroll. */
+.octryx-handover { display: grid; gap: 0.5rem; min-width: 0; }
+.octryx-handover .admin-panel__field,
+.octryx-handover .admin-panel__input { width: 100%; min-width: 0; box-sizing: border-box; }
+
+.octryx-panel__settings { display: grid; gap: 0.5rem; }
+
+.octryx-panel__quiet { display: grid; gap: 0.5rem; margin: 0; padding: 0; border: 0; }
+.octryx-panel__quiet legend { padding: 0; color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: 600; }
+.octryx-panel__quiet-times { display: flex; align-items: end; gap: 0.5rem; }
+
+/* The setup progress in the rail ("3/7", the full line as its name). */
+/* Neutral: an unfinished setup is a normal state, not an attention colour. */
+.area-rail__setup { color: var(--muted-strong); font-size: var(--ds-text-2xs); font-weight: 600; font-variant-numeric: tabular-nums;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; height: auto; min-height: 2.2rem;
+  padding: 0.25rem 0; line-height: 1.1; gap: 0.05rem; }
+.area-rail__setup-label { color: var(--muted); font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: 0.01em; }
+
+/* Jobs (part B): a compact table; a row opens the run's read-only detail; the phases read as a stepper. */
+.octryx-jobs__cell { display: grid; gap: 0.1rem; min-width: 0; }
+.octryx-jobs__title { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.octryx-jobs__meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-testid="octryx-jobs-table"] .ds-table { table-layout: fixed; }
+[data-testid="octryx-jobs-table"] .ds-table__td { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+/* A long state ("Waiting for your confirmation") wraps inside its column instead of squeezing the job's name. */
+[data-testid="octryx-jobs-table"] .ds-status { white-space: normal; }
+.octryx-jobs__back { justify-self: start; }
+
+.octryx-jobs__phases,
+.octryx-jobs__events { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+
+.octryx-jobs__phase {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 3px solid var(--octryx-idle);
+  font-size: var(--ds-text-sm);
+}
+
+.octryx-jobs__phase--done { border-left-color: var(--octryx-done); }
+.octryx-jobs__phase--active { border-left-color: var(--octryx-run); font-weight: 600; }
+.octryx-jobs__phase--problem { border-left-color: var(--octryx-fail); }
+
+.octryx-jobs__events li { display: flex; justify-content: space-between; gap: 0.5rem; font-size: var(--ds-text-xs); overflow-wrap: anywhere; }
+.octryx-jobs__events--technical li { color: var(--muted); }
+.octryx-jobs__reason { margin: 0; padding: 0.5rem 0.5rem; border-left: 3px solid var(--octryx-fail); font-size: var(--ds-text-sm); }

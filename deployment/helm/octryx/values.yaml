@@ -1,0 +1,116 @@
+# Defaults of the Octryx AI chart. Start from ../values.example.yaml, which lists only what
+# an installation has to decide; everything here has a working default.
+
+# Name prefix of every resource; default "<release>-octryx". An upgrade keeps its resources and the database
+# volume only under the prefix they already use (README.md, "Resource names and the database volume").
+fullnameOverride: ""
+
+images:
+  # Keep repository, tag and digest in this order: release tooling patches them line by line.
+  api:
+    # Required: the image you built and pushed (Dockerfile, target api). No image is published.
+    repository: ""
+    tag: "latest"
+    digest: ""
+    pullPolicy: IfNotPresent
+  postgres:
+    repository: pgvector/pgvector
+    tag: "pg16"
+    digest: ""
+  parser:
+    repository: quay.io/docling-project/docling-serve-cpu
+    tag: "v1.35.0"
+    digest: "sha256:79e5fcd19ab227ed36323fa5fa31820d14d53efc4f073417ba37be7931c7af0a"
+
+imagePullSecrets: []
+
+# Public hostname, without https://. The platform's origin is https://<host>.
+host: ""
+
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  # TLS secret for <host>; empty means the ingress controller's default certificate.
+  tlsSecretName: ""
+
+# Addresses of the ingress controller (IPs or CIDRs, comma-separated) whose X-Forwarded-* headers are
+# trusted. Empty: no forwarded header is read.
+trustedProxyIps: ""
+
+# Name of an existing Secret in the release namespace (see https://octryx.ai/docs/install/kubernetes). Keys:
+#   JWT_SECRET, ENCRYPTION_KEY          always
+#   POSTGRES_PASSWORD                   with database.internal=true
+#   DATABASE_URL                        with database.internal=false (postgresql+asyncpg://...)
+#   LLM_API_KEY                         with model.provider anthropic or openai
+#   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   Bedrock without IRSA (optional)
+#   OCTRYX_KNOWLEDGE_PARSER_API_KEY    with parser.enabled=true
+existingSecret: ""
+
+database:
+  # true: PostgreSQL with pgvector as a StatefulSet in the release. false: DATABASE_URL from the Secret.
+  internal: true
+  storage: 20Gi
+  # Database name of the internal PostgreSQL. An existing volume keeps the name it was created with.
+  name: octryx
+
+model:
+  # The one model access of the first start: bedrock, anthropic or openai.
+  provider: bedrock
+  defaultModel: eu.anthropic.claude-sonnet-5
+  awsRegion: eu-central-1
+  # openai only: the OpenAI-compatible base URL (https://.../v1).
+  endpointUrl: ""
+
+# S3-compatible store for Knowledge originals. Empty endpoint: Knowledge answers needs_configuration.
+# AWS S3: endpoint https://s3.<region>.amazonaws.com, credentials from the service account (IRSA).
+objectStore:
+  endpoint: ""
+  bucket: ""
+  region: ""
+
+serviceAccount:
+  create: true
+  name: ""
+  # For example eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/<role> (Bedrock, S3).
+  annotations: {}
+
+persistence:
+  # The API's two ReadWriteOnce volumes. app-data holds session workspaces and run working copies,
+  # uploads holds uploaded files (knowledge documents, templates, chat files). false: emptyDir, data
+  # is lost when the pod restarts.
+  enabled: true
+  storageClass: ""
+  appData: 10Gi
+  uploads: 2Gi
+
+# Docling parser sidecar for PDF, HTML and Office uploads (Markdown and text work without it).
+parser:
+  enabled: false
+  version: "1.35.0"
+
+resources:
+  api: {requests: {cpu: 250m, memory: 1Gi}, limits: {cpu: "4", memory: 4Gi}}
+  parser: {requests: {cpu: 100m, memory: 1Gi}, limits: {cpu: "2", memory: 4Gi}}
+  postgres: {requests: {cpu: 50m, memory: 256Mi}, limits: {cpu: "1", memory: 1Gi}}
+
+# Additional non-secret API environment, NAME: value.
+# Plugins without an own image: any volume source, mounted read-only at /opt/octryx/plugins, whose folders or .zip
+# files Octryx installs at every start (backend/app/services/plugins/image.py), e.g.
+#   volume: {configMap: {name: octryx-plugins}}   # .zip files as binaryData (a ConfigMap holds at most 1 MB)
+#   volume: {persistentVolumeClaim: {claimName: octryx-plugins}}
+# Empty: the image's own folder (none in the Octryx image; your image may COPY plugins there).
+plugins:
+  volume: {}
+
+extraEnv: {}
+
+# Prometheus metrics on /metrics (agents, LLM, tools, workflow runs, approvals: octryx_*; see https://octryx.ai/docs/install/metrics).
+# The scraper presents METRICS_SCRAPE_TOKEN from existingSecret as a bearer token; without that key only a
+# signed-in user reads /metrics. serviceMonitor needs the Prometheus Operator (monitoring.coreos.com/v1).
+metrics:
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    # Labels your Prometheus selects ServiceMonitors by, e.g. {release: kube-prometheus-stack}.
+    labels: {}

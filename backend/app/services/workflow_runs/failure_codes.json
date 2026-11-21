@@ -1,0 +1,20 @@
+{
+  "about": "What a structured failure code of a platform step means (codes, never message texts). cause: who caused it (pause_causes terms); deterministic: the same input fails the same way, so a retry round cannot help: the run pauses once with what to fix (pause_reason, the catalog text run.failure.<code>) and uses no loop round. A hands-on node may add codes to treat as deterministic (config.deterministic_failures). A loop_limit pause takes its cause from the last failure's code here.",
+  "codes": {
+    "env_file_invalid": {"cause": "environment", "deterministic": true, "pause_reason": "needs_configuration"},
+    "serve_missing": {"cause": "environment", "deterministic": true, "pause_reason": "needs_configuration"},
+    "browser_unavailable": {"cause": "environment", "deterministic": true, "pause_reason": "environment_not_ready"},
+    "env_setup_failed": {"cause": "environment", "deterministic": false},
+    "device_busy": {"cause": "environment", "deterministic": false},
+    "port_in_use": {"cause": "environment", "deterministic": false},
+    "app_exited": {"cause": "environment", "deterministic": false},
+    "app_killed": {"cause": "environment", "deterministic": false},
+    "app_not_answering": {"cause": "environment", "deterministic": false},
+    "scenario_file_invalid": {"cause": "agent", "deterministic": false},
+    "scenario_step_failed": {"cause": "agent", "deterministic": false},
+    "scenarios_failed": {"cause": "agent", "deterministic": false},
+    "device_offline": {"cause": "environment", "deterministic": false},
+    "device_job_silent": {"cause": "environment", "deterministic": false}
+  },
+  "unmapped_cause": "agent"
+}

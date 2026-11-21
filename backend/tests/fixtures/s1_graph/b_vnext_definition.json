@@ -1,0 +1,1295 @@
+{
+ "execution_kind": "phased",
+ "plan_node": "clarify",
+ "failure_policy": {
+  "comment_per_round": true,
+  "follow_up_on_loop_limit": true,
+  "follow_up_issue_type": "Task"
+ },
+ "nodes": [
+  {
+   "id": "start",
+   "type": "start",
+   "label": "Start"
+  },
+  {
+   "id": "ticket",
+   "type": "platform_action",
+   "label": "Ticket",
+   "config": {
+    "action": "jira.create_issue",
+    "params": {
+     "issue_type": "Story",
+     "summary_from": "work_item",
+     "description_from": "work_item"
+    }
+   }
+  },
+  {
+   "id": "branch",
+   "type": "platform_action",
+   "label": "Feature branch",
+   "config": {
+    "action": "scm.create_branch",
+    "params": {
+     "branch_type": "feature"
+    }
+   }
+  },
+  {
+   "id": "prepare",
+   "type": "platform_action",
+   "label": "Prepare the working folder",
+   "config": {
+    "action": "workspace.prepare"
+   }
+  },
+  {
+   "id": "clarify",
+   "type": "phase",
+   "label": "Clarify",
+   "config": {
+    "agent": "engineer",
+    "workflow_id": "knowledge_request",
+    "workflow_class": "knowledge_request",
+    "workflow_contract": {
+     "workflow_id": "knowledge_request",
+     "workflow_class": "knowledge_request",
+     "capability_class": "read_only",
+     "routing_intent": "knowledge",
+     "when_to_use": "Understand the feature and the code it touches. Propose the test contract and submit it with submit_test_contract: every acceptance criterion with the tests that prove it, each with its role — new (a test you will write that specifies the new behaviour: before the change it fails on an assertion, or at its import when the code it tests does not exist yet) or regression (an existing test that must keep passing before and after the change) — and the command that runs them (or manual_only with the reason), plus open questions. A test that already passes on the branch is never new. Change nothing; the platform drafts the Work item's change plan from your submission for the person to confirm.",
+     "checks": [
+      {
+       "type": "evidence_count",
+       "params": {
+        "tools": [
+         "read_workspace_file",
+         "code_search",
+         "work_item_context",
+         "grep_workspace"
+        ],
+        "min_count": 1
+       },
+       "blocking": true,
+       "description": "The code and the Work item were read"
+      },
+      {
+       "type": "tool_called",
+       "params": {
+        "tools": [
+         "submit_test_contract"
+        ]
+       },
+       "blocking": true,
+       "description": "The test contract was submitted"
+      }
+     ]
+    },
+    "tool_policy": {
+     "allowlist": [
+      "analyze_workspace_repository",
+      "code_search",
+      "grep_workspace",
+      "glob_workspace_files",
+      "list_workspace_directory",
+      "read_workspace_file",
+      "get_git_diff",
+      "knowledge_search",
+      "knowledge_read",
+      "todo_read",
+      "work_item_context",
+      "submit_test_contract"
+     ],
+     "denylist": []
+    },
+    "output": "test_contract"
+   }
+  },
+  {
+   "id": "draft_plan",
+   "type": "platform_action",
+   "label": "Draft the change plan",
+   "config": {
+    "action": "work.draft_change_plan"
+   }
+  },
+  {
+   "id": "contract",
+   "type": "user_confirmation",
+   "label": "Confirm the test contract",
+   "config": {
+    "decider": "requester",
+    "subject": "test_contract",
+    "documentation_contract": true
+   }
+  },
+  {
+   "id": "tests_first",
+   "type": "phase",
+   "label": "Tests first",
+   "config": {
+    "agent": "engineer",
+    "workflow_id": "coding_change_tdd",
+    "workflow_class": "coding_change_tdd",
+    "workflow_contract": {
+     "workflow_id": "coding_change_tdd",
+     "workflow_class": "coding_change_tdd",
+     "capability_class": "change",
+     "routing_intent": "coding",
+     "when_to_use": "Write the new tests of the confirmed test contract (the run's test_contract input: each criterion's tests with role new) and run them together with its regression tests, preferably with the repository's declared test command exactly as declared: each new test must fail on an assertion — or, when the code it tests does not exist yet, at its import of that code (ModuleNotFoundError / ImportError) — and each regression test must keep passing. Import the code under test from where the implementation will live; never define, stub or copy the code under test inside a test file (the next phase may not change the confirmed tests, so a stub there can never be replaced). Never weaken or remove an existing test. Change only test files.",
+     "checks": [
+      {
+       "type": "tool_called",
+       "params": {
+        "tools": [
+         "run_test_suite"
+        ]
+       },
+       "blocking": true,
+       "description": "The test suite ran"
+      },
+      {
+       "type": "lint_passed",
+       "params": {},
+       "blocking": true,
+       "description": "The repository's declared lint command passes on this run's change"
+      }
+     ],
+     "required_model_capability": "coding",
+     "path_rules": {
+      "write": [
+       "tests/**",
+       "test/**",
+       "**/tests/**",
+       "**/test/**",
+       "**/test_*",
+       "**/*_test.*",
+       "**/*Test.*",
+       "**/*.test.*",
+       "**/*_spec.*"
+      ]
+     }
+    },
+    "tool_policy": {
+     "allowlist": [
+      "analyze_workspace_repository",
+      "code_search",
+      "grep_workspace",
+      "glob_workspace_files",
+      "list_workspace_directory",
+      "read_workspace_file",
+      "get_git_diff",
+      "knowledge_search",
+      "knowledge_read",
+      "todo_read",
+      "todo_write",
+      "write_workspace_file",
+      "edit_workspace_file",
+      "multi_edit_workspace_file",
+      "run_test_suite"
+     ],
+     "denylist": []
+    },
+    "inputs": [
+     "test_contract"
+    ]
+   }
+  },
+  {
+   "id": "red",
+   "type": "gate",
+   "label": "Red",
+   "config": {
+    "phase": "tests_first",
+    "checks": [
+     {
+      "type": "tests_red",
+      "params": {},
+      "blocking": true,
+      "description": "Every new confirmed test fails on an assertion or cannot import its code yet; every regression test passes"
+     }
+    ]
+   }
+  },
+  {
+   "id": "implement",
+   "type": "phase",
+   "label": "Implement",
+   "config": {
+    "agent": "engineer",
+    "workflow_id": "coding_change_tdd",
+    "workflow_class": "coding_change_tdd",
+    "workflow_contract": {
+     "workflow_id": "coding_change_tdd",
+     "workflow_class": "coding_change_tdd",
+     "capability_class": "change",
+     "routing_intent": "coding",
+     "when_to_use": "Split the work into slices and delegate them with delegate_slices (each slice names the confirmed tests it makes pass); merge them with merge_slices, then run the full test suite. Never change a confirmed test.",
+     "checks": [
+      {
+       "type": "tool_called",
+       "params": {
+        "tools": [
+         "run_test_suite"
+        ]
+       },
+       "blocking": true,
+       "description": "The test suite ran"
+      },
+      {
+       "type": "test_command_passed",
+       "params": {},
+       "blocking": true,
+       "description": "The last test run after the last change passed"
+      },
+      {
+       "type": "lint_passed",
+       "params": {},
+       "blocking": true,
+       "description": "The repository's declared lint command passes on this run's change"
+      }
+     ],
+     "required_model_capability": "coding",
+     "path_rules": {
+      "protect_confirmed_tests": true,
+      "create": [
+       "src/**",
+       "lib/**",
+       "app/**",
+       "pkg/**",
+       "internal/**",
+       "cmd/**"
+      ]
+     }
+    },
+    "tool_policy": {
+     "allowlist": [
+      "analyze_workspace_repository",
+      "code_search",
+      "grep_workspace",
+      "glob_workspace_files",
+      "list_workspace_directory",
+      "read_workspace_file",
+      "get_git_diff",
+      "knowledge_search",
+      "knowledge_read",
+      "todo_read",
+      "todo_write",
+      "write_workspace_file",
+      "edit_workspace_file",
+      "multi_edit_workspace_file",
+      "run_test_suite",
+      "delegate_slices",
+      "merge_slices"
+     ],
+     "denylist": []
+    },
+    "sub_agents": {
+     "max_parallel": 5,
+     "iterations": 3
+    },
+    "inputs": [
+     "test_contract"
+    ]
+   }
+  },
+  {
+   "id": "green",
+   "type": "gate",
+   "label": "Green",
+   "config": {
+    "phase": "implement",
+    "checks": [
+     {
+      "type": "tests_green",
+      "params": {},
+      "blocking": true,
+      "description": "The confirmed tests passed after failing, the suite is green"
+     },
+     {
+      "type": "confirmed_tests_intact",
+      "params": {},
+      "blocking": true,
+      "description": "The confirmed tests are unchanged and not skipped"
+     },
+     {
+      "type": "slices_merged",
+      "params": {},
+      "blocking": true,
+      "description": "Every slice is merged"
+     },
+     {
+      "type": "lint_passed",
+      "params": {},
+      "blocking": true,
+      "description": "The repository's declared lint command passes on this run's change"
+     }
+    ]
+   }
+  },
+  {
+   "id": "independent_review",
+   "type": "review",
+   "label": "Independent review",
+   "config": {
+    "phase": "implement"
+   }
+  },
+  {
+   "id": "review",
+   "type": "gate",
+   "label": "Review and evidence",
+   "config": {
+    "phase": "implement",
+    "checks": [
+     {
+      "type": "review_passed",
+      "params": {},
+      "blocking": true,
+      "description": "The independent reviewer passed the change"
+     },
+     {
+      "type": "test_command_passed",
+      "params": {},
+      "blocking": true,
+      "description": "The last test run after the last change passed"
+     },
+     {
+      "type": "confirmed_tests_intact",
+      "params": {},
+      "blocking": true,
+      "description": "The confirmed tests are unchanged and not skipped"
+     }
+    ]
+   }
+  },
+  {
+   "id": "doc_draft",
+   "type": "phase",
+   "label": "Draft the documentation (read-only, before the push)",
+   "config": {
+    "agent": "engineer",
+    "workflow_id": "knowledge_request",
+    "workflow_class": "knowledge_request",
+    "workflow_contract": {
+     "workflow_id": "knowledge_request",
+     "workflow_class": "knowledge_request",
+     "capability_class": "read_only",
+     "routing_intent": "knowledge",
+     "when_to_use": "The change is reviewed and not pushed yet. Draft the feature documentation (what the feature does, why it exists, how to use it) from the reviewed change, the work item and the confirmed test contract, and submit it with submit_feature_documentation. Change nothing: the platform checks that the reviewed working copy is unchanged before it pushes.",
+     "checks": [
+      {
+       "type": "tool_called",
+       "params": {
+        "tools": [
+         "submit_feature_documentation"
+        ]
+       },
+       "blocking": true,
+       "description": "The feature documentation was submitted"
+      }
+     ]
+    },
+    "tool_policy": {
+     "allowlist": [
+      "analyze_workspace_repository",
+      "code_search",
+      "grep_workspace",
+      "glob_workspace_files",
+      "list_workspace_directory",
+      "read_workspace_file",
+      "get_git_diff",
+      "knowledge_search",
+      "knowledge_read",
+      "todo_read",
+      "work_item_context",
+      "submit_feature_documentation"
+     ],
+     "denylist": []
+    },
+    "output": "feature_documentation",
+    "inputs": [
+     "test_contract"
+    ],
+    "documentation_status": "draft"
+   }
+  },
+  {
+   "id": "tree_check",
+   "type": "platform_action",
+   "label": "Reviewed tree unchanged",
+   "config": {
+    "action": "documentation.tree_unchanged"
+   }
+  },
+  {
+   "id": "push",
+   "type": "platform_action",
+   "label": "Push",
+   "config": {
+    "action": "scm.push"
+   }
+  },
+  {
+   "id": "pr",
+   "type": "platform_action",
+   "label": "Pull request",
+   "config": {
+    "action": "scm.open_pr"
+   }
+  },
+  {
+   "id": "in_review",
+   "type": "platform_action",
+   "label": "Work item in review",
+   "config": {
+    "action": "jira.transition",
+    "params": {
+     "work_state": "review"
+    }
+   }
+  },
+  {
+   "id": "ci",
+   "type": "watch",
+   "label": "CI on the pushed commit",
+   "config": {
+    "conditions": [
+     "ci.succeeded",
+     "ci.failed"
+    ],
+    "advance": "auto"
+   }
+  },
+  {
+   "id": "merged",
+   "type": "watch",
+   "label": "Merged",
+   "config": {
+    "conditions": [
+     "pr.merged",
+     "pr.declined"
+    ],
+    "advance": "auto"
+   }
+  },
+  {
+   "id": "doc_final",
+   "type": "phase",
+   "label": "Finalise the documentation (merged, not deployed)",
+   "config": {
+    "agent": "engineer",
+    "workflow_id": "knowledge_request",
+    "workflow_class": "knowledge_request",
+    "workflow_contract": {
+     "workflow_id": "knowledge_request",
+     "workflow_class": "knowledge_request",
+     "capability_class": "read_only",
+     "routing_intent": "knowledge",
+     "when_to_use": "The change is merged, not deployed. Finalise the feature documentation for the people who will use it: what the feature does, why it exists and how to use it, grounded in the merged change, the work item, the confirmed test contract and your pre-push draft. Submit it with submit_feature_documentation; the platform adds the acceptance criteria with their tests and the ticket and pull request links. The requester decides the functional acceptance and the publication separately; the platform publishes and proves the page.",
+     "checks": [
+      {
+       "type": "tool_called",
+       "params": {
+        "tools": [
+         "submit_feature_documentation"
+        ]
+       },
+       "blocking": true,
+       "description": "The feature documentation was submitted"
+      }
+     ]
+    },
+    "tool_policy": {
+     "allowlist": [
+      "analyze_workspace_repository",
+      "code_search",
+      "grep_workspace",
+      "glob_workspace_files",
+      "list_workspace_directory",
+      "read_workspace_file",
+      "get_git_diff",
+      "knowledge_search",
+      "knowledge_read",
+      "todo_read",
+      "work_item_context",
+      "submit_feature_documentation"
+     ],
+     "denylist": []
+    },
+    "output": "feature_documentation",
+    "inputs": [
+     "test_contract"
+    ],
+    "documentation_status": "final"
+   }
+  },
+  {
+   "id": "publish_preflight",
+   "type": "platform_action",
+   "label": "Publication configured",
+   "config": {
+    "action": "documentation.preflight"
+   }
+  },
+  {
+   "id": "accept_functional",
+   "type": "user_confirmation",
+   "label": "Functional acceptance (a)",
+   "config": {
+    "decider": "requester",
+    "subject": "functional_acceptance"
+   }
+  },
+  {
+   "id": "reserve_publication",
+   "type": "platform_action",
+   "label": "Reserve the publication",
+   "config": {
+    "action": "documentation.reserve_publication"
+   }
+  },
+  {
+   "id": "confirm_publication",
+   "type": "user_confirmation",
+   "label": "Publish the page (b)",
+   "config": {
+    "decider": "requester",
+    "subject": "publication"
+   }
+  },
+  {
+   "id": "publish_docs",
+   "type": "platform_action",
+   "label": "Publish the page in Confluence",
+   "config": {
+    "action": "documentation.publish_v2"
+   }
+  },
+  {
+   "id": "docs_in_knowledge",
+   "type": "platform_action",
+   "label": "Published version in Knowledge",
+   "config": {
+    "action": "documentation.sync_published_version"
+   }
+  },
+  {
+   "id": "audience_proof",
+   "type": "platform_action",
+   "label": "Audience proof",
+   "config": {
+    "action": "documentation.audience_proof",
+    "params": {
+     "principal_role": "audience"
+    },
+    "reminder_hours": 24,
+    "timeout_hours": 72
+   }
+  },
+  {
+   "id": "outsider_proof",
+   "type": "platform_action",
+   "label": "Outsider cannot see it",
+   "config": {
+    "action": "documentation.audience_proof",
+    "params": {
+     "principal_role": "outsider"
+    },
+    "reminder_hours": 24,
+    "timeout_hours": 72
+   }
+  },
+  {
+   "id": "acceptance_open",
+   "type": "platform_action",
+   "label": "Functional acceptance resolved",
+   "config": {
+    "action": "documentation.acceptance_open",
+    "reminder_hours": 24,
+    "timeout_hours": 72
+   }
+  },
+  {
+   "id": "done_check",
+   "type": "platform_action",
+   "label": "Accepted and proven",
+   "config": {
+    "action": "documentation.done_check"
+   }
+  },
+  {
+   "id": "deploy_configured",
+   "type": "platform_action",
+   "label": "Deploy job?",
+   "config": {
+    "action": "deploy.configured"
+   }
+  },
+  {
+   "id": "confirm_deploy",
+   "type": "user_confirmation",
+   "label": "Go to deployment?",
+   "config": {
+    "decider": "requester",
+    "subject": "advance"
+   }
+  },
+  {
+   "id": "approve_deploy",
+   "type": "approval",
+   "label": "Approve the deployment",
+   "config": {
+    "unlocks": "The Workspace's deploy job for this change."
+   }
+  },
+  {
+   "id": "deploy",
+   "type": "platform_action",
+   "label": "Deploy",
+   "config": {
+    "action": "deploy.run"
+   }
+  },
+  {
+   "id": "deployed",
+   "type": "watch",
+   "label": "Deploy result",
+   "config": {
+    "conditions": [
+     "ci.succeeded",
+     "ci.failed"
+    ],
+    "advance": "auto",
+    "params": {
+     "target": "deploy"
+    }
+   }
+  },
+  {
+   "id": "retry",
+   "type": "user_confirmation",
+   "label": "Declined: how to go on",
+   "config": {
+    "decider": "requester",
+    "subject": "retry_choice"
+   }
+  },
+  {
+   "id": "followup_intent",
+   "type": "user_confirmation",
+   "label": "Authorise the follow-up",
+   "config": {
+    "decider": "requester",
+    "subject": "followup"
+   }
+  },
+  {
+   "id": "followup_create",
+   "type": "platform_action",
+   "label": "Create the follow-up",
+   "config": {
+    "action": "documentation.followup_create"
+   }
+  },
+  {
+   "id": "followup_readback",
+   "type": "platform_action",
+   "label": "Follow-up read back",
+   "config": {
+    "action": "documentation.followup_readback"
+   }
+  },
+  {
+   "id": "confirm_exception",
+   "type": "user_confirmation",
+   "label": "Take the exception",
+   "config": {
+    "decider": "requester",
+    "subject": "exception"
+   }
+  },
+  {
+   "id": "action_failed",
+   "type": "pause",
+   "label": "A step failed: retry, change or abort",
+   "config": {
+    "reason": "action_failed"
+   }
+  },
+  {
+   "id": "done",
+   "type": "outcome",
+   "label": "Done",
+   "config": {
+    "outcome": "done",
+    "work_state": "done"
+   }
+  },
+  {
+   "id": "done_with_exception",
+   "type": "outcome",
+   "label": "Done with an exception",
+   "config": {
+    "outcome": "done_with_exception",
+    "work_state": "done"
+   }
+  },
+  {
+   "id": "blocked",
+   "type": "outcome",
+   "label": "Blocked",
+   "config": {
+    "outcome": "blocked"
+   }
+  },
+  {
+   "id": "stopped",
+   "type": "outcome",
+   "label": "Stopped",
+   "config": {
+    "outcome": "stopped"
+   }
+  }
+ ],
+ "edges": [
+  {
+   "id": "e-start",
+   "source_node_id": "start",
+   "target_node_id": "ticket"
+  },
+  {
+   "id": "e-ticket",
+   "source_node_id": "ticket",
+   "target_node_id": "branch",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-ticket-ko",
+   "source_node_id": "ticket",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-branch",
+   "source_node_id": "branch",
+   "target_node_id": "prepare",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-prepare",
+   "source_node_id": "prepare",
+   "target_node_id": "clarify",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-prepare-ko",
+   "source_node_id": "prepare",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-branch-ko",
+   "source_node_id": "branch",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-clarify",
+   "source_node_id": "clarify",
+   "target_node_id": "draft_plan"
+  },
+  {
+   "id": "e-draft-plan",
+   "source_node_id": "draft_plan",
+   "target_node_id": "contract",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-draft-plan-ko",
+   "source_node_id": "draft_plan",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-contract",
+   "source_node_id": "contract",
+   "target_node_id": "tests_first",
+   "when": "confirmed"
+  },
+  {
+   "id": "loop-contract",
+   "source_node_id": "contract",
+   "target_node_id": "clarify",
+   "when": "changed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "Test contract ↔ your review"
+  },
+  {
+   "id": "e-contract-stop",
+   "source_node_id": "contract",
+   "target_node_id": "stopped",
+   "when": "stopped"
+  },
+  {
+   "id": "e-tests",
+   "source_node_id": "tests_first",
+   "target_node_id": "red"
+  },
+  {
+   "id": "e-red",
+   "source_node_id": "red",
+   "target_node_id": "implement",
+   "when": "passed"
+  },
+  {
+   "id": "loop-red",
+   "source_node_id": "red",
+   "target_node_id": "tests_first",
+   "when": "failed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "Tests first again"
+  },
+  {
+   "id": "e-implement",
+   "source_node_id": "implement",
+   "target_node_id": "green"
+  },
+  {
+   "id": "e-green",
+   "source_node_id": "green",
+   "target_node_id": "independent_review",
+   "when": "passed"
+  },
+  {
+   "id": "loop-implement",
+   "source_node_id": "green",
+   "target_node_id": "implement",
+   "when": "failed",
+   "kind": "loop",
+   "max_iterations": 3,
+   "label": "Implement ↔ test"
+  },
+  {
+   "id": "e-independent-review",
+   "source_node_id": "independent_review",
+   "target_node_id": "review"
+  },
+  {
+   "id": "loop-review",
+   "source_node_id": "review",
+   "target_node_id": "implement",
+   "when": "failed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "Review findings ↔ implement"
+  },
+  {
+   "id": "e-push",
+   "source_node_id": "push",
+   "target_node_id": "pr",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-push-ko",
+   "source_node_id": "push",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-pr",
+   "source_node_id": "pr",
+   "target_node_id": "in_review",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-pr-ko",
+   "source_node_id": "pr",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-in-review",
+   "source_node_id": "in_review",
+   "target_node_id": "ci",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-in-review-ko",
+   "source_node_id": "in_review",
+   "target_node_id": "ci",
+   "when": "failed"
+  },
+  {
+   "id": "e-ci",
+   "source_node_id": "ci",
+   "target_node_id": "merged",
+   "when": "ci.succeeded"
+  },
+  {
+   "id": "loop-ci",
+   "source_node_id": "ci",
+   "target_node_id": "implement",
+   "when": "ci.failed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "CI red ↔ implement"
+  },
+  {
+   "id": "e-declined",
+   "source_node_id": "merged",
+   "target_node_id": "retry",
+   "when": "pr.declined"
+  },
+  {
+   "id": "e-deploy-yes",
+   "source_node_id": "deploy_configured",
+   "target_node_id": "confirm_deploy",
+   "when": "configured"
+  },
+  {
+   "id": "e-deploy-no",
+   "source_node_id": "deploy_configured",
+   "target_node_id": "done_check",
+   "when": "not_configured"
+  },
+  {
+   "id": "e-go-deploy",
+   "source_node_id": "confirm_deploy",
+   "target_node_id": "approve_deploy",
+   "when": "confirmed"
+  },
+  {
+   "id": "e-no-deploy",
+   "source_node_id": "confirm_deploy",
+   "target_node_id": "done_check",
+   "when": "changed"
+  },
+  {
+   "id": "e-deploy-stop",
+   "source_node_id": "confirm_deploy",
+   "target_node_id": "stopped",
+   "when": "stopped"
+  },
+  {
+   "id": "e-approved",
+   "source_node_id": "approve_deploy",
+   "target_node_id": "deploy",
+   "when": "approved"
+  },
+  {
+   "id": "e-rejected",
+   "source_node_id": "approve_deploy",
+   "target_node_id": "blocked",
+   "when": "rejected"
+  },
+  {
+   "id": "e-deploy",
+   "source_node_id": "deploy",
+   "target_node_id": "deployed",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-deploy-ko",
+   "source_node_id": "deploy",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-deployed",
+   "source_node_id": "deployed",
+   "target_node_id": "done_check",
+   "when": "ci.succeeded"
+  },
+  {
+   "id": "e-deployed-ko",
+   "source_node_id": "deployed",
+   "target_node_id": "blocked",
+   "when": "ci.failed"
+  },
+  {
+   "id": "loop-retry",
+   "source_node_id": "retry",
+   "target_node_id": "implement",
+   "when": "confirmed",
+   "kind": "loop",
+   "max_iterations": 1,
+   "label": "Retry after a declined PR"
+  },
+  {
+   "id": "loop-reclarify",
+   "source_node_id": "retry",
+   "target_node_id": "clarify",
+   "when": "changed",
+   "kind": "loop",
+   "max_iterations": 1,
+   "label": "Clarify again"
+  },
+  {
+   "id": "e-retry-stop",
+   "source_node_id": "retry",
+   "target_node_id": "blocked",
+   "when": "stopped"
+  },
+  {
+   "id": "e-action-failed",
+   "source_node_id": "action_failed",
+   "target_node_id": "blocked"
+  },
+  {
+   "id": "e-review",
+   "source_node_id": "review",
+   "target_node_id": "doc_draft",
+   "when": "passed"
+  },
+  {
+   "id": "e-doc-draft",
+   "source_node_id": "doc_draft",
+   "target_node_id": "tree_check"
+  },
+  {
+   "id": "e-tree-check",
+   "source_node_id": "tree_check",
+   "target_node_id": "push",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-tree-check-ko",
+   "source_node_id": "tree_check",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-merged",
+   "source_node_id": "merged",
+   "target_node_id": "doc_final",
+   "when": "pr.merged"
+  },
+  {
+   "id": "e-doc-final",
+   "source_node_id": "doc_final",
+   "target_node_id": "publish_preflight"
+  },
+  {
+   "id": "e-preflight",
+   "source_node_id": "publish_preflight",
+   "target_node_id": "accept_functional",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-preflight-ko",
+   "source_node_id": "publish_preflight",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-accepted",
+   "source_node_id": "accept_functional",
+   "target_node_id": "reserve_publication",
+   "when": "accepted"
+  },
+  {
+   "id": "e-not-testable",
+   "source_node_id": "accept_functional",
+   "target_node_id": "reserve_publication",
+   "when": "not_testable_yet"
+  },
+  {
+   "id": "e-acceptance-rejected",
+   "source_node_id": "accept_functional",
+   "target_node_id": "followup_intent",
+   "when": "rejected"
+  },
+  {
+   "id": "e-reserve",
+   "source_node_id": "reserve_publication",
+   "target_node_id": "confirm_publication",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-reserve-ko",
+   "source_node_id": "reserve_publication",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-publication-confirmed",
+   "source_node_id": "confirm_publication",
+   "target_node_id": "publish_docs",
+   "when": "confirmed"
+  },
+  {
+   "id": "loop-publication",
+   "source_node_id": "confirm_publication",
+   "target_node_id": "doc_final",
+   "when": "changed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "Documentation changes requested"
+  },
+  {
+   "id": "e-publication-stopped",
+   "source_node_id": "confirm_publication",
+   "target_node_id": "stopped",
+   "when": "stopped"
+  },
+  {
+   "id": "e-publish",
+   "source_node_id": "publish_docs",
+   "target_node_id": "docs_in_knowledge",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-publish-ko",
+   "source_node_id": "publish_docs",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "loop-publish-reconfirm",
+   "source_node_id": "publish_docs",
+   "target_node_id": "reserve_publication",
+   "when": "reconfirm",
+   "kind": "loop",
+   "max_iterations": 3,
+   "label": "Page or target changed: publish again on the new base"
+  },
+  {
+   "id": "e-sync",
+   "source_node_id": "docs_in_knowledge",
+   "target_node_id": "audience_proof",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-sync-ko",
+   "source_node_id": "docs_in_knowledge",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-audience",
+   "source_node_id": "audience_proof",
+   "target_node_id": "outsider_proof",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-audience-ko",
+   "source_node_id": "audience_proof",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-outsider",
+   "source_node_id": "outsider_proof",
+   "target_node_id": "acceptance_open",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-outsider-ko",
+   "source_node_id": "outsider_proof",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-acceptance-open",
+   "source_node_id": "acceptance_open",
+   "target_node_id": "deploy_configured",
+   "when": "accepted"
+  },
+  {
+   "id": "e-late-rejection",
+   "source_node_id": "acceptance_open",
+   "target_node_id": "followup_intent",
+   "when": "rejected"
+  },
+  {
+   "id": "e-acceptance-open-ko",
+   "source_node_id": "acceptance_open",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-done-check",
+   "source_node_id": "done_check",
+   "target_node_id": "done",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-done-check-ko",
+   "source_node_id": "done_check",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-followup",
+   "source_node_id": "followup_intent",
+   "target_node_id": "followup_create",
+   "when": "confirmed"
+  },
+  {
+   "id": "loop-followup",
+   "source_node_id": "followup_intent",
+   "target_node_id": "followup_intent",
+   "when": "changed",
+   "kind": "loop",
+   "max_iterations": 2,
+   "label": "Follow-up summary changed"
+  },
+  {
+   "id": "e-followup-stopped",
+   "source_node_id": "followup_intent",
+   "target_node_id": "stopped",
+   "when": "stopped"
+  },
+  {
+   "id": "e-followup-create",
+   "source_node_id": "followup_create",
+   "target_node_id": "followup_readback",
+   "when": "succeeded"
+  },
+  {
+   "id": "e-followup-create-ko",
+   "source_node_id": "followup_create",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-followup-blocked",
+   "source_node_id": "followup_readback",
+   "target_node_id": "blocked",
+   "when": "blocked"
+  },
+  {
+   "id": "e-followup-exception",
+   "source_node_id": "followup_readback",
+   "target_node_id": "confirm_exception",
+   "when": "exception"
+  },
+  {
+   "id": "e-followup-readback-ko",
+   "source_node_id": "followup_readback",
+   "target_node_id": "action_failed",
+   "when": "failed"
+  },
+  {
+   "id": "e-exception",
+   "source_node_id": "confirm_exception",
+   "target_node_id": "done_with_exception",
+   "when": "confirmed"
+  },
+  {
+   "id": "e-exception-declined",
+   "source_node_id": "confirm_exception",
+   "target_node_id": "blocked",
+   "when": "changed"
+  },
+  {
+   "id": "e-exception-stopped",
+   "source_node_id": "confirm_exception",
+   "target_node_id": "stopped",
+   "when": "stopped"
+  }
+ ]
+}

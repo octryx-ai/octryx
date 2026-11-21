@@ -1,0 +1,38 @@
+{
+  "corpus": "spring-boot",
+  "description": "Spring Boot 4.0 migration guide, 4.0 release notes and 3.5 release notes (spring-projects/spring-boot wiki). Questions are paraphrased, in English and German; each names the source that must be cited and a short passage that must be in the cited span.",
+  "sources": {
+    "sb-4-0-migration-guide": {"file": "releasenotes/Spring-Boot-4.0-Migration-Guide.asciidoc", "title": "Spring Boot 4.0 Migration Guide", "url": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide", "products": "spring-boot", "version": "4.0"},
+    "sb-4-0-release-notes": {"file": "releasenotes/Spring-Boot-4.0-Release-Notes.asciidoc", "title": "Spring Boot 4.0 Release Notes", "url": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Release-Notes", "products": "spring-boot", "version": "4.0"},
+    "sb-3-5-release-notes": {"file": "releasenotes/Spring-Boot-3.5-Release-Notes.asciidoc", "title": "Spring Boot 3.5 Release Notes", "url": "https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-3.5-Release-Notes", "products": "spring-boot", "version": "3.5"}
+  },
+  "queries": [
+    {"id": "q01", "lang": "en", "question": "What is the minimum Java version for Spring Boot 4?", "source": "sb-4-0-migration-guide", "passage": "requires Java 17 or later"},
+    {"id": "q02", "lang": "de", "question": "Welche Jakarta-EE-Version braucht Spring Boot 4?", "source": "sb-4-0-migration-guide", "passage": "Jakarta EE 11"},
+    {"id": "q03", "lang": "en", "question": "Can I still run Spring Boot 4 applications on Undertow?", "source": "sb-4-0-migration-guide", "passage": "Undertow support is dropped"},
+    {"id": "q04", "lang": "de", "question": "Wie finde ich umbenannte Konfigurations-Properties beim Upgrade?", "source": "sb-4-0-migration-guide", "passage": "spring-boot-properties-migrator"},
+    {"id": "q05", "lang": "en", "question": "What happened to the AOP starter POM?", "source": "sb-4-0-migration-guide", "passage": "spring-boot-starter-aspectj"},
+    {"id": "q06", "lang": "en", "question": "Which package do the Jackson 3 classes use instead of com.fasterxml.jackson?", "source": "sb-4-0-migration-guide", "passage": "tools.jackson"},
+    {"id": "q07", "lang": "de", "question": "Wie heisst die Annotation @JsonComponent jetzt?", "source": "sb-4-0-migration-guide", "passage": "JacksonComponent"},
+    {"id": "q08", "lang": "en", "question": "How can I keep Jackson 2 like defaults after the upgrade?", "source": "sb-4-0-migration-guide", "passage": "use-jackson2-defaults"},
+    {"id": "q09", "lang": "en", "question": "Are the Kubernetes health probes switched on out of the box now?", "source": "sb-4-0-migration-guide", "passage": "probes are now enabled by default"},
+    {"id": "q10", "lang": "de", "question": "Wie schalte ich das Live Reload der DevTools wieder ein?", "source": "sb-4-0-migration-guide", "passage": "spring.devtools.livereload.enabled"},
+    {"id": "q11", "lang": "en", "question": "Are optional Maven dependencies still packaged into the fat jar?", "source": "sb-4-0-migration-guide", "passage": "Optional dependencies are no longer included in uber jars"},
+    {"id": "q12", "lang": "en", "question": "Where did the spring.session.redis properties go?", "source": "sb-4-0-migration-guide", "passage": "spring.session.data.redis"},
+    {"id": "q13", "lang": "en", "question": "Does the forward headers strategy setting still apply when I deploy a war file?", "source": "sb-4-0-migration-guide", "passage": "no longer has an effect when deploying a war file"},
+    {"id": "q14", "lang": "de", "question": "Welche Nullability-Annotationen bringt Spring Boot 4 mit?", "source": "sb-4-0-migration-guide", "passage": "JSpecify"},
+    {"id": "q15", "lang": "en", "question": "Which Gradle versions can build Spring Boot 4 applications?", "source": "sb-4-0-release-notes", "passage": "Gradle 9 is now supported"},
+    {"id": "q16", "lang": "en", "question": "Is there a starter for exporting metrics and traces over OTLP?", "source": "sb-4-0-release-notes", "passage": "spring-boot-starter-opentelemetry"},
+    {"id": "q17", "lang": "de", "question": "Kann ich Java-Interfaces als deklarative HTTP-Clients verwenden?", "source": "sb-4-0-release-notes", "passage": "HTTP Service Clients"},
+    {"id": "q18", "lang": "en", "question": "Which properties configure API versioning for Spring MVC?", "source": "sb-4-0-release-notes", "passage": "spring.mvc.apiversion"},
+    {"id": "q19", "lang": "en", "question": "What access does the heapdump actuator endpoint have by default?", "source": "sb-3-5-release-notes", "passage": "access=NONE"},
+    {"id": "q20", "lang": "en", "question": "Which bean name does the auto-configured task executor use?", "source": "sb-3-5-release-notes", "passage": "bean name is provided"},
+    {"id": "q21", "lang": "de", "question": "Wird das Modul spring-boot-parent noch veröffentlicht?", "source": "sb-3-5-release-notes", "passage": "is no longer published"},
+    {"id": "q22", "lang": "en", "question": "Which characters may a Spring profile name contain?", "source": "sb-3-5-release-notes", "passage": "Profiles can now only contain"},
+    {"id": "q23", "lang": "en", "question": "Can I migrate in two steps and keep all the infrastructure on the classpath first?", "source": "sb-4-0-migration-guide", "passage": "spring-boot-starter-classic"},
+    {"id": "q24", "lang": "en", "question": "Which package holds BootstrapRegistry now?", "source": "sb-4-0-migration-guide", "passage": "org.springframework.boot.bootstrap"},
+    {"id": "q25", "lang": "en", "question": "What replaces alwaysApplyingWhenNonNull in the PropertyMapper?", "source": "sb-4-0-migration-guide", "passage": "always()"},
+    {"id": "q26", "lang": "de", "question": "Muss ich vor dem Umstieg auf 4.0 zuerst die neueste 3.5-Version einsetzen?", "source": "sb-4-0-migration-guide", "passage": "upgrade to the latest available"},
+    {"id": "q27", "lang": "en", "question": "What changed about the names of the auto-configured task executor bean?", "source": "sb-3-5-release-notes", "passage": "bean name is provided", "products": ["spring-boot"], "version": "3.5"}
+  ]
+}

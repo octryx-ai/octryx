@@ -1,0 +1,7 @@
+/* Policies page layout glue (WP): the approved mock's ".pm-*" rules as product classes
+   for the page, the list, the drawers' shared parts and the templates. Tokens only (theme-base.css): no new colours,
+   dark default and light through the same custom properties. Builder: policyBuilder.css; lifecycle and engine
+   drawers, impact rows: policyDrawers.css. This entry imports its partials in cascade order. */
+@import "./policiesTable.css";
+@import "./policiesList.css";
+@import "./policiesDrawerParts.css";

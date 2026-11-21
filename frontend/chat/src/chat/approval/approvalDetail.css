@@ -1,0 +1,105 @@
+/* Operations › Decisions › Approval (backend): one approval, read-only once decided. Tokens only. */
+.approval-detail {
+  display: grid;
+  gap: var(--ds-space-4);
+  max-width: 56rem;
+  min-width: 0;
+}
+
+.approval-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2) var(--ds-space-4);
+}
+
+.approval-detail__title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--ds-text-xl);
+  font-weight: 600;
+}
+
+.approval-detail__heading {
+  display: grid;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.approval-detail__subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+}
+
+.approval-detail__id {
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.approval-detail .admin-detail-facts { margin: 0; }
+
+.approval-detail__decide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-tone-attention-line);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-tone-attention-bg);
+}
+
+.approval-detail__note {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.approval-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+
+.approval-detail__error {
+  margin: 0;
+  color: var(--ds-tone-problem-ink);
+  font-size: var(--ds-text-sm);
+}
+
+.approval-detail__message {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-md);
+}
+
+.approval-detail__section {
+  display: grid;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.approval-detail__section-title {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* The write plan without its card frame: the detail page is the frame. */
+.approval-detail__plan.write-plan { padding: 0; border: 0; background: transparent; }
+.approval-detail__plan .write-plan__request { white-space: normal; }
+
+@media (max-width: 640px) {
+  .approval-detail .admin-detail-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .approval-detail .admin-detail-facts dd { margin-bottom: var(--ds-space-2); }
+  .approval-detail__actions { width: 100%; }
+  .approval-detail__actions .ds-btn { flex: 1 1 auto; min-height: 2.75rem; }
+}

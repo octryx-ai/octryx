@@ -1,0 +1,45 @@
+/* Collapsible platform setup guide below the provider list. */
+.providers-setup-guide {
+  margin-top: 1rem;
+}
+
+.providers-setup-guide__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.providers-setup-guide__summary::-webkit-details-marker {
+  display: none;
+}
+
+.providers-setup-guide__summary::before {
+  content: "▸";
+  color: var(--muted);
+  transition: transform 140ms ease;
+}
+
+.providers-setup-guide[open] > .providers-setup-guide__summary::before {
+  transform: rotate(90deg);
+}
+
+.providers-setup-guide__summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-radius: var(--ds-radius-md);
+}
+
+.providers-setup-guide__action {
+  flex-shrink: 0;
+}
+
+/* One line per step: title, state, current value. */
+.provider-guide-step__body--line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}

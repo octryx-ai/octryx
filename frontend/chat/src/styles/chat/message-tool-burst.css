@@ -1,0 +1,3 @@
+/* Grouped tool list and tool burst: summary, status, events and evidence badges. */
+@import "./message-tool-burst-summary.css";
+@import "./message-tool-burst-events.css";

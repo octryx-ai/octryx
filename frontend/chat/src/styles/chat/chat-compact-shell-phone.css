@@ -1,0 +1,105 @@
+/* Compact chat shell: phone composer breakpoint. */
+/* --- Phone composer ------------------------------------------------------ */
+
+@media (max-width: 720px) {
+  .workspace__header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .workspace__feed,
+  .workspace__feed-banner,
+  .workspace__timeline-actions {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* The virtualized list sizes its rows against the scroller's border box, so
+     side padding on the scroller pushes every message past the right edge.
+     The gutter moves onto the row itself instead. */
+  .workspace__feed--virtualized {
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  /* Scoped past the unconditional `.message-stack__item` gutter that is
+     imported after this module. */
+  .workspace__feed--virtualized .message-stack__item {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .composer-shell {
+    padding: 0 0.75rem 0.5rem;
+  }
+
+  .composer__card {
+    gap: 0.25rem;
+    padding: 0.5rem 0.5rem 0.5rem;
+  }
+
+  /* 1rem keeps mobile Safari from zooming on focus; the taller floor stops the
+     single-row textarea from clipping its own placeholder. */
+  .composer textarea {
+    min-height: 2.9rem;
+    max-height: 30vh;
+    font-size: var(--ds-text-lg);
+  }
+
+  .composer__input-region {
+    min-height: 2.9rem;
+  }
+
+  .composer__footer--compact .composer__toolbar--primary {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .composer__footer--compact .composer__submit {
+    margin-left: auto;
+  }
+
+  .composer-action-button--options {
+    flex: 0 0 auto;
+    min-height: 2rem;
+    border-color: var(--border);
+    border-radius: 999px;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .composer__compact-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 38vh;
+    overflow-y: auto;
+    margin-top: 0.1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .composer__compact-options .composer__command-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+
+  .composer__compact-options .composer-pill {
+    width: 100%;
+    max-width: none;
+    min-height: 2.1rem;
+  }
+
+  .composer__compact-options .composer__utility-actions {
+    gap: 0.25rem;
+  }
+
+  .composer__footer--compact .composer__hint-row {
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .composer__footer--compact .composer__hint-group--status {
+    margin-left: 0;
+  }
+}

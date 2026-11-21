@@ -1,0 +1,61 @@
+/* Action run error guidance: scoped to the run history, existing tokens only. */
+
+/* The run details cell: an opaque themed surface (dark #141715 / light #ede7db) with the theme's
+   text colour. Replaces an inline var(--bg-secondary, #f8f9fa); that token is undefined, so the
+   light fallback showed near-white behind light text in the dark theme. Three classes beat the
+   shared .admin-panel__table tr:hover td background. */
+.task-runs-table .task-run__detail-row > td.action-run-detail {
+  padding: 0.5rem 1rem 1rem;
+  background: var(--bg-soft);
+  color: var(--text);
+}
+
+.task-run__error.action-run-error__cell--known {
+  color: var(--muted-strong);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.action-run-error {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--status-error);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-xs);
+  color: var(--text);
+}
+
+.action-run-error__summary {
+  font-weight: 600;
+}
+
+.action-run-error__guidance {
+  margin: 0;
+  color: var(--muted-strong);
+  line-height: 1.45;
+}
+
+.action-run-error__technical > summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  border-radius: var(--ds-radius-sm);
+}
+
+.action-run-error__technical > summary:focus-visible,
+.action-run-error__toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.action-run-error__raw {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}

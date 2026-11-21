@@ -1,0 +1,70 @@
+/* Policies page root and the policy table with its container-query column steps. */
+.policies {
+  display: grid;
+  /* One column as wide as the page: the table's own width must not widen the page behind the help panel. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  min-width: 0;
+}
+
+/* The policy table fits its frame at 1280 and 1440 with every column: a fixed layout, the name and
+   the @id cut with "…" (the full text is the tooltip), compact badge columns. When the frame narrows (help open, phone)
+   the low-priority columns step back instead of a sideways scroll: first Scope and Updated, then Effect (the sentence
+   names the effect in bold), then Status. Name, the sentence and ⋯ always stay. */
+.policies__table-wrap {
+  min-width: 0;
+  container-type: inline-size;
+  container-name: policies-table;
+}
+
+.policies__table {
+  table-layout: fixed;
+}
+
+.policies__table th,
+.policies__table td {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.policies__table .policies__col-name { width: 18%; }
+.policies__table .policies__col-effect { width: 8rem; }
+.policies__table .policies__col-scope { width: 7rem; }
+.policies__table .policies__col-status { width: 8.5rem; }
+.policies__table .policies__col-updated { width: 7rem; }
+.policies__table .policies__col-menu { width: 2.75rem; padding-left: 0.25rem; padding-right: 0.5rem; overflow: visible; }
+
+.policies__table td.policies__col-sentence {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.policies__table .policies__name,
+.policies__table .policies__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.policies__table .policies__sub .policies__src {
+  font-size: inherit;
+}
+
+@container policies-table (max-width: 880px) {
+  .policies__table .policies__col-scope,
+  .policies__table .policies__col-updated { display: none; }
+  .policies__table .policies__col-name { width: 24%; }
+}
+
+@container policies-table (max-width: 640px) {
+  .policies__table .policies__col-effect { display: none; }
+  .policies__table .policies__col-name { width: 28%; }
+}
+
+@container policies-table (max-width: 440px) {
+  .policies__table .policies__col-status { display: none; }
+  .policies__table .policies__col-name { width: 38%; }
+}

@@ -1,0 +1,260 @@
+.message-stack {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  display: grid;
+  gap: 1.25rem;
+  padding: 0.5rem 0 2.25rem;
+}
+
+/* One centred reading column; the composer and the run bar share its width. */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: min(100%, var(--chat-column, 54rem));
+  margin: 0 auto;
+}
+
+.message-row--user {
+  justify-content: flex-start;
+}
+
+.message-row--tool-only {
+  gap: 0.5rem;
+}
+
+.message-row__avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 44%, var(--brand-taupe-deep)),
+    var(--brand-taupe-deep)
+  );
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--brand-cream-strong);
+}
+
+.message-row__avatar--user {
+  background: linear-gradient(135deg, #bfae95, #7b6f5f);
+  border-color: rgba(191, 174, 149, 0.24);
+  color: #fffaf1;
+}
+
+.message-row__avatar-text {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.message-row__avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 999px;
+}
+
+/* One column no wider than the row: with an implicit auto column a long unbreakable line in the
+   answer widened the column, and the header with its timestamp ran past the screen edge. */
+.message-row__content {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.message-row--tool-only .message-row__content {
+  gap: 0.25rem;
+}
+
+.message-row__identity-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.message-row__identity-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  min-width: 0;
+}
+
+.message-row__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1.75rem;
+}
+
+/* Closed Thinking/Performance panels render an empty wrapper; without this each one adds a grid
+   gap plus its margin between the header and the tool row. Open or "unavailable" panels
+   have children and stay visible. */
+.message-row__content > .message-thinking-panel:empty,
+.message-row__content > .message-performance-panel:empty {
+  display: none;
+}
+
+/* The content grid gap already separates the header from the tool row; the list's own top margin
+   and the global .tool-burst margin would stack on top of it. */
+.message-row__content > .tool-list--compact {
+  margin-top: 0;
+}
+
+.message-row__content > .tool-list--compact > .tool-burst {
+  margin-top: 0;
+}
+
+.message-row--tool-only .message-row__header {
+  margin-bottom: 0.04rem;
+}
+
+.message-row__participant-title {
+  color: var(--highlight);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  word-break: break-word;
+}
+
+/* A provider name stored in lower case ("assistant") reads as a name. */
+.message-row--assistant .message-row__participant-title::first-letter {
+  text-transform: uppercase;
+}
+
+/* A model or an email address as it is written, not in capitals. */
+.message-row__participant-support {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+/* Timestamp, message actions and diagnostics share one row and wrap only when the row is too
+   narrow, instead of stacking three rows beside a one-line identity. */
+.message-row__header-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.1rem 0.25rem;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.message-row__header-side button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.message-row__header-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.04rem;
+  min-width: 0;
+  opacity: 0.6;
+  transition: opacity 160ms ease;
+}
+
+.message-row:hover .message-row__header-actions,
+.message-row:focus-within .message-row__header-actions {
+  opacity: 1;
+}
+
+/* Without hover (touch), the hover-revealed controls would stay almost invisible. Placed after
+   the defaults above so it wins at equal specificity; the inner .message-row__actions default
+   (workspace-message-tooling.css) is overridden by the scoped two-class selector, not by order. */
+@media (hover: none) {
+  .message-row__header-actions,
+  .message-row__header-actions .message-row__actions {
+    opacity: 1;
+  }
+}
+
+.message-row__timestamp {
+  display: block;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+  justify-self: end;
+}
+
+.message-row__footer {
+  display: grid;
+  gap: 0.12rem;
+  margin-top: 0.04rem;
+}
+
+.message-row__footer-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.25rem 0.5rem;
+  flex-wrap: wrap;
+}
+
+.message-bubble {
+  width: 100%;
+  border-radius: var(--ds-radius-xl);
+  padding: 0;
+  position: relative;
+}
+
+.message-bubble__empty {
+  color: var(--muted);
+  font-size: var(--ds-text-md);
+}
+
+.message-bubble--assistant {
+  background: transparent;
+}
+
+.message-bubble--thinking {
+  padding-top: 0.1rem;
+}
+
+/* The person's prompt sits on a quiet card, so turns read apart at a glance. */
+.message-bubble--user {
+  justify-self: start;
+  width: auto;
+  max-width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface-overlay-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  box-shadow: none;
+}
+
+/* A note from the platform in the thread (its git turn of a team run): one quiet line, no avatar, like a run event. */
+.message-platform-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-space-1) var(--ds-space-2);
+  width: 100%;
+  max-width: var(--chat-column, 52rem);
+  margin: 0 auto;
+  padding: var(--ds-space-1) 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+.message-platform-note__author { color: var(--muted-strong); font-weight: var(--ds-weight-medium); }
+.message-platform-note__time { font-variant-numeric: tabular-nums; }

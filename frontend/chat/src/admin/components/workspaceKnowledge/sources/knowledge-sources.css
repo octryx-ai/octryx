@@ -1,0 +1,16 @@
+/* Knowledge › Sources: the table and side panel come from src/layout; this file only holds what
+   is specific to sources. Tokens only. */
+.knowledge-source__name { font-weight: 600; overflow-wrap: break-word; }
+/* The table fits the page width: names wrap between words, never inside one; "Reads" adds
+   nothing to the table's minimum width (width 0, then the whole cell) and cuts a long address with an ellipsis. */
+.knowledge-source__name-text { overflow-wrap: break-word; }
+.knowledge-source__reads { display: flex; align-items: center; gap: 0.5rem; width: 0; min-width: 100%; }
+.knowledge-source__scope { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.knowledge-source__reads > .ds-status { flex-shrink: 0; }
+.knowledge-source__nowrap { white-space: nowrap; }
+.knowledge-source__overview { display: grid; gap: .5rem; margin: 0; font-size: var(--ds-text-md); }
+.knowledge-source__overview > div { display: grid; grid-template-columns: 8rem minmax(0, 1fr); gap: .75rem; }
+.knowledge-source__overview dt { color: var(--muted); }
+.knowledge-source__overview dd { margin: 0; }
+.knowledge-sources__notice { margin: 0 0 .5rem; color: var(--muted); font-size: var(--ds-text-sm); }
+.knowledge-sources__back { font-size: var(--ds-text-sm); }

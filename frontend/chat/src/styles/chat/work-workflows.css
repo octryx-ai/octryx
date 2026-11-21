@@ -1,0 +1,3 @@
+/* Work workflow configuration: imports its partials in cascade order. */
+@import "./work-workflows-config.css";
+@import "./work-workflows-repo-profiles.css";

@@ -1,0 +1,195 @@
+/* Flow builder node palette: column, groups, entries and loading state. */
+/* ── Flow Palette ─────────────────────────────────────────────────────────────── */
+/* The palette is a column beside the graph: it takes real width, so it never covers
+   nodes, and the graph, its toolbar and its fit use only the remaining space. */
+.flow-palette {
+  position: relative;
+  align-self: stretch;
+  margin: 12px 0 12px 12px;
+  z-index: 6;
+  width: 232px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel-elevated) 90%, transparent);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 24px);
+  overflow: hidden;
+}
+
+.flow-palette__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-palette--collapsed {
+  width: 36px;
+  align-items: center;
+  padding-top: 8px;
+}
+
+.flow-palette__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0.75rem 8px;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+}
+
+.flow-palette__collapse-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.flow-palette__loading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: flow-palette__loading-pulse 0.9s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes flow-palette__loading-pulse {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.flow-palette__toggle {
+  width: 100%;
+  padding: 8px;
+  background: none;
+  border: none;
+  font-size: var(--ds-text-xl);
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.flow-palette__groups {
+  padding: 0.5rem 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.flow-palette__group {
+  margin-bottom: 0.5rem;
+}
+
+.flow-palette__group-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background: none;
+  border: none;
+  border-radius: var(--ds-radius-sm);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+
+.flow-palette__group-header:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+}
+
+.flow-palette__group-toggle {
+  font-size: var(--ds-text-2xs);
+  color: var(--muted);
+}
+
+.flow-palette__items {
+  padding: 2px 0;
+}
+
+.flow-palette__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 8px 0.5rem;
+  background: color-mix(in srgb, var(--panel) 58%, transparent);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+  text-align: left;
+  margin-bottom: 2px;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+
+.flow-palette__item:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent-strong);
+}
+
+/* Unavailable entries stay disabled but readable: no whole-entry opacity; dashed border and a muted
+   name mark them, and the reason (flowPalette.css) keeps full contrast. */
+.flow-palette__item--disabled,
+.flow-palette__item--disabled:hover {
+  cursor: not-allowed;
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--border-soft);
+}
+
+.flow-palette__item-icon {
+  font-size: var(--ds-text-md);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--accent-strong);
+}
+
+.flow-palette__item-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.flow-palette__item-main > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-palette__item-main small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

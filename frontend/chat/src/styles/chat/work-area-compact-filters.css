@@ -1,0 +1,36 @@
+/* Work area compact filter row and More filters. */
+/* Compact filter row (follow-up): search, two filters, More filters. */
+.work-area__filters.work-area__filters--compact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-area__filters--compact > input {
+  flex: 1 1 14rem;
+}
+
+.work-area__filters--compact .work-filter-multi {
+  flex: 0 1 11rem;
+}
+
+.work-area__more-filters > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.work-area__more-filters > summary::-webkit-details-marker {
+  display: none;
+}
+
+.work-area__more-filters[open] {
+  flex-basis: 100%;
+}
+
+.work-area__more-filters-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}

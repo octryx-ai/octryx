@@ -1,0 +1,3 @@
+/* Tool artifacts and tool cards: imports its partials in cascade order. */
+@import "./tool-artifacts-list.css";
+@import "./tool-artifacts-cards.css";

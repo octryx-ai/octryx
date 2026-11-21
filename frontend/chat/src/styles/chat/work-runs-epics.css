@@ -1,0 +1,89 @@
+/* Work Runs and Work Epics pages. */
+/* Work › Runs: what waits for the person first, then every run. */
+.work-runs { display: grid; gap: 1rem; }
+.work-runs__waiting { display: grid; gap: 0.5rem; }
+.work-runs__heading { margin: 0; font-size: var(--ds-font-size, 0.82rem); font-weight: 600; color: var(--muted-strong); }
+.work-runs__card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--status-attention);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.work-runs__card-main { display: grid; gap: 0.25rem; min-width: 0; }
+.work-runs__name { color: var(--text); overflow-wrap: anywhere; }
+.work-runs__why { color: var(--muted-strong); font-size: var(--ds-text-md); }
+.work-runs__card .work-runs__cost { color: var(--muted); font-size: var(--ds-text-sm); }
+.work-runs__cost, .work-runs__num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.work-runs__step { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.work-runs__link { color: var(--text); }
+/* The API cost and the seat's API equivalent as two separate sentences, never one sum. */
+.work-runs__total {
+  display: flex; flex-wrap: wrap; gap: var(--ds-space-1) var(--ds-space-4);
+  margin: 0; color: var(--muted); font-size: var(--ds-text-md);
+}
+@media (max-width: 640px) {
+  .work-runs__card { grid-template-columns: minmax(0, 1fr) auto; grid-auto-flow: row; }
+  .work-runs__card .work-area__button { grid-column: 1 / -1; }
+}
+
+/* Work › Epics: the epic's counts, then its stories. */
+.work-epics { display: grid; gap: 1rem; }
+.work-epics__epic {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.work-epics__epic-head { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem; }
+.work-epics__epic-title { display: grid; gap: 0.25rem; flex: 1 1 18rem; min-width: 0; }
+.work-epics__eyebrow { color: var(--muted); font-size: var(--ds-text-xs); }
+.work-epics__epic-name { font-size: var(--ds-text-xl); font-weight: 600; overflow-wrap: anywhere; }
+.work-epics__switch { flex: 0 1 16rem; min-height: 2.5rem; max-width: 100%; }
+.work-epics__counts { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; color: var(--muted); font-size: var(--ds-text-md); }
+.work-epics__counts strong { color: var(--text); font-size: var(--ds-text-xl); font-weight: 600; font-variant-numeric: tabular-nums; }
+.work-epics__counts .work-epics__count--problem { color: var(--status-error-ink); }
+.work-epics__counts .work-epics__count--attention { color: var(--status-attention-ink); }
+.work-epics__mono { font-family: var(--font-mono); }
+.work-epics__stories { border: 1px solid var(--border-soft); border-radius: var(--ds-radius-lg); overflow: hidden; }
+.work-epics__stories-head {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.25rem 1rem;
+  padding: 0.5rem 1rem; color: var(--muted); font-size: var(--ds-text-xs);
+}
+.work-epics__story { border-top: 1px solid var(--border-soft); }
+.work-epics__summary {
+  list-style: none; cursor: pointer;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+}
+.work-epics__summary::-webkit-details-marker { display: none; }
+.work-epics__story-main { display: grid; gap: 0.25rem; flex: 1 1 16rem; min-width: 0; }
+.work-epics__story-name { font-weight: 500; overflow-wrap: anywhere; }
+.work-epics__story-progress { color: var(--muted); font-size: var(--ds-text-sm); }
+.work-epics__bar { display: flex; width: 7.5rem; height: 6px; border-radius: var(--ds-radius-sm); overflow: hidden; background: var(--border-soft); }
+.work-epics__bar-done { background: var(--status-active); }
+.work-epics__bar-changes { background: var(--status-error); }
+.work-epics__pr { min-width: 4.5rem; font-size: var(--ds-text-sm); }
+.work-epics__muted { color: var(--muted); }
+.work-epics__cost {
+  display: grid; justify-items: end; gap: var(--ds-space-1);
+  min-width: 3.5rem; text-align: right; color: var(--muted); font-family: var(--font-mono); font-size: var(--ds-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.work-epics__seat { font-family: var(--font-sans); font-size: var(--ds-text-xs); white-space: nowrap; }
+.work-epics__body { display: grid; gap: 0.75rem; padding: 0.75rem 1rem 1rem; border-top: 1px dashed var(--border-soft); }
+.work-epics__actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.work-epics__actions a { text-decoration: none; }
+.work-epics__note { margin: 0; color: var(--muted); font-size: var(--ds-text-sm); }
+@media (max-width: 640px) {
+  .work-epics__bar { flex: 1 1 100%; width: auto; order: 1; }
+  .work-epics__cost { margin-left: auto; }
+}

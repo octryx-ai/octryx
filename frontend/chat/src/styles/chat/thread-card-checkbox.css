@@ -1,0 +1,111 @@
+/* Selection checkbox (rows and group headers): a visible box with a check glyph, a dash when
+   indeterminate, and a focus ring. The native input stays on top for pointer and screen readers. */
+.thread-card__checkbox {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.thread-card__checkbox input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.thread-card__checkbox > span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 0.96rem;
+  height: 0.96rem;
+  border: 1.5px solid var(--muted);
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay-strong);
+  pointer-events: none;
+}
+
+.thread-card__checkbox > span svg {
+  position: absolute;
+  width: 0.7rem;
+  height: 0.7rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.thread-card__checkbox input:checked + span,
+.thread-card__checkbox input:indeterminate + span {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--brand-taupe-deep);
+}
+
+[data-theme="light"] .thread-card__checkbox input:checked + span,
+[data-theme="light"] .thread-card__checkbox input:indeterminate + span {
+  color: #fff;
+}
+
+.thread-card__checkbox input:checked + span .thread-card__checkbox-check,
+.thread-card__checkbox input:indeterminate + span .thread-card__checkbox-dash {
+  opacity: 1;
+}
+
+.thread-card__checkbox input:indeterminate + span .thread-card__checkbox-check {
+  opacity: 0;
+}
+
+.thread-card__checkbox input:focus-visible + span {
+  outline: 2px solid color-mix(in srgb, var(--accent) 70%, transparent);
+  outline-offset: 2px;
+}
+
+.thread-card--selected {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--highlight);
+}
+
+.thread-group__check {
+  margin-right: 0.05rem;
+}
+
+.thread-group__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0.1rem 0.1rem 0.25rem 1.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.4;
+}
+
+.thread-group__banner strong {
+  color: var(--text);
+}
+
+.thread-group__banner-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--accent-strong);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

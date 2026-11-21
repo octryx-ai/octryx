@@ -1,0 +1,7 @@
+{
+ "about": "The platform's reviewer model per coding engine when neither the review node, the Workspace nor the installation (GET/PUT /api/v1/admin/review-defaults) names one (agent_gateway/review_keys.py). Every review was measured and accepted on claude-sonnet-5-5; on a fresh installation claude-haiku-5-5 twice answered 'changes' where Sonnet answered 'pass', so an alpha user got the weaker review unchecked. Codex: gpt-6.1-terra (Luna wrote far more output tokens for the same reviews).",
+ "default_models": {
+  "claude_code": "claude-sonnet-5-5",
+  "codex": "gpt-6.1-terra"
+ }
+}

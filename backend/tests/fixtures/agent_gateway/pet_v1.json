@@ -1,0 +1,204 @@
+{
+  "about": "Octryx pet state v1 (GET /api/v1/agent-gateway/pet). Shared seam: backend/tests/agent_gateway/test_gateway_pet.py checks that each case's view equals its example (write_fixture() rewrites them); clients/octryx-claude/tests/test_pet_contract.py parses the same file.",
+  "schema": {
+    "v": "int (1)",
+    "state": "resting|working|needs_you|done|problem",
+    "reason": "fixed code [a-z0-9_]{1,64} or null (problem only)",
+    "since": "ISO time of the newest entry of the leading group or null",
+    "headline": "str <=80",
+    "count": "int, size of the leading group",
+    "items": "<=5 of {id: stable queue key, kind, title <=80, url: root-relative or absolute http(s) or null}",
+    "panel_url": "root-relative path",
+    "poll_after_seconds": "int",
+    "quiet": "{active: bool, until: ISO or null}"
+  },
+  "examples": {
+    "resting": {
+      "v": 1,
+      "state": "resting",
+      "reason": null,
+      "since": null,
+      "headline": "",
+      "count": 0,
+      "items": [],
+      "panel_url": "/chat",
+      "poll_after_seconds": 60,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "working": {
+      "v": 1,
+      "state": "working",
+      "reason": null,
+      "since": "2026-11-06T09:30:00+00:00",
+      "headline": "2 runs working",
+      "count": 2,
+      "items": [
+        {
+          "id": "running:r-1",
+          "kind": "run",
+          "title": "RIVER-412 Rule import keeps decimals",
+          "url": "/chat?session_id=s-r-1"
+        },
+        {
+          "id": "running:r-3",
+          "kind": "run",
+          "title": "RIVER-415 Faster tenant export",
+          "url": "/chat?session_id=s-r-3"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 30,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "needs_you": {
+      "v": 1,
+      "state": "needs_you",
+      "reason": null,
+      "since": "2026-11-06T11:00:00+00:00",
+      "headline": "Which branch should the import fix go to?",
+      "count": 3,
+      "items": [
+        {
+          "id": "clarification:q-1",
+          "kind": "question",
+          "title": "Which branch should the import fix go to?",
+          "url": "/chat?session_id=s-1"
+        },
+        {
+          "id": "device_approval:a-1",
+          "kind": "device_approval",
+          "title": "Run tests on MacBook Pro (owner)",
+          "url": "/chat?session_id=s-1"
+        },
+        {
+          "id": "allowance:5h:2026-11-06T13:00:00+00:00",
+          "kind": "allowance",
+          "title": "Seat allowance 5h at 96 %",
+          "url": "/chat?area=operations&tab=usage"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 15,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "threshold_only": {
+      "v": 1,
+      "state": "needs_you",
+      "reason": null,
+      "since": null,
+      "headline": "Daily budget 41.20 / 50.00 USD",
+      "count": 1,
+      "items": [
+        {
+          "id": "budget:ws-a:2026-11-07T00:00:00Z",
+          "kind": "budget",
+          "title": "Daily budget 41.20 / 50.00 USD",
+          "url": "/chat?area=operations&tab=usage"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 15,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "problem": {
+      "v": 1,
+      "state": "problem",
+      "reason": "loop_limit",
+      "since": "2026-11-06T10:00:00+00:00",
+      "headline": "RIVER-409 Retry policy for the scorer",
+      "count": 1,
+      "items": [
+        {
+          "id": "run:p-1:2026-11-06T08:00:00",
+          "kind": "problem",
+          "title": "RIVER-409 Retry policy for the scorer",
+          "url": "/chat?session_id=s-1"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 15,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "problem_free_text_code": {
+      "v": 1,
+      "state": "problem",
+      "reason": null,
+      "since": "2026-11-06T10:00:00+00:00",
+      "headline": "problem run:p-2:2026-11-06T08:00:00",
+      "count": 1,
+      "items": [
+        {
+          "id": "run:p-2:2026-11-06T08:00:00",
+          "kind": "problem",
+          "title": "problem run:p-2:2026-11-06T08:00:00",
+          "url": "/chat?session_id=s-1"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 15,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "done": {
+      "v": 1,
+      "state": "done",
+      "reason": null,
+      "since": "2026-11-06T10:00:00+00:00",
+      "headline": "RIVER-401 Tenant reference export",
+      "count": 1,
+      "items": [
+        {
+          "id": "done:d-1",
+          "kind": "done",
+          "title": "RIVER-401 Tenant reference export",
+          "url": "https://bitbucket.org/team/repo/pull-requests/7"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 60,
+      "quiet": {
+        "active": false,
+        "until": null
+      }
+    },
+    "quiet": {
+      "v": 1,
+      "state": "done",
+      "reason": null,
+      "since": "2026-11-06T10:00:00+00:00",
+      "headline": "done done:d-1",
+      "count": 1,
+      "items": [
+        {
+          "id": "done:d-1",
+          "kind": "done",
+          "title": "done done:d-1",
+          "url": "/chat?session_id=s-1"
+        }
+      ],
+      "panel_url": "/chat",
+      "poll_after_seconds": 300,
+      "quiet": {
+        "active": true,
+        "until": "2026-11-07T08:00:00+01:00"
+      }
+    }
+  }
+}

@@ -1,0 +1,139 @@
+/* Run result, result first: outcome in plain words, prominent notices, the terminal output;
+   raw result and diagnostics are collapsed. Tokens only; status colours only for status. */
+.flow-run-result__outcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 0.75rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-run-result__outcome strong {
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.flow-run-result__outcome--error strong {
+  color: var(--status-error-ink);
+}
+
+.flow-run-result__outcome--attention strong,
+.flow-run-result__outcome--warning strong {
+  color: var(--status-attention-ink);
+}
+
+.flow-run-result__notices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-run-result__notice {
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--status-attention);
+  border-radius: var(--ds-radius-md);
+  background: var(--status-attention-soft);
+  padding: 8px 12px;
+  overflow-wrap: anywhere;
+}
+
+.flow-run-result__notice--error {
+  border-left-color: var(--status-error);
+  background: var(--status-error-soft);
+}
+
+.flow-run-result__notice strong {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.flow-run-result__notice p {
+  margin: 4px 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.4;
+}
+
+.flow-run-result__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.flow-run-result__heading {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.flow-run-result__fields {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.flow-run-result__fields > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr);
+  gap: 4px 12px;
+}
+
+.flow-run-result__fields dt {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-run-result__fields dd {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.flow-run-result__fields--compact dd {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-run-result__multiline {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  line-height: 1.45;
+}
+
+.flow-run-result__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+}
+
+.flow-run-result__message {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.flow-run-result__raw-facts {
+  margin-top: 0.75rem;
+}
+
+.flow-run-result__raw-facts > summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+@container flow-run-panel (max-width: 30rem) {
+  .flow-run-result__fields > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

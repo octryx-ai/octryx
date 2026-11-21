@@ -1,0 +1,25 @@
+Octryx
+Copyright 2026 The Octryx Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Disclaimer
+----------
+
+This software is provided "AS IS", without warranties or conditions of any kind, and is used at your own risk.
+To the extent permitted by applicable law, the authors and contributors are not liable for any damages arising
+from its use. See sections 7 and 8 of the Apache License, Version 2.0.
+
+Third-party code
+----------------
+
+Dependencies installed from PyPI or npm keep their own licences, as declared in their package metadata; they are
+not part of this repository.
+
+Trademarks
+----------
+
+Third-party names and logos shown in the product (for example the Simple Icons and Iconify brand icons, and the
+Grafana Loki logo in frontend/chat/src/assets/loki-logo.png) are trademarks of their respective owners. They are
+used only to identify the integration they label and do not imply endorsement. The Apache License does not grant
+permission to use the Octryx names or logos (section 6).

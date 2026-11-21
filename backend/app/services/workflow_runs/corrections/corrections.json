@@ -1,0 +1,130 @@
+{
+  "about": "From Correction to Check: every correction of an agent's work is kept per Workspace, repository and app under a signature (check kind, file pattern, normalised message) and its repeats are counted. A check is proposed when a signature reaches the threshold. Read by workflow_runs/corrections; the signatures live in the table correction_signatures.",
+  "settings": {
+    "about": "Per Workspace in projects.config.check_proposals, these are the platform defaults (contract: Settings).",
+    "threshold": 2,
+    "approver_permission": "workspace_owner",
+    "sources": [
+      "review_fixed",
+      "review_change_request",
+      "pr_comment",
+      "pipeline_cause",
+      "revert",
+      "refused_call"
+    ]
+  },
+  "sources": {
+    "review_fixed": "A review finding the next review round answered as fixed (the run's own review and the PR review bot).",
+    "review_change_request": "A person asked for a change: a confirmation answered 'change' with a reason, or a functional acceptance rejected with one.",
+    "pr_comment": "A person's comment on a pull request (webhook or poll), not an @octryx command and not the bot's own.",
+    "pipeline_cause": "A cause that made the platform's own pipeline red: a code style error, a failed command, a missing proof test, a red-on-base error.",
+    "revert": "A revert of the agent's change (stage 1b: needs the repository's history, not captured yet).",
+    "refused_call": "A tool call the platform refused, answered by the call that worked next in the same phase pass (run memory)."
+  },
+  "kind_hints": {
+    "about": "The check kind a signature most likely becomes (the proposal decides): by the correction's check kind.",
+    "code_style": "lint_rule",
+    "test": "regression_test",
+    "proof": "regression_test",
+    "red_on_base": "regression_test",
+    "review": "pattern",
+    "change_request": "design_change",
+    "pr_comment": "pattern",
+    "refused_call": "platform_rule",
+    "default": "pattern"
+  },
+  "normalise": {
+    "about": "Applied in order after redaction, so one mistake in other files, lines and names gives one signature: the replacements keep the shape of the text, never its particulars.",
+    "rules": [
+      {
+        "pattern": "https?://\\S+",
+        "replace": "<url>"
+      },
+      {
+        "pattern": "`[^`\\n]{1,200}`",
+        "replace": "<code>"
+      },
+      {
+        "pattern": "\"[^\"\\n]{1,200}\"",
+        "replace": "<text>"
+      },
+      {
+        "pattern": "'[^'\\n]{1,200}'",
+        "replace": "<text>"
+      },
+      {
+        "pattern": "(?:[\\w.\\-]+/)+[\\w.\\-]+(?::\\d+(?:-\\d+)?)?",
+        "replace": "<path>"
+      },
+      {
+        "pattern": "\\b[\\w\\-]+\\.(?:py|ts|tsx|js|jsx|dart|java|kt|go|rb|rs|cs|php|json|ya?ml|toml|md|css|scss|html|sql|sh)\\b(?::\\d+)?",
+        "replace": "<file>"
+      },
+      {
+        "pattern": "\\b[0-9a-f]{7,40}\\b",
+        "replace": "<id>"
+      },
+      {
+        "pattern": "\\b[A-Za-z_]+[0-9_][A-Za-z0-9_]*\\(\\)",
+        "replace": "<call>"
+      },
+      {
+        "pattern": "\\b[a-z]+(?:[A-Z][a-z0-9]+)+\\b",
+        "replace": "<name>"
+      },
+      {
+        "pattern": "\\b[a-z0-9]+(?:_[a-z0-9]+)+\\b",
+        "replace": "<name>"
+      },
+      {
+        "pattern": "\\d+(?:\\.\\d+)?",
+        "replace": "<n>"
+      },
+      {
+        "pattern": "\\s+",
+        "replace": " "
+      }
+    ],
+    "max_message": 300
+  },
+  "redact": {
+    "about": "Before anything is normalised or stored: secrets and people. The platform's secret redaction runs first (redaction_policy), then these patterns, then the names of the Workspace's people (display name parts of 3+ letters, user names, e-mail local parts).",
+    "patterns": [
+      "\\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}\\b",
+      "\\bgithub_pat_[A-Za-z0-9_]{20,}\\b",
+      "\\bglpat-[A-Za-z0-9_\\-]{16,}\\b",
+      "\\bsk-[A-Za-z0-9_\\-]{16,}\\b",
+      "\\bxox[abpors]-[A-Za-z0-9\\-]{10,}\\b",
+      "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b",
+      "\\beyJ[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9_\\-]{10,}\\.[A-Za-z0-9_\\-]{10,}\\b",
+      "\\b(?=[A-Za-z0-9+/_\\-]*[0-9])(?=[A-Za-z0-9+/_\\-]*[A-Za-z])[A-Za-z0-9+/_\\-]{32,}={0,2}",
+      "[\\w.+\\-]+@[\\w\\-]+(?:\\.[\\w\\-]+)+",
+      "(?<![\\w.])@[A-Za-z0-9][A-Za-z0-9_\\-]{1,38}"
+    ],
+    "replacement": "<redacted>",
+    "min_name": 3
+  },
+  "file_pattern": {
+    "about": "A file becomes <first folder>/**/*.<extension> (one folder deep, so a mistake in other files of the same area counts as one); no file: '*'.",
+    "depth": 1
+  },
+  "max_occurrences": 20,
+  "max_excerpt": 300,
+  "pr_comment": {
+    "about": "A pull request comment counts only from a person: an SCM account linked to an active human Octryx user with a role in the Workspace, and a body that is none of the bot's own posts (these patterns, matched at the start). An automated harness may post under a person's login, so only its text tells it apart; a closing or merge note is status, no correction. The bot's own thread replies ('Fixed in', 'Still open after', the explain answer, the ignore note) are left out too, because the bot and the person can share one SCM login.",
+    "bot_bodies": [
+      "<!-- octryx",
+      "\\*\\*(?:🔴|🟠|🔵) (?:High|Medium|Low)\\*\\*",
+      "Octryx[: ]",
+      "(?:🔄|⏸️|▶️|✅|⚠️|🔧) Octryx",
+      "✅ Fixed in `",
+      "Still open after `", "\u25d0 Partly fixed in `",
+      "↩️ Withdrawn after ",
+      "🙈 Ignored by ",
+      "💡 \\*\\*Octryx explains\\*\\*",
+      "octryx-e2e nightly ",
+      "(?:Merged|Closed|Closing|Superseded)\\b"
+    ],
+    "min_chars": 12
+  }
+}

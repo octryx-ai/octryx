@@ -1,0 +1,112 @@
+/* Workspace preview tab strip. */
+.workspace-sidepanel__preview-tabs {
+  display: flex;
+  align-items: center;
+  gap: 0.06rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 2.08rem;
+  padding: 0 0.5rem;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
+  background: var(--surface-overlay);
+  scrollbar-width: none;
+}
+
+.workspace-sidepanel__preview-tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  height: 2.08rem;
+  max-width: 12rem;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  overflow: hidden;
+}
+
+.workspace-sidepanel__preview-tab--active {
+  border-bottom-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  color: var(--text);
+}
+
+.workspace-sidepanel__preview-tab-button {
+  min-width: 0;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0 0.25rem 0 0.25rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.workspace-sidepanel__preview-tab-type {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.42rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.workspace-sidepanel__preview-tab--active
+  .workspace-sidepanel__preview-tab-type {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--text);
+}
+
+.workspace-sidepanel__preview-tab-name {
+  display: block;
+  min-width: 0;
+  max-width: 8.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-sidepanel__preview-tab-close {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-right: 0.25rem;
+  cursor: pointer;
+}
+
+.workspace-sidepanel__preview-tab-close svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.workspace-sidepanel__preview-tabs::-webkit-scrollbar {
+  display: none;
+}

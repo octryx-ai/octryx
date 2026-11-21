@@ -1,0 +1,6 @@
+/* Settings kit: the shared layout pieces of the Settings
+   pages — toggle rows, live checks, header strips, draft bar, matrix, coverage grid, outcome pills, level dots, steps,
+   generated code, workspace section nav and the phone card tables. Tokens only, no new colours. */
+@import "./settingsKitBase.css";
+@import "./settingsKitPolicyBlocks.css";
+@import "./settingsKitPhoneChipEditor.css";

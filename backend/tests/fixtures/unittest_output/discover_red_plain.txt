@@ -1,0 +1,13 @@
+F.
+======================================================================
+FAIL: test_discount_applies (test_pricing.PricingTest.test_discount_applies)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/dev/demo-shop/tests/test_pricing.py", line 8, in test_discount_applies
+    self.assertEqual(total(50, 10), float(os.environ.get("EXPECT", "45.0")))
+AssertionError: 45.0 != 40.0
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+FAILED (failures=1)

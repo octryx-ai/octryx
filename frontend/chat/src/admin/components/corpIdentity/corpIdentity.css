@@ -1,0 +1,122 @@
+/* Settings → Organization → Corporate identity: the page's classes. */
+.corp-brand__head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
+.corp-brand__badges { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.corp-brand__body { display: grid; gap: 0.75rem; margin-top: 0.5rem; }
+.corp-brand__font { margin: 0 0 0.5rem; font-size: var(--ds-text-sm); }
+.corp-brand__accents { display: grid; gap: 0.5rem; }
+.corp-brand__medium { margin-bottom: 0.25rem; font-size: var(--ds-text-xs); font-weight: 600; text-transform: capitalize; }
+.corp-brand__logos { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.corp-brand__logo {
+  height: 2.5rem;
+  max-width: 8.75rem;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--muted) 8%, transparent);
+  border-radius: var(--ds-radius-md);
+  padding: 0.25rem;
+}
+.corp-swatches { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.corp-swatch { width: 3.6rem; }
+.corp-swatch__color { height: 2.1rem; border-radius: var(--ds-radius-md); border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); }
+.corp-swatch__hex { margin-top: 0.25rem; font-family: ui-monospace, Menlo, monospace; font-size: var(--ds-text-2xs); opacity: 0.75; }
+
+/* Profiles list, new-profile panel and profile drawer (AdminCorpIdentityTab and its corpIdentity/ modules). */
+.corp-hidden { display: none; }
+.corp-muted { color: var(--muted); }
+.corp-nowrap { white-space: nowrap; }
+.corp-row { display: flex; gap: 0.5rem; }
+.corp-inline-label { display: inline-flex; align-items: center; gap: 0.25rem; }
+.admin-panel__action-btn.corp-btn-sm { font-size: var(--ds-text-xs); padding: 0.25rem 0.75rem; }
+.admin-panel__action-btn.corp-btn-xs { font-size: var(--ds-text-xs); padding: 0.25rem 0.5rem; }
+.corp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+.corp-header__title { font-size: var(--ds-text-xs); color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.11em; }
+.corp-header__actions { display: flex; gap: 0.25rem; }
+.admin-panel__hint.corp-intro { margin-bottom: 0.75rem; }
+.corp-new-profile {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.corp-new-profile__title { font-size: var(--ds-text-xs); font-weight: 600; margin-bottom: 0.5rem; }
+.corp-new-profile__actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.admin-panel__badge.corp-default-badge { margin-left: 0.5rem; font-size: var(--ds-text-2xs); }
+.corp-type-counts { display: flex; gap: 0.5rem; align-items: center; }
+.corp-type-counts__none { font-size: var(--ds-text-xs); color: var(--muted); }
+.corp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border-soft);
+  font-size: var(--ds-text-xs);
+}
+.corp-chip.corp-type-counts__chip { gap: 0.25rem; padding: 0.1rem 0.5rem; }
+.corp-panel {
+  padding: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+.corp-panel--spaced { margin-bottom: 0.5rem; }
+.corp-panel__prompt { font-size: var(--ds-text-xs); margin-bottom: 0.5rem; }
+.corp-brand-facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.corp-brand-facts__label { font-size: var(--ds-text-2xs); color: var(--muted); }
+.corp-brand-facts__value { display: block; font-size: var(--ds-text-md); }
+.corp-color-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem; }
+.corp-color-chips__hex { font-size: var(--ds-text-2xs); opacity: 0.7; }
+.corp-hex-swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 0.125rem;
+  border: 1px solid var(--border);
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.corp-template-empty {
+  padding: 0.5rem;
+  border: 1px dashed var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  text-align: center;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.corp-template-list { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; }
+.corp-template {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+.corp-template__icon { flex-shrink: 0; margin-top: 0.1rem; }
+.corp-template__main { flex: 1; min-width: 0; }
+.corp-template__name { font-size: var(--ds-text-sm); font-weight: 600; }
+.corp-template__file { font-size: var(--ds-text-2xs); color: var(--muted); margin-bottom: 0; }
+.corp-template__file--with-desc { margin-bottom: 0.25rem; }
+.corp-template__desc { font-size: var(--ds-text-xs); color: var(--muted-strong); margin-top: 0.25rem; line-height: 1.4; }
+.corp-template__actions { display: flex; gap: 0.25rem; flex-shrink: 0; }
+.admin-panel__input.corp-template__name-input { margin-bottom: 0.5rem; font-size: var(--ds-text-xs); }
+.admin-panel__textarea.corp-template__desc-input { min-height: 3rem; font-size: var(--ds-text-xs); margin-bottom: 0.5rem; }
+.admin-users__row-btn.corp-row-btn--busy { opacity: 0.4; }
+.user-edit-panel__row-end.corp-example-row { gap: 0.5rem; align-items: center; }
+.admin-panel__action-btn.corp-upload-label { margin-top: 0.5rem; display: inline-block; cursor: pointer; }
+
+/* Spec Studio locks */
+.corp-locks { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--ds-space-2) var(--ds-space-4); }
+.corp-locks legend { width: 100%; padding: 0; margin-bottom: var(--ds-space-1); font-size: var(--ds-text-xs); }
+.corp-locks__item { display: inline-flex; align-items: center; gap: var(--ds-space-2); min-height: var(--ds-control-md); font-size: var(--ds-text-sm); }
+.corp-locks__item input { margin: 0; }

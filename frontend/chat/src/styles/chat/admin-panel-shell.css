@@ -1,0 +1,5 @@
+/* Admin panel shell stylesheet: imports its partials in cascade order. */
+@import "./admin-panel-frame.css";
+@import "./admin-panel-tabs.css";
+@import "./admin-panel-header.css";
+@import "./admin-panel-narrow.css";

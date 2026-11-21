@@ -1,0 +1,157 @@
+/* Identity pages (Settings → Identity): readable rows, labelled forms, SSO setup. */
+/* Inactive rows stay readable: muted text instead of a faded row. */
+.admin-users .admin-panel__row--inactive td {
+  opacity: 1;
+  color: var(--muted-strong);
+}
+
+.admin-users .admin-panel__row--inactive td strong {
+  color: var(--muted-strong);
+}
+
+/* Identity forms: visible labels above fields. */
+.admin-users__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.admin-users__form-field {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.admin-users__form-field input,
+.admin-users__form-field select {
+  min-height: 2.1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 400;
+  outline: none;
+}
+
+.admin-users__form-field input:focus,
+.admin-users__form-field select:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.admin-users__form-required {
+  color: var(--status-error);
+}
+
+.admin-users__form-help {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.admin-users__form-note,
+.admin-users__form-actions {
+  grid-column: 1 / -1;
+}
+
+.admin-users__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Sign-in & SSO setup steps. */
+.admin-users__setup-steps {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+
+.admin-users__setup-steps strong {
+  color: var(--text);
+}
+
+.admin-users__callback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.admin-users__callback code {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--accent-strong);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  word-break: break-all;
+}
+
+.admin-users__link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* User accounts at real window widths (judge). */
+.admin-users__accounts-table td,
+.admin-users__accounts-table th {
+  overflow-wrap: break-word;
+}
+
+.admin-users__identity-cell {
+  min-width: 14rem;
+}
+
+.admin-users__identity-cell .admin-panel__cell--muted {
+  margin-top: 0.25rem;
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.admin-users__type-badge {
+  margin-left: 0.5rem;
+}
+
+.admin-users__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Stacked badges without turning the cell into a flex box (keeps table layout). */
+.admin-users__access-cell > .admin-panel__badge {
+  display: flex;
+  width: fit-content;
+  margin-bottom: 0.25rem;
+}
+
+/* An identity provider's side panel: fields at the width of the other panels' forms. */
+.admin-users__provider-form {
+  max-width: 44rem;
+}

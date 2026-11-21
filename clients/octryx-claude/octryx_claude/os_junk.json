@@ -1,0 +1,5 @@
+{
+  "about": "Files the operating system writes into folders on its own (Finder, Explorer, Spotlight, the trash). They never belong to a change: every tree and patch the launcher builds from a working copy leaves them out, and so does the platform's own working-copy tree (backend safe_git). A file the repository already tracks keeps its committed version. Otherwise a .DS_Store written between the Stop and the pipeline would make the device's tree differ from the server's and the push would be refused (pipeline_not_for_head).",
+  "files": [".DS_Store", "._*", "Thumbs.db", "desktop.ini"],
+  "folders": [".Spotlight-V100", ".Trashes", ".fseventsd", ".TemporaryItems"]
+}

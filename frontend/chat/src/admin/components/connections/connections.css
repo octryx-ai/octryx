@@ -1,0 +1,145 @@
+/* Admin › Connections: full-width table, the connection in the side panel. Design-system tokens only. */
+.connections {
+  display: grid;
+  gap: var(--ds-gap, 0.75rem);
+  width: 100%;
+}
+
+.connections__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connections__type-filter {
+  width: auto;
+  min-width: 10rem;
+}
+
+.connections__tab {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.connections__field {
+  max-width: 40rem;
+}
+
+.connections__field-error {
+  color: var(--ds-tone-problem-text, var(--danger, #c0392b));
+  font-size: var(--ds-text-md);
+}
+
+/* A hint or an error under a field is a sentence, not a label: the shared field styles every span of the field as an
+   uppercase label ("SEPARATE SEVERAL WITH COMMAS."). */
+.connections__field > .connections__fact,
+.connections__field > .connections__field-error {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.connections__field > .connections__fact {
+  color: var(--muted-strong, var(--muted));
+  font-size: var(--ds-text-xs);
+}
+
+.connections__field > .connections__field-error {
+  color: var(--ds-tone-problem-ink, var(--danger, #c0392b));
+  font-size: var(--ds-text-xs);
+}
+
+.connections__fact,
+.connections__links,
+.connections__notice {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--text-secondary, inherit);
+}
+
+.connections__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.connections__readonly {
+  color: var(--text-secondary, inherit);
+  font-size: var(--ds-text-md);
+}
+
+.connections__radios,
+.connections__workspaces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.connections__available {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.connections__radio,
+.connections__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.connections__subhead {
+  margin: 0.5rem 0 0;
+  font-size: var(--ds-text-md);
+}
+
+.connections__checks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.connections__sync {
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.connections__earlier {
+  margin-top: 0.75rem;
+}
+
+.connections__earlier > summary {
+  cursor: pointer;
+  color: var(--text-muted, inherit);
+}
+
+/* "Spaces / Projects this connection serves" and what applies while unbound (BoundScopesEditor). */
+.connections__bound {
+  display: grid;
+  gap: var(--ds-space-2, 0.5rem);
+}
+
+.connections__hint,
+.connections__hint p {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--text-secondary, inherit);
+  font-size: var(--ds-text-xs);
+}
+
+.connections__hint {
+  display: grid;
+  gap: var(--ds-space-1, 0.25rem);
+}
+
+.connections__mono,
+.connections__mono-list {
+  font-family: var(--font-mono, monospace);
+}

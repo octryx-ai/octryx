@@ -1,0 +1,33 @@
+/* Knowledge → Explore: segments and one compact filter bar above List or Graph.
+   The list is a full-width ds-table; the entity opens in the ds-panel side panel. */
+.knowledge-explore { display: grid; gap: .75rem; }
+.knowledge-explore__bar { display: flex; flex-wrap: wrap; align-items: end; gap: .75rem 1rem; }
+.knowledge-explore__bar > .ds-segments { align-self: end; }
+
+.knowledge-explore__filters { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem .75rem; flex: 1 1 32rem; }
+.knowledge-explore__field { display: grid; gap: 0.25rem; min-width: 10rem; font-size: var(--ds-text-sm); color: var(--muted-strong); }
+.knowledge-explore__field--text { flex: 1 1 18rem; }
+.knowledge-explore__filter-actions { display: flex; gap: .5rem; }
+
+/* Product · Up to version · Only changes: one compact row above the table. */
+.knowledge-explore__options { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem .75rem; margin-bottom: .5rem; }
+.knowledge-explore__options .admin-panel__field { margin: 0; font-size: var(--ds-text-sm); }
+/* The checkbox sits beside its label: the generic `.knowledge-contribution label` grid put it above "Only changes". */
+.knowledge-explore__options .admin-panel__checkbox { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; min-height: 2rem; font-size: var(--ds-text-sm); }
+.knowledge-explore__count { margin: 0 0 .25rem; font-size: var(--ds-text-sm); color: var(--muted); }
+.knowledge-explore__muted { color: var(--muted); }
+
+.knowledge-explore__link {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px; overflow-wrap: anywhere; text-align: left;
+}
+.knowledge-explore__link:hover { color: var(--text); }
+.knowledge-explore__link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+
+.knowledge-explore__list { display: grid; gap: .5rem; }
+.knowledge-explore__list .knowledge-relationships { max-width: none; }
+.knowledge-explore__entity-table { width: 100%; }
+/* The source column grows; "With" keeps a readable width instead of collapsing to one character per line
+   (the link may break anywhere elsewhere, here only between words). */
+.knowledge-explore__entity-table .knowledge-explore__with { width: 12rem; min-width: 10rem; }
+.knowledge-explore__entity-table .knowledge-explore__with .knowledge-explore__link { overflow-wrap: break-word; }

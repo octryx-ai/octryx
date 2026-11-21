@@ -1,0 +1,4 @@
+/* Composer controls stylesheet: imports its partials in cascade order. */
+@import "./composer-input-toolbar.css";
+@import "./composer-pills.css";
+@import "./composer-send-hints.css";

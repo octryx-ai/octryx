@@ -1,0 +1,5 @@
+Octryx AI is starting at https://{{ .Values.host }}
+
+First start: the API log shows a one-time setup code for the administrator:
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "octryx.fullname" . }}-api | grep setup
+Open https://{{ .Values.host }}/chat/setup, enter it, and the Setup guide opens.

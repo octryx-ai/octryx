@@ -1,0 +1,4 @@
+/* Composer overlays stylesheet: imports its partials in cascade order. */
+@import "./composer-popup.css";
+@import "./composer-notices.css";
+@import "./composer-attachment-chips.css";

@@ -1,0 +1,7 @@
+/* Theme base stylesheet: imports its partials in cascade order. */
+@import "./theme-tokens.css";
+@import "./theme-document-base.css";
+@import "./theme-light-surfaces.css";
+@import "./theme-light-composer.css";
+@import "./theme-light-tools.css";
+@import "./theme-chat-loading.css";

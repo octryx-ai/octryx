@@ -1,0 +1,17 @@
+{
+  "object_kind": "merge_request",
+  "event_type": "merge_request",
+  "user": {"id": 11, "name": "Anna Dev", "username": "dev-anna"},
+  "project": {"id": 7, "name": "pay", "path_with_namespace": "acme/pay", "web_url": "https://gitlab.example.test/acme/pay"},
+  "object_attributes": {
+    "id": 9001, "iid": 42, "title": "Round totals half away from zero", "state": "opened", "action": "update",
+    "oldrev": "aaaa0000aaaa0000aaaa0000aaaa0000aaaa0000",
+    "source_branch": "feature/PAY-1-totals", "target_branch": "main", "source_project_id": 7, "target_project_id": 7,
+    "author_id": 11, "draft": false, "work_in_progress": false,
+    "url": "https://gitlab.example.test/acme/pay/-/merge_requests/42",
+    "last_commit": {"id": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00", "message": "round", "title": "round"},
+    "source": {"path_with_namespace": "acme/pay"}, "target": {"path_with_namespace": "acme/pay"}
+  },
+  "changes": {"updated_at": {"previous": "2026-11-20 08:00:00 UTC", "current": "2026-11-20 09:00:00 UTC"}},
+  "repository": {"name": "pay", "homepage": "https://gitlab.example.test/acme/pay"}
+}

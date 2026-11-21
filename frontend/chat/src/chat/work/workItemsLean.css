@@ -1,0 +1,145 @@
+/* The run start in the Work Item detail and the lean list rows. Existing theme tokens. */
+.work-run-start {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* The run location keeps its whole label: the select takes the full width and its sentence stands below it. */
+.work-run-start__target {
+  width: 100%;
+  max-width: 100%;
+  text-overflow: ellipsis;
+}
+
+.work-run-start__hint {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.4;
+}
+
+.work-run-start__hint--error {
+  color: var(--status-error-ink);
+}
+
+.work-run-start__limits {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-run-start__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-run-start__advanced > summary {
+  cursor: pointer;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.work-run-start__advanced[open] {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-table__time {
+  white-space: nowrap;
+}
+
+.work-items__scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Work Item header actions: the source link and Close item (UX design system, lean list). */
+.work-detail__header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.work-detail__result {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-secondary, inherit);
+}
+
+/* The Workspace's problems as one quiet line under the Work header. */
+.work-problems-line {
+  /* Aligned with the page body, not flush against the navigation. */
+  margin: var(--ds-space-3) var(--ds-space-5) 0;
+  font-size: var(--ds-text-sm);
+  color: var(--ds-tone-attention-ink);
+}
+.work-problems-line--problem {
+  color: var(--ds-tone-problem-ink);
+}
+.work-problems-line__show {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* The Work items table: Done hidden behind one toggle, 50 rows per page, the row opens the panel. */
+.work-table-view {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.work-table__bar,
+.work-table__pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.work-table__pager {
+  justify-content: flex-end;
+}
+
+/* Key and title on one line, so a row keeps the table's compact height; a long title ends with "…". */
+.work-table-view .ds-table__td.is-grow {
+  max-width: 0;
+}
+
+.work-table__issue {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.work-table__issue > strong {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.work-table__issue > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted-strong);
+}
+
+/* "Who are you in Jira?" sits in the centred empty block: its field and buttons are centred with it. */
+.work-empty .work-run-start { justify-items: center; width: min(100%, 22rem); text-align: left; }
+.work-empty .work-run-start .admin-panel__field { width: 100%; }
+.work-empty .work-run-start__actions { justify-content: center; }

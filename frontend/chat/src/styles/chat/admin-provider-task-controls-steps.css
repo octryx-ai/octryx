@@ -1,0 +1,179 @@
+/* Task steps list, step form modal and runtime tags. */
+/* Steps list */
+.steps-list {
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  margin-top: 0.5rem;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.25rem;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--ds-text-sm);
+}
+.step-item:last-child {
+  border-bottom: none;
+}
+.step-item--disabled {
+  opacity: 0.5;
+}
+
+.step-item__pos {
+  width: 1.4rem;
+  height: 1.4rem;
+  background: var(--surface-overlay-strong);
+  border: 1px solid var(--border-soft);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.step-item__type {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  min-width: 4.5rem;
+  padding-top: 0.1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.step-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-item__name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.step-item__meta {
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.step-item__instructions {
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+  margin-top: 0.1rem;
+  font-style: italic;
+}
+
+.step-item__runtime {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.step-item__actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.task-item__steps {
+  padding: 0.5rem 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.step-form {
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  padding: 0.75rem;
+  margin: 0;
+  max-height: calc(100vh - 4rem);
+  overflow: auto;
+}
+
+.step-form-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.step-form-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  cursor: default;
+  background: rgba(0, 0, 0, 0.64);
+  border: 0;
+}
+
+.step-form-modal__panel {
+  position: relative;
+  z-index: 1;
+  width: min(760px, calc(100vw - 2rem));
+}
+
+.step-form__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.step-form__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.step-form__title {
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+  margin-top: 0.12rem;
+}
+
+/* Runtime tags */
+.runtime-item__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+  cursor: pointer;
+  min-height: 1.2rem;
+}
+
+.runtime-item__tag {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-strong);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 500;
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.runtime-item__tags-edit {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+[data-theme="light"] .step-form-modal__backdrop {
+  background: rgba(36, 39, 35, 0.34);
+}

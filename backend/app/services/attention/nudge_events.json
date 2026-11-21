@@ -1,0 +1,18 @@
+{
+  "_doc": "Run event kinds that change what a person's attention queue shows (GET /api/v1/attention): the run starts or ends, waits for someone (a gate, a reply, an approval, a merge watch after the pull request opened), pauses, resumes, a person decided, or a reminder is due. Only these nudge the requester and the responsible person (attention_changed); every other run event (tool, phase, session, push) only tells the sockets watching that run (job_changed). Each nudge makes every open tab re-read the queue, which costs a database connection.",
+  "kinds": [
+    "run_started",
+    "waiting",
+    "waiting_for_product_owner",
+    "paused",
+    "resumed",
+    "decision",
+    "terminal_decision",
+    "auto_accepted",
+    "watch_condition_met",
+    "reminder",
+    "completed",
+    "stopped",
+    "failed"
+  ]
+}

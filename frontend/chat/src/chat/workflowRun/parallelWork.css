@@ -1,0 +1,78 @@
+/* Parallel work board items, plus the run bar branch and the approval links of run bar and history. */
+/* Teamwork: the Parallel work box opened into the coordinator's items (mock board 12).
+   Design review: a board of equal cards; state is the StatusLabel and a thin top rule, never a coloured card. */
+.parallel-work {
+  display: grid;
+  gap: 12px;
+}
+.parallel-work__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.parallel-work__title { color: var(--highlight); font-weight: 600; }
+.parallel-work__summary { color: var(--muted); font-size: var(--ds-text-sm); }
+.parallel-work__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem;
+}
+.parallel-work__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated, transparent);
+}
+.parallel-work__item--info { border-top-color: var(--status-running); }
+.parallel-work__item--problem { border-top-color: var(--status-error); }
+.parallel-work__kind {
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+  color: var(--muted);
+}
+.parallel-work__item-title { color: var(--text); font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.parallel-work__item-title a { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); text-underline-offset: 3px; }
+.parallel-work__item-title a:hover { text-decoration-color: currentColor; }
+.parallel-work__note { font-size: var(--ds-text-sm); color: var(--muted); overflow-wrap: anywhere; }
+.parallel-work__note--detail { color: var(--muted-strong); }
+/* "after <title> +N" on one line: the title ends in an ellipsis, the count stays, so the cards keep one height. */
+.parallel-work__after {
+  display: flex;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+.parallel-work__after-first {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.parallel-work__after-more { flex: none; color: var(--muted-strong); }
+.parallel-work__marks { display: flex; flex: 1 0 auto; flex-wrap: wrap; align-items: center; align-content: flex-end; gap: 8px; padding-top: 8px; }
+.parallel-work__round { font-size: var(--ds-text-xs); color: var(--muted); }
+.parallel-work__branch {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+/* A long branch name ends in an ellipsis; the whole name is in its tooltip. */
+.run-bar__facts > .run-bar__branch {
+  min-width: 0;
+  max-width: min(100%, 28rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The approval a decision was taken on, or the one the run waits for, opens its detail page. */
+.run-history__approval { font-size: var(--ds-text-xs); }
+.run-bar__approval { margin-left: var(--ds-space-3); }

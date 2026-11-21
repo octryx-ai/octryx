@@ -1,0 +1,23 @@
+.diagram-preview-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 1rem;
+  background: var(--bg);
+}
+
+.diagram-preview-page .diagram-viewer__frame {
+  height: calc(100vh - 140px);
+}
+
+/* PNG-first preview: give the server-rendered image the full page height the
+   embed frame would get; the image itself fits the page width. */
+.diagram-preview-page .diagram-viewer__image-wrapper {
+  max-height: calc(100vh - 140px);
+}
+
+.diagram-preview-page__empty {
+  padding: 2.5rem 1rem;
+  color: var(--muted);
+  font-size: var(--ds-text-md);
+  text-align: center;
+}

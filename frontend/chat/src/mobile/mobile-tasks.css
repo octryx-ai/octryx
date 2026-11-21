@@ -1,0 +1,238 @@
+/* Phone cases, artifacts, tasks, segmented control, filter chips, labels, task detail and run start. */
+/* Cases: one row per run action, its input beside the button. */
+.m-case-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+.m-case-action input,
+.m-case-action select {
+  flex: 1 1 140px;
+  min-height: var(--ds-control-touch);
+  padding: 0 0.75rem;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  background: var(--m-raise);
+  color: var(--m-text);
+  font: inherit;
+}
+.m-link {
+  color: var(--m-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Artifacts: a session's page shown sandboxed (SandboxedPage), inline or full screen. */
+.m-page {
+  margin: 8px 0;
+}
+.m-page-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.m-page-bar .m-copy {
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  color: var(--m-text);
+}
+.m-page-frame {
+  display: block;
+  width: 100%;
+  height: 60vh;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-lg);
+  background: #fff;
+}
+.m-page-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--m-bg);
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+.m-page-overlay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0.75rem 16px;
+  border-bottom: 1px solid var(--m-line);
+}
+.m-page-overlay-bar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-page-frame-full {
+  flex: 1;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+}
+.m-artifact-link {
+  margin: 8px 0;
+}
+.m-artifact-link a {
+  color: var(--m-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Tasks: the open Work items (Home "Your tasks", the Open tasks page). */
+.m-more {
+  display: block;
+  width: 100%;
+  min-height: var(--ds-control-touch);
+  margin: 0;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--m-text);
+  font: inherit;
+  font-weight: var(--ds-weight-medium);
+}
+.m-task-filters {
+  display: grid;
+  gap: 12px;
+}
+/* Segmented control (the design system's SegmentedTabs on the phone): the chosen segment is a raised pill. */
+.m-segment {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 0.25rem;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay);
+}
+.m-segment button {
+  min-height: var(--ds-control-touch);
+  border: 0;
+  border-radius: var(--m-radius-md);
+  background: transparent;
+  color: var(--m-muted);
+  font: inherit;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+}
+.m-segment button[aria-pressed="true"] {
+  background: var(--m-raise-2);
+  color: var(--m-text);
+  font-weight: var(--ds-weight-strong);
+  box-shadow: 0 0 0 1px var(--m-line);
+}
+.m-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+/* Filter chips: one of the two pill shapes on the phone (the other is the floating "New chat"). */
+.m-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: var(--ds-control-touch);
+  padding: 0 1rem;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-pill);
+  background: transparent;
+  color: var(--m-muted-strong);
+  font: inherit;
+  font-size: var(--ds-text-md);
+  white-space: nowrap;
+}
+.m-chip[aria-pressed="true"] {
+  background: var(--m-accent-soft);
+  border-color: color-mix(in srgb, var(--m-accent) 55%, transparent);
+  color: var(--m-text);
+  font-weight: var(--ds-weight-strong);
+}
+.m-chip-count {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+/* A label on a row or an item (Fork, Auto, a Work item's labels): the desktop's neutral StatusLabel. */
+.m-tag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  align-self: center;
+  min-height: 1.25rem;
+  margin-left: 8px;
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-tone-neutral-bg);
+  color: var(--ds-tone-neutral-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+/* Task detail: where it lives, labels, description, plan, comments. */
+.m-row-where {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 12px;
+}
+.m-labels .m-tag {
+  margin-left: 0;
+}
+.m-task-description summary {
+  cursor: pointer;
+}
+.m-task-description p {
+  white-space: pre-wrap;
+}
+.m-list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  list-style: disc;
+}
+.m-comment + .m-comment {
+  border-top: 1px solid var(--m-line);
+  margin-top: 8px;
+  padding-top: 8px;
+}
+.m-comment p {
+  white-space: pre-wrap;
+  margin: 2px 0;
+}
+.m-link-hint {
+  display: block;
+  margin-top: 4px;
+}
+
+/* Start a run: workflow, where it runs, the optional repository. */
+.m-run-start label {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.m-run-start label span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-run-start details {
+  margin: 8px 0 12px;
+}
+.m-run-start details input {
+  margin-top: 0.5rem;
+}

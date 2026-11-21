@@ -1,0 +1,70 @@
+{
+  "key": "change-records",
+  "version": 2,
+  "title": "Typed change records of a versioned product document",
+  "applies_to": {
+    "revisions": "versioned_product",
+    "products": []
+  },
+  "self_check": true,
+  "edge_types": [
+    {
+      "name": "REMOVED",
+      "model": "Removed",
+      "action_required": true,
+      "description": "The subject (an API, class, annotation, property, module, starter, integration or feature) no longer exists\n    in this version and no successor is named. Yes: \"Undertow support is dropped in Spring Boot 4\". No: \"X is\n    replaced by Y\" (that is REPLACED_BY)."
+    },
+    {
+      "name": "RENAMED",
+      "model": "Renamed",
+      "action_required": true,
+      "description": "The subject keeps its meaning but is called differently in this version; the object is the new name.\n    Yes: \"@JsonComponent has been renamed to @JacksonComponent\". No: a successor with a different structure or\n    meaning (that is REPLACED_BY)."
+    },
+    {
+      "name": "REPLACED_BY",
+      "model": "ReplacedBy",
+      "action_required": true,
+      "description": "The subject should no longer be used in this version because the object takes its place. Yes:\n    \"spring.http.client.connect-timeout is replaced by spring.http.clients.connect-timeout\". No: a subject that is\n    only deprecated and still works (that is DEPRECATED)."
+    },
+    {
+      "name": "DEPRECATED",
+      "model": "Deprecated",
+      "action_required": true,
+      "description": "The subject still works in this version but is deprecated and scheduled for removal, possibly in favour of\n    the object. Yes: \"Jackson 2 support is deprecated and will be removed in a future release\". No: a subject that\n    is already gone (that is REMOVED)."
+    },
+    {
+      "name": "REQUIRES",
+      "model": "Requires",
+      "action_required": true,
+      "description": "A baseline of this product version: the object is a minimum Java, Kotlin, Jakarta EE, Servlet, framework,\n    library, build tool or platform version it needs, or a managed third-party dependency it upgrades to a named\n    version. Yes: \"Spring Boot 4.0 requires Java 17 or later\", \"Spring Boot 4.0 updates Jackson to 3.0\". No:\n    \"MicrometerTracing operates on the Observation API\" (a description, not a change)."
+    },
+    {
+      "name": "MOVED_TO",
+      "model": "MovedTo",
+      "action_required": true,
+      "description": "The subject is otherwise unchanged but lives in another package, module, starter, artifact or group id (the\n    object) in this version. Yes: \"The Elasticsearch client auto-configuration moved to the spring-boot-elasticsearch\n    module\". No: the subject itself got a new name (that is RENAMED)."
+    },
+    {
+      "name": "DEFAULT_CHANGED",
+      "model": "DefaultChanged",
+      "action_required": true,
+      "description": "The subject existed before, and its default value or default behaviour is different in this version. Yes:\n    \"Liveness and readiness probes are now enabled by default\". No: a new property with its first default (that is\n    INTRODUCED)."
+    },
+    {
+      "name": "INTRODUCED",
+      "model": "Introduced",
+      "action_required": false,
+      "description": "The subject is new in this version: a new capability, starter, property, annotation or API, or an existing\n    feature that can now do something it could not before (\"can now\", \"now supports\", \"new\", \"adds\"). Existing code\n    needs no change. Yes: \"MongoDB Health Indicators can now provide health information when using the MongoDB Java\n    Driver directly\". No: \"The expiringChains entry lists certificate chains\" (describes content, not a change)."
+    }
+  ],
+  "instructions": [
+    "The text is vendor documentation of {product} version {version}. A change record is a fact that states what is different in {product} {version} compared with earlier versions.",
+    "Rules for facts (relationships between entities):",
+    "1. Use one of the provided fact types (REQUIRES, REMOVED, RENAMED, REPLACED_BY, DEPRECATED, MOVED_TO, DEFAULT_CHANGED, INTRODUCED) only when the text states that change for {product} {version}. Read each type's description with its Yes and No examples and choose the one type that fits.",
+    "2. A statement that only describes how something works, what it does, what it contains or how to configure it, without saying that this changed in {version}, is not a change record. Extract it, if at all, with a descriptive relation type of your own, never with one of the fact types above. A limitation or incompatibility of another product (for example \"X does not yet support Y\") is not a change record either.",
+    "3. REQUIRES is only for baselines: a minimum Java, Kotlin, Jakarta EE, Servlet, framework, library or tool version that {product} {version} needs, or a managed third-party dependency it upgrades to a named version. Never use REQUIRES for a fact that fits no other type.",
+    "4. A capability that is new or that something \"can now\" do or \"now supports\" is INTRODUCED, not REQUIRES.",
+    "5. For every fact set states_version_change: true only when the text states that this fact is a change in {product} {version} of one of the fact types above, false otherwise. A fact with false is never stored as a change record, whatever its relation type.",
+    "6. Name code elements exactly as written in the text (fully qualified class names, annotations with @, property keys, artifact ids), because the facts are matched against source code."
+  ]
+}

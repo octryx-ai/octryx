@@ -1,0 +1,7 @@
+/* Workflow run stylesheet: imports its partials in cascade order. */
+@import "./workflowRunBanner.css";
+@import "./runBar.css";
+@import "./decisionCard.css";
+@import "./runHistory.css";
+@import "./parallelWork.css";
+@import "./pipelineAudit.css";

@@ -1,0 +1,185 @@
+/* Trace drawer quality gates: evaluate button, summary, badges and gate details. */
+.trace-gates {
+  border-color: color-mix(in srgb, var(--status-active) 11%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--status-active) 4%, transparent),
+      var(--surface-overlay)
+    ),
+    color-mix(in srgb, var(--bg) 56%, transparent);
+}
+
+.trace-gates .trace-drawer__section-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.trace-gates__evaluate {
+  min-height: 1.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid color-mix(in srgb, var(--status-active) 22%, transparent);
+  background: color-mix(in srgb, var(--status-active) 8%, transparent);
+  color: var(--status-active-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trace-gates__evaluate:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.trace-gates__error {
+  padding: 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--status-error) 22%, transparent);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-xs);
+}
+
+.trace-gates__result {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trace-gates__summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.trace-gates__summary div {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.trace-gates__summary strong,
+.trace-gates__summary span {
+  overflow-wrap: anywhere;
+}
+
+.trace-gates__summary div > span,
+.trace-gates__copy {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.trace-gates__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.2rem;
+  padding: 0 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.trace-gates__badge--passed {
+  border-color: color-mix(in srgb, var(--status-active) 18%, transparent);
+  background: color-mix(in srgb, var(--status-active) 8%, transparent);
+  color: var(--status-active-ink);
+}
+
+.trace-gates__badge--failed {
+  border-color: color-mix(in srgb, var(--status-error) 22%, transparent);
+  background: color-mix(in srgb, var(--status-error) 10%, transparent);
+  color: var(--status-error-ink);
+}
+
+.trace-gates__badge--warning {
+  border-color: color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 10%, transparent);
+  color: var(--status-attention-ink);
+}
+
+.trace-gates__list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trace-gates__gate {
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.trace-gates__gate summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+}
+
+.trace-gates__gate summary span:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.trace-gates__gate summary strong,
+.trace-gates__gate summary small {
+  overflow-wrap: anywhere;
+}
+
+.trace-gates__gate summary small {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.35;
+}
+
+.trace-gates__gate dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 0.75rem 0.5rem;
+}
+
+.trace-gates__gate dl div {
+  min-width: 0;
+}
+
+.trace-gates__gate dt {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.trace-gates__gate dd {
+  margin: 0.12rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.trace-gates__gate pre {
+  max-height: 11rem;
+  margin: 0 0.75rem 0.75rem;
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,125 @@
+/* Trace drawer frame, header, sections and empty state. */
+.trace-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 105;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(29rem, 100vw);
+  height: 100vh;
+  transform: translateX(100%);
+  /* Parked off-screen it is hidden, not only moved: its close button and content leave the tab order
+     (they were focusable while aria-hidden). Visibility switches after the slide-out. */
+  visibility: hidden;
+  transition: transform 180ms ease, visibility 0s linear 180ms;
+  border-left: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-strong) 100%);
+  backdrop-filter: blur(22px);
+  /* No shadow while parked off-screen; its spread would show as a band at the right edge of every
+     page in the light theme. */
+  box-shadow: none;
+}
+
+.trace-drawer:focus {
+  outline: none;
+}
+
+.trace-drawer--open {
+  transform: translateX(0);
+  visibility: visible;
+  transition: transform 180ms ease, visibility 0s;
+  box-shadow: -28px 0 72px rgba(0, 0, 0, 0.42);
+}
+
+.trace-backdrop--visible {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 5;
+}
+
+.trace-drawer__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1rem 1rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, var(--surface-overlay-strong), var(--surface-overlay)),
+    var(--surface-overlay);
+}
+
+.trace-drawer__heading {
+  min-width: 0;
+}
+
+.trace-drawer__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.trace-drawer__title {
+  margin: 0.5rem 0 0;
+  font-size: var(--ds-text-lg);
+  letter-spacing: -0.03em;
+}
+
+.trace-drawer__body {
+  overflow-y: auto;
+  padding: 1rem 1rem 1rem;
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+}
+
+.trace-drawer__section {
+  display: grid;
+  gap: 0.75rem;
+  align-content: start;
+  padding: 0.75rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px solid var(--border-soft);
+  background:
+    linear-gradient(180deg, var(--surface-overlay-strong), var(--surface-overlay)),
+    color-mix(in srgb, var(--bg) 52%, transparent);
+}
+
+.trace-drawer__section--diff {
+  border-color: color-mix(in srgb, var(--status-running) 12%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--status-running) 4%, transparent),
+      var(--surface-overlay)
+    ),
+    color-mix(in srgb, var(--bg) 56%, transparent);
+}
+
+.trace-drawer__section-header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.trace-drawer__section-title {
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.trace-drawer__section-copy {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.trace-empty {
+  padding: 1rem;
+  border-radius: var(--ds-radius-xl);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-overlay);
+  color: var(--muted);
+}

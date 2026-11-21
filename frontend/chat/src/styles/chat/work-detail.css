@@ -1,0 +1,4 @@
+/* Work item detail drawer: imports its partials in cascade order. */
+@import "./work-detail-panel.css";
+@import "./work-detail-impact-reviewers.css";
+@import "./work-detail-change-plan.css";

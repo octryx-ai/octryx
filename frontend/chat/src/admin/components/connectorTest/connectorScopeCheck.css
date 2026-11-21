@@ -1,0 +1,11 @@
+/* A connection test that works but whose account cannot see every configured key (delivery 5). */
+.connector-card__test-result--warn {
+  background: color-mix(in srgb, var(--status-attention) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-attention) 35%, transparent);
+  color: var(--text);
+}
+
+.connector-scope-check ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1rem;
+}

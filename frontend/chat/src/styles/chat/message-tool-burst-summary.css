@@ -1,0 +1,194 @@
+/* Grouped tool list and tool burst frame, summary, status pill and toggle. */
+.tool-list--grouped {
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.tool-burst {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay);
+  overflow: hidden;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.tool-burst[open] {
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--accent) 6%, transparent),
+      var(--surface-overlay)
+    ),
+    var(--surface-overlay);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.14);
+}
+
+.tool-burst__summary {
+  list-style: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  cursor: pointer;
+}
+
+.tool-burst__summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-burst__summary-main {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  min-height: 1.5rem;
+}
+
+.tool-burst__cardline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.tool-burst__summary-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-strong);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  flex: 0 0 auto;
+}
+
+.tool-burst__summary-copyblock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.tool-burst__headline-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tool-burst__prompt-copy {
+  color: var(--text);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-burst__context {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-burst__title {
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+}
+
+.tool-burst__count,
+.tool-burst__duration,
+.tool-burst__meta {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+}
+
+.tool-burst__copy {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.tool-burst__summary-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tool-burst__summary-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tool-burst__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.tool-burst__status::before {
+  content: "";
+  width: 0.24rem;
+  height: 0.24rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.tool-burst__status--success,
+.tool-burst__status--completed {
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.tool-burst__status--error,
+.tool-burst__status--failed {
+  color: var(--status-error-ink);
+  background: color-mix(in srgb, var(--status-error) 10%, transparent);
+}
+
+.tool-burst__status--mixed {
+  color: var(--status-attention);
+  background: color-mix(in srgb, var(--status-attention) 12%, transparent);
+}
+
+.tool-burst__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.tool-burst__caret {
+  display: inline-block;
+  transition: transform 160ms ease;
+}
+
+.tool-burst[open] .tool-burst__caret {
+  transform: rotate(90deg);
+}

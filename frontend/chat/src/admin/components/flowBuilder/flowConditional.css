@@ -1,0 +1,120 @@
+/* If / else inspector and branch choice on connections. Tokens only. */
+.flow-conditional__rule-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-conditional__muted {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.flow-conditional__value {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.flow-conditional__note {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.4;
+}
+
+.flow-conditional__note--attention {
+  padding: 0.5rem 8px;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 30%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: var(--status-attention-soft);
+  color: var(--status-attention-ink);
+}
+
+.flow-conditional__kept {
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.flow-conditional__rule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.flow-conditional__button {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel-strong) 76%, transparent);
+  color: var(--muted-strong);
+  padding: 4px 8px;
+  font-size: var(--ds-text-xs);
+}
+
+.flow-conditional__button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.flow-conditional__branches {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.flow-canvas__edge-editor select {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
+  color: var(--text);
+  padding: 4px 0.5rem;
+  font-size: var(--ds-text-xs);
+}
+
+/* Branch labels on the connections out of an If / else step, drawn by React Flow's edge
+   label. Readable at the default fit; they scale with zoom like the nodes. */
+.flow-canvas .flow-edge--branch .react-flow__edge-text {
+  fill: var(--text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.flow-canvas .flow-edge--branch .react-flow__edge-textbg {
+  fill: var(--panel-strong);
+  stroke: var(--border-soft);
+  stroke-width: 1px;
+}
+
+.flow-canvas .flow-edge--branch.selected .react-flow__edge-textbg,
+.flow-canvas .flow-edge--branch:focus-visible .react-flow__edge-textbg {
+  stroke: var(--accent);
+}
+
+.flow-canvas .flow-edge--branch-fallback .react-flow__edge-text,
+.flow-canvas .flow-edge--branch-custom .react-flow__edge-text {
+  fill: var(--muted-strong);
+  font-style: italic;
+}
+
+.flow-canvas .flow-edge--branch-custom .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+
+.flow-canvas .flow-edge--branch-never .react-flow__edge-text,
+.flow-canvas .flow-edge--branch-invalid .react-flow__edge-text {
+  fill: var(--status-attention-ink);
+}
+
+.flow-canvas .flow-edge--branch-invalid .react-flow__edge-textbg {
+  stroke: var(--status-attention);
+}
+
+.flow-canvas .flow-edge--branch-never .react-flow__edge-path {
+  stroke-dasharray: 2 4;
+}

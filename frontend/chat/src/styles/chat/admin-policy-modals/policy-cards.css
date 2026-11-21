@@ -1,0 +1,4 @@
+/* Policy modal cards: imports its partials in cascade order. */
+@import "./policy-list-cards.css";
+@import "./policy-option-metric-cards.css";
+@import "./policy-branding-tts-cards.css";

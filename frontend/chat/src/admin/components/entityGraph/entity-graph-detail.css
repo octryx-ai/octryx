@@ -1,0 +1,31 @@
+/* Entity detail pane: takes the drawing's place beside the list; rows read direction · relation ·
+   other entity, then the statement and its source. Tokens only. */
+.entity-graph__detail {
+  padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--panel-strong);
+  font-size: var(--ds-text-md);
+}
+.entity-graph__detail .entity-graph__detail-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
+.entity-graph__detail-title {
+  flex: 1 1 12rem; margin: 0; font-size: var(--ds-text-lg); font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere;
+  border-radius: var(--ds-radius-sm);
+}
+.entity-graph__detail-title:focus { outline: none; }
+.entity-graph__detail-title:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
+.entity-graph__detail-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.entity-graph__scope { margin: 4px 0 8px; font-size: var(--ds-text-sm); color: var(--muted-strong); }
+.entity-graph__relations { list-style: none; margin: 0; padding: 0; display: grid; }
+.entity-graph__relation { padding: 8px 0; border-top: 1px solid var(--border-soft); }
+.entity-graph__relation:first-child { border-top: 0; padding-top: 0; }
+.entity-graph__relation-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0.5rem; }
+.entity-graph__relation-dir { min-width: 1.1em; text-align: center; color: var(--muted-strong); }
+.entity-graph__relation-type { font-weight: 600; }
+.entity-graph__relation-this { color: var(--muted-strong); }
+.entity-graph__relation-scope { margin-left: auto; font-size: var(--ds-text-xs); color: var(--muted); }
+.entity-graph__relation--outside .entity-graph__relation-head,
+.entity-graph__relation--outside .entity-graph__relation-statement { color: var(--muted-strong); }
+.entity-graph__relation-statement { margin: 4px 0 0; font-size: var(--ds-text-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.entity-graph__aliases { margin: 0; font-size: var(--ds-text-sm); color: var(--muted-strong); overflow-wrap: anywhere; }
+.entity-graph__sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# octryx-claude: run Claude Code through Octryx. Resolves this kit and a
+# Python with httpx, then hands over to the Python package. No PYTHONPATH changes.
+set -euo pipefail
+
+source_path="${BASH_SOURCE[0]}"
+while [ -L "$source_path" ]; do
+  link_dir="$(cd -P "$(dirname "$source_path")" && pwd)"
+  source_path="$(readlink "$source_path")"
+  case "$source_path" in /*) ;; *) source_path="$link_dir/$source_path" ;; esac
+done
+kit_dir="$(cd -P "$(dirname "$source_path")/.." && pwd)"
+repo_dir="$(cd -P "$kit_dir/../.." && pwd)"
+
+python_bin="${OCTRYX_PYTHON:-$repo_dir/backend/.venv/bin/python}"
+if [ ! -x "$python_bin" ]; then
+  echo "octryx-claude: needs_configuration: python_not_found (set OCTRYX_PYTHON to a Python with httpx)" >&2
+  exit 2
+fi
+
+exec "$python_bin" "$kit_dir/octryx_claude_entry.py" "$@"

@@ -1,0 +1,36 @@
+{
+  "about": "Run memory per repository and app, stage 1: the agent never starts from zero. What one run learns and the platform verified goes into the next run's phase brief as information, never as a permission (a rule that loosens anything needs four-eyes review, not this store). Read by workflow_runs/run_memory; the entries live on the repository record (config_json.run_memory.<app folder>).",
+  "kinds": {
+    "test_command": {
+      "max": 6,
+      "about": "A command that exited 0 in the platform's own pipeline for this app (verified)."
+    },
+    "environment_fix": {
+      "max": 6,
+      "about": "An environment error that paused a run, and the commands of the next green pipeline that ran past it."
+    },
+    "denial_alternative": {
+      "max": 10,
+      "about": "A tool call the platform refused, and the first call of the same tool it allowed after that in the same phase pass."
+    },
+    "large_output": {
+      "max": 6,
+      "about": "A Bash command whose output was at least large_output_kb in a measured turn, and a later run of the same command (same first two words) in that turn that printed at most short_output_kb."
+    },
+    "app_fact": {
+      "max": 6,
+      "about": "A fact about the app the platform verified on the base commit, for the hands-on scenario writer (data_not_persistent: a seed's data was gone after a restart; setup:<step>: a setup step that failed on the base)."
+    }
+  },
+  "denial_reasons": [
+    "outside_phase_tools",
+    "protected_path",
+    "confirmed_test_protected",
+    "platform_credentials_protected",
+    "capability_read_only"
+  ],
+  "brief_max_lines": 10,
+  "max_text": 240,
+  "large_output_kb": 16,
+  "short_output_kb": 4
+}

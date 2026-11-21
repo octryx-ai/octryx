@@ -1,0 +1,51 @@
+/* ServiceNow assignment groups: chips and the add row; existing theme tokens only. */
+.assignment-groups {
+  grid-column: 1 / -1;
+}
+
+.assignment-groups__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.assignment-groups__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.25rem 0.1rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-xs);
+  color: var(--text);
+}
+
+.assignment-groups__remove {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: var(--ds-text-md);
+  line-height: 1;
+}
+
+.assignment-groups__add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.assignment-groups__add .connector-field__input {
+  flex: 1 1 auto;
+}
+
+.assignment-groups__mode {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: var(--ds-text-md);
+}

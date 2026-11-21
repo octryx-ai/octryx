@@ -1,0 +1,109 @@
+/* Guided step form: tool picker and the advanced configuration disclosure. */
+.agent-step-tools {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.agent-step-tools legend {
+  padding: 0;
+  margin-bottom: 0.25rem;
+}
+
+.agent-step-tools__summary,
+.agent-step-tools__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.4;
+}
+
+.agent-step-tools__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-step-tools__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-xs);
+}
+
+.agent-step-tools__chip--unknown {
+  border-color: var(--status-attention);
+  background: var(--status-attention-soft);
+}
+
+.agent-step-tools__chip-name,
+.agent-step-tools__option-name {
+  font-family: "Fira Code", "Cascadia Code", monospace;
+  overflow-wrap: anywhere;
+}
+
+.agent-step-tools__chip-note {
+  color: var(--status-attention-ink, var(--status-attention));
+  font-size: var(--ds-text-2xs);
+}
+
+.agent-step-tools__chip-remove {
+  padding: 0 0.25rem;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+}
+
+.agent-step-tools__chip-remove:hover,
+.agent-step-tools__chip-remove:focus-visible {
+  color: var(--text);
+}
+
+.agent-step-tools__catalog {
+  display: grid;
+  gap: 0.25rem;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.agent-step-tools__option {
+  align-items: center;
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+
+.agent-step-form__advanced summary {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agent-step-form__advanced-body {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+.agent-step-form__config-error {
+  margin: 0;
+  color: var(--status-error-ink, var(--status-error));
+  font-size: var(--ds-text-xs);
+}

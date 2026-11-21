@@ -1,0 +1,51 @@
+.connector-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.connector-card {
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  overflow: hidden;
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.connector-card--configured {
+  border-color: var(--border-strong);
+}
+
+.connector-card--open {
+  border-color: color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.025),
+    0 0 0 1px color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.connector-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface-overlay);
+  transition: background 0.15s;
+}
+
+/* Collapsed connector tool list below the connection fields. */
+.connector-card__tools-summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.connector-card__tools-summary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-radius: var(--ds-radius-md);
+}

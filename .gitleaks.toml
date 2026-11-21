@@ -1,0 +1,37 @@
+# Gitleaks configuration: the default rules plus known non-secrets in product code.
+# Every allowlist names one file and the shape of the value, and says why it is not a secret. A new finding in
+# these files that does not match the shape is still reported. Test fakes are never listed here: a test writes a
+# fake token as two adjacent string literals ("ghp_" "..."), so no scanner pattern stands in the source.
+
+title = "Octryx"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Embedding catalog: SHA-256 digests of the pinned model files and the Hugging Face revision hash, plus the embedding space's key (a model name). Pinned so a download can be verified; public values."
+condition = "AND"
+paths = ['''backend/app/services/knowledge/embedding/catalog\.py$''']
+regexTarget = "secret"
+regexes = ['''^[0-9a-f]{40}$''', '''^[0-9a-f]{64}$''', '''^[a-z0-9_]{8,64}$''']
+
+[[allowlists]]
+description = "Knowledge fence: the placeholder that stands for a fence's random token in a prompt; a fixed 16-digit hex string, not a credential."
+condition = "AND"
+paths = ['''backend/app/services/content_security/knowledge_fence\.py$''']
+regexTarget = "secret"
+regexes = ['''^[0-9a-f]{16}$''']
+
+[[allowlists]]
+description = "Evidence index operations: the name of a registered operation (COUNT_EVIDENCE_BY_KEY), not a key."
+condition = "AND"
+paths = ['''backend/app/services/knowledge/evidence_index/operations\.py$''']
+regexTarget = "secret"
+regexes = ['''^count_[a-z0-9_]+$''']
+
+[[allowlists]]
+description = "Redaction policy: the private-key header is a detection marker the redactor looks for, not a key."
+condition = "AND"
+paths = ['''backend/app/services/redaction_policy\.py$''']
+regexTarget = "match"
+regexes = ['''(?i)-----begin (rsa )?private key-----''']

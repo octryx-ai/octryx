@@ -1,0 +1,23 @@
+.sidebar__threads {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.sidebar__threads::-webkit-scrollbar,
+.workspace__feed::-webkit-scrollbar,
+.trace-drawer__body::-webkit-scrollbar,
+.tool-card pre::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.sidebar__threads::-webkit-scrollbar-thumb,
+.workspace__feed::-webkit-scrollbar-thumb,
+.trace-drawer__body::-webkit-scrollbar-thumb,
+.tool-card pre::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  background-clip: content-box;
+}

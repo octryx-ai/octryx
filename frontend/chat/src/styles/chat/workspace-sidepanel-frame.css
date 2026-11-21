@@ -1,0 +1,123 @@
+/* Workspace side panel frame, header, search, bulk bar and list. */
+.workspace-sidepanel {
+  border-left-color: var(--border);
+  background: linear-gradient(
+    180deg,
+    var(--sidebar-surface),
+    var(--sidebar-surface-strong)
+  );
+  backdrop-filter: blur(14px);
+}
+
+.workspace-sidepanel__header {
+  padding-top: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.workspace-sidepanel__title {
+  font-size: var(--ds-text-md);
+  letter-spacing: -0.035em;
+}
+
+.workspace-sidepanel__pathline {
+  margin-top: 0.25rem;
+}
+
+.workspace-sidepanel__pathtext {
+  font-size: var(--ds-text-2xs);
+}
+
+.workspace-sidepanel__pathcopy,
+.workspace-sidepanel__icon {
+  border-color: var(--border);
+  background: var(--surface-overlay);
+}
+
+.workspace-sidepanel__pathcopy:hover,
+.workspace-sidepanel__icon:hover {
+  background: var(--surface-overlay-hover);
+}
+
+.workspace-sidepanel__controls {
+  gap: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+
+.workspace-sidepanel__topbar {
+  align-items: flex-end;
+}
+
+.workspace-sidepanel__bulk-toggle {
+  padding: 0.25rem 0.5rem;
+}
+
+.workspace-sidepanel__search {
+  padding: 0.5rem 0.5rem;
+  border-color: var(--border);
+  background: var(--surface-overlay);
+}
+
+.workspace-sidepanel__search input {
+  font-size: var(--ds-text-sm);
+}
+
+.workspace-sidepanel__body {
+  gap: 0.25rem;
+  padding-bottom: 0.5rem;
+}
+
+.workspace-sidepanel__bulkbar {
+  justify-content: flex-start;
+}
+
+.workspace-sidepanel__bulk-actions {
+  margin-left: auto;
+}
+
+.workspace-sidepanel__bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+}
+
+.workspace-sidepanel__bulk-btn:disabled {
+  opacity: 0.45;
+}
+
+.workspace-sidepanel__bulk-btn--danger {
+  color: var(--status-error-ink);
+}
+
+.workspace-sidepanel__bulk-btn svg {
+  width: 0.82rem;
+  height: 0.82rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.workspace-sidepanel__list {
+  display: grid;
+  gap: 0.25rem;
+  align-content: start;
+}
+
+.workspace-sidepanel__navigator-body,
+.workspace-sidepanel__changes-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow: auto;
+  padding-right: 0.08rem;
+}

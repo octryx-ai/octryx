@@ -1,0 +1,11 @@
+/* Skill editor and import drawer: the few pieces skillsPage.css does not cover. Tokens only. */
+
+.skills__editor-form{border:0;margin:0;padding:0;min-width:0}
+.skills__editor-nav-btn{width:100%;border:0;border-bottom:1px solid var(--border-soft);background:transparent;font:inherit;font-size: var(--ds-text-xs);text-align:left}
+.skills__drop{border-style:dashed;cursor:pointer}
+.skills__drop.is-active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 6%,transparent)}
+.skills__import{display:grid;gap:0.75rem}
+.skills__import-item{display:grid;gap:0.25rem;padding:0.5rem 0.25rem;border-bottom:1px solid var(--border-soft)}
+.skills__import-item:last-child{border-bottom:0}
+.skills__import-item .skills__cbx{padding:0}
+.skills__import-meta{display:flex;flex-wrap:wrap;gap:0.25rem;align-items:center;padding-left:1.5rem}

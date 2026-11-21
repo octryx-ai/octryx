@@ -1,0 +1,86 @@
+/* Write plan amendment, foot actions, decided state and the narrow breakpoint. */
+/* Amendment: the writes the person already confirmed, folded. */
+.write-plan__confirmed {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+
+.write-plan__confirmed > summary {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  cursor: pointer;
+}
+
+.write-plan__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2) var(--ds-space-4);
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--border-soft);
+}
+
+.write-plan__note {
+  flex: 1 1 18rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.write-plan__actions {
+  display: flex;
+  gap: var(--ds-space-2);
+  margin-left: auto;
+}
+
+/* Decided: one calm line; the plan opens below it. */
+.write-plan--done {
+  gap: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-color: var(--border);
+  background: transparent;
+}
+
+.write-plan__result {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ds-space-3);
+  min-width: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  cursor: pointer;
+}
+
+.write-plan__result-request {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.write-plan__done-body {
+  display: grid;
+  gap: var(--ds-space-3);
+  padding-top: var(--ds-space-3);
+}
+
+@media (max-width: 720px) {
+  .write-plan__scope {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .write-plan__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .write-plan__field dt {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .write-plan__write-body {
+    padding-left: var(--ds-space-3);
+  }
+}

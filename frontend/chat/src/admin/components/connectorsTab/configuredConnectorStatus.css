@@ -1,0 +1,50 @@
+/* Configured connector card status: existing theme tokens only. */
+.connector-card__status--error {
+  color: var(--status-error-ink);
+}
+
+/* Connector settings: a way back to Connections, the page name, and the connectors as a table. */
+.connector-settings__head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connector-settings__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+}
+
+/* The second way to add something is a quiet link inside the page, at the end of its title row. */
+.connector-settings__setup {
+  margin-left: auto;
+}
+
+/* The connector panel's footer: Pause/Resume at the left, Test and Save at the right (primary last). */
+.connector-panel__lifecycle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: auto;
+}
+
+.connector-card__icon.connector-card__icon--small {
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-2xs);
+}
+
+.connector-card__icon--small svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+/* In the side panel the setup is the panel body itself: no card frame, tint or inset. */
+.ds-panel .connector-card__body {
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+}

@@ -1,0 +1,111 @@
+/* Turn trace decision timeline and the raw trace block. */
+.turn-decision-timeline__list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.turn-decision-timeline__item {
+  display: grid;
+  grid-template-columns: 1.9rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.turn-decision-timeline__marker {
+  display: grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.turn-decision-timeline__body {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.turn-decision-timeline__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.turn-decision-timeline__phase,
+.turn-decision-timeline__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.3rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.turn-decision-timeline__status--ok {
+  color: var(--status-active-ink);
+  border-color: color-mix(in srgb, var(--status-active) 32%, transparent);
+}
+
+.turn-decision-timeline__status--error {
+  color: var(--status-error-ink);
+  border-color: color-mix(in srgb, var(--status-error) 34%, transparent);
+}
+
+.turn-decision-timeline__status--pending {
+  color: var(--status-attention-ink);
+  border-color: color-mix(in srgb, var(--status-attention) 34%, transparent);
+}
+
+.turn-decision-timeline__title {
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+}
+
+.turn-decision-timeline__detail {
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+}
+
+.turn-decision-timeline__metadata summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.turn-decision-timeline__metadata .trace-panel__pre {
+  margin-top: 0.5rem;
+  max-height: 15rem;
+}
+
+.trace-panel__pre {
+  margin: 0;
+  padding: 0.75rem;
+  overflow: auto;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--border-soft);
+  background: var(--bg);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -1,0 +1,5 @@
+/* Admin modal layout stylesheet: imports its partials in cascade order. */
+@import "./modal-frame.css";
+@import "./trace-modal-sections.css";
+@import "./trace-decision-timeline.css";
+@import "./modal-light-narrow.css";

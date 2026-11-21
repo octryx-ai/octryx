@@ -1,0 +1,166 @@
+/* Data classification cards: local layout, existing theme tokens only. */
+.workspace-classification {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.workspace-classification__heading {
+  margin: 0 0 0.25rem;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.workspace-classification__lines {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ds-text-sm);
+}
+
+.workspace-classification__mark {
+  display: inline-block;
+  width: 1.2rem;
+  font-weight: 600;
+}
+
+.workspace-classification__mark--yes {
+  color: var(--status-active);
+}
+
+.workspace-classification__mark--no {
+  color: var(--status-error);
+}
+
+.workspace-classification__mark--pending {
+  color: var(--muted);
+}
+
+.workspace-classification__seat {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* An inline refusal inside the card; .admin-panel__error is the full-panel state. */
+.workspace-classification__message {
+  margin: 0;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-error) 16%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* The classification policy. */
+.classification-policy__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.classification-policy__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Agents → Governance → Policy. */
+.workspace-policy {
+  display: grid;
+  gap: 1rem;
+}
+
+
+/* The Claude seat's model list (seat_models) under the seat switches. */
+.seat-models__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.seat-models__label {
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.seat-models__list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat-models__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+}
+
+.seat-models__id {
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.seat-models__add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.seat-models__input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
+.seat-models__input[aria-invalid="true"] {
+  border-color: var(--status-error);
+}
+
+.seat-models__problem {
+  margin: 0;
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-sm);
+}
+
+/* The Codex seat's model list (codex_seat_models), nested under the Codex seat switch. */
+.seat-models--nested {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 0 0 1rem;
+  border-left: 2px solid var(--border-soft);
+}
+
+.seat-models--nested > .admin-panel__action-btn {
+  justify-self: start;
+}
+
+.seat-models__all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+}

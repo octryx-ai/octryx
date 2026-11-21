@@ -1,0 +1,323 @@
+# Octryx AI on one machine: `docker compose up -d` (see https://octryx.ai/docs/install/docker).
+#
+# Default: PostgreSQL with pgvector, an S3-compatible object store for Knowledge, the schema
+# migration and the API (which also serves the web UI) on http://localhost:${OCTRYX_PORT:-8000}.
+# .env holds only the model access. The deployment secrets (JWT, encryption key, database
+# password) are generated on the first start into the `secrets` volume and never leave it.
+#
+# The demo is a separate file on top of this one (docker-compose.demo.yml, deployment/demo/README.md):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
+# Without it nothing of the demo runs and nothing is relaxed for it.
+#
+# Optional, through profiles (e.g. `docker compose --profile ollama up -d`, or COMPOSE_PROFILES in .env):
+#   ollama             a local Ollama server (http://ollama:11434), configured in Admin › Models
+#   workers            the managed-CLI agent workers (agent, codex, gemini, opencode)
+#   code-intelligence  the code indexer
+#   llama-cpp          a llama.cpp server for one local GGUF model
+# Project name, also the prefix of the volumes. An install made under an earlier name keeps its data with
+# COMPOSE_PROJECT_NAME=<that name> and OCTRYX_POSTGRES_DB=<its database name> in .env.
+name: octryx
+
+x-image: &image
+  image: ${OCTRYX_IMAGE:-octryx-api:local}
+  build:
+    context: .
+    dockerfile: Dockerfile
+    target: api
+
+# Every process of the platform reads the generated secrets the same way.
+x-with-secrets: &with-secrets
+  entrypoint:
+    - sh
+    - -c
+    - |
+      set -eu
+      export JWT_SECRET="$$(cat /run/octryx-secrets/jwt_secret)"
+      export ENCRYPTION_KEY="$$(cat /run/octryx-secrets/encryption_key)"
+      export DATABASE_URL="postgresql+asyncpg://octryx:$$(cat /run/octryx-secrets/postgres_password)@postgres:5432/${OCTRYX_POSTGRES_DB:-octryx}"
+      exec "$$@"
+    - with-secrets
+
+x-environment: &environment
+  DEBUG: "false"
+  OCTRYX_RUNTIME_PROFILE: staging
+  # The browser reaches the platform on this origin only. Auth cookies are Secure, which
+  # Chrome, Edge and Firefox accept on http://localhost.
+  OCTRYX_PUBLIC_ORIGIN: http://localhost:${OCTRYX_PORT:-8000}
+  CORS_ALLOWED_ORIGINS: http://localhost:${OCTRYX_PORT:-8000},http://127.0.0.1:${OCTRYX_PORT:-8000}
+  FORCE_SECURE_AUTH_COOKIES: "true"
+  AUTH_COOKIE_SAMESITE: lax
+  # Unattended installs only. Empty: the first start logs a setup code (https://octryx.ai/docs/install/docker#steps).
+  ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD:-}
+  ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@localhost}
+  OCTRYX_SESSION_WORKSPACE_BASE_DIR: /app/data/session-workspaces
+  # The one model access (services/control_plane/env_model_access.py), read on the first start only.
+  LLM_PROVIDER: ${LLM_PROVIDER:?Set LLM_PROVIDER in .env (anthropic, openai, bedrock or openrouter), see https://octryx.ai/docs/install/docker}
+  AGENT_DEFAULT_MODEL: ${AGENT_DEFAULT_MODEL:?Set AGENT_DEFAULT_MODEL in .env, see https://octryx.ai/docs/install/docker}
+  LLM_API_KEY: ${LLM_API_KEY:-}
+  LLM_ENDPOINT_URL: ${LLM_ENDPOINT_URL:-}
+  AWS_REGION: ${AWS_REGION:-eu-central-1}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+  AWS_EC2_METADATA_DISABLED: "true"
+  # Knowledge: evidence index in PostgreSQL, originals in the object store on the pod loopback.
+  # No embedding model is installed, so search is lexical (vector search reports needs_configuration).
+  OCTRYX_KNOWLEDGE_OBJECT_ENDPOINT_URL: http://127.0.0.1:8333
+  OCTRYX_KNOWLEDGE_OBJECT_BUCKET: octryx-knowledge
+  OCTRYX_KNOWLEDGE_OBJECT_REGION: us-east-1
+  # The object store's own credentials profile, so it never uses the Bedrock AWS_* keys above.
+  OCTRYX_KNOWLEDGE_OBJECT_AWS_PROFILE: octryx-knowledge-object
+  AWS_SHARED_CREDENTIALS_FILE: /run/octryx-object-store/credentials
+  HF_HUB_OFFLINE: "1"
+
+configs:
+  # The object store has no port outside the pod, so its one identity is not a secret: these keys
+  # are reachable only from inside the pod and grant nothing beyond it.
+  object-store-identities:
+    content: |
+      {"identities": [{"name": "octryx",
+        "credentials": [{"accessKey": "local-object-store", "secretKey": "local-object-store"}],
+        "actions": ["Admin", "Read", "Write", "List", "Tagging"]}]}
+  object-store-credentials:
+    content: |
+      [octryx-knowledge-object]
+      aws_access_key_id = local-object-store
+      aws_secret_access_key = local-object-store
+
+services:
+  # One-shot: generates the deployment secrets on the first start, keeps them afterwards.
+  secrets-init:
+    <<: *image
+    restart: "no"
+    network_mode: none
+    user: "0:0"
+    entrypoint: ["python", "-c"]
+    command:
+      - |
+        import os, secrets
+        for name in ("jwt_secret", "encryption_key", "postgres_password"):
+            path = os.path.join("/run/octryx-secrets", name)
+            if not os.path.exists(path):
+                with open(path, "w") as handle:
+                    handle.write(secrets.token_hex(32))
+            os.chown(path, 10001, 10001)
+            # The database password is read by the postgres user too; the other two only by the platform.
+            os.chmod(path, 0o444 if name == "postgres_password" else 0o400)
+        os.chmod("/run/octryx-secrets", 0o755)
+    volumes:
+      - secrets:/run/octryx-secrets
+    cap_drop: [ALL]
+    cap_add: [CHOWN, FOWNER]
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${OCTRYX_POSTGRES_DB:-octryx}
+      POSTGRES_USER: octryx
+      POSTGRES_PASSWORD_FILE: /run/octryx-secrets/postgres_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - secrets:/run/octryx-secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U octryx -d ${OCTRYX_POSTGRES_DB:-octryx}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      secrets-init:
+        condition: service_completed_successfully
+
+  migrate:
+    <<: [*image, *with-secrets]
+    restart: "no"
+    command: ["python", "-m", "alembic", "upgrade", "head"]
+    environment: *environment
+    volumes:
+      - secrets:/run/octryx-secrets:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Holds the network namespace the API and the object store share (like a Kubernetes pod), so the
+  # object store is plain http on 127.0.0.1 and has no port of its own. Publishes the API port only.
+  pod:
+    image: registry.k8s.io/pause:3.10
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${OCTRYX_PORT:-8000}:8000"
+
+  api:
+    <<: [*image, *with-secrets]
+    restart: unless-stopped
+    network_mode: "service:pod"
+    command: ["python", "-m", "app.main"]
+    environment: *environment
+    # Declared here too: images built as OCI (Podman) carry no Dockerfile HEALTHCHECK.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 30
+      start_period: 20s
+    configs:
+      - source: object-store-credentials
+        target: /run/octryx-object-store/credentials
+        mode: 0444
+    volumes:
+      - secrets:/run/octryx-secrets:ro
+      - app_data:/app/data
+      - app_uploads:/app/uploads
+    depends_on:
+      pod:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+      object-store:
+        condition: service_healthy
+
+  object-store:
+    image: ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+    restart: unless-stopped
+    network_mode: "service:pod"
+    user: "1000:1000"
+    command:
+      - server
+      - -ip=127.0.0.1
+      - -ip.bind=127.0.0.1
+      - -master.telemetry=false
+      # Small volumes: a laptop install holds megabytes, not the 30 GB default per volume.
+      - -master.volumeSizeLimitMB=256
+      - -volume.max=16
+      - -filer
+      - -s3
+      - -s3.port=8333
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+      - -s3.autoCreateBucket=true
+      - -s3.config=/etc/seaweedfs/s3.json
+    configs:
+      - source: object-store-identities
+        target: /etc/seaweedfs/s3.json
+        mode: 0444
+    volumes:
+      - object_store_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 10s
+    mem_limit: 512m
+    depends_on:
+      pod:
+        condition: service_started
+
+  # ── Optional services (profiles) ──
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    volumes:
+      - ollama_data:/root/.ollama
+
+  llama-cpp:
+    image: ${LLAMA_CPP_IMAGE:-ghcr.io/ggml-org/llama.cpp:server}
+    profiles: ["llama-cpp"]
+    environment:
+      LLAMA_ARG_HOST: 0.0.0.0
+      LLAMA_ARG_PORT: "8080"
+      LLAMA_ARG_MODEL: ${LLAMA_CPP_MODEL_PATH:-/models/model.gguf}
+      LLAMA_ARG_ALIAS: ${LLAMA_CPP_MODEL_ALIAS:-local-gguf}
+      LLAMA_ARG_CTX_SIZE: ${LLAMA_CPP_CTX_SIZE:-8192}
+      LLAMA_ARG_N_GPU_LAYERS: ${LLAMA_CPP_N_GPU_LAYERS:-0}
+    volumes:
+      - ./data/llama-cpp-models:/models
+
+  agent-worker: &worker
+    <<: *with-secrets
+    image: octryx-agent-worker:latest
+    profiles: ["workers"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: agent-worker
+      args:
+        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
+        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
+    command: ["python", "-m", "app.main"]
+    environment:
+      <<: *environment
+      ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
+    volumes:
+      - secrets:/run/octryx-secrets:ro
+      - app_data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  codex-worker:
+    <<: *worker
+    image: octryx-codex-worker:latest
+    profiles: ["workers", "codex-worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: codex-worker
+      args:
+        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
+        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
+
+  gemini-worker:
+    <<: *worker
+    image: octryx-gemini-worker:latest
+    profiles: ["workers", "gemini-worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: gemini-worker
+      args:
+        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
+        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
+
+  opencode-worker:
+    <<: *worker
+    image: octryx-opencode-worker:latest
+    profiles: ["workers", "opencode-worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: opencode-worker
+      args:
+        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
+        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
+
+  code-indexer:
+    <<: *with-secrets
+    image: octryx-code-intel-worker:latest
+    profiles: ["code-intelligence"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: code-intel-worker
+      args:
+        RUNTIME_BASE: java-toolchain
+    command: ["python", "-m", "app.code_indexer_main"]
+    environment:
+      <<: *environment
+      CODE_INDEXER_POLL_SECONDS: ${CODE_INDEXER_POLL_SECONDS:-60}
+    volumes:
+      - secrets:/run/octryx-secrets:ro
+      - app_data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  secrets:
+  postgres_data:
+  app_data:
+  app_uploads:
+  object_store_data:
+  ollama_data:

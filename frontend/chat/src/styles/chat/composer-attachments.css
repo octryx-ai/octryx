@@ -1,0 +1,68 @@
+/* Composer drag state, attachment chips and the attach button. */
+.composer--drag-active {
+  border-color: color-mix(in srgb, var(--status-running) 45%, transparent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--status-running) 8%, transparent),
+    var(--shadow);
+}
+
+.composer-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.composer-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  padding: 0.25rem 0.5rem 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+}
+
+.composer-attachment-chip--status {
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+}
+
+.composer-attachment-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.composer-attachment-chip__label span {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-attachment-chip__label small {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.composer-attachment-chip__remove {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+  line-height: 1;
+}
+
+.composer-attachment-chip__remove:hover {
+  background: color-mix(in srgb, var(--text) 12%, transparent);
+}
+
+.icon-button--attach {
+  flex: 0 0 auto;
+}

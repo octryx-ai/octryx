@@ -1,0 +1,228 @@
+/* Model catalog and Providers connections.
+   Layout helpers only; controls, badges, chips, drawers and tabs are the design-system classes. */
+
+.model-catalog {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+}
+
+.model-catalog__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.model-catalog__row-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.model-catalog__name {
+  font-weight: 600;
+}
+
+.model-catalog__sub {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  margin-top: 0.12rem;
+  line-height: 1.45;
+}
+
+.model-catalog__off {
+  color: var(--muted);
+}
+
+.model-catalog__tag {
+  font-size: var(--ds-text-2xs);
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.model-catalog__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.model-catalog__table tbody tr {
+  cursor: pointer;
+}
+
+.model-catalog__note,
+.model-catalog__warn {
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}
+
+.model-catalog__note {
+  border: 1px solid color-mix(in srgb, var(--status-running) 22%, transparent);
+  background: color-mix(in srgb, var(--status-running) 7%, transparent);
+  color: var(--status-running-ink);
+}
+
+.model-catalog__warn {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent);
+  color: var(--status-attention-ink);
+}
+
+.model-catalog__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--ds-text-sm);
+}
+
+.model-catalog__check:last-child {
+  border-bottom: 0;
+}
+
+.model-catalog__check > div {
+  flex: 1;
+}
+
+.model-catalog__dot--bad {
+  color: var(--status-error-ink);
+}
+
+.model-catalog__dot--no {
+  color: var(--status-attention-ink);
+}
+
+.model-catalog__tabs {
+  display: flex;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 1rem;
+}
+
+.model-catalog__kv {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.model-catalog__kv > div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+}
+
+.model-catalog__kv b {
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.model-catalog__details summary {
+  cursor: pointer;
+}
+
+/* Providers page: the connection cards. */
+.provider-connection__icon {
+  background: var(--muted);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.provider-connection__icon--gateway {
+  background: var(--status-running);
+}
+
+.provider-connection__icon--bedrock {
+  background: var(--brand-taupe);
+}
+
+.provider-connection__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+@media (max-width: 760px) {
+  .model-catalog__kv {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .model-catalog__table thead {
+    display: none;
+  }
+
+  .model-catalog__table,
+  .model-catalog__table tbody,
+  .model-catalog__table tr,
+  .model-catalog__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .model-catalog__table tr {
+    border-bottom: 1px solid var(--border-soft);
+    padding: 0.25rem 0;
+  }
+
+  .model-catalog__table td {
+    border: 0;
+    padding: 0.25rem 0.75rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: right;
+  }
+
+  .model-catalog__table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: var(--ds-text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: left;
+    flex: 0 0 auto;
+  }
+
+  .model-catalog__table td:first-child {
+    text-align: left;
+  }
+}
+
+/* The row a Problems link opened (?model=). */
+.model-catalog__row--focused > td {
+  background: var(--ds-row-selected, var(--surface-raised, rgba(127, 127, 127, 0.12)));
+}
+
+/* The models the default view leaves out, offered in one click below the list. */
+.model-catalog__more td {
+  padding-top: 0.5rem;
+  text-align: center;
+}
+
+/* Global › Models overview. */
+.models-overview__heading { margin: 0; font-size: var(--ds-text-lg); font-weight: 600; flex: 1 1 auto; }
+.models-overview__providers { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
+.models-overview__provider {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-subtle, rgba(127, 127, 127, 0.25));
+  border-radius: var(--ds-radius-lg);
+}
+.models-overview__provider-main { display: grid; gap: 0.25rem; min-width: 0; flex: 1 1 280px; }

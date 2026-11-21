@@ -1,0 +1,46 @@
+/* Settings → Organization → Corporate identity: presentation fallback. */
+.presentation-fallback {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.presentation-fallback h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+}
+
+.presentation-fallback .admin-panel__hint {
+  margin: 0;
+}
+
+.presentation-fallback__row {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.presentation-fallback__field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(22rem, 100%);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.presentation-fallback__effective {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.presentation-fallback__file {
+  margin-left: 0.5rem;
+  color: var(--muted);
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: var(--ds-text-xs);
+}

@@ -1,0 +1,158 @@
+/* The Coding session as steps: one list from Plan to Done, then Rules and audit and Details. */
+
+.coding-detail__title {
+  color: var(--muted-strong);
+  font-weight: 600;
+}
+
+.coding-detail__header .work-badge {
+  margin-top: 0.25rem;
+}
+
+.coding-detail__hint {
+  flex-basis: 100%;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  text-align: right;
+}
+
+.coding-detail__notice {
+  margin-top: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.coding-detail__unavailable {
+  margin: 0 0 0.75rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-md);
+}
+
+.coding-detail__ids {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  word-break: break-all;
+}
+
+.coding-steps {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coding-steps__closing {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.coding-step {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel);
+}
+
+.coding-step.is-active,
+.coding-step.is-problem {
+  border-color: var(--border);
+}
+
+.coding-step__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coding-step__head:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.coding-step__head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.coding-step__marker {
+  width: 0.7rem;
+  height: 0.7rem;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.coding-step.is-done .coding-step__marker {
+  border-color: var(--success, var(--accent));
+  background: var(--success, var(--accent));
+}
+
+.coding-step.is-active .coding-step__marker {
+  border-color: var(--accent);
+}
+
+.coding-step.is-problem .coding-step__marker {
+  border-color: var(--danger, #c0392b);
+  background: var(--danger, #c0392b);
+}
+
+.coding-step.is-section .coding-step__marker {
+  border-style: dashed;
+}
+
+.coding-step__title {
+  font-weight: 600;
+  font-size: var(--ds-text-md);
+  white-space: nowrap;
+}
+
+.coding-step__summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coding-step__time {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  white-space: nowrap;
+}
+
+.coding-step__chevron {
+  color: var(--muted);
+}
+
+.coding-step__body {
+  padding: 0.25rem 0.75rem 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+@container (max-width: 520px) {
+  .coding-step__head {
+    flex-wrap: wrap;
+  }
+
+  .coding-step__head .work-badge,
+  .coding-step__time {
+    display: none;
+  }
+
+  .coding-step__summary {
+    flex-basis: 100%;
+    white-space: normal;
+  }
+}

@@ -1,0 +1,16 @@
+/* Collapsed "Other workspaces" section in the chat sidebar. */
+.sidebar__other-groups {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.5rem;
+}
+
+.sidebar__other-groups > summary {
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

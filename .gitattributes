@@ -1,0 +1,24 @@
+# Store and check out text with LF regardless of core.autocrlf. Git detects binary files
+# by content; the tracked binary formats are also declared explicitly.
+* text=auto eol=lf
+*.png binary
+*.docx binary
+*.potx binary
+*.zip binary
+*.gz binary
+
+# Shell scripts keep LF in every checkout, also under core.autocrlf=true: bash cannot run a
+# script with CRLF line endings (dev-start.sh, dev-stop.sh and their sourced modules included).
+*.sh text eol=lf
+# Extensionless launcher shims (octryx-claude) are bash scripts too.
+clients/*/bin/* text eol=lf
+
+# Exact Pydantic AI candidate evidence is regenerated and compared byte-for-byte.
+backend/dependency_gates/pydantic_ai_slim_artifacts.json text eol=lf
+backend/dependency_gates/pydantic_ai_slim_sbom.cdx.json text eol=lf
+
+# The tracked neutral presentation template (O1) is a zip package: never line-ending converted, so
+# its rebuild test compares the exact tracked bytes.
+backend/app/services/office/fallback_templates/*.potx binary
+
+# Preserve the tested candidate patch bytes and required blank context-line prefixes.

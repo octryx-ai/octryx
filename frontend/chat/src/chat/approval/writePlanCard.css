@@ -1,0 +1,7 @@
+/* A chat's write plan waiting for the person. One elevated card on the reading column:
+   heading, the request in one line and the write count; the scope as labelled chips; the writes as numbered rows that
+   open to every field in full; the note and Reject left of the one primary Approve. Only the pending card carries
+   the attention edge; a decided one is a single quiet line. Sizes from the UI set only. */
+@import "./writePlanCardHeader.css";
+@import "./writePlanCardWrites.css";
+@import "./writePlanCardDecision.css";

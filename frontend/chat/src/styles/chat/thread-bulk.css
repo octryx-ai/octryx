@@ -1,0 +1,176 @@
+/* Chat sidebar bulk confirm dialog and result toast (WP chat sidebar). Tokens only. */
+.thread-bulk-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.thread-bulk-dialog {
+  width: min(27rem, calc(100vw - 2rem));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-xl);
+  background: var(--panel-strong);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  animation: thread-bulk-in 140ms ease-out;
+}
+
+[data-theme="light"] .thread-bulk-dialog {
+  box-shadow: 0 24px 60px rgba(36, 39, 35, 0.2);
+}
+
+@keyframes thread-bulk-in {
+  from {
+    transform: translateY(0.4rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.thread-bulk-dialog header {
+  padding: 1rem 1rem 0.5rem;
+}
+
+.thread-bulk-dialog h2 {
+  margin: 0;
+  color: var(--highlight);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.thread-bulk-dialog__body {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.25rem 1rem 1rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.55;
+}
+
+.thread-bulk-dialog__pending {
+  margin: 0;
+  color: var(--muted);
+}
+
+.thread-bulk-dialog footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--shell-divider);
+}
+
+.thread-bulk-dialog__breakdown {
+  display: grid;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  overflow: hidden;
+}
+
+.thread-bulk-dialog__breakdown div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--ds-text-xs);
+}
+
+.thread-bulk-dialog__breakdown div:last-child {
+  border-bottom: 0;
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.thread-bulk-dialog__breakdown span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+.thread-bulk-dialog__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.thread-bulk-dialog__note svg,
+.thread-bulk-toast svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.thread-bulk-dialog__note svg {
+  margin-top: 0.12rem;
+}
+
+.thread-bulk-dialog__note--warn svg {
+  color: var(--status-attention);
+}
+
+.thread-bulk-dialog__note--danger svg {
+  color: var(--status-error);
+}
+
+.thread-bulk-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.2rem;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 1rem;
+  transform: translateX(-50%);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+  box-shadow: var(--shell-shadow-soft);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  animation: thread-bulk-in 140ms ease-out;
+}
+
+.thread-bulk-toast__timer {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-bulk-dialog,
+  .thread-bulk-toast {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .thread-bulk-dialog__backdrop {
+    place-items: end center;
+  }
+
+  .thread-bulk-dialog {
+    width: 100%;
+    border-radius: var(--ds-radius-xl) var(--ds-radius-xl) 0 0;
+  }
+
+  .thread-bulk-toast {
+    left: 0.6rem;
+    right: 0.6rem;
+    bottom: 4.6rem;
+    transform: none;
+  }
+}

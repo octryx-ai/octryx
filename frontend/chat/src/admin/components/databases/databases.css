@@ -1,0 +1,25 @@
+/* Admin › Connections › Databases: full-width tables, the database in the side panel. Tokens only. */
+.databases-page {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.databases-page__section {
+  margin: 0.5rem 0 0;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* The destructive action stands apart on the left of the panel footer. */
+.databases-page__remove {
+  margin-right: auto;
+}
+
+.databases-page__fact {
+  margin: 0 0 0.75rem;
+  max-width: 72ch;
+  color: var(--muted-strong, var(--muted));
+  font-size: var(--ds-text-sm);
+}

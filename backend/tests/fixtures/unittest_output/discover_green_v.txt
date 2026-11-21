@@ -1,0 +1,7 @@
+test_discount_applies (test_pricing.PricingTest.test_discount_applies) ... ok
+test_total (test_pricing.PricingTest.test_total) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.000s
+
+OK

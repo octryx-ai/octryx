@@ -1,0 +1,144 @@
+/* Work item change plan view, narrow breakpoint and the side panel variant. */
+.work-change-plan {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.work-change-plan__toolbar,
+.work-change-plan__status-row,
+.work-change-plan__decision div,
+.work-change-plan__versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Inside the section card: a plain row, no second frame (UI set: no bordered card inside a card). */
+.work-change-plan__toolbar {
+  justify-content: space-between;
+}
+
+.work-change-plan__toolbar > div {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+}
+
+.work-change-plan__toolbar strong,
+.work-change-plan__delta strong,
+.work-change-plan__objects strong {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-change-plan__toolbar span,
+.work-change-plan__status-row span,
+.work-change-plan__delta span,
+.work-change-plan__versions span {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+}
+
+.work-change-plan__status-row span,
+.work-change-plan__versions span {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+}
+
+.work-change-plan__delta,
+.work-change-plan__block,
+.work-change-plan__decision {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+}
+
+.work-change-plan__block h4 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-change-plan__block ul {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+/* Long questions, answers and the Jira approval preview wrap inside the drawer; nothing is hidden. */
+.work-change-plan__toolbar span,
+.work-change-plan__delta span,
+.work-change-plan__block p,
+.work-change-plan__block li,
+.work-change-plan__decision label,
+.work-change-plan__decision span {
+  overflow-wrap: anywhere;
+}
+
+.work-change-plan__block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.work-change-plan__objects {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-change-plan__objects article {
+  display: grid;
+  gap: 0.25rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+}
+
+.work-change-plan__objects span {
+  overflow-wrap: anywhere;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.36;
+}
+
+.work-change-plan__decision textarea {
+  min-height: 4.4rem;
+  resize: vertical;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  padding: 0.5rem;
+  font: inherit;
+  font-size: var(--ds-text-xs);
+}
+
+@media (max-width: 1180px) {
+  .work-detail__mapping,
+  .work-detail__kv-grid,
+  .work-impact-map__route {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The detail sits inside the design system's side panel, which owns the frame and the scrolling. */
+.ds-panel .work-detail {
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
+  overflow: visible;
+}

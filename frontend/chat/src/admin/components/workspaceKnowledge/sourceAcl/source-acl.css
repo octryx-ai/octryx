@@ -1,0 +1,15 @@
+/* Knowledge › Sources: the source-permissions card and its panel. Sizes from the UI set, colours from the
+   theme variables only. */
+.source-acl { gap: var(--ds-space-2); }
+.source-acl__head { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); flex-wrap: wrap; }
+.source-acl__title { display: flex; align-items: center; gap: var(--ds-space-2); min-width: 0; color: var(--text); font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); }
+.source-acl__lines { display: grid; gap: var(--ds-space-1); }
+.source-acl__lines p, .source-acl__text { margin: 0; font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.source-acl__preview {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}

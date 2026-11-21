@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+{% block title %}Chat - Octryx{% endblock %}
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+<style>
+    .chat-shell {
+        height: 100vh;
+        background:
+            radial-gradient(circle at top left, rgba(96, 165, 250, 0.12), transparent 26%),
+            radial-gradient(circle at bottom right, rgba(244, 114, 182, 0.10), transparent 22%),
+            #0f1117;
+    }
+    .thread-scroll, .feed-scroll, .trace-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+    }
+    .message-markdown,
+    .message-markdown p,
+    .message-markdown ul,
+    .message-markdown ol,
+    .message-markdown pre,
+    .message-markdown table,
+    .message-markdown blockquote {
+        margin: 0;
+    }
+    .message-markdown {
+        display: grid;
+        gap: 0.85rem;
+        line-height: 1.7;
+        overflow-wrap: anywhere;
+    }
+    .message-markdown ul,
+    .message-markdown ol {
+        padding-left: 1.4rem;
+        display: grid;
+        gap: 0.35rem;
+    }
+    .message-markdown li {
+        margin: 0;
+    }
+    .message-markdown pre {
+        overflow-x: auto;
+        border-radius: 18px;
+        border: 1px solid rgba(51, 65, 85, 0.9);
+        background: rgba(2, 6, 23, 0.85);
+        padding: 0.9rem 1rem;
+        font-size: 0.84rem;
+        line-height: 1.6;
+    }
+    .message-markdown code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 0.9em;
+    }
+    .message-markdown :not(pre) > code {
+        border-radius: 999px;
+        background: rgba(30, 41, 59, 0.72);
+        padding: 0.12rem 0.45rem;
+    }
+    .message-markdown blockquote {
+        border-left: 3px solid rgba(96, 165, 250, 0.45);
+        padding-left: 1rem;
+        color: #cbd5e1;
+    }
+    .message-markdown table {
+        width: 100%;
+        overflow: hidden;
+        border-collapse: collapse;
+        border-radius: 18px;
+        border: 1px solid rgba(51, 65, 85, 0.9);
+        font-size: 0.9rem;
+    }
+    .message-markdown thead {
+        background: rgba(15, 23, 42, 0.9);
+    }
+    .message-markdown th,
+    .message-markdown td {
+        border-bottom: 1px solid rgba(51, 65, 85, 0.65);
+        padding: 0.8rem 0.9rem;
+        text-align: left;
+        vertical-align: top;
+    }
+    .message-markdown tr:last-child td {
+        border-bottom: 0;
+    }
+</style>
+<div class="chat-shell overflow-hidden">
+    <div class="grid h-screen grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside class="flex h-full flex-col border-r border-white/6 bg-[linear-gradient(180deg,#16181f_0%,#12141a_100%)]">
+            <div class="flex items-center justify-between px-4 pb-4 pt-5">
+                    <a href="/chat?new=true" class="inline-flex items-center gap-3 rounded-2xl px-3 py-2 text-sm font-medium text-slate-100 transition hover:bg-white/5">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5">
+                        <svg viewBox="0 0 20 20" class="h-4 w-4" fill="none">
+                            <path d="M10 4.5V15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                            <path d="M4.5 10H15.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                        </svg>
+                    </span>
+                    <span>New chat</span>
+                </a>
+                <a href="/admin" class="rounded-full px-2.5 py-1 text-xs text-slate-500 transition hover:bg-white/5 hover:text-slate-200">Dashboard</a>
+            </div>
+
+            <div class="px-3">
+                <div class="space-y-1 rounded-2xl border border-white/6 bg-white/[0.025] p-2">
+                    <a href="/admin/tools" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white">
+                        <span class="text-slate-500">⌘</span>
+                        <span>Tools</span>
+                    </a>
+                    <a href="/admin/control-plane" class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white">
+                        <span class="text-slate-500">◎</span>
+                        <span>Control Plane</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="px-5 pb-2 pt-6 text-[11px] uppercase tracking-[0.26em] text-slate-500">Chats</div>
+            <div class="thread-scroll flex-1 space-y-4 overflow-y-auto px-3 pb-3">
+                {% for group in active_chat_groups %}
+                <div>
+                    <div class="px-3 pb-2 text-[11px] uppercase tracking-[0.22em] text-slate-500">{{ group.project_name }}</div>
+                    <div class="space-y-1">
+                    {% for session in group.sessions %}
+                    <a href="/chat?session_id={{ session.id }}"
+                       class="block rounded-2xl px-4 py-3 transition {% if session.is_selected %}bg-white/[0.08] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]{% else %}hover:bg-white/[0.04]{% endif %}">
+                        <div class="truncate text-sm font-medium text-slate-100">{{ session.title }}</div>
+                        {% if session.preview %}
+                        <div class="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{{ session.preview }}</div>
+                        {% else %}
+                        <div class="mt-1 text-xs text-slate-600">{{ session.runtime_label }}</div>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="rounded-2xl border border-dashed border-white/8 px-4 py-5 text-sm text-slate-500">
+                    No active chats yet.
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="border-t border-white/6 px-3 py-3">
+                <a href="/admin/settings" class="flex items-center justify-between rounded-2xl px-4 py-3 text-sm text-slate-300 transition hover:bg-white/5 hover:text-white">
+                    <span>Settings</span>
+                    <span class="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-500">{{ archived_chat_count }}</span>
+                </a>
+                <div class="mt-2 px-4 text-xs text-slate-600">Archived chats can be restored in Settings.</div>
+            </div>
+        </aside>
+
+        <section class="grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]">
+            <header class="flex items-center justify-between gap-4 border-b border-white/6 bg-[#0f1117]/90 px-6 py-4 backdrop-blur">
+                <div class="min-w-0">
+                    <div class="truncate text-base font-semibold text-slate-100">
+                        {% if selected_session %}
+                        {{ (selected_session.metadata_ or {}).get("title") or "New chat" }}
+                        {% else %}
+                        New chat
+                        {% endif %}
+                    </div>
+                    <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>{{ selected_project.name if selected_project else "No project" }}</span>
+                        <span>•</span>
+                        <span>{{ selected_runtime_label }}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    {% if selected_session %}
+                    <button type="button" id="rename-toggle" class="rounded-xl px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white">Rename</button>
+                    {% endif %}
+                    {% if selected_session and not selected_session_is_archived %}
+                    <form method="post" action="/chat/sessions/{{ selected_session.id }}/archive">
+                        <button type="submit" class="rounded-xl px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white">Archive</button>
+                    </form>
+                    {% endif %}
+                    <button type="button" id="trace-toggle" class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-slate-200 transition hover:bg-white/[0.08]">
+                        <span>Trace</span>
+                        <span class="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-400">{{ trace_event_count }}</span>
+                    </button>
+                </div>
+            </header>
+            {% if selected_session %}
+            <div id="rename-panel" hidden class="relative z-10 border-b border-white/6 bg-[#12151c] px-6 py-3">
+                <form method="post" action="/chat/sessions/{{ selected_session.id }}/rename" class="mx-auto flex max-w-4xl items-center gap-3">
+                    <input type="text" name="title" value="{{ (selected_session.metadata_ or {}).get('title') or '' }}" maxlength="120" class="min-w-0 flex-1 rounded-2xl border border-white/10 bg-[#161922] px-4 py-2.5 text-sm text-slate-100 outline-none transition focus:border-white/20" placeholder="Rename thread">
+                    <button type="submit" class="rounded-2xl bg-white px-4 py-2.5 text-sm font-medium text-[#0f1117] transition hover:bg-slate-200">Save</button>
+                </form>
+            </div>
+            {% endif %}
+
+            <div id="message-feed" class="feed-scroll min-h-0 overflow-y-auto px-6 pb-8 pt-6">
+                {% if selected_messages %}
+                <div class="mx-auto flex w-full max-w-4xl flex-col gap-6">
+                    {% for row in selected_messages %}
+                    {% set message = row.message %}
+                    <article class="flex {% if message.role == 'user' %}justify-end{% else %}justify-start{% endif %}">
+                        <div class="w-full max-w-3xl {% if message.role == 'user' %}items-end{% else %}items-start{% endif %} flex flex-col gap-2">
+                            {% if message.role != 'user' %}
+                            <div class="flex items-center gap-2 text-xs text-slate-500">
+                                <span class="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5">{{ message.model or selected_runtime_label }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="w-full rounded-[26px] px-5 py-4 {% if message.role == 'user' %}bg-[#2a2e37] text-slate-100{% else %}bg-transparent text-slate-100{% endif %}">
+                                <script type="application/json" id="message-source-{{ message.id }}">{{ (message.content or "")|tojson }}</script>
+                                <div class="message-markdown" data-message-source="message-source-{{ message.id }}"></div>
+                            </div>
+                            {% if row.tool_events %}
+                            <div class="w-full rounded-2xl border border-white/8 bg-white/[0.03]">
+                                {% for event in row.tool_events %}
+                                <details class="group border-b border-white/6 last:border-b-0">
+                                    <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                                        <div class="min-w-0">
+                                            <div class="truncate font-mono text-xs text-slate-200">{{ event.tool_name }}</div>
+                                            <div class="mt-1 text-[11px] text-slate-500">{{ event.status }}{% if event.duration_ms %} • {{ event.duration_ms }} ms{% endif %}</div>
+                                        </div>
+                                        <span class="text-[11px] text-slate-500 group-open:hidden">Show</span>
+                                        <span class="hidden text-[11px] text-slate-500 group-open:block">Hide</span>
+                                    </summary>
+                                    <div class="grid gap-3 px-4 pb-4">
+                                        <div>
+                                            <div class="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">Parameters</div>
+                                            <pre class="max-h-64 overflow-auto rounded-2xl border border-white/8 bg-[#0b0d12] p-3 text-xs text-slate-300">{{ event.parameters | tojson(indent=2) }}</pre>
+                                        </div>
+                                        <div>
+                                            <div class="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">Result</div>
+                                            <pre class="max-h-72 overflow-auto rounded-2xl border border-white/8 bg-[#0b0d12] p-3 text-xs text-slate-300">{{ event.result | tojson(indent=2) }}</pre>
+                                        </div>
+                                    </div>
+                                </details>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="mx-auto flex h-full max-w-3xl items-center justify-center">
+                    <div class="w-full rounded-[28px] border border-white/8 bg-white/[0.03] p-8">
+                        <div class="text-sm text-slate-400">Use this chat to verify Jira, Bitbucket, Confluence, Kubernetes and runtime routing with visible trace data.</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="border-t border-white/8 bg-[#0f1117]/96 px-4 py-4 sm:px-6">
+                <div class="mx-auto max-w-4xl rounded-[28px] border border-white/10 bg-[#181b23] p-3 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+                    <form method="post" action="/chat/send" class="grid gap-3">
+                        <input type="hidden" name="session_id" value="{{ selected_session.id if selected_session else '' }}">
+                        <textarea name="prompt" rows="3" placeholder="Message Octryx" {% if selected_session_is_archived %}disabled{% endif %} class="w-full resize-none bg-transparent px-3 py-2 text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-50"></textarea>
+                        <div class="flex flex-col gap-3 border-t border-white/[0.04] px-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <label class="relative">
+                                    <select name="runtime_target_id" {% if selected_session_is_archived %}disabled{% endif %} class="appearance-none rounded-full border border-white/10 bg-[#12141a] px-3 py-2 pr-8 text-xs text-slate-300 outline-none transition hover:border-white/20 disabled:cursor-not-allowed disabled:opacity-50">
+                                        {% for option in runtime_options %}
+                                        <option value="{{ option.value }}" {% if selected_runtime_target_id == option.value %}selected{% endif %}>{{ option.label }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500">⌄</span>
+                                </label>
+                                <label class="relative">
+                                    <select name="project_id" {% if selected_session_is_archived %}disabled{% endif %} class="appearance-none rounded-full border border-white/10 bg-[#12141a] px-3 py-2 pr-8 text-xs text-slate-300 outline-none transition hover:border-white/20 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <option value="" {% if not selected_project_id %}selected{% endif %}>No project</option>
+                                        {% for project in projects %}
+                                        <option value="{{ project.id }}" {% if selected_project_id == project.id %}selected{% endif %}>{{ project.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-500">⌄</span>
+                                </label>
+                                {% if selected_session_is_archived %}
+                                <a href="/admin/settings" class="text-xs text-slate-500 transition hover:text-slate-300">Restore in Settings</a>
+                                {% endif %}
+                            </div>
+                            <button type="submit" {% if selected_session_is_archived %}disabled{% endif %} class="inline-flex h-11 w-11 items-center justify-center self-end rounded-full bg-white text-[#0f1117] transition hover:scale-[1.02] hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40">
+                                <svg viewBox="0 0 20 20" class="h-5 w-5" fill="none" aria-hidden="true">
+                                    <path d="M10 15.5V4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                    <path d="M5.5 9L10 4.5L14.5 9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <aside id="trace-panel" hidden class="pointer-events-none absolute inset-y-0 right-0 z-20 w-full max-w-[420px] translate-x-full border-l border-white/8 bg-[#12141b]/96 opacity-0 shadow-[-24px_0_60px_rgba(0,0,0,0.35)] backdrop-blur transition duration-200 ease-out">
+                <div class="flex h-full flex-col">
+                    <div class="flex items-center justify-between border-b border-white/8 px-5 py-4">
+                        <div>
+                            <div class="text-sm font-semibold text-slate-100">Execution trace</div>
+                            <div class="mt-1 text-xs text-slate-500">Collapsed by default. Open only when you need the raw tool data.</div>
+                        </div>
+                        <button type="button" id="trace-close" class="rounded-xl px-3 py-2 text-sm text-slate-400 transition hover:bg-white/5 hover:text-white">Close</button>
+                    </div>
+                    <div class="trace-scroll flex-1 space-y-3 overflow-y-auto p-4">
+                        {% if chat_tool_events %}
+                        {% for event in chat_tool_events %}
+                        <details class="rounded-2xl border border-white/8 bg-white/[0.03]">
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
+                                <div class="min-w-0">
+                                    <div class="truncate font-mono text-xs text-slate-200">{{ event.tool_name }}</div>
+                                    <div class="mt-1 text-[11px] text-slate-500">{{ event.status }}{% if event.duration_ms %} • {{ event.duration_ms }} ms{% endif %}</div>
+                                </div>
+                                <span class="text-[11px] text-slate-500">Open</span>
+                            </summary>
+                            <div class="grid gap-3 px-4 pb-4">
+                                <div>
+                                    <div class="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">Parameters</div>
+                                    <pre class="max-h-56 overflow-auto rounded-2xl border border-white/8 bg-[#0b0d12] p-3 text-xs text-slate-300">{{ event.parameters | tojson(indent=2) }}</pre>
+                                </div>
+                                <div>
+                                    <div class="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">Result</div>
+                                    <pre class="max-h-72 overflow-auto rounded-2xl border border-white/8 bg-[#0b0d12] p-3 text-xs text-slate-300">{{ event.result | tojson(indent=2) }}</pre>
+                                </div>
+                            </div>
+                        </details>
+                        {% endfor %}
+                        {% else %}
+                        <div class="rounded-2xl border border-dashed border-white/8 px-4 py-6 text-sm text-slate-500">No tool calls yet for this thread.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </aside>
+        </section>
+    </div>
+</div>
+<script>
+    (() => {
+        const renderers = document.querySelectorAll("[data-message-source]");
+        const parseMarkdown = (text) => {
+            if (!window.marked || !window.DOMPurify) {
+                return text
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/\n/g, "<br>");
+            }
+            marked.setOptions({ gfm: true, breaks: true });
+            return DOMPurify.sanitize(marked.parse(text));
+        };
+
+        renderers.forEach((node) => {
+            const sourceId = node.dataset.messageSource;
+            const sourceNode = document.getElementById(sourceId);
+            if (!sourceNode) return;
+            try {
+                const text = JSON.parse(sourceNode.textContent || "\"\"");
+                node.innerHTML = parseMarkdown(text || "");
+            } catch {
+                node.textContent = sourceNode.textContent || "";
+            }
+        });
+
+        const feed = document.getElementById("message-feed");
+        if (feed) {
+            requestAnimationFrame(() => {
+                feed.scrollTop = feed.scrollHeight;
+            });
+        }
+
+        const panel = document.getElementById("trace-panel");
+        const toggle = document.getElementById("trace-toggle");
+        const close = document.getElementById("trace-close");
+        const renameToggle = document.getElementById("rename-toggle");
+        const renamePanel = document.getElementById("rename-panel");
+        const setTraceOpen = (open) => {
+            if (!panel) return;
+            if (open) {
+                panel.hidden = false;
+                requestAnimationFrame(() => {
+                    panel.classList.remove("translate-x-full", "opacity-0", "pointer-events-none");
+                });
+                return;
+            }
+            panel.classList.add("translate-x-full", "opacity-0", "pointer-events-none");
+            window.setTimeout(() => {
+                panel.hidden = true;
+            }, 180);
+        };
+        if (toggle) toggle.addEventListener("click", () => setTraceOpen(true));
+        if (close) close.addEventListener("click", () => setTraceOpen(false));
+        if (renameToggle && renamePanel) {
+            renameToggle.addEventListener("click", () => {
+                renamePanel.hidden = !renamePanel.hidden;
+            });
+        }
+    })();
+</script>
+{% endblock %}

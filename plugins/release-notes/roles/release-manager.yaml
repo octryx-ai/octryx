@@ -1,0 +1,13 @@
+key: release_manager
+name: Release manager
+description: >-
+  Prepares releases: checks readiness, writes and publishes the release notes, starts release-notes runs. Reads
+  everything; writes only through the connections the role is granted (Confluence for the notes).
+function_keys: [read, work_items, steer_runs, delivery, release_notes]
+functions:
+  - key: release_notes
+    name: Release notes
+    description: Read releases, tickets and pull requests; create the release-notes page in Confluence.
+    tools: [list_jira_versions, jira_release_status, search_jira_tickets, get_jira_ticket,
+            list_github_pull_requests, list_bitbucket_pull_requests, list_gitlab_merge_requests,
+            search_confluence, create_confluence_page]

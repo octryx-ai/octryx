@@ -1,0 +1,188 @@
+[
+  {
+    "key": "sf-publish-prove",
+    "name": "Publish and prove the documentation",
+    "description": "Reserve the publication, confirm the exact page, publish it, index it in Knowledge and prove that its audience can retrieve it and an outsider cannot. A fragment of a workflow, never a workflow or a tool of its own.",
+    "definition": {
+      "execution_kind": "phased_fragment",
+      "schema_version": "fragment/v1",
+      "entry": "reserve_publication",
+      "ports": {
+        "proven": {
+          "edge": "next",
+          "accepts": "any"
+        },
+        "failed": {
+          "edge": "next",
+          "accepts": "pause"
+        },
+        "stopped": {
+          "edge": "next",
+          "accepts": "outcome"
+        },
+        "rework": {
+          "edge": "loop",
+          "accepts": "any"
+        }
+      },
+      "requires": [
+        "feature_documentation"
+      ],
+      "provides": [],
+      "instance": "single",
+      "nodes": [
+        {
+          "id": "reserve_publication",
+          "type": "platform_action",
+          "label": "Reserve the publication",
+          "config": {
+            "action": "documentation.reserve_publication"
+          }
+        },
+        {
+          "id": "confirm_publication",
+          "type": "user_confirmation",
+          "label": "Publish the page (b)",
+          "config": {
+            "decider": "requester",
+            "subject": "publication"
+          }
+        },
+        {
+          "id": "publish_docs",
+          "type": "platform_action",
+          "label": "Publish the page in Confluence",
+          "config": {
+            "action": "documentation.publish_v2"
+          }
+        },
+        {
+          "id": "docs_in_knowledge",
+          "type": "platform_action",
+          "label": "Published version in Knowledge",
+          "config": {
+            "action": "documentation.sync_published_version"
+          }
+        },
+        {
+          "id": "audience_proof",
+          "type": "platform_action",
+          "label": "Audience proof",
+          "config": {
+            "action": "documentation.audience_proof",
+            "params": {
+              "principal_role": "audience"
+            },
+            "reminder_hours": 24,
+            "timeout_hours": 72
+          }
+        },
+        {
+          "id": "outsider_proof",
+          "type": "platform_action",
+          "label": "Outsider cannot see it",
+          "config": {
+            "action": "documentation.audience_proof",
+            "params": {
+              "principal_role": "outsider"
+            },
+            "reminder_hours": 24,
+            "timeout_hours": 72
+          }
+        }
+      ],
+      "edges": [
+        {
+          "id": "e-reserve",
+          "source_node_id": "reserve_publication",
+          "target_node_id": "confirm_publication",
+          "when": "succeeded"
+        },
+        {
+          "id": "e-reserve-ko",
+          "source_node_id": "reserve_publication",
+          "when": "failed",
+          "target_port": "failed"
+        },
+        {
+          "id": "e-publication-confirmed",
+          "source_node_id": "confirm_publication",
+          "target_node_id": "publish_docs",
+          "when": "confirmed"
+        },
+        {
+          "id": "loop-publication",
+          "source_node_id": "confirm_publication",
+          "when": "changed",
+          "kind": "loop",
+          "max_iterations": 2,
+          "label": "Documentation changes requested",
+          "target_port": "rework"
+        },
+        {
+          "id": "e-publication-stopped",
+          "source_node_id": "confirm_publication",
+          "when": "stopped",
+          "target_port": "stopped"
+        },
+        {
+          "id": "e-publish",
+          "source_node_id": "publish_docs",
+          "target_node_id": "docs_in_knowledge",
+          "when": "succeeded"
+        },
+        {
+          "id": "e-publish-ko",
+          "source_node_id": "publish_docs",
+          "when": "failed",
+          "target_port": "failed"
+        },
+        {
+          "id": "loop-publish-reconfirm",
+          "source_node_id": "publish_docs",
+          "target_node_id": "reserve_publication",
+          "when": "reconfirm",
+          "kind": "loop",
+          "max_iterations": 3,
+          "label": "Page or target changed: publish again on the new base"
+        },
+        {
+          "id": "e-sync",
+          "source_node_id": "docs_in_knowledge",
+          "target_node_id": "audience_proof",
+          "when": "succeeded"
+        },
+        {
+          "id": "e-sync-ko",
+          "source_node_id": "docs_in_knowledge",
+          "when": "failed",
+          "target_port": "failed"
+        },
+        {
+          "id": "e-audience",
+          "source_node_id": "audience_proof",
+          "target_node_id": "outsider_proof",
+          "when": "succeeded"
+        },
+        {
+          "id": "e-audience-ko",
+          "source_node_id": "audience_proof",
+          "when": "failed",
+          "target_port": "failed"
+        },
+        {
+          "id": "e-outsider",
+          "source_node_id": "outsider_proof",
+          "when": "succeeded",
+          "target_port": "proven"
+        },
+        {
+          "id": "e-outsider-ko",
+          "source_node_id": "outsider_proof",
+          "when": "failed",
+          "target_port": "failed"
+        }
+      ]
+    }
+  }
+]

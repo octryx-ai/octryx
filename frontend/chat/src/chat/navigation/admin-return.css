@@ -1,0 +1,25 @@
+/* A page Admin opened in another area, with the link back above it. The area keeps its own
+   layout below the bar; its full-height rule gives way to the remaining height. */
+.admin-return {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.admin-return__bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 0.5rem 1.25rem;
+  border-bottom: 1px solid var(--shell-divider);
+  background: var(--workspace-header-surface, transparent);
+}
+
+.admin-return > :not(.admin-return__bar) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}

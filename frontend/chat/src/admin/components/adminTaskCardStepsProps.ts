@@ -1,0 +1,51 @@
+// The props an Action card hands to its steps section: exactly these keys, so the section sees what it saw when the
+// card listed them one by one.
+import type { AdminTaskStepsSectionProps } from "./AdminTaskStepsSectionParts";
+import type { AdminTaskCardProps } from "./adminTaskCardProps";
+
+export function stepsSectionProps(props: AdminTaskCardProps): AdminTaskStepsSectionProps {
+  return {
+    isExpanded: props.isExpanded,
+    task: props.task,
+    taskDependencies: props.taskDependencies,
+    onDeleteTaskDependency: props.onDeleteTaskDependency,
+    taskDependencyTarget: props.taskDependencyTarget,
+    setTaskDependencyTarget: props.setTaskDependencyTarget,
+    taskDependencyCondition: props.taskDependencyCondition,
+    setTaskDependencyCondition: props.setTaskDependencyCondition,
+    onAddTaskDependency: props.onAddTaskDependency,
+    taskSteps: props.taskSteps,
+    onExpandSteps: props.onExpandSteps,
+    onOpenStepForm: props.onOpenStepForm,
+    showStepForm: props.showStepForm,
+    setShowStepForm: props.setShowStepForm,
+    editingStep: props.editingStep,
+    setEditingStep: props.setEditingStep,
+    stepFormName: props.stepFormName,
+    setStepFormName: props.setStepFormName,
+    stepFormType: props.stepFormType,
+    setStepFormType: props.setStepFormType,
+    stepFormConnector: props.stepFormConnector,
+    setStepFormConnector: props.setStepFormConnector,
+    stepFormConnectorAction: props.stepFormConnectorAction,
+    setStepFormConnectorAction: props.setStepFormConnectorAction,
+    stepFormInstructions: props.stepFormInstructions,
+    setStepFormInstructions: props.setStepFormInstructions,
+    stepFormAgentId: props.stepFormAgentId,
+    setStepFormAgentId: props.setStepFormAgentId,
+    panelAgents: props.panelAgents,
+    stepFormContextFields: props.stepFormContextFields,
+    setStepFormContextFields: props.setStepFormContextFields,
+    stepFormConnectorParams: props.stepFormConnectorParams,
+    setStepFormConnectorParams: props.setStepFormConnectorParams,
+    stepFormMaxFix: props.stepFormMaxFix,
+    setStepFormMaxFix: props.setStepFormMaxFix,
+    stepFormTimeout: props.stepFormTimeout,
+    setStepFormTimeout: props.setStepFormTimeout,
+    stepFormError: props.stepFormError,
+    stepFormLoading: props.stepFormLoading,
+    onSaveStep: props.onSaveStep,
+    onMoveStep: props.onMoveStep,
+    onDeleteStep: props.onDeleteStep,
+  };
+}

@@ -1,0 +1,87 @@
+/* Phone chat messages, approvals, message buttons and the composer. */
+.m-chat {
+  gap: 12px;
+}
+.m-user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-xl) var(--ds-radius-xl) var(--ds-radius-md) var(--ds-radius-xl);
+  background: var(--m-raise);
+  white-space: pre-wrap;
+}
+.m-ai {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.m-tools {
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+}
+.m-tools::before {
+  content: "› ";
+}
+.m-approval {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: var(--m-radius);
+  border: 1px solid var(--m-need);
+  background: color-mix(in srgb, var(--m-need) 8%, var(--m-bg));
+}
+.m-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.m-buttons button {
+  min-height: var(--ds-control-touch);
+  border-radius: var(--m-radius-md);
+  border: 1px solid var(--m-line);
+  background: var(--m-raise);
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-medium);
+}
+.m-buttons .m-primary {
+  font-weight: var(--ds-weight-strong);
+  background: var(--m-accent);
+  border-color: var(--m-accent);
+  color: var(--m-on-accent);
+}
+.m-wide {
+  grid-column: 1 / -1;
+}
+.m-state {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+}
+.m-state-running {
+  color: var(--m-blue);
+}
+.m-state-attention {
+  color: var(--m-need);
+}
+
+.m-compose {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  background: var(--m-bg);
+  border-top: 1px solid var(--m-line);
+  padding: 8px max(16px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 8px)
+    max(16px, env(safe-area-inset-left, 0px));
+}
+.m-compose textarea {
+  flex: 1;
+  min-height: var(--ds-control-touch);
+  max-height: 160px;
+  resize: none;
+  padding: 8px 12px;
+  border-radius: var(--m-radius-md);
+  border: 1px solid var(--m-line);
+  background: var(--m-raise);
+}

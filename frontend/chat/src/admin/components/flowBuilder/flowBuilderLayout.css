@@ -1,0 +1,146 @@
+/* Flow builder root, workbench layout and the definitions sidebar. */
+/* ── Flow Builder Root ───────────────────────────────────────────────────────── */
+.flow-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.flow-builder__topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  border-bottom: 1px solid var(--border-soft);
+  padding: 0.5rem 12px;
+  min-height: 44px;
+  flex: 0 0 auto;
+}
+
+.flow-builder__title-block {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.flow-builder__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.flow-builder__topbar h2 {
+  margin: 2px 0 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ── Workbench layout (definitions | canvas | inspector) ───────────────────── */
+.flow-builder__layout {
+  position: relative;
+  display: grid;
+  grid-template-columns: clamp(220px, 16vw, 252px) minmax(0, 1fr) clamp(340px, 22vw, 400px);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "sidebar main inspector";
+  gap: 0;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  box-sizing: border-box;
+  align-items: stretch;
+  overflow: hidden;
+}
+
+/* Sidebar column: fixed width */
+.flow-builder__sidebar {
+  grid-area: sidebar;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--panel-elevated) 72%, transparent);
+  padding: 1rem 12px;
+  min-height: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Main area: fills remaining space */
+.flow-builder__main {
+  grid-area: main;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-sizing: border-box;
+  align-self: stretch;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
+}
+
+.flow-builder__inspector {
+  grid-area: inspector;
+  border-left: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--panel-elevated) 78%, transparent);
+  overflow: hidden;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── Sidebar elements ─────────────────────────────────────────────────────────── */
+.flow-builder__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.flow-builder__list-header {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 4px;
+}
+
+.flow-builder__list-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel) 74%, transparent);
+  color: var(--text);
+  text-align: left;
+  padding: 0.75rem 12px;
+  cursor: pointer;
+}
+
+.flow-builder__list-item--active {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-strong);
+}
+
+.flow-builder__list-item small {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}

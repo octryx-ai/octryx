@@ -1,0 +1,122 @@
+/* Write plan card frame, head, request, scope chips and the writes list. */
+.write-plan {
+  display: grid;
+  gap: var(--ds-space-4);
+  min-width: 0;
+  padding: var(--ds-space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+}
+
+.write-plan--pending {
+  border-color: color-mix(in srgb, var(--status-attention) 38%, var(--border-strong));
+  box-shadow: var(--shell-shadow-soft);
+}
+
+.write-plan__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.write-plan__heading {
+  display: grid;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+
+.write-plan__title {
+  margin: 0;
+  color: var(--highlight);
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  line-height: 1.3;
+}
+
+.write-plan__request {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Scope: one row per system, the label left, the chips wrapping right. */
+.write-plan__scope {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ds-space-2) var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.write-plan__scope-group {
+  display: contents;
+}
+
+.write-plan__scope dt {
+  padding-top: var(--ds-space-1);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+
+.write-plan__scope dd {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.write-plan__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ds-control-sm);
+  max-width: 100%;
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-sm);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.write-plan__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-sm);
+}
+
+.write-plan__section-label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+
+.write-plan__writes {
+  display: grid;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+
+.write-plan__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  overflow: hidden;
+}

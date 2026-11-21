@@ -1,0 +1,81 @@
+[data-theme="light"] .composer-attachment-chip,
+[data-theme="light"] .tool-card__group-item {
+  background: var(--surface-overlay);
+}
+
+.usage-panel__section-header {
+  margin-bottom: 0.5rem;
+}
+
+.usage-panel__table {
+  margin-bottom: 1.5rem;
+}
+
+.usage-panel__emphasis {
+  font-weight: 600;
+}
+
+.runtime-performance__toolbar {
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.runtime-performance__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.runtime-performance__summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.runtime-performance__card {
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  padding: 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.runtime-performance__label {
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.runtime-performance__value {
+  font-size: var(--ds-text-lg);
+  line-height: 1.2;
+}
+
+.runtime-performance__meta,
+.runtime-performance__muted,
+.runtime-performance__runtime-cell small {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.runtime-performance__runtime-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.usage-panel__cost {
+  color: var(--highlight);
+  font-weight: 600;
+}
+
+.connector-form__textarea {
+  min-height: 6rem;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}

@@ -1,0 +1,263 @@
+{
+  "catalog_version": "2026-10-08.2",
+  "schema_version": "2026-10-08.2",
+  "notes": [
+    "Custom policies are forbid-only: the generated baseline grants, a custom policy can only narrow it.",
+    "Blocks within one step are AND-joined; values inside one multi-select are OR-joined; exceptions (unless) are OR-joined.",
+    "Anything the builder cannot express is written as hand-written Cedar and edited in the Cedar editor.",
+    "Every point decides for the request's user and session when the request has one; a background job without a user (e.g. Knowledge indexing) is evaluated as User \"unknown\"."
+  ],
+
+  "action_groups": ["Connectors & tools", "Models", "Tool results", "Coding agent", "Knowledge", "Seats", "Devices"],
+
+  "enforcement_points": [
+    {"id": "seat", "label": "Seat check", "checked_when": "Checked when a coding agent starts on the user's own seat", "where": "When a Claude Code session starts with the user's own seat instead of governed routing.", "carries_user": true, "carries_classification": true},
+    {"id": "model_admission", "label": "Model admission", "checked_when": "Checked whenever a model is called (chat, model gateway, Knowledge)", "where": "Every model dispatch: chat, the inbound model gateway and Knowledge.", "carries_user": true, "carries_classification": true},
+    {"id": "remote_model", "label": "Remote models", "checked_when": "Checked when Knowledge uses a remote embedding model or reranker", "where": "Knowledge indexing and search with a remote embedding model or reranker.", "carries_user": true, "carries_classification": true},
+    {"id": "tool_admission", "label": "Tool admission (chat & MCP)", "checked_when": "Checked when an agent uses a tool (chat & MCP)", "where": "Chat and MCP tool listings (hidden) and every tool call (refused).", "carries_user": true, "carries_classification": true},
+    {"id": "gateway_tool_check", "label": "Coding-agent tool check", "checked_when": "Checked before a coding agent runs a command or reads or writes a file", "where": "The PreToolUse check of governed coding-agent clients, per shell segment and per file path.", "carries_user": true, "carries_classification": true},
+    {"id": "tool_result", "label": "Tool-result check", "checked_when": "Checked when a tool result enters a model's context", "where": "Connector and MCP tool results in chat and over MCP, and coding-agent tool results reported by the launcher (content: the result).", "carries_user": true, "carries_classification": true},
+    {"id": "device_dispatch", "label": "Device dispatch", "checked_when": "Checked when a chat request is sent to the user's own device", "where": "Before a chat message starts a job on one of the sender's own octryx-claude devices.", "carries_user": true, "carries_classification": true}
+  ],
+
+  "principals": [
+    {"type": "User", "label": "User", "picker": "users", "parents": ["Role", "Group"],
+     "description": "A platform user. Parents: their platform roles and active identity groups.",
+     "attributes": [{"name": "platform_admin", "type": "Bool", "label": "Is platform admin", "description": "Has the platform role 'admin'."}]},
+    {"type": "AgentSession", "label": "Agent session", "picker": null, "parents": ["User"],
+     "description": "One running agent session of a user (child of its User). Conditions use its attributes.",
+     "attributes": [
+       {"name": "profile", "type": "String", "label": "Session profile", "values": ["governed", "seat"], "description": "governed = routed through the platform model gateway; seat = the user's own seat."},
+       {"name": "client", "type": "String", "label": "Client", "description": "The client that opened the session."},
+       {"name": "sensitive", "type": "Set<String>", "label": "Categories this conversation already contained", "description": "Content categories detected in earlier requests of the same conversation (gateway session + client conversation id). A new conversation (/clear, new chat) starts empty."}
+     ]},
+    {"type": "Role", "label": "Platform role", "picker": "roles", "parents": [], "description": "A platform role. Used as 'member of role'.", "attributes": []},
+    {"type": "Group", "label": "Identity group", "picker": "groups", "parents": [], "description": "An active identity group. Used as 'member of group'.", "attributes": []}
+  ],
+
+  "resources": [
+    {"type": "Workspace", "label": "Workspace", "picker": "workspaces", "parents": [],
+     "description": "A Workspace. Always present as context.workspace; the resource of use_seat.",
+     "attributes": [
+       {"name": "classification", "type": "String", "optional": true, "label": "Data classification", "values": ["public", "internal", "confidential", "restricted", "secret"], "description": "Absent when the classification is unresolved."},
+       {"name": "classification_rank", "type": "Long", "optional": true, "label": "Classification rank", "description": "public 0 … secret 4, for 'at least' comparisons."},
+       {"name": "seat_mode", "type": "String", "label": "Seat mode", "values": ["forbidden", "allowed"], "description": "Workspace gateway policy switch."},
+       {"name": "requires_governed_routing", "type": "Bool", "label": "Requires governed routing", "description": "Workspace gateway policy switch."}
+     ]},
+    {"type": "ConnectorFamily", "label": "Connector", "picker": "connector_families", "parents": [],
+     "description": "Parent of every connector tool.", "attributes": []},
+    {"type": "Tool", "label": "Tool", "picker": "tools", "parents": ["ConnectorFamily"],
+     "description": "A chat or MCP tool by name; child of its connector when it is a connector tool.",
+     "attributes": [{"name": "name", "type": "String", "label": "Tool name"}]},
+    {"type": "ModelAlias", "label": "Model alias", "picker": "model_aliases", "parents": [],
+     "description": "A model alias of the model gateway; a seat model is \"seat:<model>\".",
+     "attributes": [{"name": "alias", "type": "String", "label": "Alias"},
+                    {"name": "approved_for", "type": "Set<String>", "label": "Approved for sensitive data", "description": "Content categories the alias is approved for (Model gateway aliases → Approved for sensitive data). Seat models are approved for nothing."}]},
+    {"type": "RemoteModel", "label": "Remote model", "picker": null, "parents": [],
+     "description": "A remote embedding space or reranker, identified by kind and data-policy class.",
+     "attributes": [
+       {"name": "kind", "type": "String", "label": "Kind", "values": ["reranker", "embeddings"]},
+       {"name": "data_policy_class", "type": "String", "optional": true, "label": "Data-policy class", "values": ["public", "internal", "confidential", "restricted"]},
+       {"name": "data_policy_rank", "type": "Long", "optional": true, "label": "Data-policy rank"}
+     ]},
+    {"type": "Command", "label": "Shell command (one segment)", "picker": "free_text", "parents": [],
+     "description": "One simple-command segment of a shell call (pipes and && are split).",
+     "attributes": [
+       {"name": "line", "type": "String", "label": "Full segment"},
+       {"name": "program", "type": "String", "label": "Program", "description": "Basename of the first token."},
+       {"name": "parseable", "type": "Bool", "label": "Parseable", "description": "false when the command could not be split safely."},
+       {"name": "prefixes", "type": "Set<String>", "label": "Starts with", "description": "Space-joined leading tokens."},
+       {"name": "arguments", "type": "Set<String>", "label": "Has argument", "description": "Every token after the program plus the name of each name=value token."},
+       {"name": "argument_values", "type": "Set<String>", "label": "Has option value", "description": "--flag=value for both --flag=value and --flag value."}
+     ]},
+    {"type": "Path", "label": "File path", "picker": "free_text", "parents": [],
+     "description": "A candidate file path of a read or write call (absolute and working-directory relative).",
+     "attributes": [{"name": "path", "type": "String", "label": "Path"}]},
+    {"type": "Device", "label": "Device", "picker": null, "parents": ["User"],
+     "description": "A user's own octryx-claude device; its parent is the owner (only the owner may use it).",
+     "attributes": [
+       {"name": "os", "type": "String", "label": "Operating system", "values": ["macos", "linux", "wsl2"]},
+       {"name": "profiles", "type": "Set<String>", "label": "Profiles on the device", "description": "governed and, with a seat login on the device, seat."},
+       {"name": "status", "type": "String", "label": "Status", "values": ["active", "revoked"]}
+     ]}
+  ],
+
+  "actions": [
+    {"id": "write_connector", "group": "Connectors & tools", "label": "Change data through a connector", "verb": "changing data", "point": "tool_admission", "resource": "Tool", "context": ["workspace", "reads_logs", "writes", "connections"],
+     "baseline": "Granted by platform:tool-permit; a read-only connector level in the classification matrix denies writes."},
+    {"id": "read_connector", "group": "Connectors & tools", "label": "Read through a connector", "verb": "reading data", "point": "tool_admission", "resource": "Tool", "context": ["workspace", "reads_logs", "writes", "connections"],
+     "baseline": "Granted by platform:tool-permit; the classification matrix narrows per level and connector."},
+    {"id": "call_tool", "group": "Connectors & tools", "label": "Use a non-connector tool", "verb": "using tools", "point": "tool_admission", "resource": "Tool", "context": ["workspace", "reads_logs", "writes", "connections"],
+     "baseline": "Granted by platform:tool-permit."},
+    {"id": "call_model", "group": "Models", "label": "Call a model", "verb": "calling models", "point": "model_admission", "resource": "ModelAlias", "context": ["workspace", "admission_verified", "route", "content"], "content": "request body",
+     "baseline": "Granted by the Workspace model policy and the level's alias list (seat route: by platform:seat-route-permit after the seat checks); an unverified admission is denied; platform:secrets-never-leave refuses credentials on the gateway routes."},
+    {"id": "receive_tool_result", "group": "Tool results", "label": "Receive a tool result", "verb": "receiving tool results", "point": "tool_result", "resource": "Tool", "context": ["workspace", "origin", "connections", "content"], "content": "the result",
+     "baseline": "Granted by platform:tool-result-permit; content policies narrow it (mask or block)."},
+    {"id": "run_command", "group": "Coding agent", "label": "Run a shell command", "verb": "running shell commands", "point": "gateway_tool_check", "resource": "Command", "context": ["workspace", "tool", "point"],
+     "baseline": "Granted by platform:client-tool-permit; narrowed by the Workspace gateway tool rules."},
+    {"id": "read_path", "group": "Coding agent", "label": "Read a file", "verb": "reading files", "point": "gateway_tool_check", "resource": "Path", "context": ["workspace", "tool", "point"],
+     "baseline": "Granted by platform:client-tool-permit; narrowed by the Workspace path rules."},
+    {"id": "write_path", "group": "Coding agent", "label": "Write or edit a file", "verb": "writing files", "point": "gateway_tool_check", "resource": "Path", "context": ["workspace", "tool", "point"],
+     "baseline": "Granted by platform:client-tool-permit; narrowed by the Workspace path rules."},
+    {"id": "use_remote_embeddings", "group": "Knowledge", "label": "Use remote embeddings", "verb": "embedding Knowledge with a remote model", "point": "remote_model", "resource": "RemoteModel", "context": ["workspace"],
+     "baseline": "Granted when the model's data-policy class is at least the Workspace classification."},
+    {"id": "use_reranker", "group": "Knowledge", "label": "Use a remote reranker", "verb": "reranking with a remote model", "point": "remote_model", "resource": "RemoteModel", "context": ["workspace"],
+     "baseline": "Granted when the model's data-policy class is at least the Workspace classification."},
+    {"id": "use_seat", "group": "Seats", "label": "Use a personal seat", "verb": "using a personal seat", "point": "seat", "resource": "Workspace", "context": ["workspace"],
+     "baseline": "Granted by platform:seat-permit; narrowed by an unresolved classification, the seat mode and the matrix."},
+    {"id": "run_on_device", "group": "Devices", "label": "Run a chat request on an own device", "verb": "running chat requests on own devices", "point": "device_dispatch", "resource": "Device", "context": ["workspace", "profile", "folder_allowlisted"],
+     "baseline": "Granted by platform:device-run-permit once the Workspace turned device runs on; narrowed by the allowed profiles, the device's folder allowlist and the matrix rule 'Device runs'."}
+  ],
+
+  "context": [
+    {"name": "workspace", "type": "Workspace", "actions": "all", "label": "Workspace the decision is for"},
+    {"name": "admission_verified", "type": "Bool", "actions": ["call_model"], "label": "Model admission verified"},
+    {"name": "reads_logs", "type": "Bool", "actions": ["call_tool", "read_connector", "write_connector"], "label": "Call reads logs"},
+    {"name": "writes", "type": "Bool", "actions": ["call_tool", "read_connector", "write_connector"], "label": "Call changes data"},
+    {"name": "connections", "type": "Set<String>", "actions": ["call_tool", "read_connector", "write_connector", "receive_tool_result"], "label": "Named connections", "description": "Named-connection ids (or \"default\") the call runs on; empty for a listing."},
+    {"name": "tool", "type": "String", "actions": ["run_command", "read_path", "write_path"], "label": "Client tool", "values": ["Bash", "Read", "Edit", "Write", "MultiEdit", "NotebookEdit"]},
+    {"name": "point", "type": "String", "actions": ["run_command", "read_path", "write_path"], "label": "Check layer", "values": ["gateway", "client"], "description": "gateway = the server-side check; client = the client's own permission rules (generated only)."},
+    {"name": "route", "type": "String", "actions": ["call_model"], "label": "Route", "values": ["seat", "governed"], "description": "seat = the user's subscription through the seat proxy; governed = the gateway aliases (inbound gateway or the platform's own dispatch)."},
+    {"name": "content", "type": "ContentScan", "actions": ["call_model", "receive_tool_result"], "label": "What the scan found", "description": "scanned, complete, detected (detector ids), categories, findings (count), sources (system, prompt, tool_result, document, history). Never the data."},
+    {"name": "origin", "type": "String", "actions": ["receive_tool_result"], "label": "Tool origin", "values": ["connector", "mcp", "client"], "description": "connector/MCP tool in the platform, or a coding-agent tool reported by the launcher (resource Tool::\"client:<name>\")."},
+    {"name": "profile", "type": "String", "actions": ["run_on_device"], "label": "Device profile", "values": ["governed", "seat"]},
+    {"name": "folder_allowlisted", "type": "Bool", "actions": ["run_on_device"], "label": "Folder allowed on the device"}
+  ],
+
+  "classification_levels": ["public", "internal", "confidential", "restricted", "secret"],
+  "data_policy_classes": ["public", "internal", "confidential", "restricted"],
+
+  "condition_blocks": [
+    {"id": "who.everyone", "step": "who", "label": "Everyone", "field": "who.mode", "cedar": "principal", "actions": "all"},
+    {"id": "who.user", "step": "who", "label": "User is …", "field": "who.items", "picker": "users", "multi": true, "cedar": "principal in User::\"…\"", "actions": "all", "user_bound": true},
+    {"id": "who.role", "step": "who", "label": "Member of role …", "field": "who.items", "picker": "roles", "multi": true, "cedar": "principal in Role::\"…\"", "actions": "all", "user_bound": true},
+    {"id": "who.group", "step": "who", "label": "Member of group …", "field": "who.items", "picker": "groups", "multi": true, "cedar": "principal in Group::\"…\"", "actions": "all", "user_bound": true},
+    {"id": "who.not_admin", "step": "who", "label": "Except platform admins", "field": "who.except_admins", "clause": "unless", "cedar": "(principal is User && principal.platform_admin)", "actions": "all", "user_bound": true},
+    {"id": "who.session_profile", "step": "who", "label": "Session profile is …", "field": "who.session_profile", "values": ["governed", "seat"], "cedar": "(principal is AgentSession && principal.profile == \"…\")", "actions": "all", "user_bound": true},
+    {"id": "who.session_client", "step": "who", "label": "Session client is …", "field": "who.session_client", "free_text": true, "cedar": "(principal is AgentSession && principal.client == \"…\")", "actions": "all", "user_bound": true},
+
+    {"id": "where.workspace", "step": "where", "label": "In Workspace …", "field": "where.workspaces", "picker": "workspaces", "multi": true, "cedar": "context.workspace in [Workspace::\"…\"]", "actions": "all"},
+    {"id": "where.classification_is", "step": "where", "label": "Classification is …", "field": "where.classification_is", "values_from": "classification_levels", "multi": true, "cedar": "context.workspace has classification && [\"…\"].contains(context.workspace.classification)", "actions": "classified", "classification_bound": true},
+    {"id": "where.classification_at_least", "step": "where", "label": "Classification at least …", "field": "where.classification_at_least", "values_from": "classification_levels", "cedar": "context.workspace has classification_rank && context.workspace.classification_rank >= N", "actions": "classified", "classification_bound": true},
+    {"id": "where.unclassified", "step": "where", "label": "Classification unresolved", "field": "where.unclassified", "cedar": "!(context.workspace has classification)", "actions": "classified", "classification_bound": true},
+    {"id": "where.connection", "step": "where", "label": "On named connection …", "field": "where.connections", "picker": "named_connections", "multi": true, "cedar": "context.connections.containsAny([\"…\"])", "actions": ["call_tool", "read_connector", "write_connector"], "note": "Shown by name, stored by id. \"default\" is the unnamed default entry."},
+
+    {"id": "what.model", "step": "what", "label": "Model is one of …", "field": "what.models", "mode": "only", "picker": "model_aliases", "multi": true, "cedar": "[\"…\"].contains(resource.alias)", "actions": ["call_model"]},
+    {"id": "what.model_not", "step": "what", "label": "Any model except …", "field": "what.models", "mode": "except", "picker": "model_aliases", "multi": true, "clause": "unless", "cedar": "[\"…\"].contains(resource.alias)", "actions": ["call_model"]},
+    {"id": "what.remote_class_below", "step": "what", "label": "Remote model's data-policy class is below …", "field": "what.remote_class_below", "values_from": "data_policy_classes", "cedar": "resource has data_policy_rank && resource.data_policy_rank < N", "actions": ["use_reranker", "use_remote_embeddings"]},
+    {"id": "what.connector_family", "step": "what", "label": "Connector is …", "field": "what.families", "picker": "connector_families", "multi": true, "cedar": "resource in [ConnectorFamily::\"…\"]", "actions": ["read_connector", "write_connector"]},
+    {"id": "what.tool", "step": "what", "label": "Tool is one of …", "field": "what.tools", "picker": "tools", "multi": true, "cedar": "resource in [Tool::\"…\"]", "actions": ["call_tool", "read_connector", "write_connector"]},
+    {"id": "what.writes", "step": "what", "label": "Only calls that change data", "field": "what.writes_only", "cedar": "context.writes", "actions": ["call_tool", "read_connector", "write_connector"]},
+    {"id": "what.reads_logs", "step": "what", "label": "Only calls that read logs", "field": "what.reads_logs", "cedar": "context.reads_logs", "actions": ["call_tool", "read_connector", "write_connector"]},
+    {"id": "what.program", "step": "what", "label": "Program is …", "field": "what.programs", "free_text": true, "multi": true, "cedar": "[\"…\"].contains(resource.program)", "actions": ["run_command"]},
+    {"id": "what.prefix", "step": "what", "label": "Command starts with …", "field": "what.prefixes", "free_text": true, "multi": true, "cedar": "resource.prefixes.containsAny([\"…\"])", "actions": ["run_command"], "note": "A prefix cannot see a subcommand after options (kubectl --context x delete …); prefer program + arguments."},
+    {"id": "what.has_arguments", "step": "what", "label": "Has all of these arguments …", "field": "what.arguments", "free_text": true, "multi": true, "cedar": "resource.arguments.containsAll([\"…\"])", "actions": ["run_command"]},
+    {"id": "what.option_value", "step": "what", "label": "Has option value …", "field": "what.option_values", "free_text": true, "multi": true, "cedar": "resource.argument_values.containsAny([\"…\"])", "actions": ["run_command"], "note": "Matches both \"--flag=value\" and \"--flag value\"."},
+    {"id": "what.unparseable", "step": "what", "label": "Command could not be parsed", "field": "what.unparseable", "cedar": "!resource.parseable", "actions": ["run_command"]},
+    {"id": "what.path_like", "step": "what", "label": "Path matches …", "field": "what.paths", "free_text": true, "multi": true, "cedar": "resource.path like \"…\"", "actions": ["read_path", "write_path"], "note": "* matches any characters including \"/\". ? and [..] are not supported."},
+    {"id": "what.client_tool", "step": "what", "label": "Client tool is …", "field": "what.client_tools", "values_from": "context.tool", "multi": true, "cedar": "[\"…\"].contains(context.tool)", "actions": ["run_command", "read_path", "write_path"]},
+
+    {"id": "cond.option_value_missing", "step": "conditions", "label": "Unless the command has option value …", "field": "conditions.unless_option_values", "free_text": true, "multi": true, "clause": "unless", "cedar": "resource.argument_values.containsAny([\"…\"])", "actions": ["run_command"], "note": "Matches both \"--flag=value\" and \"--flag value\"."},
+    {"id": "cond.admission_unverified", "step": "conditions", "label": "Model admission not verified", "field": "conditions.admission_unverified", "cedar": "!context.admission_verified", "actions": ["call_model"]},
+    {"id": "cond.seat_mode", "step": "conditions", "label": "Workspace seat mode is …", "field": "conditions.seat_mode", "values": ["forbidden", "allowed"], "cedar": "resource.seat_mode == \"…\"", "actions": ["use_seat"]},
+    {"id": "cond.governed_required", "step": "conditions", "label": "Workspace requires governed routing", "field": "conditions.governed_required", "cedar": "resource.requires_governed_routing", "actions": ["use_seat"]},
+    {"id": "cond.route_is", "step": "conditions", "label": "Route is …", "field": "conditions.route", "values": ["seat", "governed"], "cedar": "context.route == \"…\"", "actions": ["call_model"], "note": "seat = the user's subscription through the seat proxy; governed = the gateway aliases."},
+    {"id": "content.detected", "step": "content", "label": "Content contains …", "field": "content.detectors", "picker": "detectors", "multi": true, "cedar": "context.content.detected.containsAny([\"…\"])", "actions": ["call_model", "receive_tool_result"]},
+    {"id": "content.conversation_category", "step": "content", "label": "… or the conversation already contained this category", "field": "content.sticky", "cedar": "(principal is AgentSession && principal.sensitive.containsAny([\"…\"]))", "actions": ["call_model"], "note": "Only with a route outcome: keeps a routed conversation on the approved model until it is cleared."},
+    {"id": "content.incomplete", "step": "content", "label": "… or the scan could not finish", "field": "content.incomplete", "cedar": "(context.content.scanned && !context.content.complete)", "actions": ["call_model", "receive_tool_result"]},
+    {"id": "outcome.route", "step": "outcome", "label": "Route to the approved model …", "field": "outcome.reroute_to", "picker": "approved_model_aliases", "clause": "unless", "cedar": "context.route == \"governed\" && resource.approved_for.containsAll([\"…\"])", "actions": ["call_model"]},
+    {"id": "outcome.except_approved", "step": "outcome", "label": "Except models approved for the categories", "field": "outcome.approved_except", "clause": "unless", "cedar": "resource.approved_for.containsAll([\"…\"])", "actions": ["call_model"]}
+  ],
+
+  "outcomes": [
+    {"id": "block", "label": "Block", "description": "Refuse the request. Nothing is sent; the user sees which policy and what was found.", "actions": ["call_model", "receive_tool_result"]},
+    {"id": "mask", "label": "Mask", "description": "Replace the findings with placeholders, then send the request on its route.", "actions": ["call_model", "receive_tool_result"]},
+    {"id": "reroute", "label": "Route to an approved model", "description": "Send the request unchanged to a governed model approved for this data.", "actions": ["call_model"]},
+    {"id": "mask_reroute", "label": "Mask and route", "description": "Mask the findings and send the request to the approved model.", "actions": ["call_model"]}
+  ],
+  "mask_styles": [
+    {"id": "last4", "label": "Keep last 4 only"},
+    {"id": "type_token", "label": "Type token only, e.g. [EMAIL #1]"}
+  ],
+
+  "templates": [
+    {"id": "prod-connection-read-only", "label": "Production connection read-only", "icon": "shield",
+     "description": "No changes through the named production connection; reads stay allowed.", "tags": ["Connectors"],
+     "placeholders": [{"field": "where.connections", "label": "Production connection", "hint": "Pick the named connection(s) that reach production."}],
+     "model": {"name": "Production connection read-only", "description": "No agent may change data through the production connection; reads stay allowed.",
+               "actions": ["write_connector"]}},
+    {"id": "confidential-approved-model-only", "label": "Confidential → approved model only", "icon": "model",
+     "description": "Confidential and higher Workspaces may only call the approved model.", "tags": ["Models"],
+     "placeholders": [{"field": "what.models", "label": "Approved model", "hint": "Pick the model alias(es) confidential Workspaces may still call."}],
+     "model": {"name": "Confidential → approved model only", "description": "Sensitive Workspaces stay on the approved model.",
+               "actions": ["call_model"], "what": {"model_mode": "except"}, "where": {"classification_at_least": "confidential"}}},
+    {"id": "block-destructive-commands", "label": "Block destructive commands", "icon": "trash",
+     "description": "Coding agents may not delete cluster resources, force-push or wipe directories.", "tags": ["Coding agent"],
+     "placeholders": [],
+     "model": {"name": "Block destructive commands", "description": "Destructive shell commands are never run by coding agents.",
+               "actions": ["run_command"], "what": {"prefixes": ["kubectl delete", "git push --force", "rm -rf", "terraform destroy"]}}},
+    {"id": "block-secret-files", "label": "Block secret files", "icon": "lock",
+     "description": "Coding agents may not read or write .env files, private keys or credential stores.", "tags": ["Coding agent"],
+     "placeholders": [],
+     "model": {"name": "Block secret files", "description": "Secrets on disk stay out of the agent's context.",
+               "actions": ["read_path", "write_path"], "what": {"paths": ["*.env", "*.env.*", "*id_rsa*", "*.pem", "*/.aws/credentials"]}}},
+    {"id": "kubectl-non-prod-context-only", "label": "kubectl restarts only in non-prod", "icon": "restart",
+     "description": "Members of a role may restart deployments only with the non-prod context.", "tags": ["Coding agent", "Role"],
+     "placeholders": [
+       {"field": "who.items", "label": "Role", "hint": "Pick the role whose restarts are limited."},
+       {"field": "conditions.unless_option_values", "label": "Non-prod context", "hint": "The option value of the allowed context, e.g. --context=<non-prod context>."}
+     ],
+     "model": {"name": "kubectl restarts only in non-prod", "description": "Deployment restarts are limited to the non-prod context.",
+               "actions": ["run_command"], "who": {"mode": "roles"}, "what": {"programs": ["kubectl"], "arguments": ["rollout", "restart"]}}},
+    {"id": "no-remote-models-confidential", "label": "No remote embeddings for confidential", "icon": "pulse",
+     "description": "Knowledge in confidential and higher Workspaces stays on local models.", "tags": ["Knowledge"],
+     "placeholders": [],
+     "model": {"name": "No remote models for confidential", "description": "Knowledge in confidential and higher Workspaces stays on local models.",
+               "actions": ["use_remote_embeddings", "use_reranker"], "where": {"classification_at_least": "confidential"}}},
+    {"id": "no-log-reads-restricted", "label": "No log reads in restricted Workspaces", "icon": "log",
+     "description": "Tools that read logs are blocked from restricted upward.", "tags": ["Connectors"],
+     "placeholders": [],
+     "model": {"name": "No log reads in restricted Workspaces", "description": "Tools that read logs are blocked from restricted upward.",
+               "actions": ["write_connector", "read_connector", "call_tool"], "what": {"reads_logs": true}, "where": {"classification_at_least": "restricted"}}},
+    {"id": "secrets-never-leave", "section": "Sensitive data in requests and tool results", "label": "Secrets never leave", "icon": "lock",
+     "description": "A model request that contains a credential is refused on every route.", "tags": ["Models", "secrets"],
+     "placeholders": [],
+     "model": {"name": "Secrets never leave", "description": "Credentials are never sent to a model.",
+               "actions": ["call_model"], "content": {"detectors": ["secrets"]}, "outcome": {"kind": "block"}}},
+    {"id": "pii-masked", "section": "Sensitive data in requests and tool results", "label": "PII masked for unapproved models", "icon": "shield",
+     "description": "Email addresses, phone numbers and IBANs are masked unless the model is approved for personal data.", "tags": ["Models", "pii"],
+     "placeholders": [],
+     "model": {"name": "PII masked for unapproved models", "description": "Personal data reaches only models approved for it unmasked.",
+               "actions": ["call_model"], "content": {"detectors": ["email", "phone", "iban"]},
+               "outcome": {"kind": "mask", "mask_style": "type_token", "approved_except": true}, "where": {"classification_at_least": "internal"}}},
+    {"id": "seat-no-raw-log-reads", "section": "Sensitive data in requests and tool results", "label": "Seat sessions read logs only via governed tools", "icon": "log",
+     "description": "A coding agent on a personal seat may not run kubectl logs / exec, stern or aws logs (existing blocks, no content scan).", "tags": ["Coding agent"],
+     "placeholders": [],
+     "model": {"name": "Seat sessions read logs only via governed tools", "description": "Raw log reads on a personal seat go through the governed log tools instead.",
+               "actions": ["run_command"], "who": {"session_profile": "seat"},
+               "what": {"prefixes": ["kubectl logs", "kubectl exec", "stern", "aws logs"]}}},
+    {"id": "workspace-identifiers-approved-model", "section": "Sensitive data in requests and tool results", "label": "Workspace identifiers stay on the approved model", "icon": "model",
+     "description": "Requests with a Workspace-defined identifier (custom detector) are served by the approved model only.", "tags": ["Models", "custom"],
+     "placeholders": [
+       {"field": "content.detectors", "label": "Workspace detector", "hint": "Pick the custom detector of your identifiers (Detectors tab)."},
+       {"field": "outcome.reroute_to", "label": "Approved model", "hint": "Pick a model alias approved for the detector's category."}
+     ],
+     "model": {"name": "Workspace identifiers stay on the approved model", "description": "Workspace identifiers are served by the approved model only.",
+               "actions": ["call_model"], "content": {"sticky": true}, "outcome": {"kind": "reroute"}}},
+    {"id": "health-data-block-seat", "section": "Sensitive data in requests and tool results", "label": "Health data never on a personal seat", "icon": "pulse",
+     "description": "Requests with health data (Workspace detectors of category health) are refused on the seat route.", "tags": ["Models", "health"],
+     "placeholders": [
+       {"field": "content.detectors", "label": "Health detectors", "hint": "Pick the custom detectors of category health (there is no built-in health detector)."}
+     ],
+     "model": {"name": "Health data never on a personal seat", "description": "Health data is never sent through a personal seat.",
+               "actions": ["call_model"], "conditions": {"route": "seat"}, "outcome": {"kind": "block"}}}
+  ],
+
+  "policy_sources": [
+    {"id": "builder", "prefix": null, "label": "Builder", "editable": true, "edit_where": "Settings → Governance → Policies"},
+    {"id": "hand_written", "prefix": null, "label": "Hand-written", "editable": true, "edit_where": "Settings → Governance → Policies (Cedar editor)"},
+    {"id": "classification", "prefix": "classification:", "label": "Classification matrix", "editable": false, "edit_where": "Settings → Governance → Classification policy"},
+    {"id": "workspace", "prefix": "workspace:", "label": "Workspace policy", "editable": false, "edit_where": "Workspace → Agent gateway policy / Model policy"},
+    {"id": "platform", "prefix": "platform:", "label": "Platform", "editable": false, "edit_where": null}
+  ]
+}

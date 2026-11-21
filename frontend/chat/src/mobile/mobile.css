@@ -1,0 +1,16 @@
+/* Phone app stylesheet: imports its partials in cascade order. */
+@import "./mobile-base.css";
+@import "./mobile-page-rows.css";
+@import "./mobile-chat-compose.css";
+@import "./mobile-controls.css";
+@import "./mobile-chat-answers.css";
+@import "./mobile-tasks.css";
+@import "./mobile-live-progress.css";
+@import "./mobile-shell.css";
+@import "./mobile-home-more.css";
+@import "./mobile-runs.css";
+@import "./mobile-run-steps.css";
+@import "./mobile-macs-roles.css";
+@import "./mobile-write-plan.css";
+@import "./mobile-operations.css";
+@import "./mobile-approvals-seat.css";

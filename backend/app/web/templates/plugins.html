@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Plugins - Octryx{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Plugins</h1>
+        <p class="text-gray-600 mt-1">Manage agent plugins and extensions</p>
+    </div>
+    <button onclick="reloadPlugins()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        Reload Plugins
+    </button>
+</div>
+
+{% if error %}
+<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+    {{ error }}
+</div>
+{% endif %}
+
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <p class="text-gray-600">
+        Plugins extend the agent's capabilities by providing new tools. 
+        Plugins are auto-discovered from the <code>app/plugins/</code> directory.
+        Enable or disable plugins below - changes are persisted.
+    </p>
+</div>
+
+<div class="space-y-4">
+    {% for plugin in plugins %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-start justify-between">
+            <div class="flex-1">
+                <div class="flex items-center gap-3">
+                    <h3 class="font-semibold text-gray-900">{{ plugin.name }}</h3>
+                    {% if plugin.enabled %}
+                    <span class="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Enabled</span>
+                    {% else %}
+                    <span class="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded">Disabled</span>
+                    {% endif %}
+                    {% if plugin.manually_disabled and not plugin.enabled %}
+                    <span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded">Manually Disabled</span>
+                    {% endif %}
+                </div>
+                <p class="text-sm text-gray-600 mt-1">{{ plugin.description }}</p>
+                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                    <span>v{{ plugin.version }}</span>
+                    <span>ID: {{ plugin.id }}</span>
+                    {% if plugin.author %}
+                    <span>by {{ plugin.author }}</span>
+                    {% endif %}
+                </div>
+                {% if plugin.tags %}
+                <div class="flex gap-2 mt-2">
+                    {% for tag in plugin.tags %}
+                    <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2 ml-4">
+                {% if plugin.enabled %}
+                <button onclick="disablePlugin('{{ plugin.id }}')" class="text-red-600 hover:text-red-800 text-sm px-3 py-1 border border-red-200 rounded hover:bg-red-50">
+                    Disable
+                </button>
+                {% else %}
+                <button onclick="enablePlugin('{{ plugin.id }}')" class="text-green-600 hover:text-green-800 text-sm px-3 py-1 border border-green-200 rounded hover:bg-green-50">
+                    Enable
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="mt-4 pt-4 border-t border-gray-100">
+            <h4 class="text-sm font-medium text-gray-700 mb-2">
+                Tools Provided ({{ plugin.tools|length }})
+            </h4>
+            {% if plugin.tools %}
+            <div class="flex flex-wrap gap-2">
+                {% for tool in plugin.tools %}
+                <code class="px-2 py-1 bg-gray-800 text-green-400 text-xs rounded">{{ tool }}</code>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-sm text-gray-400 italic">No tools exposed</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow p-6 text-center text-gray-500">
+        <p class="mb-2">No plugins found.</p>
+        <p class="text-sm">Create a plugin in <code>app/plugins/</code> directory to get started.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 mt-6">
+    <h2 class="text-lg font-semibold text-gray-800 mb-4">Creating a Plugin</h2>
+    
+    <div class="bg-gray-50 rounded-lg p-4">
+        <p class="text-sm text-gray-600 mb-4">Example plugin structure:</p>
+        <pre class="bg-gray-800 text-green-400 p-4 rounded overflow-x-auto text-xs"><code>my_plugin/
+├── __init__.py      # Contains the plugin class
+
+# In __init__.py:
+from app.plugins.core.base import BasePlugin, PluginMetadata, PluginToolDefinition
+
+class MyPlugin(BasePlugin):
+    metadata = PluginMetadata(
+        id="my-plugin",
+        name="My Plugin",
+        version="1.0.0",
+        description="Does something useful",
+        author="Your Name",
+        tags=["utility"],
+    )
+
+    def get_tools(self) -> list[PluginToolDefinition]:
+        return [
+            PluginToolDefinition(
+                name="my_tool",
+                description="Does something useful",
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "input": {"type": "string", "description": "The input"},
+                    },
+                    "required": ["input"],
+                },
+            )
+        ]
+
+    async def execute(self, params: dict, context: Any) -> dict:
+        return {"success": True, "data": f"Processed: {params['input']}"}</code></pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function reloadPlugins() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Reloading...';
+    
+    try {
+        const response = await fetch('/admin/plugins/reload', {
+            method: 'POST',
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to reload plugins: ' + data.error);
+            btn.disabled = false;
+            btn.textContent = 'Reload Plugins';
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = 'Reload Plugins';
+    }
+}
+
+async function enablePlugin(pluginId) {
+    try {
+        const response = await fetch(`/admin/plugins/${pluginId}/enable`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to enable plugin: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function disablePlugin(pluginId) {
+    try {
+        const response = await fetch(`/admin/plugins/${pluginId}/disable`, {
+            method: 'POST',
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Failed to disable plugin: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

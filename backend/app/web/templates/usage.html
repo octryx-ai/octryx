@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Token Usage – Octryx{% endblock %}
+{% block content %}
+<div class="space-y-6">
+    <div>
+        <h1 class="text-2xl font-bold">Token Usage</h1>
+        <p class="text-gray-600">Token consumption and cost overview across all sessions.</p>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Total Tokens (7d)</p>
+            <p class="text-2xl font-bold mt-1">{{ "{:,}".format(summary.total_tokens_7d) }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Total Cost (7d)</p>
+            <p class="text-2xl font-bold mt-1">${{ "%.4f"|format(summary.total_cost_7d) }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Sessions (7d)</p>
+            <p class="text-2xl font-bold mt-1">{{ summary.session_count_7d }}</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Avg Tokens / Session</p>
+            <p class="text-2xl font-bold mt-1">{{ "{:,}".format(summary.avg_tokens_per_session) }}</p>
+        </div>
+    </div>
+
+    <!-- Daily usage table -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-bold">Daily Usage (last 7 days)</h2>
+        </div>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left">Date</th>
+                    <th class="px-4 py-3 text-right">Sessions</th>
+                    <th class="px-4 py-3 text-right">Tokens In</th>
+                    <th class="px-4 py-3 text-right">Tokens Out</th>
+                    <th class="px-4 py-3 text-right">Total Tokens</th>
+                    <th class="px-4 py-3 text-right">Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in daily_usage %}
+                <tr class="border-t">
+                    <td class="px-4 py-3 font-mono">{{ row.date }}</td>
+                    <td class="px-4 py-3 text-right">{{ row.sessions }}</td>
+                    <td class="px-4 py-3 text-right">{{ "{:,}".format(row.tokens_in) }}</td>
+                    <td class="px-4 py-3 text-right">{{ "{:,}".format(row.tokens_out) }}</td>
+                    <td class="px-4 py-3 text-right font-medium">{{ "{:,}".format(row.tokens_in + row.tokens_out) }}</td>
+                    <td class="px-4 py-3 text-right">${{ "%.4f"|format(row.cost) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="px-4 py-4 text-gray-500">No usage data yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Provider breakdown -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-bold">Provider & Model Breakdown (7d)</h2>
+        </div>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left">Provider</th>
+                    <th class="px-4 py-3 text-left">Model</th>
+                    <th class="px-4 py-3 text-right">Calls</th>
+                    <th class="px-4 py-3 text-right">Total Tokens</th>
+                    <th class="px-4 py-3 text-right">Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in provider_breakdown %}
+                <tr class="border-t">
+                    <td class="px-4 py-3">{{ row.provider }}</td>
+                    <td class="px-4 py-3 font-mono break-all">{{ row.model }}</td>
+                    <td class="px-4 py-3 text-right">{{ row.calls }}</td>
+                    <td class="px-4 py-3 text-right">{{ "{:,}".format(row.total_tokens) }}</td>
+                    <td class="px-4 py-3 text-right">${{ "%.4f"|format(row.cost) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-4 py-4 text-gray-500">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top sessions -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-bold">Top Sessions by Token Usage (7d)</h2>
+        </div>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left">Session</th>
+                    <th class="px-4 py-3 text-left">User</th>
+                    <th class="px-4 py-3 text-left">Started</th>
+                    <th class="px-4 py-3 text-right">Total Tokens</th>
+                    <th class="px-4 py-3 text-right">Cost</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_sessions %}
+                <tr class="border-t">
+                    <td class="px-4 py-3 font-mono text-xs">
+                        <a href="/chat?session_id={{ row.session_id }}" class="text-blue-600 hover:underline">{{ row.session_id[:8] }}…</a>
+                    </td>
+                    <td class="px-4 py-3">{{ row.username }}</td>
+                    <td class="px-4 py-3 text-xs text-gray-500">{{ row.started_at }}</td>
+                    <td class="px-4 py-3 text-right font-medium">{{ "{:,}".format(row.total_tokens) }}</td>
+                    <td class="px-4 py-3 text-right">${{ "%.4f"|format(row.cost) }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="px-4 py-4 text-gray-500">No data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Top tools -->
+    <div class="bg-white rounded-lg shadow overflow-hidden">
+        <div class="px-6 py-4 border-b">
+            <h2 class="text-lg font-bold">Most Called Tools (7d)</h2>
+        </div>
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left">Tool</th>
+                    <th class="px-4 py-3 text-right">Calls</th>
+                    <th class="px-4 py-3 text-right">Errors</th>
+                    <th class="px-4 py-3 text-right">Avg Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in top_tools %}
+                <tr class="border-t">
+                    <td class="px-4 py-3 font-mono">{{ row.tool_name }}</td>
+                    <td class="px-4 py-3 text-right">{{ row.calls }}</td>
+                    <td class="px-4 py-3 text-right {% if row.errors > 0 %}text-red-600{% endif %}">{{ row.errors }}</td>
+                    <td class="px-4 py-3 text-right text-gray-500">{{ row.avg_duration_ms }}ms</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="px-4 py-4 text-gray-500">No tool calls recorded.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

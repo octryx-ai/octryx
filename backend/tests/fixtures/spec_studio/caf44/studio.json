@@ -1,0 +1,945 @@
+{
+ "mode": "new",
+ "target": "flutter",
+ "title": "Kaffee-Begleiter (Flutter)",
+ "language": "de",
+ "spec_path": "coffee/flutter/claude/SPEC.md",
+ "summary": "Eine App, die einen Kaffeeliebhaber beim Kaffeegenuss führt: Brühungen mit Maschine, Mühle und Shot-Timer erfassen, Bohnen mit Ruhezeit und Bestand führen, Wasser prüfen, Reinigung ableiten, nach dem Geschmack genau eine Verbesserung empfehlen und Filterkaffee Schritt für Schritt anleiten. Offline, Deutsch und Englisch.",
+ "out_of_scope": [
+  "Login und mehrere Nutzer",
+  "Cloud-Sync (Datenmodell ist vorbereitet)",
+  "Bestellung beim Röster",
+  "Web-Release (Chrome nur zum Testen)"
+ ],
+ "stories": [
+  {
+   "title": "S1 Designsystem und App-Shell",
+   "summary": "Navigation, Themes, leere Zustände"
+  },
+  {
+   "title": "S2 Ausrüstung und Wasser",
+   "summary": "Mühlen mit Skala und Totraum, Maschinen, Wasserprofile"
+  },
+  {
+   "title": "S3 Bohnen, Packungen und Bestand",
+   "summary": "Ruhezeit, Bestellhinweis, Lückenwarnung"
+  },
+  {
+   "title": "S4 Espresso-Brühung",
+   "summary": "Shot-Timer, Geschmack, eine Empfehlung"
+  },
+  {
+   "title": "S5 Filterkaffee geführt",
+   "summary": "Bloom, Aufgüsse mit Zielgewicht, Timer"
+  },
+  {
+   "title": "S6 Heute, Pflege, Export",
+   "summary": "Hinweise, Reinigung, JSON-Export/-Import"
+  }
+ ],
+ "design": {
+  "proposed": "crema",
+  "directions": [
+   {
+    "id": "crema",
+    "name": "Warme Rösterei",
+    "hint": "Papier, Kupfer, Fraunces – Vorschlag der Spec",
+    "light": {
+     "bg": "#FBF6EF",
+     "surface": "#F0E6D8",
+     "text": "#2A1E17",
+     "muted": "#62503F",
+     "accent": "#8A4B2A",
+     "ok": "#36703F",
+     "warn": "#8A5A00",
+     "error": "#B3261E"
+    },
+    "dark": {
+     "bg": "#1F1814",
+     "surface": "#2B211B",
+     "text": "#F3E9DD",
+     "muted": "#C2B2A1",
+     "accent": "#E0A06A",
+     "ok": "#7CC28E",
+     "warn": "#E0B050",
+     "error": "#F2B8B5"
+    },
+    "fonts": {
+     "head": "'Fraunces', Georgia, serif",
+     "body": "'Inter', system-ui, sans-serif",
+     "mono": "'IBM Plex Mono', ui-monospace, monospace"
+    },
+    "radius": 12
+   },
+   {
+    "id": "papier",
+    "name": "Filterpapier",
+    "hint": "Off-White, Grün, luftig",
+    "light": {
+     "bg": "#F7F7F2",
+     "surface": "#FFFFFF",
+     "text": "#1E2420",
+     "muted": "#56605A",
+     "accent": "#2F6B4F",
+     "ok": "#2E6B40",
+     "warn": "#8A5A00",
+     "error": "#B3261E"
+    },
+    "dark": {
+     "bg": "#151A17",
+     "surface": "#1E2521",
+     "text": "#E8EEEA",
+     "muted": "#A9B5AE",
+     "accent": "#7CC9A4",
+     "ok": "#7CC28E",
+     "warn": "#E0B050",
+     "error": "#F2B8B5"
+    },
+    "fonts": {
+     "head": "'DM Sans', system-ui, sans-serif",
+     "body": "'DM Sans', system-ui, sans-serif",
+     "mono": "ui-monospace, monospace"
+    },
+    "radius": 8
+   },
+   {
+    "id": "barista",
+    "name": "Barista Dark",
+    "hint": "Anthrazit, Kupfer, grosse Zahlen",
+    "light": {
+     "bg": "#F2F0EE",
+     "surface": "#FFFFFF",
+     "text": "#1B1B1D",
+     "muted": "#5A5A60",
+     "accent": "#9A5A2E",
+     "ok": "#2E6B40",
+     "warn": "#8A5A00",
+     "error": "#B3261E"
+    },
+    "dark": {
+     "bg": "#141416",
+     "surface": "#1F1F23",
+     "text": "#F2EEE8",
+     "muted": "#A8A39C",
+     "accent": "#D08A55",
+     "ok": "#7CC28E",
+     "warn": "#E0B050",
+     "error": "#F2B8B5"
+    },
+    "fonts": {
+     "head": "'Space Grotesk', system-ui, sans-serif",
+     "body": "'Space Grotesk', system-ui, sans-serif",
+     "mono": "'IBM Plex Mono', ui-monospace, monospace"
+    },
+    "radius": 4
+   }
+  ]
+ },
+ "nav": [
+  {
+   "id": "today",
+   "label": "Heute",
+   "icon": "home"
+  },
+  {
+   "id": "beans",
+   "label": "Bohnen",
+   "icon": "bean"
+  },
+  {
+   "id": "brew",
+   "label": "Brühen",
+   "icon": "cup"
+  },
+  {
+   "id": "gear",
+   "label": "Ausrüstung",
+   "icon": "grinder"
+  },
+  {
+   "id": "water",
+   "label": "Wasser",
+   "icon": "drop",
+   "phone": false
+  },
+  {
+   "id": "care",
+   "label": "Pflege",
+   "icon": "sponge",
+   "phone": false
+  },
+  {
+   "id": "more",
+   "label": "Mehr",
+   "icon": "more"
+  }
+ ],
+ "screens": [
+  {
+   "id": "today",
+   "name": "Heute",
+   "route": "/",
+   "nav": "today",
+   "next_step": "Neue Brühung (FAB) oder der Hinweis im Banner führt weiter.",
+   "filled": [
+    {
+     "type": "eyebrow",
+     "text": "Montag, 16.11.2026"
+    },
+    {
+     "type": "title",
+     "text": "Heute"
+    },
+    {
+     "type": "banner",
+     "tone": "warn",
+     "text": "Kein trinkbereiter Kaffee vom 21.11.2026 bis 24.11.2026",
+     "action": "Packung Gesha öffnen"
+    },
+    {
+     "type": "card",
+     "title": "Jetzt trinkbereit",
+     "blocks": [
+      {
+       "type": "item",
+       "title": "Brazil Cerrado",
+       "meta": "Espresso · Rest 180 g",
+       "badge": "Bereit",
+       "badge_tone": "ok",
+       "icon": "bean"
+      },
+      {
+       "type": "item",
+       "title": "Ethiopia Guji",
+       "meta": "Filter · Rest 90 g",
+       "badge": "Ruht noch 3 Tage",
+       "badge_tone": "warn",
+       "icon": "bean"
+      }
+     ]
+    },
+    {
+     "type": "row",
+     "blocks": [
+      {
+       "type": "card",
+       "title": "Letzte Brühung",
+       "blocks": [
+        {
+         "type": "text",
+         "text": "Espresso · 18,0 g → 36,0 g · 27 s"
+        },
+        {
+         "type": "muted",
+         "text": "Lelit Bianca · DF83V Stufe 22"
+        }
+       ]
+      },
+      {
+       "type": "card",
+       "title": "Pflege",
+       "blocks": [
+        {
+         "type": "text",
+         "text": "Backflush · Lelit Bianca"
+        },
+        {
+         "type": "progress",
+         "value": 0.86,
+         "label": "in 1 Tag fällig"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "button",
+     "text": "Neue Brühung",
+     "variant": "primary",
+     "go": "brew"
+    }
+   ],
+   "empty": [
+    {
+     "type": "title",
+     "text": "Heute"
+    },
+    {
+     "type": "empty",
+     "icon": "bean",
+     "title": "Noch nichts da",
+     "text": "Lege deine erste Bohne an.",
+     "action": "Bohne hinzufügen"
+    }
+   ]
+  },
+  {
+   "id": "beans",
+   "name": "Bohnen",
+   "route": "/beans",
+   "nav": "beans",
+   "next_step": "Karte öffnet das Bohnendetail; „Bohne hinzufügen“ legt die nächste an.",
+   "filled": [
+    {
+     "type": "title",
+     "text": "Bohnen"
+    },
+    {
+     "type": "item",
+     "title": "Brazil Cerrado",
+     "meta": "Röstung 01.11.2026 · medium · 180 g",
+     "badge": "Bereit",
+     "badge_tone": "ok",
+     "icon": "bean"
+    },
+    {
+     "type": "item",
+     "title": "Ethiopia Guji",
+     "meta": "Röstung 14.11.2026 · light · 250 g",
+     "badge": "Ruht noch 3 Tage",
+     "badge_tone": "warn",
+     "icon": "bean"
+    },
+    {
+     "type": "item",
+     "title": "Colombia Blend",
+     "meta": "Röstung 01.10.2026 · dark · 35 g",
+     "badge": "Zu alt",
+     "badge_tone": "error",
+     "icon": "bean"
+    },
+    {
+     "type": "progress",
+     "value": 0.46,
+     "label": "Bestand Brazil Cerrado: 250 g, Bestellpunkt 270 g"
+    },
+    {
+     "type": "button",
+     "text": "Bohne hinzufügen",
+     "variant": "primary"
+    }
+   ],
+   "empty": [
+    {
+     "type": "title",
+     "text": "Bohnen"
+    },
+    {
+     "type": "empty",
+     "icon": "bean",
+     "title": "Noch keine Bohnen",
+     "text": "Lege deine erste Bohne an.",
+     "action": "Bohne hinzufügen"
+    }
+   ]
+  },
+  {
+   "id": "brew",
+   "name": "Brühung erfassen",
+   "route": "/brews/new",
+   "nav": "brew",
+   "next_step": "Speichern zeigt das Brühungsdetail mit genau einer Empfehlung.",
+   "filled": [
+    {
+     "type": "eyebrow",
+     "text": "Espresso"
+    },
+    {
+     "type": "title",
+     "text": "Brühung erfassen"
+    },
+    {
+     "type": "banner",
+     "tone": "neutral",
+     "text": "Mühle 26 h nicht benutzt: 2,5 g vorab mahlen und verwerfen."
+    },
+    {
+     "type": "card",
+     "blocks": [
+      {
+       "type": "row",
+       "blocks": [
+        {
+         "type": "field",
+         "label": "Maschine",
+         "value": "Lelit Bianca"
+        },
+        {
+         "type": "field",
+         "label": "Mühle",
+         "value": "DF83V"
+        }
+       ]
+      },
+      {
+       "type": "row",
+       "blocks": [
+        {
+         "type": "field",
+         "label": "Mahlgrad",
+         "value": "22",
+         "suffix": "Stufe"
+        },
+        {
+         "type": "field",
+         "label": "Dosis",
+         "value": "18,0",
+         "suffix": "g"
+        }
+       ]
+      },
+      {
+       "type": "row",
+       "blocks": [
+        {
+         "type": "field",
+         "label": "Ausbeute",
+         "value": "36,0",
+         "suffix": "g"
+        },
+        {
+         "type": "field",
+         "label": "Shot-Timer",
+         "value": "27",
+         "suffix": "s"
+        }
+       ]
+      },
+      {
+       "type": "chips",
+       "items": [
+        {
+         "text": "sauer"
+        },
+        {
+         "text": "ausgewogen",
+         "tone": "accent"
+        },
+        {
+         "text": "bitter"
+        },
+        {
+         "text": "dünn"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "type": "button",
+     "text": "Speichern",
+     "variant": "primary"
+    },
+    {
+     "type": "button",
+     "text": "Timer starten",
+     "variant": "secondary"
+    }
+   ],
+   "empty": [
+    {
+     "type": "title",
+     "text": "Brühung erfassen"
+    },
+    {
+     "type": "empty",
+     "icon": "grinder",
+     "title": "Zuerst eine Mühle anlegen",
+     "text": "Ohne Mühle lässt sich keine Brühung speichern.",
+     "action": "Mühle hinzufügen"
+    }
+   ]
+  },
+  {
+   "id": "filter",
+   "name": "Filter geführt",
+   "route": "/brews/filter",
+   "nav": "brew",
+   "focus": true,
+   "next_step": "„Weiter“ führt zum nächsten Aufguss; am Ende Abfluss-Zeit und Geschmack.",
+   "filled": [
+    {
+     "type": "eyebrow",
+     "text": "V60 · 20 g · 1:16 · Schritt 2 von 4"
+    },
+    {
+     "type": "big",
+     "text": "00:45",
+     "sub": "Giesse bis 120 g"
+    },
+    {
+     "type": "progress",
+     "value": 0.375,
+     "label": "Wasser gesamt: 320 g"
+    },
+    {
+     "type": "button",
+     "text": "Weiter",
+     "variant": "primary"
+    },
+    {
+     "type": "button",
+     "text": "Abbrechen",
+     "variant": "secondary"
+    }
+   ],
+   "empty": [],
+   "empty_not_applicable": "Startet nur aus „Brühen“ mit einer trinkbereiten Packung; ohne Packung ist „Filter starten“ ausgegraut."
+  },
+  {
+   "id": "gear",
+   "name": "Ausrüstung",
+   "route": "/gear",
+   "nav": "gear",
+   "next_step": "Karte öffnet das Formular; „Mühle hinzufügen“ legt die nächste an.",
+   "filled": [
+    {
+     "type": "title",
+     "text": "Ausrüstung"
+    },
+    {
+     "type": "chips",
+     "items": [
+      {
+       "text": "Mühlen",
+       "tone": "accent"
+      },
+      {
+       "text": "Maschinen"
+      }
+     ]
+    },
+    {
+     "type": "item",
+     "title": "DF83V",
+     "meta": "Flachscheibe · Skala 0–90, Schritt 1 · Totraum 2,5 g",
+     "icon": "grinder",
+     "art": "22"
+    },
+    {
+     "type": "item",
+     "title": "Comandante C40",
+     "meta": "Hand · Skala 0–40 Klicks · Totraum 0,3 g",
+     "icon": "grinder",
+     "art": "18"
+    },
+    {
+     "type": "kpis",
+     "items": [
+      {
+       "label": "Shots seit Backflush",
+       "value": "90"
+      },
+      {
+       "label": "Tage bis Backflush",
+       "value": "1"
+      }
+     ]
+    },
+    {
+     "type": "button",
+     "text": "Mühle hinzufügen",
+     "variant": "primary"
+    }
+   ],
+   "empty": [
+    {
+     "type": "title",
+     "text": "Ausrüstung"
+    },
+    {
+     "type": "empty",
+     "icon": "grinder",
+     "title": "Noch keine Mühle",
+     "text": "Lege deine Mühle mit Skala und Totraum an.",
+     "action": "Mühle hinzufügen"
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "purge",
+   "question": "Ab wie langer Pause soll die App das Vorab-Mahlen (Totraum) empfehlen?",
+   "why": "Im Interview hast du 2 Stunden akzeptiert, die Spec (R7) setzt 24 Stunden ohne Quelle. Ändert den Hinweis im Screen „Brühung erfassen“.",
+   "identifier": "purgeIdleHours",
+   "options": [
+    {
+     "value": "2",
+     "label": "Nach 2 Stunden",
+     "detail": "wie im Interview vorgeschlagen"
+    },
+    {
+     "value": "24",
+     "label": "Nach 24 Stunden",
+     "detail": "Standardwert der Spec, ohne Quelle"
+    }
+   ],
+   "proposal": "2",
+   "affects": [
+    "brew"
+   ]
+  },
+  {
+   "id": "rest",
+   "question": "Welche Ruhezeit gilt standardmässig?",
+   "why": "Interview: Espresso 8 Tage, Filter 4 Tage. Die Spec nimmt die untere Grenze je Röstgrad.",
+   "identifier": "restDays",
+   "options": [
+    {
+     "value": "interview",
+     "label": "Espresso 8, Filter 4 Tage",
+     "detail": "pro Bohne änderbar"
+    },
+    {
+     "value": "roast",
+     "label": "Nach Röstgrad",
+     "detail": "z. B. medium: Espresso 10, Filter 5"
+    }
+   ],
+   "proposal": "roast",
+   "affects": [
+    "beans",
+    "today"
+   ]
+  },
+  {
+   "id": "unit",
+   "question": "Einheit für die Wasserhärte?",
+   "why": "Schweiz: °fH üblich. Gespeichert wird immer ppm.",
+   "identifier": "hardnessUnit",
+   "options": [
+    {
+     "value": "fh",
+     "label": "°fH",
+     "detail": "Standard in der Schweiz"
+    },
+    {
+     "value": "dh",
+     "label": "°dH",
+     "detail": "Standard in Deutschland"
+    },
+    {
+     "value": "ppm",
+     "label": "ppm",
+     "detail": "wie die SCA-Tabellen"
+    }
+   ],
+   "proposal": "fh"
+  },
+  {
+   "id": "bar",
+   "question": "Untere Navigationsleiste auf dem Handy?",
+   "why": "5 Ziele auf 390 px: Icons mit kurzer Beschriftung oder nur Beschriftung.",
+   "identifier": "AppShell.bottomBar",
+   "options": [
+    {
+     "value": "icons",
+     "label": "Icon mit Beschriftung",
+     "detail": "Material-Standard"
+    },
+    {
+     "value": "labels",
+     "label": "Nur Beschriftung",
+     "detail": "ruhiger, aber schwer zu treffen"
+    }
+   ],
+   "proposal": "icons",
+   "affects": [
+    "today",
+    "beans"
+   ]
+  },
+  {
+   "id": "form",
+   "question": "Wie soll „Brühung erfassen“ aufgebaut sein?",
+   "why": "Im Web-Lauf waren alle 12 Felder auf einmal sichtbar.",
+   "identifier": "BrewForm.layout",
+   "options": [
+    {
+     "value": "prefilled",
+     "label": "Vorbelegt aus der letzten Brühung",
+     "detail": "nur Geschmack und Zeit sind neu"
+    },
+    {
+     "value": "all",
+     "label": "Alle Felder leer",
+     "detail": "volle Kontrolle"
+    }
+   ],
+   "proposal": "prefilled",
+   "affects": [
+    "brew"
+   ]
+  }
+ ],
+ "rules": [
+  {
+   "id": "R1",
+   "title": "Härte-Umrechnung",
+   "identifier": "hardnessToPpm",
+   "numeric": true,
+   "text": "1 °fH = 10 ppm; 1 °dH = 17.848 ppm; Anzeige mit 1 Dezimale.",
+   "examples": [
+    {
+     "given": "Zürcher Leitungswasser 15 °fH",
+     "expect": "150.0 ppm, 8.4 °dH",
+     "realistic": true
+    },
+    {
+     "given": "8.4 °dH",
+     "expect": "149.9 ppm"
+    }
+   ]
+  },
+  {
+   "id": "R3",
+   "title": "Ruhezeit",
+   "identifier": "readyDate",
+   "numeric": true,
+   "text": "readyDate = roastDate + restDays(Methode, Röstgrad); zu alt ab roastDate + 45 Tage.",
+   "params": [
+    {
+     "id": "espressoMedium",
+     "label": "Espresso medium",
+     "value": "10",
+     "unit": "Tage"
+    },
+    {
+     "id": "filterMedium",
+     "label": "Filter medium",
+     "value": "5",
+     "unit": "Tage"
+    }
+   ],
+   "examples": [
+    {
+     "given": "Brazil Cerrado, Röstung 01.11.2026, medium",
+     "expect": "Filter bereit 06.11., Espresso bereit 11.11., zu alt ab 16.12.2026",
+     "realistic": true
+    }
+   ]
+  },
+  {
+   "id": "R5",
+   "title": "Bestellhinweis",
+   "identifier": "orderPoint",
+   "numeric": true,
+   "text": "orderPoint = Verbrauch/Tag × (Lieferzeit + Ruhetage) + Mindestbestand; Hinweis, wenn Bestand ≤ orderPoint.",
+   "params": [
+    {
+     "id": "leadTimeDays",
+     "label": "Lieferzeit",
+     "value": "3",
+     "unit": "Tage"
+    },
+    {
+     "id": "minStockDays",
+     "label": "Mindestbestand",
+     "value": "2",
+     "unit": "Tage Verbrauch"
+    }
+   ],
+   "examples": [
+    {
+     "given": "18 g/Tag (2 Shots), Lieferzeit 3, Espresso medium 10 Tage, Bestand 250 g",
+     "expect": "Bestellpunkt 270 g → „Jetzt bestellen“",
+     "realistic": true
+    },
+    {
+     "given": "Ohne Verbrauch",
+     "expect": "Bestellpunkt 100 g"
+    }
+   ]
+  },
+  {
+   "id": "R6",
+   "title": "Lückenwarnung",
+   "identifier": "gapWarning",
+   "numeric": true,
+   "text": "Lücke von runOutDate + 1 bis nextReady − 1, wenn trinkbereiter Bestand vorher ausgeht.",
+   "examples": [
+    {
+     "given": "Heute 16.11.2026, 90 g trinkbereit, 18 g/Tag, ruhende Packung bereit 25.11.",
+     "expect": "Lücke 21.11.–24.11.2026, Aktion „Packung X öffnen“",
+     "realistic": true
+    }
+   ]
+  },
+  {
+   "id": "R9",
+   "title": "Espresso-Empfehlung",
+   "identifier": "espressoAdvice",
+   "numeric": true,
+   "text": "Genau eine Variable: Wasser vor Ruhezeit vor Mahlgrad; Zeit 25–30 s hat Vorrang vor dem Geschmack; 1 Rasterstufe, 2 bei < 20 s oder > 35 s.",
+   "params": [
+    {
+     "id": "steps",
+     "label": "Stufen pro Änderung",
+     "value": "1",
+     "unit": "Stufe"
+    }
+   ],
+   "examples": [
+    {
+     "given": "DF83V (0–90, Schritt 1, feiner = abwärts), Stufe 22, sauer, 27 s",
+     "expect": "Stufe 21 („1 Stufe feiner“)",
+     "realistic": true
+    },
+    {
+     "given": "Bitter, 17 s, Stufe 22",
+     "expect": "Stufe 20 (Zeit gewinnt, 2 Stufen feiner)"
+    }
+   ]
+  },
+  {
+   "id": "R10",
+   "title": "Filter-Rezept",
+   "identifier": "filterRecipe",
+   "numeric": true,
+   "text": "W = Dosis × Verhältnis; Bloom 2 × Dosis; Zwischensummen 0.375 W, 0.6875 W, W.",
+   "params": [
+    {
+     "id": "ratio",
+     "label": "Verhältnis 1 :",
+     "value": "16",
+     "unit": ""
+    }
+   ],
+   "examples": [
+    {
+     "given": "V60, 20 g, 1:16",
+     "expect": "320 g Wasser, Bloom 40 g, 120 / 220 / 320 g",
+     "realistic": true
+    }
+   ]
+  }
+ ],
+ "acceptance": [
+  {
+   "id": "AC-1",
+   "text": "Packung geröstet 01.11.2026 (medium) zeigt am 08.11. „Ruht noch 3 Tage“ für Espresso."
+  },
+  {
+   "id": "AC-2",
+   "text": "Sauer, 27 s auf DF83V Stufe 22 empfiehlt genau Stufe 21."
+  },
+  {
+   "id": "AC-3",
+   "text": "V60 20 g bei 1:16 zeigt 320 g, Bloom 40 g und die Zwischensummen 120/220/320 g."
+  },
+  {
+   "id": "AC-4",
+   "text": "Leere App: „Heute“ zeigt den Empty-State mit „Bohne hinzufügen“, nie eine leere Überschrift."
+  },
+  {
+   "id": "AC-5",
+   "text": "Alle Screens bei 390 und 1280 px ohne Überlappung, Texte nur in der Sprache des Geräts."
+  },
+  {
+   "id": "AC-6",
+   "text": "Eine Lücke bis zur nächsten bereiten Packung zeigt ein Warnbanner mit Datum von–bis und einer Aktion."
+  }
+ ],
+ "requirements": [
+  {
+   "id": "P1",
+   "text": "Brühungen mit Maschine, Mühle, Einstellungen und Shot-Timer erfassen",
+   "zero_config": "no",
+   "how": "braucht zuerst eine Mühle (und für Espresso eine Maschine); der leere Zustand führt dorthin"
+  },
+  {
+   "id": "P2",
+   "text": "Bohnenbestand und Ruhezeit führen",
+   "zero_config": "yes",
+   "how": "Ruhezeiten je Methode und Röstgrad sind als Daten mitgeliefert (rest_rules.json)"
+  },
+  {
+   "id": "P3",
+   "text": "Wasserwerte prüfen",
+   "zero_config": "yes",
+   "how": "SCA-Bereiche sind mitgeliefert (water_rules.json)"
+  },
+  {
+   "id": "P4",
+   "text": "Reinigungsintervalle aus der Nutzung ableiten",
+   "zero_config": "yes",
+   "how": "Backflush 7 Tage/200 Shots, Entkalken nach Härte (care_rules.json)"
+  },
+  {
+   "id": "P5",
+   "text": "Nach dem Geschmack eine Verbesserung empfehlen",
+   "zero_config": "yes",
+   "how": "Regeln R9/R11 mit Quellen sind eingebaut"
+  },
+  {
+   "id": "P6",
+   "text": "Filterkaffee Schritt für Schritt anleiten",
+   "zero_config": "yes",
+   "how": "V60-Schema 1:16 als Standard (R10)"
+  }
+ ],
+ "glossary": [
+  {
+   "term": "Brühung",
+   "translation": "brew",
+   "avoid": [
+    "Brew",
+    "Bezug"
+   ]
+  },
+  {
+   "term": "Mühle",
+   "translation": "grinder",
+   "avoid": [
+    "Grinder"
+   ]
+  },
+  {
+   "term": "Totraum",
+   "translation": "dead space",
+   "avoid": [
+    "Retention"
+   ]
+  },
+  {
+   "term": "Packung",
+   "translation": "pack",
+   "avoid": [
+    "Bag",
+    "Beutel"
+   ]
+  },
+  {
+   "term": "trinkbereit",
+   "translation": "ready",
+   "avoid": []
+  }
+ ],
+ "conditions": [
+  {
+   "word": "trinkbereit",
+   "definition": "readyDate ≤ heute und heute < roastDate + 45 Tage (R3)"
+  },
+  {
+   "word": "zu alt",
+   "definition": "heute ≥ roastDate + 45 Tage (R3)"
+  },
+  {
+   "word": "Bestellhinweis",
+   "definition": "Gesamtbestand der Bohne ≤ orderPoint (R5)"
+  },
+  {
+   "word": "Lücke",
+   "definition": "nextReady > runOutDate + 1 bei consumptionPerDay > 0 (R6)"
+  },
+  {
+   "word": "fällig",
+   "definition": "Backflush: ≥ 200 Shots oder ≥ 7 Tage; Entkalken nach Härte 30/60/90 Tage (R8)"
+  }
+ ],
+ "flow": {
+  "progressive_disclosure": "Erst Mühle (und Maschine für Espresso), dann Bohne mit Packung; „Brühen“ zeigt bis dahin den Einrichten-Schritt. Wasser und Pflege erscheinen auf „Heute“ erst mit Daten.",
+  "carry_over": "Neue Brühung übernimmt Maschine, Mühle, Packung, Dosis und Mahlgrad der letzten; „Nächster Versuch“ übernimmt die empfohlene Änderung."
+ }
+}

@@ -1,0 +1,112 @@
+/* Flow builder editor column layout, wide-screen breakpoint and empty state. */
+/* Inspector is a real column beside the graph; narrow stacking: flowInspectorPanel.css. */
+.flow-builder__layout--editor {
+  container: flow-editor / inline-size;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "main inspector";
+}
+
+.flow-builder__layout--editor .flow-builder__main {
+  grid-column: 1;
+}
+
+.flow-builder__layout--editor .flow-builder__inspector {
+  grid-area: inspector;
+  width: clamp(320px, 26vw, 400px);
+  border-left: 1px solid var(--border-soft);
+}
+
+@media (max-width: 1500px) {
+  .flow-builder__layout:not(.flow-builder__layout--editor) {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "sidebar main";
+  }
+
+  .flow-builder__sidebar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    border-right: 1px solid var(--border-soft);
+    border-bottom: 0;
+    padding: 12px 0.75rem;
+  }
+
+  .flow-builder__sidebar > .admin-panel__field {
+    flex: 0 0 auto;
+    margin: 0;
+  }
+
+  .flow-builder__list {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: 2px;
+  }
+
+  .flow-builder__list-header {
+    flex-direction: row;
+    justify-content: space-between;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    padding: 0 4px;
+  }
+
+  .flow-builder__list-item {
+    min-height: 50px;
+    max-height: none;
+    justify-content: center;
+  }
+
+  .flow-builder__layout:not(.flow-builder__layout--editor) .flow-builder__inspector {
+    position: absolute;
+    top: 84px;
+    right: 0;
+    bottom: 0;
+    z-index: 8;
+    width: clamp(312px, 30vw, 352px);
+    border-left: 1px solid var(--border-soft);
+    box-shadow: -18px 0 42px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(12px);
+  }
+}
+
+/* Empty state when no flow is selected */
+.flow-builder__empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 380px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--panel-elevated) 78%, transparent);
+  color: var(--muted);
+  padding: 32px;
+  text-align: center;
+}
+
+.flow-builder__empty-state__icon {
+  color: color-mix(in srgb, var(--muted) 48%, transparent);
+}
+
+.flow-builder__empty-state__title {
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  color: var(--muted-strong);
+  margin: 0;
+}
+
+.flow-builder__empty-state__hint {
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+  margin: 0;
+  max-width: 300px;
+  line-height: 1.5;
+}

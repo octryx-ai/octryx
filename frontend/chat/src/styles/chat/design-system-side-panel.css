@@ -1,0 +1,105 @@
+/* Design-system SidePanel: backdrop, frame, header, body, footer, screen-reader text and phone width. */
+/* ---- SidePanel ------------------------------------------------------------------------------- */
+.ds-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  justify-content: flex-end;
+  background: var(--ds-backdrop);
+}
+
+.ds-panel {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  /* One column as wide as the panel: a long tab row or field scrolls inside it instead of widening the panel past
+     the screen (390 px). */
+  grid-template-columns: minmax(0, 1fr);
+  width: max(var(--ds-panel-min-width), var(--ds-panel-width));
+  max-width: 100vw;
+  height: 100%;
+  border-left: 1px solid var(--ds-line-strong);
+  /* Opaque in both themes: the surface gradient is slightly transparent (96 % in light), the backing is not. */
+  background: var(--ds-surface);
+  background-color: var(--ds-panel-backing);
+  box-shadow: -1.25rem 0 2.5rem rgba(0, 0, 0, 0.32);
+  outline: none;
+}
+
+/* A companion-style panel (Octryx): the help panel's width, beside the dimmed page. */
+.ds-panel--narrow { width: min(var(--ds-panel-min-width), 100vw); }
+
+.ds-panel--page {
+  width: 100%;
+  height: auto;
+  min-height: 100%;
+  border-left: 0;
+  box-shadow: none;
+}
+
+.ds-panel__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--ds-line);
+}
+
+.ds-panel__heading { display: grid; gap: 0.25rem; min-width: 0; margin-right: auto; }
+.ds-panel__title { margin: 0; font-size: var(--ds-text-lg); font-weight: 600; color: var(--ds-text); overflow-wrap: anywhere; }
+.ds-panel__subtitle { margin: 0; color: var(--ds-muted); font-size: var(--ds-font-size-small); }
+.ds-panel__header-actions { display: flex; flex-shrink: 0; align-items: center; gap: 0.5rem; }
+
+.ds-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-control-md);
+  height: var(--ds-control-md);
+  padding: 0;
+  border: 1px solid var(--ds-line-strong);
+  border-radius: var(--ds-radius);
+  background: transparent;
+  color: var(--ds-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ds-panel__close:hover { background: var(--ds-surface-hover); color: var(--ds-text); }
+.ds-panel__close:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ds-panel__tabs { padding: 0.5rem 1rem 0; }
+.ds-panel__body { min-height: 0; overflow: auto; padding: 0.75rem 1rem 1rem; font-size: var(--ds-font-size); }
+
+/* Fixed rows: without tabs the body must still take the flexible row, not the footer (Add connection). */
+.ds-panel > .ds-panel__header { grid-row: 1; }
+.ds-panel > .ds-panel__tabs { grid-row: 2; }
+.ds-panel > .ds-panel__body { grid-row: 3; }
+.ds-panel > .ds-panel__footer { grid-row: 4; }
+
+.ds-panel__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: var(--ds-font-size);
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--ds-line);
+}
+
+/* A footer filled by a form inside the panel (PanelFooterActions): its buttons sit in the footer row itself. */
+.ds-panel__footer-slot { display: contents; }
+
+/* Read by assistive technology, not shown: a field's explanation lives in the page's help. */
+.ds-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .ds-panel { width: 100vw; min-width: 0; }
+  .ds-panel__header { flex-wrap: wrap; }
+}

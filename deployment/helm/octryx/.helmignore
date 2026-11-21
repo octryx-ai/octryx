@@ -1,0 +1,19 @@
+# Patterns excluded from `helm package` for this chart.
+.DS_Store
+.git/
+.gitignore
+*.tgz
+
+# Machine-local secret input must never be packaged into a chart artifact.
+# See scripts/check_release_values_secrets.py.
+values.local.yaml
+values-local.yaml
+values-local.yml
+*.local.yaml
+*.local.yml
+*.env
+.env*
+
+# Not listed on purpose: `secrets.yaml`. A pattern without a slash matches the base
+# name at any depth and would exclude templates/secrets.yaml, breaking the chart.
+# scripts/check_chart_package_inputs.py rejects a chart-root secrets.yaml instead.

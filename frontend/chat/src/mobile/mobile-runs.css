@@ -1,0 +1,225 @@
+/* Phone runs: list rows, run view, decision card and run actions. */
+/* ---- Runs: list, run view, decision card, steps, tasks, actions ----------------------------------- */
+.m-segment-count {
+  margin-left: 4px;
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.m-segment button {
+  padding: 0 4px;
+  white-space: nowrap;
+}
+.m-row-run,
+.m-row-plain,
+.m-row-work {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.m-row-run .m-row-text,
+.m-row-work .m-row-text {
+  gap: 2px;
+}
+.m-row-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  min-width: 0;
+}
+.m-row-problem {
+  color: var(--status-error-ink) !important;
+}
+.m-row-work:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.m-section-hint {
+  margin: -4px 0 8px;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-banner-info {
+  border: 1px solid color-mix(in srgb, var(--m-blue) 40%, transparent);
+  background: var(--status-running-soft);
+  color: var(--status-running-ink);
+}
+.m-run-state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.m-run-position {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+}
+.m-facts {
+  display: grid;
+  gap: 0;
+  margin: 4px 0 0;
+}
+.m-facts > div {
+  display: grid;
+  grid-template-columns: 104px minmax(0, 1fr);
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--m-line-soft);
+  font-size: var(--ds-text-md);
+}
+.m-facts dt {
+  color: var(--m-muted);
+}
+.m-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.m-facts-line {
+  margin: 0;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-facts-line:empty {
+  display: none;
+}
+
+.m-decision {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--m-need) 40%, transparent);
+  border-radius: var(--m-radius);
+  background: linear-gradient(var(--status-attention-soft), var(--status-attention-soft)), var(--m-raise);
+}
+.m-decision-head {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.m-decision-head h2,
+.m-write h2 {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+}
+.m-decision-head p {
+  margin: 0;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-md);
+}
+.m-decision-group {
+  display: grid;
+  gap: 12px;
+}
+.m-decision-group .m-section {
+  margin: 0;
+}
+/* Inside the decision card: a plain well, not a second bordered card. */
+.m-finding {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--m-radius-md);
+  background: var(--m-raise);
+}
+.m-finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.m-finding-head code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+}
+.m-finding p {
+  margin: 0;
+  font-size: var(--ds-text-md);
+}
+.m-finding p.m-finding-fix {
+  font-size: var(--ds-text-sm);
+}
+.m-field {
+  display: grid;
+  gap: 0.5rem;
+}
+.m-field > span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-field .m-question {
+  color: var(--m-text);
+  font-size: var(--ds-text-md);
+}
+.m-field input,
+.m-field textarea,
+.m-field select,
+.m-run-start select,
+.m-run-start input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.75rem 12px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  background: var(--bg-soft);
+  color: var(--m-text);
+  resize: vertical;
+}
+.m-field textarea {
+  min-height: 64px;
+}
+.m-decision-foot {
+  display: grid;
+  gap: 8px;
+}
+.m-fold summary {
+  min-height: var(--ds-control-touch);
+  display: flex;
+  align-items: center;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+  cursor: pointer;
+}
+.m-fold[open] summary {
+  margin-bottom: 8px;
+}
+.m-fold-panel {
+  display: block;
+}
+/* The panel's own padding stays as it is; the summary reaches into it for a 44 px tap area. */
+.m-fold-panel summary {
+  margin: -12px 0;
+  padding: 12px 0;
+  font-weight: var(--ds-weight-strong);
+  cursor: pointer;
+}
+.m-fold-panel[open] summary {
+  margin-bottom: -4px;
+}
+.m-note,
+.m-wrap-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--ds-text-md);
+  color: var(--m-muted-strong);
+}
+.m-run-actions {
+  gap: 12px;
+}
+.m-run-actions .m-section {
+  margin: 0;
+}
+.m-action {
+  display: grid;
+  gap: 8px;
+}

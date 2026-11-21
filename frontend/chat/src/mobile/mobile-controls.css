@@ -1,0 +1,259 @@
+/* Phone controls: send and stop, set buttons, forms, cards, codes and notification switches. */
+/* Icon buttons: square at the touch height, radius 8, like every other control. */
+.m-send,
+.m-stop {
+  width: var(--ds-control-touch);
+  height: var(--ds-control-touch);
+  border-radius: var(--m-radius-md);
+  flex: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.m-send {
+  border: 0;
+  background: var(--m-accent);
+  color: var(--m-on-accent);
+  font-size: var(--ds-text-2xl);
+  font-weight: var(--ds-weight-strong);
+}
+.m-send:disabled {
+  opacity: 0.35;
+}
+.m-stop {
+  border: 2px solid var(--m-text);
+  background: none;
+}
+.m-stop i {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--m-text);
+}
+
+/* The phone's buttons: the set's shape at the touch height (44), text 16, 500; the primary 600. */
+.m-primary,
+.m-danger,
+.m-secondary {
+  min-height: var(--ds-control-touch);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--m-radius-md);
+  border: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-medium);
+  line-height: 1.25;
+  text-align: center;
+  padding: 8px 16px;
+}
+.m-primary:active:not(:disabled),
+.m-secondary:active:not(:disabled) {
+  filter: brightness(0.94);
+}
+.m-primary {
+  background: var(--m-accent);
+  color: var(--m-on-accent);
+  font-weight: var(--ds-weight-strong);
+}
+.m-primary:disabled {
+  opacity: 0.4;
+}
+.m-danger {
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--m-red) 45%, transparent);
+  color: var(--status-error-ink);
+}
+.m-full {
+  width: 100%;
+}
+
+.m-form {
+  gap: 8px;
+}
+.m-form label,
+.m-label {
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+  margin-top: 8px;
+}
+.m-form select,
+.m-form textarea,
+.m-code-form input {
+  width: 100%;
+  min-height: var(--ds-control-touch);
+  padding: 8px 12px;
+  border-radius: var(--m-radius-md);
+  border: 1px solid var(--m-line);
+  background: var(--m-raise);
+}
+
+.m-center {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px)
+    max(20px, env(safe-area-inset-right, 0px))
+    calc(env(safe-area-inset-bottom, 0px) + 24px)
+    max(20px, env(safe-area-inset-left, 0px));
+}
+.m-title {
+  margin: 0;
+}
+.m-card {
+  width: 100%;
+  max-width: 360px;
+  padding: 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+}
+.m-card p {
+  margin: 0;
+}
+/* Size, weight and tracking come from ui-set.css. */
+.m-eyebrow {
+  color: var(--m-muted);
+}
+.m-number {
+  font-size: 56px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+.m-code {
+  font:
+    600 28px "IBM Plex Mono",
+    ui-monospace,
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+  user-select: all;
+}
+.m-steps {
+  text-align: left;
+  max-width: 360px;
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: 8px;
+}
+.m-code-form {
+  width: 100%;
+  max-width: 360px;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.m-code-form label {
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+}
+.m-code-form input {
+  text-align: center;
+  font:
+    600 22px "IBM Plex Mono",
+    ui-monospace,
+    Menlo,
+    monospace;
+  letter-spacing: 0.1em;
+}
+.m-muted {
+  color: var(--m-muted);
+  margin: 0;
+}
+.m-warn {
+  color: var(--m-need);
+  margin: 0;
+}
+.m-error {
+  color: var(--m-red);
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+  }
+}
+
+.m-link {
+  color: var(--m-accent);
+  font-weight: var(--ds-weight-strong);
+}
+.m-confirm-buttons {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* Notifications in Settings. */
+.m-push {
+  margin: 0;
+}
+.m-switches {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  border: 1px solid var(--m-line-soft);
+}
+.m-switches li + li {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-switches label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 0.75rem 16px;
+}
+.m-switches small {
+  display: block;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+  margin-top: 2px;
+}
+.m-switches input {
+  appearance: none;
+  flex: none;
+  width: 51px;
+  height: 31px;
+  border-radius: var(--ds-radius-xl);
+  background: var(--m-grey);
+  position: relative;
+  transition: background 0.15s;
+}
+.m-switches input::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+.m-switches input:checked {
+  background: var(--m-green);
+}
+.m-switches input:checked::after {
+  transform: translateX(20px);
+}
+.m-switches input:focus-visible {
+  outline: 2px solid var(--m-blue);
+  outline-offset: 2px;
+}
+.m-secondary {
+  border: 1px solid var(--m-line);
+  background: var(--surface-overlay-strong);
+  color: var(--m-text);
+}

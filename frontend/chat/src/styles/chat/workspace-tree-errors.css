@@ -1,0 +1,5 @@
+/* Workspace tree and errors stylesheet: imports its partials in cascade order. */
+@import "./workspace-sidepanel-frame.css";
+@import "./workspace-tree.css";
+@import "./workspace-changes.css";
+@import "./workspace-errors.css";

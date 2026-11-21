@@ -1,0 +1,17 @@
+/* Connector field groups (delivery 5): Connection, Authentication, Scope, each with a title. They are
+   design-system form sections (ds-form-section: a title, no frame, no uppercase). */
+.connector-card__group {
+  min-width: 0;
+}
+
+/* What the main view cannot express (raw stored values) stays reachable, collapsed. */
+.connector-card__advanced > summary {
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.connector-card__advanced[open] {
+  display: grid;
+  gap: 0.5rem;
+}

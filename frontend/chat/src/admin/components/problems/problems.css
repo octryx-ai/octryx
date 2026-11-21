@@ -1,0 +1,22 @@
+/* E5 Problems: filters in one row above the full-width table. */
+.problems-page,
+.problems {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.problems__scope,
+.problems__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.problems__notice {
+  margin: 0;
+  color: var(--text-secondary, inherit);
+  max-width: 72ch;
+}

@@ -1,0 +1,12 @@
+# Local development manifests intentionally use :latest tags so image rebuilds can
+# be tested without rewriting static base manifests. Canonical EKS Helm values use
+# digest-pinned images.
+KSV-0013
+
+# GHCR is the configured Octryx registry in this repository. Trivy's
+# generic Kubernetes policy does not know the organization's trusted registries.
+KSV-0125
+
+# OCTRYX_SESSION_WORKSPACE_MAX_AGE_HOURS is a numeric retention setting,
+# not a secret. The ConfigMap finding is a keyword false positive.
+KSV-01010

@@ -1,0 +1,20 @@
+/* Workspace connector card messages: local layout, existing theme tokens.
+   The shared .admin-panel__error is the full-panel error state (11rem minimum height, centred), so an inline
+   message inside a card uses this class instead and is sized to its text, like .admin-panel__success. */
+
+.workspace-connection__message {
+  padding: 0.75rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--status-error) 16%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+/* The switch-to-global confirmation: the consequence on its own line, the two choices in one row below. */
+.workspace-connection__confirm {
+  display: grid;
+  gap: 0.5rem;
+}

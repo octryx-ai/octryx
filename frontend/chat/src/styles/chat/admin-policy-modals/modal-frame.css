@@ -1,0 +1,155 @@
+/* Admin modal frame, backdrop, header, close button and shared inner blocks. */
+.admin-modal {
+  width: min(560px, 100%);
+  height: auto;
+  max-height: min(760px, calc(100vh - 3rem));
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "header"
+    "body";
+  border: 1px solid var(--shell-divider);
+  border-radius: var(--ds-radius-xl);
+  overflow: hidden;
+  background: var(--panel);
+  box-shadow: var(--shell-shadow-soft);
+}
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1.25rem;
+  background:
+    radial-gradient(
+      circle at top,
+      color-mix(in srgb, var(--accent) 8%, transparent),
+      transparent 34%
+    ),
+    rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(16px);
+}
+
+.admin-modal--narrow {
+  width: min(480px, 100%);
+}
+
+.admin-modal__body {
+  grid-area: body;
+  padding: 1rem 1rem 1rem;
+  overflow-y: auto;
+  background: var(--surface-overlay);
+}
+
+.admin-modal__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.admin-panel__row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.turn-trace-modal {
+  width: min(980px, 100%);
+  max-height: min(820px, calc(100vh - 3rem));
+}
+
+.turn-trace-modal .admin-modal__body {
+  padding: 1rem 1rem 1rem;
+}
+
+.admin-modal__eyebrow {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Title on the left, close button on the right. The base .admin-panel__header
+   rule only places the element in the grid, so without this the close button
+   fell under the title. */
+.admin-modal .admin-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 1rem;
+  border-bottom: 1px solid var(--shell-divider);
+  background: var(--workspace-header-surface);
+  backdrop-filter: blur(18px);
+}
+
+.admin-modal .admin-panel__header-copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.admin-modal .admin-panel__title {
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.admin-modal .admin-panel__close-btn,
+.admin-modal .icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.admin-modal .admin-panel__close-btn:hover,
+.admin-modal .icon-button:hover {
+  background: var(--surface-overlay-hover);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.admin-modal .admin-panel__close-btn svg,
+.admin-modal .icon-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.admin-modal .thread-search--inline {
+  margin-bottom: 0.1rem;
+}
+
+.admin-modal .admin-panel__hint {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.admin-modal .admin-panel__empty-state {
+  min-height: 10rem;
+}
+
+.admin-modal .admin-option-list {
+  gap: 0.75rem;
+}

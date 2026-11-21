@@ -1,0 +1,22 @@
+{
+ "about": "Reference runs for the maintenance metrics: plain Claude Code on the same item (kind plain) and the measured light path (kind light_measured). Keyed by the class a run starts in (an escalation is overhead). Exported as octryx_run_reference{workflow,size_class,kind,measure}; Grafana shows a class's cost, duration and sessions against them.",
+ "references": [
+  {
+   "name": "small bug, plain Claude Code",
+   "workflow": "bug-fix-reproduction",
+   "size_class": "S",
+   "kind": "plain",
+   "cost_usd": 0.26,
+   "duration_seconds": 73,
+   "sessions": 1
+  },
+  {
+   "name": "small bug, light path (S)",
+   "workflow": "bug-fix-reproduction",
+   "size_class": "S",
+   "kind": "light_measured",
+   "cost_usd": 0.92,
+   "duration_seconds": 2100
+  }
+ ]
+}

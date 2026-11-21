@@ -1,0 +1,6 @@
+/* Knowledge › Advanced › Packages: the research form. The topic takes the full width (its example is long); product,
+   versions and Research share the row below. Sizes from the UI set. */
+.knowledge-packages__form { display: grid; gap: var(--ds-space-2); }
+.knowledge-packages__form .knowledge-packages__topic { width: 100%; box-sizing: border-box; }
+.knowledge-packages__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--ds-space-2); }
+@media (max-width: 40rem) { .knowledge-packages__row { grid-template-columns: minmax(0, 1fr); } }

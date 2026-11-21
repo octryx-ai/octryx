@@ -1,0 +1,289 @@
+/* Operations › Live: toolbar, count bar, the runs table with its items, then devices and seats side by side.
+   Sizes from the UI set (ds-tokens.css), colours from the theme. */
+.ops-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+.ops-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2) var(--ds-space-4);
+}
+.ops-toolbar__end {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin-left: auto;
+}
+.ops-updated,
+.ops-muted {
+  color: var(--ds-muted);
+  font-size: var(--ds-text-xs);
+}
+
+.ops-notice {
+  margin: 0;
+  max-width: 72ch;
+  color: var(--ds-muted);
+  font-size: var(--ds-text-sm);
+}
+.ops-notice--problem { color: var(--ds-tone-problem-ink); }
+/* New starts held by an emergency stop: one quiet attention line with Resume for whoever may stop. */
+.ops-held {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--status-attention) 7%, transparent);
+}
+.ops-held__text { margin: 0; color: var(--ds-text); font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.ops-held__body { display: flex; flex-direction: column; gap: var(--ds-space-1); min-width: 0; }
+.ops-held__who { margin: 0; color: var(--ds-muted); font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+.ops-held__reason { color: var(--ds-text); overflow-wrap: anywhere; }
+.ops-held__text strong { font-weight: var(--ds-weight-strong); color: var(--status-attention-ink); }
+@media (max-width: 640px) {
+  .ops-held { flex-direction: column; align-items: flex-start; }
+}
+.ops-confirm { margin: 0; font-size: var(--ds-text-sm); line-height: var(--ds-leading); }
+
+/* Count bar: six tiles in a row (three on narrow screens); colour only for an exception that is not zero. */
+.ops-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ops-count {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  min-width: 0;
+}
+.ops-count__label {
+  color: var(--ds-muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+.ops-count__value {
+  color: var(--text);
+  font-size: var(--ds-text-3xl);
+  font-weight: var(--ds-weight-strong);
+  line-height: var(--ds-leading-tight);
+  font-variant-numeric: tabular-nums;
+}
+.ops-count--attention { border-color: var(--ds-tone-attention-line); }
+.ops-count--attention .ops-count__value { color: var(--ds-tone-attention-ink); }
+.ops-count--problem { border-color: var(--ds-tone-problem-line); }
+.ops-count--problem .ops-count__value { color: var(--ds-tone-problem-ink); }
+
+.ops-section { margin: var(--ds-space-3) 0 0; }
+
+/* A run's first cell: the open/close toggle, then title and who it is for; an item sits indented under it. */
+.ops-run {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-width: 0;
+}
+/* Under the run's title: past the toggle (28 + 8) and one step further in. */
+.ops-run--item { padding-left: calc(var(--ds-control-sm) + var(--ds-space-2) + var(--ds-space-4)); }
+.ops-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-control-sm);
+  height: var(--ds-control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--ds-muted);
+  cursor: pointer;
+}
+.ops-toggle:hover { background: var(--ds-surface-hover); color: var(--text); }
+.ops-toggle:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+.ops-toggle svg {
+  width: var(--ds-icon-md);
+  height: var(--ds-icon-md);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 120ms ease;
+}
+.ops-toggle svg.is-open { transform: rotate(90deg); }
+.ops-toggle--none { cursor: default; }
+.ops-toggle--none:hover { background: transparent; }
+
+.ops-two-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+.ops-two-lines > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-strong { font-weight: var(--ds-weight-medium); color: var(--text); }
+.ops-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+
+/* The runs table's rows hold two lines; keep them calm. */
+.ops-page .ds-table__td { padding-top: var(--ds-space-1); padding-bottom: var(--ds-space-1); }
+
+.ops-split {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--ds-space-6);
+  align-items: start;
+}
+.ops-split__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .ops-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ops-split { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Emergency stop: the side panel's content (what stops, the reason) and the folded history under the page. */
+.ops-stop {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  min-width: 0;
+}
+.ops-stop__lead,
+.ops-stop__sum {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+.ops-stop__sum { font-weight: var(--ds-weight-medium); }
+.ops-stop__part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+}
+.ops-stop__title {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.ops-stop__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+}
+.ops-stop__reason {
+  width: 100%;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: var(--ds-weight-regular);
+  resize: vertical;
+}
+.ops-stop__reason:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; }
+
+.ops-history {
+  margin-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-line);
+  padding-top: var(--ds-space-3);
+}
+.ops-history__summary {
+  cursor: pointer;
+  color: var(--ds-muted);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+}
+.ops-history__summary:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: 2px; border-radius: var(--ds-radius-sm); }
+.ops-history__body { margin-top: var(--ds-space-3); }
+
+/* Costs: period (and scope) on the left, the grouping on the right. */
+.ops-toolbar__start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-4);
+}
+
+/* Operations › Costs › Seats by person: the person's figures, then seat accounts, Workspaces and the
+   last allowance in the side panel. The seat equivalent and the API cost stay two separate lines. */
+.ops-view-switch { display: flex; }
+/* Live: the API cost, the seat's API equivalent on its own line under it. */
+.ops-cost { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--ds-space-1); font-variant-numeric: tabular-nums; }
+.seat-usage__facts {
+  display: grid;
+  gap: var(--ds-space-2);
+  margin: 0 0 var(--ds-space-6);
+}
+.seat-usage__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ds-space-4);
+  font-size: var(--ds-text-sm);
+}
+.seat-usage__facts dt { color: var(--ds-muted); }
+.seat-usage__facts dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+.seat-usage__amount { font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); }
+.seat-usage__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-6);
+}
+.seat-usage__title {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.seat-usage__title .ops-muted { font-weight: var(--ds-weight-regular); }
+.seat-usage__account { display: flex; flex-direction: column; gap: var(--ds-space-2); }
+.seat-usage__account-head {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--ds-space-3);
+  margin: 0;
+  font-size: var(--ds-text-sm);
+}
+.seat-usage__account-name { font-weight: var(--ds-weight-medium); }
+.seat-usage__allowance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.seat-usage__allowance li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-3);
+  font-size: var(--ds-text-sm);
+}

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "chp_timeout", "signature_id": "sig_timeout", "state": "proposed",
+    "evidence": {"repeats": 3, "runs": 3, "sources": {"review_fixed": 2, "pipeline_cause": 1}, "occurrences": [
+      {"source": "review_fixed", "work_item_key": "OCX-7", "at": "2026-11-17T09:12:00Z", "excerpt": "The HTTP call to the payment provider has no timeout; a slow provider hangs the checkout worker."},
+      {"source": "review_fixed", "work_item_key": "OCX-11", "at": "2026-11-18T14:40:00Z", "excerpt": "requests.get(...) without timeout= again, in the stock sync."},
+      {"source": "pipeline_cause", "work_item_key": "OCX-12", "at": "2026-11-19T08:03:00Z", "excerpt": "Integration test timed out after 600 s: the stub never answered and the client waited forever."}]},
+    "draft": {"kind": "lint_rule", "lands_in": "code_style:stack:python", "stack": "python",
+      "rule": {"tool": "ruff", "rule_id": "S113", "config": {}},
+      "summary": "Every requests/httpx call names a timeout."},
+    "message": {"what": "An HTTP call without a timeout.", "why": "A slow or silent server blocks the worker for good; it happened three times in reviews and once in the pipeline.",
+      "instead": "Pass timeout= (for example timeout=10), or use the shared client in shop/http.py, which sets one."},
+    "old_instances": {"count": 4, "examples": [{"path": "shop/payments.py", "line": 41, "excerpt": "requests.post(PROVIDER_URL, json=body)"},
+      {"path": "shop/stock_sync.py", "line": 18, "excerpt": "requests.get(feed_url)"}]},
+    "proof": {"state": "proven", "red_on": [{"commit": "9f3c2a1", "path": "shop/payments.py"}, {"commit": "b71e0d4", "path": "shop/stock_sync.py"}],
+      "green_on": {"commit": "e04a9c7", "files_checked": 42}, "at": "2026-11-19T10:00:00Z"},
+    "severity": "warning", "enabled": true, "author": {"kind": "platform", "user_id": null}, "edits": [], "decision": null,
+    "created_at": "2026-11-19T10:00:00Z", "updated_at": "2026-11-19T10:00:00Z"
+  },
+  {
+    "id": "chp_money_eq", "signature_id": "sig_money_eq", "state": "proposed",
+    "evidence": {"repeats": 2, "runs": 2, "sources": {"review_change_request": 1, "revert": 1}, "occurrences": [
+      {"source": "review_change_request", "work_item_key": "OCX-1", "at": "2026-11-19T21:58:00Z", "excerpt": "Comparing totals with == fails for 0.1 + 0.2; compare rounded cents."},
+      {"source": "revert", "work_item_key": "OCX-4", "at": "2026-11-20T07:15:00Z", "excerpt": "Reverted: the refund check compared floats with == and refused valid refunds."}]},
+    "draft": {"kind": "pattern", "lands_in": "code_style:stack:python", "stack": "python",
+      "rule": {"tool": "semgrep", "rule_id": "money-float-equality", "config": {"pattern": "$TOTAL == $OTHER", "paths": ["shop/**/*.py"], "where": "names contain total, price or amount"}},
+      "summary": "Money amounts are never compared with == on floats."},
+    "message": {"what": "Two money amounts compared with ==.", "why": "Float sums differ in the last digit (0.1 + 0.2 != 0.3); a refund was refused and reverted.",
+      "instead": "Compare cents: round(a * 100) == round(b * 100), or keep amounts as Decimal."},
+    "old_instances": {"count": 2, "examples": [{"path": "shop/refunds.py", "line": 12, "excerpt": "if refund.amount == order.total:"}]},
+    "proof": {"state": "running", "red_on": [], "green_on": null, "at": null},
+    "severity": "warning", "enabled": true, "author": {"kind": "platform", "user_id": null}, "edits": [], "decision": null,
+    "created_at": "2026-11-20T07:20:00Z", "updated_at": "2026-11-20T07:20:00Z"
+  },
+  {
+    "id": "chp_web_db", "signature_id": "sig_web_db", "state": "approved",
+    "evidence": {"repeats": 4, "runs": 3, "sources": {"review_fixed": 3, "pr_comment": 1}, "occurrences": [
+      {"source": "review_fixed", "work_item_key": "OCX-3", "at": "2026-11-16T11:00:00Z", "excerpt": "The order page queries the database directly; go through shop.orders."}]},
+    "draft": {"kind": "architecture", "lands_in": "code_style:workspace", "stack": "python",
+      "rule": {"tool": "import-linter", "rule_id": "web-not-db", "config": {"source": "shop.web", "forbidden": "shop.db"}},
+      "summary": "The web layer does not import the database module."},
+    "message": {"what": "shop.web imports shop.db.", "why": "Queries in the web layer skipped the order rules twice.",
+      "instead": "Call the service in shop.orders; it owns the queries."},
+    "old_instances": {"count": 0, "examples": []},
+    "proof": {"state": "proven", "red_on": [{"commit": "4aa01de", "path": "shop/web/orders.py"}], "green_on": {"commit": "e04a9c7", "files_checked": 42}, "at": "2026-11-17T09:00:00Z"},
+    "severity": "warning", "enabled": true, "author": {"kind": "platform", "user_id": null}, "edits": [],
+    "decision": {"state": "approved", "by": "fixture-approver", "at": "2026-11-17T12:00:00Z", "reason": ""},
+    "created_at": "2026-11-17T09:00:00Z", "updated_at": "2026-11-17T12:00:00Z"
+  },
+  {
+    "id": "chp_comment", "signature_id": "sig_comment", "state": "rejected",
+    "evidence": {"repeats": 2, "runs": 2, "sources": {"pr_comment": 2}, "occurrences": [
+      {"source": "pr_comment", "work_item_key": "OCX-5", "at": "2026-11-15T16:00:00Z", "excerpt": "Please no TODO comments in merged code."}]},
+    "draft": {"kind": "pattern", "lands_in": "code_style:workspace", "stack": "python",
+      "rule": {"tool": "ruff", "rule_id": "FIX002", "config": {}}, "summary": "No TODO comments in merged code."},
+    "message": {"what": "A TODO comment.", "why": "Open work hides in comments.", "instead": "Open a work item and link it, or finish the change."},
+    "old_instances": {"count": 31, "examples": []},
+    "proof": {"state": "proven", "red_on": [], "green_on": {"commit": "e04a9c7", "files_checked": 42}, "at": "2026-11-15T17:00:00Z"},
+    "severity": "warning", "enabled": true, "author": {"kind": "platform", "user_id": null}, "edits": [],
+    "decision": {"state": "rejected", "by": "fixture-approver", "at": "2026-11-15T18:00:00Z", "reason": "We keep TODOs with a work item key; a rule for that later."},
+    "created_at": "2026-11-15T17:00:00Z", "updated_at": "2026-11-15T18:00:00Z"
+  }
+]

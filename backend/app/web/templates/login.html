@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Octryx — Sign in</title>
+  <link rel="icon" type="image/svg+xml" href="/chat/static/chat/favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap" rel="stylesheet">
+  <script type="module" defer>
+    document.documentElement.classList.add("admin-chat-ui");
+  </script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --font-sans: "Inter", "IBM Plex Sans", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+
+      --bg: #0e100f;
+      --bg-soft: #141715;
+      --panel-strong: #171918;
+
+      --shell-divider: rgba(255, 255, 255, 0.055);
+      --shell-shadow-soft: 0 14px 34px rgba(0, 0, 0, 0.22);
+
+      --border: rgba(255, 255, 255, 0.065);
+      --border-soft: rgba(255, 255, 255, 0.04);
+      --border-strong: rgba(255, 255, 255, 0.095);
+      --surface-overlay: rgba(255, 255, 255, 0.018);
+      --surface-overlay-strong: rgba(255, 255, 255, 0.036);
+      --surface-overlay-hover: rgba(255, 255, 255, 0.06);
+
+      --text: #efece4;
+      --highlight: #f7f4ec;
+      --muted: #898f86;
+      --muted-strong: #cbc7bc;
+
+      --accent: #e8dfc5;
+      --accent-strong: #f3ecd6;
+      --accent-soft: rgba(216, 200, 154, 0.14);
+
+      --status-error: #f87171;
+      --status-error-text: #fca5a5;
+
+      --brand-taupe-deep: #1f1c17;
+      --brand-taupe: #4f4840;
+      --brand-taupe-soft: #807769;
+      --brand-cream: #e8dfc5;
+      --brand-cream-strong: #f3ecd6;
+    }
+
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg: #f5f1e8;
+      --bg-soft: #ede7db;
+      --panel-strong: #fcfaf4;
+      --shell-divider: rgba(36, 39, 35, 0.075);
+      --shell-shadow-soft: 0 14px 34px rgba(31, 28, 23, 0.12);
+
+      --border: rgba(36, 39, 35, 0.1);
+      --border-soft: rgba(36, 39, 35, 0.06);
+      --border-strong: rgba(36, 39, 35, 0.135);
+      --surface-overlay: rgba(36, 39, 35, 0.03);
+      --surface-overlay-strong: rgba(36, 39, 35, 0.048);
+      --surface-overlay-hover: rgba(36, 39, 35, 0.075);
+
+      --text: #1a1d1c;
+      --highlight: #151816;
+      --muted: #7a8076;
+      --muted-strong: #555a53;
+
+      --accent: #4f4840;
+      --accent-strong: #2b261f;
+      --accent-soft: rgba(79, 72, 64, 0.10);
+
+      --status-error: #f87171;
+      --status-error-text: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      color: var(--text);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .login {
+      display: grid;
+      grid-template-columns: 1.05fr 1fr;
+      min-height: 100vh;
+    }
+
+    .login__brand {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: clamp(2.4rem, 4vw, 4rem);
+      background:
+        radial-gradient(120% 90% at 18% 0%, rgba(232, 223, 197, 0.10), transparent 52%),
+        radial-gradient(100% 80% at 100% 100%, rgba(128, 119, 105, 0.16), transparent 60%),
+        linear-gradient(160deg, #2a2620 0%, var(--brand-taupe-deep) 70%);
+      color: var(--brand-cream-strong);
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .login__brand::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(232, 223, 197, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(232, 223, 197, 0.035) 1px, transparent 1px);
+      background-size: 46px 46px;
+      mask-image: radial-gradient(120% 100% at 30% 30%, #000 0%, transparent 75%);
+      pointer-events: none;
+    }
+
+    .login__brand > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .login__brand-top {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .login__brand-top img {
+      width: 2.1rem;
+      height: 2.1rem;
+      border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+      object-fit: contain;
+    }
+
+    .login__wordmark {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--brand-cream-strong);
+    }
+
+    .login__brand-eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--brand-taupe-soft);
+      margin-left: auto;
+    }
+
+    .login__hero {
+      max-width: 30rem;
+    }
+
+    .login__hero-logo {
+      width: clamp(4.6rem, 8vw, 6.4rem);
+      height: clamp(4.6rem, 8vw, 6.4rem);
+      border-radius: 999px;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 12px 30px rgba(0,0,0,0.4));
+      object-fit: contain;
+      background: transparent;
+    }
+
+    .login__hero h1 {
+      margin: 0;
+      font-size: clamp(1.9rem, 3.3vw, 2.85rem);
+      line-height: 1.08;
+      font-weight: 600;
+      letter-spacing: -0.035em;
+      color: var(--brand-cream-strong);
+      text-wrap: balance;
+    }
+
+    .login__hero p {
+      margin: 1rem 0 0;
+      font-size: 1rem;
+      line-height: 1.6;
+      color: rgba(232, 223, 197, 0.62);
+      max-width: 25rem;
+      text-wrap: pretty;
+    }
+
+    .login__brand-foot {
+      display: flex;
+      gap: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      letter-spacing: 0.04em;
+      color: var(--brand-taupe-soft);
+      flex-wrap: wrap;
+    }
+
+    .login__brand-foot span {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .login__dot {
+      width: 0.42rem;
+      height: 0.42rem;
+      border-radius: 999px;
+      background: #79b88e;
+      box-shadow: 0 0 0 3px rgba(121,184,142,0.16);
+    }
+
+    .login__form-side {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1.6rem, 3vw, 3rem);
+      background: var(--bg);
+    }
+
+    .login__theme {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.3rem;
+      height: 2.3rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      background: var(--surface-overlay);
+      color: var(--muted-strong);
+      cursor: pointer;
+      transition: background 160ms, color 160ms, border-color 160ms;
+    }
+
+    .login__theme:hover {
+      background: var(--surface-overlay-hover);
+      color: var(--text);
+      border-color: var(--border-strong);
+    }
+
+    .login__theme svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .login__theme .icon-sun {
+      display: none;
+    }
+
+    [data-theme="light"] .login__theme .icon-sun {
+      display: block;
+    }
+
+    [data-theme="light"] .login__theme .icon-moon {
+      display: none;
+    }
+
+    .login__card {
+      width: 100%;
+      max-width: 23rem;
+      animation: rise 540ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .login__card {
+        animation: none;
+      }
+    }
+
+    .login__compact-mark {
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .login__compact-mark img {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 999px;
+      object-fit: contain;
+      background: transparent;
+    }
+
+    .login__compact-mark span {
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-size: 1rem;
+      color: var(--highlight);
+    }
+
+    .login__eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .login__title {
+      margin: 0.5rem 0 0;
+      font-size: 1.375rem;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      color: var(--highlight);
+    }
+
+    .login__sub {
+      margin: 0.5rem 0 0;
+      font-size: 0.875rem;
+      line-height: 1.55;
+      color: var(--muted-strong);
+    }
+
+    form {
+      margin-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .field__label-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+
+    .field label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.005em;
+    }
+
+    .field .req {
+      color: var(--status-error-text);
+      margin-left: 0.12rem;
+    }
+
+    .field__input-wrap {
+      position: relative;
+      display: flex;
+    }
+
+    .input {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-soft);
+      border-radius: 0.5rem;
+      background: var(--surface-overlay-strong);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 160ms, box-shadow 160ms, background 160ms;
+    }
+
+    .input::placeholder {
+      color: var(--muted);
+    }
+
+    .input:focus {
+      border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+      background: var(--surface-overlay-hover);
+    }
+
+    .field--error .input {
+      border-color: rgba(248, 113, 113, 0.55);
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.12);
+    }
+
+    .field--error .input:focus {
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.16);
+    }
+
+    .input--password {
+      padding-right: 2.75rem;
+    }
+
+    .pw-toggle {
+      position: absolute;
+      top: 50%;
+      right: 0.55rem;
+      transform: translateY(-50%);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.7rem;
+      height: 1.7rem;
+      border: 0;
+      border-radius: 0.5rem;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      transition: color 140ms, background 140ms;
+    }
+
+    .pw-toggle:hover {
+      color: var(--text);
+      background: var(--surface-overlay-hover);
+    }
+
+    .pw-toggle svg {
+      width: 1.02rem;
+      height: 1.02rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .pw-toggle .icon-eye-off {
+      display: none;
+    }
+
+    .pw-toggle.is-visible .icon-eye-off {
+      display: block;
+    }
+
+    .pw-toggle.is-visible .icon-eye {
+      display: none;
+    }
+
+    .link {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--accent-strong);
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 140ms;
+    }
+
+    .link:hover {
+      opacity: 0.78;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .helper {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+      margin: 0;
+      min-height: 0;
+    }
+
+    .helper--error {
+      color: var(--status-error-text);
+      display: none;
+    }
+
+    .field--error .helper--error {
+      display: block;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      height: 2.65rem;
+      border-radius: 0.5rem;
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      font-weight: 600;
+      letter-spacing: -0.005em;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 150ms, border-color 150ms, color 150ms, filter 150ms, opacity 150ms;
+    }
+
+    .btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    .btn svg {
+      width: 1.05rem;
+      height: 1.05rem;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.7;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .btn--primary {
+      background: var(--accent);
+      color: #211d16;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.14);
+    }
+
+    [data-theme="light"] .btn--primary {
+      color: #f3ecd6;
+    }
+
+    .btn--primary:hover {
+      filter: brightness(1.06);
+    }
+
+    .btn--primary:disabled {
+      opacity: 0.6;
+      cursor: progress;
+      filter: none;
+    }
+
+    .btn--default {
+      background: var(--surface-overlay-strong);
+      border-color: var(--border);
+      color: var(--text);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+
+    .btn--default:hover {
+      background: var(--surface-overlay-hover);
+      border-color: var(--border-strong);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin: 0.25rem 0;
+      color: var(--muted);
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .login__foot {
+      margin-top: 2rem;
+      font-size: 0.8125rem;
+      color: var(--muted-strong);
+      text-align: center;
+    }
+
+    .login__demo-notice {
+      margin: 0 0 16px;
+      padding: 10px 12px;
+      border: 1px solid var(--status-error);
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .login__error {
+      margin: 1rem 0 0;
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      color: var(--status-error-text);
+      background: rgba(248, 113, 113, 0.09);
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.8125rem;
+    }
+
+    .server-error {
+      margin: 0.25rem 0 0;
+      font-size: 0.75rem;
+      color: var(--status-error-text);
+      display: block;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 860px) {
+      .login {
+        grid-template-columns: 1fr;
+      }
+
+      .login__brand {
+        display: none;
+      }
+
+      .login__compact-mark {
+        display: flex;
+      }
+
+      .login__theme {
+        top: 1.1rem;
+        right: 1.1rem;
+      }
+    }
+
+    .provider-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="login">
+    <aside class="login__brand" data-screen-label="Brand panel">
+      <div class="login__brand-top">
+        <img src="/chat/static/chat/octryx-logo.svg" alt="Octryx" />
+        <span class="login__wordmark">Octryx</span>
+        <span class="login__brand-eyebrow">Workspace</span>
+      </div>
+
+      <div class="login__hero">
+        <img class="login__hero-logo" src="/chat/static/chat/octryx-logo.svg" alt="" />
+        <h1>One workspace for your agents, channels &amp; workflows.</h1>
+        <p>Sign in to orchestrate connectors, route conversations, and ship automations — across every project, from one place.</p>
+      </div>
+
+      <div class="login__brand-foot">
+      </div>
+    </aside>
+
+    <main class="login__form-side" data-screen-label="Sign in">
+      <button class="login__theme" id="themeToggle" type="button" aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+        </svg>
+        <svg class="icon-sun" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+        </svg>
+      </button>
+
+      <div class="login__card">
+        <div class="login__compact-mark">
+          <img src="/chat/static/chat/octryx-logo.svg" alt="Octryx" />
+          <span>Octryx</span>
+        </div>
+
+        {% if local_demo() %}
+        <p class="login__demo-notice" role="note" data-testid="local-demo-notice"><strong>Local demo, not for production.</strong> It runs on this machine only, with sample data.</p>
+        {% endif %}
+        {% if setup %}
+        <p class="login__eyebrow">First start</p>
+        <h2 class="login__title">Create the administrator</h2>
+        {# With the demo the command needs the demo's compose files too. #}
+        {% if local_demo() %}
+        <p class="login__sub" data-testid="setup-code-hint">Copy the setup code from the server log, with <code>docker compose -f docker-compose.yml -f docker-compose.demo.yml logs api | grep "setup code"</code>. You sign in afterwards with the username <strong>admin</strong>.</p>
+        {% else %}
+        <p class="login__sub" data-testid="setup-code-hint">Copy the setup code from the server log, for example with <code>docker compose logs api | grep "setup code"</code> (add the same <code>-f</code> files you started with). You sign in afterwards with the username <strong>admin</strong>.</p>
+        {% endif %}
+        {% if error %}
+        <p class="login__error">{{ error }}</p>
+        {% endif %}
+        <form method="post" action="/chat/setup" id="setupForm">
+          <div class="field">
+            <label for="code">Setup code<span class="req">*</span></label>
+            <div class="field__input-wrap">
+              <input class="input" id="code" name="code" type="text" autocomplete="off" placeholder="XXXX-XXXX-XXXX" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="display_name">Your name<span class="req">*</span></label>
+            <div class="field__input-wrap">
+              <input class="input" id="display_name" name="display_name" type="text" autocomplete="name" value="{{ display_name or '' }}" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="email">E-mail<span class="req">*</span></label>
+            <div class="field__input-wrap">
+              <input class="input" id="email" name="email" type="email" autocomplete="email" value="{{ email or '' }}" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="password">Password (at least {{ min_password_chars }} characters)<span class="req">*</span></label>
+            <div class="field__input-wrap">
+              <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="{{ min_password_chars }}" required />
+            </div>
+          </div>
+          <button class="btn btn--primary" type="submit">
+            <span class="btn__label">Create administrator</span>
+          </button>
+        </form>
+        {% else %}
+        <p class="login__eyebrow">Welcome back</p>
+        <h2 class="login__title">Sign in to your workspace</h2>
+        {% if auth_oidc_only %}
+        <p class="login__sub">Use your configured identity provider to sign in.</p>
+        {% else %}
+        <p class="login__sub">Use your username and password, or continue with single sign-on.</p>
+        {% endif %}
+
+        {% if error %}
+        <p class="login__error">{{ error }}</p>
+        {% endif %}
+
+        {% if not auth_oidc_only %}
+        <form method="post" action="/chat/login" id="loginForm" novalidate>
+          <input type="hidden" name="next" value="{{ next }}" />
+          <div class="field" id="usernameField">
+            <label for="username">Username<span class="req">*</span></label>
+            <div class="field__input-wrap">
+              <input class="input" id="username" name="username" type="text" autocomplete="username" placeholder="Your username" required />
+            </div>
+            <p class="helper helper--error">Enter your username.</p>
+          </div>
+
+          <div class="field" id="passwordField">
+            <div class="field__label-row">
+              <label for="password">Password<span class="req">*</span></label>
+              <a class="link" id="forgotLink">Forgot password?</a>
+            </div>
+            <div class="field__input-wrap">
+              <input class="input input--password" id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••••" required />
+              <button class="pw-toggle" id="pwToggle" type="button" aria-label="Show password">
+                <svg class="icon-eye" viewBox="0 0 24 24">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+                <svg class="icon-eye-off" viewBox="0 0 24 24">
+                  <path d="M9.9 5.1A9.8 9.8 0 1 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3.2 4M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.5 9.5 0 0 0 4.4-1.1"></path>
+                  <path d="M3 3l18 18"></path>
+                </svg>
+              </button>
+            </div>
+            <p class="helper helper--error">Enter your password.</p>
+          </div>
+
+          <button class="btn btn--primary" id="submitBtn" type="submit">
+            <span class="btn__label">Sign in</span>
+          </button>
+        </form>
+        {% endif %}
+
+        {% if oidc_providers %}
+        <div class="divider">or</div>
+        <div class="provider-list">
+          {% for provider in oidc_providers %}
+          <a class="btn btn--default" href="/api/v1/auth/oidc/start/{{ provider.id }}?target=/chat">
+            Continue with {{ provider.name }}
+          </a>
+          {% endfor %}
+        </div>
+        {% elif auth_oidc_only %}
+        <p class="login__error">OIDC login is required, but no providers are currently configured.</p>
+        {% endif %}
+
+        {% endif %}
+
+        <p class="login__foot">Trouble signing in? <a class="link" id="contactLink">Contact your admin</a></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    var root = document.documentElement;
+    var THEME_KEY = "octryx-theme";
+    try {
+      var saved = localStorage.getItem(THEME_KEY);
+      if (saved === "light" || saved === "dark") {
+        root.setAttribute("data-theme", saved);
+      }
+    } catch (error) {
+      // optional storage disabled
+    }
+
+    var themeToggle = document.getElementById("themeToggle");
+    if (themeToggle) {
+      themeToggle.addEventListener("click", function () {
+        var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+        root.setAttribute("data-theme", next);
+        try {
+          localStorage.setItem(THEME_KEY, next);
+        } catch (error) {
+          // optional storage disabled
+        }
+      });
+    }
+
+    var passwordInput = document.getElementById("password");
+    var passwordToggle = document.getElementById("pwToggle");
+    if (passwordInput && passwordToggle) {
+      passwordToggle.addEventListener("click", function () {
+        var shouldShow = passwordInput.type === "password";
+        passwordInput.type = shouldShow ? "text" : "password";
+        passwordToggle.classList.toggle("is-visible", shouldShow);
+        passwordToggle.setAttribute("aria-label", shouldShow ? "Hide password" : "Show password");
+      });
+    }
+
+    var form = document.getElementById("loginForm");
+    var usernameField = document.getElementById("usernameField");
+    var passwordField = document.getElementById("passwordField");
+    var usernameInput = document.getElementById("username");
+    var submitBtn = document.getElementById("submitBtn");
+
+    if (form && usernameInput && passwordInput && usernameField && passwordField) {
+      usernameInput.addEventListener("input", function () {
+        usernameField.classList.remove("field--error");
+      });
+
+      passwordInput.addEventListener("input", function () {
+        passwordField.classList.remove("field--error");
+      });
+
+      form.addEventListener("submit", function () {
+        var usernameValue = (usernameInput.value || "").trim();
+        var hasPassword = Boolean(passwordInput.value);
+        var hasUsername = usernameValue.length > 0;
+        if (!hasUsername || !hasPassword) {
+          usernameField.classList.toggle("field--error", !hasUsername);
+          passwordField.classList.toggle("field--error", !hasPassword);
+        }
+      });
+    }
+
+    ["forgotLink", "contactLink"].forEach(function (id) {
+      var element = document.getElementById(id);
+      if (element) {
+        element.addEventListener("click", function (event) {
+          event.preventDefault();
+        });
+      }
+    });
+  </script>
+</body>
+</html>

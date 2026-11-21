@@ -1,0 +1,108 @@
+"""Built-in tool descriptions as prompt catalog keys, seeded by the code tool definitions.
+
+Every built-in tool (``tools/definitions.get_all_definitions()``) contributes:
+
+* ``tool.<name>.description`` — the function description (high risk: it instructs the model);
+* ``tool.<name>.param.<path>`` — each parameter description, ``<path>`` the dotted property
+  path; an array's item properties are under ``_item`` (``tool.x.param.rows._item.name``).
+  Descriptions inside ``oneOf`` / ``anyOf`` / ``allOf`` branches stay with the definition.
+
+The definitions module is the seed: no literal is copied here, and the specs are built
+lazily (the definitions import this package, so building them at import would cycle). The
+keys are literal (served verbatim; descriptions contain JSON examples with braces).
+
+Dynamic tools are not part of the catalog because they already carry their own editable
+description: database query tools (``database_tool_*``, the database connector registry),
+flow capability tools (``run_flow_*``, from ``Flow.description``), plugin tools and remote
+MCP tools (``mcp__*``, from their server).
+
+The catalog keys are not written into the database by the seed step: the code definition
+is the last precedence level, so a key has rows only once an admin drafts a version.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator, Mapping
+from typing import Any
+
+from .contract import RISK_HIGH, RISK_STANDARD, PromptKeySpec
+
+TOOL_AREA = "tool"
+ARRAY_ITEM_SEGMENT = "_item"
+
+
+def tool_description_key(tool_name: str) -> str:
+    return f"tool.{tool_name}.description"
+
+
+def tool_param_key(tool_name: str, path: tuple[str, ...]) -> str:
+    return f"tool.{tool_name}.param." + ".".join(path)
+
+
+def iter_param_descriptions(
+    schema: Mapping[str, Any] | None, path: tuple[str, ...] = ()
+) -> Iterator[tuple[tuple[str, ...], dict[str, Any]]]:
+    """Every (path, property schema) with a string description, depth first, in schema order."""
+    if not isinstance(schema, Mapping):
+        return
+    properties = schema.get("properties")
+    if not isinstance(properties, Mapping):
+        return
+    for name, prop in properties.items():
+        if not isinstance(prop, dict):
+            continue
+        prop_path = (*path, str(name))
+        if isinstance(prop.get("description"), str):
+            yield prop_path, prop
+        yield from iter_param_descriptions(prop, prop_path)
+        items = prop.get("items")
+        if isinstance(items, Mapping):
+            yield from iter_param_descriptions(items, (*prop_path, ARRAY_ITEM_SEGMENT))
+
+
+def tool_description_specs() -> tuple[PromptKeySpec, ...]:
+    from ...tools.definitions import get_all_definitions
+
+    specs: list[PromptKeySpec] = []
+    for name, definition in sorted(get_all_definitions().items()):
+        function = definition.get("function") if isinstance(definition, dict) else None
+        if not isinstance(function, dict):
+            continue
+        description = function.get("description")
+        if isinstance(description, str) and description:
+            specs.append(
+                PromptKeySpec(
+                    key=tool_description_key(name),
+                    area=TOOL_AREA,
+                    title=f"{name}: description",
+                    seed=description,
+                    risk=RISK_HIGH,
+                    description="Description of the built-in tool as the model sees it in the tool schema.",
+                    literal=True,
+                )
+            )
+        for path, prop in iter_param_descriptions(function.get("parameters")):
+            if not prop["description"]:
+                continue
+            specs.append(
+                PromptKeySpec(
+                    key=tool_param_key(name, path),
+                    area=TOOL_AREA,
+                    title=f"{name}: parameter {'.'.join(path)}",
+                    seed=prop["description"],
+                    risk=RISK_STANDARD,
+                    description="Description of one parameter of the built-in tool schema.",
+                    literal=True,
+                )
+            )
+    return tuple(specs)
+
+
+__all__ = [
+    "ARRAY_ITEM_SEGMENT",
+    "TOOL_AREA",
+    "iter_param_descriptions",
+    "tool_description_key",
+    "tool_description_specs",
+    "tool_param_key",
+]

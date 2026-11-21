@@ -1,0 +1,206 @@
+/* Chat workspace buttons: plain, ghost, trace, icon action (with header tooltips), solid and icon buttons. */
+.plain-button,
+.ghost-button,
+.trace-button,
+.solid-button,
+.icon-button {
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.plain-button:hover,
+.ghost-button:hover,
+.trace-button:hover,
+.icon-button:hover {
+  background: var(--surface-overlay-hover);
+  border-color: var(--border-strong);
+  color: var(--highlight);
+}
+
+.plain-button--danger {
+  color: var(--status-error-ink);
+}
+
+.plain-button--danger:hover {
+  color: var(--status-error-ink);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  border-color: color-mix(in srgb, var(--status-error) 20%, transparent);
+}
+
+.ghost-button,
+.plain-button,
+.solid-button {
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-lg);
+}
+
+.trace-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+}
+
+.icon-action-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  /* A fixed square with its icon centred: no padding (the browser's 6px was off the UI set, rc1 smoke). */
+  padding: 0;
+  /* Quiet at rest: a surface appears on hover, focus and when the action is on. */
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  transition:
+    background 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.icon-action-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Icon and its name ("Files", "Export", "Trace 2"), the desktop chat header's actions. */
+.icon-action-button--labeled {
+  gap: 0.5rem;
+  width: auto;
+  padding: 0 0.5rem;
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.icon-action-button--labeled svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon-action-button__count {
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1rem;
+  text-align: center;
+}
+
+.icon-action-button:hover {
+  background: var(--surface-overlay-strong);
+  border-color: var(--border-strong);
+  color: var(--highlight);
+}
+
+.icon-action-button--active {
+  color: var(--highlight);
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.icon-action-button--error {
+  color: var(--status-error-ink);
+  border-color: color-mix(in srgb, var(--status-error) 18%, transparent);
+  background: var(--status-error-soft);
+}
+
+.icon-action-button--error:hover {
+  color: var(--status-error-ink);
+  border-color: color-mix(in srgb, var(--status-error) 32%, transparent);
+  background: color-mix(in srgb, var(--status-error) 16%, transparent);
+}
+
+.icon-action-button:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+/* Header icons name themselves on hover and keyboard focus, styled like the rail's tooltips; anchored
+   at the right edge so the last icon's label stays on screen. */
+.workspace__actions .icon-action-button[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  right: 0;
+  z-index: 200;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel-strong);
+  color: var(--text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease 60ms;
+}
+
+.workspace__actions .icon-action-button[data-tooltip]:hover::after,
+.workspace__actions .icon-action-button[data-tooltip]:focus-visible::after {
+  opacity: 1;
+}
+
+.icon-action-button--trace:not(.icon-action-button--labeled) span {
+  position: absolute;
+  right: -0.1rem;
+  top: -0.1rem;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 999px;
+  background: var(--highlight);
+  color: var(--bg);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  line-height: 1rem;
+}
+
+.trace-button span:last-child {
+  display: inline-flex;
+  min-width: 1.6rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.solid-button {
+  background: var(--highlight);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+.solid-button:hover {
+  background: color-mix(in srgb, var(--highlight) 88%, var(--bg));
+}
+
+.icon-button {
+  display: none;
+  width: 2.6rem;
+  height: 2.6rem;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ds-radius-xl);
+}

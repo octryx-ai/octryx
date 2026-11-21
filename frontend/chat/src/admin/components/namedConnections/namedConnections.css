@@ -1,0 +1,65 @@
+/* Named connections: one row per account with its scopes; actions stay on the row. */
+.named-connections__list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.named-connections__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.25rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-soft);
+  font-size: var(--ds-text-sm);
+  overflow-wrap: anywhere;
+}
+
+/* One compact row per connection, its actions at the right end of the row, not a line of buttons
+   in the middle of the panel. */
+.named-connections__row > * {
+  grid-column: 1;
+}
+
+.named-connections__row > .connector-card__actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.named-connections__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The id is shown as is (it is what other configuration references) and can be copied. */
+.named-connections__id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.named-connections__id code {
+  font-size: var(--ds-text-xs);
+  user-select: all;
+}
+
+.named-connections__facts {
+  font-size: var(--ds-text-xs);
+}
+
+.named-connections__failed {
+  color: var(--status-error-ink);
+}
+
+/* The named connections end before the next section of the connector panel. */
+.named-connections {
+  margin-bottom: 1rem;
+}

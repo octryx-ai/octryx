@@ -1,0 +1,3 @@
+.connector-brand-icon{display:grid;place-items:center;flex:none;width:1.7rem;height:1.7rem;border-radius:var(--ds-radius-md);border:1px solid var(--border-soft);background:var(--surface-overlay);color:var(--muted-strong)}
+.connector-brand-icon svg,.connector-brand-icon img{width:1.05rem;height:1.05rem}
+.connector-brand-icon__initial{font-size: var(--ds-text-2xs);font-weight: 600;letter-spacing:.02em;line-height:1}

@@ -1,0 +1,10 @@
+/* Flow builder workbench: palette, inspector, drawers, form fields, buttons, run trace, test cases, quality panel and breakpoints, imported in cascade order. */
+@import "./flowWorkbenchPalette.css";
+@import "./flowWorkbenchInspector.css";
+@import "./flowWorkbenchInspectorTools.css";
+@import "./flowWorkbenchDrawers.css";
+@import "./flowWorkbenchFormButtons.css";
+@import "./flowWorkbenchRunTrace.css";
+@import "./flowWorkbenchTraceEvidence.css";
+@import "./flowWorkbenchTestsQuality.css";
+@import "./flowWorkbenchResponsive.css";

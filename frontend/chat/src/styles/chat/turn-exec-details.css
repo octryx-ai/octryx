@@ -1,0 +1,131 @@
+/* Turn execution details, run identity and verification status. */
+.turn-exec-details {
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.turn-exec-details__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.turn-exec-details__field dt {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.turn-exec-details__field dd {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.turn-exec-details__subhead {
+  margin: 0.5rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.turn-exec-details__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--ds-text-xs);
+}
+
+.turn-exec-details__list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.turn-exec-details__tag {
+  padding: 0 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+}
+
+.turn-exec-details__muted,
+.turn-exec-details__empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+/* Raw profile codes, for support only. */
+.turn-exec-details__technical {
+  margin-top: 0.5rem;
+}
+
+.turn-exec-details__technical > summary {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+
+.turn-exec-details__technical[open] > summary {
+  margin-bottom: 0.5rem;
+}
+
+/* Run/Attempt identity: status palette for the attempt state, but no
+   success tone and never sage green; a finished attempt stays neutral. */
+.turn-run-identity__id {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.turn-run-identity__id .turn-exec-card__action {
+  margin-left: 0;
+}
+
+.turn-run-identity__state {
+  --turn-run-tone: var(--status-idle);
+  --turn-run-tone-ink: var(--status-idle-ink);
+  display: inline-flex;
+  padding: 0 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--turn-run-tone) 24%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--turn-run-tone) 10%, transparent);
+  color: var(--turn-run-tone-ink);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.turn-run-identity__state--success {
+  --turn-run-tone: var(--status-active);
+  --turn-run-tone-ink: var(--status-active-ink);
+}
+
+.turn-run-identity__state--running {
+  --turn-run-tone: var(--status-running);
+  --turn-run-tone-ink: var(--status-running-ink);
+}
+
+.turn-run-identity__state--attention {
+  --turn-run-tone: var(--status-attention);
+  --turn-run-tone-ink: var(--status-attention-ink);
+}
+
+.turn-run-identity__state--blocked,
+.turn-run-identity__state--error {
+  --turn-run-tone: var(--status-error);
+  --turn-run-tone-ink: var(--status-error-ink);
+}
+
+.turn-run-identity__state--blocked {
+  border-style: dashed;
+}

@@ -1,0 +1,160 @@
+{{- $fullname := include "octryx.fullname" . -}}
+{{- $secret := include "octryx.secretName" . -}}
+{{- $host := required "host is required (the public hostname, without https://)" .Values.host -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-api
+  labels:
+    {{- include "octryx.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  selector: {{- include "octryx.selector" (dict "root" . "component" "api") | nindent 4 }}
+  ports: [{name: http, port: 80, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-api
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  # The data volumes are ReadWriteOnce: the old pod stops before the new one starts.
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "octryx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+      annotations:
+        checksum/config: {{ toJson (list .Values.model .Values.objectStore .Values.extraEnv .Values.host) | sha256sum }}
+    spec:
+      serviceAccountName: {{ include "octryx.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "octryx.podSecurity" . | nindent 8 }}
+        fsGroup: 10001
+      initContainers:
+        # The schema comes from Alembic before the API starts.
+        - name: migrate
+          image: {{ include "octryx.image" .Values.images.api }}
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: ["python", "-m", "alembic", "upgrade", "head"]
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+            runAsUser: 10001
+            runAsGroup: 10001
+          envFrom: &envFrom
+            - secretRef: {name: {{ $secret }}}
+          env: &env
+            - {name: DEBUG, value: "false"}
+            - {name: OCTRYX_RUNTIME_PROFILE, value: staging}
+            - {name: OCTRYX_PUBLIC_ORIGIN, value: "https://{{ $host }}"}
+            - {name: CORS_ALLOWED_ORIGINS, value: "https://{{ $host }}"}
+            - {name: FORCE_SECURE_AUTH_COOKIES, value: "true"}
+            - {name: AUTH_COOKIE_SAMESITE, value: lax}
+            - {name: TRUSTED_PROXY_IPS, value: {{ .Values.trustedProxyIps | quote }}}
+            - {name: OCTRYX_SESSION_WORKSPACE_BASE_DIR, value: /app/data/session-workspaces}
+            {{- if .Values.database.internal }}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: POSTGRES_PASSWORD}}
+            - {name: DATABASE_URL, value: "postgresql+asyncpg://octryx:$(POSTGRES_PASSWORD)@{{ $fullname }}-postgres:5432/{{ .Values.database.name }}"}
+            {{- end }}
+            # The one model access, read on the first start only (Admin › Models owns it afterwards).
+            - {name: LLM_PROVIDER, value: {{ required "model.provider is required (bedrock, anthropic or openai)" .Values.model.provider | quote }}}
+            - {name: AGENT_DEFAULT_MODEL, value: {{ required "model.defaultModel is required" .Values.model.defaultModel | quote }}}
+            - {name: AWS_REGION, value: {{ .Values.model.awsRegion | quote }}}
+            {{- with .Values.model.endpointUrl }}
+            - {name: LLM_ENDPOINT_URL, value: {{ . | quote }}}
+            {{- end }}
+            # Knowledge: evidence index in PostgreSQL; originals in the S3-compatible object store.
+            - {name: HF_HUB_OFFLINE, value: "1"}
+            {{- with .Values.objectStore.endpoint }}
+            - {name: OCTRYX_KNOWLEDGE_OBJECT_ENDPOINT_URL, value: {{ . | quote }}}
+            - {name: OCTRYX_KNOWLEDGE_OBJECT_BUCKET, value: {{ required "objectStore.bucket is required with objectStore.endpoint" $.Values.objectStore.bucket | quote }}}
+            - {name: OCTRYX_KNOWLEDGE_OBJECT_REGION, value: {{ $.Values.objectStore.region | default $.Values.model.awsRegion | quote }}}
+            {{- end }}
+            {{- if .Values.parser.enabled }}
+            - {name: OCTRYX_KNOWLEDGE_PARSER_SOCKET, value: /run/octryx-parser/docling.sock}
+            - {name: OCTRYX_KNOWLEDGE_PARSER_VERSION, value: {{ .Values.parser.version | quote }}}
+            {{- end }}
+            {{- range $name, $value := .Values.extraEnv }}
+            - {name: {{ $name }}, value: {{ $value | quote }}}
+            {{- end }}
+          resources: {{- toYaml .Values.resources.api | nindent 12 }}
+          volumeMounts: &apiMounts
+            - {name: app-data, mountPath: /app/data}
+            - {name: uploads, mountPath: /app/uploads}
+            - {name: tmp, mountPath: /tmp}
+            {{- if .Values.parser.enabled }}
+            - {name: parser-socket, mountPath: /run/octryx-parser}
+            {{- end }}
+            {{- if .Values.plugins.volume }}
+            - {name: plugins, mountPath: /opt/octryx/plugins, readOnly: true}
+            {{- end }}
+      containers:
+        - name: api
+          image: {{ include "octryx.image" .Values.images.api }}
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+            runAsUser: 10001
+            runAsGroup: 10001
+          envFrom: *envFrom
+          env: *env
+          ports: [{name: http, containerPort: 8000}]
+          readinessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          resources: {{- toYaml .Values.resources.api | nindent 12 }}
+          volumeMounts: *apiMounts
+        {{- if .Values.parser.enabled }}
+        # Docling as a sidecar on a Unix socket: PDF, HTML and Office uploads. Without it those answer
+        # needs_configuration; Markdown and plain text are ingested anyway.
+        - name: parser
+          image: {{ include "octryx.image" .Values.images.parser }}
+          command: ["/opt/app-root/bin/python", "-m", "uvicorn", "docling_serve.app:create_app", "--factory", "--uds", "/run/octryx-parser/docling.sock", "--no-proxy-headers"]
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+            runAsUser: 1001
+            runAsGroup: 0
+          env:
+            - name: DOCLING_SERVE_API_KEY
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: OCTRYX_KNOWLEDGE_PARSER_API_KEY}}
+            - {name: DOCLING_SERVE_SINGLE_USE_RESULTS, value: "false"}
+            - {name: DOCLING_SERVE_RESULT_REMOVAL_DELAY, value: "3600"}
+            - {name: DOCLING_SERVE_ALLOWED_SOURCE_TYPES, value: '["file"]'}
+            - {name: DOCLING_SERVE_ENABLE_REMOTE_SERVICES, value: "false"}
+            - {name: DOCLING_SERVE_ALLOW_EXTERNAL_PLUGINS, value: "false"}
+            - {name: DOCLING_SERVE_MAX_NUM_PAGES, value: "1500"}
+            - {name: DOCLING_SERVE_MAX_FILE_SIZE, value: "33554432"}
+            - {name: HF_HUB_OFFLINE, value: "1"}
+          resources: {{- toYaml .Values.resources.parser | nindent 12 }}
+          volumeMounts:
+            - {name: parser-socket, mountPath: /run/octryx-parser}
+        {{- end }}
+      volumes:
+        {{- range $suffix := list "app-data" "uploads" }}
+        - name: {{ $suffix }}
+          {{- if $.Values.persistence.enabled }}
+          persistentVolumeClaim: {claimName: {{ $fullname }}-{{ $suffix }}}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        {{- end }}
+        - {name: tmp, emptyDir: {}}
+        {{- if .Values.parser.enabled }}
+        - {name: parser-socket, emptyDir: {}}
+        {{- end }}
+        {{- with .Values.plugins.volume }}
+        - name: plugins
+          {{- toYaml . | nindent 10 }}
+        {{- end }}

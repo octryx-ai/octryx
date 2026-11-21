@@ -1,0 +1,273 @@
+/* Research policy admin: grid, panels, profile cards, metrics, version row, editor and diagnostics. */
+.research-policy-admin {
+  display: grid;
+  gap: 1rem;
+}
+
+.research-policy-admin__grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.72fr) minmax(620px, 1.8fr) minmax(
+      260px,
+      0.8fr
+    );
+  gap: 16px;
+  align-items: start;
+}
+
+.research-policy-admin__panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--panel);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.12);
+}
+
+.research-policy-admin__panel--wide {
+  min-width: 0;
+}
+
+.research-policy-admin__panel-title {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.research-policy-admin__cards,
+.research-policy-admin__new-profile {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.research-policy-admin__profile-card,
+.research-policy-admin__assignment-card {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay);
+  color: var(--text);
+  text-align: left;
+}
+
+.research-policy-admin__profile-card {
+  cursor: pointer;
+}
+
+.research-policy-admin__profile-card--active {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: var(--accent-soft);
+}
+
+.research-policy-admin__profile-card span:first-child,
+.research-policy-admin__assignment-card {
+  display: grid;
+  gap: 4px;
+}
+
+.research-policy-admin__profile-card small,
+.research-policy-admin__assignment-card small {
+  color: var(--muted);
+}
+
+.research-policy-admin__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.research-policy-admin__metrics > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay-strong);
+}
+
+.research-policy-admin__metrics span {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.research-policy-admin__metrics strong {
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.research-policy-admin__version-row,
+.research-policy-admin__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.research-policy-admin__version-row .admin-panel__input {
+  flex: 1 1 220px;
+}
+
+.research-policy-admin__editor {
+  width: 100%;
+  min-height: 420px;
+  resize: vertical;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--bg-soft);
+  color: var(--text);
+  font:
+    0.82rem/1.55 "JetBrains Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+}
+
+.research-policy-admin__structured-editor {
+  display: grid;
+  gap: 1rem;
+}
+
+.research-policy-admin__form-section {
+  display: grid;
+  gap: 12px;
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay);
+}
+
+.research-policy-admin__form-section--accent {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--accent-soft);
+}
+
+.research-policy-admin__form-section-title {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.research-policy-admin__form-section-title span,
+.research-policy-admin__field-label span {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.research-policy-admin__form-section-title small,
+.research-policy-admin__field-label small {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.research-policy-admin__form-grid,
+.research-policy-admin__list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.research-policy-admin__form-grid label,
+.research-policy-admin__list-grid label {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.research-policy-admin__field-label {
+  display: grid;
+  gap: 2px;
+}
+
+.research-policy-admin__toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 12px;
+}
+
+.research-policy-admin__toggle-grid label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.research-policy-admin__archive-preview {
+  display: grid;
+  gap: 0.5rem;
+  padding: 12px;
+  border-radius: var(--ds-radius-xl);
+  background: var(--bg-soft);
+}
+
+.research-policy-admin__archive-preview code {
+  color: var(--text);
+  font:
+    0.78rem/1.4 "JetBrains Mono",
+    "SFMono-Regular",
+    Consolas,
+    monospace;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.research-policy-admin__raw-spec {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.research-policy-admin__raw-spec summary {
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.research-policy-admin__checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.research-policy-admin__diagnostics {
+  display: grid;
+  gap: 4px;
+  padding: 0.75rem 12px;
+  border-radius: var(--ds-radius-xl);
+  font-size: var(--ds-text-xs);
+}
+
+.research-policy-admin__diagnostics--error {
+  border: 1px solid color-mix(in srgb, var(--status-error) 32%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+.research-policy-admin__diagnostics--warning {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 32%, transparent);
+  background: var(--status-attention-soft);
+  color: var(--status-attention-ink);
+}
+
+@media (max-width: 1180px) {
+  .research-policy-admin__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .research-policy-admin__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .research-policy-admin__form-grid,
+  .research-policy-admin__list-grid,
+  .research-policy-admin__toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}

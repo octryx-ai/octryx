@@ -1,0 +1,90 @@
+/* Design-system tokens (product inventory). One place for density and the meaning of colour; the values
+   reuse the app's theme variables, so dark (default) and [data-theme="light"] follow by themselves. Only the dimmed
+   backdrop needs its own value per theme. */
+:root {
+  /* ---- The UI set (README.md, UI set): every size in the product comes from these scales. ------------------------------- */
+  /* Type: 11 12 13 14 16 18 22 28 px. 13 is the UI default, 14 running text, 22 the page title. */
+  --ds-text-2xs: 0.6875rem;
+  --ds-text-xs: 0.75rem;
+  --ds-text-sm: 0.8125rem;
+  --ds-text-md: 0.875rem;
+  --ds-text-lg: 1rem;
+  --ds-text-xl: 1.125rem;
+  --ds-text-2xl: 1.375rem;
+  --ds-text-3xl: 1.75rem;
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+  --ds-weight-strong: 600;
+  --ds-leading-tight: 1.25;
+  --ds-leading: 1.45;
+  --ds-tracking-caps: 0.06em;
+  /* Spacing: a 4 px rhythm. */
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.25rem;
+  --ds-space-6: 1.5rem;
+  --ds-space-8: 2rem;
+  --ds-space-10: 2.5rem;
+  /* Radii: 4 small parts (badge, checkbox), 8 controls and rows, 12 cards and panels, 16 sheets and shell. */
+  --ds-radius-sm: 0.25rem;
+  --ds-radius-md: 0.5rem;
+  --ds-radius-lg: 0.75rem;
+  --ds-radius-xl: 1rem;
+  --ds-radius-pill: 999px;
+  /* Controls (buttons, inputs, selects): one height per size. The phone uses lg and touch. */
+  --ds-control-sm: 1.75rem;
+  --ds-control-md: 2rem;
+  --ds-control-lg: 2.5rem;
+  --ds-control-touch: 2.75rem;
+  --ds-control-pad-x: 0.75rem;
+  --ds-icon-sm: 0.875rem;
+  --ds-icon-md: 1rem;
+  --ds-icon-lg: 1.25rem;
+
+  /* Text on the accent colour (cream in dark, taupe in light). */
+  --ds-on-accent: var(--brand-taupe-deep, #1f1c17);
+
+  --ds-row-height: 36px;
+  --ds-cell-pad-x: 0.75rem;
+  --ds-font-size: var(--ds-text-sm);
+  --ds-font-size-small: var(--ds-text-xs);
+  --ds-radius: var(--ds-radius-md);
+  --ds-line: var(--border-soft, var(--shell-divider));
+  --ds-line-strong: var(--border, var(--shell-divider));
+  --ds-surface: var(--workspace-surface, var(--panel));
+  --ds-surface-raised: var(--panel-strong, var(--surface-overlay-strong));
+  --ds-surface-hover: var(--surface-overlay-hover, var(--surface-overlay));
+  --ds-surface-selected: var(--surface-overlay-strong);
+  --ds-header-ink: var(--muted);
+  --ds-text: var(--text);
+  --ds-muted: var(--muted-strong, var(--muted));
+  --ds-focus: var(--accent);
+  --ds-panel-width: min(62vw, 64rem);
+  --ds-panel-min-width: 28rem;
+  /* Under the panel's surface gradient, so a side panel never lets the page show through (light theme). */
+  --ds-panel-backing: var(--bg);
+  --ds-backdrop: rgba(8, 8, 7, 0.55);
+
+  /* Tone meaning: neutral is every normal state; only exceptions carry colour. */
+  --ds-tone-neutral-ink: var(--muted-strong, var(--muted));
+  --ds-tone-neutral-bg: var(--surface-overlay);
+  --ds-tone-attention-ink: var(--status-attention-ink, var(--status-attention));
+  --ds-tone-attention-bg: var(--status-attention-soft, transparent);
+  --ds-tone-attention-line: var(--status-attention);
+  --ds-tone-problem-ink: var(--status-error-ink, var(--status-error));
+  --ds-tone-problem-bg: var(--status-error-soft, transparent);
+  --ds-tone-problem-line: var(--status-error);
+  --ds-tone-success-ink: var(--status-active-ink, var(--status-active));
+  --ds-tone-success-bg: var(--status-active-soft, transparent);
+  --ds-tone-success-line: var(--status-active);
+  --ds-tone-info-ink: var(--status-running-ink, var(--status-running));
+  --ds-tone-info-bg: var(--status-running-soft, transparent);
+  --ds-tone-info-line: var(--status-running);
+}
+
+[data-theme="light"] {
+  --ds-on-accent: #ffffff;
+  --ds-backdrop: rgba(30, 29, 26, 0.28);
+}

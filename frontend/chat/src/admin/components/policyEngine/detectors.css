@@ -1,0 +1,12 @@
+/* Detectors tab and custom detector drawer. */
+
+.detectors__fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.detectors__wide {
+  grid-column: 1 / -1;
+}

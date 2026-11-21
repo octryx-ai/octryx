@@ -1,0 +1,97 @@
+{
+  "about": "Who caused a run's pause: platform (Octryx itself could not decide, a check or service of ours failed), agent (the model's work did not pass), environment (the device, toolchain, network or an external service), person (a person did not act, or set the limit or configuration that stopped it). Read by workflow_runs/pause_causes.py at pause time; written into the paused event (detail.cause, detail.cause_rule), the run view (pause.cause) and the metric octryx_run_pauses_total{cause, reason}. End-to-end tests use the same terms. An unmapped reason or code counts as platform with cause_rule 'unmapped', so gaps show.",
+  "causes": [
+    "platform",
+    "agent",
+    "environment",
+    "person"
+  ],
+  "unmapped": "platform",
+  "reasons": {
+    "loop_limit": "agent",
+    "budget_limit": "person",
+    "no_reply": "person",
+    "watch_timeout": "environment",
+    "approval_timeout": "person",
+    "review_no_decision": "platform",
+    "environment_not_ready": "environment",
+    "workspace_dirty": "environment",
+    "evidence_unresolved": "platform",
+    "needs_configuration": "person",
+    "needs_input": "person",
+    "publish_unverified": "environment",
+    "audience_unproven": "person",
+    "acceptance_timeout": "person",
+    "documentation_missing": "agent",
+    "content_blocked": "environment",
+    "pipeline_not_for_head": "platform",
+    "phase_scope_exceeded": "agent",
+    "device_unreachable": "environment",
+    "protected_path": "agent",
+    "loop_detected": "platform",
+    "emergency_stop": "person",
+    "phase_not_finished": "agent",
+    "phase_stalled": "agent",
+    "agent_loop": "agent",
+    "service_restarted": "platform",
+    "turn_failed": "environment",
+    "seat_limit": "environment",
+    "scenarios_failed": "platform"
+  },
+  "reasons_with_uncertain_check": {
+    "about": "A pause whose pass had a check of ours that passed unsure (a check_uncertain event, its control named by prefix) is the platform's, not the agent's: the platform could not judge the work (for example the fix is in and the tests pass, but the check still says not done). Keyed by reason or runtime code.",
+    "phase_not_finished": {"cause": "platform", "controls": ["stop:"]}
+  },
+  "action_failed_classes": {
+    "not_configured": "person",
+    "permission": "person",
+    "scope_mismatch": "person",
+    "already_exists": "environment",
+    "transient": "environment",
+    "external": "environment",
+    "branch_conflict": "environment",
+    "pr_conflict": "environment",
+    "environment_not_ready": "environment"
+  },
+  "action_failed_default": "environment",
+  "runtime_failed_codes": {
+    "phase_not_finished": "agent",
+    "phase_stalled": "agent",
+    "agent_loop": "agent",
+    "seat_limited_no_same_class_fallback": "environment",
+    "device_turn_usage_limit": "environment",
+    "server_turn_failed": "platform",
+    "interrupted_by_restart": "platform",
+    "device_turn_service_restarted": "platform",
+    "device_turn_service_stopped": "platform",
+    "device_turn_device_job_busy": "platform",
+    "device_turn_error": "platform",
+    "device_turn_turn_stalled": "environment",
+    "hands_on_scenarios_failed": "platform"
+  },
+  "runtime_failed_prefixes": {
+    "device_turn_codex_": "environment",
+    "device_turn_DriverUnavailable": "environment",
+    "server_turn_refused_": "platform",
+    "device_turn_": "environment"
+  },
+  "runtime_failed_split": {
+    "about": "The pause reason a runtime failure gets by its detail.code (exact, then the longest prefix); an unmapped code stays runtime_failed. The cause still comes from runtime_failed_codes / runtime_failed_prefixes by the code.",
+    "codes": {
+      "phase_not_finished": "phase_not_finished",
+      "phase_stalled": "phase_stalled",
+      "agent_loop": "agent_loop",
+      "device_turn_service_restarted": "service_restarted",
+      "device_turn_service_stopped": "service_restarted",
+      "interrupted_by_restart": "service_restarted",
+      "seat_limited_no_same_class_fallback": "seat_limit",
+      "device_turn_usage_limit": "seat_limit",
+      "hands_on_scenarios_failed": "scenarios_failed",
+      "server_turn_failed": "turn_failed"
+    },
+    "prefixes": {
+      "device_turn_": "turn_failed",
+      "server_turn_refused_": "turn_failed"
+    }
+  }
+}

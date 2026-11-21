@@ -1,0 +1,222 @@
+/* Work area main column: header, body, content grid, filters and metrics. */
+/* Header, optional problems line, body. The body always takes the flexible
+   last row: with only two rows a problems line took the 1fr row and pushed the
+   page content under a screen of blank space. Without the line its auto row
+   is empty. */
+.work-area__main {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.work-area__main > .work-area__body {
+  grid-row: 3;
+}
+
+.work-area__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 4.4rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--shell-divider);
+  background: var(--workspace-header-surface);
+  backdrop-filter: blur(18px);
+}
+
+.work-area__header h1 {
+  margin: 0.25rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.work-area__purpose {
+  margin: 0.25rem 0 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.35;
+}
+
+.work-area__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.work-area__body {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-height: 0;
+  overflow: auto;
+  padding: 1.25rem;
+}
+
+.work-area__content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.work-area__content-grid.has-detail {
+  grid-template-columns: minmax(0, 1fr) clamp(24rem, 31vw, 34rem);
+  align-items: start;
+}
+
+.work-area__content-main {
+  min-width: 0;
+}
+
+.work-area__filters {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.4fr) repeat(4, minmax(8rem, 1fr)) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.work-area__filters input,
+.work-area__filters select,
+.work-filter-multi__trigger {
+  min-width: 0;
+  height: 2.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  padding: 0 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.work-filter-multi {
+  position: relative;
+  min-width: 0;
+}
+
+.work-filter-multi__trigger {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+/* The same down chevron as a select, turned up while the list is open. */
+.work-filter-multi__chevron {
+  flex: 0 0 auto;
+  width: 0.9rem;
+  height: 0.9rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  color: var(--muted-strong);
+  transition: transform 140ms ease;
+}
+
+.work-filter-multi__chevron--open {
+  transform: rotate(180deg);
+}
+
+.work-filter-multi__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  width: min(18rem, 72vw);
+  max-height: 18rem;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.34);
+  padding: 0.25rem;
+}
+
+.work-filter-multi__clear,
+.work-filter-multi__option,
+.work-filter-multi__empty {
+  display: flex;
+  width: 100%;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-filter-multi__clear {
+  border: 0;
+  background: transparent;
+  padding: 0 0.5rem;
+  color: var(--muted);
+  text-align: left;
+}
+
+.work-filter-multi__clear:hover,
+.work-filter-multi__option:hover {
+  background: var(--surface-overlay-hover);
+}
+
+.work-filter-multi__option {
+  padding: 0 0.5rem;
+}
+
+.work-filter-multi__option input {
+  width: auto;
+  height: auto;
+  margin: 0;
+}
+
+.work-filter-multi__empty {
+  padding: 0 0.5rem;
+  color: var(--muted);
+}
+
+.work-area__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+
+.work-area__metric,
+.work-sync-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.work-empty {
+  border: 1px dashed var(--ds-line-strong, var(--border));
+  border-radius: var(--ds-radius, 0.45rem);
+  background: var(--surface-overlay);
+}
+
+.work-area__metric {
+  padding: 0.75rem;
+}
+
+.work-area__metric span,
+.work-area__metric small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.work-area__metric strong {
+  display: block;
+  margin: 0.25rem 0 0.1rem;
+  color: var(--text);
+  font-size: var(--ds-text-2xl);
+  line-height: 1;
+}

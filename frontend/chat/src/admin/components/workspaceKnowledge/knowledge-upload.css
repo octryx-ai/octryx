@@ -1,0 +1,25 @@
+/* Upload fields of the Knowledge → Documents upload drawer. Tokens only. */
+.knowledge-upload__file { display: grid; gap: 0.25rem; min-width: 0; }
+.knowledge-upload__label { font-size: var(--ds-text-xs); font-weight: 600; color: var(--muted-strong); }
+.knowledge-upload__input { max-width: 100%; font: inherit; font-size: var(--ds-text-sm); color: var(--muted-strong); }
+.knowledge-upload__input::file-selector-button {
+  margin-right: 0.5rem;
+  min-height: 1.9rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.knowledge-upload__input::file-selector-button:hover { background: var(--surface-overlay-hover); }
+.knowledge-upload__input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.knowledge-upload__chosen { font-size: var(--ds-text-xs); color: var(--muted); }
+.knowledge-upload__problem { margin: 0; font-size: var(--ds-text-xs); color: var(--status-error-ink, var(--status-error)); }
+.knowledge-upload__guide { display: grid; gap: 0.25rem; font-size: var(--ds-text-xs); color: var(--muted); }
+.knowledge-upload__formats { margin: 0; }
+.knowledge-upload__fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+@media (max-width: 720px) { .knowledge-upload__fields { grid-template-columns: minmax(0, 1fr); } }

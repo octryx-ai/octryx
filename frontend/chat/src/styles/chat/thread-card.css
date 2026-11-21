@@ -1,0 +1,275 @@
+.thread-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  font-size: var(--ds-text-xs);
+  font-weight: 500;
+  flex: 1 1 auto;
+  width: auto;
+  max-width: 100%;
+  border: 0;
+  min-width: 0;
+  padding: 0.25rem 2rem 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  text-align: left;
+  color: var(--muted-strong);
+  transition:
+    color 160ms ease,
+    opacity 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+  border: 1px solid transparent;
+  overflow: hidden;
+}
+
+.thread-card:hover {
+  color: var(--highlight);
+  background: var(--surface-overlay);
+  border-color: var(--border-soft);
+}
+
+.thread-card--active {
+  background:
+    linear-gradient(180deg, var(--surface-overlay-strong), var(--surface-overlay)),
+    var(--surface-overlay);
+  color: var(--highlight);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: none;
+}
+
+.thread-card--active::before {
+  content: "";
+  position: absolute;
+  left: 0.16rem;
+  top: 0.38rem;
+  bottom: 0.38rem;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.thread-card__header {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+
+.thread-card__title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.thread-card__title span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-card__title > span:nth-child(2),
+.thread-card__title-line,
+.thread-card__title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-card__title-line {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.thread-card__title-text {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Row markers (WP chat sidebar S3): only where they mean something, shape plus colour. */
+.thread-card__status {
+  flex: 0 0 auto;
+  display: inline-block;
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 999px;
+}
+
+.thread-card__status--none {
+  background: transparent;
+}
+
+.thread-card__status--running {
+  background: var(--status-running);
+  box-shadow: 0 0 0 3px var(--status-running-soft);
+  animation: thread-marker-pulse 1.6s ease-in-out infinite;
+}
+
+.thread-card__status--attention {
+  border-radius: 0.12rem;
+  background: var(--status-attention);
+  transform: rotate(45deg);
+}
+
+.thread-card__status--turn-stopped {
+  border: 1.5px solid var(--status-attention);
+  background: transparent;
+}
+
+.thread-card__status--error {
+  background: var(--status-error);
+}
+
+@keyframes thread-marker-pulse {
+  50% {
+    box-shadow: 0 0 0 5px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-card__status--running {
+    animation: none;
+  }
+}
+
+.thread-card__meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.thread-node__row:hover .thread-card__time,
+.thread-node__row:focus-within .thread-card__time {
+  visibility: hidden;
+}
+
+.thread-card__device {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 12rem;
+  padding: 0.08rem 0.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thread-card__device svg {
+  flex: 0 0 auto;
+  width: 0.62rem;
+  height: 0.62rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.thread-card__device--icon {
+  padding: 0.1rem 0.25rem;
+  border-color: color-mix(in srgb, var(--status-running) 30%, transparent);
+  background: var(--status-running-soft);
+  color: var(--status-running-ink);
+}
+
+.thread-card__chevron {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 160ms ease;
+}
+
+.thread-card__chevron--open {
+  transform: rotate(90deg);
+}
+
+.thread-card__pin {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 0.88rem;
+  height: 0.88rem;
+  border-radius: 999px;
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.thread-card__pin svg {
+  width: 0.54rem;
+  height: 0.54rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+
+/* The unsent new chat (WP chat sidebar S2): one draft row, nothing stored yet. */
+.thread-card--draft .thread-card__title-text {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.thread-card__draft-tag {
+  flex: 0 0 auto;
+  padding: 0.05rem 0.25rem;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Inline rename (WP chat sidebar S5): the title becomes a field in place. */
+.thread-card--renaming {
+  padding-right: 0.5rem;
+}
+
+.thread-card__rename {
+  flex: 1;
+  min-width: 0;
+  min-height: 1.7rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: var(--panel-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  outline: none;
+}

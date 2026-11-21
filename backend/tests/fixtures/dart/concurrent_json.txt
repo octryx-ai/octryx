@@ -1,0 +1,28 @@
+{"protocolVersion":"0.1.1","runnerVersion":null,"pid":13345,"type":"start","time":0}
+{"suite":{"id":0,"platform":"vm","path":"/work/app/test/c_test.dart"},"type":"suite","time":0}
+{"test":{"id":1,"name":"loading /work/app/test/c_test.dart","suiteID":0,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":0}
+{"suite":{"id":2,"platform":"vm","path":"/work/app/test/b_test.dart"},"type":"suite","time":2}
+{"test":{"id":3,"name":"loading /work/app/test/b_test.dart","suiteID":2,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":2}
+{"suite":{"id":4,"platform":"vm","path":"/work/app/test/a_test.dart"},"type":"suite","time":2}
+{"test":{"id":5,"name":"loading /work/app/test/a_test.dart","suiteID":4,"groupIDs":[],"metadata":{"skip":false,"skipReason":null},"line":null,"column":null,"url":null},"type":"testStart","time":2}
+{"count":3,"time":2,"type":"allSuites"}
+{"testID":1,"error":"Failed to load \"/work/app/test/c_test.dart\":\nCompilation failed for testPath=/work/app/test/c_test.dart: test/c_test.dart:4:31: Error: Undefined name 'grinder'.\n  test('broken', () => expect(grinder, 1));\n                              ^^^^^^^\n.","stackTrace":"","isFailure":false,"type":"error","time":3414}
+{"testID":1,"result":"error","skipped":false,"hidden":false,"type":"testDone","time":3415}
+{"testID":1,"error":"Error: The Dart compiler exited unexpectedly.","stackTrace":"package:flutter_tools/src/base/common.dart 36:3  throwToolExit\npackage:flutter_tools/src/compile.dart 1029:11   DefaultResidentCompiler._compile.<fn>\ndart:async/future_impl.dart 961:45               Future._propagateToListeners.handleValueCallback\ndart:async/future_impl.dart 990:13               Future._propagateToListeners\ndart:async/future_impl.dart 874:9                Future._propagateToListeners\ndart:async/future_impl.dart 732:5                Future._completeWithValue\ndart:async/future_impl.dart 816:7                Future._asyncCompleteWithValue.<fn>\ndart:async/zone.dart 474:14                      Zone.runGuarded\ndart:async/zone.dart 604:18                      Zone.bindCallbackGuarded.<fn>\ndart:async/schedule_microtask.dart 40:35         _microtaskLoop\ndart:async/schedule_microtask.dart 49:5          _startMicrotaskLoop\ndart:isolate-patch/isolate_patch.dart 127:13     _runPendingImmediateCallback\ndart:isolate-patch/isolate_patch.dart 193:5      _RawReceivePort._handleMessage\n","isFailure":false,"type":"error","time":3433}
+{"testID":3,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":7911}
+{"group":{"id":6,"suiteID":2,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":null,"column":null,"url":null},"type":"group","time":7911}
+{"test":{"id":7,"name":"b passes","suiteID":2,"groupIDs":[6],"metadata":{"skip":false,"skipReason":null},"line":4,"column":3,"url":"file:///work/app/test/b_test.dart"},"type":"testStart","time":7912}
+{"testID":7,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":7922}
+{"test":{"id":8,"name":"b also passes","suiteID":2,"groupIDs":[6],"metadata":{"skip":false,"skipReason":null},"line":5,"column":3,"url":"file:///work/app/test/b_test.dart"},"type":"testStart","time":7922}
+{"testID":5,"result":"success","skipped":false,"hidden":true,"type":"testDone","time":7942}
+{"group":{"id":9,"suiteID":4,"parentID":null,"name":"","metadata":{"skip":false,"skipReason":null},"testCount":3,"line":null,"column":null,"url":null},"type":"group","time":7942}
+{"group":{"id":10,"suiteID":4,"parentID":9,"name":"Grind","metadata":{"skip":false,"skipReason":null},"testCount":2,"line":4,"column":3,"url":"file:///work/app/test/a_test.dart"},"type":"group","time":7942}
+{"test":{"id":11,"name":"Grind keeps value","suiteID":4,"groupIDs":[9,10],"metadata":{"skip":false,"skipReason":null},"line":5,"column":5,"url":"file:///work/app/test/a_test.dart"},"type":"testStart","time":7942}
+{"testID":11,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":7952}
+{"test":{"id":12,"name":"Grind starts at 15","suiteID":4,"groupIDs":[9,10],"metadata":{"skip":false,"skipReason":null},"line":6,"column":5,"url":"file:///work/app/test/a_test.dart"},"type":"testStart","time":7953}
+{"testID":12,"error":"Expected: <15>\n  Actual: <14>\n","stackTrace":"package:matcher                                     expect\npackage:flutter_test/src/widget_tester.dart 473:18  expect\ntest/a_test.dart 6:32                               main.<fn>.<fn>\n","isFailure":true,"type":"error","time":7964}
+{"testID":12,"result":"failure","skipped":false,"hidden":false,"type":"testDone","time":7964}
+{"test":{"id":13,"name":"skipped one","suiteID":4,"groupIDs":[9],"metadata":{"skip":true,"skipReason":null},"line":8,"column":3,"url":"file:///work/app/test/a_test.dart"},"type":"testStart","time":7965}
+{"testID":13,"result":"success","skipped":true,"hidden":false,"type":"testDone","time":7965}
+{"testID":8,"result":"success","skipped":false,"hidden":false,"type":"testDone","time":7976}
+{"success":false,"type":"done","time":7982}

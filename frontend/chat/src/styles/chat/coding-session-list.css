@@ -1,0 +1,141 @@
+/* Coding area filters, session list and the shared primary action button. */
+.coding-area__filters {
+  display: grid;
+  grid-template-columns: minmax(16rem, 32rem);
+}
+
+/* What the Sessions filter tabs do not say, one muted line instead of four count cards. */
+.coding-sessions-note {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.coding-area__filters input {
+  min-width: 0;
+  height: 2.15rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  padding: 0 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.coding-area__layout {
+  display: grid;
+  grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+  gap: 0.75rem;
+  min-height: 0;
+}
+
+/* Max four KPI tiles per row that shrink instead of wrapping (design guide 9.10). */
+.coding-area .work-area__summary.coding-area__summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.coding-area__empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.coding-session-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+  overflow: auto;
+}
+
+.coding-session-card {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.coding-session-card:hover,
+.coding-session-card.is-active {
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.coding-session-card__main,
+.coding-session-card__meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.coding-session-card__main > span:first-child {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.coding-session-card__title {
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.22;
+}
+
+.coding-session-card__meta {
+  justify-content: flex-start;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+
+/* The one primary action of a Work, Coding or Agents page looks like every other primary action: cream on
+   dark, taupe with white text on light, clearly apart from the neutral buttons. A primary
+   action that cannot reach its goal is disabled and neutral. */
+.work-area__button--primary {
+  border-color: var(--brand-cream);
+  background: var(--brand-cream);
+  color: var(--brand-taupe-deep);
+  font-weight: 600;
+}
+
+.work-area__button--primary:hover:not(:disabled) {
+  border-color: var(--brand-cream-strong);
+  background: var(--brand-cream-strong);
+  color: var(--brand-taupe-deep);
+}
+
+[data-theme="light"] .work-area__button--primary {
+  border-color: var(--brand-taupe);
+  background: var(--brand-taupe);
+  color: #ffffff;
+}
+
+[data-theme="light"] .work-area__button--primary:hover:not(:disabled) {
+  border-color: #3a342c;
+  background: #3a342c;
+  color: #ffffff;
+}
+
+.work-area__button--primary:disabled,
+[data-theme="light"] .work-area__button--primary:disabled {
+  border-color: var(--border);
+  background: var(--surface-overlay-strong);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: not-allowed;
+}

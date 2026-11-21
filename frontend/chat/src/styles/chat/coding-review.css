@@ -1,0 +1,238 @@
+/* Coding session review: editor, file list, events, context and feedback form. */
+.coding-review {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(28rem, 1fr) minmax(18rem, 22rem);
+  gap: 0.75rem;
+  min-height: 36rem;
+}
+
+.coding-review__files,
+.coding-review__editor,
+.coding-review__feedback,
+.coding-review__context,
+.coding-review__form {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+}
+
+.coding-review__files,
+.coding-review__feedback {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.coding-review__editor {
+  overflow: hidden;
+}
+
+.coding-review__editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.coding-review__editor-toolbar strong,
+.coding-review__editor-toolbar small {
+  display: block;
+  max-width: 42rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coding-review__editor-toolbar strong {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.coding-review__editor-toolbar small {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.coding-review__section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.coding-review__section-heading strong {
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  padding: 0.12rem 0.5rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.coding-review__file-list,
+.coding-review__event-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.coding-review__file-list button {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  padding: 0.5rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.coding-review__file-list button:hover,
+.coding-review__file-list button.is-active {
+  border-color: color-mix(in srgb, var(--status-running) 55%, transparent);
+  background: color-mix(in srgb, var(--status-running) 8%, transparent);
+}
+
+.coding-review__file-list span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.coding-review__file-list small,
+.coding-review__event small,
+.coding-review__event-list p,
+.coding-review__context p,
+.coding-review__context li {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.coding-review__event {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  padding: 0.5rem;
+}
+
+.coding-review__event.is-manual_edit {
+  border-color: color-mix(in srgb, var(--status-active) 32%, transparent);
+}
+
+.coding-review__event.is-diagnostic {
+  border-color: color-mix(in srgb, var(--status-attention) 32%, transparent);
+}
+
+.coding-review__event strong,
+.coding-review__event small {
+  display: block;
+}
+
+.coding-review__event strong {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  text-transform: capitalize;
+}
+
+.coding-review__event p,
+.coding-review__context p,
+.coding-review__context ul {
+  margin: 0;
+}
+
+.coding-review__context,
+.coding-review__form {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.coding-review__context dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.coding-review__context dt,
+.coding-review__context dd {
+  margin: 0;
+}
+
+.coding-review__context dd {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.coding-review__context ul {
+  display: grid;
+  gap: 0.25rem;
+  padding-left: 1rem;
+}
+
+.coding-review__form label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.coding-review__form input,
+.coding-review__form select,
+.coding-review__form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  padding: 0.5rem 0.5rem;
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0;
+}
+
+.coding-review__form textarea {
+  min-height: 5.4rem;
+  resize: vertical;
+}
+
+.coding-review__form button {
+  min-height: 2.1rem;
+  border: 1px solid color-mix(in srgb, var(--status-active) 24%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--status-active) 12%, transparent);
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.coding-review__form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.coding-review__error {
+  margin: 0;
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-xs);
+}

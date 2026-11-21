@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Releases</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Releases</h1>
+    <p class="muted" id="subtitle">Status of a release, from Jira, as of now.</p>
+  </header>
+  <form id="pick">
+    <label for="version">Version</label>
+    <div class="row">
+      <select id="version" aria-describedby="version-help"><option value="">Loading versions…</option></select>
+      <button type="submit">Check</button>
+    </div>
+    <p class="muted small" id="version-help">Unreleased versions first.</p>
+  </form>
+  <section id="status" hidden aria-live="polite"></section>
+  <section id="tickets" hidden></section>
+  <p class="error" id="error" hidden role="alert"></p>
+</main>
+<script src="bridge.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

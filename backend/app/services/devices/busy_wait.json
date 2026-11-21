@@ -1,0 +1,5 @@
+{
+  "_doc": "How long a turn waits for a device that already runs as many chats or jobs as it allows (device_busy), before the run pauses with 'device saturated for N min'. A phase turn and a seat review turn wait and are offered again; they never pause on the first refusal (otherwise parallel runs pause on device_busy).",
+  "max_wait_minutes": 30,
+  "retry_seconds": 30
+}

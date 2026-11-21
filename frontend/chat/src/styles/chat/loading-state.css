@@ -1,0 +1,55 @@
+/* The shared loading state: a skeleton of the coming content, then a message with "Try again". */
+.loading-state {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.loading-state--cards {
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+}
+
+.loading-state__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.loading-state__block {
+  height: 2.6rem;
+  border-radius: var(--ds-radius-md);
+  background: linear-gradient(90deg, var(--surface-overlay) 25%, var(--surface-overlay-strong) 50%, var(--surface-overlay) 75%);
+  background-size: 200% 100%;
+  animation: loading-state-shimmer 1.4s ease-in-out infinite;
+}
+
+.loading-state--cards .loading-state__block {
+  height: 6.5rem;
+}
+
+.loading-state--page .loading-state__block:first-of-type {
+  height: 1.4rem;
+  width: 40%;
+}
+
+.loading-state--slow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-md);
+}
+
+@keyframes loading-state-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-state__block {
+    animation: none;
+  }
+}

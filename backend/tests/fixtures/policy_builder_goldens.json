@@ -1,0 +1,465 @@
+{
+  "admission-unverified": {
+    "model": {
+      "id": "golden.admission-unverified",
+      "actions": [
+        "call_model"
+      ],
+      "conditions": {
+        "admission_unverified": true
+      }
+    },
+    "cedar": "@id(\"golden.admission-unverified\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { !context.admission_verified };"
+  },
+  "annotations-escaped": {
+    "model": {
+      "id": "golden.annotations-escaped",
+      "name": "Quote \"and\" backslash \\ test",
+      "description": "Line one; still one",
+      "actions": [
+        "read_path"
+      ],
+      "what": {
+        "paths": [
+          "*\"quoted\"*"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.annotations-escaped\")\n@name(\"Quote \\\"and\\\" backslash \\\\ test\")\n@description(\"Line one; still one\")\n@builder(\"1\")\nforbid (principal, action == Action::\"read_path\", resource)\nwhen { resource.path like \"*\\\"quoted\\\"*\" };"
+  },
+  "classification-at-least": {
+    "model": {
+      "id": "golden.classification-at-least",
+      "actions": [
+        "use_remote_embeddings",
+        "use_reranker"
+      ],
+      "where": {
+        "classification_at_least": "confidential"
+      }
+    },
+    "cedar": "@id(\"golden.classification-at-least\")\n@builder(\"1\")\nforbid (principal, action in [Action::\"use_remote_embeddings\", Action::\"use_reranker\"], resource)\nwhen { context.workspace has classification_rank && context.workspace.classification_rank >= 300 };"
+  },
+  "classification-is": {
+    "model": {
+      "id": "golden.classification-is",
+      "actions": [
+        "read_connector"
+      ],
+      "where": {
+        "classification_is": [
+          "confidential",
+          "restricted"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.classification-is\")\n@builder(\"1\")\nforbid (principal, action == Action::\"read_connector\", resource)\nwhen { context.workspace has classification && [\"confidential\", \"restricted\"].contains(context.workspace.classification) };"
+  },
+  "command-blocks": {
+    "model": {
+      "id": "golden.command-blocks",
+      "actions": [
+        "run_command"
+      ],
+      "what": {
+        "programs": [
+          "kubectl"
+        ],
+        "prefixes": [
+          "kubectl delete"
+        ],
+        "arguments": [
+          "rollout",
+          "restart"
+        ],
+        "option_values": [
+          "--namespace=prod"
+        ],
+        "client_tools": [
+          "Bash"
+        ]
+      },
+      "conditions": {
+        "unless_option_values": [
+          "--context=<non-prod context>"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.command-blocks\")\n@builder(\"1\")\nforbid (principal, action == Action::\"run_command\", resource)\nwhen { [\"kubectl\"].contains(resource.program) && resource.prefixes.containsAny([\"kubectl delete\"]) && resource.arguments.containsAll([\"rollout\", \"restart\"]) && resource.argument_values.containsAny([\"--namespace=prod\"]) && [\"Bash\"].contains(context.tool) }\nunless { resource.argument_values.containsAny([\"--context=<non-prod context>\"]) };"
+  },
+  "connections": {
+    "model": {
+      "id": "golden.connections",
+      "actions": [
+        "write_connector"
+      ],
+      "what": {
+        "families": [
+          "servicenow"
+        ]
+      },
+      "where": {
+        "connections": [
+          "c-1",
+          "default"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.connections\")\n@builder(\"1\")\nforbid (principal, action == Action::\"write_connector\", resource)\nwhen { resource in [ConnectorFamily::\"servicenow\"] && context.connections.containsAny([\"c-1\", \"default\"]) };"
+  },
+  "content-block-seat-route": {
+    "model": {
+      "id": "golden.content-block-seat-route",
+      "actions": [
+        "call_model"
+      ],
+      "conditions": {
+        "route": "seat"
+      },
+      "content": {
+        "detectors": [
+          "secrets"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.content-block-seat-route\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { context.route == \"seat\" && context.content.detected.containsAny([\"secrets\"]) };"
+  },
+  "content-mask-except-approved": {
+    "model": {
+      "id": "golden.content-mask-except-approved",
+      "actions": [
+        "call_model"
+      ],
+      "content": {
+        "detectors": [
+          "email",
+          "phone",
+          "iban"
+        ]
+      },
+      "outcome": {
+        "kind": "mask",
+        "mask_style": "type_token",
+        "approved_except": true
+      },
+      "who": {
+        "except_admins": true
+      }
+    },
+    "cedar": "@id(\"golden.content-mask-except-approved\")\n@builder(\"1\")\n@obligation(\"mask\")\n@mask(\"email,phone,iban\")\n@mask_style(\"type_token\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { context.content.detected.containsAny([\"email\", \"phone\", \"iban\"]) }\nunless { resource.approved_for.containsAll([\"pii\"]) || (principal is User && principal.platform_admin) };"
+  },
+  "content-mask-reroute-sticky": {
+    "model": {
+      "id": "golden.content-mask-reroute-sticky",
+      "actions": [
+        "call_model"
+      ],
+      "content": {
+        "detectors": [
+          "email",
+          "phone",
+          "iban"
+        ],
+        "sticky": true,
+        "incomplete": true
+      },
+      "outcome": {
+        "kind": "mask_reroute",
+        "reroute_to": "approved-model",
+        "mask_style": "last4"
+      }
+    },
+    "cedar": "@id(\"golden.content-mask-reroute-sticky\")\n@builder(\"1\")\n@obligation(\"mask_reroute\")\n@reroute_to(\"approved-model\")\n@mask(\"email,phone,iban\")\n@mask_style(\"last4\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { context.content.detected.containsAny([\"email\", \"phone\", \"iban\"]) || (context.content.scanned && !context.content.complete) || (principal is AgentSession && principal.sensitive.containsAny([\"pii\"])) }\nunless { context.route == \"governed\" && resource.approved_for.containsAll([\"pii\"]) && !context.content.detected.containsAny([\"email\", \"phone\", \"iban\"]) };"
+  },
+  "content-reroute-workspace": {
+    "model": {
+      "id": "golden.content-reroute-workspace",
+      "actions": [
+        "call_model"
+      ],
+      "content": {
+        "detectors": [
+          "iban"
+        ],
+        "sticky": true
+      },
+      "outcome": {
+        "kind": "reroute",
+        "reroute_to": "approved-model"
+      },
+      "where": {
+        "workspaces": [
+          "w1"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.content-reroute-workspace\")\n@builder(\"1\")\n@obligation(\"reroute\")\n@reroute_to(\"approved-model\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { context.workspace in [Workspace::\"w1\"] && (context.content.detected.containsAny([\"iban\"]) || (principal is AgentSession && principal.sensitive.containsAny([\"pii\"]))) }\nunless { context.route == \"governed\" && resource.approved_for.containsAll([\"pii\"]) };"
+  },
+  "content-tool-result-mask": {
+    "model": {
+      "id": "golden.content-tool-result-mask",
+      "actions": [
+        "receive_tool_result"
+      ],
+      "content": {
+        "detectors": [
+          "email"
+        ],
+        "incomplete": true
+      },
+      "outcome": {
+        "kind": "mask",
+        "mask_style": "last4"
+      }
+    },
+    "cedar": "@id(\"golden.content-tool-result-mask\")\n@builder(\"1\")\n@obligation(\"mask\")\n@mask(\"email\")\n@mask_style(\"last4\")\nforbid (principal, action == Action::\"receive_tool_result\", resource)\nwhen { context.content.detected.containsAny([\"email\"]) || (context.content.scanned && !context.content.complete) };"
+  },
+  "everyone-write-connector": {
+    "model": {
+      "id": "golden.everyone-write-connector",
+      "actions": [
+        "write_connector"
+      ]
+    },
+    "cedar": "@id(\"golden.everyone-write-connector\")\n@builder(\"1\")\nforbid (principal, action == Action::\"write_connector\", resource);"
+  },
+  "exceptions-or": {
+    "model": {
+      "id": "golden.exceptions-or",
+      "actions": [
+        "run_command"
+      ],
+      "who": {
+        "except_admins": true
+      },
+      "what": {
+        "programs": [
+          "kubectl"
+        ]
+      },
+      "conditions": {
+        "unless_option_values": [
+          "--context=<non-prod context>",
+          "--dry-run=client"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.exceptions-or\")\n@builder(\"1\")\nforbid (principal, action == Action::\"run_command\", resource)\nwhen { [\"kubectl\"].contains(resource.program) }\nunless { resource.argument_values.containsAny([\"--context=<non-prod context>\", \"--dry-run=client\"]) || (principal is User && principal.platform_admin) };"
+  },
+  "group-single": {
+    "model": {
+      "id": "golden.group-single",
+      "actions": [
+        "write_connector"
+      ],
+      "who": {
+        "mode": "groups",
+        "items": [
+          "contractors"
+        ]
+      },
+      "what": {
+        "families": [
+          "jira"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.group-single\")\n@builder(\"1\")\nforbid (principal in Group::\"contractors\", action == Action::\"write_connector\", resource)\nwhen { resource in [ConnectorFamily::\"jira\"] };"
+  },
+  "models-except": {
+    "model": {
+      "id": "golden.models-except",
+      "actions": [
+        "call_model"
+      ],
+      "what": {
+        "models": [
+          "approved-model"
+        ],
+        "model_mode": "except"
+      },
+      "where": {
+        "classification_at_least": "confidential"
+      }
+    },
+    "cedar": "@id(\"golden.models-except\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { context.workspace has classification_rank && context.workspace.classification_rank >= 300 }\nunless { [\"approved-model\"].contains(resource.alias) };"
+  },
+  "models-only": {
+    "model": {
+      "id": "golden.models-only",
+      "actions": [
+        "call_model"
+      ],
+      "what": {
+        "models": [
+          "model-a",
+          "model-b"
+        ],
+        "model_mode": "only"
+      }
+    },
+    "cedar": "@id(\"golden.models-only\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { [\"model-a\", \"model-b\"].contains(resource.alias) };"
+  },
+  "path-single": {
+    "model": {
+      "id": "golden.path-single",
+      "actions": [
+        "write_path"
+      ],
+      "what": {
+        "paths": [
+          "*.pem"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.path-single\")\n@builder(\"1\")\nforbid (principal, action == Action::\"write_path\", resource)\nwhen { resource.path like \"*.pem\" };"
+  },
+  "paths-multi-client-tools": {
+    "model": {
+      "id": "golden.paths-multi-client-tools",
+      "actions": [
+        "read_path",
+        "write_path"
+      ],
+      "what": {
+        "paths": [
+          "*.env",
+          "*/.aws/credentials"
+        ],
+        "client_tools": [
+          "Read",
+          "Edit"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.paths-multi-client-tools\")\n@builder(\"1\")\nforbid (principal, action in [Action::\"read_path\", Action::\"write_path\"], resource)\nwhen { (resource.path like \"*.env\" || resource.path like \"*/.aws/credentials\") && [\"Read\", \"Edit\"].contains(context.tool) };"
+  },
+  "remote-class-below": {
+    "model": {
+      "id": "golden.remote-class-below",
+      "actions": [
+        "use_reranker"
+      ],
+      "what": {
+        "remote_class_below": "confidential"
+      }
+    },
+    "cedar": "@id(\"golden.remote-class-below\")\n@builder(\"1\")\nforbid (principal, action == Action::\"use_reranker\", resource)\nwhen { resource has data_policy_rank && resource.data_policy_rank < 300 };"
+  },
+  "roles-multi-except-admins": {
+    "model": {
+      "id": "golden.roles-multi-except-admins",
+      "actions": [
+        "run_command"
+      ],
+      "who": {
+        "mode": "roles",
+        "items": [
+          "sre",
+          "analyst"
+        ],
+        "except_admins": true
+      }
+    },
+    "cedar": "@id(\"golden.roles-multi-except-admins\")\n@builder(\"1\")\nforbid (principal, action == Action::\"run_command\", resource)\nwhen { (principal in Role::\"sre\" || principal in Role::\"analyst\") }\nunless { (principal is User && principal.platform_admin) };"
+  },
+  "seat-conditions": {
+    "model": {
+      "id": "golden.seat-conditions",
+      "actions": [
+        "use_seat"
+      ],
+      "conditions": {
+        "seat_mode": "allowed",
+        "governed_required": true
+      }
+    },
+    "cedar": "@id(\"golden.seat-conditions\")\n@builder(\"1\")\nforbid (principal, action == Action::\"use_seat\", resource)\nwhen { resource.seat_mode == \"allowed\" && resource.requires_governed_routing };"
+  },
+  "session-profile-and-client": {
+    "model": {
+      "id": "golden.session-profile-and-client",
+      "actions": [
+        "call_model"
+      ],
+      "who": {
+        "session_profile": "seat",
+        "session_client": "example-client"
+      }
+    },
+    "cedar": "@id(\"golden.session-profile-and-client\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_model\", resource)\nwhen { principal is AgentSession && principal.profile == \"seat\" && principal is AgentSession && principal.client == \"example-client\" };"
+  },
+  "tools-writes-logs": {
+    "model": {
+      "id": "golden.tools-writes-logs",
+      "actions": [
+        "call_tool",
+        "read_connector",
+        "write_connector"
+      ],
+      "what": {
+        "tools": [
+          "run_kubectl",
+          "get_pod_logs"
+        ],
+        "writes_only": true,
+        "reads_logs": true
+      }
+    },
+    "cedar": "@id(\"golden.tools-writes-logs\")\n@builder(\"1\")\nforbid (principal, action in [Action::\"write_connector\", Action::\"read_connector\", Action::\"call_tool\"], resource)\nwhen { resource in [Tool::\"run_kubectl\", Tool::\"get_pod_logs\"] && context.writes && context.reads_logs };"
+  },
+  "unclassified": {
+    "model": {
+      "id": "golden.unclassified",
+      "actions": [
+        "call_tool"
+      ],
+      "where": {
+        "unclassified": true
+      }
+    },
+    "cedar": "@id(\"golden.unclassified\")\n@builder(\"1\")\nforbid (principal, action == Action::\"call_tool\", resource)\nwhen { !(context.workspace has classification) };"
+  },
+  "unparseable": {
+    "model": {
+      "id": "golden.unparseable",
+      "actions": [
+        "run_command"
+      ],
+      "what": {
+        "unparseable": true
+      }
+    },
+    "cedar": "@id(\"golden.unparseable\")\n@builder(\"1\")\nforbid (principal, action == Action::\"run_command\", resource)\nwhen { !resource.parseable };"
+  },
+  "user-single": {
+    "model": {
+      "id": "golden.user-single",
+      "actions": [
+        "run_command"
+      ],
+      "who": {
+        "mode": "users",
+        "items": [
+          "u-1"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.user-single\")\n@builder(\"1\")\nforbid (principal in User::\"u-1\", action == Action::\"run_command\", resource);"
+  },
+  "workspaces": {
+    "model": {
+      "id": "golden.workspaces",
+      "actions": [
+        "use_seat"
+      ],
+      "where": {
+        "workspaces": [
+          "ws-1",
+          "ws-2"
+        ]
+      }
+    },
+    "cedar": "@id(\"golden.workspaces\")\n@builder(\"1\")\nforbid (principal, action == Action::\"use_seat\", resource)\nwhen { context.workspace in [Workspace::\"ws-1\", Workspace::\"ws-2\"] };"
+  }
+}

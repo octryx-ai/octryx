@@ -1,0 +1,117 @@
+.composer-tts-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--status-active);
+  opacity: 0.85;
+  flex-shrink: 0;
+}
+
+.composer-tts-indicator svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.tts-provider-card {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+  overflow: hidden;
+  transition: border-color 160ms;
+}
+
+.tts-provider-card:hover {
+  border-color: var(--border-strong);
+}
+
+.tts-provider-card--always-available {
+  border-color: rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.tts-provider-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.tts-provider-card__icon {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: var(--ds-radius-md);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.tts-provider-card__icon--openai {
+  background: #10a37f;
+}
+
+.tts-provider-card__icon--elevenlabs {
+  background: #f97316;
+}
+
+.tts-provider-card__icon--aws {
+  background: #ff9900;
+}
+
+.tts-provider-card__icon--browser {
+  background: #6366f1;
+}
+
+.tts-provider-card__icon-svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.tts-provider-card__body {
+  padding: 0 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+  margin-top: 0;
+  padding-top: 0.75rem;
+}
+
+.tts-provider-card__meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tts-provider-card__name {
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tts-provider-card__status {
+  margin-top: 0.25rem;
+  font-size: var(--ds-text-xs);
+  color: var(--muted);
+}
+
+.tts-provider-card__always-badge {
+  font-size: var(--ds-text-xs);
+}
+
+.tts-provider-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.tts-provider-card__grid > .admin-form-field:only-child,
+.tts-provider-card__grid > .admin-form-field:first-child:last-child {
+  grid-column: 1 / -1;
+}
+
+.tts-panel__footer {
+  margin-top: 0.25rem;
+}

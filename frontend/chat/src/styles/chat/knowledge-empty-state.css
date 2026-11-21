@@ -1,0 +1,117 @@
+.knowledge-entry {
+  width: 100%;
+}
+
+.knowledge-entry__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  list-style: none;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+}
+
+.knowledge-entry__summary::-webkit-details-marker {
+  display: none;
+}
+
+.knowledge-entry__toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.knowledge-entry__preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.88;
+}
+
+.knowledge-entry[open] .knowledge-entry__summary {
+  margin-bottom: 0.75rem;
+}
+
+.empty-state {
+  width: min(46rem, 100%);
+  margin: 2rem auto 0;
+  padding: 1.25rem 0 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+
+.empty-state__badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.empty-state h2 {
+  margin: var(--ds-space-4) 0 var(--ds-space-2);
+  /* On the UI set (rc1 smoke: the clamp gave 32px/23.2px, the browser's h2 700). */
+  font-size: var(--ds-text-3xl);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.05em;
+}
+
+@media (max-width: 640px) {
+  .empty-state h2 {
+    font-size: var(--ds-text-2xl);
+  }
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-lg);
+  line-height: 1.65;
+  max-width: 38rem;
+}
+
+.empty-state__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.empty-state__meta span {
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+/* Chat first use: starter requests fill the composer only. */
+.empty-state__starters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.empty-state p.empty-state__secondary {
+  margin-top: 1rem;
+  font-size: var(--ds-text-sm);
+  color: var(--muted);
+}
+
+.empty-state__secondary a {
+  color: var(--accent-strong);
+}

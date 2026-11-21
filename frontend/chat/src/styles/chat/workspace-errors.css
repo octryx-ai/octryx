@@ -1,0 +1,64 @@
+/* Workspace error panels and their actions. */
+.workspace__error {
+  width: 100%;
+  margin: 0 0 1rem;
+  border: 1px solid color-mix(in srgb, var(--status-error) 24%, transparent);
+  border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--status-error) 16%, transparent);
+  padding: 1rem 1rem;
+  color: var(--status-error-ink);
+}
+
+.workspace__error--task {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.workspace__error--dock {
+  margin: 0 0 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--status-error) 12%, transparent);
+}
+
+.workspace__error--boundary {
+  margin: 1rem 1.5rem;
+}
+
+.workspace__error-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.workspace__error-heading span {
+  color: var(--status-error-ink);
+  font-size: var(--ds-text-xs);
+}
+
+.workspace__error-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.workspace__error-action svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

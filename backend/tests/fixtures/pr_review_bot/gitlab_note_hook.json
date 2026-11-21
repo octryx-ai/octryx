@@ -1,0 +1,12 @@
+{
+  "object_kind": "note",
+  "event_type": "note",
+  "user": {"id": 11, "name": "Anna Dev", "username": "dev-anna"},
+  "project": {"id": 7, "path_with_namespace": "acme/pay"},
+  "object_attributes": {
+    "id": 501, "note": "@octryx explain why", "noteable_type": "MergeRequest", "type": "DiffNote", "system": false,
+    "action": "create", "discussion_id": "6a9c1750b37d513a43987b574953fceb50b03ce7",
+    "position": {"new_path": "totals.py", "new_line": 3}
+  },
+  "merge_request": {"id": 9001, "iid": 42, "source_branch": "feature/PAY-1-totals", "target_branch": "main"}
+}

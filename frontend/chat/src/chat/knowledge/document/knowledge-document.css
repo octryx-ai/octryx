@@ -1,0 +1,42 @@
+/* Knowledge › Documents: the original shown in place and two revisions side by side (design system tokens only). */
+.document-panel__facts { display: grid; gap: 2px; margin-bottom: 12px; }
+.document-view { display: grid; gap: 8px; min-height: 0; }
+.document-view__meta { margin: 0; color: var(--ds-muted); font-size: var(--ds-text-sm); }
+.document-view__frame {
+  width: 100%;
+  min-height: 60vh;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface);
+}
+.document-view__text {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  padding: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 13px/1.5 var(--font-mono, ui-monospace, monospace);
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+}
+.document-view__markdown {
+  max-height: 60vh;
+  overflow: auto;
+  padding: 4px 1rem;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--ds-line);
+  border-radius: var(--ds-radius-md);
+}
+.document-diff__tab { display: grid; gap: 0.75rem; }
+.document-diff__choices { display: flex; flex-wrap: wrap; gap: 12px; }
+.document-diff__choice { min-width: 10rem; }
+.document-diff__wrap { overflow: auto; max-height: 60vh; border: 1px solid var(--ds-line); border-radius: var(--ds-radius-md); }
+.document-diff { width: 100%; border-collapse: collapse; table-layout: fixed; font: 12.5px/1.45 var(--font-mono, ui-monospace, monospace); }
+.document-diff th { position: sticky; top: 0; text-align: left; padding: 0.5rem 8px; background: var(--ds-surface-raised); }
+.document-diff td { padding: 1px 8px; vertical-align: top; }
+.document-diff__no { width: 3.5rem; text-align: right; color: var(--ds-muted); user-select: none; }
+.document-diff__text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.document-diff__text.is-removed { background: var(--ds-tone-problem-bg); }
+.document-diff__text.is-added { background: var(--ds-tone-success-bg); }
+.document-diff__hunk td { padding: 4px 8px; color: var(--ds-muted); border-top: 1px solid var(--ds-line); }

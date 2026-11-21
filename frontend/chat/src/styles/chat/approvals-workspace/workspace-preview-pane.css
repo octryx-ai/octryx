@@ -1,0 +1,5 @@
+/* Workspace preview pane stylesheet: imports its partials in cascade order. */
+@import "./workspace-preview-layout.css";
+@import "./workspace-preview-tabs.css";
+@import "./workspace-preview-surface.css";
+@import "./workspace-preview-narrow.css";

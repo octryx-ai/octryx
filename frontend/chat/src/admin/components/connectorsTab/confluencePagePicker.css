@@ -1,0 +1,79 @@
+/* The Confluence page picker (delivery 5): a read-only tree with one choice per page. */
+.page-picker {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+}
+
+.page-picker__head {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.page-picker__space {
+  display: grid;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.page-picker__space-head,
+.page-picker__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--ds-text-sm);
+}
+
+.page-picker__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.page-picker__list {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0 0 0 1rem;
+  list-style: none;
+}
+
+.page-picker__children {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.page-picker__toggle {
+  width: 1.4rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.page-picker__title {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.page-picker__state {
+  font-size: var(--ds-text-xs);
+}
+
+.page-picker__state--in {
+  color: var(--accent-strong);
+}
+
+.page-picker__state--out {
+  color: var(--muted);
+}
+
+.page-picker__choice {
+  font-size: var(--ds-text-xs);
+}

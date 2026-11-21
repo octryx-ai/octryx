@@ -1,0 +1,209 @@
+/* Composer textarea, footer, toolbar, action buttons and summary chips. */
+.composer textarea {
+  width: 100%;
+  min-height: 2.35rem;
+  max-height: 10rem;
+  resize: none;
+  padding: 0.08rem 0 0.02rem;
+  border: 0;
+  background: transparent;
+  color: var(--highlight);
+  outline: none;
+  line-height: 1.55;
+  font-size: var(--ds-text-lg);
+}
+
+.composer textarea::placeholder {
+  color: var(--muted);
+}
+
+.composer textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.composer__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.composer__controls-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.composer__toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  width: 100%;
+}
+
+.composer__toolbar--primary {
+  gap: 0.25rem;
+}
+
+.composer__command-controls,
+.composer__utility-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.composer__toolbar-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The send button stays on the icon row: the utility group keeps its width, the command controls wrap first. */
+.composer__utility-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+}
+
+.composer__submit {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.composer__submit-hint {
+  font-size: var(--ds-text-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.composer-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-md);
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.composer-action-button:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+}
+
+.composer-action-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.composer-action-button svg {
+  width: 0.88rem;
+  height: 0.88rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.composer-action-button span {
+  font-size: var(--ds-text-sm);
+  line-height: 1;
+}
+
+.composer-action-button--icon {
+  width: var(--ds-control-md);
+  justify-content: center;
+  padding: 0;
+}
+
+.composer-action-button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.composer-action-button--ghost:hover:not(:disabled) {
+  border-color: var(--border-soft);
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+}
+
+.composer-action-button--active {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent-strong);
+}
+
+.composer-action-button--indicator {
+  cursor: default;
+}
+
+.composer-action-button--routing {
+  min-height: var(--ds-control-md);
+  padding-inline: var(--ds-space-3);
+  border-radius: var(--ds-radius-md);
+  justify-content: flex-start;
+}
+
+.composer-action-button--routing span {
+  font-size: var(--ds-text-sm);
+}
+
+.composer-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: min(100%, 20rem);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-overlay);
+  color: var(--muted);
+}
+
+.composer-summary-chip__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.composer-summary-chip__label svg {
+  width: 0.86rem;
+  height: 0.86rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.composer-summary-chip__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--ds-text-xs);
+}

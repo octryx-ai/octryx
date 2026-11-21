@@ -1,0 +1,245 @@
+/* Governed LiteLLM gateway admin surface.
+   Feature-local: the provider tab's gateway form/section and the runtime
+   cross-runtime fallback control. Uses the existing admin panel tokens only. */
+
+.provider-form__type-row {
+  grid-column: 1/-1;
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.provider-form__type-label {
+  color: var(--muted);
+  font-size: var(--ds-text-sm);
+  white-space: nowrap;
+}
+
+.litellm-gateway {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.litellm-gateway__section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+}
+
+.litellm-gateway__group {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  padding: 0.75rem 0.75rem;
+  min-width: 0;
+}
+
+.litellm-gateway__group--notice {
+  border-style: dashed;
+}
+
+.litellm-gateway__legend,
+.litellm-gateway__legend-inline {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0 0.25rem;
+}
+
+.litellm-gateway__field {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.litellm-gateway__field > label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.litellm-gateway__field input,
+.litellm-gateway__field select,
+.litellm-gateway__field textarea {
+  min-width: 0;
+  width: 100%;
+}
+
+.litellm-gateway__field input:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.litellm-gateway__hint {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+  margin: 0;
+}
+
+.litellm-gateway__hint--gap,
+.litellm-gateway__hint--gate {
+  border-left: 2px solid var(--border);
+  padding-left: 0.5rem;
+}
+
+.litellm-gateway__alias {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  padding: 0.5rem 0.75rem;
+  min-width: 0;
+}
+
+.litellm-gateway__alias-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.litellm-gateway__alias-title {
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.litellm-gateway__alias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.5rem;
+}
+
+.litellm-gateway__capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.litellm-gateway__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.litellm-gateway__codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.litellm-gateway__codes code {
+  font-size: var(--ds-text-2xs);
+  padding: 0.1rem 0.25rem;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-overlay-strong);
+}
+
+.litellm-gateway__readiness {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: var(--ds-radius-md);
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.litellm-gateway__readiness--ready {
+  border-left-color: var(--ok, var(--border));
+}
+
+.litellm-gateway__readiness--blocked {
+  border-left-color: var(--danger, var(--border));
+}
+
+.litellm-gateway__readiness--unknown {
+  border-left-color: var(--warn, var(--border));
+}
+
+.litellm-gateway__readiness-status {
+  font-weight: 600;
+}
+
+.litellm-gateway__readiness-code {
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+.litellm-gateway__readiness-label,
+.litellm-gateway__readiness-attempt {
+  color: var(--muted);
+}
+
+.runtime-fallback__field {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 32rem;
+  margin-bottom: 0.5rem;
+}
+
+.runtime-fallback__field > label {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+@media (max-width: 640px) {
+  .litellm-gateway__alias-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .provider-form__type-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* "Approved for sensitive data" chips. */
+.litellm-gateway__chip {
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+}
+
+/* The gateway in the provider's side panel; design-system fields, the state in one line. */
+.litellm-gateway__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.litellm-gateway__short {
+  max-width: 10rem;
+}
+
+.litellm-gateway__section .ds-form-section,
+.litellm-gateway .ds-form-section,
+.litellm-gateway .ds-advanced {
+  max-width: 44rem;
+}
+
+/* The form's open points are sentences now (the code is the tooltip). */
+.litellm-gateway .litellm-gateway__codes,
+.litellm-gateway__alias .litellm-gateway__codes {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--status-attention-ink, var(--muted-strong));
+  font-size: var(--ds-text-xs);
+}

@@ -1,0 +1,8 @@
+/* Skill detail page: the few pieces skillsPage.css has no class for. Tokens only. */
+
+.skill-detail__file{width:100%;border:0;background:transparent;font:inherit;font-family:var(--font-mono);text-align:left}
+.skill-detail__pre{max-height:28rem;overflow:auto}
+.skill-detail__gap{margin-top:0.75rem}
+.skill-detail__actions{display:flex;flex-wrap:wrap;gap:0.25rem}
+.skill-detail__reason{width:100%;min-height:3.5rem;border:1px solid var(--border);border-radius:var(--ds-radius-md);background:var(--bg);color:var(--text);padding:0.5rem 0.5rem;font:inherit;font-size: var(--ds-text-xs);resize:vertical}
+.skill-detail__tags-input{width:100%;min-height:1.8rem;border:1px solid var(--border);border-radius:var(--ds-radius-md);background:var(--bg);color:var(--text);padding:0.25rem 0.5rem;font:inherit;font-size: var(--ds-text-xs)}

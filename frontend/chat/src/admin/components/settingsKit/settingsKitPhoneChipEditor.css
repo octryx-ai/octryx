@@ -1,0 +1,72 @@
+/* Settings kit phone breakpoint, screen-reader text, chip list editor and workspace sections. */
+/* Phone (≤760px): one column; tables become cards. */
+@media (max-width: 760px) {
+  .sk-headstrip,
+  .sk-pipe,
+  .sk-option-grid { grid-template-columns: minmax(0, 1fr); }
+  .sk-cov { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .sk-cov > .h { display: none; }
+  .sk-cov .s { grid-column: 1 / -1; }
+  .sk-cov div[data-cat]::before { content: attr(data-cat) " · "; color: var(--muted); font-size: var(--ds-text-2xs); }
+  .sk-cards thead { display: none; }
+  .sk-cards,
+  .sk-cards tbody,
+  .sk-cards tr,
+  .sk-cards td { display: block; width: 100%; }
+  .sk-cards tr { border-bottom: 1px solid var(--border-soft); padding: 0.25rem 0; }
+  .sk-cards td {
+    border: 0 !important;
+    padding: 0.25rem 0.75rem !important;
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: right;
+  }
+  .sk-cards td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: var(--ds-text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: left;
+    flex: 0 0 auto;
+  }
+  .sk-cards td:first-child { text-align: left; display: block; }
+  .sk-cards td:first-child::before { display: none; }
+}
+
+.sk-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Chip list editor. */
+.sk-chip-editor { display: grid; gap: 0.5rem; }
+.sk-chip-removable { display: inline-flex; align-items: center; gap: 0.25rem; }
+.sk-chip-remove {
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+.sk-chip-remove:hover { background: var(--surface-overlay-hover); }
+.sk-chip-origin { color: var(--muted); font-size: var(--ds-text-xs); }
+.sk-chips--spaced { margin-top: 0.25rem; }
+.sk-row--end { justify-content: flex-end; }
+
+/* A Workspace's settings: the section groups, then the group's sections as a small second row. */
+.workspace-settings__sections {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ds-gap-sm, 0.5rem);
+  margin: 0 0 var(--ds-gap-md, 0.75rem);
+}

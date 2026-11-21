@@ -1,0 +1,229 @@
+/* Phone chat answers: turn options, formatted answers, code blocks, the dock, live state, context and pull to refresh. */
+/* The turn's options (model, effort, mode) above the composer. */
+.m-options {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 12px 0;
+  scrollbar-width: none;
+}
+.m-options select {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: var(--ds-control-touch);
+  border-radius: var(--m-radius-md);
+  border: 1px solid var(--m-line);
+  background: var(--m-raise);
+  color: var(--m-text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  padding: 0 0.75rem;
+}
+.m-options .m-warn-select {
+  border-color: var(--m-need);
+  color: var(--m-need);
+}
+/* Answers: selectable, formatted, with their own copy action. */
+.m-chat .m-ai,
+.m-chat .m-user {
+  user-select: text;
+  -webkit-user-select: text;
+}
+.m-ai-md > :first-child {
+  margin-top: 0;
+}
+.m-ai-md > :last-child {
+  margin-bottom: 0;
+}
+.m-ai-md pre {
+  overflow-x: auto;
+  font-size: var(--ds-text-xs);
+}
+/* Code blocks of the shared MarkdownRenderer. The web chat styles them in its own stylesheet, which the phone app does
+   not load: without these rules the language label and the Copy button ran into each other above the code. */
+.m-ai-md .message-code-block {
+  margin: 8px 0;
+  overflow: hidden;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-lg);
+  background: var(--m-raise);
+}
+.m-ai-md .message-code-block__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 36px;
+  padding: 4px 0.5rem 4px 12px;
+  border-bottom: 1px solid var(--m-line);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+.m-ai-md .message-code-block__toolbar--plain {
+  justify-content: flex-end;
+  border-bottom: 0;
+}
+.m-ai-md .message-code-block__language {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--m-muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.m-ai-md .message-code-block__copy {
+  position: relative;
+  flex: none;
+  min-height: var(--ds-control-sm);
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--m-muted);
+  font-family: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+/* A small button keeps a 44 px tap area. */
+.m-ai-md .message-code-block__copy::before,
+.m-picture-chip button::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+}
+.m-ai-md .message-code-block pre {
+  margin: 0;
+}
+.m-ai-md .message-code-block__plain-body {
+  padding: 0 12px 0.75rem;
+  overflow-x: auto;
+  white-space: pre;
+}
+.m-copy {
+  display: block;
+  margin: 0 0 4px auto;
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: var(--m-radius-md);
+  background: none;
+  color: var(--m-muted);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+  min-height: var(--ds-control-touch);
+}
+/* The chat's code changes: one collapsible diff per changed file. */
+.m-changes details {
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  margin: 0.5rem 0;
+}
+.m-changes summary {
+  padding: 0.75rem 12px;
+  font-size: var(--ds-text-md);
+  word-break: break-all;
+}
+.m-changes pre {
+  margin: 0;
+  padding: 0 12px 12px;
+  overflow-x: auto;
+  font-size: var(--ds-text-xs);
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+}
+/* The options and the composer stay together at the bottom. */
+.m-dock {
+  position: sticky;
+  bottom: 0;
+  background: var(--m-bg);
+  border-top: 1px solid var(--m-line);
+}
+.m-dock .m-compose {
+  position: static;
+  border-top: 0;
+}
+
+/* Live: under each of the person's messages, whether it reached the session as written. */
+.m-live-state {
+  display: block;
+  margin: 2px 4px 0.75rem auto;
+  text-align: right;
+  font-size: var(--ds-text-xs);
+  color: var(--m-muted);
+}
+
+.m-live-failed {
+  color: var(--status-error-ink);
+}
+
+/* Files on the Mac: a fetched picture fits the screen. */
+.m-file-image {
+  display: block;
+  max-width: 100%;
+  margin: 8px 0;
+  border-radius: var(--ds-radius-md);
+}
+
+/* How full the Mac session's context is, under the chat title; amber from 70 %, red from 90 %. */
+.m-context {
+  display: block;
+  font-size: var(--ds-text-xs);
+  color: var(--m-muted);
+}
+
+/* The context and router lines wrap rather than lose their end on a narrow phone. */
+.m-top-text span.m-context {
+  white-space: normal;
+  overflow: visible;
+}
+
+.m-context-high {
+  color: var(--status-attention-ink);
+}
+
+.m-context-full {
+  color: var(--status-error-ink);
+}
+
+/* Pull to refresh and the new-version banner (a Home Screen app has no reload of its own). */
+.m-pull {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+  font-size: var(--ds-text-sm);
+  color: var(--m-muted);
+  transition: height 0.12s ease-out;
+}
+
+.m-pull span {
+  padding-bottom: 0.75rem;
+}
+
+.m-update {
+  display: block;
+  width: calc(100% - 32px);
+  min-height: var(--ds-control-touch);
+  margin: calc(8px + env(safe-area-inset-top, 0px)) 16px 0;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: var(--m-radius-md);
+  background: var(--m-accent);
+  color: var(--m-on-accent);
+  font: inherit;
+  font-weight: var(--ds-weight-strong);
+}
+
+.m-spin {
+  animation: m-spin 0.9s linear infinite;
+}
+
+@keyframes m-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

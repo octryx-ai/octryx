@@ -1,0 +1,82 @@
+/* Agent output format fields: scoped layout only, existing tokens and form classes. */
+.agent-reply-format {
+  container: agent-reply-format / inline-size;
+  display: grid;
+  gap: 0;
+  margin-top: 0.25rem;
+  min-width: 0;
+}
+
+/* One row per field (name, type, required, remove) under column headers. */
+.agent-reply-format__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(7.5rem, 12.5rem) 4.5rem 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.agent-reply-format__head {
+  padding-bottom: 0.25rem;
+}
+
+.agent-reply-format__head > span:nth-child(3) {
+  text-align: center;
+}
+
+.agent-reply-format__item {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.agent-reply-format__required {
+  justify-self: center;
+}
+
+.agent-reply-format__add {
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+/* Narrow containers (the agent drawer is about 26rem at every viewport): the name (and its header) takes
+   its own line; type, required and remove follow under their headers, so the type select gets the full
+   remaining width and "List of whole numbers" is never clipped. */
+@container agent-reply-format (max-width: 30rem) {
+  .agent-reply-format__grid {
+    grid-template-columns: minmax(0, 1fr) 4.5rem 2rem;
+  }
+
+  .agent-reply-format__grid > :first-child {
+    grid-column: 1 / -1;
+  }
+}
+
+.agent-reply-format__preview {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.agent-reply-format__invalid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.agent-reply-format__invalid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

@@ -1,0 +1,85 @@
+# Octryx static analysis rules for the PR review bot (opengrep). License: Apache-2.0, part of Octryx.
+# Written for Octryx; no rule is copied from the Semgrep Registry (its rules license forbids redistribution in a
+# product offered to third parties). Each rule names one dangerous call with the safe alternative.
+rules:
+  - id: octryx.python.eval
+    languages: [python]
+    severity: ERROR
+    message: eval()/exec() runs arbitrary code; parse the input instead (ast.literal_eval, json.loads).
+    pattern-either:
+      - pattern: eval($X)
+      - pattern: exec($X)
+    pattern-not: eval("...")
+  - id: octryx.python.shell-true
+    languages: [python]
+    severity: ERROR
+    message: A shell command with shell=True lets input inject commands; pass the arguments as a list without a shell.
+    pattern: subprocess.$CALL(..., shell=True, ...)
+  - id: octryx.python.os-system
+    languages: [python]
+    severity: WARNING
+    message: os.system/os.popen run through a shell; use subprocess.run with an argument list.
+    pattern-either:
+      - pattern: os.system($X)
+      - pattern: os.popen($X, ...)
+  - id: octryx.python.yaml-load
+    languages: [python]
+    severity: ERROR
+    message: yaml.load without SafeLoader can build arbitrary objects; use yaml.safe_load.
+    patterns:
+      - pattern: yaml.load($X, ...)
+      - pattern-not: yaml.load($X, Loader=yaml.SafeLoader, ...)
+      - pattern-not: yaml.load($X, Loader=yaml.CSafeLoader, ...)
+  - id: octryx.python.pickle-load
+    languages: [python]
+    severity: WARNING
+    message: Unpickling data from outside runs code; use JSON or a schema-checked format for untrusted input.
+    pattern-either:
+      - pattern: pickle.loads($X)
+      - pattern: pickle.load($X)
+  - id: octryx.python.tls-verify-off
+    languages: [python]
+    severity: ERROR
+    message: TLS certificate checking is turned off; keep verify on (pass a CA bundle if needed).
+    pattern: requests.$CALL(..., verify=False, ...)
+  - id: octryx.python.sql-format
+    languages: [python]
+    severity: ERROR
+    message: SQL built with string formatting is open to injection; pass the values as query parameters.
+    pattern-either:
+      - pattern: $CUR.execute(f"...", ...)
+      - pattern: $CUR.execute("..." % $X, ...)
+      - pattern: $CUR.execute("...".format(...), ...)
+  - id: octryx.js.eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: eval()/new Function() runs arbitrary code; parse the input instead (JSON.parse).
+    pattern-either:
+      - pattern: eval($X)
+      - pattern: new Function(...)
+  - id: octryx.js.inner-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Assigning innerHTML/outerHTML renders markup from data (XSS); use textContent or a sanitizer.
+    pattern-either:
+      - pattern: $EL.innerHTML = $X
+      - pattern: $EL.outerHTML = $X
+  - id: octryx.js.dangerously-set-inner-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: dangerouslySetInnerHTML renders markup from data (XSS); render text or sanitize it first.
+    pattern: <$T dangerouslySetInnerHTML={...} />
+  - id: octryx.js.child-process-exec
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: child_process.exec runs through a shell; use execFile/spawn with an argument list.
+    pattern-either:
+      - pattern: require("child_process").exec(...)
+      - pattern: child_process.exec(...)
+  - id: octryx.js.tls-reject-off
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: TLS certificate checking is turned off; keep rejectUnauthorized on.
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"

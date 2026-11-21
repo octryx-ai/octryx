@@ -1,0 +1,60 @@
+/* Workspace settings › Repositories › PR review bot (UI set: card title 14/600, UI text 13, hints 12, 4 px rhythm). */
+.review-bot { display: grid; gap: var(--ds-space-3); }
+.review-bot__intro { margin: 0; }
+.review-bot__card { padding: var(--ds-space-4); }
+.review-bot__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+}
+.review-bot__name {
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+  overflow-wrap: anywhere;
+}
+.review-bot__label { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-strong); }
+.review-bot__field { display: grid; gap: var(--ds-space-2); min-width: 0; }
+.review-bot__field p { margin: 0; }
+.review-bot__actions { justify-content: flex-end; }
+.review-bot__sync-hint { margin-right: auto; }
+/* The size brake's two numbers side by side, each as wide as six digits; they wrap on a phone. */
+.review-bot__limits { flex-wrap: wrap; gap: var(--ds-space-3); }
+.review-bot__limits .admin-panel__field { flex: 0 1 8rem; min-width: 0; }
+.review-bot__seat { display: grid; gap: var(--ds-space-2); }
+.review-bot__seat p { margin: 0; }
+.review-bot .admin-option-card__title .ds-status { margin-left: var(--ds-space-1); vertical-align: middle; }
+/* The browser's 3 px checkbox margin is off the 4 px rhythm; the label's gap spaces it. */
+.review-bot .admin-panel__checkbox input { margin: 0; }
+
+/* Rule proposals from `@octryx ignore`: one quiet box per proposal inside the repository card. */
+.review-bot__rules { border-top: 1px solid var(--border); padding-top: var(--ds-space-3); }
+.review-bot__rules code { font-size: var(--ds-text-xs); }
+.review-bot__proposal {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  min-width: 0;
+}
+.review-bot__proposal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--ds-space-2); }
+.review-bot__proposal-file { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); overflow-wrap: anywhere; }
+.review-bot__rule-edit { display: grid; gap: var(--ds-space-1); font-size: var(--ds-text-xs); }
+.review-bot__rule-input { width: 100%; min-height: calc(var(--ds-control-lg) * 2); font-size: var(--ds-text-sm); resize: vertical; box-sizing: border-box; }
+.review-bot__rule-text { margin: 0; font-size: var(--ds-text-sm); overflow-wrap: anywhere; }
+.review-bot__facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ds-space-1) var(--ds-space-3);
+  margin: 0;
+  font-size: var(--ds-text-xs);
+}
+.review-bot__facts dt { color: var(--muted); }
+.review-bot__facts dd { margin: 0; overflow-wrap: anywhere; }
+.review-bot__decided { display: grid; gap: var(--ds-space-2); }
+.review-bot__decided > summary { cursor: pointer; font-size: var(--ds-text-sm); }
+.review-bot__decided[open] > summary { margin-bottom: var(--ds-space-2); }
+/* <details> is not a grid container in every engine: space the decided boxes explicitly. */
+.review-bot__decided > .review-bot__proposal + .review-bot__proposal { margin-top: var(--ds-space-2); }

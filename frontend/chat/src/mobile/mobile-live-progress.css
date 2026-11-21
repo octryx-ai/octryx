@@ -1,0 +1,241 @@
+/* Phone live chat: pictures, live progress steps and groups, the fork bar and the new-below hint. */
+/* Live pictures: the attach button, the tray of pictures about to go, the count under a sent message. */
+.m-attach {
+  flex: 0 0 var(--ds-control-touch);
+  width: var(--ds-control-touch);
+  height: var(--ds-control-touch);
+  border-radius: var(--m-radius-md);
+  border: 1px solid var(--m-line);
+  background: var(--m-raise);
+  color: var(--m-text);
+  font-size: var(--ds-text-2xl);
+  line-height: 1;
+}
+.m-attach:disabled {
+  opacity: 0.4;
+}
+.m-picture-tray {
+  display: flex;
+  gap: 8px;
+  padding: 8px max(16px, env(safe-area-inset-left, 0px)) 0;
+  background: var(--m-bg);
+  border-top: 1px solid var(--m-line);
+}
+.m-picture-chip {
+  position: relative;
+  width: 64px;
+  height: 64px;
+}
+.m-picture-chip img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: var(--ds-radius-lg);
+  border: 1px solid var(--m-line);
+}
+.m-picture-chip button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--ds-radius-lg);
+  border: 0;
+  background: var(--m-text);
+  color: var(--m-bg);
+  font-size: var(--ds-text-xs);
+}
+.m-live-pictures {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--ds-text-sm);
+  opacity: 0.8;
+}
+
+/* Live progress: the session's steps between the messages — small and quiet, so the answers stay the main thing. */
+.m-step {
+  margin: 4px 0;
+  font-size: var(--ds-text-md);
+  line-height: 1.4;
+  color: var(--m-muted);
+}
+.m-step-tool {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-lg);
+  background: var(--m-raise);
+}
+.m-step-mark {
+  flex: 0 0 auto;
+  width: 16px;
+  text-align: center;
+  color: var(--m-text);
+}
+.m-step-tool.m-step-failed .m-step-mark,
+.m-step-tool.m-step-failed .m-step-line,
+.m-step-row.m-step-failed .m-step-mark,
+.m-step-row.m-step-failed .m-step-line {
+  color: var(--m-red);
+}
+.m-step-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.m-step-body b {
+  color: var(--m-text);
+  font-weight: var(--ds-weight-strong);
+}
+.m-step-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--ds-text-sm);
+}
+.m-step-line {
+  display: block;
+  margin-top: 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--ds-text-xs);
+}
+.m-step-text {
+  padding: 2px 2px 2px 0.75rem;
+  border-left: 2px solid var(--m-line);
+  white-space: pre-wrap;
+  color: var(--m-text); /* the narration is the most important part */
+  font-size: var(--ds-text-lg);
+  opacity: 0.88;
+}
+.m-step-prompt {
+  font-style: italic;
+}
+.m-step-compact {
+  text-align: center;
+  font-size: var(--ds-text-xs);
+}
+.m-steps-more {
+  margin: 0 auto 8px;
+}
+
+/* Live progress groups (fold the steps, otherwise there is too much to see): one line per run of tools,
+   one line per step when open, the full command only on a step that is tapped. */
+.m-step-group {
+  margin: 0.5rem 0;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-lg);
+  background: var(--m-raise);
+  overflow: hidden;
+}
+.m-step-summary,
+.m-step-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: none;
+  color: var(--m-muted);
+  font: inherit;
+  font-size: var(--ds-text-md);
+  line-height: 1.35;
+  text-align: left;
+}
+.m-step-summary {
+  color: var(--m-text);
+}
+.m-step-row {
+  border-top: 1px solid var(--m-line);
+}
+.m-step-chevron {
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--m-muted);
+}
+.m-step-row .m-step-body {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.m-step-row .m-step-input {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* one line: the tool's name and the short description side by side */
+.m-step-row[aria-expanded="false"] .m-step-body {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 0.5rem;
+}
+.m-step-row[aria-expanded="false"] .m-step-body b {
+  flex: 0 0 auto;
+}
+.m-step-row[aria-expanded="false"] .m-step-input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.m-step-row[aria-expanded="false"] .m-step-line {
+  flex-basis: 100%;
+}
+.m-step-row .m-step-full {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.m-step-group.m-step-failed .m-step-summary,
+.m-step-group.m-step-failed .m-step-summary .m-step-mark,
+.m-step-row.m-step-failed {
+  color: var(--m-red);
+}
+/* Phase B: continue a copy of the session here (a fork); only while the session is idle. */
+.m-fork-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px max(16px, env(safe-area-inset-left, 0px)) 0;
+  background: var(--m-bg);
+  border-top: 1px solid var(--m-line);
+  font-size: var(--ds-text-sm);
+}
+.m-fork-bar .m-muted {
+  flex: 1;
+}
+.m-fork-bar .m-copy {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  color: var(--m-text);
+}
+.m-fork-bar .m-copy:disabled {
+  opacity: 0.45;
+}
+.m-top-text strong .m-tag {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* Live chat: new steps arrived below while the person reads further up. */
+.m-new-below {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 132px);
+  transform: translateX(-50%);
+  z-index: 20;
+  min-height: var(--ds-control-touch);
+  padding: 0 1rem;
+  border: 1px solid var(--m-line);
+  border-radius: var(--ds-radius-pill);
+  background: var(--m-accent);
+  color: var(--m-on-accent);
+  font: inherit;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+  box-shadow: var(--shadow);
+}
+.m-fork-bar .m-copy:disabled {
+  opacity: 0.4;
+  border-style: dashed;
+}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Settings - Octryx{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-5xl space-y-8">
+    <div>
+        <h1 class="text-3xl font-semibold text-slate-900">Settings</h1>
+        <p class="mt-2 text-sm text-slate-600">Manage archived threads and restore them when they should become active again.</p>
+    </div>
+
+    <section class="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-200 px-6 py-5">
+            <h2 class="text-lg font-semibold text-slate-900">Archived Threads</h2>
+            <p class="mt-1 text-sm text-slate-500">Archived threads are hidden from the main chat sidebar until you restore them here.</p>
+        </div>
+        <div class="divide-y divide-slate-200">
+            {% for thread in archived_threads %}
+            <div class="flex flex-col gap-4 px-6 py-5 md:flex-row md:items-start md:justify-between">
+                <div class="min-w-0">
+                    <div class="truncate text-base font-medium text-slate-900">{{ thread.title }}</div>
+                    <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>{{ thread.project_name }}</span>
+                        <span>•</span>
+                        <span>{{ thread.runtime_label }}</span>
+                        <span>•</span>
+                        <span>{{ thread.message_count }} messages</span>
+                        <span>•</span>
+                        <span>{{ thread.started_at.strftime("%d %b %Y %H:%M") if thread.started_at else "recent" }}</span>
+                    </div>
+                    {% if thread.preview %}
+                    <p class="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">{{ thread.preview }}</p>
+                    {% endif %}
+                </div>
+                <div class="flex items-center gap-2">
+                    <a href="/chat?session_id={{ thread.id }}" class="rounded-xl border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-50">Open</a>
+                    <form method="post" action="/chat/sessions/{{ thread.id }}/restore">
+                        <button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
+                            Restore
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="px-6 py-10 text-sm text-slate-500">No archived threads.</div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

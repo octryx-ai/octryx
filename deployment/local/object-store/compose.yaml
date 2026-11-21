@@ -1,0 +1,94 @@
+# Local-only S3-compatible object store for the Octryx Knowledge object
+# boundary. SeaweedFS 4.47, Apache-2.0.
+#
+# Not a production, EKS, or shared-environment manifest. See README.md in this
+# directory for the runbook, the license evidence and the interoperability limits.
+#
+# Required input (fails rendering when unset):
+#   OBJECT_STORE_IDENTITIES_FILE  absolute path to the generated SeaweedFS S3 identity
+#                                 file OUTSIDE the repository; fixture.sh writes it
+# Optional input:
+#   OBJECT_STORE_S3_PORT          loopback host port for the S3 API (default 8333)
+#   OBJECT_STORE_MEMORY_LIMIT     container memory limit (default 1g)
+#
+# Security boundaries:
+#   - the image is pinned by tag AND digest; never replace it with a floating tag
+#   - the S3 API is published on 127.0.0.1 only; master, volume and filer listen
+#     inside the container but no other port is published
+#   - the identity file holds the generated test-only access keys and is only ever a
+#     mounted read-only secret; no credential appears in this file, in the command
+#     line, or in the environment
+#   - the upstream default reports anonymous cluster statistics to
+#     telemetry.seaweedfs.com; it is switched off here, so the fixture makes no egress
+name: octryx-object-store
+
+services:
+  object-store:
+    image: ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
+    pull_policy: missing
+    restart: "no"
+    # uid/gid 1000 is the image's unprivileged `seaweed` user. Running as that user
+    # directly is required: as root the image entrypoint chowns /data and re-execs
+    # through su-exec, which needs CAP_CHOWN and CAP_SETUID that cap_drop: ALL removes.
+    user: "1000:1000"
+    ports:
+      # Loopback only. Do not widen the host address: the S3 listener is plaintext
+      # and the identities are static access keys.
+      - "127.0.0.1:${OBJECT_STORE_S3_PORT:-8333}:8333"
+    command:
+      # The image entrypoint prepends "-dir=/data -master.volumeSizeLimitMB=1024"
+      # for the `server` subcommand once -volume.max is given, so neither is repeated
+      # here. Every flag below is a deliberate narrowing of an upstream default.
+      - server
+      # Room for the knowledge bucket's volumes plus writable volumes in the default
+      # collection, which the filer's metadata log needs; with a single slot the filer's
+      # periodic metadata flush blocks and S3 PUTs after an idle period stall.
+      - -volume.max=16
+      # Container-internal bind address. Docker port publishing reaches the container
+      # through its own interface, so binding loopback inside would make the published
+      # host port unreachable. Only 8333 is published, and only on 127.0.0.1.
+      - -ip.bind=0.0.0.0
+      # Upstream default is true and posts to https://telemetry.seaweedfs.com.
+      - -master.telemetry=false
+      - -filer
+      - -s3
+      - -s3.port=8333
+      # Upstream starts an Iceberg REST catalog on 8181 and a Lance namespace server
+      # on 9101 by default. The fixture needs neither; no extra listener should exist.
+      - -s3.port.iceberg=0
+      - -s3.port.lance=0
+      # Upstream default is true: an admin identity writing to an unknown bucket would
+      # create it. That would hide the NoSuchBucket state the product maps to
+      # needs_configuration, so bucket creation stays an explicit fixture step.
+      - -s3.autoCreateBucket=false
+      - -s3.config=/run/secrets/object_store_identities
+    secrets:
+      - source: object_store_identities
+        target: object_store_identities
+    tmpfs:
+      # All fixture data lives in RAM: master metadata, the single volume and the
+      # filer's leveldb. Nothing survives the container, so cleanup cannot leave data
+      # behind and no named or anonymous volume is ever created (/data is the only
+      # VOLUME the image declares, and this mount satisfies it).
+      - /data:size=256m,mode=0700,uid=1000,gid=1000
+    # GET /healthz on the S3 port answers 200 unauthenticated once the S3 listener is
+    # up (verified against this digest). It is liveness only: it does not prove that
+    # master, volume and filer are ready, which fixture.sh establishes with an
+    # authenticated bucket call before the product smoke runs.
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8333/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    mem_limit: ${OBJECT_STORE_MEMORY_LIMIT:-1g}
+    cpus: 2
+    pids_limit: 512
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+secrets:
+  object_store_identities:
+    file: ${OBJECT_STORE_IDENTITIES_FILE:?set OBJECT_STORE_IDENTITIES_FILE to the generated S3 identity file outside the repository (fixture.sh does this)}

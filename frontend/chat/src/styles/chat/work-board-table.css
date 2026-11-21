@@ -1,0 +1,279 @@
+/* Work board and cards, work badges, the Work table, the empty block and loading and error states. */
+.work-board {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(13rem, 1fr));
+  gap: 0.5rem;
+  min-height: 28rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.work-board__column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 13rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  overflow: hidden;
+}
+
+.work-board__column header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.work-board__cards {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+}
+
+.work-card {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay-strong);
+  color: inherit;
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.work-card__topline,
+.work-card__meta,
+.work-card__chips {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.work-card__topline {
+  justify-content: space-between;
+}
+
+.work-card__topline > span:last-child {
+  display: inline-flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.work-card__key {
+  font-family: var(--font-mono);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.work-card__title,
+.work-sync-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  line-height: 1.28;
+  font-weight: 600;
+}
+
+.work-card__meta {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.work-card__chips span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+}
+
+/* Work badges are state labels: the shape, size and tones of StatusLabel (ds-status), sentence case
+   (UI professionalisation). */
+.work-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-sm);
+  padding: 0.05rem 0.5rem;
+  background: var(--ds-tone-neutral-bg, var(--surface-overlay));
+  color: var(--ds-tone-neutral-ink, var(--muted-strong));
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.work-badge--active {
+  border-color: var(--ds-tone-success-line);
+  background: var(--ds-tone-success-bg);
+  color: var(--ds-tone-success-ink);
+}
+
+.work-badge--running {
+  border-color: var(--ds-tone-info-line);
+  background: var(--ds-tone-info-bg);
+  color: var(--ds-tone-info-ink);
+}
+
+.work-badge--attention {
+  border-color: var(--ds-tone-attention-line);
+  background: var(--ds-tone-attention-bg);
+  color: var(--ds-tone-attention-ink);
+}
+
+.work-badge--danger {
+  border-color: var(--ds-tone-problem-line);
+  background: var(--ds-tone-problem-bg);
+  color: var(--ds-tone-problem-ink);
+}
+
+/* The Work table reads like the design system's DataTable (ds-table). */
+.work-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--ds-line, var(--border-soft));
+  border-radius: var(--ds-radius, 0.45rem);
+  background: var(--ds-surface, var(--surface-overlay));
+}
+
+.work-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 58rem;
+  font-size: var(--ds-font-size, 0.82rem);
+}
+
+.work-table th,
+.work-table td {
+  border-bottom: 1px solid var(--ds-line, var(--border-soft));
+  padding: 0.5rem var(--ds-cell-pad-x, 0.75rem);
+  text-align: left;
+  vertical-align: middle;
+  font-size: var(--ds-font-size, 0.82rem);
+}
+
+.work-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  height: 2rem;
+  padding-block: 0;
+  border-bottom-color: var(--ds-line-strong, var(--border));
+  background: var(--ds-surface-raised, var(--surface-overlay-strong));
+  color: var(--ds-header-ink, var(--muted));
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.work-table td {
+  height: var(--ds-row-height, 36px);
+}
+
+.work-table th:first-child,
+.work-table td:first-child { padding-left: 1rem; }
+
+.work-table th:last-child,
+.work-table td:last-child { padding-right: 1rem; }
+
+.work-table tbody tr:last-child td { border-bottom: 0; }
+.work-table tbody tr:hover td { background: var(--ds-surface-hover, var(--surface-overlay-strong)); }
+
+.work-table td:first-child {
+  min-width: 18rem;
+}
+
+.work-table td:first-child strong,
+.work-table td:first-child span {
+  display: block;
+}
+
+.work-table td:first-child span {
+  margin-top: 0.25rem;
+  color: var(--muted-strong);
+}
+
+.work-table__detail {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--text);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  cursor: pointer;
+}
+
+.work-table__detail:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+}
+
+/* The one "nothing here yet" block of a page (Work, Workflows, Operations): centred in a quiet frame, a title, one
+   sentence, at most two actions. */
+.work-empty {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: center;
+  align-content: center;
+  min-height: 12rem;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+/* The page header already names the page; the block's own eyebrow would repeat it. */
+.work-empty > .work-empty__eyebrow { display: none; }
+
+.work-empty h2 {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--highlight, var(--text));
+}
+
+.work-empty p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-font-size, 0.82rem);
+  line-height: 1.5;
+}
+
+.work-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.work-area__loading,
+.work-area__error {
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  color: var(--muted-strong);
+  background: var(--surface-overlay-strong);
+}
+
+.work-area__error {
+  border-color: color-mix(in srgb, var(--status-error) 28%, transparent);
+  color: var(--status-error-ink);
+}

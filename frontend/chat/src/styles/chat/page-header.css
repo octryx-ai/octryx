@@ -1,0 +1,87 @@
+/* The one page header: title and purpose on the left; Workspace switch, neutral actions, the one
+   primary action and "?" on the right, always in this order. */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 4.4rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--shell-divider);
+  background: var(--workspace-header-surface);
+  backdrop-filter: blur(18px);
+}
+
+.page-header__copy {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-right: auto;
+}
+
+.page-header__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.page-header__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.page-header__purpose {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.35;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* An action never breaks onto two lines ("Add\nconnection" beside the open help at 1280 px); the title and purpose
+   on the left give way instead. */
+.page-header__actions > button,
+.page-header__actions > a {
+  white-space: nowrap;
+}
+
+.page-header__actions:empty {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .page-header {
+    flex-wrap: wrap;
+  }
+}
+
+/* A primary action that cannot reach its goal yet, with its reason. */
+.page-header__blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-header__hint {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+/* "← Back to setup guide" on a page opened from the Setup guide. */
+.page-header__back {
+  color: var(--accent);
+  font-size: var(--ds-text-xs);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}

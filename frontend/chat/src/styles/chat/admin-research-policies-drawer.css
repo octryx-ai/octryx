@@ -1,0 +1,41 @@
+/* Research profile drawer metrics and workspace assignment. */
+/* Research profile drawer metrics and workspace assignment. */
+.research-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.research-metrics__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+}
+
+.research-metrics__label {
+  font-size: var(--ds-text-2xs);
+  color: var(--muted);
+}
+
+.research-metrics__value {
+  font-size: var(--ds-text-md);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.research-assignment {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.research-assignment__effective {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--text);
+}

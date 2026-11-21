@@ -1,0 +1,150 @@
+/* Workspace file tree rows, toggles, checks and entries. */
+.workspace-sidepanel__tree {
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  gap: 0.12rem;
+  align-content: start;
+  justify-items: stretch;
+}
+
+.workspace-sidepanel__tree-node-shell {
+  display: grid;
+  min-width: 0;
+  width: 100%;
+  gap: 0.12rem;
+}
+
+.workspace-sidepanel__tree-row {
+  display: grid;
+  grid-template-columns: 1rem auto auto 1fr;
+  min-width: 0;
+  width: 100%;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.84rem;
+  border-radius: var(--ds-radius-md);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.workspace-sidepanel__tree-row--selected {
+  background: var(--surface-overlay-strong);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 58%, transparent);
+}
+
+.workspace-sidepanel__tree-row--preview-active {
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--accent) 64%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.workspace-sidepanel__tree-toggle,
+.workspace-sidepanel__tree-entry {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.workspace-sidepanel__tree-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted);
+}
+
+.workspace-sidepanel__tree-toggle svg {
+  width: 0.72rem;
+  height: 0.72rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 140ms ease;
+}
+
+.workspace-sidepanel__chevron--open {
+  transform: rotate(90deg);
+}
+
+.workspace-sidepanel__tree-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.workspace-sidepanel__tree-check--spacer {
+  width: 0.9rem;
+}
+
+.workspace-sidepanel__tree-entry {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: stretch;
+  gap: 0.5rem;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  text-align: left;
+}
+
+.workspace-sidepanel__tree-entry:hover {
+  background: var(--surface-overlay-strong);
+}
+
+.workspace-sidepanel__tree-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  color: var(--status-running-ink);
+  flex-shrink: 0;
+}
+
+.workspace-sidepanel__tree-icon svg {
+  width: 0.94rem;
+  height: 0.94rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.workspace-sidepanel__tree-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.04rem;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+}
+
+.workspace-sidepanel__tree-name {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-sidepanel__tree-meta {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  line-height: 1.2;
+}

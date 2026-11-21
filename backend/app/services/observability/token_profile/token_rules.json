@@ -1,0 +1,60 @@
+{
+  "chars_per_token": 4,
+  "categories": [
+    {"key": "system_and_tools", "label": "System prompt and tool definitions"},
+    {"key": "prompt", "label": "Phase prompt"},
+    {"key": "tool_results", "label": "Tool results"},
+    {"key": "history", "label": "Conversation history"},
+    {"key": "subagents", "label": "Subagents"},
+    {"key": "output", "label": "Output"}
+  ],
+  "status_tools": ["mcp__octryx-knowledge__workflow_run_status"],
+  "rules": [
+    {
+      "id": "large_tool_result",
+      "scope": "group",
+      "when": {"max_kb": {">=": 16}},
+      "text": "{label} returned up to {max_kb} KB. Ask for less: a summary, the tail or a narrower query."
+    },
+    {
+      "id": "repeated_command",
+      "scope": "group",
+      "match": {"tool": ["Bash"]},
+      "when": {"count": {">=": 3}, "total_kb": {">=": 8}},
+      "text": "{label} ran {count}× and returned {total_kb} KB in all. Run it once and keep only the result line."
+    },
+    {
+      "id": "contract_reread",
+      "scope": "group",
+      "match": {"status_tool": [true]},
+      "when": {"count": {">=": 3}},
+      "text": "The run contract was read {count}× ({total_kb} KB in all). Read it once per phase; the phase prompt already holds it."
+    },
+    {
+      "id": "same_file_read",
+      "scope": "path",
+      "match": {"tool": ["Read"]},
+      "when": {"count": {">=": 3}},
+      "text": "{label} was read {count}× ({total_kb} KB). It is still in the context after the first read."
+    },
+    {
+      "id": "cache_write_unused",
+      "scope": "job",
+      "when": {"unused_cache_write_tokens": {">=": 20000}},
+      "text": "{unused_cache_write_tokens} tokens were written to the prompt cache in the last call of a session and never read again."
+    },
+    {
+      "id": "long_history",
+      "scope": "phase",
+      "match": {"measured": [true]},
+      "when": {"avg_call_input_tokens": {">=": 80000}},
+      "text": "In {phase} each model call carried {avg_call_input_tokens} tokens on average. A fresh session or an earlier compaction would carry less."
+    },
+    {
+      "id": "many_compactions",
+      "scope": "phase",
+      "when": {"compactions": {">=": 2}},
+      "text": "{phase} compacted its context {compactions}×: the phase does more than one session holds."
+    }
+  ]
+}

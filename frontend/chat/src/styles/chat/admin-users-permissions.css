@@ -1,0 +1,166 @@
+/* Admin users permissions, role usage, user pills, role chips and modals. */
+.admin-users__table-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  background: var(--surface-overlay-strong);
+  cursor: pointer;
+}
+
+.admin-users__table-action:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.admin-users__permission-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.admin-users__role-usage {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.admin-users__permission-list .admin-panel__subtle-heading,
+.admin-users__permission-list .admin-panel__hint {
+  flex-basis: 100%;
+}
+
+.admin-users__role-table td:first-child,
+.admin-users__group-table td:first-child {
+  min-width: 10rem;
+}
+
+.admin-users__compact-details,
+.admin-users__permission-editor {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.admin-users__compact-details summary,
+.admin-users__permission-editor summary {
+  color: var(--accent-strong);
+  font-size: var(--ds-text-xs);
+  cursor: pointer;
+}
+
+.admin-users__permission-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+.admin-users__permission-group .admin-panel__subtle-heading {
+  flex-basis: 100%;
+}
+
+.admin-users__user-pill {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  background: var(--surface-overlay);
+}
+
+.admin-users__user-pill span {
+  color: var(--muted-strong);
+}
+
+.admin-users__role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.85rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  background: var(--surface-overlay);
+  cursor: pointer;
+}
+
+.admin-users__role-chip input {
+  width: auto;
+  margin: 0;
+}
+
+.admin-users__role-chip:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.admin-users__modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.admin-users__modal {
+  display: grid;
+  gap: 0.75rem;
+  width: min(31rem, 100%);
+  padding: 1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-xl);
+  background: var(--panel);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+}
+
+.admin-users__modal--wide {
+  width: min(54rem, 100%);
+  max-height: min(46rem, calc(100vh - 2rem));
+  overflow: auto;
+}
+
+.admin-users__modal label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.admin-users__modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-users__modal-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+}
+
+.admin-users__modal-header button {
+  border: 0;
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+}

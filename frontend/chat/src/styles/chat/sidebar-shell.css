@@ -1,0 +1,5 @@
+/* Sidebar shell stylesheet: imports its partials in cascade order. */
+@import "./sidebar-frame-brand.css";
+@import "./sidebar-sections.css";
+@import "./sidebar-search-footer.css";
+@import "./sidebar-collapsed-phone.css";

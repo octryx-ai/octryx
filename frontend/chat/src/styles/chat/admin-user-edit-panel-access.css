@@ -1,0 +1,164 @@
+/* User edit drawer API key form and list, and the sign-in identity card. */
+.user-edit-panel__apikey-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.user-edit-panel__apikey-field {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.user-edit-panel__apikey-field--full {
+  grid-column: 1 / -1;
+}
+
+.user-edit-panel__apikey-field input {
+  min-height: 2.1rem;
+  padding: 0.5rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  background: var(--surface-overlay-strong);
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.user-edit-panel__apikey-field input:focus {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.user-edit-panel__required {
+  color: var(--status-error);
+}
+
+.user-edit-panel__hint-inline {
+  color: var(--muted-strong);
+  font-weight: 400;
+  font-size: var(--ds-text-2xs);
+}
+
+.user-edit-panel__apikey-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.user-edit-panel__apikey-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.user-edit-panel__apikey-info {
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--ds-text-sm);
+}
+
+.user-edit-panel__apikey-info strong {
+  color: var(--text);
+}
+
+.user-edit-panel__apikey-info span {
+  font-size: var(--ds-text-xs);
+}
+
+.user-edit-panel__apikey-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.user-edit-panel__oidc-card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.user-edit-panel__oidc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.user-edit-panel__oidc-header > div {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.user-edit-panel__oidc-header strong {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.user-edit-panel__oidc-header span {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.user-edit-panel__oidc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 0.75rem;
+  margin: 0;
+}
+
+.user-edit-panel__oidc-grid div {
+  min-width: 0;
+}
+
+.user-edit-panel__oidc-grid dt {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.user-edit-panel__oidc-grid dd {
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.user-edit-panel__oidc-profile summary {
+  color: var(--muted-strong);
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.user-edit-panel__oidc-profile pre {
+  max-height: 18rem;
+  overflow: auto;
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

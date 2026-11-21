@@ -1,0 +1,138 @@
+/* Inline approval row in the message stream: its frame, icon, text, meta and actions. */
+/* Doubled class: message-stream-layout.css (loaded later) makes every .message-row a flex row, which put the
+   approval's preview and reason beside the card instead of under it. */
+.message-row.message-row--approval {
+  display: grid;
+  gap: 0.5rem;
+  /* On the chat's reading column, aligned with the message text. */
+  width: min(100%, var(--chat-column, 54rem));
+  margin: 0 auto;
+  padding-left: calc(1.75rem + 0.75rem);
+}
+
+.approval-inline {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 1rem 0.75rem 1rem;
+  border: 1px solid rgba(236, 191, 94, 0.24);
+  border-left: 3px solid rgba(217, 164, 58, 0.9);
+  border-radius: var(--ds-radius-xl);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--status-attention) 12%, transparent),
+    color-mix(in srgb, var(--status-attention) 8%, transparent)
+  );
+}
+
+.approval-inline--approved {
+  border-color: color-mix(in srgb, var(--status-active) 18%, transparent);
+  border-left-color: color-mix(in srgb, var(--status-active) 92%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--status-active) 10%, transparent),
+    color-mix(in srgb, var(--status-active) 5%, transparent)
+  );
+}
+
+.approval-inline--rejected {
+  border-color: color-mix(in srgb, var(--status-error) 18%, transparent);
+  border-left-color: color-mix(in srgb, var(--status-error) 92%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--status-error) 8%, transparent),
+    color-mix(in srgb, var(--status-error) 4%, transparent)
+  );
+}
+
+.approval-inline__icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: rgba(217, 164, 58, 0.16);
+  color: #7b5711;
+}
+
+.approval-inline__icon svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.approval-inline__body {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.approval-inline__title {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.approval-inline__eyebrow {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.approval-inline__subtitle {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+}
+
+.approval-inline__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-family: "IBM Plex Mono", monospace;
+  line-height: 1.4;
+}
+
+.approval-inline__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.approval-inline__meta span + span::before {
+  content: "·";
+  opacity: 0.6;
+}
+
+.approval-inline__summary {
+  color: var(--muted-strong);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+
+.approval-inline__actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.approval-inline__details-stack {
+  display: grid;
+  gap: 0.5rem;
+  padding-left: calc(2rem + 0.88rem);
+}

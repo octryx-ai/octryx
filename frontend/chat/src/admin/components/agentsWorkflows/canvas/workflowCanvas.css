@@ -1,0 +1,274 @@
+/* The Canvas of a phase (its steps and checks): node badges on the flow builder's
+   node, the step settings and the validation list. Tokens only. */
+.flow-node__badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.aw-inspector { display: grid; gap: 0.75rem; align-content: start; padding: 0.75rem 1rem 1rem; }
+.aw-issues { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+
+/* ── Workflow designer D1/D2a: the flow chart of a workflow that runs in phases ─────────────────────────────
+   Boxes keep the size the layout reserves (phasedGraphModel BOX_WIDTH × boxHeight: a badge adds a line). Colour
+   marks the kind with a stripe and the icon only; a badge on the error path is the one thing in the problem tone.
+   Tokens only, so the light and dark themes follow by themselves. */
+.aw-pcanvas { --aw-k-agent: var(--accent); --aw-k-action: var(--muted-strong); --aw-k-person: var(--ds-tone-attention-line);
+  --aw-k-check: var(--ds-tone-info-line); --aw-k-wait: var(--muted); --aw-k-error: var(--ds-tone-problem-line);
+  --aw-k-good: var(--ds-tone-success-line); }
+.aw-pcanvas__defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
+.aw-pbox {
+  box-sizing: border-box; width: 240px; min-height: 78px; display: grid; grid-auto-rows: auto; align-content: center;
+  gap: 2px; padding: 8px 12px 8px 1rem; border: 1px solid var(--border); border-left: 4px solid var(--aw-k, var(--border));
+  border-radius: var(--ds-radius-lg); background: var(--panel-elevated); color: var(--text); cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.16); font-size: var(--ds-text-xs); line-height: 1.25;
+}
+.aw-pbox:hover { border-color: color-mix(in srgb, var(--accent) 46%, var(--border)); border-left-color: var(--aw-k, var(--border)); }
+.aw-pbox.is-selected { border-color: var(--accent); border-left-color: var(--aw-k, var(--accent));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent), 0 6px 18px rgba(0, 0, 0, 0.16); }
+.aw-pbox__kind { display: inline-flex; align-items: center; gap: 0.5rem; min-width: 0; color: var(--muted); font-size: var(--ds-text-2xs);
+  font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+.aw-pbox__icon { flex: none; fill: none; stroke: var(--aw-k, var(--muted)); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.aw-pbox__title, .aw-pbox__sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aw-pbox__title { font-size: var(--ds-text-md); font-weight: 600; }
+.aw-pbox__title > .aw-pbox__icon { margin-right: 0.5rem; vertical-align: -2px; }
+.aw-pbox__sub { color: var(--muted-strong); }
+.aw-pbox__handle { opacity: 0; width: 6px; height: 6px; min-width: 0; min-height: 0; border: 0; pointer-events: none; }
+
+.aw-pbox--start { --aw-k: var(--aw-k-action); border-radius: var(--ds-radius-xl); }
+.aw-pbox--agent, .aw-pbox--subflow, .aw-pbox--parallel { --aw-k: var(--aw-k-agent); }
+.aw-pbox--action { --aw-k: var(--aw-k-action); }
+.aw-pbox--person { --aw-k: var(--aw-k-person); }
+.aw-pbox--check, .aw-pbox--decision { --aw-k: var(--aw-k-check); }
+.aw-pbox--wait { --aw-k: var(--aw-k-wait); border-style: dashed; border-left-style: solid; }
+.aw-pbox--end { border-radius: var(--ds-radius-xl); }
+.aw-pbox--good { --aw-k: var(--aw-k-good); background: color-mix(in srgb, var(--ds-tone-success-bg) 60%, var(--panel-elevated)); }
+/* A folded group: the phase's box with a second edge, as a stack of boxes. */
+.aw-pbox--folded { box-shadow: 4px 4px 0 -1px var(--panel-elevated), 4px 4px 0 0 var(--border), 0 6px 18px rgba(0, 0, 0, 0.16); }
+
+/* Badges: a loop or an exit into the error path, said on the box; a click opens the box it leads to. The canvas
+   selectors out-rank the flow builder's generic `.flow-builder button` look. */
+.aw-pbox__badges { display: grid; gap: 2px; margin-top: 2px; min-width: 0; }
+.aw-pbadge, .aw-pcanvas button.aw-pbadge {
+  box-sizing: border-box; justify-self: start; max-width: 100%; height: 20px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; padding: 0 0.5rem; border: 1px solid var(--border-soft); border-radius: 999px; background: var(--panel);
+  color: var(--muted-strong); font: inherit; font-size: var(--ds-text-2xs); line-height: 18px; text-align: left;
+}
+.aw-pcanvas button.aw-pbadge { cursor: pointer; }
+.aw-pcanvas .aw-pbadge--loop { color: var(--ds-tone-attention-ink); border-color: color-mix(in srgb, var(--ds-tone-attention-line) 55%, transparent); }
+.aw-pcanvas .aw-pbadge--failure { color: var(--ds-tone-problem-ink); border-color: color-mix(in srgb, var(--ds-tone-problem-line) 55%, transparent); }
+.aw-pcanvas button.aw-pbadge:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); }
+
+/* An unfolded group: a quiet frame behind its boxes with the phase's name and the fold control on top. */
+.aw-pgroup { box-sizing: border-box; width: 100%; height: 100%; border: 1px dashed var(--border); border-radius: var(--ds-radius-xl);
+  background: color-mix(in srgb, var(--accent) 4%, transparent); }
+/* The header stays left of the centre, where the arrow into the group's first box runs. */
+.aw-pgroup__head { box-sizing: border-box; display: flex; align-items: center; gap: 0.5rem; max-width: calc(50% - 8px); height: 26px;
+  padding: 2px 8px; color: var(--muted-strong); font-size: var(--ds-text-xs); white-space: nowrap; overflow: hidden; }
+.aw-pgroup__title { min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.aw-pcanvas button.aw-pgroup__toggle { flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; padding: 0;
+  margin-left: auto; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-sm); background: var(--panel); color: var(--muted-strong);
+  font-size: var(--ds-text-2xs); line-height: 1; cursor: pointer; }
+.aw-pcanvas .aw-pgroup__head button.aw-pgroup__toggle { margin-left: 0; }
+.aw-pcanvas button.aw-pgroup__toggle:hover:not(:disabled) { background: var(--panel); border-color: var(--accent); color: var(--text); }
+.react-flow__node-phasedGroup { padding: 0; border: 0; background: transparent; }
+
+.aw-parrow { fill: none; stroke-width: 1.6; }
+.aw-parrow--neutral, .aw-parrow--success { stroke: var(--muted-strong); }
+.aw-parrow--failure { stroke: var(--aw-k-error); }
+.aw-parrow__head--neutral, .aw-parrow__head--success { fill: var(--muted-strong); }
+.aw-parrow__head--failure { fill: var(--ds-tone-problem-line); }
+/* A loop goes back up the side: dashed, in the attention tone, with its label ("failed → retry (max 3)"). */
+.aw-parrow--loop { stroke: var(--ds-tone-attention-line); stroke-dasharray: 6 4; }
+.aw-parrow__head--loop { fill: var(--ds-tone-attention-line); }
+.aw-parrow__label--loop { color: var(--ds-tone-attention-ink); border-color: color-mix(in srgb, var(--ds-tone-attention-line) 55%, transparent); }
+.aw-parrow__label {
+  position: absolute; pointer-events: all; padding: 1px 0.5rem; border: 1px solid var(--border-soft); border-radius: 999px;
+  background: var(--panel-strong); color: var(--muted-strong); font-size: var(--ds-text-2xs); line-height: 1.4; white-space: nowrap;
+  z-index: 1; /* solid and above the lines: a loop lane running past never crosses the text */
+}
+.aw-parrow__label--success { color: var(--ds-tone-success-ink); border-color: color-mix(in srgb, var(--ds-tone-success-line) 45%, transparent); }
+.aw-parrow__label--failure { color: var(--ds-tone-problem-ink); border-color: color-mix(in srgb, var(--ds-tone-problem-line) 55%, transparent); }
+
+.aw-pcanvas { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.aw-pcanvas > .flow-canvas { flex: 1 1 auto; }
+.aw-pcanvas__toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 8px; padding: 8px 16px; border-bottom: 1px solid var(--border-soft);
+  background: var(--panel); color: var(--muted-strong); font-size: var(--ds-text-xs);
+}
+/* Related canvas actions sit in one joined group (history, selection, groups, layout) instead of a flat row. */
+.aw-toolgroup { display: inline-flex; align-items: stretch; border: 1px solid var(--ds-line-strong); border-radius: var(--ds-radius);
+  background: var(--ds-surface); overflow: hidden; }
+.aw-toolgroup > .admin-panel__action-btn { min-height: var(--ds-control-sm); margin: 0; padding: 0 0.75rem; border: 0; border-right: 1px solid var(--ds-line);
+  border-radius: 0; background: transparent; box-shadow: none; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-medium); }
+.aw-toolgroup > .admin-panel__action-btn:last-child { border-right: 0; }
+.aw-toolgroup > .admin-panel__action-btn:hover:not(:disabled) { background: var(--ds-surface-hover); }
+.aw-toolgroup > .admin-panel__action-btn:disabled { opacity: 0.4; }
+
+.aw-pcanvas__legend, .aw-pcanvas__keys { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 0.5rem; }
+.aw-pcanvas__keys .aw-pbadge { cursor: default; }
+.aw-pcanvas__key { display: inline-block; width: 10px; height: 10px; margin-left: 4px; border-radius: var(--ds-radius-sm); background: var(--aw-k); }
+.aw-pcanvas__key--agent, .aw-pcanvas__key--parallel { --aw-k: var(--aw-k-agent); }
+.aw-pcanvas__key--action { --aw-k: var(--aw-k-action); }
+.aw-pcanvas__key--person { --aw-k: var(--aw-k-person); }
+.aw-pcanvas__key--check { --aw-k: var(--aw-k-check); }
+.aw-pcanvas__hint { color: var(--muted); }
+.aw-pcanvas__legend + * { margin-left: auto; }
+@media (max-width: 640px) {
+  .aw-pcanvas .react-flow__minimap { display: none; }
+}
+.aw-pcanvas .react-flow__minimap-node.aw-pmini { fill: var(--muted); }
+.aw-pcanvas .react-flow__minimap-node.aw-pmini--agent, .aw-pcanvas .react-flow__minimap-node.aw-pmini--subflow, .aw-pcanvas .react-flow__minimap-node.aw-pmini--parallel { fill: var(--aw-k-agent); }
+.aw-pcanvas .react-flow__minimap-node.aw-pmini--person { fill: var(--aw-k-person); }
+.aw-pcanvas .react-flow__minimap-node.aw-pmini--check, .aw-pcanvas .react-flow__minimap-node.aw-pmini--decision { fill: var(--aw-k-check); }
+.aw-pcanvas .react-flow__minimap-node.aw-pmini--group { fill: transparent; stroke: var(--border); }
+/* The design system's segments in the editor header, not the flow builder's generic button look. */
+.flow-builder .ds-segments__tab { border: 0; border-right: 1px solid var(--ds-line); border-radius: 0; background: transparent; padding: 0 0.5rem; }
+.flow-builder .ds-segments__tab:last-child { border-right: 0; }
+.flow-builder .ds-segments__tab.is-selected { background: var(--ds-surface-selected); color: var(--ds-text); }
+.aw-publish-reason { max-width: 20rem; overflow: hidden; color: var(--muted); font-size: var(--ds-font-size-small); text-overflow: ellipsis; white-space: nowrap; }
+.aw-issues--phased { padding: 0.5rem 1rem; }
+
+/* The box's side panel. */
+.aw-pnode { display: grid; gap: 0.75rem; }
+.aw-pnode p { margin: 0; }
+.aw-pnode__who { font-weight: 600; }
+.aw-pnode__what { color: var(--muted-strong); }
+.aw-pnode__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.aw-pnode__row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.aw-pnode__row > span:first-child { min-width: 0; }
+/* What happens next: one grid for all rows (labels in one column, targets aligned in the next). The label never
+   breaks, the target wraps beside it; on a narrow screen the target goes under its label. */
+.aw-pnode__exits { grid-template-columns: auto minmax(0, 1fr); column-gap: 0.5rem; }
+.aw-pnode__exit { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: start; row-gap: 0.25rem; }
+.aw-pnode__exit > .ds-status { white-space: nowrap; justify-self: start; }
+.aw-pnode__exit-target { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .aw-pnode__exits { grid-template-columns: minmax(0, 1fr); }
+}
+.aw-pnode__raw { margin: 0; max-height: 22rem; overflow: auto; padding: 0.5rem; border-radius: var(--ds-radius);
+  background: var(--ds-surface-raised); font-family: var(--font-mono); font-size: var(--ds-text-xs); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* Designer side panel (designer/inspector): one form per box, grouped lists for steps and checks. */
+.dsi-route { margin: 0; color: var(--muted-strong); }
+.dsi-group { display: grid; gap: 0.5rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+.dsi-group__title { margin: 0; font-size: var(--ds-text-sm); font-weight: 600; color: var(--muted-strong); }
+.dsi-item { display: grid; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--panel-elevated); }
+.dsi-add { justify-self: start; }
+.dsi-remove { justify-self: start; padding: 0; border: 0; background: none; font: inherit; font-size: var(--ds-text-xs); color: var(--muted); cursor: pointer; text-decoration: underline; }
+.dsi-remove:hover, .dsi-remove:focus-visible { color: var(--status-error); }
+.dsi-checklist { display: grid; gap: 0.5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.dsi-checklist > legend { padding: 0; margin-bottom: 0.25rem; color: var(--muted); font-weight: 600; font-size: var(--ds-text-xs); }
+.dsi-toggle { display: grid; gap: 0.25rem; }
+.dsi-toggle > .admin-panel__hint { padding-left: 1.5rem; }
+.dsi-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0; padding: 0; list-style: none; }
+.dsi-chip { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.25rem 0.25rem 0.5rem; border: 1px solid var(--border); border-radius: 999px; background: var(--panel-elevated); color: var(--muted-strong); font-size: var(--ds-text-xs); }
+.dsi-chip--problem { border-color: var(--status-error); }
+.dsi-chip__remove { display: inline-grid; place-items: center; width: 1.1rem; height: 1.1rem; padding: 0; border: 0; border-radius: 999px; background: none; color: var(--muted); font: inherit; line-height: 1; cursor: pointer; }
+.dsi-chip__remove:hover, .dsi-chip__remove:focus-visible { background: var(--border); color: var(--muted-strong); }
+.dsi-picklist__add { max-width: 18rem; }
+.dsi-problem, .admin-panel__field > .dsi-problem { display: block; color: var(--status-error-ink); font-size: var(--ds-text-xs); font-weight: 500; line-height: 1.35; }
+.dsi-problem::before { content: "! "; font-weight: 600; }
+.dsi .admin-panel__input[aria-invalid="true"] { border-color: var(--status-error); }
+.dsi-checklist[aria-invalid="true"] > legend, .dsi-picklist[aria-invalid="true"] > span:first-child { color: var(--status-error-ink); }
+.dsi-card { border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--panel-elevated); }
+.dsi-card--problem { border-color: var(--status-error); }
+.dsi-card__head { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.25rem; }
+.dsi-card__toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 0; background: none; color: var(--muted-strong); font: inherit; font-size: var(--ds-text-sm); text-align: left; cursor: pointer; }
+.dsi-card__toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--accent-soft); border-radius: var(--ds-radius-md); }
+.dsi-card__chevron { color: var(--muted); width: 0.8rem; }
+.dsi-card__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsi-card__mark { display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-right: 0.5rem; border-radius: 999px; background: var(--status-error); color: var(--panel); font-size: var(--ds-text-2xs); font-weight: 600; }
+.dsi-card__meta { flex: none; color: var(--muted); font-size: var(--ds-text-xs); }
+.dsi-card__body { display: grid; gap: 0.5rem; padding: 0.25rem 0.75rem 0.75rem; border-top: 1px solid var(--border); padding-top: 0.75rem; }
+.dsi-routes { display: grid; grid-template-columns: minmax(6.5rem, max-content) auto minmax(0, 1fr); align-items: center; gap: 0.5rem 0.5rem; }
+.dsi-routerow { display: contents; }
+.dsi-routerow__when { font-weight: 600; color: var(--muted-strong); font-size: var(--ds-text-sm); }
+.dsi-routerow__arrow { color: var(--muted); }
+.dsi-routerow__target { color: var(--muted-strong); font-size: var(--ds-text-sm); }
+.dsi-routerow__warn { grid-column: 3; }
+.dsi-compare { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: 0.5rem; }
+.dsi-chipinput__add { display: flex; gap: 0.5rem; max-width: 22rem; }
+.dsi-chipinput__add .admin-panel__input { flex: 1; min-width: 0; }
+.dsi-chip__code { font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--ds-text-xs); }
+
+/* ── Workflow designer D2b1: editing ────────────────────────────────────────────────────────────────────────
+   The out port is a small dot at the box's lower (or right) edge that grows on hover; while an arrow is drawn the
+   whole box is its drop target. Thin arrows mark the error path; every arrow has a chip that selects it. */
+.aw-pbox { position: relative; }
+.aw-pbox--aside { border-style: dashed; border-left-style: solid; }
+.aw-pcanvas .aw-pbox__handle.aw-pbox__port { opacity: 1; width: 12px; height: 12px; border: 2px solid var(--panel-elevated);
+  border-radius: 999px; background: var(--accent); pointer-events: all; cursor: crosshair; }
+.aw-pcanvas .aw-pbox__handle.aw-pbox__port:hover { transform-origin: center; box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 30%, transparent); }
+.aw-pcanvas .aw-pbox__handle.aw-pbox__handle--drop { opacity: 0; inset: 0; width: 100%; height: 100%; transform: none;
+  border-radius: var(--ds-radius-lg); pointer-events: all; }
+.aw-pcanvas button.aw-pbox__menu { position: absolute; top: 4px; right: 4px; width: 22px; height: 20px; padding: 0;
+  border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); background: var(--panel); color: var(--muted-strong);
+  font: inherit; font-size: var(--ds-text-sm); line-height: 1; cursor: pointer; opacity: 0; }
+.aw-pbox:hover button.aw-pbox__menu, .aw-pbox.is-selected button.aw-pbox__menu, .aw-pcanvas button.aw-pbox__menu:focus-visible { opacity: 1; }
+.aw-pcanvas button.aw-pbox__menu:hover { border-color: var(--accent); color: var(--text); }
+.aw-parrow--aside { stroke-width: 1; stroke-dasharray: 4 3; }
+.aw-parrow.is-selected { stroke: var(--accent); stroke-width: 2.4; }
+.aw-parrow__chip, .aw-pcanvas button.aw-parrow__chip {
+  position: absolute; pointer-events: all; min-width: 22px; padding: 1px 0.5rem; border: 1px solid var(--border-soft);
+  border-radius: 999px; background: var(--panel); color: var(--muted-strong); font: inherit; font-size: var(--ds-text-2xs); line-height: 1.4;
+  white-space: nowrap; cursor: pointer;
+}
+.aw-pcanvas button.aw-parrow__chip:hover, .aw-pcanvas button.aw-parrow__chip.is-selected { border-color: var(--accent); color: var(--text); }
+.aw-pcanvas button.aw-pgroup__edit { flex: none; height: 18px; padding: 0 0.5rem; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-sm);
+  background: var(--panel); color: var(--muted-strong); font: inherit; font-size: var(--ds-text-2xs); cursor: pointer; }
+.aw-pcanvas button.aw-pgroup__edit:hover { border-color: var(--accent); color: var(--text); }
+
+/* The designer's frame: the catalog on the left, the canvas, the problem list under the header. */
+.dsg { display: flex; flex: 1 1 auto; min-height: 0; }
+.dsg__catalog { flex: none; width: 15rem; display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; overflow-y: auto;
+  border-right: 1px solid var(--border-soft); background: var(--panel); }
+.dsg__catalog h3 { margin: 0 8px 2px; color: var(--text); font-size: var(--ds-font-size); font-weight: 600; }
+.dsg__hint { margin: 0 8px 8px; color: var(--muted); font-size: var(--ds-font-size-small); line-height: 1.4; }
+/* A box of the catalog: the family's icon on a tinted tile, its name and one line of what it does. */
+.dsg__catalog button.dsg__item { display: flex; align-items: center; gap: 0.75rem; width: 100%; padding: 0.5rem 8px; border: 1px solid transparent;
+  border-radius: var(--ds-radius); background: transparent; color: var(--text); font: inherit; text-align: left; cursor: grab; }
+.dsg__catalog button.dsg__item:hover:not(:disabled) { background: var(--ds-surface-hover); border-color: var(--ds-line); }
+.dsg__item:focus-visible { outline: 2px solid var(--ds-focus); outline-offset: -2px; }
+.dsg__item:active:not(:disabled) { cursor: grabbing; }
+.dsg__item:disabled { opacity: 0.45; cursor: not-allowed; }
+.dsg__item-icon { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--aw-k, var(--muted)) 14%, transparent); }
+.dsg__item .aw-pbox__icon { stroke: var(--aw-k, var(--muted)); }
+.dsg__item-text { display: grid; gap: 1px; min-width: 0; }
+.dsg__item-name { font-size: var(--ds-font-size); font-weight: 600; line-height: 1.25; }
+.dsg__item-hint { overflow: hidden; color: var(--muted); font-size: var(--ds-text-2xs); line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.dsg__main { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.dsg__menu { position: absolute; z-index: 6; top: 52px; left: 12px; display: grid; gap: 4px; width: 240px; max-height: 60%;
+  overflow-y: auto; padding: 8px; border: 1px solid var(--border); border-radius: var(--ds-radius-lg); background: var(--panel-elevated);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2); }
+.dsg__menu strong { font-size: var(--ds-text-xs); }
+.dsg__menu .admin-panel__action-btn { justify-content: flex-start; width: 100%; text-align: left; }
+.dsg__issues { margin: 0 0 0.5rem; }
+.dsg__issues .aw-issues .admin-panel__action-btn { width: 100%; justify-content: flex-start; text-align: left; white-space: normal; height: auto;
+  min-height: 28px; color: var(--ds-tone-problem-ink); }
+.dsg__issues-head { display: flex; align-items: center; gap: 8px; min-height: 1.75rem; color: var(--muted-strong); font-size: var(--ds-font-size-small); }
+.dsg__issues-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ds-tone-success-line); }
+.dsg__issues-head.has-problems { color: var(--ds-tone-problem-ink); font-weight: 600; }
+.dsg__issues-head.has-problems .dsg__issues-dot { background: var(--ds-tone-problem-line); }
+.dsg__name.admin-panel__input { min-width: 14rem; max-width: 28rem; font-size: var(--ds-text-lg); font-weight: 600; }
+.aw-pcanvas__keys .aw-pbox--aside { display: inline-block; }
+.dsg__panel { flex: none; width: clamp(320px, 26vw, 400px); min-height: 0; overflow-y: auto; border-left: 1px solid var(--border-soft);
+  background: var(--panel); }
+.dsg__panel .ds-panel--page { min-height: 100%; }
+.dsg__issues { flex: none; max-height: 30vh; overflow-y: auto; padding: 4px 16px; border-bottom: 1px solid var(--border-soft); background: var(--panel); }
+/* Two problems in view; "Show all" lists every one (the canvas keeps its room). */
+.dsg__issues:not(.is-open) .aw-issues li:nth-child(n + 3) { display: none; }
+/* A group's frame lets clicks through to the arrows behind it; its header moves the group and folds it. */
+.react-flow .react-flow__node.react-flow__node-phasedGroup { pointer-events: none; }
+.react-flow .react-flow__node.react-flow__node-phasedGroup .aw-pgroup__head { pointer-events: all; cursor: grab; }
+/* "← All workflows" leads the designer's header as a quiet way back, not one more button among the actions. */
+.flow-builder__topbar > .flow-builder__back { flex: none; align-self: center; border-color: transparent; background: transparent;
+  box-shadow: none; color: var(--muted-strong); }
+.flow-builder__topbar > .flow-builder__back:hover { background: var(--ds-surface-hover); color: var(--text); }
+
+/* The generic `.flow-builder button` look must not flatten the one primary action (Publish, Save layout). */
+.flow-builder button.admin-panel__action-btn--primary:not(:disabled) { border-color: var(--brand-cream); background: var(--brand-cream);
+  color: var(--brand-taupe-deep); font-weight: 600; }
+.flow-builder button.admin-panel__action-btn--primary:hover:not(:disabled) { border-color: var(--brand-cream-strong);
+  background: var(--brand-cream-strong); color: var(--brand-taupe-deep); }
+[data-theme="light"] .flow-builder button.admin-panel__action-btn--primary:not(:disabled) { border-color: var(--brand-taupe);
+  background: var(--brand-taupe); color: var(--panel-strong); }
+[data-theme="light"] .flow-builder button.admin-panel__action-btn--primary:hover:not(:disabled) { border-color: var(--brand-taupe-deep);
+  background: var(--brand-taupe-deep); color: var(--panel-strong); }
+.flow-builder__header-actions .aw-publish-reason { align-self: center; margin: 0; }

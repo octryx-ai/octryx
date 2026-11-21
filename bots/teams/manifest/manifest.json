@@ -1,0 +1,52 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{AZURE_APP_ID}}",
+  "developer": {
+    "name": "Octryx",
+    "websiteUrl": "https://{{OCTRYX_HOSTNAME}}",
+    "privacyUrl": "https://{{OCTRYX_HOSTNAME}}/privacy",
+    "termsOfUseUrl": "https://{{OCTRYX_HOSTNAME}}/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "{{BOT_NAME}}",
+    "full": "{{BOT_NAME}} AI Assistant"
+  },
+  "description": {
+    "short": "AI-powered assistant by {{BOT_NAME}}",
+    "full": "Chat with the {{BOT_NAME}} AI assistant directly from Microsoft Teams. Ask questions, run tasks, and get intelligent responses powered by your enterprise knowledge base."
+  },
+  "accentColor": "#0078d4",
+  "bots": [
+    {
+      "botId": "{{AZURE_APP_ID}}",
+      "scopes": ["personal", "team", "groupchat"],
+      "supportsFiles": false,
+      "isNotificationOnly": false,
+      "supportsCalling": true,
+      "supportsVideo": false,
+      "commandLists": [
+        {
+          "scopes": ["personal", "team", "groupchat"],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show available commands"
+            },
+            {
+              "title": "new",
+              "description": "Start a new conversation"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "permissions": ["identity", "messageTeamMembers"],
+  "validDomains": ["{{OCTRYX_HOSTNAME}}"]
+}

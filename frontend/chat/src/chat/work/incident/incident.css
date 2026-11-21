@@ -1,0 +1,77 @@
+/* Incident intake and analysis (D): local layout, existing theme tokens only. */
+.work-analysis,
+.work-analysis__body,
+.incident-settings {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-analysis__bar,
+.work-analysis__worknote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-analysis__heading {
+  margin: 0.25rem 0 0.25rem;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.work-analysis__cite {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}
+
+.incident-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.incident-settings__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-analysis__seat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-analysis__command {
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-overlay);
+  font-size: var(--ds-text-sm);
+  user-select: all;
+}
+
+/* Reporter questions an automatic analysis proposed: the list, its state line, and Send with an in-place
+   confirmation; buttons keep their own width. */
+.work-analysis__questions,
+.work-analysis__confirm {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+.work-analysis__questions > ul,
+.work-analysis__questions > p { margin: 0; }
+.work-analysis__confirm {
+  padding: var(--ds-space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+}
+.work-analysis__confirm-text { margin: 0; font-weight: var(--ds-weight-strong); color: var(--text); }
+.work-analysis__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+.work-analysis__actions > .work-area__button { width: auto; }

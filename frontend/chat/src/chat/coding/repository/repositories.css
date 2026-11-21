@@ -1,0 +1,38 @@
+/* Coding · Work › Repositories (design guide tokens only; work-area header pattern). */
+.coding-entry { display: flex; flex: 1; min-width: 0; min-height: 0; flex-direction: column; overflow: auto; }
+.coding-entry button, .coding-entry select { cursor: pointer; }
+.coding-entry button:disabled { opacity: 0.45; cursor: not-allowed; }
+.coding-entry button:focus-visible, .coding-entry select:focus-visible, .coding-entry input:focus-visible {
+  outline: none; box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.repository-page { flex: 1; min-height: 0; background: var(--shell-atmosphere), var(--workspace-surface); color: var(--text); }
+
+/* The list is the work-area body (scroll container): use its full width; long prose keeps a readable measure. */
+.repository-list { grid-template-columns: minmax(0, 1fr); }
+.repository-list p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.repository-list__error { border-left: 3px solid var(--status-error); padding: 0.75rem; background: var(--status-error-soft); }
+.repository-list--embedded { display: grid; gap: 0.75rem; align-content: start; min-width: 0; }
+@media (max-width: 720px) {
+  .repository-page .work-area__header { align-items: start; flex-direction: column; }
+}
+
+/* The row action ("Runs", "Set up for runs"): its own cell, one line. */
+.repository-list .ds-table__menu-cell { width: auto; white-space: nowrap; }
+.repository-list .ds-table__menu-cell .work-area__button { white-space: nowrap; }
+
+/* The record's default branch and its coding setup, which opens Admin › Workspace › Repositories. */
+.repository-overview__branch { font-family: var(--font-mono); font-size: var(--ds-text-xs); color: var(--muted-strong); }
+.repository-overview__setup { font-size: var(--ds-text-sm); text-align: left; }
+
+/* A repository's runs (side panel). */
+.repository-runs { display: grid; gap: var(--ds-space-3); align-content: start; min-width: 0; }
+.repository-runs__link { color: var(--text); font-weight: var(--ds-weight-medium); text-decoration: none; }
+.repository-runs__link:hover, .repository-runs__link:focus-visible { color: var(--accent); text-decoration: underline; }
+.repository-runs__count { margin: 0; color: var(--muted-strong); font-size: var(--ds-text-xs); }
+
+/* A branch read from the Knowledge source, not stored on the record. */
+.repository-overview__branch-from {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+}

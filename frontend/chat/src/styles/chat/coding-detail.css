@@ -1,0 +1,7 @@
+/* Coding session detail: header, evidence, cockpit, execution trace, timeline, runtime observability, pipeline and the Work action notice. */
+@import "./coding-detail-layout.css";
+@import "./coding-detail-cockpit.css";
+@import "./coding-detail-execution-trace.css";
+@import "./coding-detail-evidence.css";
+@import "./coding-detail-runtime.css";
+@import "./coding-detail-notices.css";

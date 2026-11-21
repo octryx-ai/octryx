@@ -1,0 +1,184 @@
+/* Phone Home and More pages, empty states and the new-chat form. */
+/* ---- Home -------------------------------------------------------------------------------------------------- */
+.m-need {
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 16px 12px 16px 16px;
+  border: 1px solid color-mix(in srgb, var(--m-need) 35%, transparent);
+  border-radius: var(--m-radius);
+  background: linear-gradient(var(--status-attention-soft), var(--status-attention-soft)), var(--m-raise);
+  text-align: left;
+}
+.m-need-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.m-need-text b {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-need-text > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.m-tiles {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.m-tile {
+  width: 100%;
+  min-height: 92px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+  text-align: left;
+}
+.m-tile-label {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+.m-tile-value {
+  font-size: var(--ds-text-3xl);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.03em;
+  color: var(--m-title);
+  font-variant-numeric: tabular-nums;
+}
+.m-tile-attention {
+  color: var(--status-attention-ink);
+}
+.m-tile-hint {
+  color: var(--m-muted);
+  font-size: var(--ds-text-xs);
+}
+.m-banner {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--m-radius);
+  font-size: var(--ds-text-md);
+}
+.m-banner-problem {
+  border: 1px solid color-mix(in srgb, var(--m-red) 40%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+/* Empty state, as the desktop's EmptyLine: one muted sentence and at most one action, no frame. */
+.m-empty {
+  margin: 0;
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 8px 0;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-md);
+}
+.m-empty p {
+  margin: 0;
+}
+.m-search {
+  min-height: var(--ds-control-touch);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--m-muted);
+}
+.m-search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  border: 0;
+  background: none;
+  color: var(--m-text);
+  outline: none;
+}
+
+/* ---- More -------------------------------------------------------------------------------------------------- */
+.m-account {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border: 1px solid var(--m-line-soft);
+  border-radius: var(--m-radius);
+  background: var(--m-raise);
+}
+.m-avatar {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ds-radius-pill);
+  background: var(--m-accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.m-account-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.m-account-text b {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  color: var(--m-title);
+}
+.m-account-text span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+/* Markdown answers keep their own spacing; only plain text keeps its line breaks. */
+.m-ai.m-ai-md {
+  white-space: normal;
+}
+/* New chat: the model and thinking choices line up with the form's fields. */
+.m-form .m-options {
+  padding: 0;
+}
+.m-ai-md .message-markdown > :first-child {
+  margin-top: 0;
+}
+.m-ai-md .message-markdown > :last-child {
+  margin-bottom: 0;
+}
+.m-ai-md .message-markdown p,
+.m-ai-md .message-markdown ul,
+.m-ai-md .message-markdown ol {
+  margin: 0 0 0.75rem;
+}
+.m-ai-md .message-markdown li + li {
+  margin-top: 4px;
+}
+.m-ai-md a {
+  color: var(--m-text);
+  text-decoration-color: color-mix(in srgb, var(--m-accent) 60%, transparent);
+  text-underline-offset: 3px;
+}
+.m-chat .m-copy {
+  margin: -8px -12px 0 auto;
+  font-size: var(--ds-text-xs);
+}

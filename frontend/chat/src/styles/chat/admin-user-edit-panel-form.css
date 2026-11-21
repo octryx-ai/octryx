@@ -1,0 +1,193 @@
+/* User edit drawer frame, header, sections, form fields and group pills. */
+/* ── User Edit Panel (side drawer) ──────────────────────────── */
+
+.user-edit-panel__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.38);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.user-edit-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(30rem, 100%);
+  height: 100%;
+  background: var(--panel);
+  border-left: 1px solid var(--border-soft);
+  box-shadow: -12px 0 48px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+
+.user-edit-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem 1rem;
+  border-bottom: 1px solid var(--border-soft);
+  flex-shrink: 0;
+}
+
+.user-edit-panel__header-label {
+  margin: 0 0 0.12rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.user-edit-panel__header-name {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+}
+
+.user-edit-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  margin-top: 0.1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.user-edit-panel__close:hover {
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+}
+
+.user-edit-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0 1.5rem;
+}
+
+.user-edit-panel__section {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.user-edit-panel__section:last-child {
+  border-bottom: 0;
+}
+
+.user-edit-panel__section-label {
+  margin: 0 0 0.75rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.user-edit-panel__form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.user-edit-panel__field {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.user-edit-panel__field input,
+.user-edit-panel__field select,
+.user-edit-panel__pw-input,
+.user-edit-panel__select {
+  min-height: 2.15rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  background: var(--surface-overlay-strong);
+  outline: none;
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.user-edit-panel__field input:focus,
+.user-edit-panel__field select:focus,
+.user-edit-panel__pw-input:focus,
+.user-edit-panel__select:focus {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.user-edit-panel__select,
+.user-edit-panel__pw-input {
+  flex: 1;
+}
+
+.user-edit-panel__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.user-edit-panel__row-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.user-edit-panel__ok {
+  color: var(--status-active);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.user-edit-panel__group-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.user-edit-panel__group-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.25rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  font-size: var(--ds-text-xs);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+
+.user-edit-panel__group-pill button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--ds-text-md);
+  line-height: 1;
+  opacity: 0.65;
+  padding: 0;
+}
+
+.user-edit-panel__group-pill button:hover {
+  opacity: 1;
+}

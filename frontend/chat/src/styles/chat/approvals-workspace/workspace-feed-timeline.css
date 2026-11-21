@@ -1,0 +1,137 @@
+/* Chat workspace rename bar, feed shell, jump buttons, feed banner and timeline actions. */
+.rename-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1.5rem 0.75rem;
+}
+
+.rename-bar input {
+  width: min(42rem, 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+  padding: 0.75rem 1rem;
+  outline: none;
+}
+
+.rename-bar input:focus {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.workspace__feed {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 0 1.5rem 1rem;
+}
+
+.workspace__feed-shell {
+  position: relative;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.workspace__jump-latest {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 1.25rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+/* Stacked above "latest" at the bottom right: with the run bar open the feed can be very short, and a button at
+   the top overlapped the one at the bottom. */
+.workspace__jump-start {
+  position: absolute;
+  right: 1.5rem;
+  bottom: 4.25rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 0;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.workspace__jump-start:hover {
+  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+  background: var(--panel-elevated);
+}
+
+.workspace__jump-start svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: rotate(180deg);
+}
+
+.workspace__jump-latest:hover {
+  border-color: color-mix(in srgb, var(--text) 20%, transparent);
+  background: var(--panel-elevated);
+}
+
+.workspace__jump-latest svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.workspace__feed-banner {
+  padding: 0 1rem;
+}
+
+.workspace__timeline-actions {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 1rem;
+  padding: 0 1.5rem;
+}
+
+.workspace__timeline-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 12rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-overlay-strong);
+  color: var(--highlight);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+.workspace__timeline-action:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}

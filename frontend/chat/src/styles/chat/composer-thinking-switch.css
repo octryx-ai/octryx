@@ -1,0 +1,63 @@
+/* The composer's "Quick / Thorough" switch, the Advanced toggle and the quiet audit mark. */
+/* A small segmented control on a quiet track. */
+.composer-switch {
+  display: inline-flex;
+  align-items: stretch;
+  min-height: var(--ds-control-md);
+  padding: 1px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+}
+
+.composer-switch__option {
+  min-height: var(--ds-control-sm);
+  padding: 0 var(--ds-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  cursor: pointer;
+}
+
+.composer-switch__option:hover:not(:disabled) {
+  color: var(--highlight);
+}
+
+.composer-switch__option.is-active {
+  border-color: var(--border);
+  background: var(--panel-strong);
+  color: var(--highlight);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.composer-switch__option:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.composer-switch__option:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer__audit-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.composer__audit-mark svg {
+  width: 0.72rem;
+  height: 0.72rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

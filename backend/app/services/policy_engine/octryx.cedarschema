@@ -1,0 +1,169 @@
+// Octryx Cedar schema. The version lives in schema.py (SCHEMA_VERSION); change both together.
+//
+// Principals: a User (platform roles and identity groups are its parents) or an AgentSession (child of its User).
+// Every action carries the Workspace it is decided for as context.workspace.
+
+entity Role;
+entity Group;
+
+entity User in [Role, Group] {
+  platform_admin: Bool,
+};
+
+// sensitive: the content categories detected earlier in this conversation (gateway session + client
+// conversation id, a new conversation starts empty).
+entity AgentSession in [User] {
+  profile: String,
+  client: String,
+  sensitive: Set<String>,
+};
+
+// classification / classification_rank are absent when the Workspace has no resolved classification.
+entity Workspace {
+  classification?: String,
+  classification_rank?: Long,
+  seat_mode: String,
+  requires_governed_routing: Bool,
+};
+
+entity ConnectorFamily;
+
+entity Tool in [ConnectorFamily] {
+  name: String,
+};
+
+// approved_for: the content categories the alias is approved for (alias catalog approved_data_categories);
+// a seat model is ModelAlias::"seat:<model>" with an empty set.
+entity ModelAlias {
+  alias: String,
+  approved_for: Set<String>,
+};
+
+// A remote embedding space or reranker; data_policy_* are absent when the model's class is unknown.
+entity RemoteModel {
+  kind: String,
+  data_policy_class?: String,
+  data_policy_rank?: Long,
+};
+
+// One simple-command segment of a shell command (agent_gateway/command_match): prefixes are the space-joined
+// leading tokens (first token by basename), arguments the tokens after the program plus every "name" of a
+// "name=value" token, argument_values "--flag=value" for both "--flag=value" and "--flag value".
+entity Command {
+  line: String,
+  program: String,
+  parseable: Bool,
+  prefixes: Set<String>,
+  arguments: Set<String>,
+  argument_values: Set<String>,
+};
+
+entity Path {
+  path: String,
+};
+
+// What the content scan found in a model request or a tool result: detector ids and categories of the
+// findings, their count, the sources they were found in. Never values. scanned is false when there was nothing to
+// scan; complete is false over the size/time budget or for content that cannot be read.
+type ContentScan = {
+  scanned: Bool,
+  complete: Bool,
+  detected: Set<String>,
+  categories: Set<String>,
+  findings: Long,
+  sources: Set<String>,
+};
+
+// A user's own octryx-claude device; its parent is the owner. Only the owner may run on it (a code
+// invariant before Cedar); policies can only narrow further.
+entity Device in [User] {
+  os: String,
+  profiles: Set<String>,
+  status: String,
+};
+
+type DecisionContext = {
+  workspace: Workspace,
+};
+
+// connections: the named-connection ids (or "default") a connector tool call runs on; empty for a
+// listing, a refused route or a tool of no connector.
+type ToolContext = {
+  workspace: Workspace,
+  reads_logs: Bool,
+  writes: Bool,
+  connections: Set<String>,
+};
+
+// point: "gateway" (the governed client's PreToolUse check) or "client" (Claude Code's own permission rules).
+type ClientToolContext = {
+  workspace: Workspace,
+  tool: String,
+  point: String,
+};
+
+action use_seat appliesTo {
+  principal: [User, AgentSession],
+  resource: [Workspace],
+  context: DecisionContext,
+};
+
+// route: "seat" (the user's subscription through the seat proxy) or "governed" (gateway aliases).
+action call_model appliesTo {
+  principal: [User, AgentSession],
+  resource: [ModelAlias],
+  context: {
+    workspace: Workspace,
+    admission_verified: Bool,
+    route: String,
+    content: ContentScan,
+  },
+};
+
+// A tool result before it enters a model's context. origin: "connector", "mcp" or "client" (a coding
+// agent's own tool, resource Tool::"client:<name>").
+action receive_tool_result appliesTo {
+  principal: [User, AgentSession],
+  resource: [Tool],
+  context: {
+    workspace: Workspace,
+    origin: String,
+    connections: Set<String>,
+    content: ContentScan,
+  },
+};
+
+action use_reranker, use_remote_embeddings appliesTo {
+  principal: [User, AgentSession],
+  resource: [RemoteModel],
+  context: DecisionContext,
+};
+
+action call_tool, read_connector, write_connector appliesTo {
+  principal: [User, AgentSession],
+  resource: [Tool],
+  context: ToolContext,
+};
+
+action run_command appliesTo {
+  principal: [User, AgentSession],
+  resource: [Command],
+  context: ClientToolContext,
+};
+
+action read_path, write_path appliesTo {
+  principal: [User, AgentSession],
+  resource: [Path],
+  context: ClientToolContext,
+};
+
+// A chat request of context.workspace runs on the user's own device with the octryx-claude profile.
+action run_on_device appliesTo {
+  principal: [User],
+  resource: [Device],
+  context: {
+    workspace: Workspace,
+    profile: String,
+    folder_allowlisted: Bool,
+  },
+};

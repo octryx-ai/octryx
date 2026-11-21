@@ -1,0 +1,52 @@
+/* Workspace preview container queries for narrow panes. */
+@container (max-width: 24rem) {
+  .workspace-sidepanel__content-layout--preview {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .workspace-sidepanel__content-resize-handle {
+    display: none;
+  }
+
+  .workspace-sidepanel__preview-header {
+    grid-template-columns: minmax(0, 1fr);
+    display: grid;
+  }
+
+  .workspace-sidepanel__preview-actions {
+    justify-content: flex-start;
+  }
+
+  .workspace-sidepanel__preview-tab {
+    max-width: none;
+  }
+
+  .workspace-sidepanel__preview-tab-name {
+    max-width: 100%;
+  }
+}
+
+@container (max-width: 30rem) {
+  .workspace-sidepanel__preview-action:not(
+      .workspace-sidepanel__preview-action--primary
+    )
+    span,
+  .workspace-sidepanel__preview-kind,
+  .workspace-sidepanel__preview-path {
+    display: none;
+  }
+
+  .workspace-sidepanel__preview-actions {
+    flex-wrap: nowrap;
+  }
+
+  .workspace-sidepanel__preview-action {
+    min-width: 1.7rem;
+    padding-inline: 0.5rem;
+  }
+}

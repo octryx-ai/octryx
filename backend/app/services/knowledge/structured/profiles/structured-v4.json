@@ -1,0 +1,87 @@
+{
+  "key": "structured",
+  "version": 4,
+  "title": "Deterministic manual, configuration and operations graph",
+  "layers": {
+    "manual": {
+      "media_types": ["application/pdf"]
+    },
+    "configuration": {
+      "connector_kinds": ["git_repository"],
+      "files": [
+        {"glob": "*.ini", "format": "ini", "manual_documented": true},
+        {"glob": "*.ini-*", "format": "ini", "manual_documented": true},
+        {"glob": "log4j*.properties", "format": "properties", "manual_documented": false},
+        {"glob": "logging*.properties", "format": "properties", "manual_documented": false},
+        {"glob": "*.log.properties", "format": "properties", "manual_documented": false},
+        {"glob": "otel*.properties", "format": "properties", "manual_documented": false},
+        {"glob": "shop_config.properties", "format": "properties", "manual_documented": false},
+        {"glob": "*_config.properties", "format": "properties", "manual_documented": false},
+        {"glob": "*.properties", "format": "properties", "manual_documented": true},
+        {"glob": "values*.yaml", "format": "yaml", "manual_documented": false},
+        {"glob": "values*.yml", "format": "yaml", "manual_documented": false}
+      ]
+    },
+    "operations": {
+      "connector_kinds": ["servicenow", "jira", "kubernetes"]
+    }
+  },
+  "manual": {
+    "ignored_headings": ["^\\S\\s+(?:Attention|Caution|Note|Warning|Tip|Important)\\b", "^[^\\w(]+\\s", "^\\(continued", "continued from previous page", "^[0-9]+\\.\\s"],
+    "filler_lines": ["^Table [0-9]+ . continued from previous page", "^continues on next page"],
+    "parameter_name_headers": ["Parameter", "Setting key"],
+    "default_headers": ["Default", "Default value"],
+    "description_headers": ["Description"],
+    "allowed_headers": ["Valid values", "Possible values"],
+    "allowed_value_patterns": ["Possible values (?:are|range from) ([^.]{1,160})\\."],
+    "units": {"milliseconds": "ms", "seconds": "s", "minutes": "min", "hours": "h", "bytes": "bytes"},
+    "reference_patterns": [
+      {"kind": "section", "pattern": "(?i)\\b(?:see|refer to)\\s+(?:section|chapter)\\s+([0-9]+(?:\\.[0-9]+)*)"},
+      {"kind": "named_page", "pattern": "(?:(?:[Ss]ee|[Rr]efer to)\\s+)?([A-Z][\\w.\\-]*(?: [A-Z][\\w.\\-]*){0,5}) \\(page ([0-9]{1,4})\\)"},
+      {"kind": "page", "pattern": "(?i)\\bsee\\s+page\\s+([0-9]{1,4})"}
+    ],
+    "term_suffixes": [
+      "Provider", "Plugin", "Service", "Server", "Connection", "Listener", "Handler", "Factory", "Manager",
+      "Exception", "Filter", "Processor", "Dispatcher", "Receiver", "Controller", "Enrichment", "Master", "Slave"
+    ],
+    "max_terms_per_section": 40,
+    "components": [
+      {"name": "Java SE", "relation": "requires"},
+      {"name": "Java", "relation": "requires"},
+      {"name": "Jakarta EE", "relation": "requires"},
+      {"name": "JBoss EAP", "relation": "supports"},
+      {"name": "WildFly", "relation": "supports"},
+      {"name": "Tomcat", "relation": "supports"},
+      {"name": "Oracle", "relation": "supports"},
+      {"name": "SQL Server", "relation": "supports"},
+      {"name": "PostgreSQL", "relation": "supports"},
+      {"name": "DB2", "relation": "supports"},
+      {"name": "MySQL", "relation": "supports"},
+      {"name": "Redis", "relation": "supports"},
+      {"name": "Kafka", "relation": "supports"},
+      {"name": "Neo4j", "relation": "supports"}
+    ],
+    "similarity": {"top_k": 3, "min_score": 0.86, "max_sections": 4000}
+  },
+  "configuration": {
+    "registry_sections": ["Services", "Provider"],
+    "comment_prefixes": {"ini": [";", "#", "\\"], "properties": ["#", "!", ";"], "yaml": ["#"]},
+    "continuation_prefixes": ["+"],
+    "variant_patterns": ["^(?P<base>.+\\.ini)-(?P<variant>[^/]+)$"],
+    "placeholder_pattern": "\\$\\{(?P<name>[A-Za-z_][\\w.-]{0,120})\\}",
+    "placeholder_sources": ["shop_config.properties", "*_config.properties"],
+    "non_comparable_defaults": ["^<[^>]*>", "\\{[A-Za-z_]\\w*\\}", "(?i)^system default$", "^\\w+(?: \\w+){3,}"],
+    "fold_resolved_definitions": true
+  },
+  "operations": {
+    "ticket_patterns": {
+      "Incident": "\\bINC[0-9]{7}\\b",
+      "Change": "\\bCHG[0-9]{7}\\b",
+      "Problem": "\\bPRB[0-9]{7}\\b"
+    },
+    "caused_by_patterns": ["(?i)\\bcaused by\\s+(?:the\\s+)?(?:change\\s+)?(CHG[0-9]{7})\\b"],
+    "max_mentions_per_record": 60,
+    "inventory_namespace_pattern": "\\A\\s*# Kubernetes inventory: namespace (?P<namespace>[a-z0-9][a-z0-9.-]*)",
+    "inventory_cluster_pattern": "(?m)^Cluster: (?:[A-Z]{2,5} )?(?P<cluster>[A-Za-z0-9][A-Za-z0-9._:@/-]*)"
+  }
+}

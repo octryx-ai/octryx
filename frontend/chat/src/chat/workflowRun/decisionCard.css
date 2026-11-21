@@ -1,0 +1,194 @@
+/* Product owner's decision card: findings, fields, task list, folded answers and system test screenshots. */
+/* The product owner's decision card (readiness, review). */
+.decision-card {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated, transparent);
+}
+
+.decision-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.decision-card__title {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+}
+
+.decision-card__summary,
+.decision-card__hint {
+  margin: 4px 0 0;
+  font-size: var(--ds-text-sm);
+  color: var(--muted, inherit);
+}
+
+.decision-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: var(--ds-text-xs);
+  color: var(--muted, inherit);
+}
+
+.decision-card__group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.decision-card__label {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+
+/* A finding is a row of the card, not a card in the card (README.md, UI set): a divider above, no frame. */
+.decision-card__item {
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.decision-card__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.75rem;
+}
+
+.decision-card__item-text {
+  flex: 1 1 260px;
+  font-size: var(--ds-text-md);
+  line-height: 1.45;
+}
+
+.decision-card__place {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--ds-text-xs);
+  color: var(--muted-strong);
+}
+
+.decision-card__field {
+  display: grid;
+  gap: 0.5rem;
+  font-size: var(--ds-text-xs);
+  color: var(--muted, inherit);
+}
+
+.decision-card__field .admin-panel__input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+}
+
+.decision-card__question {
+  font-size: var(--ds-text-md);
+  color: var(--text);
+}
+
+.decision-card__note > summary {
+  cursor: pointer;
+  font-size: var(--ds-text-xs);
+  color: var(--muted, inherit);
+}
+
+.decision-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, transparent);
+}
+
+.decision-card__hint {
+  flex: 1 1 160px;
+  margin: 0;
+}
+
+/* The readiness task list on the decision card (T1. … | proof: …). */
+.decision-card__tasks { margin: 0; padding: 0; list-style: none; display: grid; gap: 0.25rem; }
+.decision-card__task {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.5rem 0.5rem;
+}
+.decision-card__task-id { font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .decision-card__task { grid-template-columns: auto minmax(0, 1fr); }
+  .decision-card__task > :nth-child(n + 3) { grid-column: 2; justify-self: start; }
+}
+.decision-card__task-done { color: var(--status-active, currentColor); font-weight: 600; }
+.decision-card__task-note {
+  grid-column: 2 / -1;
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+/* A long answer folds: the preview is the summary, the whole text opens below it. */
+.workflow-run-banner__fold > summary { list-style: none; cursor: pointer; }
+.workflow-run-banner__fold > summary::-webkit-details-marker { display: none; }
+.workflow-run-banner__fold[open] > summary > pre { display: none; }
+.workflow-run-banner__fold-more { font-size: 0.85em; text-decoration: underline; }
+
+/* Run card mock: what the system tests saw (screenshots on the review decision). */
+.decision-card__screens-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.decision-card__screens-head > .decision-card__label { flex: 1 1 auto; }
+.decision-card__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  color: var(--accent, inherit);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.decision-card__screens {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.decision-card__screen {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  min-width: 0;
+}
+.decision-card__screen > a {
+  display: block;
+  height: 104px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong, currentColor);
+  border-radius: var(--ds-radius-md);
+}
+.decision-card__screen img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+.decision-card__screen > figcaption {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--ds-text-xs);
+  color: var(--muted, inherit);
+  overflow-wrap: anywhere;
+}
+.decision-card__hint--block { flex: none; font-size: var(--ds-text-xs); }

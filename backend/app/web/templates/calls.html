@@ -1,0 +1,638 @@
+{% extends "base.html" %}
+{% block title %}Call Monitor — Octryx{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="flex items-center justify-between">
+        <h1 class="text-2xl font-bold text-gray-900">Teams Call Monitor</h1>
+        <div class="flex items-center gap-4">
+            <span id="last-refresh" class="text-sm text-gray-500"></span>
+            <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" id="auto-refresh" checked class="rounded">
+                Auto-refresh (3s)
+            </label>
+            <button onclick="fetchData()" class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div id="stats-bar" class="grid grid-cols-6 gap-3">
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Active Calls</div>
+            <div id="stat-active" class="text-2xl font-bold text-blue-600">-</div>
+        </div>
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Tracked Sessions</div>
+            <div id="stat-sessions" class="text-2xl font-bold text-gray-700">-</div>
+        </div>
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Recording Queue</div>
+            <div id="stat-queue" class="text-2xl font-bold text-orange-600">-</div>
+        </div>
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Temp Audio Files</div>
+            <div id="stat-audio" class="text-2xl font-bold text-gray-700">-</div>
+        </div>
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Enrollments Active</div>
+            <div id="stat-enrollments" class="text-2xl font-bold text-purple-600">-</div>
+        </div>
+        <div class="bg-white rounded-lg shadow px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase">Enrolled Speakers</div>
+            <div id="stat-speakers" class="text-2xl font-bold text-green-600">-</div>
+        </div>
+    </div>
+
+    <!-- Main Content: Two-panel layout -->
+    <div class="grid grid-cols-12 gap-4">
+        <!-- Left Panel: Call List -->
+        <div class="col-span-4">
+            <!-- Active Calls -->
+            <div class="bg-white rounded-lg shadow mb-4">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <h2 class="text-sm font-semibold text-gray-800 uppercase">Active Calls</h2>
+                </div>
+                <div id="calls-container" class="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                    <div class="px-4 py-3 text-center text-gray-400 text-sm">No active calls</div>
+                </div>
+            </div>
+
+            <!-- Call History -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <h2 class="text-sm font-semibold text-gray-800 uppercase">Recent Calls</h2>
+                        <button onclick="fetchHistory()" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">&#8635;</button>
+                    </div>
+                    <div class="flex gap-1">
+                        <input type="text" id="call-search" placeholder="Search by ID, session, name, date..." 
+                               class="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 font-mono"
+                               oninput="onCallSearchInput(event)">
+                        <button onclick="doCallSearch()" class="text-xs px-2 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600">&#128269;</button>
+                        <button onclick="clearCallSearch()" class="text-xs px-2 py-1.5 bg-gray-100 rounded hover:bg-gray-200" title="Clear">&#10005;</button>
+                    </div>
+                </div>
+                <div id="history-container" class="divide-y divide-gray-100 max-h-[420px] overflow-y-auto">
+                    <div class="px-4 py-3 text-center text-gray-400 text-sm">Loading...</div>
+                </div>
+                <div id="history-footer" class="px-4 py-2 border-t border-gray-100 text-xs text-gray-400 text-center hidden"></div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Call Detail + Logs -->
+        <div class="col-span-8">
+            <!-- Call Detail / Transcript Panel -->
+            <div id="detail-panel" class="bg-white rounded-lg shadow mb-4">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <h2 class="text-sm font-semibold text-gray-800 uppercase">Transcript</h2>
+                        <span id="detail-call-id" class="text-xs text-gray-400 font-mono"></span>
+                        <!-- Tabs -->
+                        <div id="transcript-tabs" class="hidden flex gap-1">
+                            <button class="transcript-tab px-2.5 py-1 text-xs rounded font-medium bg-blue-100 text-blue-800" data-tab="conversation" onclick="switchTranscriptTab('conversation')">
+                                Conversation
+                            </button>
+                            <button class="transcript-tab px-2.5 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600" data-tab="segments" onclick="switchTranscriptTab('segments')">
+                                STT Segments
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="transcript-count" class="text-xs text-gray-400"></span>
+                        <button id="btn-clear-filter" onclick="clearSelection()" class="hidden text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">
+                            &#10005; Clear
+                        </button>
+                    </div>
+                </div>
+                <!-- Transcript Content -->
+                <div id="detail-transcript" class="px-4 py-3 max-h-[400px] overflow-y-auto">
+                    <div class="text-gray-400 text-sm text-center py-8">Select a call to view the transcript</div>
+                </div>
+            </div>
+
+            <!-- Filtered Log View -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-sm font-semibold text-gray-800 uppercase">Call Logs</h2>
+                        <span id="log-filter-badge" class="hidden px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"></span>
+                        <span id="log-count" class="text-xs text-gray-400"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="log-search" placeholder="Filter text..." 
+                               class="text-xs px-2 py-1 border rounded w-40" oninput="filterLogText()">
+                        <button onclick="fetchLog()" class="text-xs px-2 py-1 bg-gray-100 rounded hover:bg-gray-200">
+                            Refresh Log
+                        </button>
+                    </div>
+                </div>
+                <div id="log-container" class="p-2 max-h-[500px] overflow-y-auto bg-gray-900 rounded-b-lg">
+                    <pre id="log-content" class="text-xs font-mono text-gray-200 whitespace-pre-wrap leading-relaxed"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Enrolled Speakers -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="px-4 py-3 border-b border-gray-200">
+            <h2 class="text-sm font-semibold text-gray-800 uppercase">Enrolled Speakers</h2>
+        </div>
+        <div id="speakers-container" class="p-4">
+            <div class="text-gray-400 text-center text-sm">No enrolled speakers</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .call-item { cursor: pointer; transition: background-color 0.15s; }
+    .call-item:hover { background-color: #f3f4f6; }
+    .call-item.selected { background-color: #eff6ff; border-left: 3px solid #3b82f6; }
+    .log-line { padding: 1px 4px; border-radius: 2px; display: block; }
+    .log-line:hover { background-color: rgba(255,255,255,0.05); }
+    .log-highlight { background-color: rgba(251, 191, 36, 0.2); }
+    .log-error { color: #fca5a5; }
+    .log-success { color: #86efac; }
+    .log-stt { color: #93c5fd; }
+    .log-prompt { color: #c4b5fd; }
+    .log-record { color: #67e8f9; }
+    .log-enrollment { color: #d8b4fe; }
+    .log-wake { color: #fde68a; }
+    #log-container::-webkit-scrollbar { width: 8px; }
+    #log-container::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+    #detail-transcript::-webkit-scrollbar { width: 6px; }
+    #detail-transcript::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    .transcript-bubble { max-width: 85%; }
+    .transcript-tab.active { background-color: #dbeafe; color: #1e40af; }
+    .segment-row:hover { background-color: #f9fafb; }
+</style>
+
+<script>
+let refreshInterval = null;
+let selectedCallId = null;
+let allLogLines = [];
+let currentTranscriptTab = 'conversation';
+let cachedLiveData = null;  // store last /live response for segment access
+
+function formatDuration(ms) {
+    if (!ms) return '0s';
+    const sec = Math.floor(ms / 1000);
+    const min = Math.floor(sec / 60);
+    if (min > 0) return min + 'm ' + (sec % 60) + 's';
+    return sec + 's';
+}
+
+function formatTime(isoStr) {
+    if (!isoStr) return '-';
+    const d = new Date(isoStr);
+    return d.toLocaleTimeString();
+}
+
+function formatDateTime(isoStr) {
+    if (!isoStr) return 'No timestamp';
+    const d = new Date(isoStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+        return 'Today ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+    }
+    return d.toLocaleDateString([], {month: 'short', day: 'numeric'}) + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+}
+
+function selectCall(callId) {
+    selectedCallId = callId;
+    document.querySelectorAll('.call-item').forEach(function(el) { el.classList.remove('selected'); });
+    document.querySelectorAll('.call-item[data-call-id="' + callId + '"]').forEach(function(el) { el.classList.add('selected'); });
+    
+    document.getElementById('detail-call-id').textContent = callId;
+    document.getElementById('btn-clear-filter').classList.remove('hidden');
+    document.getElementById('transcript-tabs').classList.remove('hidden');
+    
+    var badge = document.getElementById('log-filter-badge');
+    badge.textContent = 'Filtered: ' + callId.substring(0, 8) + '...';
+    badge.classList.remove('hidden');
+    
+    fetchLog();
+    fetchCallDetail(callId);
+}
+
+function clearSelection() {
+    selectedCallId = null;
+    document.querySelectorAll('.call-item').forEach(function(el) { el.classList.remove('selected'); });
+    document.getElementById('detail-call-id').textContent = '';
+    document.getElementById('btn-clear-filter').classList.add('hidden');
+    document.getElementById('log-filter-badge').classList.add('hidden');
+    document.getElementById('transcript-tabs').classList.add('hidden');
+    document.getElementById('transcript-count').textContent = '';
+    document.getElementById('detail-transcript').innerHTML = '<div class="text-gray-400 text-sm text-center py-8">Select a call to view the transcript</div>';
+    fetchLog();
+}
+
+function switchTranscriptTab(tab) {
+    currentTranscriptTab = tab;
+    document.querySelectorAll('.transcript-tab').forEach(function(btn) {
+        if (btn.dataset.tab === tab) {
+            btn.className = 'transcript-tab px-2.5 py-1 text-xs rounded font-medium bg-blue-100 text-blue-800 active';
+        } else {
+            btn.className = 'transcript-tab px-2.5 py-1 text-xs rounded font-medium bg-gray-100 text-gray-600';
+        }
+    });
+    if (selectedCallId) fetchCallDetail(selectedCallId);
+}
+
+async function fetchCallDetail(callId) {
+    try {
+        // Show tabs
+        document.getElementById('transcript-tabs').classList.remove('hidden');
+        
+        if (currentTranscriptTab === 'segments') {
+            renderSegmentsView(callId);
+            return;
+        }
+        
+        // Conversation tab: fetch from DB
+        var resp = await fetch('/admin/chat/api/panel/calls/' + callId + '/events');
+        if (!resp.ok) return;
+        var data = await resp.json();
+        
+        var html = '';
+        // Use segments+messages combined for richer display
+        var hasSegments = data.segments && data.segments.length > 0;
+        var hasMessages = data.messages && data.messages.length > 0;
+        
+        if (hasSegments || hasMessages) {
+            // Build conversation from segments (user speech) interleaved with bot messages
+            var items = [];
+            
+            // Add user segments with speaker info
+            if (hasSegments) {
+                for (var s = 0; s < data.segments.length; s++) {
+                    var seg = data.segments[s];
+                    items.push({
+                        type: 'user',
+                        speaker: seg.speaker || 'Unknown',
+                        speaker_source: seg.speaker_source || '',
+                        text: seg.text,
+                        time: seg.timestamp || null,
+                        start_ms: seg.start_ms,
+                    });
+                }
+            }
+            
+            // Add bot messages from DB
+            if (hasMessages) {
+                for (var m = 0; m < data.messages.length; m++) {
+                    var msg = data.messages[m];
+                    if (msg.role === 'assistant') {
+                        items.push({
+                            type: 'bot',
+                            speaker: 'Bot',
+                            speaker_source: '',
+                            text: msg.content,
+                            time: msg.created_at,
+                            start_ms: null,
+                        });
+                    } else if (!hasSegments) {
+                        // Only use DB user messages if we have no segments
+                        items.push({
+                            type: 'user',
+                            speaker: 'User',
+                            speaker_source: '',
+                            text: msg.content,
+                            time: msg.created_at,
+                            start_ms: null,
+                        });
+                    }
+                }
+            }
+            
+            // Sort by time
+            items.sort(function(a, b) {
+                var ta = a.time ? new Date(a.time).getTime() : (a.start_ms || 0);
+                var tb = b.time ? new Date(b.time).getTime() : (b.start_ms || 0);
+                return ta - tb;
+            });
+            
+            document.getElementById('transcript-count').textContent = items.length + ' entries';
+            html = '<div class="space-y-2 py-1">';
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                var isUser = item.type === 'user';
+                
+                // Source badge for speaker identification
+                var sourceBadge = '';
+                if (item.speaker_source === 'diarization') {
+                    sourceBadge = ' <span class="px-1 py-0.5 text-[9px] bg-green-100 text-green-700 rounded" title="Voice recognized">✓</span>';
+                } else if (item.speaker_source === 'teams_api') {
+                    sourceBadge = ' <span class="px-1 py-0.5 text-[9px] bg-yellow-100 text-yellow-700 rounded" title="Teams API fallback">API</span>';
+                }
+                
+                var speakerLabel = isUser 
+                    ? '&#128100; ' + escapeHtml(item.speaker) + sourceBadge
+                    : '&#129302; Bot';
+                
+                html += '<div class="flex ' + (isUser ? 'justify-start' : 'justify-end') + '">';
+                html += '<div class="transcript-bubble ' + (isUser ? 'bg-gray-100 rounded-tl-sm' : 'bg-blue-50 rounded-tr-sm') + ' rounded-xl px-3 py-2">';
+                html += '<div class="flex items-center gap-2 mb-0.5">';
+                html += '<span class="text-xs font-semibold ' + (isUser ? 'text-gray-600' : 'text-blue-600') + '">' + speakerLabel + '</span>';
+                html += '<span class="text-[10px] text-gray-400">' + formatTime(item.time) + '</span>';
+                html += '</div>';
+                html += '<p class="text-sm text-gray-800 leading-relaxed">' + escapeHtml(item.text) + '</p>';
+                html += '</div></div>';
+            }
+            html += '</div>';
+        } else if (data.transcript) {
+            document.getElementById('transcript-count').textContent = 'raw transcript';
+            html = '<pre class="text-sm font-mono text-gray-600 whitespace-pre-wrap leading-relaxed p-2 bg-gray-50 rounded">' + escapeHtml(data.transcript) + '</pre>';
+        } else {
+            document.getElementById('transcript-count').textContent = '';
+            html = '<div class="text-gray-400 text-sm text-center py-6">No messages yet for this call</div>';
+        }
+        document.getElementById('detail-transcript').innerHTML = html;
+        // Auto-scroll transcript to bottom
+        var transcriptEl = document.getElementById('detail-transcript');
+        transcriptEl.scrollTop = transcriptEl.scrollHeight;
+    } catch (e) {
+        document.getElementById('detail-transcript').innerHTML = '<div class="text-red-500 text-sm py-4 text-center">' + e.message + '</div>';
+    }
+}
+
+async function renderSegmentsView(callId) {
+    // Try live cached data first, then fetch from events endpoint
+    var segments = [];
+    if (cachedLiveData && cachedLiveData.calls) {
+        var call = cachedLiveData.calls.find(function(c) { return c.call_id === callId; });
+        if (call && call.segments) segments = call.segments;
+    }
+    
+    // If no segments in cache, fetch from events endpoint
+    if (segments.length === 0) {
+        try {
+            var resp = await fetch('/admin/chat/api/panel/calls/' + callId + '/events');
+            if (resp.ok) {
+                var data = await resp.json();
+                if (data.segments && data.segments.length > 0) segments = data.segments;
+            }
+        } catch(e) {}
+    }
+    
+    var html = '';
+    if (segments.length === 0) {
+        document.getElementById('transcript-count').textContent = '';
+        html = '<div class="text-gray-400 text-sm text-center py-6">No STT segments available</div>';
+    } else {
+        document.getElementById('transcript-count').textContent = segments.length + ' segments';
+        html = '<div class="divide-y divide-gray-100">';
+        for (var i = 0; i < segments.length; i++) {
+            var seg = segments[i];
+            var timeStr = seg.start_ms != null ? formatDuration(seg.start_ms) + ' → ' + formatDuration(seg.end_ms) : '';
+            var speaker = seg.speaker || 'Unknown';
+            var isBotSpeaker = /bot|assistant/i.test(speaker);
+            var sourceBadge = '';
+            if (seg.speaker_source === 'diarization') {
+                sourceBadge = '<span class="ml-1 px-1 py-0.5 text-[9px] bg-green-100 text-green-700 rounded" title="Identified by voice recognition">✓ voice</span>';
+            } else if (seg.speaker_source === 'teams_api') {
+                sourceBadge = '<span class="ml-1 px-1 py-0.5 text-[9px] bg-yellow-100 text-yellow-700 rounded" title="From Teams caller info (fallback)">API</span>';
+            }
+            html += '<div class="segment-row flex items-start gap-3 py-2 px-1">';
+            html += '<span class="text-[10px] text-gray-400 font-mono w-24 shrink-0 pt-0.5">' + timeStr + '</span>';
+            html += '<span class="text-xs font-semibold shrink-0 ' + (isBotSpeaker ? 'text-blue-600' : 'text-gray-700') + '">' + escapeHtml(speaker) + sourceBadge + '</span>';
+            html += '<span class="text-sm text-gray-800 flex-1">' + escapeHtml(seg.text || '') + '</span>';
+            html += '</div>';
+        }
+        html += '</div>';
+    }
+    document.getElementById('detail-transcript').innerHTML = html;
+    // Auto-scroll
+    var transcriptEl = document.getElementById('detail-transcript');
+    transcriptEl.scrollTop = transcriptEl.scrollHeight;
+}
+
+function renderCallItem(call) {
+    var isActive = call.is_active || call.is_graph_active;
+    var statusDot = isActive 
+        ? '<span class="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>'
+        : '<span class="inline-block w-2 h-2 bg-gray-300 rounded-full"></span>';
+    
+    var statusLabel = '';
+    if (call.is_bot_speaking) statusLabel = '<span class="text-xs text-yellow-600">&#128266; Speaking</span>';
+    else if (call.enrollment) statusLabel = '<span class="text-xs text-purple-600">&#127908; Enrolling</span>';
+    else if (isActive) statusLabel = '<span class="text-xs text-green-600">&#127911; Active</span>';
+    else if (call.status === 'failed') statusLabel = '<span class="text-xs text-red-500">&#10060; Failed</span>';
+    else statusLabel = '<span class="text-xs text-gray-400">&#9989; Ended</span>';
+
+    var selected = call.call_id === selectedCallId ? 'selected' : '';
+    var callerName = call.caller_display_name || call.caller_name || '';
+    var segCount = call.segment_count || call.segments || 0;
+
+    // Primary label: caller name or formatted timestamp
+    var primaryLabel = callerName || formatDateTime(call.started_at);
+    var primaryClass = callerName ? 'text-sm font-medium text-gray-800' : 'text-sm font-medium text-gray-600';
+
+    var html = '<div class="call-item px-4 py-2.5 ' + selected + '" data-call-id="' + call.call_id + '" onclick="selectCall(\'' + call.call_id + '\')">';
+    html += '<div class="flex items-center justify-between">';
+    html += '<div class="flex items-center gap-2 min-w-0">';
+    html += statusDot;
+    html += '<div class="min-w-0">';
+    html += '<div class="' + primaryClass + ' truncate">' + escapeHtml(primaryLabel) + '</div>';
+    html += '<div class="text-[10px] text-gray-400 font-mono truncate" title="' + call.call_id + '">ID: ' + call.call_id.substring(0, 12) + '...</div>';
+    if (call.db_session_id) {
+        html += '<a href="/chat?session_id=' + call.db_session_id + '" onclick="event.stopPropagation()" class="text-[10px] text-blue-500 hover:text-blue-700 font-mono hover:underline truncate block" title="' + call.db_session_id + '">';
+        html += '&#128279; Session: ' + call.db_session_id.substring(0, 8) + '...</a>';
+    }
+    html += '</div></div>';
+    html += '<div class="text-right flex-shrink-0 ml-2">';
+    html += statusLabel;
+    html += '<div class="text-[10px] text-gray-400 whitespace-nowrap">';
+    if (call.started_at) html += formatTime(call.started_at);
+    if (segCount) html += ' &bull; ' + segCount + ' seg';
+    html += '</div></div></div></div>';
+    return html;
+}
+
+function colorizeLogLine(line) {
+    var cls = 'log-line';
+    if (/error|failed|exception|Traceback/i.test(line)) cls += ' log-error';
+    else if (/success|SUCCESS|enrolled/i.test(line)) cls += ' log-success';
+    else if (/STT result|STT:/i.test(line)) cls += ' log-stt';
+    else if (/playPrompt|play_prompt|Thinking message/i.test(line)) cls += ' log-prompt';
+    else if (/record|Recording/i.test(line)) cls += ' log-record';
+    else if (/enrollment|enroll/i.test(line)) cls += ' log-enrollment';
+    else if (/wake word|Wake/i.test(line)) cls += ' log-wake';
+    return '<span class="' + cls + '">' + escapeHtml(line) + '</span>';
+}
+
+function filterLogText() {
+    var filter = document.getElementById('log-search').value.toLowerCase();
+    renderLogLines(filter);
+}
+
+function renderLogLines(textFilter) {
+    var content = document.getElementById('log-content');
+    var filtered = allLogLines;
+    if (textFilter) {
+        filtered = allLogLines.filter(function(l) { return l.toLowerCase().indexOf(textFilter) !== -1; });
+    }
+    content.innerHTML = filtered.map(colorizeLogLine).join('\n');
+    document.getElementById('log-count').textContent = filtered.length + ' lines';
+    
+    // Auto-scroll to bottom
+    var container = document.getElementById('log-container');
+    container.scrollTop = container.scrollHeight;
+}
+
+function renderSpeakers(speakers) {
+    if (!speakers || Object.keys(speakers).length === 0) {
+        return '<div class="text-gray-400 text-center text-sm">No enrolled speakers</div>';
+    }
+    var html = '<div class="flex flex-wrap gap-3">';
+    for (var key in speakers) {
+        var info = speakers[key];
+        html += '<div class="border rounded-lg px-3 py-2 text-sm">';
+        html += '<span class="font-medium text-gray-800">' + escapeHtml(info.name || key) + '</span>';
+        if (info.embedding_dim) html += '<span class="ml-2 text-xs text-green-600">' + info.embedding_dim + 'd</span>';
+        html += '</div>';
+    }
+    html += '</div>';
+    return html;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function fetchData() {
+    try {
+        var resp = await fetch('/admin/chat/api/panel/calls/live');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        cachedLiveData = data;
+        
+        // Update stats
+        document.getElementById('stat-active').textContent = data.stats.active_calls;
+        document.getElementById('stat-sessions').textContent = data.stats.tracked_sessions;
+        document.getElementById('stat-queue').textContent = data.stats.recording_queue_size;
+        document.getElementById('stat-audio').textContent = data.stats.temp_audio_files;
+        document.getElementById('stat-enrollments').textContent = data.stats.active_enrollments;
+        document.getElementById('stat-speakers').textContent = data.stats.enrolled_speakers;
+        
+        // Highlight queue if non-zero
+        var queueEl = document.getElementById('stat-queue');
+        queueEl.className = data.stats.recording_queue_size > 0 
+            ? 'text-2xl font-bold text-red-600 animate-pulse' 
+            : 'text-2xl font-bold text-orange-600';
+        
+        // Render active calls
+        var container = document.getElementById('calls-container');
+        if (data.calls.length === 0) {
+            container.innerHTML = '<div class="px-4 py-3 text-center text-gray-400 text-sm">No active calls</div>';
+        } else {
+            container.innerHTML = data.calls.map(renderCallItem).join('');
+        }
+        
+        // Render speakers
+        document.getElementById('speakers-container').innerHTML = renderSpeakers(data.enrolled_speakers);
+        
+        // Update timestamp
+        document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+        
+        // If a call is selected and it's active, refresh detail
+        if (selectedCallId) {
+            var isActive = data.calls.find(function(c) { return c.call_id === selectedCallId; });
+            if (isActive) fetchCallDetail(selectedCallId);
+        }
+    } catch (e) {
+        console.error('Failed to fetch call data:', e);
+    }
+}
+
+async function fetchHistory(search) {
+    try {
+        var searchParam = search || document.getElementById('call-search').value.trim();
+        var url = '/admin/chat/api/panel/calls/history?limit=50';
+        if (searchParam) url += '&search=' + encodeURIComponent(searchParam);
+        
+        var resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        
+        var container = document.getElementById('history-container');
+        var footer = document.getElementById('history-footer');
+        if (!data.calls || data.calls.length === 0) {
+            container.innerHTML = '<div class="px-4 py-3 text-center text-gray-400 text-sm">' + 
+                (searchParam ? 'No calls matching "' + escapeHtml(searchParam) + '"' : 'No call history') + '</div>';
+            footer.classList.add('hidden');
+        } else {
+            container.innerHTML = data.calls.map(renderCallItem).join('');
+            footer.textContent = data.calls.length + ' call' + (data.calls.length !== 1 ? 's' : '') + (searchParam ? ' matching "' + searchParam + '"' : '');
+            footer.classList.remove('hidden');
+        }
+    } catch (e) {
+        document.getElementById('history-container').innerHTML = '<div class="px-4 py-3 text-red-500 text-sm">' + e.message + '</div>';
+    }
+}
+
+var _callSearchTimeout = null;
+function onCallSearchInput(e) {
+    clearTimeout(_callSearchTimeout);
+    _callSearchTimeout = setTimeout(function() {
+        fetchHistory(e.target.value.trim());
+    }, 400);
+}
+
+function doCallSearch() {
+    fetchHistory(document.getElementById('call-search').value.trim());
+}
+
+function clearCallSearch() {
+    document.getElementById('call-search').value = '';
+    fetchHistory('');
+}
+
+async function fetchLog() {
+    try {
+        var url = selectedCallId 
+            ? '/admin/chat/api/panel/calls/log?call_id=' + encodeURIComponent(selectedCallId) + '&limit=300'
+            : '/admin/chat/api/panel/calls/log?limit=150';
+        var resp = await fetch(url);
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        var data = await resp.json();
+        allLogLines = data.lines || [];
+        var textFilter = document.getElementById('log-search').value.toLowerCase();
+        renderLogLines(textFilter);
+    } catch (e) {
+        document.getElementById('log-content').textContent = 'Error: ' + e.message;
+    }
+}
+
+function startAutoRefresh() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    refreshInterval = setInterval(function() {
+        fetchData();
+        fetchLog();
+    }, 3000);
+}
+
+function stopAutoRefresh() {
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+}
+
+document.getElementById('auto-refresh').addEventListener('change', function(e) {
+    if (e.target.checked) startAutoRefresh();
+    else stopAutoRefresh();
+});
+
+// Initial load
+fetchData();
+fetchHistory();
+fetchLog();
+startAutoRefresh();
+</script>
+{% endblock %}

@@ -1,0 +1,168 @@
+/* Right-side drawer for workspace create and workspace settings (design guide 9.11). */
+.settings-drawer__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.38);
+}
+
+.settings-drawer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 100vw;
+  border-left: 1px solid var(--border-soft);
+  background: var(--panel-strong);
+  box-shadow: -16px 0 36px rgba(0, 0, 0, 0.32);
+  outline: none;
+  animation: settings-drawer-in 160ms ease-out;
+}
+
+.settings-drawer--edit {
+  width: min(28rem, 100vw);
+}
+
+.settings-drawer--detail {
+  width: min(38rem, 100vw);
+}
+
+.settings-drawer--workspace {
+  width: min(72rem, calc(100vw - 3rem));
+}
+
+@keyframes settings-drawer-in {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.settings-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-shrink: 0;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--shell-divider);
+}
+
+.settings-drawer__eyebrow {
+  margin: 0 0 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.settings-drawer__title {
+  margin: 0;
+  color: var(--highlight);
+  font-size: var(--ds-text-lg);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.settings-drawer__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.settings-drawer__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--muted-strong);
+  cursor: pointer;
+}
+
+.settings-drawer__close:hover {
+  background: var(--surface-overlay-hover);
+  color: var(--text);
+}
+
+.settings-drawer__close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.settings-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+}
+
+.settings-drawer--workspace .settings-drawer__body {
+  overflow: hidden;
+  padding: 0;
+}
+
+.settings-drawer__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid var(--shell-divider);
+}
+
+.settings-drawer__form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.settings-drawer__field {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+}
+
+.settings-drawer__field input,
+.settings-drawer__field textarea {
+  min-height: 2.1rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 400;
+  outline: none;
+}
+
+.settings-drawer__field input:focus,
+.settings-drawer__field textarea:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.settings-drawer__required {
+  color: var(--status-error);
+}
+
+.settings-drawer__help {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 400;
+}
+
+[data-theme="light"] .settings-drawer {
+  box-shadow: -16px 0 36px rgba(36, 39, 35, 0.14);
+}

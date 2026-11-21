@@ -1,0 +1,201 @@
+/* Work pull request gaps and mismatches, and the sync configuration cards. */
+.work-pr {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.work-pr__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+
+.work-pr__gaps {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--status-attention) 22%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--status-attention) 5%, transparent);
+  padding: 0.75rem;
+}
+
+.work-pr__gaps h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+}
+
+.work-pr__gap-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-pr__gap {
+  display: grid;
+  grid-template-columns: 1fr 1fr minmax(12rem, 2fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.work-pr__gap strong {
+  color: var(--text);
+}
+
+.work-pr__table td a,
+.work-detail__pr-header a {
+  color: var(--status-running-ink);
+  text-decoration: none;
+}
+
+.work-pr__table td small {
+  display: block;
+  margin-top: 0.25rem;
+  color: var(--muted);
+}
+
+.work-pr__mismatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.work-pr__mismatch {
+  border: 1px solid color-mix(in srgb, var(--status-attention) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--status-attention) 8%, transparent);
+  color: var(--status-attention);
+  padding: 0.25rem 0.5rem;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.work-pr__mismatch.is-block {
+  border-color: color-mix(in srgb, var(--status-error) 32%, transparent);
+  background: color-mix(in srgb, var(--status-error) 8%, transparent);
+  color: var(--status-error-ink);
+}
+
+.work-sync-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.work-sync-card {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.7fr) minmax(26rem, 1.35fr) minmax(16rem, 0.8fr);
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.work-sync-card__summary,
+.work-sync-card__settings,
+.work-sync-card__filters {
+  min-width: 0;
+}
+
+.work-sync-card__settings {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+
+.work-sync-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.work-sync-card__settings label {
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.work-sync-card__settings input,
+.work-sync-card__settings select {
+  width: 100%;
+  margin-top: 0.25rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  padding: 0.5rem 0.5rem;
+  font: inherit;
+}
+
+.work-sync-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.work-config__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.work-config__check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+.work-area__notice {
+  border: 1px solid color-mix(in srgb, var(--status-active) 24%, transparent);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--status-active) 8%, transparent);
+  color: var(--status-active-ink);
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ds-text-xs);
+}
+
+.work-sync-card p {
+  margin: 0.25rem 0 0;
+  color: var(--muted-strong);
+}
+
+.work-sync-card dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.work-sync-card div {
+  min-width: 0;
+}
+
+.work-sync-card dt {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.work-sync-card dd {
+  margin: 0.12rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+}
+
+.work-sync-card pre {
+  max-height: 11rem;
+  min-width: 0;
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  padding: 0.5rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-2xs);
+}
+
+@media (max-width: 1180px) {
+  .work-sync-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

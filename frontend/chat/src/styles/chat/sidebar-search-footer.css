@@ -1,0 +1,80 @@
+/* Thread search field, thread area, empty hints, footer and user row. */
+.thread-search {
+  position: relative;
+}
+
+.thread-search svg {
+  position: absolute;
+  left: 0.7rem;
+  top: 50%;
+  width: 0.82rem;
+  height: 0.82rem;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.thread-search input {
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.5rem 2rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--text);
+  font-size: var(--ds-text-xs);
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.thread-search input::placeholder {
+  color: var(--muted);
+}
+
+.thread-search input:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.thread-search__kbd {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  padding: 2px var(--ds-space-1);
+  transform: translateY(-50%);
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-sm);
+  color: var(--muted);
+  font: var(--ds-weight-medium) var(--ds-text-2xs)/1 var(--font-mono);
+  pointer-events: none;
+}
+
+.sidebar__threads {
+  min-height: 0;
+  padding: 0 0.25rem 0 0.5rem;
+}
+
+.sidebar__empty,
+.sidebar__hint {
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}
+
+.sidebar__footer {
+  border-top: 1px solid var(--border-soft);
+  padding: 0.5rem 0.25rem 0.04rem 0.5rem;
+}
+
+.sidebar__user {
+  color: var(--highlight);
+  font-weight: 600;
+  font-size: var(--ds-text-md);
+  margin-bottom: 0.25rem;
+}

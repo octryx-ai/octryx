@@ -1,0 +1,98 @@
+/* The message "⋯" menu, folded tool steps, the chat list's Workspace scope and the audit
+   lock in the header. */
+.message-row__header-actions .action-menu .action-menu__row-btn {
+  width: var(--ds-control-sm);
+  height: var(--ds-control-sm);
+  font-size: var(--ds-text-lg);
+}
+
+.tool-fold {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.25rem 0 0.25rem;
+}
+
+/* "Used 1 tool · 13 ms": a quiet disclosure row with a drawn chevron. */
+.tool-fold__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  width: fit-content;
+  margin-left: -0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  list-style: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.tool-fold__summary:hover { background: var(--surface-overlay-strong); color: var(--muted-strong); }
+.tool-fold__summary:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.tool-fold__summary::-webkit-details-marker { display: none; }
+.tool-fold__summary::before {
+  content: "";
+  width: 0.3rem;
+  height: 0.3rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 160ms ease;
+}
+.tool-fold__details[open] > .tool-fold__summary::before { transform: rotate(45deg); }
+.tool-fold__body { margin-top: 0.25rem; }
+
+.tool-fold__failures {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.tool-fold__failure {
+  color: var(--status-error-ink, var(--status-error));
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+
+/* A step the workspace rules refused is not an error of the tool: muted, the raw text on demand. */
+.tool-fold__failure--blocked { color: var(--muted-strong); }
+.tool-fold__failure--blocked summary { cursor: pointer; list-style: none; }
+.tool-fold__failure--blocked summary::-webkit-details-marker { display: none; }
+.tool-fold__raw {
+  margin: 0.25rem 0 0;
+  padding: 0.5rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--muted);
+  font-size: var(--ds-text-xs);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.thread-scope__toggle {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.thread-scope__toggle:hover,
+.thread-scope__toggle[aria-pressed="true"] {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.workspace__context-line .composer__audit-mark {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--ds-text-2xs);
+}

@@ -1,0 +1,117 @@
+/* Admin › Workspaces (central configuration): the list is the design system's DataTable (full width, 36 px rows);
+   only the toolbar and the name cell are styled here. */
+.admin-projects__list {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.admin-projects__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-projects__toolbar .admin-users__toolbar {
+  margin: 0;
+}
+
+.admin-projects__name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* The Class column — a level, or "Not set" with Set class beside it. */
+.admin-projects__class-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.admin-projects__class-unset {
+  color: var(--muted-strong);
+}
+
+.admin-projects__name-cell strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A Workspace created a moment ago: the confirmation above the list and its marked row. */
+.admin-projects__created {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Workspace → Overview: the first-run setup steps in order. */
+.workspace-setup {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workspace-setup__step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workspace-setup__mark {
+  width: 1.2rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.workspace-setup__step--done .workspace-setup__mark {
+  color: var(--status-success, var(--accent));
+}
+
+/* Workspace → Overview: plain sections, a heading each, no card frames. Every value starts at
+   the left, also a link that wraps (the Models list is a button, which centres its lines by default). */
+.workspace-overview {
+  gap: 1.5rem;
+}
+
+.workspace-overview__section {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.workspace-overview__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.workspace-overview__title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-md);
+  font-weight: 600;
+}
+
+.workspace-overview .sk-link {
+  text-align: start;
+}
+
+.workspace-overview .work-detail__kv-grid {
+  gap: 0.75rem 1.5rem;
+}
+
+.workspace-overview .work-detail__kv dt {
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: normal;
+  text-transform: none;
+}

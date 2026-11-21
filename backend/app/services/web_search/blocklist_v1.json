@@ -1,0 +1,31 @@
+{
+  "version": "blocklist-v1",
+  "categories": {
+    "adult": {
+      "tlds": ["xxx", "adult", "porn", "sex", "sexy"],
+      "host_substrings": ["porn", "xxx", "hentai", "xvideo", "xnxx", "xhamster", "camgirl", "sexcam", "nsfw"],
+      "host_tokens": ["sex", "sexy", "nude", "nudes", "naked", "erotic", "erotik", "escort", "escorts", "fetish", "milf", "boobs", "livecam", "stripchat", "onlyfans"],
+      "domains": [
+        "pornhub.com", "xvideos.com", "xnxx.com", "xhamster.com", "redtube.com", "youporn.com", "tube8.com",
+        "spankbang.com", "eporner.com", "beeg.com", "tnaflix.com", "txxx.com", "hqporner.com", "porntrex.com",
+        "chaturbate.com", "stripchat.com", "livejasmin.com", "bongacams.com", "cam4.com", "camsoda.com",
+        "myfreecams.com", "onlyfans.com", "fansly.com", "manyvids.com", "clips4sale.com", "brazzers.com",
+        "realitykings.com", "bangbros.com", "naughtyamerica.com", "motherless.com", "rule34.xxx",
+        "nhentai.net", "e-hentai.org", "literotica.com", "adultfriendfinder.com", "fetlife.com",
+        "erome.com", "thothub.to", "sxyprn.com", "4tube.com", "porn.com", "youjizz.com", "drtuber.com"
+      ]
+    },
+    "gambling": {
+      "tlds": ["casino", "bet", "poker"],
+      "host_substrings": [],
+      "host_tokens": ["casino", "casinos", "slots"],
+      "domains": ["bet365.com", "pokerstars.com", "stake.com", "1xbet.com", "888casino.com", "betway.com"]
+    },
+    "abuse": {
+      "tlds": ["zip", "mov"],
+      "host_substrings": [],
+      "host_tokens": [],
+      "domains": ["grabify.link", "iplogger.org", "iplogger.com", "2no.co", "blasze.com"]
+    }
+  }
+}

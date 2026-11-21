@@ -1,0 +1,41 @@
+// Chat workspace breakpoint contract.
+//
+// One source of truth for the widths at which the chat shell changes shape.
+// The CSS module `styles/chat/chat-compact-shell.css` must use the same pixel
+// values; `tests/unit/chatLayoutBreakpoints.test.mjs` asserts that it does.
+//
+// - `phoneMaxWidth`   composer collapses to a compact surface, header actions
+//                     move behind an overflow menu
+// - `compactMaxWidth` shell chrome collapses (off-canvas sidebar, auto-height
+//                     header, horizontally scrollable status chips)
+
+export const CHAT_LAYOUT_BREAKPOINTS = {
+  phoneMaxWidth: 720,
+  compactMaxWidth: 980,
+} as const;
+
+export type ChatLayoutMode = "phone" | "compact" | "desktop";
+
+export const CHAT_LAYOUT_MEDIA_QUERIES = {
+  phone: `(max-width: ${CHAT_LAYOUT_BREAKPOINTS.phoneMaxWidth}px)`,
+  compact: `(max-width: ${CHAT_LAYOUT_BREAKPOINTS.compactMaxWidth}px)`,
+} as const;
+
+export function resolveChatLayoutMode(viewportWidth: number): ChatLayoutMode {
+  if (!Number.isFinite(viewportWidth)) {
+    return "desktop";
+  }
+  if (viewportWidth <= CHAT_LAYOUT_BREAKPOINTS.phoneMaxWidth) {
+    return "phone";
+  }
+  if (viewportWidth <= CHAT_LAYOUT_BREAKPOINTS.compactMaxWidth) {
+    return "compact";
+  }
+  return "desktop";
+}
+
+// Phone is a strict subset of compact: every rule that collapses shell chrome
+// applies on phones too.
+export function isCompactChatLayout(mode: ChatLayoutMode): boolean {
+  return mode === "phone" || mode === "compact";
+}

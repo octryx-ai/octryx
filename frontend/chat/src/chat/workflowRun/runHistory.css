@@ -1,0 +1,83 @@
+/* Run history entries and the open findings under them. */
+/* How this run went: one line per step; steps the platform took on its own carry a grey label. */
+.run-history {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--border, currentColor);
+  border-radius: var(--ds-radius-lg);
+  font-size: var(--ds-text-sm);
+  color: var(--muted, inherit);
+}
+.run-history__title {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+.run-history__list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.run-history__entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 0.75rem;
+}
+.run-history__time { font-variant-numeric: tabular-nums; }
+.run-history__reason { opacity: 0.8; }
+/* A routine line (a tool call only a Workspace default allowed): muted, smaller, never coloured. */
+.run-history__entry[data-quiet="true"] { color: var(--muted); font-size: var(--ds-text-xs); }
+/* A refused tool call's "Allow in this Workspace", on its own line under the entry's text. */
+.run-history__remedy { flex-basis: 100%; min-width: 0; }
+@media (min-width: 641px) {
+  .run-history__time ~ .run-history__remedy { padding-left: calc(5ch + 0.75rem); }
+}
+/* The platform's reason under an entry (continued with open findings): its own line, aligned with the text. */
+.run-history__note {
+  flex-basis: 100%;
+  font-size: var(--ds-text-xs);
+  opacity: 0.8;
+}
+/* Under the entry's text, not under its time, where the entry fits on one line. */
+@media (min-width: 641px) {
+  .run-history__time ~ .run-history__note { padding-left: calc(5ch + 0.75rem); }
+}
+/* A long line wraps inside the box on a narrow screen instead of running out of it. */
+.run-history__entry > span { min-width: 0; overflow-wrap: anywhere; }
+
+/* The review findings a run went on with, under its "Open findings" line: severity, where, what, the fix muted. */
+.open-findings {
+  flex-basis: 100%;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.run-history__time ~ .open-findings { margin-left: calc(5ch + 0.75rem); }
+@media (max-width: 640px) {
+  .run-history__time ~ .open-findings { margin-left: 0; }
+}
+.open-findings__list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.open-findings__item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--border, currentColor);
+  border-radius: var(--ds-radius-md);
+}
+.open-findings__head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.open-findings__place {
+  min-width: 0;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--ds-text-xs);
+  overflow-wrap: anywhere;
+}
+.open-findings__summary { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.open-findings__fix { margin: 0; font-size: var(--ds-text-xs); color: var(--muted, inherit); overflow-wrap: anywhere; }
+.open-findings > .decision-card__link { justify-self: start; }

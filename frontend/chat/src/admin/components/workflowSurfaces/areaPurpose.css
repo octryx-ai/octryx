@@ -1,0 +1,81 @@
+/* Purpose header of the Agents & workflows pages. Tokens only. */
+.area-purpose {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.area-purpose__back {
+  justify-self: start;
+  margin-bottom: 0.25rem;
+}
+
+.area-purpose__text,
+.area-purpose__when {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+
+.area-purpose__when {
+  color: var(--muted-strong);
+}
+
+.area-purpose__label {
+  margin-right: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.area-purpose__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.area-purpose__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-strong);
+  font: inherit;
+  font-size: var(--ds-text-xs);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.area-purpose__link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Collapsed page sections (editors, tools). */
+.area-disclosure {
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+
+.area-disclosure__summary {
+  padding: 0.75rem 1rem;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.area-disclosure__body {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0 1rem 1rem;
+}
+

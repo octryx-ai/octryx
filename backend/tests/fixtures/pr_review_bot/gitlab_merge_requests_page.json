@@ -1,0 +1,17 @@
+[
+  {"id": 9001, "iid": 42, "project_id": 7, "title": "Round totals half away from zero", "state": "opened",
+   "draft": false, "work_in_progress": false, "web_url": "https://gitlab.example.test/acme/pay/-/merge_requests/42",
+   "author": {"id": 11, "username": "dev-anna", "name": "Anna Dev"},
+   "source_branch": "feature/PAY-1-totals", "target_branch": "main", "source_project_id": 7, "target_project_id": 7,
+   "sha": "c0ffee00c0ffee00c0ffee00c0ffee00c0ffee00", "merge_commit_sha": null, "user_notes_count": 2},
+  {"id": 9002, "iid": 43, "project_id": 7, "title": "Draft: new checkout", "state": "opened",
+   "draft": true, "work_in_progress": true, "web_url": "https://gitlab.example.test/acme/pay/-/merge_requests/43",
+   "author": {"id": 12, "username": "dev-ben", "name": "Ben Dev"},
+   "source_branch": "feature/checkout", "target_branch": "main", "source_project_id": 7, "target_project_id": 7,
+   "sha": "d00dd00dd00dd00dd00dd00dd00dd00dd00dd00d"},
+  {"id": 9003, "iid": 44, "project_id": 7, "title": "Typo", "state": "opened",
+   "draft": false, "work_in_progress": false, "web_url": "https://gitlab.example.test/acme/pay/-/merge_requests/44",
+   "author": {"id": 13, "username": "outsider", "name": "Out Sider"},
+   "source_branch": "patch-1", "target_branch": "main", "source_project_id": 99, "target_project_id": 7,
+   "sha": "beefbeefbeefbeefbeefbeefbeefbeefbeefbeef"}
+]

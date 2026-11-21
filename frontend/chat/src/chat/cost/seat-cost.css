@@ -1,0 +1,15 @@
+/* The seat's API equivalent in a cell (SeatCell): the amount, the unpriced calls muted under it. Sizes from the UI set. */
+.seat-cost {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--ds-space-1);
+  font-variant-numeric: tabular-nums;
+}
+.seat-cost__amount--strong { font-weight: var(--ds-weight-strong); }
+.seat-cost__unpriced,
+.seat-cost__none {
+  color: var(--ds-muted);
+  font-size: var(--ds-text-xs);
+  white-space: nowrap;
+}

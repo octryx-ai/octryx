@@ -1,0 +1,8 @@
+/* Inactive admin table rows and the provider form spacing. */
+.admin-panel__row--inactive td {
+  opacity: 0.45;
+}
+
+.provider-form {
+  margin-bottom: 1rem;
+}

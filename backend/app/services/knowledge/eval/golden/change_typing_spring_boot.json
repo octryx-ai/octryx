@@ -1,0 +1,32 @@
+{
+  "product": "spring-boot",
+  "version": "4.0",
+  "description": "Change-record typing: sentences in the style of the Spring Boot 4.0 release notes and migration guide, each labeled with the one change type it states, or NONE when it states no change of Spring Boot 4.0 (a description of behaviour or content, or a limitation of another product). req-java, req-jakarta, req-jackson, rem-undertow, rep-connect-timeout, int-mongodb-health, none-expiring-chains, none-micrometer-tracing and none-spock-groovy are facts observed live (the last four were mis-typed as REQUIRES under change-records-v1); the others are similar sentences.",
+  "sentences": [
+    {"id": "req-java", "text": "Spring Boot 4.0 requires Java 17 or later.", "expected": "REQUIRES"},
+    {"id": "req-jakarta", "text": "Spring Boot 4.0 is based on Jakarta EE 11.", "expected": "REQUIRES"},
+    {"id": "req-jackson", "text": "Spring Boot 4.0 updates the third-party dependency Jackson to 3.0.", "expected": "REQUIRES"},
+    {"id": "req-framework", "text": "Spring Boot 4.0 requires Spring Framework 7.0 or later.", "expected": "REQUIRES"},
+    {"id": "req-kotlin", "text": "When using Kotlin, Spring Boot 4.0 requires Kotlin 2.2 or later.", "expected": "REQUIRES"},
+    {"id": "rem-undertow", "text": "Undertow support is dropped in Spring Boot 4.", "expected": "REMOVED"},
+    {"id": "rem-launch-script", "text": "Support for embedded launch scripts in fully executable jar files has been removed.", "expected": "REMOVED"},
+    {"id": "rep-connect-timeout", "text": "The property spring.http.client.connect-timeout is replaced by spring.http.clients.connect-timeout.", "expected": "REPLACED_BY"},
+    {"id": "rep-mockbean", "text": "The @MockBean annotation has been removed; use @MockitoBean from Spring Framework instead.", "expected": "REPLACED_BY"},
+    {"id": "ren-jsoncomponent", "text": "@JsonComponent has been renamed to @JacksonComponent.", "expected": "RENAMED"},
+    {"id": "ren-serializer", "text": "JsonObjectSerializer has been renamed to ObjectValueSerializer.", "expected": "RENAMED"},
+    {"id": "dep-jackson2", "text": "Jackson 2 support is deprecated and will be removed in a future release.", "expected": "DEPRECATED"},
+    {"id": "dep-starter-web", "text": "The spring-boot-starter-web starter is deprecated in favour of spring-boot-starter-webmvc.", "expected": "DEPRECATED"},
+    {"id": "mov-entityscan", "text": "The @EntityScan annotation has moved to the org.springframework.boot.persistence.autoconfigure package.", "expected": "MOVED_TO"},
+    {"id": "mov-elasticsearch", "text": "The Elasticsearch client auto-configuration has moved to the new spring-boot-elasticsearch module.", "expected": "MOVED_TO"},
+    {"id": "def-probes", "text": "Liveness and readiness probes are now enabled by default.", "expected": "DEFAULT_CHANGED"},
+    {"id": "def-inclusion", "text": "The default value of spring.jackson.default-property-inclusion has changed from ALWAYS to NON_NULL.", "expected": "DEFAULT_CHANGED"},
+    {"id": "int-mongodb-health", "text": "MongoDB Health Indicators can now provide health information when using the MongoDB Java Driver directly.", "expected": "INTRODUCED"},
+    {"id": "int-otel-starter", "text": "Spring Boot 4.0 adds a new spring-boot-starter-opentelemetry starter.", "expected": "INTRODUCED"},
+    {"id": "int-http-service-clients", "text": "Spring Boot 4.0 now supports auto-configuration of HTTP Service Clients.", "expected": "INTRODUCED"},
+    {"id": "none-expiring-chains", "text": "The expiringChains entry lists certificate chains that contain certificates expiring within the threshold.", "expected": "NONE"},
+    {"id": "none-micrometer-tracing", "text": "MicrometerTracing operates on the Observation API and provides both metrics and spans.", "expected": "NONE"},
+    {"id": "none-spock-groovy", "text": "Spock does not yet support Groovy 5.", "expected": "NONE"},
+    {"id": "none-restclient-builder", "text": "The auto-configuration creates a RestClient.Builder bean that can be injected into your components.", "expected": "NONE"},
+    {"id": "none-actuator-path", "text": "Actuator endpoints are exposed over HTTP under the /actuator base path.", "expected": "NONE"}
+  ]
+}

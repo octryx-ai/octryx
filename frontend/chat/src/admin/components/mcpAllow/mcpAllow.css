@@ -1,0 +1,49 @@
+/* MCP servers allowed per Workspace. Layout only. */
+
+/* The allow pipeline in the MCP server's side panel. */
+.mcp-allow__section {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+}
+
+.mcp-allow__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.mcp-allow__pipeline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: var(--ds-text-xs);
+}
+
+.mcp-allow__step--done {
+  color: var(--status-active-ink);
+}
+
+.mcp-allow__step--open {
+  color: var(--status-attention-ink);
+}
+
+.mcp-allow__arrow {
+  color: var(--muted);
+}
+
+.mcp-allow__choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 760px) {
+  .mcp-allow__choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

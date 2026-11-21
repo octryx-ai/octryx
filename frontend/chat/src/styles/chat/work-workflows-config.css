@@ -1,0 +1,175 @@
+/* Work configuration sections, workflow state map, dry-run preview and its breakpoint. */
+.work-config {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.work-config__section,
+.work-dry-run,
+.work-workflow-map {
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.work-config__section {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.work-config__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.work-config__header h2 {
+  margin: 0.12rem 0 0;
+  color: var(--text);
+  font-size: var(--ds-text-lg);
+  letter-spacing: 0;
+}
+
+.work-config__workflow-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(22rem, 30vw, 30rem);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.work-workflow-map,
+.work-dry-run {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.work-workflow-map label,
+.work-dry-run label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.work-workflow-map select,
+.work-dry-run select,
+.work-dry-run textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.work-dry-run textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.work-workflow-map__states {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.5rem;
+}
+
+.work-workflow-state {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  padding: 0.75rem;
+}
+
+.work-workflow-state strong {
+  display: block;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.work-workflow-state span {
+  display: block;
+  margin-top: 0.12rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.work-workflow-state dl,
+.work-preview dl {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.work-workflow-state dl div,
+.work-preview dl div {
+  display: grid;
+  grid-template-columns: 6.2rem minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.work-workflow-state dt,
+.work-preview dt {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.work-workflow-state dd,
+.work-preview dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.work-preview {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: var(--ds-radius-lg);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  padding: 0.75rem;
+}
+
+.work-preview__route {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  color: var(--muted-strong);
+}
+
+.work-preview p {
+  margin: 0;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.5rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1.42;
+}
+
+.work-area__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1180px) {
+  .work-config__workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

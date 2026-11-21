@@ -1,0 +1,66 @@
+/* Scope keys as tags (delivery 5): looks like a connector input, holds one tag per key. */
+.key-tags {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.key-tags__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2.1rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay-strong);
+}
+
+.key-tags__box:focus-within {
+  border-color: var(--accent-strong);
+}
+
+.key-tags__box--error {
+  border-color: color-mix(in srgb, var(--status-error) 55%, transparent);
+}
+
+.key-tags__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-xs);
+}
+
+/* A key the connection test reported as not visible to the account. */
+.key-tags__tag--flagged {
+  border-color: color-mix(in srgb, var(--status-attention) 70%, transparent);
+  background: color-mix(in srgb, var(--status-attention) 14%, transparent);
+  color: var(--text);
+}
+
+.key-tags__remove {
+  padding: 0 0.1rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: var(--ds-text-md);
+  line-height: 1;
+}
+
+.key-tags__entry {
+  flex: 1 1 8rem;
+  min-width: 6rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--ds-text-sm);
+}

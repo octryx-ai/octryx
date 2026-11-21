@@ -1,0 +1,285 @@
+/* Phone shell: tab headers, the Workspace switch, the tab bar, sheets and titles. */
+/* ---- Shell: tab headers, the Workspace switch, the tab bar, sheets ----------------------------- */
+.m-tabbed {
+  min-height: 100%;
+}
+.m-top-tab {
+  display: grid;
+  gap: 4px;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  padding-bottom: 0.75rem;
+}
+.m-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+}
+/* Size and weight (22/600) come from ui-set.css, as on the desktop. */
+.m-page-title {
+  margin: 0;
+  color: var(--m-title);
+}
+.m-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.m-top-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.m-top-subtitle {
+  min-width: 0;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The tab's one primary action ("New chat", "Start run"): the phone's floating pill. */
+.m-pill-button {
+  min-height: var(--ds-control-touch);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem 0 0.75rem;
+  border: 0;
+  border-radius: var(--ds-radius-pill);
+  background: var(--m-accent);
+  color: var(--m-on-accent);
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.m-text-button {
+  min-height: var(--ds-control-touch);
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--m-muted-strong);
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+}
+
+/* The Workspace switch: a secondary button at the touch height, its initials as a small square. */
+.m-ws-chip {
+  max-width: 62%;
+  min-height: var(--ds-control-touch);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0.75rem 0 8px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-radius-md);
+  background: var(--surface-overlay-strong);
+  color: var(--m-text);
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+  flex: none;
+}
+.m-ws-chip .m-icon {
+  color: var(--m-muted);
+}
+.m-ws-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-ws-initials {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  border-radius: var(--m-radius-sm);
+  background: var(--m-accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: 0.04em;
+}
+.m-ws-initials-lg {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--m-radius-md);
+  font-size: var(--ds-text-sm);
+}
+.m-ws-initials-all {
+  background: var(--surface-overlay-strong);
+  color: var(--m-muted-strong);
+}
+
+/* The bottom navigation: thumb reach, 56 px plus the home indicator's inset; the active area in the accent. */
+.m-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 4;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  border-top: 1px solid var(--m-line-soft);
+  background: color-mix(in srgb, var(--m-bg) 94%, transparent);
+  -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  backdrop-filter: saturate(1.4) blur(14px);
+}
+.m-tab {
+  min-height: var(--m-tabbar-height);
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  padding: 0.5rem 0 4px;
+  border: 0;
+  background: none;
+  color: var(--m-muted);
+}
+.m-tab-icon {
+  position: relative;
+  width: 52px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--m-radius-md);
+}
+.m-tab-label {
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: 0.01em;
+}
+.m-tab[aria-current="page"] {
+  color: var(--m-accent);
+}
+.m-tab[aria-current="page"] .m-tab-icon {
+  background: var(--m-accent-soft);
+}
+.m-tab-badge {
+  position: absolute;
+  top: -3px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.25rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--ds-radius-pill);
+  border: 2px solid var(--m-bg);
+  background: var(--m-need);
+  color: var(--m-bg);
+  font-size: var(--ds-text-2xs);
+  font-weight: var(--ds-weight-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Bottom sheet: the phone's one overlay. */
+.m-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.m-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: var(--ds-backdrop);
+}
+.m-sheet-panel {
+  position: relative;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--m-radius-xl) var(--m-radius-xl) 0 0;
+  border-top: 1px solid var(--m-line);
+  background: var(--m-raise);
+  box-shadow: var(--shadow-sheet);
+  outline: none;
+}
+.m-sheet-grip {
+  width: 36px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: var(--ds-radius-pill);
+  background: var(--m-line);
+}
+.m-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px calc(var(--m-gutter-right) - 12px) 0 var(--m-gutter);
+}
+/* Sheet, card and panel titles: 16/600 on every phone page (the set's section title). */
+.m-sheet-head h2 {
+  margin: 0;
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  letter-spacing: -0.01em;
+  color: var(--m-title);
+}
+.m-sheet-body {
+  overflow: auto;
+  padding: 4px var(--m-gutter-right) calc(env(safe-area-inset-bottom, 0px) + 16px) var(--m-gutter);
+  display: grid;
+  gap: 12px;
+}
+.m-sheet-foot {
+  padding: 12px var(--m-gutter-right) calc(env(safe-area-inset-bottom, 0px) + 12px) var(--m-gutter);
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-sheet-hint {
+  margin: 0;
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-choice-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.m-choice {
+  width: 100%;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 24px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--m-radius-md);
+  background: none;
+  text-align: left;
+}
+.m-choice[aria-selected="true"] {
+  border-color: var(--m-line);
+  background: var(--surface-overlay-strong);
+}
+.m-choice-text {
+  min-width: 0;
+  display: grid;
+}
+.m-choice-text b {
+  font-size: var(--ds-text-lg);
+  font-weight: var(--ds-weight-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-choice-text span {
+  color: var(--m-muted);
+  font-size: var(--ds-text-sm);
+}
+.m-choice-check {
+  color: var(--m-accent);
+}

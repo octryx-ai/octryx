@@ -1,0 +1,63 @@
+/* Knowledge › Sources: the REST source form, dry run and status. Sizes from the UI set, colours from the theme
+   variables only. */
+.rest-source { display: grid; gap: var(--ds-space-2); min-width: 0; }
+.rest-source .ds-form-section { margin-bottom: var(--ds-space-2); }
+.rest-source__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--ds-space-2) var(--ds-space-3); min-width: 0; }
+
+.rest-source__choices { display: grid; gap: var(--ds-space-2); }
+/* The choices are the design system's radio cards (.admin-option-card); only their text is set here. */
+.rest-source__choice > span { display: grid; gap: var(--ds-space-1); min-width: 0; }
+.rest-source__choice b { font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); color: var(--text); }
+.rest-source__choice > span > span { font-size: var(--ds-text-xs); color: var(--muted); line-height: var(--ds-leading); }
+.rest-source__choice em { font-style: normal; color: var(--muted-strong); }
+
+.rest-source__note {
+  margin: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading);
+}
+
+.rest-source__head { display: flex; align-items: center; justify-content: space-between; gap: var(--ds-space-2); flex-wrap: wrap; }
+.rest-source__head .ds-form-section__title { margin: 0; }
+.rest-source__result { display: grid; gap: var(--ds-space-3); min-width: 0; }
+.rest-source__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--ds-space-2); margin: 0; }
+.rest-source__facts > div { display: grid; gap: var(--ds-space-1); padding: var(--ds-space-2); border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); min-width: 0; }
+.rest-source__facts dt { color: var(--muted); font-size: var(--ds-text-xs); }
+.rest-source__facts dd { margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); font-variant-numeric: tabular-nums; }
+.rest-source__facts dd span { display: block; color: var(--muted); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-regular); }
+
+.rest-source__items { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); overflow: hidden; }
+.rest-source__items li { display: grid; gap: var(--ds-space-1); padding: var(--ds-space-2) var(--ds-space-3); border-bottom: 1px solid var(--border-soft); min-width: 0; }
+.rest-source__items li:last-child { border-bottom: 0; }
+.rest-source__item-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ds-space-1) var(--ds-space-2); min-width: 0; }
+.rest-source__item-title { color: var(--text); font-size: var(--ds-text-sm); font-weight: var(--ds-weight-medium); overflow-wrap: anywhere; }
+a.rest-source__item-title:hover { text-decoration: underline; }
+
+/* An item's excerpt: what will be ingested, masked by the server ("[redacted]" stays visible on purpose). */
+.rest-source__excerpt { margin: 0; color: var(--muted-strong); font-size: var(--ds-text-sm); line-height: var(--ds-leading); overflow-wrap: anywhere; }
+
+.rest-source__notice {
+  display: grid;
+  gap: var(--ds-space-1);
+  margin: 0 0 var(--ds-space-3);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-tone-attention-line);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-tone-attention-bg);
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading);
+}
+.rest-source__notice b { font-weight: var(--ds-weight-strong); }
+.rest-source__notice p { margin: 0; color: var(--muted-strong); }
+.rest-source__notice-link { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+.rest-source__notice code { font-family: var(--font-mono); font-size: var(--ds-text-xs); overflow-wrap: anywhere; }
+.rest-source__status { display: grid; gap: var(--ds-space-2); margin-top: var(--ds-space-4); }
+
+@media (max-width: 760px) {
+  .rest-source__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

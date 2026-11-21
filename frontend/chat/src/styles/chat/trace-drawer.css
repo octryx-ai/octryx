@@ -1,0 +1,4 @@
+/* Trace drawer stylesheet: imports its partials in cascade order. */
+@import "./trace-drawer-frame.css";
+@import "./trace-gates.css";
+@import "./trace-turn-diff.css";

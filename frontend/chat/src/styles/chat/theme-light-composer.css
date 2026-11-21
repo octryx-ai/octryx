@@ -1,0 +1,242 @@
+/* Light theme composer controls and notices, message feedback, signal chips, send and jump buttons. */
+[data-theme="light"] .composer-action-button.composer-action-button--ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer-action-button.composer-action-button--ghost:hover:not(:disabled) {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(246, 241, 233, 0.88);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .composer textarea::placeholder {
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer-notice {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"] .composer-notice__label {
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer-notice__text {
+  color: var(--text);
+}
+
+[data-theme="light"] .composer-notice--editing {
+  background: var(--status-running-soft);
+  border-color: color-mix(in srgb, var(--status-running) 25%, transparent);
+}
+
+[data-theme="light"] .composer-notice--resume {
+  background: var(--status-active-soft);
+  border-color: color-mix(in srgb, var(--status-active) 28%, transparent);
+}
+
+[data-theme="light"] .composer-notice--auto-agent {
+  background: var(--status-running-soft);
+  border-color: color-mix(in srgb, var(--status-running) 28%, transparent);
+}
+
+[data-theme="light"] .composer-notice--task {
+  background: var(--status-active-soft);
+  border-color: color-mix(in srgb, var(--status-active) 28%, transparent);
+}
+
+[data-theme="light"] .composer-notice a,
+[data-theme="light"] .composer-notice__close {
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .composer-attachments__label {
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer-attachments__count {
+  background: rgba(36, 39, 35, 0.05);
+  color: var(--muted-strong);
+}
+
+[data-theme="light"] .composer-attachment-chip__icon {
+  background: rgba(36, 39, 35, 0.04);
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer-attachment-chip__label span {
+  color: var(--text);
+}
+
+[data-theme="light"] .composer-action-button {
+  border-color: rgba(36, 39, 35, 0.08);
+  color: var(--muted-strong);
+  background: rgba(255, 255, 255, 0.94);
+}
+
+[data-theme="light"] .composer-action-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .composer-action-button--active {
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .composer__submit-hint {
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer__hint,
+[data-theme="light"] .composer__hint-text,
+[data-theme="light"] .composer__hint-separator {
+  color: var(--muted);
+}
+
+[data-theme="light"] .composer__hint-kbd {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(246, 241, 233, 0.92);
+  color: var(--muted-strong);
+}
+
+/* Ghost message actions follow the theme tokens in light too. */
+[data-theme="light"] .message-action-button:hover,
+[data-theme="light"] .message-feedback__button:hover {
+  background: var(--surface-overlay-hover);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .message-feedback__button--positive:hover,
+[data-theme="light"]
+  .message-feedback__button--positive.message-feedback__button--active {
+  border-color: color-mix(in srgb, var(--status-active) 30%, transparent);
+  background: var(--status-active-soft);
+  color: var(--status-active-ink);
+}
+
+[data-theme="light"] .message-feedback__button--negative:hover,
+[data-theme="light"]
+  .message-feedback__button--negative.message-feedback__button--active {
+  border-color: color-mix(in srgb, var(--status-attention) 30%, transparent);
+  background: var(--status-attention-soft);
+  color: var(--status-attention-ink);
+}
+
+[data-theme="light"] .message-feedback__panel {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 22px rgba(35, 39, 38, 0.08);
+}
+
+[data-theme="light"] .message-feedback__panel textarea {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(246, 241, 233, 0.94);
+  color: var(--text);
+}
+
+[data-theme="light"] .message-feedback__submit {
+  border-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .message-feedback__submit:hover {
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 16%, #ffffff);
+}
+
+[data-theme="light"] .workspace__signal-chip {
+  border-color: rgba(36, 39, 35, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--muted-strong);
+}
+
+[data-theme="light"] .workspace__signal-chip--muted {
+  color: var(--muted);
+  background: rgba(246, 241, 233, 0.8);
+}
+
+[data-theme="light"] .workspace__signal-chip--warning {
+  border-color: color-mix(in srgb, var(--status-attention) 30%, transparent);
+  background: var(--status-attention-soft);
+  color: var(--status-attention-ink);
+}
+
+[data-theme="light"] .workspace__signal-chip--route {
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .workspace__signal-chip--pending {
+  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .workspace__thinking-chip {
+  border-color: color-mix(in srgb, var(--status-running) 25%, transparent);
+  background: var(--status-running-soft);
+  color: var(--status-running-ink);
+}
+
+[data-theme="light"] .send-button {
+  width: 2.1rem;
+  height: 2.1rem;
+  border: 1px solid rgba(36, 39, 35, 0.12);
+  background: rgba(246, 241, 233, 0.96);
+  color: var(--muted-strong);
+  box-shadow: 0 4px 12px rgba(35, 39, 38, 0.08);
+}
+
+[data-theme="light"] .send-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .send-button--stop {
+  border-color: color-mix(in srgb, var(--status-error) 32%, transparent);
+  background: var(--status-error-soft);
+  color: var(--status-error-ink);
+}
+
+[data-theme="light"] .send-button--stop:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--status-error) 18%, #ffffff);
+  color: var(--status-error-ink);
+}
+
+[data-theme="light"] .send-button:disabled {
+  opacity: 0.72;
+}
+
+[data-theme="light"] .workspace__jump-latest {
+  border-color: rgba(36, 39, 35, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--muted-strong);
+  box-shadow: 0 10px 26px rgba(35, 39, 38, 0.08);
+}
+
+[data-theme="light"] .workspace__jump-start {
+  border-color: rgba(36, 39, 35, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--muted-strong);
+  box-shadow: 0 10px 26px rgba(35, 39, 38, 0.08);
+}
+
+[data-theme="light"] .workspace__jump-latest:hover {
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  color: var(--accent-strong);
+}
+
+[data-theme="light"] .workspace__jump-start:hover {
+  border-color: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, #ffffff);
+  color: var(--accent-strong);
+}

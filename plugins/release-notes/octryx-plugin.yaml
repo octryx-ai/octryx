@@ -1,0 +1,25 @@
+apiVersion: octryx.ai/plugin/v1
+id: octryx.release-notes
+name: Release notes
+version: 1.1.0
+publisher: Octryx
+description: >-
+  Release notes from what really shipped: the done Jira tickets of a fix version and the merged pull requests,
+  written for customers or for the team, confirmed by a person and published to Confluence. Includes a go / no-go
+  readiness check before the release, a read-only release-notes workflow and a release-manager role.
+license: Apache-2.0
+compatible: ">=0.0.1"
+contributes:
+  skills: [skills/release-notes, skills/release-readiness]
+  workflows: [workflows/release-notes.yaml]
+  roles: [roles/release-manager.yaml]
+  ui:
+    bundle: ui/dist
+    pages: [{id: releases, title: Releases, area: work}]
+    phone: [{id: releases, title: Releases}]
+    methods: [list_jira_versions, jira_release_status, search_jira_tickets, settings.get]
+permissions:
+  connections: [jira, confluence, github, gitlab, bitbucket]
+  egress: []
+  writes: [confluence]
+settings: settings.schema.json

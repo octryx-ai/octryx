@@ -1,0 +1,3 @@
+/* Chat workspace shell: imports its partials in cascade order. */
+@import "./workspace-shell-frame.css";
+@import "./workspace-shell-run-details.css";

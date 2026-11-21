@@ -1,0 +1,141 @@
+/* Chat sidebar hover card and row-marker legend (WP chat sidebar). Tokens only. */
+.thread-hovercard {
+  position: fixed;
+  z-index: 65;
+  width: 16rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+  box-shadow: var(--shell-shadow-soft);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  pointer-events: none;
+}
+
+[data-theme="light"] .thread-hovercard,
+[data-theme="light"] .thread-legend {
+  background: #fff;
+}
+
+.thread-hovercard strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+  line-height: 1.35;
+}
+
+.thread-hovercard div {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.thread-hovercard div > svg {
+  width: 0.75rem;
+  height: 0.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+}
+
+.thread-legend {
+  position: fixed;
+  z-index: 70;
+  width: 17rem;
+  padding: 0.75rem 0.75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--ds-radius-lg);
+  background: var(--panel-elevated);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
+}
+
+.thread-legend h3 {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.thread-legend ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.thread-legend li {
+  display: grid;
+  grid-template-columns: 1.1rem 1fr;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.thread-legend small {
+  display: block;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+@media (max-width: 760px) {
+  .thread-hovercard {
+    display: none;
+  }
+
+  .thread-legend {
+    left: 0.6rem !important;
+    right: 0.6rem;
+    width: auto;
+  }
+}
+
+/* Archived chats view inside the sidebar. */
+.thread-archived {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.thread-archived__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.1rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.thread-archived__back svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  transform: rotate(180deg);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.thread-archived__row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.25rem 0.25rem 0.5rem;
+  border-radius: var(--ds-radius-md);
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+}
+
+.thread-archived__row:hover {
+  background: var(--surface-overlay-strong);
+}
+
+.thread-archived__row .thread-card__time {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}

@@ -1,0 +1,36 @@
+/* Tool risk in the MCP server panel: one row per mirrored tool, its name, whether it is on, the risk select. */
+.admin-mcp-risks {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+.admin-mcp-risks__title {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-strong);
+}
+.admin-mcp-risks__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-md);
+}
+.admin-mcp-risks__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-2) var(--ds-space-3);
+}
+.admin-mcp-risks__row + .admin-mcp-risks__row { border-top: 1px solid var(--border-soft); }
+.admin-mcp-risks__tool {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: var(--ds-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.admin-mcp-risks__state { color: var(--muted-strong); font-size: var(--ds-text-xs); }
+
+/* The unattended tools input in the platform default's approval drawer: as wide as the row allows. */
+.sec-unattended__input { flex: 1 1 16rem; min-width: 0; }

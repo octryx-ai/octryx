@@ -1,0 +1,170 @@
+/* Composer choice pills, their badges and the routing controls. */
+/* Composer choices are quiet text controls: a surface only on hover, focus or when chosen. */
+.composer-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 1.875rem;
+  border-radius: var(--ds-radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.composer-pill:hover,
+.composer-pill:focus-within {
+  background: var(--surface-overlay-hover);
+}
+
+.composer-pill:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer-pill::after {
+  content: "";
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  width: 0.3rem;
+  height: 0.3rem;
+  margin-top: -0.25rem;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.composer-pill__display {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.5rem 1.5rem 0.5rem 0.5rem;
+  color: var(--muted-strong);
+  font-size: var(--ds-text-xs);
+  line-height: 1;
+}
+
+.composer-pill__display svg {
+  width: 0.86rem;
+  height: 0.86rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: 0 0 auto;
+}
+
+.composer-pill__display span {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-pill select {
+  position: absolute;
+  inset: 0;
+  appearance: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.composer-pill select:disabled {
+  cursor: not-allowed;
+}
+
+/* Readable at a 1031 px window: the toolbar wraps to a second row
+   instead of truncating the model to a few letters. The one model pill reads
+   "Model  Automatic · <model>", so it may grow. */
+.composer-pill--runtime {
+  max-width: min(20rem, 100%);
+}
+
+/* "Workflow" / "Model": names the choice in front of its value. */
+.composer-pill__display .composer-pill__caption {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.composer-pill--mode {
+  max-width: 7.6rem;
+}
+
+.composer-pill--agent-group {
+  max-width: 9.3rem;
+}
+
+.composer-pill--agent {
+  max-width: 9.3rem;
+}
+
+.composer-pill--routing {
+  max-width: 8.8rem;
+}
+
+.composer-pill--thinking {
+  max-width: 6.8rem;
+}
+
+/* One workflow control: the pill names what applies to the next message and
+   is itself the select. An explicit choice is accent-tinted (route marker). */
+.composer-pill--workflow {
+  max-width: min(22rem, 100%);
+}
+
+.composer-pill--workflow.composer-pill--explicit {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.composer-pill__display .composer-pill__revision {
+  flex: 0 0 auto;
+}
+
+.composer-pill__badge {
+  flex: 0 0 auto;
+  padding: 0.08rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+.composer-pill--active {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.composer-routing-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.composer-routing-controls__section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.composer-routing-controls__heading {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 0 0.12rem;
+  font-size: var(--ds-text-2xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}

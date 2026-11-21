@@ -1,0 +1,129 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual env
+venv/
+.venv/
+# dev-setup.sh bootstraps its pinned uv here, outside the backend venv it then keeps exact.
+.tools/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+coverage/
+.coverage
+
+# Environment
+.env
+.env.local
+
+# Local deployment secret input (never tracked; see scripts/check_release_values_secrets.py)
+*.local.yaml
+*.local.yml
+
+# Data
+data/
+*.db
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+/pids/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Alembic (generated)
+alembic/versions/*.pyc
+
+# Frontend
+frontend/chat/node_modules/
+frontend/chat/dist/
+# Playwright output: traces and error pages hold screenshots, DOM and local paths.
+frontend/chat/test-results/
+frontend/chat/playwright-report/
+frontend/chat/output/
+frontend/chat/.vite/
+frontend/chat/.parcel-cache/
+frontend/chat/*.tsbuildinfo
+frontend/chat/tests/e2e/.auth/
+backend/app/web/static/chat/
+
+# .NET build outputs
+bots/teams/mediabridge/bin/
+bots/teams/mediabridge/obj/
+findings
+.*
+# The ignore file itself starts with a dot too; without this a fresh clone that adds a file there loses it silently
+!.gitignore
+!.editorconfig
+# Shared agent-client config is version-controlled (state files stay ignored)
+!.mcp.json
+!.claude/
+.claude/*
+!.claude/skills/
+!.dockerignore
+# The two environment templates (no values): Docker install and native development
+!.env.example
+!.env.development.example
+!.trivyignore
+# The secret scan's rules: defaults plus the product's known non-secrets (allowlists with reasons)
+!.gitleaks.toml
+# Chart packaging exclusions must be tracked, they keep local secret input
+# out of `helm package` artifacts
+!.helmignore
+# Line-ending rules for checkouts with core.autocrlf=true
+!.gitattributes
+!.github/
+.github/*
+!.github/ISSUE_TEMPLATE/
+!.github/PULL_REQUEST_TEMPLATE.md
+uploads/*
+output/*
+# Gateway qualification evidence (model_gateway/litellm/evidence_writer.py)
+/evidence/
+*.tgz
+
+# Plugins ship their built UI as part of the package (plugins/<name>/ui/dist).
+!plugins/*/ui/dist/
+
+
+# Test fixtures are other projects' sources: their lib/ and data/ folders are code, not the Python build outputs
+# and local data the rules above mean
+!backend/tests/fixtures/**/lib/
+!backend/tests/fixtures/**/data/
+
+# Teams app packages: build_package.sh writes the Azure app ID and host into them, so they are never tracked
+bots/teams/*.zip
+
+# VS Code extension build outputs (npm ci, tsc, vsce package)

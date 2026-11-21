@@ -1,0 +1,40 @@
+/* Limits & budgets. Layout only; controls and badges are design-system classes. */
+
+.limits__value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.limits__input {
+  max-width: 8rem;
+}
+
+.limits__src {
+  display: inline-flex;
+  padding: 0.12rem 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  color: var(--muted-strong);
+  white-space: nowrap;
+}
+
+.limits__muted {
+  color: var(--muted);
+}
+
+.limits__list {
+  margin: 0;
+  padding-left: 1rem;
+  display: grid;
+  gap: 0.25rem;
+  font-size: var(--ds-text-sm);
+}
+
+.limits__form {
+  display: grid;
+  gap: 0.75rem;
+}

@@ -1,0 +1,205 @@
+/* Knowledge → Search: one toolbar line (field, Search, Options), a one-line hint, then the results as
+   compact rows of an ordered list. Tokens only (design guide §3, §9.2, §9.3, §9.9). */
+.knowledge-search { color: var(--text); min-width: 0; width: 100%; font-size: var(--ds-text-sm); }
+.knowledge-search__sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.knowledge-search__toolbar { display: grid; gap: .25rem; margin: 0 0 .75rem; min-width: 0; }
+.knowledge-search__bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+.knowledge-search__field {
+  position: relative; display: flex; align-items: center; flex: 1 1 16rem; min-width: 0;
+}
+.knowledge-search__icon {
+  position: absolute; left: .6rem; width: .9rem; height: .9rem; color: var(--muted); pointer-events: none;
+}
+.knowledge-search input, .knowledge-search select {
+  box-sizing: border-box; width: 100%; min-width: 0; min-height: 1.9rem; color: inherit;
+  background: var(--surface-overlay-strong); font: inherit; font-size: var(--ds-text-sm); padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); outline: none;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.knowledge-search__field input { padding-left: 2rem; padding-right: 2rem; }
+.knowledge-search input:focus, .knowledge-search select:focus {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.knowledge-search__clear {
+  position: absolute; right: .3rem; display: inline-flex; align-items: center; justify-content: center;
+  width: 1.4rem; height: 1.4rem; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  color: var(--muted); background: transparent;
+}
+.knowledge-search__clear:hover { color: var(--text); background: var(--surface-overlay-hover); }
+.knowledge-search__clear svg { width: .8rem; height: .8rem; }
+.knowledge-search__bar .admin-panel__action-btn { white-space: nowrap; }
+.knowledge-search__fields {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem;
+  margin: .25rem 0; padding: .75rem; border: 1px solid var(--border-soft); border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+}
+.knowledge-search__fields[hidden] { display: none; }
+.knowledge-search__fields label { display: grid; gap: .25rem; align-content: start; color: var(--muted-strong); }
+.knowledge-search__hint { margin: 0; font-size: var(--ds-text-xs); line-height: 1.5; color: var(--muted); }
+.knowledge-search :disabled { cursor: not-allowed; opacity: .45; }
+.knowledge-search__error {
+  margin: 0 0 .5rem; padding: .5rem .75rem; border-radius: var(--ds-radius-md);
+  border: 1px solid var(--status-error, var(--danger)); background: var(--status-error-soft, transparent);
+  color: var(--status-error-ink, var(--text));
+}
+.knowledge-search__notice {
+  display: grid; gap: .25rem; max-width: 60rem; margin: 0 0 .5rem; padding: .75rem 1rem;
+  border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--panel);
+}
+.knowledge-search__notice p { margin: 0; color: var(--muted-strong); line-height: 1.5; }
+.knowledge-search__notice .knowledge-search__notice-title { font-weight: 600; color: var(--text); }
+.knowledge-search__results-head { display: grid; gap: .1rem; margin: 0 0 .25rem; }
+.knowledge-search__results-head h2 {
+  margin: 0; font-size: var(--ds-text-md); font-weight: 600; color: var(--highlight, var(--text)); overflow-wrap: anywhere;
+}
+.knowledge-search__empty { margin: .5rem 0; color: var(--muted-strong); }
+.knowledge-search__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-soft); }
+.knowledge-search__hit { padding: 0.5rem 0; border-bottom: 1px solid var(--border-soft); overflow-wrap: anywhere; }
+.knowledge-search__hit article { display: grid; gap: 0.25rem; min-width: 0; }
+.knowledge-search__hit-title { margin: 0; font-size: var(--ds-text-md); font-weight: 600; line-height: 1.4; color: var(--highlight, var(--text)); }
+.knowledge-search__hit .knowledge-search__passage {
+  margin: 0.25rem 0 0; white-space: pre-wrap; line-height: 1.55; color: var(--text); max-width: 60rem;
+}
+.knowledge-search__passage--clamped {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
+.knowledge-search__hit-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
+.knowledge-search__toggle {
+  padding: 0; border: 0; background: transparent; cursor: pointer; font: inherit; font-size: var(--ds-text-xs);
+  color: var(--muted-strong); text-decoration: underline; text-underline-offset: 2px;
+}
+.knowledge-search__toggle:hover { color: var(--text); }
+.knowledge-search__meta { font-size: var(--ds-text-xs); color: var(--muted); }
+.knowledge-search__availability { margin: .5rem 0 0; font-size: var(--ds-text-xs); color: var(--muted); }
+.knowledge-search__availability summary { cursor: pointer; width: max-content; max-width: 100%; padding: .25rem 0; }
+.knowledge-search__availability dl { display: grid; gap: .1rem; margin: .25rem 0 0; }
+.knowledge-search__availability dl > div { display: grid; grid-template-columns: minmax(8rem, auto) minmax(0, 1fr); gap: .75rem; }
+.knowledge-search__availability dt { color: var(--muted-strong); }
+.knowledge-search__availability dd { margin: 0; }
+.knowledge-search__toggle:focus-visible, .knowledge-search__clear:focus-visible,
+.knowledge-search summary:focus-visible {
+  outline: none; border-radius: var(--ds-radius-md); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+@media (max-width: 720px) {
+  .knowledge-search__fields { grid-template-columns: minmax(0, 1fr); }
+  .knowledge-search__field { flex-basis: 100%; }
+}
+
+/* The low-relevance tail heading and an unavailable relevance ranking. Existing tokens only. */
+.knowledge-search__tail-head {
+  margin: 1rem 0 0.25rem;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.knowledge-search__hint--attention {
+  color: var(--status-attention-ink);
+}
+
+/* The search field is the page's main control: taller, larger text, and the bar keeps a readable width. The page
+   itself uses the full width (filters, hits, preview); only running text keeps a reading measure. */
+.knowledge-search__toolbar { max-width: 72rem; }
+.knowledge-search__hint, .knowledge-search__error { max-width: 60rem; }
+.knowledge-search__field input { height: var(--ds-control-lg); min-height: var(--ds-control-lg); font-size: var(--ds-text-md); }
+.knowledge-search__bar .admin-panel__action-btn { min-height: var(--ds-control-lg); }
+
+/* Review (search width): narrow filters left that fold away, the results over the rest of the
+   width; the preview is a side panel (layout/SidePanel) over the results, opened on demand. No raw values. */
+.knowledge-search__results-head { grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: .75rem; }
+.knowledge-search__results-head .knowledge-search__hint { grid-column: 1 / -1; }
+.knowledge-search__layout {
+  display: grid; grid-template-columns: minmax(9rem, 11rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; min-width: 0;
+}
+.knowledge-search__layout--wide { grid-template-columns: minmax(0, 1fr); }
+.knowledge-search__filters { display: grid; gap: 1rem; position: sticky; top: .5rem; }
+.knowledge-search__filter { display: grid; gap: 0.25rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.knowledge-search__filter legend, .knowledge-search__filter > span {
+  padding: 0; font-size: var(--ds-text-xs); font-weight: 600; color: var(--muted);
+}
+.knowledge-search__filters .admin-panel__checkbox input { width: auto; min-height: 0; }
+.knowledge-search__count { color: var(--muted); font-size: var(--ds-text-xs); }
+.knowledge-search__results { display: grid; gap: .75rem; min-width: 0; }
+.knowledge-search__groups { display: grid; gap: 1rem; }
+.knowledge-search__group-head {
+  margin: 0 0 .25rem; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+}
+.knowledge-search__hit-number {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; margin-right: 0.5rem;
+  border-radius: 999px; background: var(--surface-overlay-strong); color: var(--muted-strong); font-size: var(--ds-text-2xs); font-weight: 600;
+}
+.knowledge-search__hit--selected { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.knowledge-search__snippet { color: var(--text); line-height: 1.55; max-width: 60rem; overflow-wrap: anywhere; }
+.knowledge-search__snippet > :first-child { margin-top: 0; }
+.knowledge-search__snippet > :last-child { margin-bottom: 0; }
+.knowledge-search__snippet p, .knowledge-search__snippet ul, .knowledge-search__snippet ol { margin: .25rem 0; }
+.knowledge-search__snippet pre, .knowledge-search__snippet code { font-size: var(--ds-text-xs); white-space: pre-wrap; }
+.knowledge-search__snippet-heading { margin: 0.25rem 0 .1rem; font-weight: 600; }
+.knowledge-search__hit-foot a { font-size: var(--ds-text-xs); color: var(--muted-strong); }
+.knowledge-search__preview-body { display: grid; gap: .5rem; font-size: var(--ds-text-sm); }
+.knowledge-search__context { color: var(--muted-strong); }
+.knowledge-search__highlight {
+  padding: .5rem 0.75rem; border-left: 3px solid var(--accent); border-radius: var(--ds-radius-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.knowledge-search__progress { display: grid; gap: .5rem; margin: .25rem 0 .75rem; }
+.knowledge-search__progress-rows { display: grid; gap: 0.5rem; }
+.knowledge-search__progress-row {
+  height: 3.2rem; border-radius: var(--ds-radius-md); background: var(--surface-overlay-strong); animation: knowledge-search-pulse 1.4s ease-in-out infinite;
+}
+@keyframes knowledge-search-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .knowledge-search__progress-row { animation: none; } }
+@media (max-width: 720px) {
+  .knowledge-search__layout { grid-template-columns: minmax(0, 1fr); }
+  .knowledge-search__filters { position: static; }
+}
+/* The short cited answer above the hits: sentences with [n] markers that open the hit's preview. */
+.knowledge-search__answer {
+  display: grid; gap: .5rem; margin: 0 0 .75rem; padding: .75rem 1rem; border-radius: var(--ds-radius-md);
+  border: 1px solid var(--border); background: var(--surface-overlay-strong);
+}
+.knowledge-search__answer-text { margin: 0; color: var(--text); line-height: 1.55; max-width: 60rem; overflow-wrap: anywhere; }
+.knowledge-search__answer .knowledge-search__progress { margin: 0; }
+.knowledge-search__answer-foot { display: flex; flex-wrap: wrap; gap: .5rem; }
+.knowledge-search__cite {
+  margin-left: 0.25rem; padding: 0 .1rem; border: 0; border-radius: var(--ds-radius-sm); background: transparent; cursor: pointer;
+  font: inherit; font-size: var(--ds-text-xs); font-weight: 600; color: var(--accent); vertical-align: super; line-height: 1;
+}
+.knowledge-search__cite:hover { text-decoration: underline; }
+.knowledge-search__cite:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Older versions of one page folded under it; the question's words marked in the excerpt. */
+.knowledge-search__versions { margin: 0.25rem 0 0; padding-left: 1rem; display: grid; gap: 0.25rem; font-size: var(--ds-text-md); }
+/* No padding: a term marked inside a word ("postgres" in "PostgreSQL") must not split it ("PostgreS QL"). */
+.knowledge-search__term { background: var(--accent-soft); color: inherit; border-radius: 2px; padding: 0; }
+
+/* Before the first search (K-Search): example questions and the sources searched, side by side, wrapping on narrow
+   widths. Compact: no cards, one line per source. */
+.knowledge-search__start {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem 2rem;
+  margin: .25rem 0 0; min-width: 0;
+}
+.knowledge-search__start-part { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+.knowledge-search__start-head {
+  margin: 0; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+}
+.knowledge-search__examples, .knowledge-search__sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.knowledge-search__example {
+  width: 100%; text-align: left; padding: 0.5rem 0.75rem; font: inherit; color: var(--text); cursor: pointer;
+  border: 1px solid var(--border-soft); border-radius: var(--ds-radius-md); background: var(--surface-overlay);
+  overflow-wrap: anywhere;
+}
+.knowledge-search__example:hover { border-color: var(--accent); }
+.knowledge-search__example:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.knowledge-search__source {
+  display: grid; grid-template-columns: .5rem minmax(0, auto) minmax(0, 1fr); align-items: baseline; gap: .5rem; min-width: 0;
+}
+.knowledge-search__source-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-search__source-meta { color: var(--muted-strong); overflow-wrap: anywhere; }
+.knowledge-search__dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--muted); align-self: center; }
+.knowledge-search__dot--ok { background: var(--status-active, var(--accent)); }
+.knowledge-search__dot--attention { background: var(--status-attention, var(--accent)); }

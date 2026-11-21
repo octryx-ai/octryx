@@ -1,0 +1,157 @@
+/* Work repository profiles: card list, repository form and engineering checks. */
+.work-repo-profiles {
+  display: grid;
+  grid-template-columns: minmax(20rem, 0.85fr) minmax(0, 1.15fr);
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.work-repo-profiles__list,
+.work-repo-form {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  padding: 0.75rem;
+}
+
+.work-repo-card-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.work-repo-card {
+  display: grid;
+  gap: 0.5rem;
+  width: 100%;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--ds-radius-lg);
+  background: var(--surface-overlay);
+  color: inherit;
+  padding: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.work-repo-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.work-repo-card.is-active {
+  border-color: color-mix(in srgb, var(--status-running) 72%, transparent);
+  background: color-mix(in srgb, var(--status-running) 8%, transparent);
+}
+
+.work-repo-card strong,
+.work-repo-card small {
+  display: block;
+}
+
+.work-repo-card strong {
+  color: var(--text);
+  font-size: var(--ds-text-sm);
+}
+
+.work-repo-card small {
+  margin-top: 0.12rem;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+}
+
+.work-repo-card__badges {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.work-repo-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.work-repo-form__section {
+  display: grid;
+  gap: 0.5rem;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.75rem;
+}
+
+.work-repo-form__section > span {
+  color: var(--muted);
+  font-size: var(--ds-text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.work-repo-form label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--muted);
+  font-size: var(--ds-font-size-small, 0.74rem);
+  font-weight: 600;
+}
+
+.work-repo-form input,
+.work-repo-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--ds-radius-md);
+  background: var(--surface-overlay);
+  color: var(--text);
+  padding: 0.5rem 0.75rem;
+  font-size: var(--ds-text-xs);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.work-repo-form textarea {
+  min-height: 4.6rem;
+  resize: vertical;
+}
+
+.work-repo-form__toggle {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 0.5rem !important;
+}
+
+.work-repo-form__toggle input {
+  width: auto;
+}
+
+.work-engineering-profiles__checks {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.work-engineering-profiles__checks label {
+  display: inline-flex;
+  grid-template-columns: none;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-overlay);
+  padding: 0.25rem 0.5rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.work-engineering-profiles__checks input {
+  width: auto;
+}
+
+@media (max-width: 1180px) {
+  .work-repo-profiles,
+  .work-repo-form__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

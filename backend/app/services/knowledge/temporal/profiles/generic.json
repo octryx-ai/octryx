@@ -1,0 +1,12 @@
+{
+  "key": "generic",
+  "version": 1,
+  "title": "Graphiti's own entities and facts, untyped",
+  "applies_to": {
+    "revisions": "any",
+    "products": []
+  },
+  "self_check": false,
+  "edge_types": [],
+  "instructions": null
+}
