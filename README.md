@@ -48,6 +48,8 @@ The full walkthrough (the three ways to try the demo, pairing Claude Code, ports
 The alpha's known limitations, each planned for 0.0.2, are listed in the documentation:
 [known limitations](https://octryx.ai/docs/start/known-limitations).
 
+**Security note:** in v0.0.1-alpha the experimental Codex device mode applies a repository's own Codex configuration. Use it only with repositories you trust, or use Claude Code. See [GHSA-h4xh-8wqf-rxj4](https://github.com/octryx-ai/octryx/security/advisories/GHSA-h4xh-8wqf-rxj4); fixed in 0.0.2.
+
 ## Contributing
 
 Issues and pull requests are welcome; please read [CONTRIBUTING.md](CONTRIBUTING.md) first. Everyone taking part
