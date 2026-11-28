@@ -1,19 +1,5 @@
-"""A build the device already made for the same inputs is reused, not rebuilt (do not
-rebuild everything every time).
-
-rc3 flutter-bug c1b57069: the system test spent most of its 186 s in ``flutter build web``, and the hands-on test's
-``serve`` built the same app once more. The platform names each stack's build artifacts as data (stacks.json
-``build_artifacts``: the tool, its arguments, the output folder and the inputs); the launcher puts a small command of
-that tool's name first on ``PATH`` for the pipeline and the hands-on test. A matching call (``flutter build web``)
-computes the key, the SHA-256 over the inputs' paths and bytes, the arguments and the tool's own version file:
-
-- **hit**: the stored output is cloned into place (APFS ``cp -c``, a copy elsewhere) with a fresh time, so a check
-  "is the build newer than the sources" holds; the tool does not run;
-- **miss**: the real tool runs; its output is stored under the key when it exits 0.
-
-Only an exact key is reused. Every hit and miss is written to ``test-reports/build-cache.jsonl`` in the app folder
-and goes up with the report. ``OCTRYX_NO_BUILD_CACHE=1`` turns it off (the nightly builds without it).
-"""
+"""A build the device already made for the same inputs is reused instead of rebuilt (``OCTRYX_NO_BUILD_CACHE=1``
+turns it off)."""
 
 from __future__ import annotations
 
@@ -40,7 +26,6 @@ def _cache_root() -> Path:
 
 
 def shim_env(env: dict[str, str], specs: list[dict[str, Any]] | None) -> dict[str, str]:
-    """``env`` with a command per artifact tool first on ``PATH`` (none without specs or with the cache off)."""
     tools = sorted({str(spec.get("tool")) for spec in specs or [] if spec.get("tool")})
     if not tools or env.get(OFF_ENV) == "1":
         return env
@@ -89,7 +74,6 @@ def _files(folder: Path, inputs: list[str]) -> list[Path]:
 
 
 def key_of(folder: Path, spec: dict[str, Any], args: list[str], real: str) -> str:
-    """The SHA-256 over the inputs (path and bytes), the arguments that change the output and the tool's version."""
     digest = hashlib.sha256()
     ignored = {str(item) for item in spec.get("ignore_args") or []}
     digest.update(json.dumps([arg for arg in args if arg not in ignored]).encode())
@@ -164,7 +148,6 @@ def run(tool: str, args: list[str], folder: Path) -> int:
 
 
 def read_notes(folder: Path) -> list[dict[str, Any]]:
-    """The hits and misses of this folder's builds since the last read (the file is emptied)."""
     log = folder / LOG
     try:
         lines = log.read_text(encoding="utf-8").splitlines()

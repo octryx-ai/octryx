@@ -1,19 +1,4 @@
-"""Loop guard: a run that loops is paused, and its people learn it on their phone.
-
-The run is paused and its people get a push to the phone that it is paused. A looping run can dispatch an item
-105 times in three minutes (210 sessions and ~105 refused device jobs) until someone stops it by hand.
-
-Every alert sweep (60 s) asks the activity collector; a run that is ``running``/``waiting`` with a dispatch loop
-(``run:looping``: one item dispatched >= 10 times in 5 minutes at the same iteration) is paused here:
-
-- ``pause_run`` with reason ``loop_detected``, a message "Loop detected: item X was dispatched N times ..." and
-  resume "restart the current node", so the run's own Continue picks it up once the cause is fixed (nothing is aborted);
-- the run's open device jobs get a stop request (as the emergency stop does), so no item keeps working alone.
-
-Telling people needs nothing new: a paused run is a ``run:paused`` problem (alerts to Workspace admins, the requester
-and the responsible person, their channels and webhooks) and an entry in the requester's attention queue, which the
-phone push sends (group "problem").
-"""
+"""Loop guard: a run that loops is paused, and its people learn it on their phone."""
 
 from __future__ import annotations
 
@@ -57,9 +42,6 @@ def loop_message(item: str, count: int, minutes: int) -> str:
 
 
 async def pause_looping_runs(db: AsyncSession, *, now=None) -> list[dict[str, Any]]:
-    """Pause every run with a dispatch loop (``run:looping`` only: refused device jobs are reported, not paused;
-    the threshold is dispatches per item and plan version, never raw job counts).
-    Returns ``[{run_id, item, count, stopped_device_jobs}]``. Flushes; the caller commits."""
     minutes = int(activity.LOOP_WINDOW.total_seconds() // 60)
     paused: list[dict[str, Any]] = []
     for run, found in await activity.looping_runs(db, CollectContext(now=now or utc_now())):

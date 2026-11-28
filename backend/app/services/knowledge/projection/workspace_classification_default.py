@@ -1,33 +1,5 @@
-"""The Instance's default Workspace data classification, applied once: at Workspace creation and when Knowledge is
-enabled (the creation hook is ``project_lifecycle_service.create_project_for_admin``).
-
-Remote Knowledge models (the reranker, a remote embedding space) are admitted per Workspace through the
-data-policy gate (``model_gateway/data_policy``), and a Workspace without a classification is refused as
-``needs_configuration``. Nothing classified a Workspace when Knowledge was enabled, so every new Workspace
-started without a reranker.
-
-``OCTRYX_KNOWLEDGE_DEFAULT_DATA_CLASSIFICATION`` (``Settings.knowledge_default_data_classification``)
-is an explicit, opt-in Instance default; empty keeps that behaviour. When Knowledge is enabled for a
-Workspace that has no classification and never received the default, the default is written once through
-the governed project-config path (``apply_project_config_patch``: the ``data_policy`` normalization and the
-admin config audit) and one more audit row records ``source: instance_default``. An existing
-classification, even one the gate cannot read, is never overwritten, and a cleared one is not refilled.
-Applying the default never raises: a failure leaves the Workspace unclassified.
-
-The read side (:func:`workspace_classification_view`) answers the effective classification and where it
-came from: ``workspace`` (set in the Workspace's settings), ``instance_default`` (still the value the
-default wrote), or ``unset``.
-
-Runtime configuration:
-
-- the Instance default is editable by platform admins (:func:`set_instance_default`). It is stored in the
-  admin ``system_config`` store (:data:`INSTANCE_DEFAULT_CONFIG_KEY`); a stored value wins over the env
-  bootstrap value, and ``none`` stored there is an explicit "no default" that also wins. Every change is
-  audited. ``apply_to_unclassified`` classifies the existing eligible Workspaces once (no classification,
-  not cleared, never defaulted before, a readable ``data_policy``) and reports the count;
-- a Workspace's own classification is set or cleared by its admins (:func:`set_workspace_classification`)
-  through the same governed project-config path; clearing records the ``classification_cleared`` marker.
-"""
+"""The Instance's default Workspace data classification, applied once. An existing classification is never overwritten,
+and a cleared one is not refilled."""
 
 from __future__ import annotations
 
@@ -86,6 +58,16 @@ async def _eligible(db: AsyncSession, project: Project) -> bool:
     return _may_default(project.config) and await _last_default(db, project.id) is None
 
 
+def _default_audit(project_id: str, default: str, actor_id: str) -> AuditLog:
+    return AuditLog(
+        user_id=actor_id,
+        action=DEFAULT_AUDIT_ACTION,
+        resource_type="workspace",
+        resource_id=project_id,
+        details={"classification": default, "source": SOURCE_INSTANCE_DEFAULT},
+    )
+
+
 async def _write_default(db: AsyncSession, project: Project, default: str, actor_id: str) -> None:
     await apply_project_config_patch(
         db,
@@ -93,22 +75,28 @@ async def _write_default(db: AsyncSession, project: Project, default: str, actor
         patch={DATA_POLICY_CONFIG_KEY: {**_section(project.config), DATA_POLICY_CLASSIFICATION_FIELD: default}},
         actor_user_id=actor_id,
     )
-    db.add(
-        AuditLog(
-            user_id=actor_id,
-            action=DEFAULT_AUDIT_ACTION,
-            resource_type="workspace",
-            resource_id=project.id,
-            details={"classification": default, "source": SOURCE_INSTANCE_DEFAULT},
-        )
-    )
+    db.add(_default_audit(project.id, default, actor_id))
+
+
+async def new_workspace_default(db: AsyncSession) -> str | None:
+    default, _state, _source = await instance_default_for(db)
+    return default
+
+
+def stamp_new_workspace_default(db: AsyncSession, project: Project, default: str | None, actor_id: str) -> str | None:
+    # A Workspace being created carries the default from its INSERT on. A separate write after the creation is a
+    # read-then-write that SQLite refuses under parallel requests (a stale snapshot), and the refused write left the
+    # creating request's transaction unusable for every later write.
+    if default is None or not _may_default(project.config):
+        return None
+    config = dict(project.config or {})
+    project.config = {**config, DATA_POLICY_CONFIG_KEY: {**_section(config), DATA_POLICY_CLASSIFICATION_FIELD: default}}
+    db.add(_default_audit(project.id, default, actor_id))
+    return default
 
 
 async def apply_instance_default_classification(db: AsyncSession, *, project_id: str, actor_id: str) -> str | None:
-    """Classify an unclassified Workspace with the Instance default, once; the value written, else ``None``.
-
-    Not committed: the caller's transaction (Workspace creation, the Knowledge enable audit) commits it.
-    """
+    project: Project | None = None
     try:
         async with db.begin_nested():
             default, _state, _source = await instance_default_for(db)
@@ -122,16 +110,19 @@ async def apply_instance_default_classification(db: AsyncSession, *, project_id:
         logger.warning(
             "Knowledge default data classification was not applied", extra={"error_class": type(error).__name__}
         )
+        await _reload(db, project)
         return None
     return default
 
 
-async def _changed_by_settings_since(db: AsyncSession, project_id: str, since: datetime) -> bool:
-    """Whether a project-config write after ``since`` saved ``data_policy`` (the settings path).
+async def _reload(db: AsyncSession, project: Project | None) -> None:
+    # The rolled-back savepoint expired the Workspace the caller holds; an attribute read would lazy-load in async code.
+    if project is not None:
+        await db.refresh(project)
 
-    A write that carried ``data_policy`` is the admin's own decision even when it saves the default's value
-    again; a write that did not carry it counts only if it changed the classification.
-    """
+
+async def _changed_by_settings_since(db: AsyncSession, project_id: str, since: datetime) -> bool:
+    # A write that carried ``data_policy`` is the admin's own decision, even when it saves the default's value again.
     rows = (
         await db.execute(
             select(AuditLog.details).where(
@@ -153,7 +144,6 @@ async def _changed_by_settings_since(db: AsyncSession, project_id: str, since: d
 
 
 async def workspace_classification_view(db: AsyncSession, project_id: str) -> dict[str, str | None]:
-    """``{effective, source, instance_default, instance_default_state}`` of one Workspace."""
     config = (await db.execute(select(Project.config).where(Project.id == project_id))).scalar_one_or_none()
     section = config.get(DATA_POLICY_CONFIG_KEY) if isinstance(config, dict) else None
     resolved = resolve_data_classification(project_data_policy=section)
@@ -178,7 +168,6 @@ async def workspace_classification_view(db: AsyncSession, project_id: str) -> di
 
 
 async def eligible_workspace_ids(db: AsyncSession) -> list[str]:
-    """Workspaces the Instance default may classify: unclassified, not cleared, never defaulted, readable."""
     projects = (await db.execute(select(Project).order_by(Project.id))).scalars().all()
     return [project.id for project in projects if await _eligible(db, project)]
 
@@ -186,19 +175,13 @@ async def eligible_workspace_ids(db: AsyncSession) -> list[str]:
 async def set_instance_default(
     db: AsyncSession, *, classification: object, actor_id: str, apply_to_unclassified: bool
 ) -> dict[str, object]:
-    """Store the Instance default (``None`` = explicit no default), audit it, optionally apply it. Flushes.
-
-    ``apply_to_unclassified`` writes the default once into every eligible Workspace through the governed
-    path (one ``admin.project_config.updated`` and one ``source: instance_default`` row each); a Workspace's
-    own value, a cleared classification or an unreadable ``data_policy`` is never touched.
-    """
+    # A Workspace's own value, a cleared classification or an unreadable ``data_policy`` is never touched.
     value = checked_classification(classification)
     before, _state, before_source = await instance_default_for(db)
     await set_system_config_value(
         db, key=INSTANCE_DEFAULT_CONFIG_KEY, value=value or INSTANCE_DEFAULT_NONE,
         description="Level for new Workspaces",
-        updated_by=actor_id, record_prompt_revision=False,
-    )
+        )
     _known_admin_default[:] = [(value,)]
     applied = 0
     if apply_to_unclassified and value is not None:
@@ -223,11 +206,7 @@ async def set_instance_default(
 async def set_workspace_classification(
     db: AsyncSession, *, project: Project, classification: object, actor_id: str
 ) -> str | None:
-    """Set (or, with ``None``, clear) the Workspace's own classification through the governed path. Flushes.
-
-    Clearing sends an empty classification, which the governed normalization records as
-    ``classification_cleared``, so no Instance default ever refills it.
-    """
+    # Clearing is recorded as ``classification_cleared``, so no Instance default ever refills it.
     value = checked_classification(classification)
     before = _declared(project.config) or None
     await apply_project_config_patch(
@@ -252,7 +231,9 @@ async def set_workspace_classification(
 __all__ = [
     "apply_instance_default_classification",
     "eligible_workspace_ids",
+    "new_workspace_default",
     "set_instance_default",
     "set_workspace_classification",
+    "stamp_new_workspace_default",
     "workspace_classification_view",
 ]

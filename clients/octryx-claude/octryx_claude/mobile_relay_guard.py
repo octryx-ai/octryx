@@ -60,7 +60,6 @@ def revoke(folder: Path, to: str, message: str) -> None:
 
 
 def consume(folder: Path, to: str, message: str) -> bool:
-    """``True`` once for a requested, unexpired ``(to, message)``; it is then used up."""
     with _locked(folder):
         now = time.time()
         items = [item for item in _read_allowed(folder) if float(item[2]) > now]
@@ -74,7 +73,6 @@ def consume(folder: Path, to: str, message: str) -> bool:
 
 
 def guard(folder: Path, hook_input: dict[str, Any]) -> str:
-    """The PreToolUse decision for one relay tool call: ``""`` allows it, anything else is the refusal."""
     if hook_input.get("tool_name") != "SendMessage":
         return f"the relay may only send mail, not use {str(hook_input.get('tool_name'))[:40]}"
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}

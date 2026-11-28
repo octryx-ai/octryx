@@ -1,8 +1,4 @@
-"""Slide gate checks about pictures: what they cover, what sits beside them, their aspect.
-
-Every check measures the geometry the composer actually produced and returns
-findings; none of them changes a slide.
-"""
+"""Slide gate checks about pictures: what they cover, what sits beside them, their aspect."""
 
 from __future__ import annotations
 
@@ -37,12 +33,6 @@ def check_picture_covers_title(
     pictures: dict[int | None, Any],
     slide_size: dict[str, int],
 ) -> list[dict[str, Any]]:
-    """Measured against the geometry the composer actually produced.
-
-    The layout's ``full_bleed`` flag drives *selection*; it must not drive the
-    verdict, because a full-bleed slot filled in inset mode no longer covers
-    anything. Like the diagram gate, this measures what was rendered.
-    """
     title_slots = slots_by_role(layout, "title")
     if not any(texts.get(int(slot.get("idx") or 0)) for slot in title_slots):
         return []
@@ -83,15 +73,6 @@ def check_title_illegible(
     texts: dict[int, list[str]],
     pictures: dict[int | None, Any],
 ) -> list[dict[str, Any]]:
-    """A light title with nothing behind it is invisible, not merely subtle.
-
-    A full-screen picture layout often declares a light title because the design
-    assumes a photograph underneath. Move the picture away (as the inset does) and the
-    title becomes white on the white master background — the rendered proof
-    showed a slide with no title at all and no other finding. A layout that
-    paints its own title backdrop, or whose title inherits the master colour,
-    is fine.
-    """
     if has_title_backdrop(layout):
         return []
     findings: list[dict[str, Any]] = []
@@ -126,7 +107,6 @@ def check_empty_content_next_to_picture(
     texts: dict[int, list[str]],
     pictures: dict[int | None, Any],
 ) -> list[dict[str, Any]]:
-    """Information, not a defect: half the slide reads as unfinished."""
     if not pictures:
         return []
     if not any(texts.get(int(slot.get("idx") or 0)) for slot in slots_by_role(layout, "title")):

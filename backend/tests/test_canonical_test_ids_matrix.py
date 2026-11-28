@@ -1,19 +1,4 @@
-"""The canonical test id, proven on real test runs.
-
-On a device the declared command (``python -m pytest -v tests/ --junitxml=…``) runs verbatim and the JUnit report
-is attached; its results are keyed ``tests.test_textkit.test_x`` (classname.name) while the confirmed tests are
-``tests/test_textkit.py::test_x``. Without a canonical id every confirmed test is "not seen" and the run burns its
-loop on the platform's mapping.
-
-Every case here really runs pytest or unittest in a temporary repository, reads what it wrote the way chat
-(``run_test_suite``) and the device (``bash_test_results``) do, resolves the ids against the repository tree or
-only against the run's hints (the device path), and lets the TDD checks decide:
-
-- with and without ``--junitxml`` (``-v`` / ``-rA``), classes and nested classes, nested directories, parametrized
-  tests (ids with dots and spaces), ``-k`` selection, a collection error, unittest, xdist ordering;
-- an id the platform cannot key (ambiguous, unknown file, no hint) is ``unresolved`` and the checks say
-  ``evidence_unresolved`` — never a silent match, never the agent's failure.
-"""
+"""The canonical test id, proven on real test runs."""
 
 from __future__ import annotations
 
@@ -45,8 +30,6 @@ ROLES = {**dict.fromkeys(NEW, "new"), **dict.fromkeys(REGRESSION, "regression")}
 
 EXPECTED_RED = {**dict.fromkeys(NEW, "failed"), **dict.fromkeys(REGRESSION, "passed")}
 
-
-# --- classes, nested directories, parametrize, selection ------------------------------------------------------------
 
 STRUCTURE = {
     "tests/unit/sub/test_deep.py": '''import pytest
@@ -81,9 +64,6 @@ EXPECTED_DEEP = {f"{DEEP}::TestOuter::TestInner::test_nested": "failed", f"{DEEP
                  f"{DEEP}::test_odd_id[a.b c]": "passed"}
 
 
-# --- the live case: the declared command with --junitxml, on the device and in chat -----------------------------
-
-
 def test_the_live_declared_command_with_junit_keys_canonically_and_passes_the_red_gate(textkit):  # noqa: F811
     done, xml = _pytest(textkit, "-v", "tests/", junit=True)
     assert done.returncode == 1 and xml and 'classname="tests.test_textkit"' in xml
@@ -94,9 +74,8 @@ def test_the_live_declared_command_with_junit_keys_canonically_and_passes_the_re
     # The launcher's own files (what it attaches next to the report) key it without any confirmed test yet.
     clarify = _device_run(done, xml, report_files=["tests/test_textkit.py"])
     assert _ids(clarify) == EXPECTED_RED
-    # Chat on the server: the working copy's tree keys it.
     assert _ids(_chat_run(done, textkit)) == EXPECTED_RED
-    # Before the fix the same report was "not seen" four times; without any file it is unresolved, explicitly.
+    # Without any file the report is unresolved, explicitly.
     blind = _device_run(done, xml)
     assert blind["results"] == {} and len(blind["unresolved"]) == 4
     result = _decide(RED, blind, NEW + REGRESSION, ROLES)
@@ -137,7 +116,6 @@ def test_classes_nested_directories_and_parametrize_map_to_node_ids(tmp_path, ju
     done, xml = _pytest(root, "-v", "-rA", "tests", junit=junit)
     run = _device_run(done, xml, files=[DEEP]) if junit else _chat_run(done, None)
     assert _ids(run) == EXPECTED_DEEP, run
-    # A test, a class, a parametrized test without its parameter and a file each select what is under them.
     assert _decide(RED, run, [f"{DEEP}::TestOuter::TestInner"]).outcome == "passed"
     assert _decide(RED, run, [f"{DEEP}::test_param"]).outcome == "passed"  # one case fails on its assertion
     regression = {f"{DEEP}::TestOuter::test_method": "regression", f"{DEEP}::test_odd_id[a.b c]": "regression",

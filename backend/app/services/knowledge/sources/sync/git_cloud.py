@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .....models.project.knowledge_source_sync import CONNECTOR_KIND_GIT_REPOSITORY
-from ....atlassian_auth import AtlassianCredential
+from ....connector_auth.atlassian import AtlassianCredential
 from ....named_connections.resolver import with_secrets
 from ....named_connections.route_planner import plan_route
 from ....project.service import get_project_config
@@ -22,18 +22,13 @@ _PROBE_TOOL = "get_bitbucket_build_statuses"  # a read the Bitbucket connector r
 
 @dataclass(frozen=True, slots=True)
 class ConnectedGitConnection:
-    """A repository read with one connection's credential; the credential never appears in a repr.
-
-    ``auth``: Bitbucket Cloud's basic auth for its REST API and archives. ``credential`` and ``base_url``: a Data
-    Center connection's sign-in and its URL (Git over HTTPS, ``git_clone.py``)."""
-
     kind: str = CONNECTOR_KIND_GIT_REPOSITORY
     auth: tuple[str, str] | None = field(default=None, repr=False)
     credential: AtlassianCredential | None = field(default=None, repr=False)
     base_url: str | None = None
     # Data Center: the repository's own Git token, used for Git instead of ``credential``.
     git_token: str | None = field(default=None, repr=False)
-    # GitHub: the connection's token, sent as a bearer to ``api.github.com`` only (``git_bitbucket.py`` module doc).
+    # GitHub: the connection's token, sent as a bearer to ``api.github.com`` only.
     bearer: str | None = field(default=None, repr=False)
 
 

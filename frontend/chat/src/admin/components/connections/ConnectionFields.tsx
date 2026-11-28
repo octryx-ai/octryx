@@ -5,9 +5,6 @@ import { accessFieldOptions, accessFieldText, accessOptionLabel, lowerFirst, vis
 import { authLabel, fieldOptions, type AccessField, type ConnectionType } from "./connectionTypes";
 import type { AvailableIn, WorkspaceRef } from "./connectionsModel";
 
-// Small field pieces shared by the connection detail and "Add connection": a labelled field with the server's
-// error under it (keyed by the request path), the access fields, and the "Available in" editor.
-
 export type FieldErrors = { field: string; message: string } | null;
 
 export function Field({ label, path, errors, children }: { label: string; path: string; errors: FieldErrors; children: ReactNode }) {
@@ -23,13 +20,6 @@ export function Field({ label, path, errors, children }: { label: string; path: 
 
 const PLACEHOLDERS: Record<string, string> = { url: "e.g. https://acme.atlassian.net", email: "e.g. bot@example.com", list: "e.g. one, two" };
 
-/**
- * The access fields of a type, as its descriptor lists them, rendered by kind: select (its options; the
- * sign-in field takes the type's auth_kinds), bool as a switch, list as comma-separated text, url, int and text as
- * inputs (with the server's placeholder). Secret fields are password inputs that never show a value; each says whether its secret is stored
- * (access.secrets) and is then a "Replace …" field. Only the chosen sign-in kind's fields show; Bitbucket's
- * labels, sign-in choices and fields follow where it runs (authFields.ts).
- */
 export function AccessFields({ fields, descriptor, value, onChange, stored, readOnly, errors }: {
   fields: AccessField[]; descriptor: ConnectionType | null; value: AccessValue; onChange: (next: AccessValue) => void;
   stored: Record<string, boolean>; readOnly: boolean; errors: FieldErrors;

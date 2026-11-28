@@ -1,11 +1,4 @@
-"""Unfinished examinations inside structures: the disposition and the record agree.
-
-- The gateway reads a re-sent structure (an Anthropic ``tool_use`` input, a Responses ``function_call``'s arguments
-  or ``local_shell_call`` action) by its fields, once, as part of the forwarded body: when it does not finish, the
-  whole request is refused (``content_scan_unfinished``), nothing reaches the upstream and the record states only
-  that fixed disposition (no partial finding).
-- Governed chat: a part the mask obligation's pass does not finish is withheld and the call's record says so.
-"""
+"""Unfinished examinations inside structures: the disposition and the record agree."""
 
 from __future__ import annotations
 
@@ -27,7 +20,6 @@ STRUCTURE = {"note": LEAF, "owner": "platform team"}
 
 @pytest.fixture
 def unfinished_structure(monkeypatch):
-    """Every text that carries the structure's note stays unfinished; the rest finishes."""
     real = scanner._find
 
     def find(text, detectors):
@@ -82,10 +74,8 @@ async def test_the_responses_route_refuses_an_unfinished_re_sent_structure(clien
 
 @pytest.mark.asyncio
 async def test_a_part_the_mask_obligation_withholds_is_in_the_obligation_record(client, monkeypatch):
-    """The first examination and the second decision finish; the masking pass does not finish one part: it is
-    withheld, and the evidence for the call's one record says so (``withheld``), not only what was masked."""
-    from app.services.content_detection.examination import examine_text
-    from app.services.content_routing import body_masking
+    from app.services.content_detection.request_examination import RequestExaminer
+    from app.services.content_security import transport
     from tests.content_detection.content_obligations_support import DATA_TEXT, EMAIL, ROUTED
     from tests.content_detection.test_examination_boundaries import _chat
     from tests.model_gateway.conftest import ALIAS
@@ -94,17 +84,18 @@ async def test_a_part_the_mask_obligation_withholds_is_in_the_obligation_record(
     use_custom_policies(ROUTED.replace(f'@reroute_to("{ALIAS}")', '@reroute_to("approved-model")'), mode="enforce")
     real = scanner._find
 
-    def unfinished_masking(value, source, detectors, **kwargs):
-        def find(text, found_by):
-            raise CandidateLimitError()
+    class UnfinishedMasking(RequestExaminer):
+        def examine(self, text, source="history"):
+            def find(text, found_by):
+                raise CandidateLimitError()
 
-        monkeypatch.setattr(scanner, "_find", find)
-        try:
-            return examine_text(value, source, detectors, **kwargs)
-        finally:
-            monkeypatch.setattr(scanner, "_find", real)
+            monkeypatch.setattr(scanner, "_find", find)
+            try:
+                return super().examine(text, source)
+            finally:
+                monkeypatch.setattr(scanner, "_find", real)
 
-    monkeypatch.setattr(body_masking, "examine_text", unfinished_masking)
+    monkeypatch.setattr(transport, "RequestExaminer", UnfinishedMasking)
     content = await _chat([{"role": "user", "content": DATA_TEXT}])
     assert EMAIL not in json.dumps(content.messages) and WITHHELD_TEXT in json.dumps(content.messages)
     assert content.evidence["outcome"] == "remedied"

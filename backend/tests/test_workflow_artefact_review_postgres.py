@@ -90,7 +90,6 @@ async def test_two_review_workers_claim_exactly_one_attempt_postgres():
 
 
 async def _seed_flow_session_source(seed, ids: dict):
-    """Seed the published flow version, a chat session and an evidence source; record their ids."""
     flow = FlowDefinition(key=f"artifact-lock-{uuid.uuid4().hex}", name="Artifact source lock",
         project_id=ids["workspace"], created_by=ids["user"], status="published")
     seed.add(flow)
@@ -108,7 +107,6 @@ async def _seed_flow_session_source(seed, ids: dict):
 
 
 async def _seed_revision_and_read_call(seed, ids: dict, session, source):
-    """Seed the projected revision, its head and span, and the knowledge_read call that cites it."""
     revision = KnowledgeSourceRevision(source_id=source.id, project_id=ids["workspace"],
         revision_ordinal=1, content_sha256="b" * 64, byte_size=10, media_type="text/plain",
         object_bucket="acceptance", object_key="lock-fixture", parser_name="plain", parser_version="1",
@@ -205,7 +203,6 @@ async def _cleanup_snapshot_rows(factory, ids: dict) -> None:
 @requires_postgres
 @pytest.mark.asyncio
 async def test_final_snapshot_blocks_source_head_writer_then_refuses_withdrawal_postgres():
-    """Independent transactions observe a real row-lock wait; SQLite drift tests do not establish this."""
     engine, factory = postgres_sessions()
     ids = {}
     try:

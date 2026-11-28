@@ -1,12 +1,4 @@
-"""Graphiti's embedder and cross-encoder, bound to the platform's own.
-
-- **Embedder.** Graphiti embeds entity names and facts. It uses the Instance's embedding space (the
-  same admitted space as vector retrieval), so a remote space receives graph text only where the
-  Workspace classification admits it (``embedding.selection.admit_space``, checked by the caller).
-- **Cross-encoder.** Graph search runs Graphiti's reciprocal-rank-fusion configuration, which does
-  not rerank. A search configuration that would call a cross-encoder is refused explicitly instead
-  of silently reaching Graphiti's default OpenAI reranker.
-"""
+"""Graphiti's embedder and cross-encoder, bound to the platform's own."""
 
 from __future__ import annotations
 

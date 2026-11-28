@@ -1,25 +1,4 @@
-"""The custom content policies of the platform's own chat dispatch on the governed gateway route.
-
-Called by the model-call boundary (``content_security.model_call``) for a driver that names a governed route (the
-LiteLLM gateway driver's ``content_route``). Every chat request the platform sends through a gateway alias is
-scanned (system messages and the newest turn) and asked as ``call_model`` with ``route=governed``, the alias'
-approved categories and the request's principal (the admission carries it). The gateway's secret scan is not the
-existing check on this path (the shipped platform policies mask credentials instead), so the generated
-secret-scan policy is left out of the question and the shadow comparison stays equal.
-
-Obligations follow the concept's precedence (``obligations``): shadow sends unchanged and states ``would_remedy`` (or
-a would-be denial) in the call's one record (``ChatContent.evidence``, written by ``content_security.model_call``);
-enforce masks the messages and/or switches to the policy's alias — chat is governed already, so a route only
-changes the alias, which must be in the same gateway catalog, admitted for the Workspace and able to take the
-request (tools, context) — then asks again. Anything else refuses as ``LiteLLMGatewayError(content_policy_denied,
-<reason>)``. The call's one budget bounds every step up to the last scan: a masking pass that spends it refuses
-the call unfinished (``content_scan_unfinished``, a notice without counts) before a target is chosen or asked. The
-conversation is the chat session (sticky until a new chat).
-
-A Workspace's content handling (``content_security.handling``) may reroute a kind found in the call: the model-call
-boundary admits that alias with :func:`handling_target` (the same checks as an obligation's target) before the
-custom policies are asked for it; a target that cannot take the call is ``content_route_unavailable``.
-"""
+"""The custom content policies of the platform's own chat dispatch on the governed gateway route."""
 
 from __future__ import annotations
 
@@ -31,20 +10,22 @@ from typing import Any
 
 from ...runtime_limits import DEFAULT_APPROX_CHARS_PER_TOKEN
 from ..content_detection.examination import RequestBudget
+from ..content_detection.masking import PlaceholderSpans
 from ..content_detection.registry import detector_set_for
+from ..content_security.format_chat_messages import mask_chat_messages
 from ..model_gateway.litellm.alias_catalog import CAPABILITY_TOOLS
 from ..model_gateway.litellm.errors import GATEWAY_STATE_CONTENT_POLICY_DENIED, LiteLLMGatewayError
 from ..policy_engine.runtime import MODE_ENFORCE, current_runtime
 from ..policy_engine.schema import ENTITY_AGENT_SESSION, ROUTE_GOVERNED
 from ..policy_engine.shadow import LegacyDecision
 from ..prompt_catalog import render_prompt
-from .body_masking import mask_chat_messages
 from .conversation_state import CHAT_CONVERSATION, load_state, remember
 from .decision import (
     REASON_CONTENT_POLICY_DENIED,
     REASON_SCAN_UNFINISHED,
     ContentDecision,
     decide_model_content,
+    enforcement_budget,
     scan_for,
 )
 from .obligations import (
@@ -54,7 +35,7 @@ from .obligations import (
     REASON_ROUTE_UNAVAILABLE,
     Obligation,
     Unresolved,
-    resolve,
+    workspace_obligation,
 )
 from .segments import chat_segments
 
@@ -84,10 +65,9 @@ def _session_id(admission: Any) -> str:
 
 
 def chat_content_decision(admission: Any, entry: Any, messages: Sequence[Mapping[str, Any]],
-                          sensitive: frozenset[str] = frozenset(),
-                          budget: RequestBudget | None = None) -> ContentDecision:
-    """``budget``: the call's one budget (``content_security.model_call``): every scan here is charged to it."""
-    scans = scan_for(chat_segments(list(messages)), admission.project_id, budget=budget)
+                          sensitive: frozenset[str] = frozenset(), budget: RequestBudget | None = None,
+                          placeholders: PlaceholderSpans | None = None) -> ContentDecision:
+    scans = scan_for(chat_segments(list(messages)), admission.project_id, budget=budget, placeholders=placeholders)
     return decide_model_content(
         route=ROUTE_GOVERNED, alias=entry.alias, scans=scans, builtin_check=LegacyDecision(True),
         approved_for=entry.approved_data_categories, admission=admission, workspace_id=admission.project_id,
@@ -97,8 +77,6 @@ def chat_content_decision(admission: Any, entry: Any, messages: Sequence[Mapping
 
 def _refuse(reason: str, decision: ContentDecision | None = None, *, policies: Sequence[str] = (),
             model_from: str = "", model_to: str = "") -> LiteLLMGatewayError:
-    """The refusal; with the first decision it carries the chat notice (names and counts only; the model-call
-    boundary names its record). An unfinished examination's notice is the fixed one: no finding-derived count."""
     found = {} if reason == REASON_SCAN_UNFINISHED or decision is None else decision.report.counts()
     notice = {"kind": "block", "reason": reason, "found": found, "masked": 0,
               "policies": list(policies or decision.policies), "decision_id": None,
@@ -122,9 +100,6 @@ def _target(admit: Callable[[str], Any], alias: str, messages: list, tools: bool
 
 def handling_target(admit: Callable[[str], Any], alias: str, messages: list, *, tools: bool,
                     policies: Sequence[str], model_from: str) -> Any:
-    """The admitted entry of a content-handling reroute (``content_security.handling``: ``reroute`` /
-    ``mask_reroute`` of a kind found in the call) — checked exactly like an obligation's route target (same
-    catalog, admitted for the Workspace, tools, context) — or ``LiteLLMGatewayError(content_route_unavailable)``."""
     def refuse() -> Exception:
         return LiteLLMGatewayError(GATEWAY_STATE_CONTENT_POLICY_DENIED, denial_reason=REASON_ROUTE_UNAVAILABLE,
                                    content_notice={"kind": "block", "reason": REASON_ROUTE_UNAVAILABLE, "found": {},
@@ -139,22 +114,18 @@ def handling_target(admit: Callable[[str], Any], alias: str, messages: list, *, 
 async def apply_chat_content(admission: Any, entry: Any, messages: list[dict[str, Any]], *,
                              admit: Callable[[str], Any], tools: bool,
                              budget: RequestBudget | None = None) -> ChatContent:
-    """The request to send (alias and messages), or raise ``LiteLLMGatewayError`` with the refusal reason. Every
-    scan (both decisions, the obligation's masking pass) is charged to the call's ``budget``: once it is spent the
-    request is unfinished (``content_scan_unfinished``)."""
     session_id = _session_id(admission)
     state = await load_state(session_id, CHAT_CONVERSATION)
     first = chat_content_decision(admission, entry, messages, state.categories, budget)
     if not first.scans.live.finished:  # unread text is refused in every mode, whatever Cedar answered
         raise _refuse(first.refusal, first, model_from=entry.alias)
     comparison = first.comparison
-    denied = comparison is not None and comparison.cedar_allowed is False and not comparison.errors
-    if not denied:
+    if not first.cedar_denied:
         if first.refusal:
             raise _refuse(first.refusal, first, model_from=entry.alias)
         return ChatContent(entry, messages, badge=partial(remember, session_id, CHAT_CONVERSATION, first.report))
     runtime = current_runtime()
-    resolved = resolve(comparison.determining, runtime.custom_ids, runtime.custom_text)
+    resolved = workspace_obligation(comparison.determining)
     enforce = runtime.mode == MODE_ENFORCE
     if isinstance(resolved, Unresolved) and enforce:
         raise _refuse(resolved.reason if resolved.reason != REASON_CONTENT_POLICY_DENIED else first.refusal
@@ -184,11 +155,11 @@ async def _remedy(admission: Any, entry: Any, messages: list[dict[str, Any]], fi
                   obligation: Obligation, sensitive: frozenset[str], session_id: str, *,
                   admit: Callable[[str], Any], tools: bool, budget: RequestBudget | None) -> ChatContent:
     runtime = current_runtime()
-    changed, masked, withheld = messages, 0, 0
+    changed, masked, withheld, placeholders = messages, 0, 0, None
     if obligation.masks:
         result = mask_chat_messages(messages, detector_set_for(runtime.custom_detectors, admission.project_id),
                                     obligation.mask, obligation.mask_style, budget)
-        changed, masked, withheld = result.body, result.masked, result.withheld
+        changed, masked, withheld, placeholders = result.body, result.masked, result.withheld, result.placeholders
     if budget is not None and budget.overrun:  # the masking pass spent the call's budget: nothing decided after it
         raise _refuse(REASON_SCAN_UNFINISHED, first, policies=obligation.policies, model_from=entry.alias)
     target = entry
@@ -196,7 +167,9 @@ async def _remedy(admission: Any, entry: Any, messages: list[dict[str, Any]], fi
         target = _target(admit, obligation.reroute_to, changed, tools, lambda: _refuse(
             REASON_ROUTE_UNAVAILABLE, first, policies=obligation.policies, model_from=entry.alias,
             model_to=obligation.reroute_to))
-    second = chat_content_decision(admission, target, changed, sensitive | first.report.categories, budget)
+    rescan = enforcement_budget() if budget is None and placeholders is not None else budget
+    second = chat_content_decision(admission, target, changed, sensitive | first.report.categories, rescan,
+                                   placeholders)
     if not second.allowed or second.comparison is None or second.comparison.cedar_allowed is not True:
         reason = REASON_SCAN_UNFINISHED if not second.scans.live.finished else REASON_INSUFFICIENT
         raise _refuse(reason, first, policies=obligation.policies, model_from=entry.alias)

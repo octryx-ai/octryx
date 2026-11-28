@@ -1,11 +1,4 @@
-"""``rule_denial`` problems: rules that denied requests in the last 7 days, per Workspace and rule.
-
-Source is ``policy_decision_log`` rows with ``outcome = denied`` (the gates' explicit refusals,
-``services/decisions/recorder``), grouped in SQL by Workspace, gate and rule: first and last denial and their
-number. ``policy_decision_counters`` only counts allows, so it cannot carry denials. A denial is the governance
-working as configured, so it needs attention, not repair; the link opens the decisions of that rule.
-A row without a rule is grouped under its gate.
-"""
+"""``rule_denial`` problems: rules that denied requests in the last 7 days, per Workspace and rule."""
 
 from __future__ import annotations
 

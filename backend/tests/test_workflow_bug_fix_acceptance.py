@@ -1,15 +1,4 @@
-"""DevOps workflows S9 acceptance: Workflow C "Bug fix with a reproduction test", end to end.
-
-Real platform pieces, stubbed systems: the seeded, published phased definition; the governed Jira tools against
-the in-memory Jira work stub; the governed GitHub tools against the GitHub stub, whose repositories are local
-bare git repositories (the platform clones and pushes them for real through a ``file://`` clone base); the real
-turn-end checks guard with test runs a real ``pytest`` produced in the run's working copy; the HTTP API for the
-person's decisions; a signed webhook that simulates the person merging the pull request.
-
-Path: ticket → bugfix branch → reproduction test red → the user confirms it → minimal fix → green → review gate →
-push → pull request with the requester as reviewer → Work item in review → watched merge → "go on" → done.
-A second run of the same workflow shows the failure path pausing at its loop limit with one follow-up issue.
-"""
+"""Workflow C "Bug fix with a reproduction test", end to end."""
 
 from __future__ import annotations
 
@@ -26,6 +15,7 @@ from app.services.inbound_alerts.signature import sign_body
 from app.services.webhook_secret import issue_webhook_secret
 from app.services.workflow_runs.review.runner import run_due_reviews
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import (  # noqa: F401
     GITHUB_API,
     KEY,
@@ -44,11 +34,12 @@ from tests.workflow_acceptance_support import (  # noqa: F401
 )
 from tests.workflow_run_review_support import ScriptedReviewer
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 FIXED = "def round_total(value: float) -> int:\n    return int(value + 0.5)\n"
 
 
 async def _assert_bug_ticket_and_branch(db, systems, run_view: dict, run_id) -> tuple[WorkflowRun, Path]:  # noqa: F811
-    # Ticket and branch: a Bug in the Jira stub, a bugfix branch named from its key in the bare repository.
     ticket = run_view["ticket_key"]
     assert jira_stub.ISSUES[ticket]["fields"]["issuetype"] == {"name": "Bug"}
     assert run_view["branch"] == f"bugfix/{ticket}-totals-round-down-instead-of-half-up"
@@ -65,7 +56,6 @@ async def _reproduce_and_confirm(client, auth_headers, db, run_id, session_id, w
     reproduce = await run_turn_resolution(db, await db.get(Session, session_id), user_message="Hi.")
     assert reproduce["phase_agent"]["key"] == "engineer"
 
-    # Reproduce: the test is written and fails on its assertion (red), then the user confirms it.
     (working_copy / "tests" / "test_totals.py").write_text(REPRO_TEST)
     await _phase_turn(db, session_id, [_pytest(working_copy), await submitted(db, session_id, "submit_reproduction",
                                                                                REPRODUCTION)])
@@ -79,16 +69,13 @@ async def _reproduce_and_confirm(client, auth_headers, db, run_id, session_id, w
 
 
 async def _fix_and_pass_review(client, auth_headers, db, run_id, session_id, working_copy: Path):
-    # Fix: the minimal change makes the confirmed test and the suite green; review gate; push; PR; in review.
     (working_copy / "pay" / "totals.py").write_text(FIXED)
     edit = {"tool_name": "edit_workspace_file", "status": "success", "result": {}}
     await _phase_turn(db, session_id, [edit, _pytest(working_copy)])
-    # S7: the independent reviewer sees the real diff of the fix (against the branch's base), never the chat.
     reviewer = ScriptedReviewer({"verdict": "pass", "summary": "Rounds half up.", "findings": []})
     assert await run_due_reviews(db, model_factory=reviewer.factory) == 1
     assert "pay/totals.py" in reviewer.tasks[0][1] and "+    return int(value + 0.5)" in reviewer.tasks[0][1]
     run_view = await _settle(client, auth_headers, run_id)
-    # C now owns its CI watch: no merge gate until fresh success on the pushed commit.
     assert run_view["current_node"]["id"] == "ci", run_view
     return reviewer
 
@@ -126,7 +113,6 @@ async def _watch_ci_until_merge_gate(client, auth_headers, db, systems, project,
 
 
 async def _assert_reviewed_push_and_pull_request(db, systems, run, run_view: dict, reviewer, item) -> None:  # noqa: F811
-    # The phases ran as the Engineer, the review as the Reviewer agent (its instructions).
     reviewer_row = (await db.execute(select(AgentDefinition).where(AgentDefinition.builtin_key == "reviewer"))
                     ).scalar_one()
     assert reviewer.reviewer.definition_id == reviewer_row.id and reviewer_row.system_prompt in reviewer.tasks[0][0]
@@ -144,7 +130,6 @@ async def _assert_reviewed_push_and_pull_request(db, systems, run, run_view: dic
 
 
 async def _merge_and_go_on(client, auth_headers, db, project, run_id, item) -> None:
-    # The person merges in GitHub: a signed webhook reaches the run, the requester says "go on", the run is done.
     admin = await admin_user(db)
     webhook = Webhook(project_id=project.id, owner_id=admin.id, name="pull requests", source_type="scm_pull_request",
                       is_active=True, accept_untimestamped=True)
@@ -198,7 +183,6 @@ async def test_a_reproduction_that_never_fails_pauses_at_n_with_one_follow_up(cl
     ticket = run_view["ticket_key"]
     run = await db.get(WorkflowRun, run_id)
     working_copy = Path(run.context["local_path"])
-    # Three rounds where the "reproduction" passes: nothing to confirm, the user sends it back each time.
     for _ in range(3):
         await _phase_turn(db, session_id, [_pytest(working_copy), await submitted(
             db, session_id, "submit_reproduction", REPRODUCTION)])
@@ -209,5 +193,5 @@ async def test_a_reproduction_that_never_fails_pauses_at_n_with_one_follow_up(cl
     assert (run_view["status"], run_view["pause_reason"]) == ("paused", "loop_limit")
     follow_ups = [key for key, issue in jira_stub.ISSUES.items() if "follow-up" in issue["fields"].get("labels", [])]
     assert len(follow_ups) == 1 and run_view["failure"]["follow_up_issue"] == follow_ups[0]
-    assert len(jira_stub.ISSUES[ticket]["comments"]) >= 3  # a comment per failed round + the follow-up key
+    assert len(jira_stub.ISSUES[ticket]["comments"]) >= 3
     assert {action["key"] for action in run_view["actions"]} >= {"continue", "change_plan", "abort"}

@@ -15,7 +15,6 @@ from .publication_reconciliation import reconcile_attempt as _reconcile_core
 
 
 async def _reconcile_target(db: AsyncSession, run: WorkflowRun, intent: Any) -> ToolOutcome | Any:
-    """The refusal, or the pinned served connection an earlier attempt can be reconciled on."""
     from .confluence_v2 import governed_v2_check
     from .failure_routes import RECONCILE_INCOMPLETE, s1_failure
     from .target import ConnectionUnavailableError, served_confluence
@@ -39,11 +38,7 @@ async def _reconcile_target(db: AsyncSession, run: WorkflowRun, intent: Any) -> 
 
 async def reconcile_publication_intent(db: AsyncSession, run: WorkflowRun, params: dict[str, Any] | None = None, *,
                                        transport: Any = None, worker_id: str | None = None) -> ToolOutcome:
-    """Reconcile a potentially sent intent before any new write: adopt only this exact approved attempt.
-
-    ``send_started`` is taken over only by its own sender or after its lease expired (a crashed sender); a live
-    sender's intent is ``action_in_flight``. Nothing here writes to Confluence, and nothing here makes an intent
-    sendable again (only the executor's certification does)."""
+    # Nothing here writes to Confluence or makes an intent sendable again; only the executor's certification does.
     from ....models.runtime.documentation_publication import INTENT_POTENTIALLY_SENT_STATES, INTENT_SEND_STARTED
     from ..external_step import pass_key, release_for_external_work
     from .confluence_v2 import CloudV2Client
@@ -77,7 +72,7 @@ async def reconcile_publication_intent(db: AsyncSession, run: WorkflowRun, param
     served = await _reconcile_target(db, run, intent)
     if isinstance(served, ToolOutcome):
         return served
-    held = await release_for_external_work(db, run, key=pass_key(run), facts={})  # commits pending_reconcile
+    held = await release_for_external_work(db, run, key=pass_key(run), facts={})
     try:
         client = CloudV2Client(intent.instance, served.config, transport=transport)
     except V2ProfileRefusalError as refusal:

@@ -1,13 +1,4 @@
-"""The review of a policy-set version, for the lifecycle drawer.
-
-``review_view`` describes the governance approval a submit opened, from the viewer's side: who submitted it and
-when, its status and the decider's comment (the approvals API stores the decision reason on the approval), the
-author and submitter, the platform admins who may approve it (four-eyes: anyone but the author and the
-submitter), and whether the viewer may approve (``can_approve``) — the same rule ``store_publish.check_publish_gate``
-enforces at publish. The decision itself stays with the approvals API; nothing here changes the lifecycle.
-
-``history_rows`` adds the author and reviewer names to the version list.
-"""
+"""The review of a policy-set version, for the lifecycle drawer."""
 
 from __future__ import annotations
 
@@ -41,7 +32,6 @@ async def _names(db: AsyncSession, ids: set[str]) -> dict[str, str]:
 
 
 async def platform_admins(db: AsyncSession) -> list[tuple[str, str]]:
-    """``(id, name)`` of the active platform admins, by name."""
     stmt = (select(User).join(UserRole, UserRole.user_id == User.id).join(Role, Role.id == UserRole.role_id)
             .where(Role.name == ADMIN_ROLE, User.is_active.is_(True)))
     rows = {row.id: row.display_name or row.username for row in (await db.execute(stmt)).scalars()}
@@ -82,7 +72,6 @@ async def review_view(db: AsyncSession, row: PolicySetVersion, *, viewer_id: str
 
 
 async def history_rows(db: AsyncSession, rows: list[PolicySetVersion], payloads: list[dict[str, Any]]) -> list[dict]:
-    """The version list with ``author_name``, ``reviewer`` and ``reviewer_name`` (who approved its review)."""
     approvals = {item.id: item for item in (await db.execute(
         select(Approval).where(Approval.id.in_([row.approval_id for row in rows if row.approval_id])))).scalars()}
     reviewers = {row.version: approvals[row.approval_id].approved_by for row in rows

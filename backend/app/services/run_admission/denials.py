@@ -1,11 +1,4 @@
-"""The typed denials of run admission.
-
-One closed vocabulary for every run path (chat, API, model tools, octryx, Actions):
-
-- ``workflow_archived``: a phased workflow an admin archived or switched off;
-- ``action_agent_and_workflow``: an Action names both an agent and a workflow run (either/or);
-- ``workspace_required`` (state ``needs_configuration``): a workflow run starts only in a Workspace.
-"""
+"""The typed denials of run admission."""
 
 from __future__ import annotations
 
@@ -26,7 +19,6 @@ MESSAGES = {
 
 
 def workspace_required_detail(message: str = MESSAGES[WORKSPACE_REQUIRED]) -> dict[str, object]:
-    """The answer of a start refused for its missing Workspace: ``needs_configuration`` / ``workspace_required``."""
     return {"state": STATE_NEEDS_CONFIGURATION, "code": WORKSPACE_REQUIRED, "reason": WORKSPACE_REQUIRED,
             "message": message}
 

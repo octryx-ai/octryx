@@ -1,15 +1,4 @@
-"""The ``parallel_work`` node's configuration and its publish validation (design section 3).
-
-``{"plan": "<phase id>", "roles": {"<role>": <phase template>}, "parallel": true}``:
-
-- ``plan``: the phase before this node whose ``output`` is ``work_plan``; ``replan`` must be a way back to it.
-- ``roles``: what each role's item session runs as — an ordinary phase definition (``agent``, optional ``model``,
-  ``workflow_contract`` with its capability class and done criteria, ``tool_policy``; optional ``needs_proof:
-  false`` for a role whose items prove nothing with a test; optional ``starts_at_once: true`` for a role whose items
-  build from the contract and never wait for other items, the test role: its tests run on the merged story in the
-  pipeline). Each is validated exactly like a phase; the item's own paths become its ``path_rules.write`` at run time.
-- ``parallel: false``: the items still run one at a time with their own sessions and models (sequential).
-"""
+"""The ``parallel_work`` node's configuration and its publish validation."""
 
 from __future__ import annotations
 
@@ -39,7 +28,6 @@ def runs_parallel(node: Any) -> bool:
 
 
 def role_node(node: Any, role: str) -> Any:
-    """A role template as the phase node it is validated (and later run) as."""
     template = roles_of(node).get(role) or {}
     return graph_module.PhasedNode(node.id, graph_module.NODE_PHASE, f"{node.title} · {role}", dict(template))
 

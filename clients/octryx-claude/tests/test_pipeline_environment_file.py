@@ -64,8 +64,6 @@ def test_the_environment_file_runs_exactly_its_commands_in_its_app_folder(tmp_pa
 
 
 def test_a_class_without_the_system_test_runs_only_the_unit_tests(tmp_path, monkeypatch):
-    """Size class S without a UI label (``pipeline_scope``): the system test, 177 s of a 469 s Flutter
-    bug, stays out; the unit tests run."""
     import subprocess
 
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
@@ -104,3 +102,13 @@ def test_a_failing_setup_runs_no_test_and_a_passing_check_skips_the_setup(tmp_pa
     report = _report_of(tmp_path, monkeypatch, _file_view())
     assert report["environment_file"]["state"] == "ok" and report["environment_file"]["setup"] == []
     assert (tmp_path / "coffee/web/claude/ran.txt").is_file()
+
+
+def test_the_declared_lint_runs_between_the_tests_and_the_system_test(tmp_path, monkeypatch):
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    _env_file(tmp_path, CLAUDE_FILE, {"test": "true", "lint": "false", "system_test": "true"})
+    report = _report_of(tmp_path, monkeypatch, _file_view())
+    assert [(item["command"], item.get("exit_code")) for item in report["results"]][:2] == [("true", 0), ("false", 1)]
+    assert report["environment_file"]["commands"] == ["true", "false", "true"]

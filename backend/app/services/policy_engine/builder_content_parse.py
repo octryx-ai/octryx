@@ -41,7 +41,6 @@ def _is_incomplete(node: Any) -> bool:
 
 
 def read_content_when(node: Any, found: Found) -> bool:
-    """Consume a route condition or the content group; ``False`` when ``node`` is neither."""
     operator, body = op(node)
     if operator == "==" and isinstance(body, Mapping) and _path_or_none(body.get("left")) == ("context", "route"):
         found.put("route", value(body["right"]))
@@ -67,7 +66,6 @@ def _path_or_none(node: Any) -> tuple[str, ...] | None:
 
 
 def read_content_unless(node: Any, found: Found) -> bool:
-    """Consume the route exception or the approved-model exception; ``False`` when ``node`` is neither."""
     operator, body = op(node)
     if operator == "containsAll" and _path_or_none(body.get("left")) == ("resource", "approved_for"):
         found.put("approved_except", True)
@@ -93,7 +91,6 @@ def read_content_unless(node: Any, found: Found) -> bool:
 
 
 def content_of(values: Mapping[str, Any], annotations: Mapping[str, str]) -> tuple[Content, Outcome]:
-    """The content and outcome sections read back; the re-render decides whether they are exactly the text."""
     content = Content(detectors=values.get("detectors", ()), sticky=values.get("sticky", False),
                       incomplete=values.get("incomplete", False), categories=values.get("categories", ()))
     outcome = Outcome(kind=annotations.get("obligation", "block"), reroute_to=annotations.get("reroute_to", ""),

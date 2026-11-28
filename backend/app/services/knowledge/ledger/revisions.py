@@ -1,51 +1,5 @@
-"""PostgreSQL authority for Workspace sources, immutable revisions, and spans.
-
-Idempotency is a database guarantee, not a code convention. The unique
-constraint ``(source_id, content_sha256)`` is what makes re-uploading identical
-bytes resolve to the revision that already exists, and it is what resolves a
-concurrent double upload: the loser of the race re-reads the winner's row instead
-of creating a second revision.
-
-Three races end in the same ``IntegrityError``, and only they may be retried:
-
-- **duplicate source key** — a concurrent first upload of the same
-  ``(project_id, source_key)`` won. The next iteration reads the winner's source.
-- **same digest** — a concurrent ingestion of the *same* bytes won. The loser
-  adopts the winner's revision, which is the idempotent outcome above.
-- **different digest** — two concurrent ingestions of *different* bytes for one
-  source computed the same ``revision_ordinal`` and collided on
-  ``(source_id, revision_ordinal)``. That is contention, not a conflict of
-  intent, so the ordinal is recomputed and the insert retried a bounded number of
-  times (:data:`MAX_ORDINAL_RETRIES`). Exhausting the bound is the explicit
-  ``unavailable`` state, never a success and never a database detail.
-
-**Every other integrity failure is raised, not retried.** ``IntegrityError`` is
-not by itself evidence of contention: a not-null, foreign-key or unexpected
-unique violation would otherwise be retried three times and then reported as
-``unavailable``, which tells an operator to try again about a defect that will
-never succeed. The loop therefore classifies the failure by *re-reading the
-ledger* (:func:`_is_retryable_race`) and refuses anything it cannot attribute to
-one of the three races above with :class:`EvidenceLedgerContractError`.
-Classification never inspects the driver's message, because that text carries
-table, column and constraint names this slice may neither read nor log.
-
-Atomicity. A revision, its spans, and its projection outbox entry are
-written and committed together, so a committed revision always carries exactly
-one projection obligation and nothing is ever dispatched with
-``asyncio.create_task``. Inside that one transaction the *order* is explicit: the
-revision and its spans are flushed before the outbox obligation is added, because
-the obligation's foreign key is only satisfiable once the revision row exists.
-
-Serialization against object deletion. The object exists before this commit, so the
-publication of a reference to it is serialized against the operator retention pass by the
-transaction-scoped advisory lock the ingestion takes before the write. The retry loop takes
-it again at the top of every iteration, because the rollback that precedes a retry ends the
-transaction that held it.
-
-Every row is Workspace-scoped and every read filters on ``project_id`` directly,
-even when the row could be reached through a join, so a query that forgot the
-Workspace predicate cannot compile into a cross-Workspace read.
-"""
+"""PostgreSQL authority for Workspace sources, immutable revisions, and spans. Only the three known insert races are
+retried; every other integrity failure is raised."""
 
 from __future__ import annotations
 
@@ -65,8 +19,6 @@ from ..objects.publication_lock import lock_object_publication
 from ..projection.recovery import recover_projection
 from .errors import EvidenceLedgerContractError, EvidenceRecordNotFoundError, EvidenceStoreUnavailableError
 from .lifecycle import want_revision
-
-# The retry loop below resolves these through this module, and callers and tests reach them here.
 from .revision_races import (
     _STAGE_REVISION,
     MAX_ORDINAL_RETRIES,
@@ -91,13 +43,7 @@ logger = logging.getLogger(__name__)
 async def _recover_on_repeat_upload(
     db: AsyncSession, authorized: AuthorizedWorkspace, revision_id: str, actor_user_id: str | None
 ) -> None:
-    """Keep repeat upload a recovery signal, but not a recovery rule of its own.
-
-    The transition, its compare-and-set guard and its audit record all live in
-    ``projection_recovery``; this path only says *who* asked and *which* obligation.
-    A healthy obligation is refused there without a write, so a normal repeat upload
-    changes nothing and records nothing.
-    """
+    # The recovery rule lives in ``projection_recovery``; a healthy obligation is refused there without a write.
     try:
         await recover_projection(
             db,
@@ -132,11 +78,6 @@ async def register_revision(
     version: str | None = None,
     pending_parse: bool = False,
 ) -> RegisteredRevision:
-    """Register one immutable revision with its spans and its outbox entry.
-
-    ``pending_parse`` registers a sandboxed document without spans: its one obligation
-    is then ``parse_revision``, whose completion writes the spans and owes the projection.
-    """
     digest = _checked_digest(authorized, stored, spans, pending_parse)
     insert_fields = dict(
         source_key=source_key,
@@ -160,7 +101,6 @@ async def register_revision(
 async def _adopt_existing(
     db: AsyncSession, authorized: AuthorizedWorkspace, source_id: str | None, digest: str, created_by: str | None
 ) -> RegisteredRevision | None:
-    """The revision these exact bytes already are, made wanted again; None when there is none."""
     if source_id is None:
         return None
     existing = await _existing_revision(db, authorized.project_id, source_id, digest)
@@ -184,7 +124,6 @@ async def _register_with_retries(
     created_by: str | None,
     insert_fields: dict[str, object],
 ) -> RegisteredRevision:
-    """The bounded retry loop: adopt the same bytes, or insert and retry only a lost race."""
     project_id = authorized.project_id
     source_key = insert_fields["source_key"]
     for _ in range(MAX_ORDINAL_RETRIES + 1):

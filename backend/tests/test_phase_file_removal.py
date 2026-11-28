@@ -6,7 +6,10 @@ from __future__ import annotations
 import pytest
 
 from app.services.workflow_runs.octryx.removal_rules import removal_paths
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import CONFIRMED, ROOT, _bound_run, _decide, _fix_definition, _hook
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -20,7 +23,7 @@ def test_only_a_plain_single_rm_or_git_rm_of_named_files_counts_as_a_removal():
     assert removal_paths("rm src/packmate/api.py") == ["src/packmate/api.py"]
     assert removal_paths("git rm -q src/a.py src/b.py") == ["src/a.py", "src/b.py"]
     assert removal_paths("rm -f src/a.py") == ["src/a.py"]
-    # benchmark T3: undoing a change in the wrong app is restoring named files.
+    # Undoing a change in the wrong app is restoring named files.
     assert removal_paths("git restore src/packmate/models.py src/packmate/router.py") == [
         "src/packmate/models.py", "src/packmate/router.py"]
     assert removal_paths("git checkout -- src/packmate/models.py") == ["src/packmate/models.py"]
@@ -61,7 +64,6 @@ async def test_a_phase_without_write_tools_removes_nothing(db):
 
 
 def test_a_recursive_removal_names_folders_only_in_a_plain_single_command():
-    """A fix item that has to remove ``src/kitchen-helper.egg-info`` must not be blocked."""
     from app.services.workflow_runs.octryx.removal_rules import generated_dir, recursive_removal_paths
 
     assert recursive_removal_paths("rm -rf src/kitchen-helper.egg-info") == ["src/kitchen-helper.egg-info"]

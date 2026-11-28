@@ -14,7 +14,6 @@ import { ProjectAccessSection } from "./ProjectAccessSection";
 import { WorkspaceRolesSection } from "../workRoles/WorkspaceRolesSection";
 import { PluginsPage } from "../plugins/PluginsPage";
 import { ProjectConnectorSettingsSection } from "./ProjectConnectorSettingsSection";
-import { ProjectEvidenceGroundingSection } from "./ProjectEvidenceGroundingSection";
 import { ProjectKnowledgeLookupSection } from "./ProjectKnowledgeLookupSection";
 import { ProjectObservabilitySection } from "./ProjectObservabilitySection";
 import { ProjectPolicyGroup } from "./ProjectPolicyGroup";
@@ -130,12 +129,6 @@ function AgentsSection({ ctx }: { ctx: Ctx }) {
         purpose="Whether a chat without a selected workflow gets one workflow proposal."
       >
         <ProjectWorkflowProposalSection ctx={ctx} />
-      </ProjectPolicyGroup>
-      <ProjectPolicyGroup
-        title="Evidence grounding"
-        purpose="When answers must follow the evidence-grounded contract with cited sources."
-      >
-        <ProjectEvidenceGroundingSection ctx={ctx} />
       </ProjectPolicyGroup>
     </>
   );

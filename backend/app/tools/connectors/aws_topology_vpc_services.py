@@ -1,8 +1,4 @@
-"""VPC-bound AWS topology collectors (EC2 instances, ElastiCache, EFS, ECS, VPC networking extras).
-
-Each one emits ``runs_in``/``uses_subnet``/``uses_security_group`` edges so the renderer nests the resource
-into the right subnet tier.
-"""
+"""VPC-bound AWS topology collectors (EC2 instances, ElastiCache, EFS, ECS, VPC networking extras)."""
 
 from __future__ import annotations
 

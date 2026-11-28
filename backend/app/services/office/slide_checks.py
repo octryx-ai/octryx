@@ -1,8 +1,4 @@
-"""The corporate-identity slide gate applied to any built deck (``office_identity.slide_gate``).
-
-``build_presentation_script`` measures its deck against the source template; ``validate_office_document``
-measures a deck against its own layouts. One gate, no second set of slide geometry checks.
-"""
+"""The corporate-identity slide gate applied to any built deck (``office_identity.slide_gate``)."""
 
 from __future__ import annotations
 

@@ -8,7 +8,6 @@ from .target import MODE_CREATE
 
 
 async def reconcile_attempt(client: Any, run: WorkflowRun, intent: Any, body: str) -> dict[str, Any]:
-    """Find exactly this approved attempt (read-only). ``{"kind": adopt|unverified|incomplete, ...}``."""
     from .confluence_v2 import STATUS_CURRENT
     from .confluence_v2_errors import KIND_NOT_FOUND, V2Error
     from .publication_checks import _content_match, _version_message

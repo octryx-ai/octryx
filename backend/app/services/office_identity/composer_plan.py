@@ -1,11 +1,4 @@
-"""What a deck plan entry needs, and which template layout can hold it.
-
-Every value a plan entry carries is normalised into a requirement record
-(content units, pictures, title, subtitle, image fit and role). Layout
-selection then picks a layout of the template snapshot by exact key or by
-capacity — never by prose — and an entry no layout can hold is an explicit
-``ComposerError`` listing the available layout keys.
-"""
+"""What a deck plan entry needs, and which template layout can hold it."""
 
 from __future__ import annotations
 
@@ -36,7 +29,6 @@ def _as_text_list(value: Any) -> list[str]:
 
 
 def _entry_blocks(entry: dict[str, Any]) -> list[dict[str, Any]]:
-    """Normalise an entry to content blocks (heading + bullets)."""
     raw_blocks = entry.get("blocks")
     if isinstance(raw_blocks, (list, tuple)) and raw_blocks:
         blocks: list[dict[str, Any]] = []
@@ -122,24 +114,10 @@ def _fits(layout: dict[str, Any], need: dict[str, Any]) -> bool:
 
 
 def _avoids_full_bleed(need: dict[str, Any]) -> bool:
-    """A titled picture slide does not belong on a slide-filling picture slot.
-
-    Insetting a full-bleed slot buys almost no picture area over a framed
-    picture slot and costs brand furniture: a full-bleed layout styles its logo
-    and chrome for a photo behind them, so once the picture is inset they can
-    sit light-on-light and vanish, while the framed layout keeps them on the
-    background they were designed for. A few percent of area is not worth
-    the logo, so the framed layout stays the automatic choice; the inset in
-    ``fill_slide`` is the safety net for an explicitly requested full-bleed
-    layout, not a selection strategy.
-    """
     return bool(need["pictures"] and need["title"])
 
 
 def _rank(layout: dict[str, Any], need: dict[str, Any]) -> tuple[int, ...]:
-    """Framed picture slots first when a title is present, then the tightest
-    capacity fit; ties fall back to the template's own layout order, which is
-    the author's evidence for what the canonical layout is."""
     capacity = layout.get("capacity") or {}
     content_surplus = int(capacity.get("content_units") or 0) - need["units"]
     picture_surplus = int(capacity.get("picture_slots") or 0) - need["pictures"]
@@ -159,7 +137,6 @@ def _rank(layout: dict[str, Any], need: dict[str, Any]) -> tuple[int, ...]:
 def select_layout(
     snapshot: dict[str, Any], entry: dict[str, Any], need: dict[str, Any]
 ) -> dict[str, Any]:
-    """Exact ``layout_key`` wins; otherwise capacity decides — never prose."""
     requested_key = str(entry.get("layout_key") or "").strip()
     if requested_key:
         layout = layout_by_key(snapshot, requested_key)

@@ -1,27 +1,4 @@
-"""The outline of a manual and its cross-references, from span headings alone.
-
-Docling's locator keeps only the **leaf** heading of a span (``["6.3.3 Cache Settings"]``) and
-production parsing has no bookmarks, so the hierarchy is rebuilt from heading numbers:
-
-- A heading ``N.M…`` (two or more numbers) or ``N`` followed by text is a numbered section when its
-  number is greater than the last accepted one (a bare ``N`` may not skip a chapter); anything else
-  (a list item heading such as ``1. Without KeyStore``) is not.
-- Depth 1 is a ``Chapter``, depth 2 a ``Section``, deeper a ``Subsection``. A missing ancestor is
-  implied (``Chapter 2``); the closest implied ancestor takes the unnumbered heading right before
-  its first child as its title (``Installation`` before ``2.1``), together with that heading's spans.
-- An unnumbered heading that is a single CamelCase identifier (``CacheProvider``,
-  ``HttpService``) names a plugin: it becomes a ``Subsection`` of the current numbered section and
-  is the plugin scope of the parameter tables under it. Other unnumbered headings (``Configuration``,
-  ``Example``) are folded into the current section and kept as its ``headings``; the profile's
-  ignored headings (admonitions, page-continuation markers) are skipped.
-
-References come from the profile's patterns (``see section 6.4.1``, ``QueryLogging (page
-47)``). A named reference resolves to the section with that title (or folded
-heading) whose pages cover the page; otherwise the page decides: the outermost section starting on
-it, else the innermost one covering it. A reference that resolves nowhere, or to its own section,
-is dropped. Known limit: an implied chapter's title is the closest unnumbered heading before its
-first section, which is not always the chapter's printed title.
-"""
+"""The outline of a manual and its cross-references, from span headings alone."""
 
 from __future__ import annotations
 
@@ -78,7 +55,6 @@ class Outline:
         return self.sections.get(key) if key else None
 
     def chain(self, key: str | None) -> list[Section]:
-        """The section and its ancestors, innermost first."""
         found = []
         while key:
             section = self.sections[key]
@@ -87,7 +63,6 @@ class Outline:
         return found
 
     def at_page(self, page: int) -> Section | None:
-        """The outermost section that starts on ``page``, else the innermost one that covers it."""
         starting = [s for s in self.sections.values() if s.page_start == page]
         if starting:
             return min(starting, key=lambda section: section.level)
@@ -215,7 +190,6 @@ def section_ref(outline: Outline, key: str | None) -> NodeRef:
 
 
 def add_outline(extraction: Extraction, outline: Outline, title: str, first_span: int | None) -> None:
-    """Document, sections and ``contains`` edges, each cited from its first span."""
     cite = SpanRef(first_span) if first_span is not None else None
     extraction.node(NODE_DOCUMENT, outline.document_key, title, cite, kind="manual")
     for section in outline.sections.values():

@@ -446,6 +446,30 @@ reports an auth error and you run `octryx-claude login` again.
   `backend/scripts/ingest_claude_session.build_digest` and
   `mcp_session_ingest_common.cap_digest` (redaction and cap). The hook always exits 0.
 
+## Codex device turns
+
+A device turn on `codex app-server` runs only with the launcher's own hooks, settings and platform tools
+(`codex_driver`, `codex_trust`, `codex_hook_guard`).
+
+- A turn starts only when Codex reports exactly the launcher's three hooks, enabled and trusted by hashes the
+  launcher computes itself, and the hook guard runs.
+- Codex receives a PreToolUse decision only as an explicit allow or as a block (`codex_hook_guard`).
+- Every launcher command Codex runs goes through the session's wrapper, which starts the launcher by absolute path
+  with `python -I`; hooks and helpers also get a fixed `PATH` (`codex_config`).
+- A sandboxed turn starts only when no part of the hook chain lies in a folder the turn may write, and a round
+  starts only while the session's config, wrapper and guard are unchanged (`codex_driver`).
+- The work folder and its git root are untrusted for Codex; a turn in which a repository's `.codex/config.toml`
+  still takes effect is refused (`codex_trust`).
+- Tool shells get none of the launcher's `OCTRYX_*` variables except the turn mark and the browser and build-cache
+  settings, and none of Codex's `*KEY*`, `*SECRET*`, `*TOKEN*` names (`codex_config`).
+
+Known limits:
+
+- Codex 0.169 runs a tool call when it cannot start the hook, or when the hook's runner fails or passes its
+  deadline before the guard answers.
+- A bypass turn (full access) on a person's device is no boundary against the agent, as Claude Code's
+  skip-permissions mode is not.
+
 ## Supervisor and hook signer
 
 The launcher does not exec claude. It stays as claude's parent process (the supervisor),

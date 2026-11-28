@@ -1,15 +1,4 @@
-"""Read-only access to a skill's Git repository: resolve a ref, list the tree, read selected files.
-
-Every fetch is shallow (``--depth 1``) and blob-filtered; files are materialised with a sparse checkout of only
-the requested paths. Submodules are never fetched, LFS is never run (pointer files are refused), hooks never run
-(``core.hooksPath=/dev/null``), symlinks are never followed (refused from the tree listing, ``core.symlinks``
-off), redirects are not followed, and only HTTPS is allowed. The host must be on the instance allowlist
-(``settings.allowed_hosts``) and pass ``outbound_url_policy`` before each network command. A token from a named
-connection travels in ``http.extraHeader`` through ``GIT_CONFIG_*`` environment variables, never in argv.
-
-:func:`set_git_fetcher` installs another :class:`GitFetcher` (tests use an in-memory one); nothing in the tests
-reaches the network.
-"""
+"""Read-only access to a skill's Git repository: resolve a ref, list the tree, read selected files."""
 
 from __future__ import annotations
 
@@ -49,8 +38,6 @@ class TreeEntry:
 
 @dataclass(slots=True)
 class RepoSnapshot:
-    """One commit of a repository: every path with its Git mode, and the files read so far."""
-
     url: str
     commit: str
     entries: dict[str, TreeEntry]
@@ -96,7 +83,6 @@ class GitFetcher(Protocol):
 
 def normalize_repository_url(url: str, allowed_hosts: tuple[str, ...], *, schemes: tuple[str, ...] = ("https",)
                              ) -> str:
-    """``https://host/owner/repo`` (no credentials, query or fragment) on an allowed host, else refused."""
     text = str(url or "").strip()
     parts = urlsplit(text)
     if parts.scheme not in schemes or (parts.scheme == "https" and not parts.hostname):
@@ -124,8 +110,6 @@ def normalize_repo_path(path: str) -> str:
 
 
 class SubprocessGitFetcher:
-    """The real fetcher: ``git`` in a private temporary directory, one per snapshot."""
-
     def __init__(self, *, protocols: tuple[str, ...] = ("https",), check_outbound: bool = True) -> None:
         self._protocols = protocols
         self._check_outbound = check_outbound

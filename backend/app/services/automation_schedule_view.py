@@ -1,13 +1,5 @@
-"""Schedulers and Actions in words (automation V5).
-
-* ``schedule_in_words``: the common cron shapes as a sentence ("Weekdays at 08:00", "Every 15
-  minutes"); anything else stays visible as "Custom: <cron>". Day-of-week numbers follow the
-  scheduler's APScheduler semantics (Monday = 0), names are unambiguous.
-* ``next_run_at``: the next fire time of the registered trigger (same builder the scheduler uses).
-* ``last_runs``: each task's latest run (status + time) in one query.
-* ``started_by``: which schedulers and inbound webhooks start each Action.
-* Work-intake tasks (``secure_work_*``) are owned by Work → Intake and read-only here.
-"""
+"""Schedulers and Actions in words: common cron shapes as sentences, and the next fire time. Day-of-week numbers follow
+APScheduler (Monday = 0)."""
 
 from __future__ import annotations
 

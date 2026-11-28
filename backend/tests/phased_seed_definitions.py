@@ -1,6 +1,5 @@
-"""The phased definitions the suite looks up by key: the shipped workflows and the base the accepted-spec
-engineering graph is derived from (``specification_engineering_graph_support.base_seed``), which is not shipped as a
-workflow but is the richest test-first graph the engine runs."""
+"""The phased definitions the suite looks up by key: the shipped workflows and the unshipped base of the accepted-spec
+engineering graph, the richest test-first graph the engine runs."""
 
 from __future__ import annotations
 

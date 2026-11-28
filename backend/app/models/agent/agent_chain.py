@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -10,7 +11,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class AgentChainTemplate(Base):
+class AgentChainTemplate(WorkspaceBound, Base):
     __tablename__ = "agent_chain_templates"
     __table_args__ = (
         Index("ix_agent_chain_templates_project_active", "project_id", "is_active"),
@@ -28,7 +29,7 @@ class AgentChainTemplate(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, index=True)
 
 
-class AgentChainRun(Base):
+class AgentChainRun(WorkspaceBound, Base):
     __tablename__ = "agent_chain_runs"
     __table_args__ = (
         Index("ix_agent_chain_runs_template_started", "template_id", "started_at"),

@@ -1,21 +1,4 @@
-"""``work_item_analysis_submit``: store the analysis a seat analysis session wrote.
-
-The caller is the MCP connection of a seat analysis session (``seat_session``): its launcher session key
-(``X-Octryx-Session``, a transport setting, never a tool argument) names the registered session, which
-must belong to the caller, be active, run the ``seat`` profile and be pinned to a work item the caller's grant
-reaches. The Workspace must still allow seat (seat policy, classification included) and still select
-``runner: seat``. Every refusal is a fixed code and stores nothing.
-
-The analysis passes exactly the governed runner's contract: ``contract.parse_analysis`` (the
-``incident_analysis_v1`` schema), ``contract.check_citations`` against the tool results the gateway observed
-in this session, and the secret scan of the rendered note. A refused analysis is answered with its code and
-stores nothing, so the session can fix it and submit again.
-
-A valid analysis is stored like a governed one: a ``work_item_analysis`` row (``runner: seat``, the session's
-model, platform cost 0), the agent note (``kind: analysis``), the board ``info`` and the optional reporter
-question. The same ``active_key`` as the governed runner makes it one analysis per item version: an
-existing one is answered with ``reused: true``.
-"""
+"""``work_item_analysis_submit``: store the analysis a seat analysis session wrote."""
 
 from __future__ import annotations
 
@@ -106,7 +89,6 @@ def _parsed(raw: Any, outputs: list[str]) -> tuple[dict[str, Any], str]:
 async def submit_seat_analysis(
     db: AsyncSession, *, user: User, scope: WorkGrantScope, session_key: str | None, analysis: Any
 ) -> dict[str, Any]:
-    """Validate and store one seat analysis; a refusal answers ``{status: refused, error_code}``. Commits."""
     try:
         presence, session = await _seat_session(db, user, session_key)
         item = await scoped_work_item(db, scope, pinned_item_id(session))

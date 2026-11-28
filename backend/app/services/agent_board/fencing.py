@@ -1,20 +1,4 @@
-"""Claim fencing of agent writes.
-
-The MCP write tools ``work_item_transition``, ``work_item_note``, ``change_units_plan``,
-``change_plan_generate`` and ``change_plan_decide`` come from an agent identity and accept an optional
-``claim_epoch``. Before the original handler runs:
-
-- the item has a live claim of **another** identity: 409 ``claimed_by_other`` with ``held_by``; when the
-  call carried an epoch, its claim was evidently lost, so the code is ``claim_lost`` (also with ``held_by``);
-- the item has a live claim of this identity and the given epoch differs: 409 ``claim_lost``;
-- the item has no live claim and an epoch was given: 409 ``claim_lost`` (the lease ran out or the claim was
-  released);
-- an identity whose own claim was taken over or released by an admin gets ``claim_lost`` even without an
-  epoch while another identity holds the item;
-- otherwise the write runs. Unclaimed items stay writable without an epoch.
-
-Humans in the UI do not go through these handlers and are never fenced.
-"""
+"""Claim fencing of agent writes."""
 
 from __future__ import annotations
 
@@ -49,7 +33,6 @@ def claim_epoch_from(value: Any) -> int | None:
 
 
 async def _lost_by_takeover(db: AsyncSession, item: WorkItem, identity: AgentIdentity) -> bool:
-    """Whether this identity's own latest claim on the item was taken from it (takeover or admin release)."""
     statement = (
         select(WorkItemClaim.release_reason)
         .where(
@@ -66,7 +49,6 @@ async def _lost_by_takeover(db: AsyncSession, item: WorkItem, identity: AgentIde
 async def require_claim_fence(
     db: AsyncSession, *, item: WorkItem, identity: AgentIdentity, claim_epoch: int | None, must_hold: bool = False
 ) -> WorkItemClaim | None:
-    """The identity's own live claim (or ``None`` when the item is free and ``must_hold`` is false), else 409."""
     claim = await live_claim(db, item.id)
     if claim is None:
         lost = await lost_to_takeover(db, item.id, kind=identity.kind, ref_hash=identity.ref_hash)
@@ -96,9 +78,6 @@ def fenced_handlers(
     handlers: Mapping[str, WorkToolHandler], *, headers: Mapping[str, str] | None = None,
     identity: AgentIdentity | None = None,
 ) -> dict[str, WorkToolHandler]:
-    """``handlers`` with every fenced tool wrapped; the agent is ``identity`` when given (a chat session), else the
-    one the MCP call's HTTP ``headers`` name."""
-
     def wrap(tool_name: str, handler: WorkToolHandler) -> WorkToolHandler:
         async def fenced(db: AsyncSession, *, user: User, scope: WorkGrantScope, arguments: dict[str, Any]):
             epoch = claim_epoch_from(arguments.get("claim_epoch"))

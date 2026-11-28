@@ -1,6 +1,5 @@
-"""When the Codex seat hits its 5-hour limit, the run must not pause with an unknown reset while Codex's
-rollout names it. The launcher reports the rollout's windows (``seat_rate_limits``), the platform takes the
-exhausted window's reset, and the run goes on by itself after it."""
+"""At the Codex seat's 5-hour limit the run takes the exhausted window's reset from the launcher's rollout windows
+(``seat_rate_limits``) and goes on by itself after it, instead of pausing with an unknown reset."""
 
 from __future__ import annotations
 
@@ -13,6 +12,9 @@ from app.services.workflow_runs.octryx.seat_fallback import REASON_NO_SAME_CLASS
 from app.services.workflow_runs.states import STATUS_PAUSED
 from app.services.workflow_runs.sweep import resume_after_seat_reset
 from app.time_utils import utc_now
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 RESET = 1794850112  # 2026-11-16 17:28:32 UTC
 
@@ -57,8 +59,6 @@ def _server_pipeline(monkeypatch):
 
 
 def test_the_seat_allowance_is_a_gauge_per_engine_and_window_without_empty_series():
-    """The seat windows are Prometheus metrics (ratio 0..1, 5h/7d, no person label, nothing exported for a missing
-    value). Metrics never go through the database: set in memory where the seat's answer arrives."""
     from app.services.agent_gateway.allowance import Allowance
     from app.services.observability import seat_allowance_metrics as gauges
 
@@ -73,7 +73,7 @@ def test_the_seat_allowance_is_a_gauge_per_engine_and_window_without_empty_serie
     assert 'octryx_seat_allowance_used_ratio{engine="codex",window="7d"} 0.25' in lines
     assert 'octryx_seat_allowance_used_ratio{engine="claude_code",window="7d"} 0.125' in lines
     assert f'octryx_seat_allowance_resets_timestamp_seconds{{engine="codex",window="5h"}} {RESET}' in lines
-    assert not any('engine="claude_code",window="5h"' in line for line in lines)  # missing: not exported
+    assert not any('engine="claude_code",window="5h"' in line for line in lines)
     assert not any('engine="other"' in line for line in lines)
     assert lines.count("# TYPE octryx_seat_allowance_used_ratio gauge") == 1
     gauges.reset()

@@ -1,21 +1,4 @@
-"""Icons a template's slides reference, named by what the template says about them.
-
-A template ships its icon library the way its author chose: a slide titled
-"Icons …" with ``ICO_`` captions under each glyph, SVG pictures carrying alt
-text, media files with telling names, or a mix. None of these conventions is
-required here. Every SVG picture a slide references that is icon-sized becomes
-a catalog entry, and its name comes from the first source that has one:
-
-1. a caption next to the picture that carries the ``ICO_`` prefix (one
-   recognised library convention, matched by proximity, not by a fixed offset),
-2. the picture's alt text (``cNvPr@descr``, then ``cNvPr@title``),
-3. the shape name, unless it is an editor-generated "<word> <number>" name,
-4. the media file name.
-
-Only SVG is catalogued: the composer places icons the way templates draw them —
-as vector parts — and a raster picture on a sample slide is far more often a
-photo than an icon.
-"""
+"""Icons a template's slides reference, named by what the template says about them."""
 
 from __future__ import annotations
 
@@ -60,7 +43,6 @@ def _rect(element: ET.Element) -> tuple[int, int, int, int] | None:
 
 
 def svg_target(picture: ET.Element, rels: dict[str, str]) -> str:
-    """The SVG part a picture references (``svgBlip`` first, then a plain blip)."""
     for tag in (f"{{{NS_SVG}}}svgBlip", f"{{{NS_A}}}blip"):
         blip = picture.find(f".//{tag}")
         rel_id = str(blip.attrib.get(f"{{{NS_R}}}embed") or "").strip() if blip is not None else ""
@@ -123,7 +105,6 @@ def _nearest_caption(
 
 
 def _picture_names(picture: ET.Element) -> tuple[str, str]:
-    """(alt text, meaningful shape name) of a picture; either may be empty."""
     props = picture.find(f".//{{{NS_P}}}cNvPr")
     if props is None:
         return "", ""
@@ -135,11 +116,6 @@ def _picture_names(picture: ET.Element) -> tuple[str, str]:
 def slide_icons(
     root: ET.Element, rels: dict[str, str], category: str, *, slide_width: int = 0
 ) -> list[dict[str, Any]]:
-    """Every icon-sized SVG picture of one slide, named as the module docstring says.
-
-    ``rels`` maps relationship ids to image identifiers; the value is passed
-    through as ``original_file``. Pictures are returned in document order.
-    """
     captions = _captions(root)
     used: set[int] = set()
     icons: list[dict[str, Any]] = []

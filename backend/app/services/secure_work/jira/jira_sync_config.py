@@ -33,7 +33,7 @@ async def create_jira_sync_config(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     project_id = blank_to_none(payload.get("project_id"))
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, current_user.id, project_id)
     await require_project_access(db, current_user, project_id)
     name = str(payload.get("name") or "").strip()
     if not name:

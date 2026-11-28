@@ -1,9 +1,8 @@
 // Run: node --import ./tests/unit/register-ts.mjs --test tests/unit/adminDigestRenderGuards07.test.mjs
 //
-// Render guards for admin sections, drawers, cards and flow-builder parts whose long functions are split into smaller
-// parts: each renders with representative props, keeps its key labels and test ids, and keeps its whole rendered tree
-// (a digest of the test renderer's JSON), so the split draws exactly what the original drew. The flow templates keep
-// their whole definition (a digest of their JSON).
+// Render guards for admin sections, drawers and cards whose long functions are split into smaller parts: each renders
+// with representative props, keeps its key labels and test ids, and keeps its whole rendered tree (a digest of the test
+// renderer's JSON), so the split draws exactly what the original drew.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createElement as h } from "react";
@@ -161,53 +160,19 @@ test("call sessions: rows with status, duration and start; the empty states", as
   assert.equal(digest(none), "acb934eb3ea844e0de3b6c80a9c19de4378fb318f73f4fb733477f432dfe3ac1");
 });
 
-// --- Flow builder parts ---------------------------------------------------------------------------------------------
+// --- Steps canvas node ----------------------------------------------------------------------------------------------
 
-const ROUTER_NODES = [
-  { id: "route", type: "router", label: "Route", input_schema: {}, output_schema: { verdict: "string", score: "number" },
-    config: { routes: [{ when: "verdict == 'ok'", route: "approved" }, { when: "x", route: "route:approved" }, "bad"], default_route: "rejected" } },
-  { id: "next", type: "agent_step", label: "Next", input_schema: { verdict: "string" }, output_schema: {}, config: {} },
-];
-
-test("edge mapping editor: fields, branch choices (single, multiple, custom, fallback) and the plain condition", async () => {
-  const path = "admin/components/flowBuilder/FlowEdgeMappingEditor.tsx";
-  const edge = (data) => ({ id: "e-1", source: "route", target: "next", data });
-  const digests = [];
-  for (const data of [{ sourceField: "verdict", condition: "route:rejected" }, { condition: "route:approved" }, { condition: "x > 1" }, { condition: "" }]) {
-    const view = await mount(path, "FlowEdgeMappingEditor", { edge: edge(data), nodes: ROUTER_NODES, onUpdate: noop, onDelete: noop });
-    digests.push(digest(view));
-  }
-  const plain = await mount(path, "FlowEdgeMappingEditor", { edge: { id: "e-2", source: "next", target: "route" }, nodes: ROUTER_NODES, onUpdate: noop, onDelete: noop });
-  assert.equal(plain.root.findAllByType("select").length, 0);
-  digests.push(digest(plain));
-  assert.equal(digest({ toJSON: () => digests }), "0afb6b017396fc4afc683c933abf472b28c05c353bd0efce90f6b586288b5561");
-});
-
-test("publish gate drawer: badges, issues and the publish buttons", async () => {
-  const path = "admin/components/flowBuilder/PublishGateDrawer.tsx";
-  const report = { valid: false, node_count: 0, errors: [{ code: "no_output", message: "Add an output" }], warnings: [{ code: "slow", message: "Slow step" }] };
-  const view = await mount(path, "PublishGateDrawer", { report, onClose: noop, onPublish: noop, onPublishToStaging: noop, busy: true });
-  assert.match(text(view.root), /Blocking errors:/);
-  assert.match(text(view.root), /Publishing\.\.\./);
-  assert.equal(digest(view), "9d40e56d92f8b5b8471311bc8ad0b259c2a4ca3e7516b7b9711efba943d41497");
-  const ok = await mount(path, "PublishGateDrawer", { report: { valid: true, node_count: 3, errors: [], warnings: [] }, onClose: noop, onPublish: noop, busy: false });
-  assert.match(text(ok.root), /Publish Directly/);
-  assert.equal(digest(ok), "50abdd3775a5e65e1ec92cec98169d53cabc2b2f9dcc4c6e093e1a7aeb16a8e4");
-});
-
-test("flow node: labels, references, badges, schemas and the run status", async () => {
+test("steps canvas node: label, sub-label, badges and the selection", async () => {
   const path = "admin/components/flowBuilder/FlowNode.tsx";
   const stubs = { "@xyflow/react": { Handle: (props) => h("i", { "data-handle": props.type, className: props.className }), Position: { Left: "left", Right: "right" } } };
   const datas = [
-    { id: "a", type: "agent_step", label: "Agent", agentName: "Coder", input_schema: { q: "string" }, output_schema: { a: "string", b: "string" }, runStatus: "completed" },
-    { id: "t", type: "tool_step", label: "", toolNames: ["jira", "git"], selected: true, badges: [{ label: "write", kind: "warn" }] },
-    { id: "g", type: "trigger", label: "Start", triggerType: "chat_question", output_schema: { q: "string" } },
-    { id: "x", type: "custom_kind", label: "Custom", subLabel: "Own" },
-    { id: "y", type: "human_task", label: "Task" },
+    { id: "s", type: "tool_step", label: "Search", subLabel: "jira_search", badges: [{ label: "Strict", kind: "active" }] },
+    { id: "c", type: "evaluation", label: "", subLabel: "Check", selected: true, badges: [{ label: "Blocking", kind: "danger" }] },
+    { id: "r", type: "output", label: "Result", subLabel: "Answer" },
   ];
   const digests = [];
   for (const data of datas) digests.push(digest(await mount(path, "FlowNode", { data, selected: false }, { stubs })));
-  assert.equal(digest({ toJSON: () => digests }), "eec5f2413865e4ce2c77da8bca5bc88d764460a3af78e790b97fb01ed7226969");
+  assert.equal(digest({ toJSON: () => digests }), "b35eaa31b07e033da81661ea574d7f8c93d7b191f6fc1a1c11042b7db9c9f736");
 });
 
 // --- Corporate identity template card -------------------------------------------------------------------------------
@@ -254,28 +219,4 @@ test("classification add rule: the three steps", async () => {
   assert.match(text(view.root), /1 Workspace affected/);
   digests.push(digest(view));
   assert.equal(digest({ toJSON: () => digests }), "18ebfac99a85b72fb711ebf6b5e3d6fa58fe2f41e1356a00cda1543d05d8d864");
-});
-
-// --- Scenarios tab --------------------------------------------------------------------------------------------------
-
-test("scenarios tab: counts, cards and every form prop", async () => {
-  const path = "admin/components/AdminScenariosTab.tsx";
-  const stubs = {
-    "/AdminScenarioFormModal": { AdminScenarioFormModal: (props) => h("pre", null, JSON.stringify(Object.keys(props).sort().map((key) => [key, typeof props[key] === "function" ? `fn ${props[key].tag ?? ""}` : props[key]]))) },
-    "/AdminScenarioCard": { ScenarioCard: (props) => h("li", { "data-id": props.profile.id, "data-names": [...props.projectNameById.values()].join() }) },
-    "/AreaPurpose": { AreaPurpose: (props) => h("nav", { "data-links": props.links.length }) },
-  };
-  const fn = (tag) => Object.assign(() => {}, { tag });
-  const ctx = new Proxy({
-    scenarioProfiles: [{ id: "sc-1", name: "Incidents", is_active: true, project_id: "p-1" }, { id: "sc-2", name: "Docs", is_active: false, project_id: null }],
-    projects: [{ id: "p-1", name: "Ops" }], showScenarioForm: true, editingScenarioId: "sc-1", scenarioPriority: 5, scenarioActive: true,
-    scenarioFormLoading: false, scenarioFormError: null,
-  }, { get: (target, key) => (key in target ? target[key] : String(key).startsWith("set") || String(key).startsWith("on") ? fn(String(key)) : `ctx.${String(key)}`) });
-  const view = await mount(path, "AdminScenariosTab", { ctx }, { stubs });
-  assert.match(text(view.root), /Scenarios \(2\) · 1 active · 1 workspace-scoped · 1 global/);
-  assert.match(text(view.root), /"onClose","fn onCloseScenarioForm"/);
-  assert.equal(digest(view), "1c95e9d661e8b1dce3cffdb3a4f35a8faad3504d15253bb98ff0cc2aedb6d048");
-  const empty = await mount(path, "AdminScenariosTab", { ctx: { ...ctx, scenarioProfiles: [], projects: [] } }, { stubs });
-  assert.match(text(empty.root), /No scenario profiles yet/);
-  assert.equal(digest(empty), "f600c795c3f6c2e68b44b2892705187bc077d003481f15250c705c7e473b4c6a");
 });

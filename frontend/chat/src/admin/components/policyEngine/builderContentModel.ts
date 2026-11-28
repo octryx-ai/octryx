@@ -1,8 +1,4 @@
-// Pure model of the builder's content steps (content routing): which detectors a content policy names, the
-// outcome rules (route only for model requests, sticky only with a route, the approved-model exception only for
-// Mask on Call a model), the approved-model chips, the side badge, and the server's detector catalog and preview
-// answers parsed defensively. Detection never runs in the browser: counts and the masked rendering come from
-// `POST …/content-detectors/preview`.
+// Detection never runs in the browser: counts and the masked rendering come from the server preview.
 
 import type { BuilderModel } from "./policyBuilderModel";
 
@@ -23,7 +19,6 @@ export const blankOutcome = (): BuilderModel["outcome"] => ({ kind: "block", rer
 export const routes = (kind: string) => kind === "reroute" || kind === "mask_reroute";
 export const masks = (kind: string) => kind === "mask" || kind === "mask_reroute";
 
-/** The one content action of the model, or null: the Content and Outcome steps exist only then. */
 export function contentAction(model: Pick<BuilderModel, "actions">): string | null {
   return model.actions.length === 1 && (CONTENT_ACTIONS as readonly string[]).includes(model.actions[0]) ? model.actions[0] : null;
 }
@@ -34,8 +29,7 @@ export function readOutcomeKind(value: unknown): OutcomeKind {
   return OUTCOME_KINDS.includes(value as OutcomeKind) ? (value as OutcomeKind) : "block";
 }
 
-/** Choose an outcome. A route keeps the conversation on the approved model (sticky) by default; leaving the route
- * clears sticky; the approved-model exception stays only for Mask; masking starts with the type-token style. */
+/** Leaving a route clears sticky; the approved-model exception stays only for Mask. */
 export function withOutcome(model: BuilderModel, kind: OutcomeKind): BuilderModel {
   const outcome = model.outcome;
   return {
@@ -50,13 +44,11 @@ export function withOutcome(model: BuilderModel, kind: OutcomeKind): BuilderMode
   };
 }
 
-/** Why an outcome cannot be chosen for the model's action ("" when it can). */
 export function outcomeRefusal(kind: OutcomeKind, action: string | null): string {
   return routes(kind) && action === "receive_tool_result" ? ROUTE_REFUSED : "";
 }
 
-/** After an action change: tool results cannot route (falls back to Mask), and without a content action the
- * content and outcome are cleared. */
+/** Tool results cannot route, so they fall back to Mask. */
 export function normalizeContent(model: BuilderModel): BuilderModel {
   if (!model.actions.some((action) => (CONTENT_ACTIONS as readonly string[]).includes(action))) {
     return isContentPolicy(model) || model.outcome.kind !== "block" ? { ...model, content: blankContent(), outcome: blankOutcome() } : model;
@@ -67,8 +59,6 @@ export function normalizeContent(model: BuilderModel): BuilderModel {
   if (action !== "call_model" && next.outcome.approved_except) next = { ...next, outcome: { ...next.outcome, approved_except: false } };
   return next;
 }
-
-// ---- detectors -------------------------------------------------------------------------------------------------
 
 export type DetectorInfo = { id: string; category: string; label: string; method: string; builtin: boolean };
 export type DetectorCategory = { id: string; label: string; note: string };
@@ -85,7 +75,6 @@ export function readDetectorCatalog(raw: unknown): DetectorCatalog {
   };
 }
 
-/** Detector cards grouped by category, in the catalog's category order; categories without detectors are left out. */
 export function detectorGroups(catalog: DetectorCatalog): { category: DetectorCategory; detectors: DetectorInfo[] }[] {
   const known = new Set(catalog.categories.map((item) => item.id));
   const extra = Array.from(new Set(catalog.detectors.map((item) => item.category))).filter((id) => !known.has(id)).map((id) => ({ id, label: id, note: "" }));
@@ -94,19 +83,16 @@ export function detectorGroups(catalog: DetectorCatalog): { category: DetectorCa
     .filter((group) => group.detectors.length > 0);
 }
 
-/** The categories the chosen detectors belong to, in detector order (what a route target must be approved for). */
 export function categoriesOf(detectors: string[], catalog: DetectorCatalog): string[] {
   return Array.from(new Set(detectors.map((id) => catalog.detectors.find((item) => item.id === id)?.category ?? "").filter(Boolean)));
 }
 
 export type AliasOption = { alias: string; dataPolicyClass: string; approvedFor: string[] };
 
-/** Every alias with whether it is approved for all the categories (only those can be picked). */
 export function approvedAliases(aliases: AliasOption[], categories: string[]): (AliasOption & { approved: boolean })[] {
   return aliases.map((item) => ({ ...item, approved: categories.every((category) => item.approvedFor.includes(category)) }));
 }
 
-/** Toggle a detector; a route target no longer approved for the categories is cleared. */
 export function toggleDetector(model: BuilderModel, id: string, catalog: DetectorCatalog, aliases: AliasOption[]): BuilderModel {
   const detectors = model.content.detectors.includes(id) ? model.content.detectors.filter((item) => item !== id) : [...model.content.detectors, id];
   const target = aliases.find((item) => item.alias === model.outcome.reroute_to);
@@ -119,8 +105,6 @@ export function toggleDetector(model: BuilderModel, id: string, catalog: Detecto
   };
 }
 
-// ---- side card -------------------------------------------------------------------------------------------------
-
 const BADGES: Record<OutcomeKind, string> = { block: "Blocks", mask: "Masks", reroute: "Routes", mask_reroute: "Masks · routes" };
 
 export function effectBadge(model: BuilderModel): { label: string; tone: "danger" | "running" } {
@@ -128,14 +112,10 @@ export function effectBadge(model: BuilderModel): { label: string; tone: "danger
   return { label: BADGES[kind], tone: kind === "block" ? "danger" : "running" };
 }
 
-/** The side warning while a route has no target (`stepNumber`: the Outcome step's position; `onlyInput`: it is the
- * template's only missing input). */
 export function routeTargetWarning(model: BuilderModel, stepNumber: number, onlyInput = false): string | null {
   if (!contentAction(model) || !routes(model.outcome.kind) || model.outcome.reroute_to) return null;
   return `Pick the approved model in step ${stepNumber} (Outcome)${onlyInput ? " — the only required input of this template" : ""}.`;
 }
-
-// ---- server preview --------------------------------------------------------------------------------------------
 
 export type PreviewPart = { text: string; detector: string; masked: boolean; placeholder: string };
 export type ContentPreview = { counts: Record<string, number>; parts: PreviewPart[]; truncated: boolean };
@@ -151,7 +131,6 @@ export function readContentPreview(raw: unknown): ContentPreview {
   };
 }
 
-/** How a found part is shown: masked outcomes show the placeholder, block/route show the hit as found. */
 export function previewMark(part: PreviewPart, model: BuilderModel): { shown: string; mark: "none" | "hit" | "blocked" } {
   if (!part.detector || !model.content.detectors.includes(part.detector)) return { shown: part.text, mark: "none" };
   const kind = model.outcome.kind;

@@ -1,22 +1,5 @@
-"""The ACL step of one synced item: store the source's restriction before anything is ingested (5b).
-
-Runs first for every listed item, before the version marker and the content hash, because an ACL
-can change while the content does not. The step writes the ledger's ACL for the item's
-``source_key`` (``access/source_acl.py``) and, when that changed for a source already served, owes
-its re-projection so the spans carry the new marker. It decides one of three outcomes:
-
-- **ingest**: the item is readable by the whole configured audience (any earlier restriction is
-  lifted), or it is restricted, the Workspace enforces source ACLs, and the connector expanded the
-  restriction to member addresses within bounds. The restriction is stored first, so the revision
-  that follows is never served as public, not even for one projection.
-- **withhold** (``restricted_acl``): restricted, and either the Workspace does not enforce source
-  ACLs (the default) or the connector cannot expand this mechanism (a Jira security level).
-- **withhold** (``acl_unresolved``): restricted, but the expansion failed or exceeded its bounds.
-
-A withheld item is stored as restricted to nobody before the runner retires what it served, so its
-revision history is not readable by evidence key either. An item whose audience could not be
-determined at all is the runner's failure, and is never ingested.
-"""
+"""The ACL step of one synced item: store the source's restriction before anything is ingested. It runs before the
+version check: an ACL can change alone."""
 
 from __future__ import annotations
 
@@ -41,24 +24,21 @@ from .contract import (
 
 @dataclass(frozen=True, slots=True)
 class AclDecision:
-    """``withhold`` is the fixed reason the item is not ingested; ``None`` means ingest it."""
-
     audience: str
     withhold: str | None = None
     reprojected: bool = False
 
     @property
     def restricted(self) -> bool:
-        """Its title must not reach the run report, which every Workspace member can read."""
+        # The title must not reach the run report, which every Workspace member can read.
         return self.audience != ACL_AUDIENCE_SCOPE
 
 
 async def _expansion(connector: SourceConnector, item: SourceItem) -> AclExpansion | str:
-    """The expanded restriction, or the fixed reason it cannot be used."""
     if not item.acl.complete:
         return REASON_ACL_UNRESOLVED
-    # A connector predating 5b has no expansion: it can never ingest restricted items. A connector
-    # reading items with several connections expands each with the one that listed it.
+    # A connector without expansion can never ingest restricted items. A connector reading items with several
+    # connections expands each with the one that listed it.
     expand_item = getattr(connector, "expand_item_acl", None)
     expand = getattr(connector, "expand_acl", None)
     if expand_item is None and expand is None:
@@ -84,7 +64,6 @@ async def apply_item_acl(
     serves_source: bool,
     enforce: bool,
 ) -> AclDecision:
-    """Store the item's ACL and decide whether it is ingested. Never commits."""
     audience = item.acl.audience
     if audience == ACL_AUDIENCE_SCOPE:
         lifted = await unrestrict_source(db, project_id=project_id, source_key=source_key)

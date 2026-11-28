@@ -1,7 +1,5 @@
-"""Generate reviewable workflow drafts from existing session evidence.
-
-The draft is a phased workflow (``definition_json.execution_kind: "phased"``), the designer's one format (D2b):
-validated by ``workflow_runs/graph`` before it is stored, published only by a second admin (four-eyes)."""
+"""Generate reviewable workflow drafts from existing session evidence. Validated before it is stored, published only by
+a second admin."""
 
 from __future__ import annotations
 
@@ -29,7 +27,6 @@ MAX_SOURCE_MESSAGES = 12
 async def _session_evidence(
     db: AsyncSession, session_id: str
 ) -> tuple[list[Message], list[ToolCall], list[TurnTrace]]:
-    """The session's first messages, tool calls and turn traces, each bounded."""
     messages = (
         (
             await db.execute(

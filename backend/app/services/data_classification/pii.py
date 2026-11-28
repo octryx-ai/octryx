@@ -50,15 +50,6 @@ _PII_MASKS: dict[str, str] = {
 
 
 def pii_redact_text(text: str, *, pii_types: list[str] | None = None) -> tuple[str, list[str]]:
-    """Redact PII from a text string using regex patterns.
-
-    Args:
-        text: Input string to scan and redact.
-        pii_types: If given, only redact these PII types. Otherwise redacts all.
-
-    Returns:
-        ``(redacted_text, list_of_detected_pii_types)``
-    """
     detected: list[str] = []
     result = text
     active_types = pii_types or list(_PII_PATTERNS.keys())
@@ -75,11 +66,6 @@ def pii_redact_text(text: str, *, pii_types: list[str] | None = None) -> tuple[s
 def detect_and_redact_pii(
     payload: Any, *, prefix: str = "", pii_types: list[str] | None = None
 ) -> tuple[Any, list[str], list[str]]:
-    """Recursively scan a dict/list payload for PII and redact matches.
-
-    Returns:
-        ``(redacted_payload, detected_pii_types, redacted_paths)``
-    """
     detected_set: set[str] = set()
     paths: list[str] = []
 

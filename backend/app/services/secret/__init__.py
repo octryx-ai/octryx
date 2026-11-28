@@ -1,12 +1,9 @@
 """Canonical secret service package surface."""
 
+from .access import SecretAccessAuditError, SecretHolder, reveal_held_secret
+from .crypto import encrypt_secret
 from .service import (
-    _FERNET_PREFIX,
     SecretExpiryWorker,
-    _fernet,
-    _key_bytes,
-    decrypt_secret,
-    encrypt_secret,
     get_secret_entry,
     get_secret_value,
     is_secret_ref_field,
@@ -28,11 +25,9 @@ from .service import (
 )
 
 __all__ = [
+    "SecretAccessAuditError",
     "SecretExpiryWorker",
-    "_FERNET_PREFIX",
-    "_fernet",
-    "_key_bytes",
-    "decrypt_secret",
+    "SecretHolder",
     "encrypt_secret",
     "get_secret_entry",
     "get_secret_value",
@@ -41,6 +36,7 @@ __all__ = [
     "list_secret_rotation_logs",
     "normalize_secret_ref",
     "process_secret_expiry_alerts",
+    "reveal_held_secret",
     "resolve_secret_refs",
     "revoke_secret_value",
     "rotate_secret_value",

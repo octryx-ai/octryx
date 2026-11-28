@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import DeviceJob, DeviceJobApproval
 from ...time_utils import ensure_utc, utc_now, utc_now_aware
 from ..decisions.devices import record_device_approval
+from ..secret_masking import masked_text
 from .job_state import (
     DECISION_ALLOW_JOB_EDITS,
     DECISIONS,
@@ -32,7 +33,6 @@ from .job_state import (
 async def decide_approval(
     db: AsyncSession, *, job_id: str, approval_id: str, user_id: str, decision: Any,
 ) -> DeviceJobApproval:
-    """The owner's decision, compare-and-set on ``pending`` and before ``expires_at``. Flushes."""
     job = await db.get(DeviceJob, job_id) if job_id else None
     approval = await db.get(DeviceJobApproval, approval_id) if approval_id else None
     if job is None or approval is None or approval.job_id != job.id:
@@ -101,8 +101,10 @@ async def _approval_requested(db: AsyncSession, job: DeviceJob, body: dict[str, 
     # A run decision shows the owner the platform's full ask text (payload hash first), not only the tool input.
     preview = await device_decision_preview(db, owner_user_id=job.owner_user_id, tool=tool, preview=preview) or preview
     approval = DeviceJobApproval(
-        request_id=request_id, job_id=job.id, owner_user_id=job.owner_user_id, tool=tool, input_preview=preview,
-        input_digest=input_digest(preview), can_allow_job_edits=int(allow_job_edits and tool in EDIT_TOOLS),
+        request_id=request_id, job_id=job.id, owner_user_id=job.owner_user_id, tool=tool,
+        # The digest stays over the unmasked preview: a chat write confirmation matches it against the raw tool input.
+        input_preview=masked_text(preview), input_digest=input_digest(preview),
+        can_allow_job_edits=int(allow_job_edits and tool in EDIT_TOOLS),
         expires_at=utc_now() + timedelta(seconds=timeout_s),
     )
     db.add(approval)

@@ -48,12 +48,7 @@ async def replace_claims_of_type(
     claim_type: str,
     claims: list[dict[str, Any]],
 ) -> int:
-    """Replace ALL claims of one type on a node with a fresh set.
-
-    For state-of-the-world claim types that a re-scan supersedes (code index
-    stats, CI pipeline stages, container build info) — accumulating them would
-    surface stale facts next to current ones.
-    """
+    """Replace all claims of one type on a node with a fresh set."""
     existing_ids = (
         (
             await db.execute(

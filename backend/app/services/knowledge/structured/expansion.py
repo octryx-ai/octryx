@@ -1,14 +1,4 @@
-"""Structured one-hop facts behind search hits.
-
-For one Workspace's hits (``(revision_id, span_ordinal)`` in hit order) the nodes stated at those
-spans are the seeds (a parameter row, a section, a setting line, an incident), the ones whose name
-shares terms with the query first (one configuration chunk states dozens of keys); every edge touching a
-seed is a one-hop fact. Findings and typed relations come before structural edges (a file defines
-its keys), then in hit order, a fact cited from the hit span itself first (``via: hit``), then the
-rest (``via: related``); each is served only when every revision it rests
-on is visible to the reader, carries its resolved citation, and stays inside the read's products.
-No model, no vector call: these facts never delay a search.
-"""
+"""Structured one-hop facts behind search hits."""
 
 from __future__ import annotations
 

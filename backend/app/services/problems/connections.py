@@ -1,14 +1,4 @@
-"""``connection`` problems: failing connector checks and unhealthy model providers.
-
-- ``connector_health``: ``error``/``failed`` is a problem, ``degraded``/``warning`` needs attention; ``ok``,
-  ``no_test``, ``unknown`` and ``disabled`` are not problems. A row whose last check is older than the window is
-  stale (unknown on the health page) and is left out. ``since``/``count`` are the current failure series in
-  ``connector_health_log``: the bad checks after the last good one, inside the window (one grouped query).
-- ``llm_providers``: an active provider whose ``health_status`` is in the readiness vocabulary's unavailable set is
-  a problem, in its degraded set needs attention (``services/provider/readiness``); last check inside the window.
-  A provider without a Workspace is platform-wide (``workspace: null``, platform admins only).
-- connections (``connection_rows.py``): a failing connection and a use without a linked connection.
-"""
+"""``connection`` problems: failing connector checks and unhealthy model providers."""
 
 from __future__ import annotations
 
@@ -37,7 +27,6 @@ PROVIDER_DEGRADED = ("no_models", "stale_cache")
 
 
 async def _series(db: AsyncSession, ctx: CollectContext, names: list[str]) -> dict[tuple[str, str], tuple]:
-    """``(connector, workspace) -> (first, last, count)`` of the bad checks after the last good one."""
     log = ConnectorHealthLog
     last_good = (select(log.connector_name, log.project_id, func.max(log.checked_at).label("good_at"))
                  .where(log.connector_name.in_(names), log.checked_at >= ctx.window_start, log.status.not_in(_BAD))

@@ -1,10 +1,4 @@
-"""The companion's job list and read-only watch view (Octryx companion, "watch, team and handovers").
-
-- ``scope=mine``: the person's runs; ``scope=team``: the runs of the Workspaces they are a member of (Work scope).
-- A watcher sees the run's phases, its current step and its run events. Nothing from a device's folders or chat
-  stream is shown (device text streams stay in the owner's chat).
-- ``can_control`` is decided here: only the run's requester controls it.
-"""
+"""The companion's job list and read-only watch view (Octryx companion, "watch, team and handovers")."""
 
 from __future__ import annotations
 
@@ -42,8 +36,6 @@ def _target(run: WorkflowRun, *, own: bool) -> dict[str, Any] | None:
 
 
 async def _phases(db: AsyncSession, run: WorkflowRun) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
-    """The run's phases with ``done`` | ``active`` | ``problem`` | ``pending``: a phase before the current node
-    (in display order) is done, also while the run waits between phases (e.g. at a confirmation)."""
     from ..workflow_runs.views import run_nodes
 
     try:
@@ -92,18 +84,20 @@ async def job_row(db: AsyncSession, run: WorkflowRun, viewer: User) -> dict[str,
 
 
 async def job_list(db: AsyncSession, viewer: User, *, scope: str, workspace_id: str | None) -> list[dict[str, Any]]:
+    from ..project.private_workspace import outside_foreign_private
     from ..secure_work.access import work_scope_project_ids
 
     since = (utc_now() - RECENT).replace(tzinfo=None)
     query = select(WorkflowRun).where(or_(WorkflowRun.status.in_(("running", "waiting", "paused")),
-                                          WorkflowRun.updated_at >= since))
+                                          WorkflowRun.updated_at >= since),
+                                      outside_foreign_private(WorkflowRun.project_id, viewer.id))
     if scope == "team":
-        allowed = await work_scope_project_ids(db, viewer)  # None: a platform admin sees every Workspace
+        allowed = await work_scope_project_ids(db, viewer)
         if workspace_id:
             if allowed is not None and workspace_id not in allowed:
                 return []
             query = query.where(WorkflowRun.project_id == workspace_id)
-        elif allowed is not None:
+        if allowed is not None and not workspace_id:
             query = query.where(WorkflowRun.project_id.in_(tuple(allowed) or ("",)))
     else:
         query = query.where(WorkflowRun.requested_by == viewer.id)

@@ -1,10 +1,4 @@
-"""AWS Bedrock embedding driver (Titan / Cohere).
-
-Uses the standard AWS credential chain (env / instance role). Per-provider
-credential wiring through the control plane is a later slice; this driver works
-with an ambient AWS identity and region. Any missing dependency, credential, or
-API failure raises loudly instead of degrading to hash vectors.
-"""
+"""AWS Bedrock embedding driver (Titan / Cohere)."""
 
 from __future__ import annotations
 

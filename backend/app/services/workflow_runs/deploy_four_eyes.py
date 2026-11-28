@@ -1,14 +1,4 @@
-"""Four-eyes before a deploy, enforced by structure and at runtime — never only a property of a seed.
-
-- **publish**: a phased workflow whose ``deploy.run`` action can be reached from its start without passing **the
-  deploy's** approval node (subject ``deploy``, or the approval whose ``approved`` edge leads straight to it) is
-  refused (:func:`deploy_approval_errors`);
-- **runtime**: ``deploy.run`` starts the job only with an approval of **this pass** of the run: decided ``approved``
-  under the platform's four-eyes rule (the approval record says so, not the run) at the deploy's approval node,
-  recorded since the run last
-  entered a phase (``engine`` clears it), and not used by an earlier deploy (:func:`deploy_approval_refusal`). An
-  octryx-claude session's ``workflow_action_request`` cannot deploy either: entering its phase cleared every approval.
-"""
+"""Four-eyes before a deploy, enforced by structure and at runtime — never only a property of a seed."""
 
 from __future__ import annotations
 
@@ -23,8 +13,6 @@ CONTEXT_KEY = "four_eyes"
 
 
 def deploy_approves(graph: Any, approval_id: str | None, deploy_id: str) -> bool:
-    """Whether the approval node ``approval_id`` is a deploy's approval: its ``subject`` is ``deploy``, or it is
-    this deploy node's own approval (its ``approved`` edge leads straight to it). Any other approval is not."""
     from .graph import NODE_APPROVAL
 
     node = graph.nodes.get(approval_id or "")
@@ -35,7 +23,6 @@ def deploy_approves(graph: Any, approval_id: str | None, deploy_id: str) -> bool
 
 
 def deploy_approval_errors(graph: Any) -> list[dict[str, str]]:
-    """Every deploy node reachable from the start without passing **its** approval; one error per such node."""
     from .graph import NODE_PLATFORM_ACTION, NODE_START
 
     deploys = sorted(node.id for node in graph.nodes.values() if node.kind == NODE_PLATFORM_ACTION
@@ -61,14 +48,12 @@ def deploy_approval_errors(graph: Any) -> list[dict[str, str]]:
 
 
 def record_approval(run: WorkflowRun, *, approval_id: str, approved_by: str | None, node_id: str | None) -> None:
-    """An approved run approval of the current pass (``hitl_decisions.approval_decided``)."""
     state = dict(run.node_state or {})
     run.context = {**dict(run.context or {}), CONTEXT_KEY: {
         "approval_id": approval_id, "approved_by": approved_by, "node_id": node_id, "entry": state.get("entry")}}
 
 
 async def deploy_approval_refusal(db: AsyncSession, run: WorkflowRun) -> str:
-    """Why ``deploy.run`` may not start now ('' when an unused four-eyes approval of this pass allows it)."""
     context = dict(run.context or {})
     granted = dict(context.get(CONTEXT_KEY) or {})
     if not granted.get("approval_id"):

@@ -1,25 +1,4 @@
-"""The per-Workspace ServiceNow intake configuration, stored as a ``WorkItemSyncConfig``.
-
-One intake per Workspace (``source_type`` ``servicenow``), modelled on the Jira intake:
-
-- ``tables``: ``incident`` (default) and optionally ``change_request``;
-- ``excluded_states``: the ServiceNow states that are not open (default Closed, Resolved, Cancelled; matched on
-  the display value, case-insensitive). A record in one of them is closed: its work item moves to ``done``;
-- ``sysparm_query``: an optional encoded query that can only narrow the Table API listing (Table API style
-  only; the default lists ``active=true``). Scripted REST endpoints list what they list;
-- ``state_mapping``: ServiceNow state (display value) to work state, every target a key of the shared workflow
-  vocabulary. Defaults: New→intake, In Progress→development, On Hold→blocked, Resolved/Closed/Cancelled→done.
-  An unmapped state maps to ``intake`` and is reported;
-- ``schedule``: one preset (``intake/schedule.py``, default ``every_15_min`` like the Jira intake's scheduler;
-  ``manual`` turns it off);
-- ``max_items``: the bounded listing per table and run (default 200, 1..1000);
-- ``assignment_groups`` / ``services``: optional group / service names or ``sys_id``s that narrow the
-  connector's own ``servicenow_assignment_groups`` / ``servicenow_services`` (empty: the connector's list
-  applies; combined by the connector's ``servicenow_filter_mode``). Checked against the connector when saved and
-  again on every run (``source.effective_limit``): an override can never widen the connector's limit.
-
-Values are validated and refused, never cleaned up; nothing names a customer.
-"""
+"""The per-Workspace ServiceNow intake configuration, stored as a ``WorkItemSyncConfig``."""
 
 from __future__ import annotations
 
@@ -74,7 +53,6 @@ def _bounded(raw: object, default: int, low: int, high: int, field: str) -> int:
 
 
 def _schedule(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """The intake's one schedule: ``schedule``, else :data:`DEFAULT_SCHEDULE`."""
     if payload.get("schedule") is None:
         return dict(DEFAULT_SCHEDULE)
     try:
@@ -84,7 +62,6 @@ def _schedule(payload: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def normalize_intake(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """The validated intake configuration (``tables``, filters, mapping, schedule); raises 422 on a bad value."""
     tables = payload.get("tables", ["incident"])
     if not isinstance(tables, list) or not tables or any(table not in TABLES for table in tables):
         raise _refuse("tables", f"must be a non-empty list of: {', '.join(TABLES)}")
@@ -127,7 +104,6 @@ def is_closed(state: object, intake: Mapping[str, Any]) -> bool:
 
 
 def mapped_state(state: object, intake: Mapping[str, Any]) -> tuple[str, str]:
-    """``(work_state, source)``: the configured mapping (``configured``) or ``intake`` (``unmapped``)."""
     key = " ".join(state.split()).lower() if isinstance(state, str) else ""
     target = dict(intake.get("state_mapping") or {}).get(key)
     return (target, "configured") if target else ("intake", "unmapped")

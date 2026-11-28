@@ -1,21 +1,4 @@
-"""One governed approval record per workflow proposal that waits for the user.
-
-When the execution gate holds a turn for a pending workflow proposal (``needs_confirmation``),
-turn admission records exactly one pending :class:`Approval` for it: ``action`` is
-``workflow_proposal.confirm:<proposal_id>`` on the turn's session, requested by the session
-owner. Every answer decides that record through the shared owner
-``session/approval_decision.decide_session_approval`` (write access to the session, still
-pending, compare-and-set), so every surface reaches the same record:
-
-- the chat proposal card (Allow once / Deny) through :func:`decide_workflow_proposal_approval`;
-- ``/chat/api/approvals/{id}``, ``/api/v1/approvals/{id}``, the admin approvals panel, channel
-  approval commands and the Claude Code gateway through ``decide_session_approval`` directly.
-
-The approval resume (``session/approval_resume``) hands a proposal approval to
-:func:`resume_workflow_proposal_approval`. A proposal is a phased workflow's start card
-(``phased_start``): approved creates the Work item and starts its run, rejected starts nothing;
-any other outcome starts nothing.
-"""
+"""One governed approval record per workflow proposal that waits for the user."""
 
 from __future__ import annotations
 
@@ -68,7 +51,6 @@ def proposal_approval_action(proposal_id: str) -> str:
 
 
 def proposal_id_of_approval_action(action: Any) -> str | None:
-    """The proposal id a proposal approval's action names, or ``None`` for any other approval."""
     if not isinstance(action, str) or not action.startswith(PROPOSAL_APPROVAL_ACTION_PREFIX):
         return None
     proposal_id = action[len(PROPOSAL_APPROVAL_ACTION_PREFIX) :]
@@ -82,7 +64,6 @@ async def _find(db: AsyncSession, *, session_id: str, proposal_id: str) -> Appro
 
 
 async def request_workflow_proposal_approval(db: AsyncSession, *, session_id: str) -> Approval | None:
-    """The one approval record of the session's pending proposal (created once, then reused)."""
     session = await db.get(AgentSession, session_id)
     pending = pending_workflow_proposal(session.metadata_ if session is not None else None)
     proposal_id = str((pending or {}).get("proposal_id") or "")
@@ -122,7 +103,6 @@ async def decide_workflow_proposal_approval(
     answer: str,
     session_factory=None,
 ) -> ProposalApprovalResult:
-    """Answer the session's pending proposal by deciding its approval record."""
     from ..session.approval_decision import decide_session_approval
 
     clean_answer = str(answer or "").strip().lower()
@@ -168,7 +148,6 @@ async def decide_workflow_proposal_approval(
 async def resume_workflow_proposal_approval(
     db: AsyncSession, *, session: AgentSession, approval: Approval, decision: str, session_factory
 ) -> bool:
-    """``True`` when ``approval`` is a proposal approval (handled here), else ``False``."""
     proposal_id = proposal_id_of_approval_action(approval.action)
     if proposal_id is None:
         return False
@@ -209,8 +188,6 @@ START_FAILED = "failed"
 
 
 def workflow_start_outcome(session: AgentSession | None, approval: Approval) -> dict[str, Any] | None:
-    """What the phased start ``approval`` resumed did, from the session's proposal record; ``None`` when the
-    approval is no proposal approval, was not approved, or its proposal is no longer the session's."""
     proposal_id = proposal_id_of_approval_action(approval.action)
     if session is None or proposal_id is None or approval.status != "approved":
         return None

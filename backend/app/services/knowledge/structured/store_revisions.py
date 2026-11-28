@@ -1,9 +1,4 @@
-"""Per-revision row work behind the structured-graph writer in :mod:`.store`.
-
-The row building, the resume diff, the lease renewal and the revision retirement do not depend on
-the insert batch size or the slice clock, so they live here; :func:`.store.write_revision` keeps
-those two knobs because tests tune them on the ``store`` module.
-"""
+"""Per-revision row work behind the structured-graph writer in :mod:`.store`."""
 
 from __future__ import annotations
 
@@ -78,7 +73,6 @@ def _rows(project_id: str, revision_id: str, layer: str, profile_id: str, extrac
 async def _keep_written(
     db: AsyncSession, project_id: str, revision_id: str, profile_id: str, nodes: list[dict], edges: list[dict]
 ) -> tuple[list[dict], list[dict], int, int]:
-    """Resume a partial revision: drop rows the extraction no longer states, return the rows still missing."""
     node_model, edge_model = KnowledgeStructuredNode, KnowledgeStructuredEdge
     removed = []
     for model in (edge_model, node_model):
@@ -113,10 +107,7 @@ async def _keep_written(
 
 
 async def hold_lease(db: AsyncSession, lease: BuildLease) -> None:
-    """Renew the lease in the caller's transaction; :class:`BuildLeaseLostError` when the worker no longer holds it.
-
-    An expired lease nobody claimed is still this worker's (``claimed_by`` is unchanged) and is renewed.
-    """
+    # An expired lease nobody claimed is still this worker's.
     held = await db.execute(
         update(KnowledgeStructuredBuild)
         .where(
@@ -131,7 +122,6 @@ async def hold_lease(db: AsyncSession, lease: BuildLease) -> None:
 
 
 async def partial_revisions(db: AsyncSession, *, project_id: str, layer: str, profile_id: str) -> set[str]:
-    """Revisions of the layer with rows of ``profile_id`` but no ledger row: a write stopped at a deadline."""
     ledger = select(KnowledgeStructuredExtraction.revision_id).where(
         KnowledgeStructuredExtraction.project_id == project_id
     )

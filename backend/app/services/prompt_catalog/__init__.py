@@ -1,13 +1,4 @@
-"""Governed prompt catalog: every agent-facing prompt text is data; code holds only the seed.
-
-* ``contract`` - key spec, placeholder validation, rendering, the closed refusal.
-* ``seeds`` / ``registry`` - the seed texts and the closed key registry built from them.
-* ``resolver`` / ``prompt_set`` - per-turn resolution (agent definition > Workspace >
-  global published > seed), the bound turn set and its audit record.
-* ``seeding`` - idempotent seed from code.
-* ``lifecycle`` / ``governance`` / ``views`` - the admin API's draft, review, publish,
-  retire, list, detail and diff.
-"""
+"""Governed prompt catalog: every agent-facing prompt text is data; code holds only the seed."""
 
 from __future__ import annotations
 

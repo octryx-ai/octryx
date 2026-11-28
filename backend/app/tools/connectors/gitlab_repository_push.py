@@ -74,7 +74,6 @@ async def _current_branch(repo_path: Path, params: dict) -> tuple[str, dict[str,
 async def _push_branch(
     repo_path: Path, *, clone_url: str, git_env: dict, branch_name: str
 ) -> tuple[str, dict[str, Any] | None]:
-    """Push the branch to the clean origin URL; returns the pushed head commit."""
     await _run_subprocess(["git", "remote", "set-url", "origin", clone_url], cwd=str(repo_path), env=git_env)
     code, _, push_stderr = await _run_subprocess(
         ["git", "push", "--set-upstream", "origin", branch_name], cwd=str(repo_path), env=git_env)

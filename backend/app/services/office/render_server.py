@@ -1,17 +1,4 @@
-"""The Office render sidecar: LibreOffice behind a Unix socket, in a container without network.
-
-Started by the acceptance stack as the ``office-render`` service (``network_mode: none``, own minimal
-environment, no secrets, read-only root, capped memory and pids). Its only channel is the socket on the
-volume it shares with the API. It refuses to start when it can see any network interface but loopback,
-so a misconfigured deployment cannot turn it into a fetcher.
-
-Wire format, one request per connection (stdlib only, no ``app.*`` import):
-
-* request: one JSON line ``{"format": "pdf"|"png", "suffix": ".docx"|".xlsx"|".pptx", "size": N}`` then N bytes;
-* response: one JSON line ``{"ok": true, "size": M}`` then M bytes, or ``{"ok": false, "code": "<closed code>"}``.
-
-The size is checked against the cap before a byte of the body is read.
-"""
+"""The Office render sidecar: LibreOffice behind a Unix socket, in a container without network."""
 
 from __future__ import annotations
 

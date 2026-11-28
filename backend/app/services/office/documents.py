@@ -1,7 +1,4 @@
-"""Office documents in a workspace: path resolution, template library, file actions, preview and inspection.
-
-Preview and inspection run in-process on the Office engine (``services/office/engine``).
-"""
+"""Office documents in a workspace: path resolution, template library, file actions, preview and inspection."""
 
 from __future__ import annotations
 
@@ -73,14 +70,10 @@ OFFICE_TEMPLATE_UPLOAD_ROOT = (Path(__file__).resolve().parents[3] / "uploads" /
 
 
 class TemplatePathNotAllowedError(PermissionError):
-    """An explicit ``template_path`` outside the workspace and the template stores."""
-
     code = "office_template_path_not_allowed"
 
 
 def allowed_template_roots(workspace_root: str | Path) -> list[Path]:
-    """Where an explicit ``template_path`` may point: the caller's workspace, the corporate-identity store, the
-    uploaded-template store and the built-in templates. Nothing else on the server (other tenants' uploads)."""
     from .. import corp_identity_service
 
     return [
@@ -141,7 +134,6 @@ def list_office_actions_for_path(path: str | Path) -> dict[str, Any]:
 
 
 def resolve_office_action_for_path(path: str | Path, action_id: str, mode: str = "tool_plan") -> dict[str, str]:
-    """The action and its chat text, rendered from the bound prompt set (``office.file_action.*``)."""
     resolved = Path(path)
     file_type = office_document_type(resolved)
     normalized_mode = str(mode or "tool_plan").strip().lower()
@@ -163,7 +155,6 @@ def resolve_office_action_for_path(path: str | Path, action_id: str, mode: str =
 async def resolve_office_action(
     db: AsyncSession, path: str | Path, *, action_id: str, mode: str = "tool_plan"
 ) -> dict[str, str]:
-    """:func:`resolve_office_action_for_path` outside a turn: binds the published global prompt set."""
     prompt_set = bound_prompt_set() or await resolve_prompt_set(db, workspace_id=None)
     with prompt_set_scope(prompt_set):
         return resolve_office_action_for_path(path, action_id=action_id, mode=mode)
@@ -187,8 +178,6 @@ def _engine_result(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 class OfficeDocumentError(RuntimeError):
-    """An engine failure with its closed code (``office_document_unreadable``, ``office_invalid_request``, …)."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code

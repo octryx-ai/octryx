@@ -215,6 +215,9 @@ export function AreaRail(props: AreaRailProps) {
   // The setup count of the Workspace this page shows, resolved like the Workspace switch and the setup guide.
   const [shownWorkspaceId] = useActiveWorkspace(projects, fallbackWorkspaceId);
   const setupProgress = useSetupProgress(currentUserIsAdmin, currentUserId, shownWorkspaceId || null);
+  // The count includes the shown Workspace's own steps, so it changes with the Workspace; the tooltip names it.
+  const setupWorkspace = projects.find((project) => project.id === shownWorkspaceId)?.name;
+  const setupTip = `${setupProgress}${setupWorkspace ? ` for ${setupWorkspace}` : ""} · Open the setup guide`;
 
   return (
     <nav className="area-rail" aria-label="Workspace areas">
@@ -229,7 +232,7 @@ export function AreaRail(props: AreaRailProps) {
       {/* Octryx (the logo above) replaces the action-needed bell; the setup progress stays in the rail. */}
       {setupProgress ? (
         <button type="button" className="area-rail__btn area-rail__setup" data-testid="rail-setup-progress"
-          aria-label={`${setupProgress} · Open the setup guide`} data-tooltip={`${setupProgress} · Open the setup guide`}
+          aria-label={setupTip} data-tooltip={setupTip}
           onClick={() => setActiveArea("help")}>
           {/* Visible label, not only a tooltip; gone once every required step is done. */}
           <span className="area-rail__setup-label">Setup</span>

@@ -1,6 +1,5 @@
 """A stub ServiceNow instance for the ServiceNow tests: its own OAuth (password and refresh-token grants) and two
-Scripted REST resources that accept only the current Bearer token. Every name is neutral (``servicenow.test``).
-"""
+Scripted REST resources that accept only the current Bearer token. Every name is neutral (``servicenow.test``)."""
 
 from __future__ import annotations
 
@@ -8,7 +7,7 @@ from urllib.parse import parse_qs
 
 import httpx
 
-import app.services.servicenow_password_grant as grant_module
+import app.services.connector_auth.servicenow_password_grant as grant_module
 
 SN_URL = "https://servicenow.test"
 TOKEN_URL = f"{SN_URL}/oauth_token.do"
@@ -95,7 +94,6 @@ class StubInstance:
 
 
 def stub_instance(monkeypatch, instance: StubInstance):
-    """Every ServiceNow client's egress transport is the stub (the egress rule has its own suites)."""
     grant_module.clear_password_token_cache()
 
     def transport(*_args, inner=None, **_kwargs):

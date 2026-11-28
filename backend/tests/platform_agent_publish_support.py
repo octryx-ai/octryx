@@ -9,13 +9,11 @@ from tests.prompt_catalog_publish_support import second_admin
 
 
 async def draft_edit(db, row: AgentDefinition, *, instructions: str):
-    """Edit the live row (a draft revision only): nothing a run executes changes."""
     row.system_prompt = instructions
     await db.flush()
     return await create_draft_revision(db, definition=row, created_by=row.owner_id)
 
 
 async def publish_edit(db, row: AgentDefinition, *, instructions: str):
-    """Edit and publish through four-eyes: the second admin publishes the author's draft."""
     draft = await draft_edit(db, row, instructions=instructions)
     return await publish_revision(db, revision=draft, published_by=(await second_admin(db)).id)

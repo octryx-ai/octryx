@@ -1,9 +1,4 @@
-"""Presence per person and device (``services.agent_gateway.presence_devices``).
-
-Contract: sessions of one person on one device collapse into one entry showing the running session; rows stopped
-or unseen for more than seven days are not listed and are deleted by the sweep; a person removes only their own
-entry, a Workspace admin anyone's, and every removal is audited.
-"""
+"""Presence per person and device (``services.agent_gateway.presence_devices``)."""
 
 from __future__ import annotations
 
@@ -24,13 +19,11 @@ from app.services.agent_gateway.presence_devices import (
     retained,
 )
 from app.time_utils import utc_now
+from tests.factories import make_project
 
 
 async def _project(db) -> Project:
-    project = Project(name=f"presence-{uuid.uuid4().hex[:8]}", config={}, is_active=True)
-    db.add(project)
-    await db.flush()
-    return project
+    return await make_project(db, name=f"presence-{uuid.uuid4().hex[:8]}")
 
 
 async def _user(db) -> User:
@@ -58,7 +51,7 @@ def test_sessions_of_one_device_collapse_and_show_the_running_one():
     other = _row(user, project, device="laptop", stopped_days=1)
     entries = collapse_entries([(stopped,), (running,), (other,)])
     assert [(result[0] is running, count) for result, count in entries[:1]] == [(True, 1)]
-    assert len(entries) == 2  # mac and laptop
+    assert len(entries) == 2
     assert entry_id(running) != entry_id(other)
 
 

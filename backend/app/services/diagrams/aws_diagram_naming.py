@@ -1,12 +1,4 @@
-"""Deterministic display names for AWS diagram nodes.
-
-Raw AWS labels are dominated by generated noise: kubernetes controllers emit
-``k8s-<app>-<hash>`` names, EKS/Terraform append 20+ digit suffixes, and bare
-resource ids (``rtb-06ebf30a3ded0d936``) carry no meaning. These rules strip
-the generated parts by *structure* (fixed prefixes, hash/uuid/timestamp
-suffix shapes) — no keyword guessing. A ``Name`` tag from the evidence always
-wins over any normalization.
-"""
+"""Deterministic display names for AWS diagram nodes."""
 
 from __future__ import annotations
 

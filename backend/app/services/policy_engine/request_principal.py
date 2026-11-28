@@ -1,20 +1,4 @@
-"""The Cedar principal of the request in progress.
-
-Without an explicit principal an enforcement point evaluates as ``User::"unknown"``, and who-conditions (users,
-roles, groups, session profile/client, except platform admins) do not bite. This module carries the principal to
-every enforcement point explicitly:
-
-- :func:`policy_principal_scope` is entered once where a request's user and session are known — an agent run
-  (``agent/engine/_engine_run_scope``), an inbound model-gateway call, an MCP listing or tool call — and loads the
-  principal (platform roles, identity groups, the session's profile and client) in its own database session;
-- the tool admission and the remote-model points read :func:`current_principal` when they build their query;
-- a model admission captures it when it is built (``ProjectModelAdmission.principal``), so its later re-checks at
-  the driver decide for the same principal;
-- the seat check receives its principal as an argument from the gateway identity.
-
-Outside any scope (a system job, Knowledge indexing) the principal stays ``User::"unknown"``: honest, not guessed.
-Loading never raises: a principal without roles or groups only narrows less, it never grants.
-"""
+"""The Cedar principal of the request in progress."""
 
 from __future__ import annotations
 
@@ -37,7 +21,6 @@ def current_principal() -> Principal | None:
 
 
 def principal_memo_key(principal: Principal | None = None) -> str | None:
-    """A stable key of the principal and its parents/attributes, for memoised listing decisions."""
     chosen = principal if principal is not None else current_principal()
     if chosen is None:
         return None
@@ -48,7 +31,6 @@ def principal_memo_key(principal: Principal | None = None) -> str | None:
 async def load_request_principal(
     user_id: str | None, *, session_id: str | None = None, metadata: Mapping[str, Any] | None = None
 ) -> Principal | None:
-    """The principal of ``user_id`` (and its AgentSession when ``session_id`` is given); ``None`` without a user."""
     from .principals import load_principal_isolated, load_session_metadata_isolated
     from .runtime import MODE_OFF, current_runtime
 
@@ -63,7 +45,6 @@ SEAT_PROFILE = "seat"
 
 
 async def load_seat_principal(user_id: str | None, *, session_id: str, client: str) -> Principal | None:
-    """The principal of a seat request: the user, and the session asking for the ``seat`` profile."""
     return await load_request_principal(user_id, session_id=session_id,
                                         metadata={"profile": SEAT_PROFILE, "client": client})
 
@@ -72,7 +53,6 @@ async def load_seat_principal(user_id: str | None, *, session_id: str, client: s
 async def policy_principal_scope(
     user_id: str | None, *, session_id: str | None = None, metadata: Mapping[str, Any] | None = None
 ) -> AsyncIterator[Principal | None]:
-    """Bind the request's principal for the enforcement points inside the block (restored on exit)."""
     principal = await load_request_principal(user_id, session_id=session_id, metadata=metadata)
     token = _CURRENT.set(principal)
     try:

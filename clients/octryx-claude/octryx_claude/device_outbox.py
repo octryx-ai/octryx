@@ -1,14 +1,5 @@
-"""The device's on-disk replay buffer of sequenced job messages.
-
-Every message a job sends to the platform (``job_accepted``, ``job_event``, ``approval_request``,
-``job_finished``, …) gets the next ``seq`` of its job's stream and is appended to
-``device-outbox/<job_id>.jsonl`` (0600) before it is sent. The platform acknowledges what it stored; acknowledged
-entries are dropped. After a reconnect the device replays everything after the platform's last stored ``seq``,
-so a laptop that sleeps loses nothing and nothing is stored twice.
-
-The buffer is bounded per job (:data:`MAX_PENDING`); a full buffer refuses the append (``OutboxFullError``) and
-the job runner stops that job instead of dropping events silently.
-"""
+"""The device's on-disk replay buffer of sequenced job messages, so a sleeping laptop loses nothing.
+A full buffer refuses the append and the job stops instead of dropping events silently."""
 
 from __future__ import annotations
 
@@ -102,7 +93,6 @@ class Outbox:
         return [stream for stream, entries in self._pending.items() if entries]
 
     def forget(self, stream: str) -> None:
-        """A finished, fully acknowledged job: its file goes."""
         if self._pending.get(stream):
             return
         self._pending.pop(stream, None)

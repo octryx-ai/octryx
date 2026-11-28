@@ -1,20 +1,4 @@
-"""GitLab tools of the PR review bot: read the open merge requests' heads, post a review (concept §7). API v4, on
-gitlab.com and self-managed alike (the connection's ``gitlab_url``).
-
-- ``list_gitlab_merge_request_heads``: every open merge request of a project with its head commit (``sha``),
-  branches, draft flag and the source project (a fork's differs: ``source_project_id != target_project_id``), page
-  by page; with ``comments_since`` also the notes since then, with ``permissions_for`` the commenters' access;
-- ``post_gitlab_merge_request_review``: on the merge request's head commit, in this order:
-
-  1. the summary note, found again by its marker and edited in place (``PUT …/notes/:id``), so a merge request
-     carries one summary;
-  2. the inline comments, one diff discussion each, anchored on the new side with the merge request's
-     ``diff_refs`` (``position_type: text``; a context line also names its ``old_line``). GitLab refuses a comment
-     off the diff on its own (400): the others are still posted and the refusal is named (``inline_refused``);
-  3. the commit status ``octryx-review`` (``pending`` while the review runs, then ``success`` or ``failed``).
-
-A thread is a discussion: ``inline_ids`` are the discussion ids, so a later pass answers in the same thread.
-"""
+"""GitLab tools of the PR review bot: read the open merge requests' heads, post a review (concept §7)."""
 
 from __future__ import annotations
 

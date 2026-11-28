@@ -1,17 +1,4 @@
-"""The policy builder's structured model: what the guided builder edits.
-
-A model is one custom ``forbid`` policy as catalog blocks (``policy_catalog.json``): who (everyone, users, roles,
-groups, except platform admins, session profile/client), which actions, what (connector families, tools, models,
-command facts, paths, client tools), where (Workspaces, classification, named connections) and the conditions /
-exceptions, and for a content policy (``builder_content``) what the scan must find and the outcome. It
-is never stored: ``builder.render`` writes it as Cedar (the stored truth) and ``builder_parse.parse``
-reads it back from Cedar.
-
-:func:`model_from_json` is strict: unknown keys, wrong types, unknown values and blocks that do not apply to every
-chosen action are issues (``{"path", "code", "message"}``), never silently dropped. Lists keep the given order
-without duplicates; actions are kept in catalog order; an unused ``model_mode`` is the default, so equal policies
-have equal models.
-"""
+"""The policy builder's structured model: what the guided builder edits."""
 
 from __future__ import annotations
 
@@ -135,7 +122,6 @@ WHO_BLOCKS = {"users": "who.user", "roles": "who.role", "groups": "who.group"}
 
 
 def used_blocks(model: PolicyModel) -> list[tuple[str, str]]:
-    """``(field path, block id)`` of every block the model uses."""
     used: list[tuple[str, str]] = []
     if model.who.mode in WHO_BLOCKS and model.who.items:
         used.append(("who.items", WHO_BLOCKS[model.who.mode]))
@@ -151,11 +137,6 @@ def used_blocks(model: PolicyModel) -> list[tuple[str, str]]:
 def model_from_json(
     raw: Any, custom_detectors: Mapping[str, str] | None = None
 ) -> tuple[PolicyModel | None, list[dict[str, str]]]:
-    """The normalized model, or ``None`` with the issues.
-
-    ``custom_detectors``: the policy set's custom detector ids → categories; a ``custom.*`` detector outside it is
-    an issue. ``None`` only when reading back stored Cedar (``builder.parse``), see ``builder_content``.
-    """
     reader = _Reader()
     if not isinstance(raw, Mapping):
         return None, [{"path": "", "code": ISSUE_INVALID, "message": "Send the policy model as an object."}]

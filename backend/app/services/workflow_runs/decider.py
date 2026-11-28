@@ -1,11 +1,4 @@
-"""One authoritative interactive-human decider policy for Workflow nodes.
-
-Resolve only authored policies, never tool rights or execution identities. The run's responsible person
-(``responsible``) is an additional decider of a node without an authored policy and of a
-``requester`` node only. Callers must retain payload-hash, four-eyes, permissions and lifecycle checks. Final
-authorization locks the Run and re-derives its current pinned node; it does not trust a UI's candidate list or
-stale node.
-"""
+"""One authoritative interactive-human decider policy for Workflow nodes."""
 from __future__ import annotations
 
 import re
@@ -47,7 +40,7 @@ class DeciderResolution:
 
 
 def validate_decider_config(config: dict[str, Any]) -> str:
-    """Closed authored syntax; empty, unknown or unimplemented policies never fall back to requester."""
+    # Unknown or unimplemented policies never fall back to the requester.
     for key in ("decider", "deputy"):
         if key not in config:
             continue
@@ -85,7 +78,6 @@ async def _item_owner(db: AsyncSession, run: WorkflowRun, members: dict[str, Use
 
 
 async def resolve_decider(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> DeciderResolution:
-    """A node without an authored ``decider`` is a ``requester`` node: the shipped seeds author it explicitly."""
     invalid = validate_decider_config(node.config)
     policy = node.config.get("decider", "requester")
     if invalid:
@@ -122,10 +114,6 @@ async def resolve_decider(db: AsyncSession, run: WorkflowRun, node: PhasedNode) 
 
 
 async def po_function_refusal(db: AsyncSession, run: WorkflowRun, user: User) -> str | None:
-    """Why ``user`` may not take the run's waiting product-owner decision, else ``None``.
-
-    Only with the Workspace's role-based tools on; platform admins keep their access. The refusal names the setting
-    and who can change it."""
     subject = str(dict(dict(run.node_state or {}).get("waiting") or {}).get("subject") or "")
     if subject not in PO_SUBJECTS:
         return None
@@ -146,7 +134,6 @@ async def may_decide(db: AsyncSession, run: WorkflowRun, node: PhasedNode, user:
 
 async def require_node_decider(db: AsyncSession, run: WorkflowRun, user: User, *,
                                expected_node_id: str | None = None) -> DeciderResolution:
-    """Final current-policy recheck under Run lock; no session/requester/runtime rewrite."""
     expected = expected_node_id or run.current_node_id
     # Root callers may already hold this lock. Populate to defeat a stale identity-map object.
     from .handoff.lifecycle import guard_receiver
@@ -185,9 +172,8 @@ async def require_node_decider(db: AsyncSession, run: WorkflowRun, user: User, *
 
 def audit_decider_decision(db: AsyncSession, run: WorkflowRun, user: User, resolution: DeciderResolution,
                            *, node_id: str, payload_hash: str, decision_id: str) -> None:
-    """Root calls only AFTER a successful, hash-bound decision with all governance checks intact."""
     db.add(AuditLog(user_id=user.id, action="workflow_decider.decision", resource_type="workflow_run",
-        resource_id=run.id, details={"node_id": node_id, "policy": resolution.policy,
+        resource_id=run.id, project_id=run.project_id, details={"node_id": node_id, "policy": resolution.policy,
             "payload_hash": payload_hash, "decision_id": decision_id,
             "execution_user_id": run.requested_by}))
 

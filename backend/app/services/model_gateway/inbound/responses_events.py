@@ -1,8 +1,4 @@
-"""The OpenAI Responses events the inbound relay and the Codex seat observer read (``responses_stream``).
-
-Event names, the usage mapping to the Anthropic keys the recording reads, the retry-relevant error codes the client
-may see, and the observation of finished output items.
-"""
+"""The OpenAI Responses events the inbound relay and the Codex seat observer read."""
 
 from __future__ import annotations
 
@@ -43,7 +39,6 @@ def _int(value: Any) -> int | None:
 
 
 def anthropic_usage(usage: Any) -> dict[str, int]:
-    """Responses ``usage`` in the Anthropic keys the recording reads; empty when absent or malformed."""
     if not isinstance(usage, Mapping):
         return {}
     total_in, output = _int(usage.get("input_tokens")), _int(usage.get("output_tokens"))
@@ -60,7 +55,6 @@ def anthropic_usage(usage: Any) -> dict[str, int]:
 
 
 def _upstream_code(payload: Mapping[str, Any]) -> str:
-    """The error code of an ``error`` event (top level or nested) or of ``response.failed``'s ``response.error``."""
     for holder in (payload, payload.get("error"), (payload.get("response") or {}).get("error")
                    if isinstance(payload.get("response"), Mapping) else None):
         code = holder.get("code") if isinstance(holder, Mapping) else None
@@ -93,7 +87,6 @@ def _observe_item(observation: Observation, item: Any) -> None:
         name = LOCAL_SHELL_TOOL if kind == "local_shell_call" else str(item.get("name") or "")
         if item.get("namespace"):
             name = f"{item['namespace']}__{name}"
-        # Codex's names as the platform's evidence reads them (``openai_view.evidence_names``).
         observation.add_tool_use({"id": item.get("call_id") or item.get("id"), "name": evidence_names(name, {})[0]})
     elif kind == "message":
         for part in item.get("content") if isinstance(item.get("content"), list) else []:

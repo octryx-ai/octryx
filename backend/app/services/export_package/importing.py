@@ -91,7 +91,6 @@ async def _package_content(
     package_json: dict[str, Any] | None,
     normalize_import_package_payload_func: NormalizeFn,
 ) -> tuple[ExportPackage | None, str, dict[str, Any], str]:
-    """The stored package row (if any), its type, content and checksum."""
     row = None
     if package_id:
         row = await db.get(ExportPackage, package_id)
@@ -139,7 +138,6 @@ async def _upsert_entity(
 
 
 async def _record_failure(db: AsyncSession, log_fields: dict[str, Any], errors: list[str]) -> None:
-    """Undo the attempt, then commit one failed audit row built only from captured values."""
     await db.rollback()
     db.add(ImportLog(**log_fields, status="failed", errors=errors))
     await db.commit()

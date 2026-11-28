@@ -1,17 +1,5 @@
-"""The admin paths into a private Workspace, each closed.
-
-Admin = the seeded ``admin``; owner = a ``viewer`` with a private session holding ``SECRET-PRIVATE-CONTENT``.
-- nobody mints an API key for another person; a password reset tells the person (account recovery itself
-  cannot be prevented: an accepted residual risk);
-- an admin's GDPR export of the owner leaves the private Workspace out (the owner's own export has it);
-- the admin diagnostics tool and session list do not see it;
-- session files are not served to an admin;
-- no Actions (Tasks) can exist in it;
-- no other Workspace can use it as a knowledge source; the admin knowledge views refuse it;
-- the cross-session clarification list leaves its questions out;
-- the MCP graph tools search only the caller's own Workspaces;
-- it gets the default Workspace's policy (model grant, classification, seat rule), kept in line.
-"""
+"""The admin paths into a private Workspace, each closed (account recovery by password reset stays an accepted
+residual risk)."""
 
 from __future__ import annotations
 
@@ -182,16 +170,13 @@ async def test_m3_it_gets_the_default_workspaces_policy_and_keeps_it_in_line(db)
     owner, private, _session = await _setup(db)
     assert private.config["model_policy"] == {"allowed_aliases": ["gemma-4-31b"]}
     assert private.config["agent_gateway_policy"] == {"seat": "allowed"}
-    assert "role_access_assignments" not in private.config  # access rules are never copied
+    assert "role_access_assignments" not in private.config
     template.config = {**template.config, "model_policy": {"allowed_aliases": ["gemma-4-31b", "claude-opus-5-5"]}}
     await db.flush()
     assert await sync_template_policy(db, private) is True
     assert private.config["model_policy"]["allowed_aliases"] == ["gemma-4-31b", "claude-opus-5-5"]
     assert await sync_template_policy(db, private) is False
     assert owner.id == private.owner_user_id
-
-
-# --- further admin paths ----------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -232,8 +217,6 @@ async def test_b4_routes_naming_a_private_session_answer_404_to_an_admin(client,
     _owner, _private, session = await _setup(db)
     generated = await client.post(f"/api/v1/flows/generate-from-session/{session.id}", headers=auth_headers, json={})
     assert generated.status_code == 404 and SECRET not in generated.text
-    setup = await client.get(f"/api/v1/effective-setup/sessions/{session.id}", headers=auth_headers)
-    assert setup.status_code == 404
     replay = await client.post("/api/v1/workflow-checks/replay", headers=auth_headers,
                                json={"session_id": session.id, "workflow_key": "x"})
     assert replay.status_code == 404
@@ -242,24 +225,19 @@ async def test_b4_routes_naming_a_private_session_answer_404_to_an_admin(client,
 @pytest.mark.asyncio
 async def test_b2_no_channel_runs_in_a_private_workspace(client, db, auth_headers):
     _owner, private, _session = await _setup(db)
-    created = await client.post("/admin/chat/api/panel/channels", headers=auth_headers, json={
-        "name": f"teams-{uuid.uuid4().hex[:6]}", "plugin_id": "teams", "project_id": private.id, "config": {}})
+    own = await ensure_private_workspace(db, await _admin(db))
+    await db.commit()
+
+    async def create(project_id: str):
+        return await client.post("/admin/chat/api/panel/channels", headers=auth_headers, json={
+            "name": f"teams-{uuid.uuid4().hex[:6]}", "plugin_id": "teams", "project_id": project_id, "config": {}})
+
+    foreign = await create(private.id)
+    assert foreign.status_code == 404 and foreign.json()["detail"]["code"] == "project_not_found"
+    created = await create(own.id)
     assert created.status_code == 409 and created.json()["reason"] == "private_workspace_has_no_channels"
 
 
-@pytest.mark.asyncio
-async def test_agent_runs_never_use_someone_elses_private_workspace(db):
-    from app.agent.core.context.run_context import prepare_agent_run
-
-    _owner, private, session = await _setup(db)
-    admin = await _admin(db)
-    with pytest.raises(PermissionError):
-        await prepare_agent_run(db=db, session_id=session.id, user_message="hi", user_id=admin.id,
-                                project_id=private.id, agent_type="chat", runtime_target_id=None,
-                                thinking_level=None, agent_definition=None, parent_session_id=None, sub_agent_depth=0,
-                                workspace_root="/tmp", resolve_model_context_cap=None,
-                                resolve_control_plane_runtimes_func=None, filter_tool_definitions=None,
-                                exclude_tool_definitions=None, trim_messages_to_budget=None)
 
 
 @pytest.mark.asyncio
@@ -290,9 +268,9 @@ async def test_m3_the_sync_keeps_creation_defaults_and_the_owners_narrowing(db):
     assert "trace_capture" in private.config and "knowledge_episode_policy" not in private.config
     private.config = {**private.config, "model_policy": {"allowed_aliases": ["gemma-4-31b"]}}
     await db.flush()
-    assert await sync_template_policy(db, private) is False  # the default did not change: the narrowing stays
+    assert await sync_template_policy(db, private) is False
     assert private.config["model_policy"] == {"allowed_aliases": ["gemma-4-31b"]}
     template.config = {**template.config, "runtime_cost_limits": {"per_turn_usd": 1}}
     await db.flush()
-    assert await sync_template_policy(db, private) is True  # an admin changed the defaults: they apply
+    assert await sync_template_policy(db, private) is True
     assert "trace_capture" in private.config and private.config["runtime_cost_limits"] == {"per_turn_usd": 1}

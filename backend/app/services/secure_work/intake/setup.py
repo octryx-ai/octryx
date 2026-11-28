@@ -1,25 +1,4 @@
-"""Setting up an intake in four steps, then preview → enable.
-
-The setup drawer edits one **draft** per intake::
-
-    {source_type, name, connection_id,
-     what:     Jira {project_keys, issue_types, labels_include, labels_exclude, components_include, jql}
-               ServiceNow {tables, excluded_states, assignment_groups, services, sysparm_query},
-     schedule: {preset, cron},
-     how:      {automation_mode, automation_labels, automation_exclude_labels, status_mapping, field_mapping,
-                sync_mode}}
-
-and it is stored by the intake's source (``intake/registry``: Jira ``jira_sync``, ServiceNow ``servicenow/intake``),
-so the allowlist, record-limit and mapping checks stay exactly theirs; this module never branches on a source's
-name. ``connection_id`` must be one of the Workspace's connections of the source (no default is assumed here). A
-**new intake is inactive**: :func:`enable_intake` refuses (409 ``intake_preview_required``) until a preview ran
-successfully after its last change, then enables it, schedules it and starts the first run.
-
-``how.sync_mode`` is the intake's own write-back mode (``sync_policy``: write-back belongs to
-the source): ``dry_run_only`` or ``execute`` overrides the Workspace workflow's mode for this intake's items, ``null``
-follows the workflow. It is stored here for every source (``sync_options_json``), so no source's save needs to know
-it; a draft without the key keeps the stored mode, so only an explicit ``null`` clears it.
-"""
+"""Setting up an intake from one draft per intake, then preview → enable."""
 
 from __future__ import annotations
 
@@ -70,7 +49,7 @@ def _how(raw: object) -> dict[str, Any]:
 
 
 def _sync_mode(how: dict[str, Any]) -> str:
-    """The draft's own mode, ``""`` to follow the workflow; 422 for anything else (never guessed)."""
+    # Anything else is a 422, never guessed.
     raw = how.get(SOURCE_SYNC_MODE_KEY)
     if raw in (None, ""):
         return ""
@@ -86,15 +65,12 @@ def _store_sync_mode(row: WorkItemSyncConfig, how: dict[str, Any]) -> None:
 
 
 def sync_mode_of(row: WorkItemSyncConfig, workflow_policy: Any = None) -> dict[str, Any]:
-    """``{own, workflow, effective}``: the intake's own mode (``None`` = follows the workflow), the workflow's default,
-    and the mode that decides its write-back (the UI shows "Set for this source" only when own differs)."""
     own = intake_sync_mode(row.sync_options_json) or None
     workflow = sync_mode(workflow_policy) or None
     return {"own": own, "workflow": workflow, "effective": own or workflow}
 
 
 def draft_of(row: WorkItemSyncConfig) -> dict[str, Any]:
-    """The draft the drawer edits, read from a stored intake."""
     mapping = dict(row.field_mapping_json or {})
     options = dict(row.sync_options_json or {})
     source = require_source(row.source_type)
@@ -124,7 +100,6 @@ def draft_of(row: WorkItemSyncConfig) -> dict[str, Any]:
 async def save_intake(
     db: AsyncSession, *, user: User, project_id: str, draft: dict[str, Any], row: WorkItemSyncConfig | None = None
 ) -> WorkItemSyncConfig:
-    """Create (inactive) or update an intake from a draft; the stored services validate everything else."""
     if row is not None and "project_id" in draft:
         require_unchanged_workspace(row.project_id, draft["project_id"], what="intake")
     source_type = _source_type(row.source_type if row is not None else draft.get("source_type"))
@@ -145,12 +120,10 @@ async def save_intake(
 
 
 async def preview_intake(db: AsyncSession, *, user: User, row: WorkItemSyncConfig) -> dict[str, Any]:
-    """A dry run (nothing is written); recorded as a ``preview`` run."""
     return await require_source(row.source_type).preview(db, user=user, row=row)
 
 
 async def previewed_since_change(db: AsyncSession, row: WorkItemSyncConfig) -> bool:
-    """Whether a preview completed after the intake's last change."""
     latest = (await db.execute(
         select(WorkItemSyncRun).where(WorkItemSyncRun.sync_config_id == row.id, WorkItemSyncRun.mode == "dry_run",
                                       WorkItemSyncRun.status == "completed")
@@ -160,7 +133,7 @@ async def previewed_since_change(db: AsyncSession, row: WorkItemSyncConfig) -> b
 
 
 async def set_intake_active(db: AsyncSession, *, user: User, row: WorkItemSyncConfig, active: bool) -> None:
-    """Enable (only after a preview of the current settings) or disable; the schedule follows."""
+    # Enabling requires a preview of the current settings.
     if active and not row.is_active and not await previewed_since_change(db, row):
         raise HTTPException(status_code=409, detail={"state": "needs_preview", "code": CODE_PREVIEW_REQUIRED,
                                                      "message": "Run a preview of the current settings first."})
@@ -171,7 +144,6 @@ async def set_intake_active(db: AsyncSession, *, user: User, row: WorkItemSyncCo
 
 
 async def first_run(db: AsyncSession, *, user: User, row: WorkItemSyncConfig) -> dict[str, Any]:
-    """The first sync right after enabling."""
     return await require_source(row.source_type).sync(db, user=user, row=row, trigger=TRIGGER_MANUAL)
 
 

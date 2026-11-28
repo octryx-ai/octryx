@@ -38,38 +38,19 @@ from .target import MODE_CREATE
 
 logger = logging.getLogger(__name__)
 
-# --- Publish & prove: publish the approved write intent through Confluence Cloud v2 ---------------------------------
-#
-# 1. In the run's claimed transaction: the active intent must be approved (a potentially sent one reconciles
-#    first), the (b) decision must still be the latest publication decision and bind the exact body and marker,
-#    the run must be running (stop) and the pinned settings/connection/instance unchanged (drift). The result is
-#    recorded as the intent's ``dispatch_check``.
-# 2. One claimed sender: ``approved | never_started_certified -> send_started`` as a compare-and-set, committed
-#    together with the pass lease (``external_step``) BEFORE any provider request; no run transaction is held
-#    over the network.
-# 3. Read-only pre-send checks (space, parent, page base version) and a last stop re-check. A failure there is
-#    certified "never started" by this executor (nothing was sent): the only way back to a sendable state.
-# 4. The one mutating request. A definite refusal (no answer sent / a 4xx answer: 409 is ``page_changed`` by its
-#    status code) is certified never started; anything that may have been applied (timeout, 5xx, a malformed
-#    2xx) becomes ``pending_reconcile`` (committed) and is reconciled at once.
-# 5. A valid reply is ``sent_confirmed`` (``provider_reply``) after the full storage read-back; the run is then
-#    re-claimed (``run_moved_on`` if it moved) and the page recorded.
-
 EVENT_V2_DISPATCH_REFUSED = "documentation_publish_refused"
 
 
 def v2_transport() -> Any:
-    """The provider transport (``None`` = the governed egress). A seam: tests inject a stub transport."""
     return None
 
 
 async def _before_send(intent: Any) -> None:
-    """A seam immediately before the mutating request (crash-injection tests); no behaviour."""
     del intent
 
 
 async def _label_ai_page(client: Any, page_id: str) -> None:
-    """Best effort ``ai-generated`` label on the published page; it never fails or changes the publication."""
+    # Best effort: the label never fails or changes the publication.
     try:
         await client.add_label(page_id, CONFLUENCE_LABEL)
     except Exception:  # noqa: BLE001 - a label is not part of the publication contract
@@ -78,7 +59,6 @@ async def _label_ai_page(client: Any, page_id: str) -> None:
 
 async def _route_unsendable(db: AsyncSession, run: WorkflowRun, intent: Any, *, transport: Any,
                             worker: str) -> ToolOutcome | None:
-    """The answer when the active intent is not sendable (none, potentially sent, or another state)."""
     from ....models.runtime.documentation_publication import (
         INTENT_POTENTIALLY_SENT_STATES,
         INTENT_SENDABLE_STATES,
@@ -101,7 +81,6 @@ async def _route_unsendable(db: AsyncSession, run: WorkflowRun, intent: Any, *, 
 
 async def _prepare_send(db: AsyncSession, run: WorkflowRun, intent: Any
                         ) -> ToolOutcome | tuple[str, str, dict[str, Any], Any]:
-    """The refusal, or ``(approved body, pass key, dispatch check, served connection)`` for a governed send."""
     from ..external_step import pass_key
     from .confluence_v2 import governed_v2_check
     from .failure_routes import PUBLICATION_STOPPED, TARGET_DRIFT, s1_failure
@@ -132,7 +111,6 @@ async def _prepare_send(db: AsyncSession, run: WorkflowRun, intent: Any
 
 async def publish_documentation_v2(db: AsyncSession, run: WorkflowRun, params: dict[str, Any] | None = None, *,
                                    transport: Any = None, worker_id: str | None = None) -> ToolOutcome:
-    """Publish the run's approved intent once (see the section comment). The run must be claimed (``lock_run``)."""
     from ..external_step import release_for_external_work
     from .confluence_v2 import CloudV2Client
     from .confluence_v2_errors import V2ProfileRefusalError
@@ -180,7 +158,6 @@ async def publish_documentation_v2(db: AsyncSession, run: WorkflowRun, params: d
 
 async def _presend_gate(db: AsyncSession, run: WorkflowRun, intent: Any, held: Any, client: Any, *,
                         worker: str) -> ToolOutcome | None:
-    """Pre-send reads and the last stop re-check; a failure is certified never started (nothing was sent)."""
     from .confluence_v2_errors import V2Error
     from .failure_routes import PUBLICATION_STOPPED, class_of_v2_error
 
@@ -206,7 +183,6 @@ async def _presend_gate(db: AsyncSession, run: WorkflowRun, intent: Any, held: A
 
 async def _send_failed(db: AsyncSession, run: WorkflowRun, intent: Any, held: Any, client: Any, error: Any, *,
                        body: str, worker: str) -> ToolOutcome:
-    """A refused/unsent request is certified never started; a possibly applied one is reconciled at once."""
     from .confluence_v2_errors import SENT_NO, SENT_REFUSED
     from .failure_routes import class_of_v2_error
     from .write_intent import mark_pending_reconcile
@@ -228,7 +204,6 @@ async def _send_failed(db: AsyncSession, run: WorkflowRun, intent: Any, held: An
 
 async def _send_and_prove(db: AsyncSession, run: WorkflowRun, intent: Any, held: Any, client: Any, *, body: str,
                           worker: str, marking: Any) -> ToolOutcome | tuple[str, str, Any, Any, str]:
-    """The one mutating request and its read-back: an answer, or ``(failure class, why, reply, head, url)``."""
     from .confluence_v2_errors import V2Error
 
     gate = await _presend_gate(db, run, intent, held, client, worker=worker)
@@ -250,7 +225,6 @@ async def _send_and_prove(db: AsyncSession, run: WorkflowRun, intent: Any, held:
 
 async def _prove_reply(db: AsyncSession, run: WorkflowRun, intent: Any, held: Any, client: Any, reply: Any, *,
                        body: str, marking: Any) -> ToolOutcome | tuple[str, str, Any, Any, str]:
-    """Confirm a reply by the full storage read-back; a reply that proves nothing is reconciled."""
     from .confluence_v2_errors import V2Error
     from .confluence_v2_storage import storage_digest
     from .failure_routes import PROVIDER_UNAVAILABLE, s1_failure

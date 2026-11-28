@@ -1,40 +1,4 @@
-"""Which connection(s) a connector tool call runs on, planned before anything runs.
-
-A tool several connectors serve (``ConnectorDescriptor.shared_tools``, e.g. CI logs) belongs to the connector
-its ``provider`` argument names; without one, and with named connections of any of them, it is refused.
-
-The plan is pure (no session, no secret), so the policy decisions (classification, Cedar) see
-the connection ids a call will use (:attr:`RoutePlan.connection_ids`) and ``tool_routing.routed_execute``
-executes exactly this plan. For a tool of a descriptor connector (``descriptors/``):
-
-1. routes that lost their type refuse every call (``named_connection_routes_unavailable``);
-2. a Workspace without named connections for the connector passes the call through; an explicit
-   ``connection`` other than ``default`` is refused there (``connection_unknown``), and so is a key the
-   default entry does not declare when it declares one (``default_key_fields``, e.g. another cluster than
-   its ``k8s_context``: ``connection_not_configured_for_scope``);
-3. an explicit ``connection`` (a named connection's id, its name, or ``default``) runs the call on that
-   connection: a name two connections share (a Workspace and a global one) is refused with both ids
-   (``connection_ambiguous``), an unknown one with the candidates (``connection_unknown``), and a key the
-   call names that this connection does not serve with ``connection_scope_mismatch`` (never another
-   connection's credential). A fan-out search with an explicit connection runs on that connection only;
-4. a call naming keys runs on the one connection serving them all (``scope_spans_connections`` for two,
-   ``connection_not_configured_for_scope`` for none);
-5. a call without a key: a fan-out search runs once per connection; otherwise the descriptor's
-   ``unscoped`` rule: ``default`` runs on the default connection (its allowlist without the bound keys)
-   while that default is usable. Otherwise (``single``, or a ``default`` rule whose default entry has no
-   target, e.g. a Workspace served only by named connections) the call runs on the one usable candidate
-   (a named connection of the Workspace, then the global ones, then a usable default); several candidates
-   are refused with the list in that order (``connection_ambiguous``), none with
-   ``connection_not_configured_for_scope``: the call must then name its key or its connection.
-
-Then the grants of the planned connections apply (``connection_gate.gate_plan``): a disabled or
-unavailable connection refuses every use, the agent tools level refuses tool calls (``off``; ``read`` for a
-write-risk tool), a fan-out skips such connections; a key two connections of the same precedence bind is refused
-(``connection_ambiguous``, ``needs_configuration``) before anything is chosen.
-
-:func:`plan_connector` is the same plan for a platform service that is not a tool call (a lookup, a write-back,
-a health check): the connector, the keys and an optional explicit connection.
-"""
+"""Which connection(s) a connector tool call runs on, planned before anything runs."""
 
 from __future__ import annotations
 
@@ -163,12 +127,6 @@ def _unscoped(descriptor: ConnectorDescriptor, routes: NamedConnectionRoutes, ba
 
 
 def _single_default(descriptor: ConnectorDescriptor, base: dict, keys: tuple[str, ...]) -> RoutePlan:
-    """Without named connections: the call passes through, unless it names a key the default does not declare.
-
-    Only for a descriptor whose default entry declares its key (``default_key_fields``: a Kubernetes context,
-    an AWS account id, ...): a call naming another key would otherwise run on the default's account. A default
-    that declares no key keeps today's behaviour (it serves whatever its credential reaches).
-    """
     declared = descriptor.default_keys(base) if descriptor.default_key_fields else None
     outside = [key for key in keys if declared and key not in declared]
     if outside:
@@ -187,7 +145,6 @@ def _single_default(descriptor: ConnectorDescriptor, base: dict, keys: tuple[str
 
 
 def _declared_without_secrets(descriptor: ConnectorDescriptor, base: dict, declared: frozenset[str]) -> list[str]:
-    """The default's declared keys, minus any value a secret field of the connector also holds."""
     secrets = {
         descriptor.scope_key(base.get(name)) for name in descriptor.secret_fields if clean_text(base.get(name))
     }
@@ -195,10 +152,6 @@ def _declared_without_secrets(descriptor: ConnectorDescriptor, base: dict, decla
 
 
 def plan_route(tool_name: str, params: dict | None, base: dict | None, *, agent_tool: bool = True) -> RoutePlan:
-    """The plan of one call over the merged config ``base`` (see the module doc).
-
-    ``agent_tool`` False: a published workflow's own platform action. The connection's agent tools level
-    governs agents, not the platform's own steps; disabled or unavailable connections still refuse."""
     args = params if isinstance(params, dict) else {}
     config = base if isinstance(base, dict) else {}
     routes = routes_of(config)
@@ -255,8 +208,6 @@ def _plan(
 def plan_connector(
     connector: str, base: dict | None, *, keys: tuple[str, ...] = (), explicit_connection: str | None = None
 ) -> RoutePlan:
-    """The plan of a platform service's use of ``connector`` (no tool call): the same rules as a call naming
-    ``keys`` (raw binding keys, canonicalised here) and, optionally, an explicit connection id or name."""
     descriptor = require_descriptor(connector)
     canonical = tuple(dict.fromkeys(scope_key(connector, key) for key in keys if clean_text(key)))
     config = base if isinstance(base, dict) else {}
@@ -264,7 +215,6 @@ def plan_connector(
 
 
 def planned_connection_ids(tool_name: str, params: dict | None, base: dict | None) -> tuple[str, ...]:
-    """The connection ids a call will use, for policy decisions (``()``: none or refused)."""
     return plan_route(tool_name, params, base).connection_ids
 
 

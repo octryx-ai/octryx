@@ -1,7 +1,4 @@
-"""Storage helpers for the Engineering Knowledge Graph.
-
-Rules, writes and serializers live in sibling modules; this module keeps the lookups.
-"""
+"""Storage helpers for the Engineering Knowledge Graph."""
 
 from __future__ import annotations
 

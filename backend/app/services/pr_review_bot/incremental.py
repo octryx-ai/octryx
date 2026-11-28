@@ -1,25 +1,5 @@
-"""Incremental passes: after a push the bot reviews only what changed since the commit
-it last posted a review for, and answers its open findings.
-
-No new table: the state of a pass lives in the run's own facts (``context.pr_review``) when it posts:
-
-- ``reviewed_sha`` and ``merge_base`` (the target branch's merge base it reviewed against);
-- ``open_findings``: the reviewer's findings still open after the pass (ids ``F<n>``; the deterministic caller
-  and CI findings are recomputed on every pass and never carried);
-- ``walkthrough``: the per-file words, carried into a pass whose reviewer writes none.
-
-The next run of the same pull request (``previous_pass``) reviews ``reviewed_sha..head`` when that is a plain
-continuation (``delta_base``); otherwise a full pass: no previous post, a target branch that changed or
-moved into the pull request (another merge base), a rewritten history (force push, rebase), or an empty delta.
-
-The answer to the open findings is the platform's follow-up review (``review.convergence``): the review node gets
-the open findings as its previous verdict (``seed``) and answers each id ``fixed`` / ``not_fixed``. What the
-follow-up drops for its own convergence the bot keeps (``effective``):
-
-- an open finding on a file the delta does not touch (``out_of_scope``) is still open: nothing changed there;
-- a new finding below ``high`` (``new_not_high``) is posted inline but does not block the status (``nonblocking``):
-  a medium bug in a follow-up commit is never swallowed.
-"""
+"""Incremental passes: after a push the bot reviews only what changed since the commit it last posted a review for, and
+answers its open findings."""
 
 from __future__ import annotations
 
@@ -43,9 +23,6 @@ _CARRIED = ("comment_id", "nonblocking", "answered", "suggested", "replies", "re
 
 @dataclass(frozen=True, slots=True)
 class Delta:
-    """``base`` is the commit the pass reviews from: the previous pass's head (incremental) or ``''`` (full, with
-    the reason in ``full_because``)."""
-
     base: str = ""
     full_because: str = ""
     previous_run: str = ""
@@ -61,7 +38,6 @@ def _facts(run: WorkflowRun) -> dict[str, Any]:
 
 
 async def previous_pass(db: AsyncSession, run: WorkflowRun) -> tuple[str, dict[str, Any]]:
-    """``(run id, facts)`` of the newest earlier run of this pull request that posted a review; ``('', {})``."""
     pr_id = str(_facts(run).get("pr_id") or "")
     if not pr_id:
         return "", {}
@@ -78,7 +54,6 @@ async def previous_pass(db: AsyncSession, run: WorkflowRun) -> tuple[str, dict[s
 
 async def delta_base(root: str, previous_run: str, previous: dict[str, Any], *, head: str, merge_base: str,
                      target: str) -> Delta:
-    """Whether this pass can review ``previous reviewed_sha..head`` only (see the module docstring)."""
     def full(reason: str) -> Delta:
         return Delta(full_because=reason, previous_run=previous_run, previous=previous)
 
@@ -101,8 +76,6 @@ async def delta_base(root: str, previous_run: str, previous: dict[str, Any], *, 
 
 
 def seed(previous: dict[str, Any]) -> dict[str, Any] | None:
-    """The review node's previous verdict for a follow-up (``convergence.previous_findings``): the open findings of
-    the last pass. ``None`` when nothing was open (the delta then gets a first-round review)."""
     open_findings = [dict(item) for item in previous.get("open_findings") or [] if isinstance(item, dict)]
     if not open_findings:
         return None
@@ -112,7 +85,6 @@ def seed(previous: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def reviewer_findings(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The findings a later pass answers: the reviewer's own, never the recomputed deterministic ones."""
     return [{**{key: value for key, value in item.items() if key not in ("suggestion", "start_line")},
              **({"suggested": True} if str(item.get("suggestion") or "").strip() else {})}
             for item in findings if item.get("source") not in _DETERMINISTIC]
@@ -129,10 +101,6 @@ class Effective:
 
 
 def effective(record: dict[str, Any], previous: dict[str, Any]) -> Effective:
-    """The pass as the pull request shows it, from the follow-up's record (``convergence.Settled.record``). Pure.
-
-    Carried findings (open before) are marked ``carried`` (the summary lists them, they get no new inline comment);
-    a new one below high is ``nonblocking``. The verdict follows the blocking findings that remain."""
     before = {str(item.get("id")): dict(item) for item in previous.get("open_findings") or []
               if isinstance(item, dict) and item.get("id")}
     findings = [dict(item) for item in record.get("findings") or [] if isinstance(item, dict)]
@@ -175,9 +143,6 @@ def effective(record: dict[str, Any], previous: dict[str, Any]) -> Effective:
 
 
 def thread_answers(passed: Effective, sha: str) -> list[dict[str, Any]]:
-    """The replies of this pass in the threads of earlier inline comments: a fixed finding gets "Fixed in"
-    and its thread resolved; a finding the follow-up found not fixed gets one reply with the reviewer's evidence (once
-    per finding, never on every push)."""
     evidence = {str(item.get("id")): str(item.get("evidence") or "").strip()
                 for item in passed.review.get("follow_up") or [] if isinstance(item, dict)}
     answers = [{"comment_id": str(item["comment_id"]), "reply": f"✅ Fixed in `{sha[:7]}`."
@@ -202,7 +167,6 @@ def thread_answers(passed: Effective, sha: str) -> list[dict[str, Any]]:
 
 
 async def superseded_by(db: AsyncSession, run: WorkflowRun) -> str:
-    """The id of a newer run of this pull request for another head (a push since this run started); ``''``."""
     pr_id, head = str(_facts(run).get("pr_id") or ""), str(_facts(run).get("reviewed_sha") or "")
     rows = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.project_id == run.project_id, WorkflowRun.workflow_key == WORKFLOW_KEY,
@@ -218,13 +182,11 @@ async def superseded_by(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 def blocking_ids(review: dict[str, Any]) -> list[str]:
-    """The ids of the findings that made the status ``failure`` (``@octryx ignore`` turns it once none is left)."""
     return [str(item.get("id") or item.get("source") or "?") for item in review.get("findings") or []
             if item.get("severity") in ("high", "medium") and not item.get("nonblocking")]
 
 
 def incremental_pass(review: dict[str, Any], facts: dict[str, Any]) -> Effective | None:
-    """The incremental pass's effective review (:func:`effective`); ``None`` on a full pass."""
     if not dict(facts.get("incremental") or {}).get("from") or not review.get("verdict"):
         return None
     return effective(review, dict(facts.get("previous_pass") or {}))

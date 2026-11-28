@@ -1,14 +1,4 @@
-"""Skill categories: an admin-managed tree with two levels and stable keys, plus free tags.
-
-- Keys are lower-case and stable: a top-level key is ``iac``; a child key is ``<parent key>.<name>``
-  (``iac.terraform``). Renaming changes only the label, so Workspace assignments by category stay valid.
-- Depth is at most two: a child cannot have children.
-- A category that still holds skills (published or open versions) or active children cannot be archived
-  (``skill_category_not_empty``); an archived category takes no new versions and can be restored.
-- Counts: ``skills`` per category is the number of skills whose published version is in it; the tree adds a
-  parent's own count and its children's (``total``).
-- Tags are identity metadata (free, lower-case, not reviewed) and are set per skill.
-"""
+"""Skill categories: an admin-managed tree with two levels and stable keys, plus free tags."""
 
 from __future__ import annotations
 
@@ -72,7 +62,6 @@ async def list_categories(db: AsyncSession) -> list[SkillCategory]:
 
 
 async def subtree_ids(db: AsyncSession, category_id: str) -> set[str]:
-    """The category and its children (depth two)."""
     children = (await db.execute(select(SkillCategory.id).where(SkillCategory.parent_id == category_id))).scalars()
     return {category_id, *children}
 
@@ -150,7 +139,6 @@ async def create_category(db: AsyncSession, payload: dict[str, Any], *, actor_id
 async def update_category(
     db: AsyncSession, category: SkillCategory, payload: dict[str, Any], *, actor_id: str
 ) -> SkillCategory:
-    """Label, description and order change; the key and the parent never do (assignments stay valid)."""
     if "key" in payload and str(payload["key"] or "") != category.key:
         raise SkillCatalogError("skill_category_key_immutable", 422, message="The key of a category never changes.")
     if "parent_id" in payload and (payload["parent_id"] or None) != category.parent_id:
@@ -220,7 +208,6 @@ async def tag_counts(db: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def whole_category_assignments(db: AsyncSession) -> dict[str, int]:
-    """``{category key: number of Workspaces that assign the category as a whole}`` (enabled bindings only)."""
     counts: dict[str, int] = {}
     keys = (await db.execute(select(WorkspaceCapabilityBinding.binding_key).where(
         WorkspaceCapabilityBinding.capability_kind == KIND_CATEGORY_BINDING,
@@ -234,7 +221,6 @@ async def whole_category_assignments(db: AsyncSession) -> dict[str, int]:
 
 
 async def ensure_starter_categories(db: AsyncSession) -> int:
-    """Seed :data:`STARTER_TREE` once per instance (marker in ``system_config``); existing keys are kept."""
     if await db.get(SystemConfig, STARTER_MARKER) is not None:
         return 0
     existing = {row.key: row for row in await list_categories(db)}

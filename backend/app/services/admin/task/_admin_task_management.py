@@ -176,6 +176,7 @@ async def trigger_task(*, task_id: str, db: AsyncSession) -> dict[str, Any]:
 async def list_task_runs(db: AsyncSession, *, task_id: str) -> list[dict[str, Any]]:
     result = await db.execute(
         select(TaskRun, TaskQueueEntry)
+        .join(Task, Task.id == TaskRun.task_id)  # a run is as visible as its Task (the Workspace read filter)
         .outerjoin(TaskQueueEntry, TaskQueueEntry.task_run_id == TaskRun.id)
         .where(TaskRun.task_id == task_id)
         # The same chronology as the Action summary's "last run", with its tie rule.

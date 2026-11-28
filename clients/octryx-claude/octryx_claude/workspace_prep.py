@@ -1,29 +1,5 @@
-"""Prepare the launch folder for the run before the agent starts.
-
-The run contract names what to prepare (``preparation``: the run's branch and the repository's environment as the
-platform resolved it from the Workspace's repository registration). The launcher only executes it in its own folder and
-reports the facts (``POST sessions/workspace-preparation``); the platform decides and routes the run:
-
-0. **repository**: the folder's ``origin`` must be the run's repository (``preparation.repository``: the connection's
-   hosts and ``<owner>/<repo>``), checked before anything changes (``foreign`` otherwise); the report carries the
-   remote without user info, and the platform checks it again;
-1. **branch**: on the run's branch → kept; another branch with uncommitted changes to tracked files → ``dirty``
-   (nothing is stashed, reset or overwritten — a person decides); else ``git fetch origin <branch>`` and check it out
-   (the local branch, fast-forwarded when behind, or a new one tracking ``origin/<branch>``). A device without git
-   credentials for origin starts the branch at the commit the platform knows it at (``preparation.head``) when the
-   folder has that commit; otherwise it asks the platform for the branch as a git bundle from the platform's working
-   copy (``POST sessions/branch-bundle``) and fetches that instead; only when that fails too it reports what to give
-   the device;
-2. **environment**: the probes the platform sent (argv lists or ``which`` an executable; never a shell, except an
-   explicit declared ``check``) with the declared ``path`` (folder-relative) first on ``PATH``; when one fails and a
-   setup is declared, each setup command runs in the folder (``/bin/sh -c``, ``PIP_REQUIRE_VIRTUALENV=1``, no stdin,
-   bounded), refused locally when it would install outside the folder, then the probes run again. The ``path``
-   directories and the declared test command's JUnit report (the server's ``exclude`` patterns) are excluded locally
-   (``.git/info/exclude``), so a virtual environment or a test report never enters the change.
-
-git runs without anything the working copy configures and never prompts. The declared ``path`` is also put first on
-the agent's ``PATH`` (:func:`child_path`), so ``python -m pytest`` resolves the folder's virtual environment.
-"""
+"""Prepare the launch folder before the agent starts: check the repository, put it on the run's branch, prepare
+the environment and report the facts (``POST sessions/workspace-preparation``); the platform routes the run."""
 
 from __future__ import annotations
 
@@ -31,7 +7,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from . import browser
+from . import browser, git_gateway
+from .git_gateway import GatewaySource
 from .platform import PlatformResult, SessionContext, call_control_plane
 from .run_contract import remember
 from .state import LocalState
@@ -59,8 +36,7 @@ def preparation_of(contract: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def prepare(contract: dict[str, Any] | None, root: Path, *, runtime: str,
-            bundle_source: BundleSource | None = None) -> dict[str, Any] | None:
-    """The report for the contract's preparation in ``root``, or ``None`` when the run asks for none."""
+            bundle_source: BundleSource | None = None, gateway: GatewaySource | None = None) -> dict[str, Any] | None:
     prep = preparation_of(contract)
     if prep is None:
         return None
@@ -78,7 +54,8 @@ def prepare(contract: dict[str, Any] | None, root: Path, *, runtime: str,
             str(prep.get("branch") or "")):
         if cleaned := discard_earlier_run(root, str(prep["branch"]), str(prep.get("head") or "") or None):
             report["earlier_run_cleaned"] = cleaned
-    branch = prepare_branch(root, str(prep.get("branch") or ""), str(prep.get("head") or "") or None, bundle_source)
+    branch = prepare_branch(root, str(prep.get("branch") or ""), str(prep.get("head") or "") or None, bundle_source,
+                            gateway)
     report["branch"] = branch
     if branch["state"] in ("already", "checked_out") and (dropped := drop_pushed_leftovers(root)):
         report["leftovers_dropped"] = dropped
@@ -106,17 +83,23 @@ def repository_root(folder: str) -> Path:
     return Path(_out(done)) if _ok(done) and _out(done) else Path(folder)
 
 
+def _gateway(state: LocalState, context: SessionContext, contract: dict[str, Any] | None, *,
+             http: Any) -> GatewaySource | None:
+    from .codex_config import agent_mode  # noqa: PLC0415
+
+    path = str((preparation_of(contract) or {}).get("git_gateway") or "")
+    return git_gateway.source_for(state, context, path, http=http) if path and agent_mode() else None
+
+
 def prepare_for_session(state: LocalState, context: SessionContext, contract: dict[str, Any] | None, folder: str, *,
                         http: Any, runtime: str, timeout: float = REPORT_TIMEOUT) -> tuple[dict[str, Any] | None, str]:
-    """Prepare, report and remember the answered contract; ``(contract, refusal code or "")``.
-
-    A device turn starts only on a ready folder; a terminal starts unless the report paused the run."""
     def bundle_source(have: list[str]) -> dict[str, Any] | None:
         answer = call_control_plane(state, context, "POST", "/sessions/branch-bundle", http=http,
                                     timeout=BUNDLE_TIMEOUT, body={"have": have})
         return answer.body if answer.outcome == "ok" else None
 
-    report = prepare(contract, repository_root(folder), runtime=runtime, bundle_source=bundle_source)
+    report = prepare(contract, repository_root(folder), runtime=runtime, bundle_source=bundle_source,
+                     gateway=_gateway(state, context, contract, http=http))
     if report is None:
         return contract, ""
     answer: PlatformResult = call_control_plane(state, context, "POST", "/sessions/workspace-preparation", http=http,
@@ -129,12 +112,11 @@ def prepare_for_session(state: LocalState, context: SessionContext, contract: di
     code = {"dirty": "workspace_dirty", "foreign": "repository_not_run_repository"}.get(
         dict(report.get("branch") or {}).get("state"), "environment_not_ready")
     paused = bool((current or {}).get("paused"))
+    # a device turn starts only on a ready folder; a terminal starts unless the report paused the run
     return current, code if runtime == "device" or paused else ""
 
 
 def prepare_terminal(state: LocalState, context: SessionContext, folder: str, env: dict[str, str]) -> str:
-    """An interactive launch: prepare the folder for the run it follows (if any), say what happened, set the agent's
-    ``PATH``; the refusal code when the report paused the run, else ``""``."""
     import sys
 
     import httpx
@@ -155,10 +137,6 @@ def prepare_terminal(state: LocalState, context: SessionContext, folder: str, en
 
 
 def child_path(contract: dict[str, Any] | None, folder: str, env: dict[str, str]) -> None:
-    """Put the declared environment's ``path`` first on the agent's ``PATH`` (in place). In an item's worktree that
-    uses the main folder's environment (``work_git.share_environment``), the worktree's own ``src`` comes first on
-    ``PYTHONPATH``: an editable install in that environment points at the main folder's sources, and the item must
-    test its own code."""
     prep = preparation_of(contract)
     environment = prep.get("environment") if prep is not None else None
     root: Path | None = None
@@ -177,7 +155,7 @@ def child_path(contract: dict[str, Any] | None, folder: str, env: dict[str, str]
 
 
 def own_sources_first(root: Path, environment: dict[str, Any], env: dict[str, str]) -> None:
-    """``<worktree>/src`` first on ``PYTHONPATH`` when the worktree's environment folder is a link to another one."""
+    # An editable install in a shared environment points at the main folder's sources; the item tests its own code.
     tops = {Path(str(item)).parts[0] for item in environment.get("path") or [] if Path(str(item)).parts}
     if not is_item_folder(root) or not any((root / top).is_symlink() for top in tops if top not in (".", "..")):
         return

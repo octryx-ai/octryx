@@ -1,10 +1,4 @@
-"""Contract: the verification gate tells "test not run" from "test failed" by execution evidence.
-
-Evidence comes from the launcher's PostToolUse / PostToolUseFailure hooks
-(``POST sessions/tool-executed``), never from the tool result's text. The hook and
-the model gateway's transcript writer converge on one ToolCall row per tool_use id,
-in either order.
-"""
+"""Contract: the verification gate tells "test not run" from "test failed" by execution evidence."""
 
 from __future__ import annotations
 
@@ -22,7 +16,7 @@ from app.services.agent_gateway.verification import evaluate_verification
 from app.services.model_gateway.inbound.transcript_tools import _upsert_tool_calls
 from app.services.model_gateway.inbound.turn_delta import ToolResultBlock, ToolUseBlock, TurnDelta
 from app.time_utils import utc_now
-from tests.test_agent_gateway_control_plane import BASE, VERIFYING_POLICY, _gateway, _workspace
+from tests.services.agent_gateway.test_agent_gateway_control_plane import BASE, VERIFYING_POLICY, _gateway, _workspace
 
 POLICY = build_policy(normalize_agent_gateway_policy(VERIFYING_POLICY), source="workspace")
 TEST_COMMAND = "python -m pytest tests/x.py"

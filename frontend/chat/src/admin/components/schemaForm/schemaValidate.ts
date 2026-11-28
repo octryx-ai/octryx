@@ -151,11 +151,6 @@ function walk(root: JsonSchema, rawSchema: JsonSchema, value: unknown, pointer: 
   }
 }
 
-/**
- * Cheap local checks keyed by JSON pointer relative to `value`: required,
- * const/enum, string length/pattern, number bounds, integer, array/map sizes,
- * unknown keys. Missing required fields are reported at the field's pointer.
- */
 export function clientFieldErrors(root: JsonSchema, schema: JsonSchema, value: unknown): SchemaFormErrors {
   const errors: SchemaFormErrors = {};
   walk(root, schema, value, "", errors, 0);
@@ -175,11 +170,7 @@ export function mergeErrors(...sources: Array<SchemaFormErrors | undefined>): Sc
   return merged;
 }
 
-/**
- * Messages no field shows: root-level messages and those under an undeclared
- * top-level property. Hidden fields are the host's to render (with their errors).
- * The form lists the orphans in a summary so nothing is silently dropped.
- */
+/** The form lists these orphans in a summary so nothing is silently dropped. */
 export function orphanErrors(rootObject: JsonSchema, errors: SchemaFormErrors, hiddenFields: readonly string[]): Array<[string, string]> {
   const properties = isRecord(rootObject.properties) ? rootObject.properties : {};
   const result: Array<[string, string]> = [];

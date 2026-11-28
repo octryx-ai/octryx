@@ -1,11 +1,7 @@
 import { createElement } from "react";
 
-// The one empty state (design system): one line and at most one action, no box, no illustration.
-
 export type EmptyLineProps = {
-  // One sentence: what is missing ("No pull requests yet.").
   text: string;
-  // The one next step; a link (href) or a button (onClick).
   action?: { label: string; href?: string; onClick?: () => void };
   testId?: string;
 };

@@ -22,12 +22,7 @@ _CONNECTOR_FRAGMENTS = (
 
 
 def extract_tool_category(tool_name: str) -> str:
-    """Return the owning category of a tool from its registry metadata.
-
-    The tool registry is the authoritative owner mapping — a connector tool
-    reports its connector name; everything else is grouped by its metadata
-    source. No name sniffing.
-    """
+    """Return the owning category of a tool from its registry metadata."""
     from ...tools.definitions import get_tool_definition_metadata
 
     metadata = get_tool_definition_metadata(tool_name)
@@ -70,7 +65,6 @@ def discover_all_tools() -> dict[str, list[dict]]:
 
 
 async def _configured_connectors(db: AsyncSession, project_id: str | None) -> set[str]:
-    """Connector categories of the channels activated in the project."""
     from ...models import ChannelConfig
 
     configured_connectors: set[str] = set()
@@ -100,13 +94,7 @@ async def discover_configured_tools(
     project_id: str | None = None,
     channel_id: str | None = None,
 ) -> dict[str, list[dict]]:
-    """
-    Return only the tools configured for this project/channel.
-
-    That means:
-    - connector tools only from channels activated in the project
-    - plus all internal system tools (knowledge, memory, ...)
-    """
+    """Return only the tools configured for this project/channel."""
     from ...tools.registry import TOOL_REGISTRY
 
     configured_connectors = await _configured_connectors(db, project_id)

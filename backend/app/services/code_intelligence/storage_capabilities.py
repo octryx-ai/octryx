@@ -7,8 +7,6 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from app.services.code_intelligence.storage_constants import _LANGUAGE_SCIP_BINARIES
-
 
 def _find_binary(name: str) -> str | None:
     resolved = shutil.which(name)
@@ -39,10 +37,6 @@ def detect_code_intelligence_capabilities() -> dict[str, Any]:
     zoekt_search = _binary_available("zoekt")
     zoekt_web = _binary_available("zoekt-webserver")
     zoekt_index_available = bool(zoekt_index or zoekt_git_index)
-    scip_languages = {
-        language: any(_binary_available(binary) for binary in binaries)
-        for language, binaries in _LANGUAGE_SCIP_BINARIES.items()
-    }
     return {
         "search": {
             "zoekt": {
@@ -60,7 +54,6 @@ def detect_code_intelligence_capabilities() -> dict[str, Any]:
             "ripgrep": {"available": _binary_available("rg")},
         },
         "semantic": {
-            "scip": {"languages": scip_languages},
             "lsp": {"available": True},
         },
         "structure": {
@@ -79,12 +72,3 @@ def detect_code_intelligence_capabilities() -> dict[str, Any]:
             },
         },
     }
-
-
-def _select_backend(capabilities: dict[str, Any], *, desired: str, fallback: str, path: list[str]) -> str:
-    current: Any = capabilities
-    for item in path:
-        current = current.get(item) if isinstance(current, dict) else None
-    if isinstance(current, dict) and current.get("available"):
-        return desired
-    return fallback

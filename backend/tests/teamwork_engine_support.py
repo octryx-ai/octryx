@@ -58,9 +58,6 @@ def item(key: str, *, role: str = "backend", depends_on=None, paths=None, **extr
             "proofs": [f"tests/test_{key}.py::test_{key}"], **extra}
 
 
-# --- the scheduler with a fake executor ----------------------------------------------------------------------------
-
-
 class FakeExecutor:
     name = "fake"
 
@@ -100,7 +97,9 @@ class FakeExecutor:
 
 
 @pytest.fixture
-def fake(tmp_path):
+def fake(tmp_path, monkeypatch):
+    from app.services.workflow_runs.teamwork import device_items
+
     executor = FakeExecutor()
     executor.copy = tmp_path / "copy"
     (executor.copy / ".git").mkdir(parents=True)  # the run's working copy a change phase needs on the server
@@ -108,13 +107,11 @@ def fake(tmp_path):
     async def factory(db, run):
         return executor
 
-    teamwork.register_executor("fake", factory, first=True)
-    yield executor
-    teamwork._EXECUTORS.pop("fake", None)
+    monkeypatch.setattr(device_items, "executor_for", factory)
+    return executor
 
 
 async def planned_run(db, items: list[dict], *, copy_dir, definition: dict | None = None):
-    """A run whose coordinator submitted ``items`` and passed: the run is at the parallel_work node."""
     admin = await admin_user(db)
     workspace_id = await run_workspace(db, admin)
     run = await start_run(db, user=admin, workflow_key=await publish_phased(db, definition or team_definition()),
@@ -134,7 +131,6 @@ def items_of(run) -> dict:
 
 
 async def finish_item(db, run, key: str, *, value: str = "done", tools=("edit_workspace_file",)) -> dict:
-    """The item's real turn: its resolution, its recorded result, the turn-end checks."""
     session = await db.get(Session, items_of(run)[key]["session_id"])
     resolution = await run_turn_resolution(db, session, user_message="Build it.")
     assert resolution["workflow_run"].get("item") == key, resolution.get("unmatched_reason")
@@ -146,8 +142,8 @@ async def finish_item(db, run, key: str, *, value: str = "done", tools=("edit_wo
 
 
 async def ended_turn(db, session_id: str, resolution: dict, tools: list[str]) -> None:
-    """A turn's end after its one reminder was used: failing checks are recorded instead of reminded again."""
     from app.agent.loops.response._loop_workflow_checks import REMINDER_MARKER, handle_workflow_checks_guard
+
     from app.services.prompt_catalog import prompt_set_scope, seed_prompt_set
     from app.services.workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
 

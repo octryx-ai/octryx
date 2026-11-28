@@ -1,15 +1,5 @@
-"""PR review bot, whose seat reviews (the PR author's seat, then the company).
-
-- the review seat is opt-in per person and Workspace: on for admins and owners without a choice, off for other
-  members, a stored choice wins, a non-member never;
-- the pull request's author is found by the linked account (GitHub login case-insensitive, Bitbucket Cloud by
-  Atlassian account id); an author with the seat off is not chosen;
-- a bot run reviews on that person's seat (the run's own route is ``seat``), a person's run keeps their own seat;
-- the seat review needs no known folder of the repository: any seat device of the person with an allowlisted folder
-  takes it (the call itself runs in an empty folder without tools);
-- the seat turn and its review thread are the seat person's, and the run's event names whose seat and why; the
-  summary's footer names the person.
-"""
+"""PR review bot: whose seat reviews (the PR author's seat, then the company); the seat is opt-in per person
+and Workspace."""
 
 from __future__ import annotations
 
@@ -144,9 +134,6 @@ def test_the_summary_names_whose_seat_reviewed():
     assert "reviewer claude-haiku-5-5 (Alice Example's seat)" in post.summary
 
 
-# --- broadcast (§12 (i)): the team's seats at once, the first device that takes the offer reviews ---------------
-
-
 async def test_the_team_is_asked_first_and_the_author_after_without_the_bot(db):
     workspace, admin, member, bot = await _people(db)
     other_admin = await seed_member(db, workspace_id=workspace, role="admin")
@@ -158,8 +145,6 @@ async def test_the_team_is_asked_first_and_the_author_after_without_the_bot(db):
 
 
 class _Seat:
-    """A seat whose ``start`` offers a real device job; ``finish`` answers for the winner."""
-
     def __init__(self, db, owner, device, session):
         self.db, self.owner, self.device, self.session = db, owner, device, session
         self.job, self.finished, self.answered = None, 0, 0

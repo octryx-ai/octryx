@@ -1,13 +1,4 @@
-"""PreToolUse decision for a governed client tool call (``POST sessions/tool-check``).
-
-The launcher's PreToolUse hook sends Claude Code's raw hook input. The Workspace
-policy's ``tool_rules`` are evaluated structurally (``command_match`` for Bash,
-glob matching for file paths); the first matching rule denies. Every denial is
-recorded on the shadow session as a ``ToolCall`` row (``source="client_hook"``,
-``status="denied_by_policy"``) with a bounded, redacted copy of the tool input.
-Allows are not recorded here: the model gateway already records every tool call
-the model requested.
-"""
+"""The Workspace tool rules for a governed client tool call, and the recorded denial."""
 
 from __future__ import annotations
 
@@ -31,6 +22,7 @@ from .policy_keys import (
     RULE_COMMAND_REQUIRES_ARGUMENT,
     RULE_PATH_DENIED,
 )
+from .stored_types import HookDenialParameters
 
 DECISION_ALLOW = "allow"
 DECISION_DENY = "deny"
@@ -85,13 +77,11 @@ class ToolDecision:
 
 
 def allowed_by_default(setting: str, *, updated_input: dict[str, Any] | None = None) -> ToolDecision:
-    """An allow that only the Workspace's default for ``setting`` (a ``tool_defaults`` key) gave."""
     return ToolDecision(DECISION_ALLOW, STATE_ALLOWED, REASON_ALLOWED_BY_DEFAULT, f"tool_defaults.{setting}",
                         updated_input=updated_input)
 
 
 def setting_remedy(setting: str, value: Any, tool: str | None = None) -> dict[str, Any]:
-    """The one-click fix for a denial that the Workspace's ``tool_defaults.<setting>`` decided."""
     return {"setting": f"device_runs.tool_defaults.{setting}", "value": value, **({"tool": tool} if tool else {})}
 
 
@@ -121,8 +111,6 @@ def _command_rule_denies(rule: ToolRule, segments: list[tuple[str, ...]]) -> boo
 
 
 def candidate_paths(raw_path: str, cwd: str) -> list[str]:
-    """The literal path the tool received and its normalized (absolute when possible) form."""
-
     literal = str(raw_path or "")
     if not literal:
         return []
@@ -144,8 +132,6 @@ def _path_rule_denies(rule: ToolRule, tool_name: str, tool_input: dict[str, Any]
 
 
 def evaluate_tool_check(policy: GatewayPolicy, hook_input: dict[str, Any]) -> ToolDecision:
-    """First matching rule denies; no match allows. Pure: no I/O."""
-
     tool_name = str(hook_input.get("tool_name") or "")
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     cwd = str(hook_input.get("cwd") or "")
@@ -153,7 +139,7 @@ def evaluate_tool_check(policy: GatewayPolicy, hook_input: dict[str, Any]) -> To
     segments: list[tuple[str, ...]] = []
     if tool_name == BASH_TOOL and command_rules:
         parsed = command_segments(str(tool_input.get("command") or ""))
-        if parsed is None:
+        if parsed is None:  # the command rules cannot inspect it, so it fails closed
             message = render_prompt("secure_work.gateway.unparseable_command")
             return ToolDecision(DECISION_DENY, STATE_DENIED, REASON_COMMAND_UNPARSEABLE, None, message)
         segments = parsed
@@ -182,11 +168,9 @@ async def record_denial(
     hook_input: dict[str, Any],
     decision: ToolDecision,
 ) -> ToolCall:
-    """One ``denied_by_policy`` ToolCall row for this denial. Flushes only."""
-
     tool_name = str(hook_input.get("tool_name") or "unknown")[:MAX_TOOL_NAME_CHARS]
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
-    parameters: dict[str, Any] = {
+    parameters: HookDenialParameters = {
         "source": TOOL_CALL_SOURCE_HOOK,
         "tool_use_id": str(hook_input.get("tool_use_id") or "")[:64] or None,
         "rule_id": decision.rule_id,

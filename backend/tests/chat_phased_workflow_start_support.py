@@ -9,7 +9,6 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-import app.agent.engine as engine_module
 import app.agent.providers as providers_module
 import app.services.control_plane_service as control_plane_module
 from app.models import Approval, CodeRepository, Project, User, UserProject, WorkflowRun, WorkItem
@@ -18,7 +17,6 @@ from app.models.project.knowledge_source_sync import KnowledgeSourceConnector
 from app.services.session.turn_tasks import CHAT_RUN_TASKS
 from app.services.workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
 
-# A realistic request.
 IDEA = ("Lege in Jira-Projekt CHEF ein Epic 'Hello Kitchen' an, lass die Spezifikation schreiben, in genau 2 Stories "
         "schneiden und danach umsetzen.")
 
@@ -39,8 +37,6 @@ class _ProposalProvider:
 
 @pytest.fixture
 def fakes(monkeypatch):
-    """The proposal provider, the turn model (records whether a turn reached it), ``start_run`` (records) and the
-    Jira tool (``state["jira"]``: its answer; every call is checked against the real write-plan gate)."""
     state = {"model_calls": 0, "started": [], "jira_calls": [], "jira_reads": [], "issues": {},
              "jira": {"ticket_id": "CHEF-7", "id": "10007", "status": "success"}}
 
@@ -65,8 +61,8 @@ def fakes(monkeypatch):
             db.add(run)
             await db.flush()
             if state.get("commit_inside"):
-                await db.commit()  # what a platform action's tool does (``circuit_breaker`` records its health)
-                await db.execute(select(WorkflowRun.id).where(WorkflowRun.id == run.id))  # and the next step reads
+                await db.commit()
+                await db.execute(select(WorkflowRun.id).where(WorkflowRun.id == run.id))
             state["started"].append({"workflow_key": workflow_key, "work_item_id": work_item_id,
                                      "session_id": session.id, "runtime_target": runtime_target,
                                      "repository": repository})
@@ -75,10 +71,10 @@ def fakes(monkeypatch):
         async def fake_tool(tool_name, params, context):
             from app.services.run_capability.chat_write_plan import plan_decision
 
-            if tool_name == "get_jira_ticket":  # a read: free, recorded apart from the writes
+            if tool_name == "get_jira_ticket":
                 state["jira_reads"].append(params["ticket_id"])
                 issue = state["issues"].get(params["ticket_id"])
-                if issue and state.get("fenced"):  # what the real dispatch hands back (live reads fenced)
+                if issue and state.get("fenced"):
                     from app.services.content_security.knowledge_fence import fence_knowledge_result
 
                     return fence_knowledge_result("get_jira_ticket", dict(issue))
@@ -92,11 +88,10 @@ def fakes(monkeypatch):
             return dict(state["jira"])
 
         state["proposal"] = _ProposalProvider(proposal_key)
+        _CHOSEN[:] = [proposal_key]  # what the person picks in the composer (no proposal call per message)
         monkeypatch.setattr("app.tools.registry.execute_tool_with_plugins", fake_tool)
         monkeypatch.setattr(control_plane_module, "resolve_control_plane_runtimes", fake_runtimes)
         monkeypatch.setattr(providers_module, "get_provider", state["proposal"])
-        monkeypatch.setattr(engine_module, "resolve_control_plane_runtimes", fake_runtimes)
-        monkeypatch.setattr(engine_module, "_chat_with_runtime_fallback", model)
         monkeypatch.setattr("app.services.workflow_runs.records.start_run", fake_start_run)
         return state
 
@@ -107,8 +102,6 @@ KITCHEN_HELPER_SETUP = {"test_commands": [".venv/bin/python -m pytest -v"], "pr_
 
 
 async def _workspace(db, *, both_coding: bool = False) -> str:
-    """A Workspace with two repository records registered from the knowledge snapshot,
-    octryx/kitchen-helper (Bitbucket Cloud, with its coding setup) and SHOP/demo-shop (Bitbucket Server)."""
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
     project = Project(id=str(uuid.uuid4()), name=f"phased-{uuid.uuid4().hex[:8]}", config={}, is_active=True)
     db.add(project)
@@ -139,10 +132,12 @@ async def _settle(session_id: str) -> None:
         await asyncio.sleep(0)
 
 
+_CHOSEN: list[str] = []
+
+
 async def _send(client, auth_headers, *, project_id: str, prompt: str = IDEA, workflow_key: str = "") -> str:
-    body = {"prompt": prompt, "project_id": project_id, "session_id": ""}
-    if workflow_key:
-        body["workflow_key"] = workflow_key
+    body = {"prompt": prompt, "project_id": project_id, "session_id": "",
+            "workflow_key": workflow_key or (_CHOSEN[-1] if _CHOSEN else "")}
     response = await client.post("/chat/api/send", json=body, headers=auth_headers)
     assert response.status_code == 200, response.text
     session_id = response.json()["selectedSession"]["id"]

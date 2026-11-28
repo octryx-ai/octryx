@@ -3,7 +3,9 @@
 export type AttentionKind =
   | "question" | "gate" | "device_approval" | "done" | "problem" | "budget" | "allowance" | "handover"
   // A running Claude Code session wrote back (live), a turn on the person's Mac ended (turn).
-  | "live" | "turn";
+  | "live" | "turn"
+  // A session in the Workspace pool that the person can run now.
+  | "pool";
 export type AttentionSeverity = "action" | "warning" | "info";
 export type ActionTone = "primary" | "neutral" | "danger";
 export type AttentionInput = { kind: "text"; label: string; placeholder: string; required: boolean; field: string };

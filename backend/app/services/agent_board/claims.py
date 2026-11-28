@@ -1,20 +1,4 @@
-"""Work-item claims: one active agent holder per Work Item, with a lease and a fencing epoch.
-
-- At most one **active** row (``released_at IS NULL``) per Work Item: the partial unique index
-  ``uq_work_item_claim_active`` enforces it on Postgres and SQLite alike. A lost insert race is an
-  ``IntegrityError`` inside a savepoint and answers ``held_by`` like any other occupied item.
-- An active row whose lease has run out counts as free. The next claim closes it with a compare-and-set
-  update (``released_at IS NULL`` in the WHERE, reason ``expired``) and inserts a new row.
-- ``epoch`` grows by one per new claim of the same Work Item; renewing an own claim keeps it. A write
-  carrying an older epoch is fenced off (``fencing.py``).
-- The lease (default :data:`DEFAULT_LEASE_SECONDS`, at most :data:`MAX_LEASE_SECONDS`) is renewed on every
-  presence touch of the holder's gateway session (:func:`renew_gateway_claims`) and released when that
-  session really ends (:func:`release_holder_claims`, ``session_stopped``).
-
-Only hashes of agent references are stored and shown.
-
-Constants and pure rules live in ``claim_values`` and the listings in ``claim_listing``.
-"""
+"""Work-item claims: one active agent holder per Work Item, with a lease and a fencing epoch."""
 
 from __future__ import annotations
 
@@ -45,7 +29,6 @@ from .claim_values import (
 
 
 async def active_claim(db: AsyncSession, work_item_id: str) -> WorkItemClaim | None:
-    """The unreleased row of a Work Item, live or with a run-out lease."""
     statement = select(WorkItemClaim).where(
         WorkItemClaim.work_item_id == work_item_id, WorkItemClaim.released_at.is_(None)
     )
@@ -58,7 +41,6 @@ async def live_claim(db: AsyncSession, work_item_id: str) -> WorkItemClaim | Non
 
 
 async def lost_to_takeover(db: AsyncSession, work_item_id: str, *, kind: str, ref_hash: str) -> bool:
-    """The item's latest claim is this identity's, and a takeover took it (nobody claimed since)."""
     latest = (
         await db.execute(
             select(WorkItemClaim).where(WorkItemClaim.work_item_id == work_item_id)
@@ -88,7 +70,6 @@ async def claim_work_item(
     db: AsyncSession, *, item: WorkItem, kind: str, ref_hash: str, user_id: str,
     paths: list[str] | None, lease_seconds: int,
 ) -> dict[str, Any]:
-    """Claim, renew an own claim, or answer ``held_by``. Flushes; the caller commits."""
     now = utc_now()
     current = await active_claim(db, item.id)
     if current is not None and is_live(current, now):
@@ -150,7 +131,6 @@ async def release_own_claim(db: AsyncSession, *, item: WorkItem, kind: str, ref_
 
 
 async def renew_gateway_claims(db: AsyncSession, ref_hash: str, now: datetime) -> None:
-    """Presence touch of a gateway session: every live claim it holds gets a fresh lease."""
     rows = (
         await db.execute(
             select(WorkItemClaim).where(
@@ -193,6 +173,7 @@ async def admin_release_claim(db: AsyncSession, *, claim: WorkItemClaim, actor_u
                 action=ADMIN_RELEASE_AUDIT_ACTION,
                 resource_type="work_item_claim",
                 resource_id=claim.id,
+                project_id=claim.project_id,
                 details={"project_id": claim.project_id, "work_item_id": claim.work_item_id,
                          "holder_user_id": claim.holder_user_id, "agent_hash": claim.holder_ref_hash,
                          "epoch": claim.epoch},

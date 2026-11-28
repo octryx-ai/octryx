@@ -1,18 +1,4 @@
-"""Endpoint validation for the governed LiteLLM gateway client.
-
-The endpoint is validated *before* any HTTP client is constructed, so a rejected
-endpoint can never produce a request. Denials are fixed reason codes: the raw
-URL is never echoed back, because an operator can paste credentials into it.
-
-Plain ``http`` is admitted in exactly two shapes:
-
-- a loopback host (local fixture / dev), and
-- a Kubernetes cluster-internal Service name (``<svc>.<ns>.svc.cluster.local``),
-  and only when the caller says the gateway section *declares* the
-  ``plaintext_cluster_internal`` transport mode. The transport policy then
-  re-checks the host and requires the operator's node-encryption attestation;
-  this module only refuses to let any other plaintext origin through.
-"""
+"""Endpoint validation for the governed LiteLLM gateway client, before any HTTP client exists."""
 
 from __future__ import annotations
 
@@ -86,8 +72,6 @@ class EndpointValidation:
 
 
 def normalize_host_allowlist(value: object) -> tuple[tuple[str, ...], str]:
-    """Normalize the configured host allowlist, or return a fixed denial code."""
-
     if not isinstance(value, (list, tuple)):
         return (), ENDPOINT_DENIAL_HOST_ALLOWLIST_NOT_CONFIGURED
     hosts: list[str] = []
@@ -116,15 +100,9 @@ def _is_loopback_host(host: str) -> bool:
         return False
 
 
+# Exact suffix on the lowercased host with at least service and namespace labels, each a plain DNS label: an IP literal,
+# a trailing dot, a wildcard or a mid-string suffix never matches.
 def is_cluster_internal_service_host(host: object) -> bool:
-    """True only for a fully qualified ``<service>.<namespace>.svc.cluster.local``.
-
-    Exact suffix match on the already lowercased host, at least a service and a
-    namespace label in front of it, every label a plain DNS label. An IP literal
-    can never match, and neither can a trailing-dot FQDN, a wildcard, or a host
-    that merely contains the suffix somewhere in the middle.
-    """
-
     if not isinstance(host, str) or host != host.strip().lower():
         return False
     if not host.endswith(CLUSTER_INTERNAL_SERVICE_SUFFIX):
@@ -142,8 +120,6 @@ def is_cluster_internal_service_host(host: object) -> bool:
 
 
 def _url_shape_denial(parts: SplitResult, scheme: str) -> str:
-    """The first fixed denial of the URL's scheme, userinfo, query or fragment; ``""`` when none."""
-
     if scheme not in _SUPPORTED_SCHEMES:
         return ENDPOINT_DENIAL_SCHEME_NOT_SUPPORTED
     if parts.username or parts.password:
@@ -161,13 +137,8 @@ def validate_gateway_endpoint(
     allowed_hosts: object,
     cluster_internal_plaintext_declared: bool = False,
 ) -> EndpointValidation:
-    """Validate a configured gateway endpoint against the required host allowlist.
-
-    ``cluster_internal_plaintext_declared`` is the caller's statement that the
-    gateway section declares the ``plaintext_cluster_internal`` transport mode
-    (``transport_policy.declares_cluster_internal_plaintext``). Without it, plain
-    ``http`` stays loopback-only.
-    """
+    """Validate a configured gateway endpoint against the required host allowlist; plain ``http`` stays loopback-only
+    unless the caller says the section declares ``plaintext_cluster_internal``."""
 
     hosts, allowlist_denial = normalize_host_allowlist(allowed_hosts)
     if allowlist_denial:

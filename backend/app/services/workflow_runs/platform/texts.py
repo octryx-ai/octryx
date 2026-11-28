@@ -17,7 +17,6 @@ def _last_answer(run: WorkflowRun) -> str:
 
 
 def findings_text(run: WorkflowRun) -> str:
-    """The failed checks of the newest gate, one per line."""
     gates = [item for item in dict(run.gate_results or {}).values() if isinstance(item, dict)]
     latest = max(gates, key=lambda item: str(item.get("at") or ""), default={})
     failed = [": ".join(part for part in (str(item.get("description") or item.get("type") or ""),
@@ -40,12 +39,10 @@ async def run_text(db: AsyncSession, run: WorkflowRun, source: str) -> str:
         return (f"Workflow run '{run.title}': a round did not pass.\n{findings}" if findings
                 else f"Workflow run '{run.title}': a round did not pass.")[:MAX_TEXT]
     if source == "dor_questions":
-        # What keeps the Work item from being ready (triage): the Definition of Ready's missing parts.
         missing = list(dict(dict(run.context or {}).get("definition_of_ready") or {}).get("missing") or [])
         return ("Before work can start, please clarify:\n" + "\n".join(f"- {item}" for item in missing))[:MAX_TEXT] \
             if missing else ""
     if source == "review":
-        # The independent reviewer's verdict as a comment: summary and one line per finding.
         from ..review.verdict import verdict_from_record
 
         verdict = verdict_from_record(dict(run.context or {}).get("review"))
@@ -55,7 +52,6 @@ async def run_text(db: AsyncSession, run: WorkflowRun, source: str) -> str:
         lines += [f"- {finding.render()}" for finding in verdict.findings]
         return "\n".join(lines)[:MAX_TEXT]
     if source == "hypothesis":
-        # E's incident hypothesis as the phase submitted it (``phase_outputs``), never the chat answer.
         from ..phase_outputs import recorded_output
 
         record = dict((recorded_output(run, "incident_hypothesis") or {}).get("record") or {})

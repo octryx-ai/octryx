@@ -49,9 +49,8 @@ async def ingest_repository_record(
     project_id: str | None,
     record: dict[str, Any],
 ) -> Any | None:
-    """Deterministically map a repository bronze record (snapshot/outline/etc.)
-    into the graph: a repository node with branch/commit properties and
-    commit authors as contributed_to edges (service accounts filtered)."""
+    """Map a repository bronze record into the graph: a repository node and its commit authors (service accounts
+    filtered)."""
     label = str(record.get("label") or record.get("repository") or "").strip()
     if not label:
         return None

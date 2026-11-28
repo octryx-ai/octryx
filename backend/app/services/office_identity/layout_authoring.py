@@ -1,15 +1,4 @@
-"""Write real ``slideLayout`` parts into a PowerPoint package.
-
-python-pptx has no public API for adding a layout, so this module works on the
-OPC package itself: a layout is created by **cloning an existing layout of the
-same master** and then adjusting placeholders. Nothing about the master, the
-theme, the colours, the fonts or the background is touched — the clone inherits
-all of it exactly as its donor did, which is what keeps the corporate identity
-intact.
-
-Registering the authored part in the package — relationships, content type
-and the master's layout list — is :mod:`.layout_registration`.
-"""
+"""Write real ``slideLayout`` parts into a PowerPoint package."""
 
 from __future__ import annotations
 
@@ -38,12 +27,6 @@ _SHAPE_TAGS = frozenset({f"{{{NS_P}}}sp", f"{{{NS_P}}}pic", f"{{{NS_P}}}graphicF
 
 @dataclass(frozen=True)
 class LayoutSpec:
-    """One layout to generate.
-
-    ``picture_rect`` is the geometry the picture placeholder receives; the
-    caller measures it out of the template, this module only writes it.
-    """
-
     name: str
     shape: str
     donor_part: str
@@ -56,8 +39,6 @@ class LayoutSpec:
 
 @dataclass(frozen=True)
 class GeneratedLayout:
-    """What actually landed in the package for one :class:`LayoutSpec`."""
-
     spec: LayoutSpec
     part: str
     rel_id: str
@@ -71,11 +52,6 @@ class GeneratedLayout:
 
 
 def layout_origin(layout_root: ET.Element | None) -> dict[str, str]:
-    """``origin`` fields for a layout part, for the snapshot brief.
-
-    Returns ``{"origin": "template"}`` for every layout the template author
-    wrote and ``{"origin": "derived", ...}`` for the ones normalisation added.
-    """
     if layout_root is None:
         return {"origin": "template"}
     for ext in layout_root.findall(f"{{{NS_P}}}extLst/{{{NS_P}}}ext"):
@@ -114,7 +90,6 @@ def _placeholder_facts(shape: etree._Element) -> tuple[str, int] | None:
 
 
 def _set_geometry(shape: etree._Element, rect: dict[str, int]) -> None:
-    """Give the placeholder an explicit transform; create ``a:xfrm`` if absent."""
     props = shape.find(f"{{{NS_P}}}spPr")
     if props is None:
         props = etree.SubElement(shape, f"{{{NS_P}}}spPr")
@@ -147,14 +122,6 @@ def _append_marker(root: etree._Element, spec: LayoutSpec) -> None:
 
 
 def build_layout_xml(donor_xml: bytes, spec: LayoutSpec) -> tuple[bytes, tuple[int, ...]]:
-    """Clone ``donor_xml`` into the layout ``spec`` describes.
-
-    Kept: the title, the chrome placeholders (footer, slide number, date) and
-    the picture placeholder — the latter resized to ``spec.picture_rect``.
-    Dropped: every other placeholder, because a diagram slide has nothing to
-    put in them and an empty body placeholder would show its prompt text.
-    Non-placeholder shapes are the donor's own design and stay untouched.
-    """
     root = etree.fromstring(donor_xml)
     tree = root.find(f"{{{NS_P}}}cSld/{{{NS_P}}}spTree")
     if tree is None:

@@ -1,17 +1,4 @@
-"""Four-eyes publication of high-risk prompt keys (system prompts, guards, evidence rules).
-
-Same pattern as the Model Policy registry
-(``services/model_policy/governance.py``): submitting a high-risk version
-creates a ``pending`` platform ``Approval`` whose action binds the version id **and**
-its digest, decided through the existing approvals API. Publish accepts only that
-approval, ``approved``, through the platform's single four-eyes decision
-(``services/governance/four_eyes``): someone else approves it unless the platform
-approval rule lets the requester approve their own version (audited).
-
-The approval belongs to the scope's Workspace (a Workspace override's Workspace, an
-agent definition's Workspace) or to no Workspace for a global key. The approver must be
-a global admin, or an ``admin``/``owner`` of that Workspace for a Workspace-scoped one.
-"""
+"""Four-eyes publication of high-risk prompt keys (system prompts, guards, evidence rules)."""
 
 from __future__ import annotations
 
@@ -107,7 +94,8 @@ async def check_publish_approval(
             )
         # Same transaction as the publish that relies on it (no-op unless self-approved).
         record_self_approval_audit(
-            db, decision, resource_type="prompt_template_version", resource_id=version.id, approval_id=approval.id
+            db, decision, resource_type="prompt_template_version", resource_id=version.id, approval_id=approval.id,
+        project_id=workspace_id,
         )
     return PromptApprovalGate(
         decision.status,

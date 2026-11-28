@@ -55,7 +55,7 @@
 .work-impact-map__route dt {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -76,7 +76,7 @@
 .work-impact-map__chips span,
 .work-impact-map__missing {
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.25rem 0.5rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
@@ -157,7 +157,7 @@
 .work-reviewer-card__meta span,
 .work-reviewer-card__missing {
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.25rem 0.5rem;
 }
 

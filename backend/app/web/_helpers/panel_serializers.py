@@ -11,7 +11,6 @@ from ...models import (
     ControlPlaneRuntimeTarget,
     LLMModel,
     LLMProvider,
-    ScenarioProfile,
 )
 from ...models.runtime.provider_oauth_config import oauth_metadata_from_provider
 from ...services.connector_policy import normalize_connector_policy
@@ -32,7 +31,6 @@ __all__ = [
     "_serialize_provider",
     "_serialize_runtime_target",
     "_serialize_connector",
-    "_serialize_scenario_profile",
     "_parse_optional_iso_date",
 ]
 
@@ -126,13 +124,12 @@ def _serialize_connector(
     secret_fields = preset.get("secret_fields", [])
     config = dict(entry.config) if entry and entry.config else {}
     policy = normalize_connector_policy(policy_entry.policy if policy_entry and policy_entry.policy else {})
-    # Build public fields (no raw secret values, show masked refs)
     public_fields: dict[str, object] = {}
     for key, val in config.items():
         if key in secret_fields:
             continue  # never expose raw secrets
         if key.endswith("_secret_ref"):
-            continue  # skip internal refs
+            continue
         public_fields[key] = val
     secret_status: dict[str, bool] = {f: bool(config.get(f) or config.get(f"{f}_secret_ref")) for f in secret_fields}
     configured = bool(entry and (entry.config or not preset.get("fields")))
@@ -142,7 +139,7 @@ def _serialize_connector(
         "description": preset.get("description", ""),
         "fields": preset.get("fields", []),
         "secret_fields": secret_fields,
-        # Derived from the registered tests, so every connector with a test shows the button (audit C-1e).
+        # Derived from the registered tests, so every connector with a test shows the button.
         "supports_test": tool_name in CONNECTOR_TESTS,
         "builtin_tools": preset.get("tools", []),
         "tools": resolve_connector_tools(tool_name, policy),
@@ -154,23 +151,6 @@ def _serialize_connector(
         "secret_status": secret_status,
         "db_id": entry.id if entry else None,
         "policy_id": policy_entry.id if policy_entry else None,
-    }
-
-
-def _serialize_scenario_profile(profile: ScenarioProfile) -> dict:
-    return {
-        "id": profile.id,
-        "owner_id": profile.owner_id,
-        "project_id": profile.project_id,
-        "name": profile.name,
-        "description": profile.description or "",
-        "priority": int(profile.priority or 0),
-        "match_config": profile.match_config or {},
-        "planner_config": profile.planner_config or {},
-        "execution_config": profile.execution_config or {},
-        "is_active": profile.is_active,
-        "created_at": profile.created_at.isoformat() if profile.created_at else None,
-        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
     }
 
 

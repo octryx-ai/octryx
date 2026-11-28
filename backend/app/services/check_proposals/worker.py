@@ -1,8 +1,4 @@
-"""Drafting the proposals that have no draft yet, with the review model of their newest occurrence's run.
-
-Called by the review worker's loop next to the hands-on scenarios (``review.runner``), so a new proposal is drafted
-within a minute. The stack is the run's app stack (the occurrences' files decide it, else the signature's pattern);
-without a run, a model or a stack the proposal keeps no draft and says why (``draft.problem``)."""
+"""Drafting the proposals that have no draft yet, with the review model of their newest occurrence's run."""
 
 from __future__ import annotations
 
@@ -19,7 +15,6 @@ MAX_PER_PASS = 5
 
 
 def stack_of(signature: dict[str, Any]) -> str:
-    """The stack whose code suffixes the signature's files have (its occurrences' paths, else its file pattern)."""
     from ..engineering_knowledge.stacks import built_in
 
     paths = [str(path) for item in signature.get("occurrences") or [] if isinstance(item, dict)
@@ -46,7 +41,6 @@ async def _model_for(db: AsyncSession, run: WorkflowRun, model_factory: Any) -> 
 
 async def draft_due(db: AsyncSession, *, model_factory: Any = None,
                     signature_of: Any = None) -> int:
-    """Draft up to :data:`MAX_PER_PASS` proposed checks without a draft; the number drafted."""
     from .draft import draft_proposal
 
     if signature_of is None:

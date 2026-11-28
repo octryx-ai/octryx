@@ -1,11 +1,4 @@
-"""The user's own seat allowance and daily budget for the status block (root judge finding 4).
-
-Read with the launcher's own gateway login from ``GET /api/v1/agent-gateway/daily-budget?workspace_id=``:
-``{state, reason, limit_usd, spent_usd, resets_at, seat_allowance}``. The seat allowance is the latest 5h/7d
-utilization Anthropic reported on one of the user's seat sessions; the budget is the Workspace's per-user daily
-limit against the user's gateway spend of the UTC day. Labels carry numbers and fixed codes only; a value that is
-not a finite, plausible number is not shown. Times are local ``HH:MM``.
-"""
+"""The user's own seat allowance and daily budget for the status block."""
 
 from __future__ import annotations
 
@@ -39,7 +32,6 @@ def _number(value: Any, maximum: float) -> float | None:
 
 
 def _epoch(value: Any) -> float | None:
-    """An ISO UTC timestamp (``...Z``) as epoch seconds, or ``None``."""
     if not isinstance(value, str) or len(value) > 40:
         return None
     text = value[:-1] + "+00:00" if value.endswith("Z") else value

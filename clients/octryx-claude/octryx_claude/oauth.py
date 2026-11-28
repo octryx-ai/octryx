@@ -1,14 +1,5 @@
-"""``octryx-claude login``: OAuth 2.1 authorization code + PKCE S256 against the platform.
-
-The user signs in and consents in their own browser; the CLI never sees a password.
-A public client (``token_endpoint_auth_method: none``) is registered with one loopback
-redirect (RFC 8252) served by a one-shot local HTTP server. The client id and its
-port are kept, so a later login reuses them when the port is free again.
-
-``--headless`` is a dev-only path for automated acceptance: it signs in with
-``OCTRYX_USERNAME`` / ``OCTRYX_PASSWORD`` from the environment (never printed) and approves
-the consent over HTTP.
-"""
+"""``octryx-claude login``: OAuth 2.1 authorization code + PKCE S256 with a loopback redirect (RFC 8252).
+``--headless`` is dev-only: it signs in with OCTRYX_USERNAME / OCTRYX_PASSWORD from the environment."""
 
 from __future__ import annotations
 
@@ -40,7 +31,6 @@ HTTP_TIMEOUT_SECONDS = 15.0
 
 
 class LoginError(Exception):
-    """Login could not complete. ``code`` is a fixed reason, safe to print."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -137,7 +127,6 @@ def _await_callback(server: http.server.HTTPServer) -> dict[str, str]:
 
 
 def _client_for(http: httpx.Client, credentials: dict[str, Any], base_url: str, port: int) -> str:
-    """Reuse the stored client when it was registered for this base URL and port."""
     redirect_uri = f"http://127.0.0.1:{port}{CALLBACK_PATH}"
     if credentials.get("base_url") == base_url and credentials.get("redirect_uri") == redirect_uri:
         client_id = str(credentials.get("client_id") or "")
@@ -216,7 +205,6 @@ def interactive_login(
 
 
 def headless_login(state: LocalState, base_url: str, *, http: httpx.Client) -> None:
-    """Dev-only: platform login from OCTRYX_USERNAME / OCTRYX_PASSWORD, consent over HTTP."""
     username = os.environ.get("OCTRYX_USERNAME", "")
     password = os.environ.get("OCTRYX_PASSWORD", "")
     if not username or not password:

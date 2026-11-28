@@ -39,9 +39,7 @@ TARGET_GATEWAY_HOST = "litellm.nonprod.example.com"
 TARGET_PROXY_HOST = "egress.nonprod.example.com"
 
 
-# --- Host-shaped closed evidence fields --------------------------------------
-#
-# The merge blocker this section pins: the evidence writer runs every string
+# The evidence writer runs every string
 # through the shared redaction policy, which matches ``sk-`` as a *substring* so
 # a key pasted into free text is caught. The intended deployment's own hostnames
 # contain that substring inside ``nonprod``, so the qualification could not
@@ -51,8 +49,6 @@ TARGET_PROXY_HOST = "egress.nonprod.example.com"
 
 
 def target_gateway_config() -> dict[str, Any]:
-    """A governed config addressing the real target host shape, through a proxy."""
-
     section = gateway_section(
         host_allowlist=[TARGET_GATEWAY_HOST],
         proxy={
@@ -65,8 +61,6 @@ def target_gateway_config() -> dict[str, Any]:
 
 
 def target_host_report():
-    """A complete, passing report whose hosts are the real target host shape."""
-
     config = build_gateway_config(
         endpoint_url=f"https://{TARGET_GATEWAY_HOST}/v1",
         virtual_key=VIRTUAL_KEY,
@@ -112,8 +106,6 @@ def test_a_hop_rule_is_admitted_only_when_every_part_is_the_closed_shape() -> No
 
 
 async def test_the_target_host_shape_writes_evidence_instead_of_being_refused(tmp_path) -> None:
-    """The merge blocker, end to end: the real hostname must not read as a secret."""
-
     report = target_host_report()
 
     target = write_qualification_evidence(
@@ -133,8 +125,6 @@ async def test_the_target_host_shape_writes_evidence_instead_of_being_refused(tm
 
 
 async def test_a_real_key_or_credential_url_under_a_host_key_still_fails_closed(tmp_path) -> None:
-    """The exemption is a shape, not a key-name allowlist."""
-
     report = target_host_report()
 
     refused: list[tuple[str, Any]] = [
@@ -153,22 +143,10 @@ async def test_a_real_key_or_credential_url_under_a_host_key_still_fails_closed(
         with pytest.raises(EvidenceWriteDeniedError) as excinfo:
             write_qualification_evidence(poisoned, repo_root=tmp_path, slug="issue-825", filename="denied")
         assert excinfo.value.denial_reason == EVIDENCE_DENIAL_PAYLOAD_SENSITIVE_VALUE, (key, value)
-    # Nothing was written for any of them.
     assert not (tmp_path / "evidence" / "issue-825" / "denied.json").exists()
 
 
-# --- Standards-compliant evidence JSON ---------------------------------------
-
-
 async def test_a_non_finite_evidence_value_is_refused_and_never_written(tmp_path) -> None:
-    """``NaN``/``Infinity`` are a Python extension, not JSON.
-
-    ``json.dump`` emits them as bare literals by default, so an evidence file
-    carrying one parses in Python and fails in every strict reader. The value is
-    refused before the write, and the encoder runs with ``allow_nan=False`` as the
-    structural backstop behind that check.
-    """
-
     report = target_host_report()
 
     for value in (float("nan"), float("inf"), float("-inf")):

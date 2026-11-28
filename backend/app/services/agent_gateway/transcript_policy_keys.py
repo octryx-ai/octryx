@@ -1,18 +1,5 @@
 """The Workspace switch "full session transcripts", ``agent_gateway_policy.session_transcripts``.
-
-``{enabled: bool, retention_days: int}``. Today the platform only gets a session's job events, its live progress
-(no file contents), the redacted capped digest at finalize and its usage; the raw Claude Code transcript stays on the
-Mac. With ``enabled`` an octryx-claude session of this Workspace uploads its full transcript, subagent transcripts
-included, redacted on the Mac and again on the platform (``services/session_transcripts``), for debugging and
-analysis. Stored transcripts live ``retention_days`` and are then purged by the workflow sweep's tick.
-
-- ``enabled`` (default **false**, an opt-in): off means nothing changes against today; switching it off stops a
-  running session's upload at its next batch (the platform answers ``off``);
-- ``retention_days`` (default 30, 1..3650): how long a stored transcript stays readable; a change applies to every
-  transcript already stored at the next purge.
-
-Kept free of other imports because ``agent_gateway/policy`` validates it on every admin write.
-"""
+Free of other imports: ``policy`` validates it on every admin write."""
 
 from __future__ import annotations
 
@@ -45,7 +32,6 @@ DEFAULT_TRANSCRIPT_POLICY = TranscriptPolicy()
 
 
 def normalize_transcript_policy(value: Any, path: str) -> dict[str, Any]:
-    """The validated section for storage, all fields filled; raises ``TranscriptPolicyError``."""
     if not isinstance(value, dict):
         raise TranscriptPolicyError("not_an_object", path)
     unknown = sorted(set(value) - _FIELDS)
@@ -61,8 +47,7 @@ def normalize_transcript_policy(value: Any, path: str) -> dict[str, Any]:
 
 
 def transcript_policy_from_config(config: Any) -> tuple[TranscriptPolicy, str]:
-    """``(policy, source)``: the Workspace's stored section (``workspace``) or the default (``default``). A section
-    that cannot be read is the default: an unreadable switch never uploads anything."""
+    # An unreadable section is the default: an unreadable switch never uploads anything.
     stored = config.get("agent_gateway_policy") if isinstance(config, dict) else None
     section = stored.get(SESSION_TRANSCRIPTS_KEY) if isinstance(stored, dict) else None
     if section is None:

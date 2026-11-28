@@ -1,12 +1,4 @@
-"""D2b2 (designer side panel, Decisions S3): the otherwise route, a phase's results, field conditions, four-eyes publish.
-
-- A decision routes on the recorded result of an earlier node; ``otherwise`` (at most one edge, decisions only)
-  takes every value without a route of its own. Without it, every value of the source needs a route (publish error).
-- A phase declares ``result_values``; its agent records one with ``submit_phase_result`` before the phase is done; a
-  decision with ``check: "result"`` routes on it.
-- ``check: "field"`` compares a field of the run's work item and routes ``yes`` / ``no``.
-- Every non-seed phased version is published by a second admin; the author requests the review.
-"""
+"""D2b2 (designer side panel, Decisions S3): the otherwise route, a phase's results, field conditions, four-eyes publish."""
 
 from __future__ import annotations
 
@@ -21,7 +13,10 @@ from app.services.workflow_runs.phase_turns import complete_phase_turn
 from app.services.workflow_runs.records import start_run
 from app.services.workflow_runs.run_sessions import new_bound_session
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_designer_d2b2_support import _codes, _edge, _outcome, result_definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _result_run(db, definition: dict):
@@ -31,8 +26,6 @@ async def _result_run(db, definition: dict):
     session = await new_bound_session(db, run, admin)
     return run, session
 
-
-# --- 1. the otherwise route --------------------------------------------------------------------------------------
 
 def test_every_value_needs_a_route_or_an_otherwise():
     assert validate_flow_definition(result_definition())["valid"] is True
@@ -48,7 +41,7 @@ def test_otherwise_is_a_decision_route_at_most_once():
     twice["edges"].append(_edge("n2", "pick", "fixed", "otherwise"))
     assert "duplicate_route" in _codes(twice)
     on_a_gate = phased_definition()
-    on_a_gate["edges"][3]["when"] = "otherwise"  # the gate's failed loop
+    on_a_gate["edges"][3]["when"] = "otherwise"
     assert "unknown_route" in _codes(on_a_gate)
     as_an_option = result_definition(options=["fix_needed", "otherwise"], otherwise=True)
     assert "decision_options" in _codes(as_an_option)
@@ -60,12 +53,10 @@ def test_a_decision_on_a_gate_must_route_both_of_its_values():
         _outcome("other", "blocked")])
     definition["edges"][2]["target_node_id"] = "pick"
     definition["edges"].append(_edge("p", "pick", "done", "passed"))
-    assert "decision_unrouted" in _codes(definition)  # failed (the source's other value) has no way
+    assert "decision_unrouted" in _codes(definition)
     definition["edges"].append(_edge("o", "pick", "other", "otherwise"))
     assert validate_flow_definition(definition)["valid"] is True
 
-
-# --- 2. a phase's results -----------------------------------------------------------------------------------------
 
 @pytest.mark.parametrize("values", [["Fix needed"], ["fix", "fix"], ["otherwise"], "fix", [""]])
 def test_result_values_are_distinct_snake_case_names(values):
@@ -123,10 +114,8 @@ async def test_an_unmatched_result_takes_the_otherwise_route(db):
 async def test_a_phase_without_a_recorded_result_is_not_done(db):
     run, session = await _result_run(db, result_definition())
     resolution = await run_turn_resolution(db, session, user_message="Assess it.")
-    # The turn's own checks name the result: without it the turn does not pass.
     await phase_turn(db, session.id, resolution, ["knowledge_search"])
     assert (run.status, run.current_node_id) == ("running", "work")
-    # Even a passed report never completes the phase without a result recorded in this pass.
     await complete_phase_turn(db, run, node_id="work", state="passed", evidence=None)
     assert (run.status, run.current_node_id) == ("running", "work")
     events = (await db.execute(select(WorkflowRunEvent.kind).where(WorkflowRunEvent.run_id == run.id))).scalars()

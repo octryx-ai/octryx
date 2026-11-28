@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import ControlPlaneRuntimeTarget, LLMModel, LLMProvider, Project
 from ..model_catalog.contract import capabilities_of
 from ..model_gateway.data_policy.source import resolve_workspace_data_classification
-from ..model_gateway.litellm.policy import MODEL_POLICY_CONFIG_KEY
+from ..model_gateway.litellm.policy import effective_model_policy
 from ..workspace_composition.assignment_policy import runtime_assignment_mode, selected_runtime_target_ids
 from ..workspace_composition.execution_view import (
     get_workspace_default_runtime_target_id,
@@ -125,8 +125,6 @@ async def load_scope(
     view: dict[str, Any] | None = None,
     session_metadata: dict[str, Any] | None = None,
 ) -> WorkspaceScope:
-    """The Workspace's allowlist, ``model_policy`` grant, explicit default and effective data class (the
-    server-resolved one)."""
     workspace = str(workspace_id or "").strip()
     if view is None and workspace:
         view = await get_workspace_execution_view(db, workspace_id=workspace, ensure_foundation=False)
@@ -143,9 +141,9 @@ async def load_scope(
         workspace_id=workspace,
         data_class=classification.classification,
         task_overrides=workspace_task_overrides(config),
-        # A Workspace without a ``model_policy`` grants no gateway alias (the admission's deny-by-default).
+        # The same effective policy the gateway admission decides with (no saved policy: every admitted alias).
         alias_grant=(
-            AliasGrant.from_policy(config.get(MODEL_POLICY_CONFIG_KEY) if isinstance(config, dict) else None)
+            AliasGrant.from_policy(effective_model_policy(config))
             if workspace
             else None
         ),

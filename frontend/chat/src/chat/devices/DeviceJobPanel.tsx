@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { decideDeviceApproval, loadDeviceJobs, stopDeviceJob } from "./deviceJobsApi";
+import { compactThread, decideDeviceApproval, loadDeviceJobs, stopDeviceJob } from "./deviceJobsApi";
 import { DEVICE_JOB_EVENT, type DeviceJobEventDetail } from "./deviceJobEvents";
-import { applyJobEvent, clock, jobModelLabel, jobState, readJobs, restoresDeviceTarget, secondsLeft } from "./deviceJobsModel";
-import { turnBlocks, turnView } from "./deviceTurnView";
+import {
+  applyJobEvent, clock, jobModelLabel, jobState, readJobs, restoresDeviceTarget, secondsLeft, WAITING_RUNNER,
+} from "./deviceJobsModel";
+import { contextUse, turnBlocks, turnView, type ContextUse } from "./deviceTurnView";
 import { type DeviceJob, type JobApproval } from "./deviceJobTypes";
 import { hasExecutionTarget, setExecutionTarget } from "./executionTarget";
 import { ToolFoldView } from "../ToolStepFold";
@@ -168,6 +170,37 @@ function JobStream({ items }: { items: TurnItems }) {
   );
 }
 
+function ContextMeter({ use, sessionId, live }: { use: ContextUse; sessionId: string; live: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const compact = async () => {
+    setBusy(true);
+    try {
+      await compactThread(sessionId);
+      setProblem(null);
+    } catch {
+      setProblem("The context could not be compacted.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="device-context" data-testid="device-context">
+      <span className="device-context__label">Context {use.percent}%</span>
+      <span className="device-context__bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={use.percent}
+        aria-label={`Context ${use.percent}% of ${Math.round(use.window / 1000)}k tokens`}>
+        <span className="device-context__fill" style={{ width: `${use.percent}%` }} />
+      </span>
+      <span className="device-context__tokens">{Math.round(use.used / 1000)}k / {Math.round(use.window / 1000)}k</span>
+      <button type="button" className="admin-panel__action-btn" disabled={busy || live}
+        title="Summarise the conversation so far and continue with a smaller context" onClick={() => void compact()}>
+        Compact
+      </button>
+      {problem ? <span className="work-area__error" role="alert">{problem}</span> : null}
+    </div>
+  );
+}
+
 export function DeviceJobPanel({ sessionId, projectId, messages }: {
   sessionId: string | null | undefined;
   /** The thread's Workspace: the job line offers the job's transcript when one is stored. */
@@ -179,7 +212,11 @@ export function DeviceJobPanel({ sessionId, projectId, messages }: {
   const { job, view, state, pending } = useNewestJob(jobs, setNow);
 
   if (!job || !view || !state) return null;
-  if (!state.live && state.tone === "done" && pending.length === 0) return null;
+  const context = contextUse(job);
+  if (!state.live && state.tone === "done" && pending.length === 0) {
+    // A finished turn leaves the timeline its answer; the thread keeps its context meter.
+    return context && sessionId ? <ContextMeter use={context} sessionId={sessionId} live={false} /> : null;
+  }
 
   const stop = async () => {
     try {
@@ -194,9 +231,11 @@ export function DeviceJobPanel({ sessionId, projectId, messages }: {
     <section className="device-job" aria-label={`Job on ${job.deviceName}`} aria-live="polite">
       <div className="message-row__identity-line">
         {/* The engine is fixed per job (Claude Code or Codex), so the title names the device only. */}
-        <span className="message-row__participant-title">Session on {job.deviceName}</span>
+        <span className="message-row__participant-title">Session on {job.deviceName || "the server runners"}</span>
         <EngineBadge engine={job.engine} />
-        <span className="message-row__participant-support">{jobModelLabel(job)} · {job.folder} · job {job.id}</span>
+        <span className="message-row__participant-support">
+          {jobModelLabel(job)}{job.folder ? ` · ${job.folder}` : ""} · job {job.id}
+        </span>
         <TranscriptLink projectId={projectId} filter={{ deviceJobId: job.id }} testId="device-job-transcript" />
       </div>
       <div className={`device-jobbar device-jobbar--${state.tone}`}>
@@ -207,11 +246,14 @@ export function DeviceJobPanel({ sessionId, projectId, messages }: {
         {state.live ? (
           <span className="device-row">
             <button type="button" className="admin-panel__action-btn admin-panel__action-btn--danger"
-              disabled={job.stopping} onClick={() => void stop()}>Stop job</button>
+              disabled={job.stopping} onClick={() => void stop()}>
+              {job.status === WAITING_RUNNER ? "Cancel" : "Stop job"}
+            </button>
           </span>
         ) : null}
       </div>
       {stopProblem ? <p className="work-area__error" role="alert">{stopProblem}</p> : null}
+      {context && sessionId ? <ContextMeter use={context} sessionId={sessionId} live={state.live} /> : null}
       {view.items.length ? <JobStream items={view.items} /> : null}
       {pending.map((approval) => (
         <ApprovalCard key={approval.id} job={job} approval={approval} now={now} onDecided={() => void reload()} />

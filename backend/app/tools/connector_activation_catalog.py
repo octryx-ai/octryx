@@ -1,26 +1,4 @@
-"""How each connector is recognised as active for a project.
-
-``tools/visibility.py::connector_activation_decision`` reads these tables. A
-connector is active when the project activates it explicitly (``enabled_connectors``,
-``connectors.<name>.enabled``, ``<name>_enabled`` ... under any alias below), or,
-without an explicit decision, when one of its configuration keys carries a value in
-the resolved project config, or when a usable named connection of the
-Workspace or a global one serves it (``named_connections.resolver.serving_connection``;
-the routes exist only while the Workspace's own entry of the connector is active, and
-the tool router still limits each connection to its bound keys). The resolved project
-config is ``Project.config`` merged with the project's active tool configs (``services/tool_config``), so a connector
-granted to a project through the admin connector access carries its preset fields.
-
-The configuration keys of a connector mirror the fields of its tool-config preset
-(``services/tool_config/presets_*.py``), so a project that has the connector
-configured keeps its tools; ``tests/test_connector_tool_ownership.py`` pins that
-parity. A key only has to be present; its value is never read or reported here.
-
-A composite connector owns tools that serve several providers (for example CI tools
-that run against GitHub, GitLab or Azure DevOps). It is active when activated
-explicitly, when one of its own keys is set, or when any member connector is active.
-An explicit deactivation of the composite always wins.
-"""
+"""How each connector is recognised as active for a project."""
 
 from __future__ import annotations
 

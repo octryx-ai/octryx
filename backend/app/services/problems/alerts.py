@@ -1,31 +1,4 @@
-"""Problem alerts: a problem with a run or a device job is announced once when it appears and once when it clears.
-
-Without this nothing under ``services/workflow_runs``, ``devices`` or ``problems`` calls
-``create_notification`` or emits a webhook; a paused, failed, looping or stalled run is pull-only. The attention
-queue tells the run's own people; this tells the people who look after a Workspace and the team's
-channels:
-
-- **raised** (severity ``problem`` only; ``attention`` stays in the lists): an in-app notification
-  ``problem.raised`` to the Workspace's admins and owners (the platform admins when it has none) and to the object's
-  own people (requester and responsible of a run, owner of a device job), so their personal subscriptions fire;
-  the Workspace's notification subscriptions (email, Slack, Teams) get the same through
-  ``enqueue_project_notification_deliveries``; outbound webhooks get ``problem.raised``.
-- **cleared**: the problem is gone (the run moved on, was stopped, the job ended): webhooks get ``problem.cleared``.
-
-Two guards (an installation may already hold many paused or failed runs when alerts start):
-
-- **baseline**: the first sweep ever (no ``problems.raised``/``cleared`` row yet) records every open problem as raised
-  *silently* and sends nothing; only problems that appear afterwards are announced. A silently recorded problem
-  that clears is recorded as cleared without a webhook (nobody was told it began).
-- **burst**: at most ``MAX_ANNOUNCED_PER_SWEEP`` problems are announced one by one per sweep (newest first); the
-  rest are recorded silently and each Workspace gets one summary ("N more problems") with a link to its Problems
-  list, so a future loop over many runs cannot flood admins, email/Slack/Teams or webhooks. Nothing is dropped:
-  every problem stays in the Problems list and the audit log.
-
-State without a new table: like acknowledgements, an ``audit_log`` row per transition (``problems.raised`` /
-``problems.cleared``, ``resource_id`` = the problem key, ``user_id`` = the run's requester or the job's owner). That
-row is also the record of who was told what, when.
-"""
+"""Problem alerts: a problem with a run or a device job is announced once when it appears and once when it clears."""
 
 from __future__ import annotations
 
@@ -67,8 +40,6 @@ async def _current(db: AsyncSession, now) -> dict[str, Problem]:
 
 
 async def open_alerts(db: AsyncSession, now=None) -> dict[str, dict[str, Any]]:
-    """``key -> details`` of every alert whose latest transition is ``raised`` (no age limit: a paused run stays
-    paused for weeks and must not be announced again every week)."""
     rows = (await db.execute(
         select(AuditLog.resource_id, AuditLog.action, AuditLog.details)
         .where(AuditLog.resource_type == "problem", AuditLog.action.in_((ACTION_RAISED, ACTION_CLEARED)))
@@ -80,9 +51,6 @@ async def open_alerts(db: AsyncSession, now=None) -> dict[str, dict[str, Any]]:
 
 
 async def _person(db: AsyncSession, problem: Problem) -> tuple[str | None, dict[str, Any], set[str]]:
-    """The object's person (audit actor), the payload's ids and the object's own people (requester and
-    responsible of a run, owner of a job): their personal email/Slack/Teams subscriptions fire for their own work
-    too, not only the attention queue."""
     if problem.object_type == "workflow_run":
         run = await db.get(WorkflowRun, problem.object_id)
         people = {uid for uid in (run.requested_by, run.responsible_user_id) if uid} if run else set()
@@ -128,7 +96,6 @@ async def _tell(db: AsyncSession, workspace_id: str | None, *, title: str, body:
 
 
 async def _raise(db: AsyncSession, problem: Problem, *, silent: str | None = None) -> bool:
-    """Record the problem as raised; announce it unless ``silent`` names why not. False when its object is gone."""
     actor, ids, people = await _person(db, problem)
     if actor is None:
         return False  # the object is gone; nothing to announce
@@ -190,7 +157,6 @@ async def _mark_baseline(db: AsyncSession, recorded: int) -> None:
 
 
 async def sweep(db: AsyncSession, *, now=None) -> dict[str, int]:
-    """Announce new problems and cleared ones. The caller commits."""
     now = now or utc_now()
     # a looping run is paused first; this sweep then announces it as paused.
     from .loop_guard import pause_looping_runs
@@ -217,8 +183,6 @@ async def sweep(db: AsyncSession, *, now=None) -> dict[str, int]:
 
 
 class ProblemAlertWorker:
-    """Runs :func:`sweep` every minute; a failing sweep is logged and tried again."""
-
     def __init__(self, session_factory: async_sessionmaker[AsyncSession], interval_seconds: int = INTERVAL_SECONDS):
         self._session_factory = session_factory
         self._interval_seconds = max(15, int(interval_seconds))

@@ -1,9 +1,4 @@
-"""A paused phase pass goes on where it stopped: a worker who starts from zero again wastes the work already done.
-
-The two pauses of an unfinished pass (``phase_not_finished``, ``phase_stalled``) keep what is
-missing as the phase's delta (``gate_failure``, the first thing the next prompt names) and resume with
-``{"kind": "continue"}``: the same pass, its own session resumed, the work in the folder kept.
-"""
+"""A paused phase pass goes on where it stopped: a worker who starts from zero again wastes the work already done."""
 
 from __future__ import annotations
 
@@ -18,7 +13,6 @@ RESUME_CONTINUE = "continue"
 
 
 def keep_delta(run: WorkflowRun, node_id: str, missing: str) -> None:
-    """What the pass still lacks, as the phase's delta for its next prompt."""
     from ..run_texts import run_text
     from .gate_failure import record
 
@@ -31,7 +25,6 @@ def resume(node_id: str) -> dict[str, Any]:
 
 
 async def continue_pass(db: AsyncSession, run: WorkflowRun, node_id: str, *, actor_id: str | None) -> None:
-    """The same pass of ``node_id`` goes on (a device thread resumes its session); anything else re-enters it."""
     from ....models import Session
     from ..engine import restart_at
     from ..records import main_session_id
@@ -53,11 +46,6 @@ UNFINISHED_KEY = "unfinished_pass"
 
 
 async def continue_unfinished(db: AsyncSession, run: WorkflowRun, node_id: str) -> bool:
-    """A turn that ended with the pass unfinished goes on by itself in the same pass, with its delta, until the same
-    pass ended unfinished ``stall_after`` times (the workflow's data, as for identical stops); then it pauses.
-
-    Example: the fix was green, the platform could not read the test output, and the run paused
-    phase_not_finished for a person; the resume path alone (``continue``) still needed that person."""
     from .stop_stall import _stall_after
 
     entry = dict(run.node_state or {}).get("entry")

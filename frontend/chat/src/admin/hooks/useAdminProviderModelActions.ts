@@ -10,8 +10,6 @@ type CreateProviderModelActionsArgs = {
   setProviderModels: Dispatch<SetStateAction<Record<string, AdminModel[]>>>;
   setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
   loadProviderModels: (providerId: string) => Promise<void>;
-  modelBudgetDrafts: Record<string, string>;
-  setModelBudgetDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   modelOutputDrafts: Record<string, string>;
   setModelOutputDrafts: Dispatch<SetStateAction<Record<string, string>>>;
   modelPricingInputDrafts: Record<string, string>;
@@ -30,7 +28,6 @@ type CreateProviderModelActionsArgs = {
 export function createProviderModelActions(args: CreateProviderModelActionsArgs) {
   const {
     handleSaveModelMaxTokens,
-    handleSaveModelPlannerBudget,
     handleSaveModelPricingInput,
     handleSaveModelPricingOutput,
   } = createProviderModelDraftActions(args);
@@ -41,7 +38,6 @@ export function createProviderModelActions(args: CreateProviderModelActionsArgs)
   return {
     handleBulkToggleModels,
     handleSaveModelMaxTokens,
-    handleSaveModelPlannerBudget,
     handleSaveModelPricingInput,
     handleSaveModelPricingOutput,
     handleSortModel,

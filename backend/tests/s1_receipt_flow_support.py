@@ -24,7 +24,6 @@ from app.services.knowledge.access.authorization import authorize_workspace
 from app.services.knowledge.access.source_acl import restrict_source
 from app.services.knowledge.ingestion.text_ingest import ingest_text_source
 from app.services.knowledge.projection.projector import EvidenceProjector
-from app.services.knowledge.runtime import set_evidence_runtime
 from app.services.workflow_runs.documentation import audience_contract
 from app.services.workflow_runs.documentation.knowledge_proof import ledger_binding
 from app.services.workflow_runs.documentation.page import render_storage
@@ -32,6 +31,7 @@ from app.services.workflow_runs.pause import payload_hash
 from app.time_utils import utc_now
 from tests.knowledge_evidence_runtime_support import build_runtime
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member, seed_outsider, seed_workspace
+from tests.knowledge_runtime_support import set_evidence_runtime
 
 BASE = "/api/v1/workspaces"
 
@@ -65,7 +65,6 @@ CRITERIA = [
 NO_LINKS = {"ticket": {"key": "", "url": ""}, "pull_request": {"id": "", "url": ""}}
 
 
-# The text Knowledge holds for the page (its spans: one per paragraph).
 TEXT = (f"{TITLE}\n\nWhat\n\n{RECORD['what']}\n\nWhy\n\n{RECORD['why']}\n\nHow to use\n\n{RECORD['how_to_use']}\n\n"
         f"AC-1 {CRITERIA[0]['text']} test_round\n\nAC-2 {CRITERIA[1]['text']} test_fee\n").encode()
 
@@ -106,7 +105,6 @@ def payload_for(run_id: str, criteria: list[dict] | None = None) -> dict:
 
 async def bind_publication(db, runtime, evidence_index, *, semantics: str = audience_contract.SEMANTICS_WORKSPACE,
                            criteria: list[dict] | None = None, audience: dict | None = None) -> SimpleNamespace:
-    """A Workspace whose page 4242 v1 is published (sent-confirmed intent), ingested, projected and pinned."""
     workspace = await seed_workspace(db)
     requester = await seed_member(db, workspace_id=workspace, role="admin")
     principal = await seed_member(db, workspace_id=workspace, role="member")
@@ -195,8 +193,7 @@ async def state_of(db, receipt) -> str:
 
 @pytest.fixture(autouse=True)
 def standalone_receipt_service(monkeypatch):
-    """Graph action/route integration is tested by the graph flow tests; this suite owns receipt semantics."""
-    from app.api.routes import knowledge_evidence_search
+    from app.api.routes.knowledge import knowledge_evidence_search
 
     async def notify(_db, _run_id):
         return None

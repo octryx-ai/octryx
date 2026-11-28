@@ -1,12 +1,4 @@
-"""Databases page: audited removal and the recent queries by agents.
-
-* **Remove** is refused (409 ``database_in_use``) while query tools still use the database; then it writes
-  an audit row (name, type, query tools, how many queries were recorded),
-  deletes the connector with its query tools and query history, then releases the stored password
-  or DSN when nothing else references it.
-* **Recent queries**: the last runs of query tools, in words: tool, database, who or which run,
-  rows (and whether the limit cut the answer), outcome.
-"""
+"""Databases page: audited removal and the recent queries by agents."""
 
 from __future__ import annotations
 
@@ -54,6 +46,7 @@ async def remove_database(db: AsyncSession, *, connector_id: str, actor_user_id:
         action="admin.database_connector.deleted",
         resource_type="database_connector",
         resource_id=connector_id,
+        project_id=connector.project_id,
         before={"name": connector.name, "db_type": connector.db_type, "is_active": bool(connector.is_active)},
         after={},
         details={"name": connector.name, "query_tools": list(tools), "recorded_queries": run_count},

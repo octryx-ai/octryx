@@ -17,7 +17,6 @@ async def dispatch_registered_mcp_tool(
     tool_name: str,
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
-    """Connect through the scoped registry, then dispatch on the proven runtime slot."""
     from app.web._helpers.context_runtime import _MCP_CATALOG
 
     from ..services.mcp_server_registry_connections import connect_mcp_server

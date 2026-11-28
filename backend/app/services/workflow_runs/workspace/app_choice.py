@@ -1,11 +1,4 @@
-"""Which app a run works on when its start named none.
-
-A repository with several apps (the record's ``apps``, from the launcher's preparation report) needs the run's app
-before any change exists: the start's ``app`` wins; else the work item's component naming an app; else the app whose
-folder the report's text names (the deepest one); else the only app. When that leaves several, the bug intake asks
-once (``missing: app`` with the options) instead of assuming; every other workflow's preparation pauses
-``needs_input`` with them (:func:`paused_for_app`). Without a list the record's file stays the default.
-"""
+"""Which app a run works on when its start named none."""
 
 from __future__ import annotations
 
@@ -17,7 +10,6 @@ FIELD = "app"
 
 
 def _deepest(paths: list[str]) -> list[str]:
-    """The matches no other match lies inside (``e2e/python`` over ``e2e`` when both are apps)."""
     return [path for path in paths if not any(other != path and other.startswith(f"{path}/") for other in paths)]
 
 
@@ -32,7 +24,6 @@ def _in_text(paths: list[str], text: str) -> list[str]:
 
 
 async def choose_app(db: Any, run: Any, *, components: list[Any], text: str) -> dict[str, Any]:
-    """``{}`` when the run's app is settled (or the record has no list); else ``{"options": [...]}`` to ask for."""
     if dict(dict(run.context or {}).get(APP_KEY) or {}).get("source"):
         return {}
     paths = sorted({str(app["path"]) for app in await record_apps(db, run)})
@@ -49,9 +40,6 @@ async def choose_app(db: Any, run: Any, *, components: list[Any], text: str) -> 
 
 
 async def paused_for_app(db: Any, run: Any, node: Any) -> bool:
-    """Every workflow's preparation chooses the run's app the same way (a story or an
-    onboarding run needs it as much as a bug): its text is the work item's, a person's answers count. Still several:
-    the run pauses ``needs_input`` with the options and re-enters this step once a person named one."""
     from ....models.runtime.secure_work import WorkItem
     from ..limits import pause_run
     from ..run_texts import run_text

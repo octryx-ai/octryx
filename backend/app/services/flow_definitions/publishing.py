@@ -9,8 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import FlowDefinition, FlowDefinitionVersion, User
 from ...time_utils import utc_now
-from ..flow_capabilities import audit_flow_capability_published, workflow_tool_name_for_key
-from ..flow_orchestration.flow_agent_reference import with_agent_reference_errors
 from ..flow_version_state import FlowVersionStateError, ensure_publishable, load_flow_version, load_version_flow
 from ..workflow_runs.fragments.store import (
     composition_of,
@@ -26,7 +24,6 @@ from .validation import validate_flow_definition
 async def _load_publishable(
     db: AsyncSession, version_id: str
 ) -> tuple[FlowDefinitionVersion, FlowDefinition, bool, bool]:
-    """The version, its flow, and whether it is a fragment or a composite; refused when it cannot be published."""
     try:
         version = await load_flow_version(db, version_id)
         flow = await load_version_flow(db, version)
@@ -50,9 +47,7 @@ async def _publish_report(
     composite: bool,
 ) -> dict[str, Any]:
     definition = dict(version.definition_json or {})
-    report = await with_agent_reference_errors(
-        db, definition, validate_flow_definition(definition), user_id=current_user.id, project_id=flow.project_id
-    )
+    report = validate_flow_definition(definition)
     from ..workflow_runs.phase_agents import with_phase_agent_errors
 
     report = await with_phase_agent_errors(db, definition, report)
@@ -88,25 +83,12 @@ async def publish_flow_definition_version(
     version.publish_metadata = {
         **dict(version.publish_metadata or {}),
         **(publish_metadata or {}),
-        "capability_enabled": bool((publish_metadata or {}).get("capability_enabled", True)),
-        "llm_visible": bool((publish_metadata or {}).get("llm_visible", True)),
-        "published_tool_name": workflow_tool_name_for_key(flow.key, flow.name),
         **four_eyes,  # after the request's metadata: a request body never states its own approval
     }
-    if fragment:
-        # A fragment is part of a workflow, never a tool of its own.
-        version.publish_metadata = {**version.publish_metadata, "capability_enabled": False, "llm_visible": False}
     version.published_by = current_user.id
     version.published_at = utc_now()
     flow.status = "published"
     flow.current_version_id = version.id
     flow.updated_at = utc_now()
-    await audit_flow_capability_published(
-        db,
-        current_user=current_user,
-        flow=flow,
-        version=version,
-        metadata=dict(version.publish_metadata or {}),
-    )
     await db.flush()
     return await get_flow_definition(db, flow_id=version.flow_id)

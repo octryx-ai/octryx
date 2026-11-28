@@ -1,41 +1,4 @@
-"""The next phase continues on the device by itself.
-
-When a run enters a phase — a watched state was met, a person decided (in the platform or the terminal), a gate
-looped back — the phase must not wait for someone to type a prompt:
-
-- an **interactive terminal** session gets the new contract at its next hook answer (every gateway answer of a bound
-  session carries it; the prompt hook asks for it too);
-- a run whose chat thread runs **on a device** (``execution_target.kind == "device"``) gets a new device job turn on
-  that thread, through the same dispatch as a chat message (``devices.chat_turn.start_device_turn``: owner, device
-  online, folder, profile, Workspace policy). One turn per pass (``node_id`` + ``entry``): while the thread's job is
-  still busy (the turn whose Stop advanced the run) the continuation stays pending and starts when that turn finishes
-  (``devices.jobs`` → :func:`continue_on_device`).
-
-A device that cannot take the turn now (offline, paused, at its job limit) holds the run ``waiting_for_device``
-with the continuation still pending; it starts when the device can (``runtime_target.device_wait``).
-
-Only a running run at a phase (or at ``workspace.prepare``, whose turn the launcher prepares before the agent starts)
-continues: a paused or waiting run, a gate or an outcome never starts a turn, and a pending continuation of an older
-pass is dropped — so a turn whose tests could not run (the run paused ``environment_not_ready``) is never followed by
-another one by itself. The turn's prompt only names the phase; what the turn may do is the
-phase's class, tools and path rules, decided again at every hook.
-
-A new phase starts a fresh Claude Code session; another pass of the **same** phase (an automatic revision, a product
-owner's answer, a red pipeline) resumes that phase's own session with a short prompt naming what changed
-(:data:`SESSIONS_KEY`, one session per phase node, so a loop back over several phases resumes each one's own). A phase
-with ``config.session: "epic"`` also resumes its session of the epic's previous story (``context.epic_chain``) on
-the same device, folder and profile, with a short "new story of the same epic" prompt. A phase's explicit
-``config.model`` is the turn's model on every profile (seat and governed); a model the Workspace
-refuses falls back to the device default with the event ``run_turn_model_refused``. A phase turn that failed on a
-temporary model service error runs once more by itself after a short wait (:func:`is_transient_failure`) instead
-of pausing the run; so is a phase turn the launcher refused before the agent started because it could not reach the
-platform (:func:`is_transient_rejection`). Any other refusal, or the second one, pauses the run ``runtime_failed``.
-
-The turn of a runtime step (``workspace.prepare``) whose success leads into a phase is that phase's turn: the launcher
-prepares the folder and the agent goes on with the phase (team-delivery: prepare → plan), so it runs on the phase's
-model and resumes the phase's session, and once the run enters the phase the turn counts as the phase's pass (its
-session is remembered under the phase when the turn ends).
-"""
+"""The next phase continues on the device by itself."""
 
 from __future__ import annotations
 
@@ -70,7 +33,6 @@ from .turn_failures import (
 
 
 async def phase_entered(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> None:
-    """The run entered ``node``: a device thread continues it (now, or when its busy turn finishes)."""
     if node.kind != NODE_PHASE:
         return
     thread_id = await main_session_id(db, run)
@@ -90,11 +52,6 @@ async def phase_entered(db: AsyncSession, run: WorkflowRun, node: PhasedNode) ->
 
 
 async def runtime_step_entered(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> None:
-    """A runtime step (``workspace.prepare``) waits for the device's launcher: a device thread gets the turn whose
-    preparation reports it; a terminal prepares at its next launch.
-
-    The agent of that turn goes on with the phase the step leads to (its contract follows the run), so the turn is
-    that phase's: its model and its resumable session (:data:`THEN_KEY`)."""
     thread_id = await main_session_id(db, run)
     if _device_target(await db.get(Session, thread_id) if thread_id else None) is None:
         return
@@ -106,14 +63,6 @@ async def runtime_step_entered(db: AsyncSession, run: WorkflowRun, node: PhasedN
 
 
 async def _following_phase(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> str:
-    """The phase the agent of a platform-action step's turn goes on with: the phase the step enters when it succeeds
-    (``workspace.prepare`` → team-delivery's ``plan``); for the CI pipeline, whose success leads to the server's
-    review, the phase a red pipeline returns to (``implement``). ``""`` when neither is a phase.
-
-    Otherwise every red pipeline's fix ran in the pipeline turn's own
-    FRESH session (4 new sessions in one story, each re-reading the contract and the specification), although the
-    building phase's session held all of it. As the pipeline turn's phase, a red pipeline resumes that session; a
-    green one ends the turn before any agent starts (the launcher's ``pipeline_done``)."""
     from ..graph import FAILED, NODE_PLATFORM_ACTION, SUCCEEDED, graph_for_run
     from ..pipeline import ACTION as PIPELINE_ACTION
 
@@ -122,7 +71,7 @@ async def _following_phase(db: AsyncSession, run: WorkflowRun, node: PhasedNode)
     graph = await graph_for_run(db, run)
     from ..hands_on.step import ACTION as HANDS_ON_ACTION
 
-    looped = node.config.get("action") in (PIPELINE_ACTION, HANDS_ON_ACTION)  # red goes back to the building phase
+    looped = node.config.get("action") in (PIPELINE_ACTION, HANDS_ON_ACTION)
     routes = (SUCCEEDED, FAILED) if looped else (SUCCEEDED,)
     for route in routes:
         edge = next((edge for edge in graph.exits(node.id) if edge.when == route), None)
@@ -130,15 +79,11 @@ async def _following_phase(db: AsyncSession, run: WorkflowRun, node: PhasedNode)
         if target is not None and target.kind == NODE_PHASE:
             from ..size_class.merge import merges
 
-            return merges(run).get(target.id, target.id)  # a phase its class does inside a later one: that one
+            return merges(run).get(target.id, target.id)
     return ""
 
 
 def _carried_into(run: WorkflowRun, node: PhasedNode, marker: dict[str, Any], busy: Any) -> bool:
-    """The run entered ``node`` while the runtime step's turn that leads to it still runs: that turn's agent does
-    this phase (e.g. the coordinator's plan runs inside the
-    prepare turn). The marker becomes this phase's started pass, so its session is remembered under the phase and the
-    turn's end is judged as the phase's."""
     from app.services.devices.job_state import ACTIVE_STATUSES
 
     if marker.get(THEN_KEY) != node.id or marker.get("state") != STATE_STARTED or busy is None:
@@ -151,7 +96,6 @@ def _carried_into(run: WorkflowRun, node: PhasedNode, marker: dict[str, Any], bu
 
 
 async def continue_on_device(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """Start the pending continuation's device turn when the run still is at that pass; the job id or ``None``."""
     from app.services.devices.job_state import ACTIVE_STATUSES
 
     from ...devices.chat_turn import DeviceTurnStarted
@@ -200,13 +144,6 @@ async def continue_on_device(db: AsyncSession, run: WorkflowRun) -> str | None:
 
 async def continue_after_device_turn(db: AsyncSession, session_id: str, *, failure: str | None = None,
                                      said: str = "", rejected: bool = False, seat_rate_limits: Any = None) -> None:
-    """A device turn of a run's thread finished: start the continuation it left pending.
-
-    ``failure`` is the device's reason when the turn did not succeed (an API error, ``turn_stalled``, the job
-    limit, a lost device). When that turn was the platform's own continuation of the current phase, nothing would
-    drive the run again: it pauses ``runtime_failed`` instead of staying ``running`` (Continue runs the phase
-    again, Abort ends it). ``rejected``: the device refused the turn before its agent started (``job_rejected``).
-    """
     from ..records import active_run_for_session, lock_run
 
     run = await active_run_for_session(db, session_id)
@@ -218,11 +155,7 @@ async def continue_after_device_turn(db: AsyncSession, session_id: str, *, failu
         return  # an item's turn or teamwork's git work: the scheduler took it
     marker = _marker(run)
     if marker:
-        # Claim the run before judging its pass. Example: the launcher's
-        # workspace-preparation report moved the run from ``prepare`` into ``implement`` but answered after the
-        # launcher's timeout, so the launcher refused the turn (``workspace_preparation_platform_unreachable``) while
-        # that report still held the run. The marker read here was the ``prepare`` pass; the claim below waited and
-        # re-read the run at ``implement``, so no branch matched and the run stayed ``running`` with nothing driving it.
+        # Claim the run before judging its pass: a concurrent report may have moved it to another node meanwhile.
         run = await lock_run(db, run)
         marker = _marker(run)
     if marker.get("state") == STATE_STARTED and marker.get("phase"):
@@ -255,9 +188,6 @@ async def continue_after_device_turn(db: AsyncSession, session_id: str, *, failu
 async def _continue_governed_after_seat_limit(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any],
                                               said: str, *, failure: str = "error",
                                               seat_rate_limits: Any = None) -> bool:
-    """A seat turn that hit the account's usage limit runs again at once on the governed profile (the
-    subscription cannot bill any more), on a company model of the seat model's
-    class until the reset (``octryx.seat_fallback``). ``False`` when this does not apply."""
     from ....time_utils import utc_now
     from ...devices.seat_quota import turn_limit
     from ..review.choice import run_engine
@@ -271,9 +201,7 @@ async def _continue_governed_after_seat_limit(db: AsyncSession, run: WorkflowRun
     if thread is None or target.get("profile") != "seat":
         return False
     words = " ".join(str(said or "").split())[:200]
-    # Codex's record of the exhausted window (``seat_rate_limits``, read from the rollout): the exact reset.
-    # the turn said "try again at 10:44 AM" and the rollout said 09:44:48 UTC, yet the pause
-    # read "reset not named" because only the text reached this check.
+    # Codex's record of the exhausted window names the exact reset, which the turn's text may not.
     limit = turn_limit({"status": "error", "result_text": said, "error": failure,
                         "seat_rate_limits": seat_rate_limits}, said_at=utc_now())
     await _switch_to_governed(db, run, thread, node_id=str(run.current_node_id), reason=REASON_SEAT_LIMIT,
@@ -284,7 +212,3 @@ async def _continue_governed_after_seat_limit(db: AsyncSession, run: WorkflowRun
 
 
 __all__ = ["continue_after_device_turn", "continue_on_device", "phase_entered", "runtime_step_entered"]
-
-# Teamwork's device executor registers itself with the scheduler (``teamwork.register_executor``); continuation is
-# loaded with every device run, so a run whose thread runs on a device finds it at its ``parallel_work`` node.
-from ..teamwork import device_items as _device_items  # noqa: E402,F401 - side effect: registers the device executor

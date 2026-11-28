@@ -1,11 +1,4 @@
-"""Claude Code compacts a long session itself; the run only sets the window and records each compaction.
-
-Never rebuild what Claude Code does itself: Claude Code compacts headless too, at the window
-``CLAUDE_CODE_AUTO_COMPACT_WINDOW`` names; the offer carries the class's cap as that window (:func:`window`) and a
-Claude Code session keeps going. Ending the session past the cap and starting a fresh one with a handoff note
-(``context_cap``) is only for an engine without auto-compaction. Each compaction is a run event (``session_compacted``:
-when, the trigger, the context before it and the summary's length), so the token profile shows what it cost and saved.
-"""
+"""Claude Code compacts a long session itself; the run only sets the window and records each compaction."""
 
 from __future__ import annotations
 
@@ -22,7 +15,6 @@ STAGES = frozenset({"pre", "post"})
 
 
 def window(run: WorkflowRun | None) -> int | None:
-    """The class's cap as the window Claude Code compacts at (Claude Code's own minimum is 100000)."""
     from ..size_class import class_config
 
     cap = class_config(run).get("context_cap_tokens")
@@ -30,7 +22,6 @@ def window(run: WorkflowRun | None) -> int | None:
 
 
 async def compacts_itself(db: AsyncSession, resume_session: str) -> bool:
-    """The session to resume belongs to Claude Code, which compacts it at the window instead of a fresh start."""
     from ...agent_gateway.engine_keys import ENGINE_CLAUDE_CODE
     from ...devices.job_engine import _engine_of_session
 
@@ -39,7 +30,6 @@ async def compacts_itself(db: AsyncSession, resume_session: str) -> bool:
 
 
 async def record(db: AsyncSession, run: WorkflowRun, session_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    """The launcher's PreCompact / PostCompact report as the run's event."""
     from .context_cap import last_context_tokens
 
     stage = str(body.get("stage") or "")

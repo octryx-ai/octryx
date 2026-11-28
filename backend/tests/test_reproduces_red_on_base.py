@@ -1,6 +1,5 @@
-"""A changed existing test is the reproduction when it fails on the base
-commit (``context.red_on_base``) and the gate says ``existing_tests: "red_on_base"``; the proof
-decides, not the file status. Without the parameter the gate stays as it was."""
+"""A changed existing test is the reproduction when it fails on the base commit and the gate says
+``existing_tests: "red_on_base"``; without that parameter the gate is unchanged."""
 
 from __future__ import annotations
 

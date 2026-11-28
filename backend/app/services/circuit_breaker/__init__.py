@@ -1,8 +1,4 @@
-"""Circuit breakers for connectors and the retry policy of failed task runs.
-
-The package surface stays here; the policy, the breaker state and the failed-run records live in
-their own modules.
-"""
+"""Circuit breakers for connectors and the retry policy of failed task runs."""
 
 from __future__ import annotations
 

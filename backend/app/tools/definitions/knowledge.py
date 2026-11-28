@@ -265,6 +265,5 @@ _KNOWLEDGE_RETRIEVAL_DEFINITIONS: dict[str, dict] = {
 
 
 def get_knowledge_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for knowledge tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy({**_KNOWLEDGE_RETRIEVAL_DEFINITIONS, **KNOWLEDGE_PACK_DEFINITIONS})

@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ConnectorWatcher(Base):
+class ConnectorWatcher(WorkspaceBound, Base):
     __tablename__ = "connector_watchers"
     __table_args__ = (
         Index("ix_connector_watchers_connector_active", "connector_name", "is_active"),
@@ -52,7 +53,8 @@ class ConnectorWatcher(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class ConnectorWatcherEvent(Base):
+class ConnectorWatcherEvent(WorkspaceBound, Base):
+    __workspace_owners__ = {"watcher_id": "connector_watchers"}
     __tablename__ = "connector_watcher_events"
     __table_args__ = (
         Index("ix_connector_watcher_events_watcher_received", "watcher_id", "received_at"),
@@ -92,7 +94,7 @@ class ConnectorWatcherEvent(Base):
     duplicate_of = relationship("ConnectorWatcherEvent", remote_side=[id])
 
 
-class ConnectorWatcherRule(Base):
+class ConnectorWatcherRule(WorkspaceBound, Base):
     __tablename__ = "connector_watcher_rules"
     __table_args__ = (
         Index("ix_connector_watcher_rules_project_active", "project_id", "is_active"),
@@ -126,7 +128,8 @@ class ConnectorWatcherRule(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class ConnectorWatcherRuleDecision(Base):
+class ConnectorWatcherRuleDecision(WorkspaceBound, Base):
+    __workspace_owners__ = {"watcher_id": "connector_watchers"}
     __tablename__ = "connector_watcher_rule_decisions"
     __table_args__ = (
         Index("ix_connector_watcher_rule_decisions_event", "event_id", "created_at"),

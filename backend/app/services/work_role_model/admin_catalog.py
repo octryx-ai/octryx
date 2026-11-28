@@ -1,8 +1,4 @@
-"""Admin edits of functions (with their tool sets) and roles. Every edit is audited.
-
-Roles grant execution authority and are edited here, on the Roles admin screen, with an audit
-log — not through a Rules publish with approval: too much security blocks the system.
-"""
+"""Admin edits of functions (with their tool sets) and roles."""
 from __future__ import annotations
 
 import re
@@ -66,8 +62,6 @@ def _entries(raw: object) -> list[str]:
 
 
 async def _workspace(db: AsyncSession, user: User, workspace_id: str | None) -> str | None:
-    """The Workspace a function or role is scoped to: an unknown one and one the caller is no member of are the same
-    404 ``project_not_found``, before the scope admin rule answers."""
     if workspace_id is None:
         return None
     try:
@@ -78,8 +72,6 @@ async def _workspace(db: AsyncSession, user: User, workspace_id: str | None) -> 
 
 
 async def _visible(db: AsyncSession, user: User, row: Any, missing: WorkRoleError) -> Any:
-    """A function or role by id: a missing one and one of a Workspace the caller does not see are the same 404, so an
-    outsider learns neither its existence nor its tool set; a global one is everyone's catalog."""
     if row is None or (row.project_id and not await workspace_visible(db, user.id, row.project_id)):
         raise missing
     return row
@@ -106,7 +98,6 @@ def function_view(row: WorkRoleFunction, role_keys: list[str] | None = None) -> 
 
 
 async def list_functions(db: AsyncSession, user: User, workspace_id: str | None) -> list[dict[str, Any]]:
-    """The global functions, and those of a named Workspace the caller sees (else 404 ``project_not_found``)."""
     workspace_id = await _workspace(db, user, workspace_id)
     query = select(WorkRoleFunction).where(_function_scope(workspace_id))
     rows = (await db.execute(query.order_by(WorkRoleFunction.built_in.desc(), WorkRoleFunction.key))).scalars().all()
@@ -189,8 +180,6 @@ async def delete_function(db: AsyncSession, user: User, function_id: str) -> Non
 
 def role_view(row: WorkRole, functions: list[tuple[str, str]], assignment_count: int,
               connections: dict[str, str]) -> dict[str, Any]:
-    """``connections``: the display names of the role's connections the viewer may see (``catalog_scope``); the
-    stored ids outside it are not serialized, neither as id nor as name."""
     policy = dict(row.command_policy_json or {})
     shown = [cid for cid in row.connection_ids_json or [] if cid in connections]
     return {"id": row.id, "key": row.key, "name": row.name, "description": row.description or "",
@@ -211,9 +200,6 @@ def role_view(row: WorkRole, functions: list[tuple[str, str]], assignment_count:
 
 async def _views(db: AsyncSession, user: User, rows: list[WorkRole],
                  workspace_id: str | None = None) -> list[dict[str, Any]]:
-    """Role views whose related rows (function names, assignment counts, connections) are scoped to what the caller
-    sees (``catalog_scope``). A Workspace role shows the connections available in its Workspace; a global role those
-    available in ``workspace_id`` when the view addresses one Workspace, else those the caller sees."""
     ids, scope = [row.id for row in rows], CallerScope(db, user)
     functions, counts = await functions_of(db, ids), await assignment_counts(db, scope, ids)
     names: dict[str, dict[str, str]] = {}
@@ -224,7 +210,6 @@ async def _views(db: AsyncSession, user: User, rows: list[WorkRole],
 
 
 async def list_roles(db: AsyncSession, user: User, workspace_id: str | None) -> list[dict[str, Any]]:
-    """The global roles, and those of a named Workspace the caller sees (else 404 ``project_not_found``)."""
     workspace_id = await _workspace(db, user, workspace_id)
     scope = (WorkRole.project_id.is_(None) if workspace_id is None
              else (WorkRole.project_id.is_(None) | (WorkRole.project_id == workspace_id)))
@@ -360,7 +345,6 @@ async def update_role(db: AsyncSession, user: User, role_id: str, body: dict[str
 
 
 async def set_trusted(db: AsyncSession, user: User, role_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    """The trusted role: an explicit opt-in, off by default, audited with a reason."""
     row = await _role(db, user, role_id)
     await require_scope_admin(db, user, row.project_id, "the trusted flag")
     if body.get("expected_version") != row.version:

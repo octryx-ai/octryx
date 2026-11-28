@@ -1,16 +1,4 @@
-"""The run's CI pipeline on this device (the pipeline can run on the server or locally).
-
-When the run contract carries ``pipeline`` (the platform's ``pipeline.run`` step is waiting for this pass), the
-launcher runs the repository's declared commands in the run's folder before any agent starts: no model, outside
-Claude Code's sandbox (so the app can bind its port and the browser can start), each with the declared ``path``
-first on ``PATH``. The system tests' screenshot folder is emptied first, so only this run's screenshots are uploaded
-for the review (``POST /sessions/screenshots``, bound to the pipeline's pass). Then it reports per command the exit
-code, the duration, the end of the output and the JUnit report the command wrote (``POST /sessions/pipeline``); the
-platform decides green or red and routes the run. The report names the tree the commands ran on (``tree_digest``);
-the server cross-checks it against the change it holds and pushes only a tree its pipeline ran green on.
-
-Its parts: ``pipeline_commands``, ``pipeline_env_file``, ``pipeline_green`` and ``pipeline_texts``.
-"""
+"""The run's CI pipeline on this device: the repository's declared commands, run before any agent starts."""
 
 from __future__ import annotations
 
@@ -51,7 +39,6 @@ def _upload_screens(post: Any, view: dict[str, Any], folder: Path, since: float)
 
 
 def _note_style_verdict(state: LocalState, context: SessionContext, body: Any) -> None:
-    """Add the platform's code style findings to the red summary the job manager puts into the turn's prompt."""
     findings = style_summary(body)
     if state is None or context is None or not findings:
         return
@@ -69,8 +56,6 @@ def _report_unreachable(answer: Any) -> bool:
 
 
 class ReportLostError(Exception):
-    """The pipeline's report never reached the platform (see :func:`run_for_session`)."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -78,7 +63,6 @@ class ReportLostError(Exception):
 
 def _note_red(state: LocalState, context: SessionContext, results: list[dict[str, Any]],
               account: dict[str, Any] | None = None, texts: dict[str, Any] | None = None) -> None:
-    """Keep the red summary next to the session's state; the job manager adds it to the turn's prompt."""
     if state is None or context is None:
         return
     try:
@@ -98,8 +82,6 @@ def _account_report(account: dict[str, Any]) -> dict[str, Any]:
 
 
 class _Clock:
-    """Seconds per pipeline step, each lap since the last one, plus the total."""
-
     def __init__(self) -> None:
         self.start = self.last = time.monotonic()
         self.laps: dict[str, float] = {}
@@ -116,8 +98,6 @@ class _Clock:
 def _run_or_reuse(state: LocalState, context: SessionContext, view: dict[str, Any], root: Path, tree: str,
                   account: dict[str, Any] | None, workdir: Path, style: dict[str, Any], clock: _Clock, *,
                   http: Any) -> tuple[list[dict[str, Any]], dict[str, Any] | None, float]:
-    """``(results, account, started)``: the last green run on this tree, else the commands run now (the app folder
-    made ready first)."""
     results = green_before(state, root, tree, view) if view.get("commands") else None
     clock.lap("green_before")
     started = time.time()
@@ -156,7 +136,6 @@ def _report_body(view: dict[str, Any], root: Path, workdir: Path, tree: str, acc
 
 
 def _post_report(state: LocalState, context: SessionContext, body: dict[str, Any], *, http: Any) -> Any:
-    """The report to the platform, sent again for a while when the platform cannot be reached."""
     answer = None
     for attempt in range(REPORT_ATTEMPTS):
         if attempt:
@@ -170,7 +149,6 @@ def _post_report(state: LocalState, context: SessionContext, body: dict[str, Any
 
 def run_for_session(state: LocalState, context: SessionContext, contract: dict[str, Any] | None, folder: str, *,
                     http: Any) -> dict[str, Any] | None:
-    """Run the pending pipeline, report it and return the answered contract; the contract unchanged otherwise."""
     view = pending(contract)
     if view is None:
         return contract
@@ -222,7 +200,6 @@ __all__ = [
 
 
 def _red_on_base(view: dict[str, Any], root: Path, account: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The confirmed tests on the base commit when the platform asks (``red_on_base``); ``None`` otherwise."""
     if not view.get("red_on_base"):
         return None
     from .red_on_base import run  # noqa: PLC0415
@@ -238,9 +215,6 @@ def _red_on_base(view: dict[str, Any], root: Path, account: dict[str, Any] | Non
 
 def _style_gate(state: LocalState, context: SessionContext, view: dict[str, Any], style: dict[str, Any], root: Path,
                 *, http: Any) -> str:
-    """The platform's answer whether the change's code style is red, asked once before the system test; the errors
-    when it is blocking, else ``""``. No style, no answer or any failure: ``""`` (the system test runs, never skipped
-    by mistake)."""
     if not (view.get("code_style") and view.get("base")):
         return ""
     if "report" not in style:
@@ -261,7 +235,6 @@ def _style_gate(state: LocalState, context: SessionContext, view: dict[str, Any]
 
 
 def _style_report(root: Path, view: dict[str, Any]) -> dict[str, Any]:
-    """The whole change's counts and the official formatter / linter results (code style steps ii and iv)."""
     from .contract_sizes import (
         line_floor,
         sizes,  # noqa: PLC0415

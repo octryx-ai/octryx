@@ -1,8 +1,4 @@
-"""The literal ``tools.<name>(...)`` calls of one Codex ``exec`` input (a small JavaScript literal reader).
-
-Only string, number, boolean and null literals and objects/arrays of them count; anything else (a variable, an
-interpolation, a computed key, a spread) makes the call non-literal, so it can never earn evidence.
-"""
+"""The literal ``tools.<name>(...)`` calls of one Codex ``exec`` input; a non-literal call never earns evidence."""
 
 from __future__ import annotations
 
@@ -15,13 +11,11 @@ REDACTED_MARK = "[redacted]"
 
 
 class _DynamicError(Exception):
-    """An argument that is not a literal."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
 class ExecOccurrence:
-    """One ``tools.<name>(...)`` inside an exec input; ``args`` is ``None`` when they are not literal."""
-
     name: str
     args: Any
     literal: bool
@@ -57,7 +51,6 @@ class _Parser:
                 return
 
     def string(self) -> str:
-        """A ``"…"``/``'…'`` literal or a template literal without ``${}``; raises ``_DynamicError`` otherwise."""
         quote = self._peek()
         self.pos += 1
         out: list[str] = []
@@ -182,7 +175,6 @@ class _Parser:
                 raise _DynamicError
 
     def arguments(self) -> Any:
-        """The single literal argument after ``(`` up to ``)`` (none: ``{}``)."""
         self.skip()
         if self._peek() == ")":
             self.pos += 1
@@ -203,8 +195,6 @@ def _raise() -> str:
 
 
 def _code_positions(text: str, word: str = "tools") -> list[int]:
-    """Where ``word`` (``tools.`` by default) starts in code (not inside a string, template or comment, not a member
-    like ``x.tools.``)."""
     found: list[int] = []
     pos, size = 0, len(text)
     while pos < size:
@@ -236,8 +226,6 @@ def _code_positions(text: str, word: str = "tools") -> list[int]:
 
 
 def _skip_template(text: str, start: int) -> int:
-    """The end of a template literal with ``${}`` parts; its expressions are scanned as code by the caller's
-    next round only through this simple skip (calls inside ``${}`` are dynamic anyway)."""
     end = text.find("`", start + 1)
     while end > 0 and text[end - 1] == "\\":
         end = text.find("`", end + 1)
@@ -248,8 +236,7 @@ _CONST = re.compile(r"const\s+([A-Za-z_$][\w$]*)\s*=")
 
 
 def _constants(script: str) -> list[tuple[int, str, Any]]:
-    """``(position, name, value)`` of each ``const NAME = <literal>`` in code; a name declared twice is left out
-    (another scope could mean another value)."""
+    # A name declared twice is left out: another scope could mean another value.
     found: list[tuple[int, str, Any]] = []
     for start in _code_positions(script, "const"):
         declared = _CONST.match(script, start)
@@ -271,8 +258,6 @@ def _constants(script: str) -> list[tuple[int, str, Any]]:
 
 
 def exec_occurrences(script: str) -> list[ExecOccurrence]:
-    """Every ``tools.<name>(...)`` call in an exec input, in order, with its literal argument or ``None``; an
-    argument may name a ``const`` bound to a literal before the call."""
     found: list[ExecOccurrence] = []
     constants = _constants(script)
     for start in _code_positions(script):

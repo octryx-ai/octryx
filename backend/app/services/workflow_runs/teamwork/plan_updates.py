@@ -9,9 +9,6 @@ from .scheduler import _at_node, _store, fill_coordinator_hash
 
 
 async def plan_recorded(db: Any, run: Any, record: dict[str, Any], *, session_id: str | None) -> None:
-    """A work plan was recorded: the run's task list becomes one task per item (the stored list wins, so the
-    pipeline's "every task proven" and the reviewer's rules apply unchanged), the submitting session is the
-    coordinator, and a plan revised while the items run is applied at once."""
     from .. import task_status
     from ..task_list import CONTEXT_KEY
     from .item_definition import item_task
@@ -33,8 +30,6 @@ async def plan_recorded(db: Any, run: Any, record: dict[str, Any], *, session_id
 
 
 async def plan_revised(db: Any, run: Any) -> None:
-    """The coordinator submitted a revised plan while the items run: apply it and go on (``revision_problems``
-    already refused changing a running item)."""
     from ..phase_outputs import recorded_output
     from .plan import revise
 

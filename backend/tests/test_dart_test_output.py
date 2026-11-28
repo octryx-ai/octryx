@@ -53,8 +53,6 @@ def test_flutter_and_dart_test_are_test_commands_that_ran():
 
 
 def test_a_tailed_single_file_run_takes_its_file_from_the_command():
-    """``flutter test <file> 2>&1 | tail -30`` loses the loading line; the run must still be recorded and the red
-    run must not count as green."""
     from app.services.workflow_runs.gateway_tests import bash_test_results
 
     tail = "\n".join((FIXTURES / "single_file.txt").read_text().splitlines()[1:])
@@ -64,7 +62,6 @@ def test_a_tailed_single_file_run_takes_its_file_from_the_command():
 
 
 def test_a_run_cut_to_its_failing_block_records_the_failing_test():
-    """``flutter test 2>&1 | tail -n 5`` keeps only the closing "Failing tests:" block."""
     tail = (f"00:23 +393 -1: /w/app/test/features/equipment/equipment_screen_test.dart: delete buttons\n"
             f"00:23 +394 -1: Some tests failed.\n\nFailing tests:\n  /w/app/{FILE}: OCX-72_grind_starts_at_15\n")
     parsed = parse(tail)
@@ -83,8 +80,6 @@ def test_a_prose_symptom_matches_its_assertion_by_its_quoted_values():
 
 
 def test_a_concurrent_run_that_ends_all_green_passes_every_test_it_named():
-    """The whole suite runs concurrently and ends "All tests passed!"; the confirmed test must not count as missing
-    from the last run."""
     parsed = _results("two_files_green.txt")
     assert parsed.problems == []
     assert {key: value["outcome"] for key, value in parsed.results.items()} == {
@@ -93,8 +88,6 @@ def test_a_concurrent_run_that_ends_all_green_passes_every_test_it_named():
 
 
 def test_a_whole_suite_that_passed_counts_every_confirmed_test_even_unnamed():
-    """`flutter test | tail -3` names two tests and ends "+395: All tests passed!"; the confirmed test must not be
-    "missing from the last test run"."""
     from app.services.workflow_checks.test_results import all_green, intact
     from app.services.workflow_runs.gateway_tests import bash_test_results, gateway_test_run
 
@@ -113,8 +106,6 @@ def test_a_whole_suite_that_passed_counts_every_confirmed_test_even_unnamed():
 
 
 def test_a_file_that_does_not_compile_is_a_collection_error_of_that_file():
-    """Finding 7 (top-10 #9): "loading <file> [E]" was recorded as a test named "loading …"; the pattern is stack
-    data (engineering_knowledge/stacks.json, flutter test_output.collection_error)."""
     from app.services.workflow_checks.test_output import ERROR, SCOPE_COLLECTION
 
     for line in ("00:02 +0 -1: loading /work/app/test/features/a_test.dart [E]",
@@ -130,8 +121,6 @@ def test_a_file_that_does_not_compile_is_a_collection_error_of_that_file():
 
 
 def test_the_json_reporter_attributes_every_test_of_concurrent_files():
-    """evidence_unresolved with concurrent `flutter test`: the JSON reporter names each test's
-    suite, so every result is attributed even when files interleave (real output of three files, one not compiling)."""
     from app.services.workflow_checks.test_output import ERROR, SCOPE_COLLECTION
 
     parsed = _results("concurrent_json.txt")

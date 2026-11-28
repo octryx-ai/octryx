@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, Str
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ToolArtifact(Base):
+class ToolArtifact(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "tool_artifacts"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

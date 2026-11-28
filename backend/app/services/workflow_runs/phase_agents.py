@@ -1,14 +1,4 @@
-"""The phase names its agent.
-
-``phase.config.agent`` is the one home of "which agent runs a phase": a platform agent key (``assistant`` or
-``engineer``) whose ceiling covers the phase's class. The ``review`` node's agent is fixed by its kind (the
-Reviewer); slice children default to their phase's agent. A phase without ``agent`` holds its turn with
-``needs_configuration`` (``phase_agent_binding.py``).
-
-Two checks: the static one at validation (closed vocabulary, the shipped ceilings) and the one against the database
-at publish and run start (the agent exists, is active, is not retired, has a published revision whose ceiling covers
-the class — the live row's content never counts).
-"""
+"""The phase names its agent."""
 
 from __future__ import annotations
 
@@ -68,12 +58,11 @@ def static_phase_agent_errors(graph: PhasedGraph, *, require: bool = False) -> l
 
 
 async def platform_agent(db: AsyncSession, key: str) -> PublishedPlatformAgent | None:
-    """The platform agent as its published revision defines it (never the live row's content)."""
+    # The published revision, never the live row's content.
     return await published_platform_agent(db, key)
 
 
 def agent_refusal(agent: PublishedPlatformAgent | None, *, needed_class: str = "read_only") -> str:
-    """``""`` when the agent can run, else the typed reason (``agent_unpublished`` included)."""
     return published_agent_refusal(agent, needed_class=needed_class)
 
 

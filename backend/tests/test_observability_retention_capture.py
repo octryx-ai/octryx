@@ -1,4 +1,4 @@
-"""Observability O8: one capture policy at storage, retention defaults, owner view, device chunk compaction."""
+"""One capture policy at storage, retention defaults, owner view, device chunk compaction."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.trace_runtime import persist_turn_trace
+from app.agent.runtime.trace_runtime import persist_turn_trace
 from app.models import ConnectorHealthLog, DeviceJobEvent, RetentionPolicy, TurnTrace
 from app.services.devices.run_trace import compact_finished_turn_text
 from app.services.observability.run_owner_view import HIDDEN_NOTE, run_details_for_viewer

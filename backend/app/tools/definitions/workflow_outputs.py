@@ -115,6 +115,17 @@ WORKFLOW_OUTPUT_DEFINITIONS: dict[str, dict] = {
          "how_to_use": {"type": "string"}, "notes": {"type": "string"}},
         ["title", "what", "why", "how_to_use"],
     ),
+    "submit_change_plan": _tool(
+        "submit_change_plan",
+        "Workflow run plan phase only: submit the change plan as data before the build. parts: what the change "
+        "consists of; paths: the relative files or globs the build will change (a folder as folder/**); endpoints: "
+        "the API endpoints it changes; expensive: the Workspace's expensive path classes the paths touch "
+        "(migrations, auth, public_api, infra by default); risks and open_questions. The server checks it; a plan "
+        "with expensive classes waits for a person's approval, and the build may only write inside its paths.",
+        {"parts": _STRINGS, "paths": _STRINGS, "endpoints": _STRINGS, "expensive": _STRINGS, "risks": _STRINGS,
+         "open_questions": _STRINGS},
+        ["parts", "paths"],
+    ),
     "submit_work_plan": _tool(
         "submit_work_plan",
         "Workflow run phase that plans the work only (the coordinator): split the story into items that agents "
@@ -162,7 +173,6 @@ WORKFLOW_OUTPUT_DEFINITIONS: dict[str, dict] = {
 
 
 def get_workflow_output_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for the phase output tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(WORKFLOW_OUTPUT_DEFINITIONS)
 

@@ -29,7 +29,7 @@
   margin: 0.5rem 0 0;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-exec-details__list {
@@ -53,7 +53,7 @@
 .turn-exec-details__tag {
   padding: 0 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
 }
@@ -98,11 +98,11 @@
   display: inline-flex;
   padding: 0 0.5rem;
   border: 1px solid color-mix(in srgb, var(--turn-run-tone) 24%, transparent);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--turn-run-tone) 10%, transparent);
   color: var(--turn-run-tone-ink);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-run-identity__state--success {

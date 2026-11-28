@@ -1,10 +1,5 @@
 """A device job's code arrives as an archive the device fetches with its own token; a large result goes back as an
-upload (the check proof and the review bot's scan; server ``services/devices/tree_archive``).
-
-:func:`fetch` downloads one offered archive, refuses it unless its sha256 is the offered one and unpacks only
-regular files and folders into ``dest``: an absolute path, ``..``, a symlink, a hardlink or a device file is never
-written (the content may come from a stranger's pull request). :func:`upload` sends bytes back and answers their id.
-"""
+upload (the check proof and the review bot's scan; server ``services/devices/tree_archive``)."""
 
 from __future__ import annotations
 
@@ -33,7 +28,6 @@ def _base(state: Any) -> str:
 
 
 def unpack(data: bytes, dest: Path) -> tuple[int, list[str]]:
-    """``(files written, members refused)``: only regular files and folders inside ``dest``."""
     dest = Path(dest).resolve()
     dest.mkdir(parents=True, exist_ok=True)
     written, refused = 0, []
@@ -57,7 +51,6 @@ def unpack(data: bytes, dest: Path) -> tuple[int, list[str]]:
 
 
 def fetch(state: Any, item: dict[str, Any], dest: Path, *, http: Any = None) -> tuple[Path | None, str]:
-    """``(dest, "")`` with the offered archive unpacked, or ``(None, why)``."""
     url = str(item.get("url") or "")
     if not url.startswith("/api/v1/devices/archives/"):
         return None, "not an archive the platform offered"
@@ -75,7 +68,6 @@ def fetch(state: Any, item: dict[str, Any], dest: Path, *, http: Any = None) -> 
 
 
 def upload(state: Any, data: bytes, *, name: str, http: Any = None) -> dict[str, Any] | str:
-    """``{id, sha256, bytes}`` of the uploaded bytes, or why the platform refused them."""
     client = http or httpx.Client(timeout=TIMEOUT)
     try:
         response = client.post(_base(state) + UPLOAD_PATH, params={"name": name[:120]}, content=data,

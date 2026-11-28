@@ -1,11 +1,4 @@
-"""The workflow catalog: exactly the published phased workflows.
-
-Every catalog — the composer, the model's ``list_available_workflows``, octryx ``workflow_catalog``, the pre-turn
-proposal — lists these entries. A phased workflow never runs inside a chat turn: it starts as a workflow run for a
-Work item after the user's confirmation (Work item *Start a workflow run*, an Action, octryx ``workflow_select``, or
-the chat's start card). Selecting one in chat holds the turn for that one start confirmation
-(``workflow_routing.phased_start``: the Work item, the run location, the steps), never a guess.
-"""
+"""The workflow catalog: exactly the published phased workflows."""
 
 from __future__ import annotations
 
@@ -28,7 +21,6 @@ def _phases(definition: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def highest_class(definition: dict[str, Any]) -> str:
-    """The highest class a phase of the workflow declares (``read_only`` for a workflow without phases)."""
     classes = [str(dict(dict(node.get("config") or {}).get("workflow_contract") or {}).get("capability_class")
                    or "read_only") for node in _phases(definition)]
     return CLASS_ORDER[max((class_rank(item) for item in classes), default=0)]
@@ -40,8 +32,6 @@ TEST_FIXTURE_FLAG = "test_fixture"
 
 
 def hidden_from_people(flow: FlowDefinition, version: FlowDefinitionVersion) -> bool:
-    """A test fixture or a workflow a pull request starts (its Start box says so,
-    ``workflow_runs.start_trigger``): its runs stay visible, nobody is offered a new one."""
     from ..workflow_runs.start_trigger import STARTED_BY_PULL_REQUEST, started_by
 
     if dict(version.publish_metadata or {}).get(TEST_FIXTURE_FLAG):
@@ -51,7 +41,6 @@ def hidden_from_people(flow: FlowDefinition, version: FlowDefinitionVersion) -> 
 
 async def published_phased_workflows(db: AsyncSession, *, project_id: str | None,
                                      include_hidden: bool = False) -> list[dict[str, Any]]:
-    """The phased workflows people may start; ``include_hidden`` (admin view only) adds the hidden ones."""
     scope = or_(FlowDefinition.project_id.is_(None), FlowDefinition.project_id == project_id) if project_id else (
         FlowDefinition.project_id.is_(None))
     rows = (await db.execute(

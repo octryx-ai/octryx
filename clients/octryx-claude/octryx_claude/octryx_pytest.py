@@ -1,24 +1,5 @@
 """The pytest plugin the launcher puts into every test run on a device (``PYTEST_PLUGINS=octryx_pytest``).
-
-It is copied next to nothing else into a folder outside the launcher's state (``browser.plugin_dir``), because the
-repository's own interpreter loads it and that interpreter has no octryx-claude installed. It depends on nothing but
-pytest, and on Playwright only when the repository has it. Without its environment variables it does nothing.
-
-1. **The device's Google Chrome for Playwright** (simply use the Chrome already installed
-   instead of a browser download per device). With ``OCTRYX_BROWSER_CHANNEL`` set (the launcher sets ``chrome`` when
-   Google Chrome is
-   installed and the repository does not ask for the bundled browser), a Chromium launch that names no ``channel``
-   and no ``executable_path`` gets that channel: ``p.chromium.launch()`` in a conftest and pytest-playwright's
-   ``page`` fixture alike. Nothing is downloaded per repository or worktree; the agent needs no special knowledge.
-   Agent-written conftests call ``pw.chromium.launch()`` directly, which an option of pytest-playwright alone
-   would not reach.
-   With ``OCTRYX_BROWSER_MISSING`` set (no Chrome on the device, no bundled browser asked for), a failed launch says
-   what to do instead of Playwright's "Executable doesn't exist".
-2. **Failed tests of a run, and a re-run of just those** (the pipeline's flaky-test re-run): with
-   ``OCTRYX_PYTEST_FAILED_FILE`` the node ids of every failed or erroring test are written there at the end; with
-   ``OCTRYX_PYTEST_ONLY_FILE`` only the node ids listed there run. It works whatever the declared command looks like
-   (``cd app && pytest``, ``make test``) and also without pytest's cache (``-p no:cacheprovider``), unlike ``--lf``.
-"""
+The repository's own interpreter loads it, so it depends on nothing but pytest (and Playwright when present)."""
 
 from __future__ import annotations
 
@@ -62,8 +43,6 @@ def _explaining(original):
 
 
 def patch_playwright(channel: str, missing: bool) -> bool:
-    """Wrap the public ``BrowserType.launch`` and ``launch_persistent_context`` of the sync and async API; ``False``
-    when Playwright is not installed (nothing to do)."""
     try:
         from playwright.async_api import BrowserType as AsyncBrowserType
         from playwright.sync_api import BrowserType as SyncBrowserType

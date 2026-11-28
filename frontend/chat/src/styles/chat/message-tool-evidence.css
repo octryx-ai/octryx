@@ -28,14 +28,14 @@
 .tool-evidence-contract__title {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-evidence-contract__status,
 .tool-evidence-contract__meta span {
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-evidence-contract__missing {
@@ -65,14 +65,14 @@
 .tool-execution-event__header {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-execution-event__header span:last-child,
 .tool-execution-event__meta span {
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-execution-event code {

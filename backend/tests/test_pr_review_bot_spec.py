@@ -1,16 +1,11 @@
-"""PR review bot: the specification for the reviewer.
-
-- the repository's SPEC.md of the changed app: only its sections that name the change (never its Decisions section,
-  which the platform checks itself), bounded, fenced as data;
-- Confluence pages the ticket links: read through the governed tool, only the parts that name the change; a
-  confidential Workspace reads only pages of its own spaces and names what it left out;
-- the footer says which specification the review had.
-"""
+"""PR review bot: the specification for the reviewer."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
+
+import pytest
 
 from app.models import WorkflowRun, WorkItem
 from app.services.pr_review_bot import spec_context
@@ -19,7 +14,10 @@ from app.services.pr_review_bot.render import build_post
 from app.services.pr_review_bot.starter import TRIGGER_WEBHOOK, start_review
 from app.services.workflow_runs.review.runner import run_due_reviews
 from tests.pr_review_bot_flow_support import HEADERS, REVIEW, _payload, _tools, _workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SPEC = """# Pay
 
@@ -138,7 +136,7 @@ async def test_the_bot_gives_the_reviewer_the_spec_sections_of_the_change(db, mo
     reviewer = ScriptedReviewer(REVIEW)
     assert await run_due_reviews(db, model_factory=reviewer.factory) == 1
     task = reviewer.tasks[0][1]
-    assert "<<<specification SPEC.md the sections this change touches" in task  # fenced as data
+    assert "<<<specification SPEC.md the sections this change touches" in task
     assert "The total function rounds half up" in task and "Invoices are due" not in task
     posted = [call[1] for call in tools.calls if call[0] == "post_github_pull_request_review"][-1]
     assert "spec `SPEC.md`" in posted["summary"]

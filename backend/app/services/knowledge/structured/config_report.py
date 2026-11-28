@@ -1,31 +1,5 @@
-"""The "Handbook vs. reality" report for one Workspace and one reader.
-
-Counts and bounded lists from the configuration layer's linkage edges, each item cited (manual
-page and section, file and line) and served only when every revision it rests on is visible to
-the reader. Every finding is stated once per base file; its ``variants`` (``app.ini-test``) are
-listed with their values:
-
-- ``undocumented_in_known_section``: settings no documented parameter covers although the manual
-  documents their section, with the same-name parameters of other scopes;
-- ``unknown_section``: sections (a sectionless file counts as one) the manual documents nothing
-  of, with their keys and the same-name hints of those keys (``[QueueConnection] RequestTimeout`` →
-  ``[Cache?] RequestTimeout``, p. 125); ``unknown_section_settings`` counts their keys;
-- ``deviations``: configured values (placeholders resolved) that differ from the documented default;
-- ``unresolved_placeholders``: configured values with a placeholder (``${Name}``) no source
-  defines; never compared with the default;
-- ``inconsistencies``: one key with different values across components (``conf`` 500 vs ``data``
-  60000), grouped by key;
-- ``documented_unused``: parameters of a scope in use that no file sets.
-
-Filters (``parameter``, ``file``, ``section``) narrow every list the same way; the tool
-``config_vs_manual`` is this report with a filter. States: ``ok``, ``not_built`` (no configuration
-layer yet), ``no_manual`` (no documented parameters to compare with).
-
-The linkage edges are read per type with a cap (:data:`MAX_EDGES_PER_TYPE`; same-name hints, at most
-``MAX_NAME_MATCHES`` per finding, get that many times the cap) before anything is loaded; a capped
-type marks the report ``edges_capped`` (and ``truncated``), so a huge Workspace costs a bounded
-read, never an unbounded one.
-"""
+"""The "Handbook vs. reality" report for one Workspace and one reader. An item is served only when every revision it
+rests on is visible to the reader."""
 
 from __future__ import annotations
 
@@ -60,7 +34,6 @@ _LISTS = ("undocumented_in_known_section", "unknown_section", "deviations", "unr
 
 
 async def _sections_matching(db: AsyncSession, project_id: str, section: str) -> set[str]:
-    """Parameter node ids documented in a manual section whose number or title matches ``section``."""
     needle = section.strip().casefold()
     rows = await db.execute(
         select(KnowledgeStructuredNode.node_id, KnowledgeStructuredNode.label).where(
@@ -90,7 +63,6 @@ def _bounded(value: object) -> str | None:
 
 
 async def _layer_state(db: AsyncSession, authorized: AuthorizedWorkspace, profile_id, result: dict) -> bool:
-    """Set the report's state and build time; ``False`` when no configuration layer is built yet."""
     layers = dict((await db.execute(
         select(KnowledgeStructuredExtraction.layer, func.count()).where(
             KnowledgeStructuredExtraction.project_id == authorized.project_id,
@@ -130,7 +102,6 @@ async def _capped_edges(db: AsyncSession, authorized: AuthorizedWorkspace, profi
 
 
 async def _visible_edges(db: AsyncSession, authorized: AuthorizedWorkspace, edges: list) -> tuple[list, dict]:
-    """The edges every cited revision and both ends of which the reader may see, with those nodes."""
     visible = await visible_revisions(db, authorized, {cite[0] for edge in edges for cite in cites_of(edge.citations)})
     edges = [edge for edge in edges if all(cite[0] in visible for cite in cites_of(edge.citations))]
     nodes = await visible_nodes(db, authorized, {e.source_id for e in edges} | {e.target_id for e in edges},

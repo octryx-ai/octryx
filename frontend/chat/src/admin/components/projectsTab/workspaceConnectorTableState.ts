@@ -1,6 +1,3 @@
-// Connector table cells of a Workspace: platform connector state and what serves the Workspace.
-/** The platform connector's state in one word for the connector table; the sentence (globalConnectorStatus) is its
- * tooltip. */
 export function platformConnectorState(access: { global_configured: boolean; global_active: boolean }): {
   label: string;
   tone: "neutral" | "attention";
@@ -9,7 +6,6 @@ export function platformConnectorState(access: { global_configured: boolean; glo
   return access.global_active ? { label: "Ready", tone: "neutral" } : { label: "Off", tone: "attention" };
 }
 
-/** The global status as a sentence; for Jira/Confluence without a global entry it points to the own connection. */
 export function globalConnectorStatus(
   access: { global_configured: boolean; global_active: boolean },
   ownConnectionPossible: boolean,
@@ -22,12 +18,9 @@ export function globalConnectorStatus(
     ? "not configured · this Workspace can use its own connection"
     : "not configured";
 }
-/** A named connection of one connector type available in the Workspace (Admin › Connections), for the table below. */
 export type AvailableConnection = { type: string; name: string; state: string };
 
-/** The connector table's "In this Workspace" and "Platform connector" cells. A named connection available here serves
- * the Workspace whatever the platform connector says (fresh-install test: GitHub read "Off · Not set up"
- * beside a working "GitHub (demo)" connection). */
+// A named connection available here serves the Workspace whatever the platform connector says.
 export function connectorWorkspaceState(
   access: { connector_name: string; project_enabled: boolean; global_configured: boolean; global_active: boolean },
   connections: AvailableConnection[],

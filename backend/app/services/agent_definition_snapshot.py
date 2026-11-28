@@ -1,24 +1,4 @@
-"""Canonical snapshot form of an Agent Definition aggregate.
-
-One module owns the snapshot shape so the revision lifecycle
-(:mod:`app.services.agent_definition_revisions`) and the validation policy
-(:mod:`app.services.agent_definition_validation`) cannot drift apart about what
-a revision contains.
-
-The snapshot holds exactly the authored content of the aggregate: the definition
-header plus its ordered steps. It deliberately excludes row ids, timestamps, and
-``owner_id``, because:
-
-* excluding volatile fields is what makes the checksum *stable* — two saves of
-  identical authored content hash identically, which is how content drift
-  between revisions is detected;
-* ``owner_id`` is attribution of the live row, not authored content, so a
-  restore must not be able to move ownership.
-
-``group_id``, ``project_id``, and ``runtime_target_id`` are kept as ``None`` or a
-non-empty string. Empty strings are never written, so the validator can treat an
-empty string as malformed rather than guessing between "unset" and "broken".
-"""
+"""Canonical snapshot form of an Agent Definition aggregate."""
 
 from __future__ import annotations
 
@@ -26,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any
 
 from ..models import AgentDefinition, AgentStep
+from .agent_definition_types import DefinitionSnapshot, SnapshotStep
 from .agent_reply_contract import snapshot_reply_contract_entry
 from .agent_tool_surface_contract import snapshot_tool_surface_entry
 
@@ -34,24 +15,17 @@ SNAPSHOT_STEPS_KEY = "steps"
 
 
 def optional_reference(value: Any) -> str | None:
-    """Normalize a nullable foreign-key value to ``None`` or a non-empty string."""
     text = str(value or "").strip()
     return text or None
 
 
 def normalize_step_config(value: Any) -> dict[str, Any] | None:
-    """Return *value* as a step-config mapping, or ``None`` when malformed."""
     return value if isinstance(value, dict) else None
 
 
 def build_definition_snapshot(
     definition: AgentDefinition, steps: Iterable[AgentStep]
-) -> dict[str, Any]:
-    """Build the canonical snapshot of *definition* and its *steps*.
-
-    *steps* must already be ordered by position; the caller loads them with an
-    explicit query rather than through the lazy relationship.
-    """
+) -> DefinitionSnapshot:
     return {
         SNAPSHOT_DEFINITION_KEY: {
             "name": str(definition.name or ""),
@@ -77,8 +51,7 @@ def build_definition_snapshot(
 
 
 def snapshot_agent_setup_entry(definition: AgentDefinition) -> dict[str, Any]:
-    """Ceiling, default workflow and execution mode; only non-default values, so a revision's checksum covers
-    what the definition sets and never a default."""
+    # Only non-default values, so the checksum never covers a default.
     entry: dict[str, Any] = {}
     ceiling = str(definition.capability_ceiling or "read_only")
     if ceiling != "read_only":
@@ -97,7 +70,7 @@ def snapshot_agent_setup_entry(definition: AgentDefinition) -> dict[str, Any]:
     return entry
 
 
-def _snapshot_step(step: AgentStep) -> dict[str, Any]:
+def _snapshot_step(step: AgentStep) -> SnapshotStep:
     return {
         "position": int(step.position or 0),
         "name": str(step.name or ""),
@@ -111,14 +84,7 @@ def _snapshot_step(step: AgentStep) -> dict[str, Any]:
 
 
 def compute_snapshot_checksum(snapshot: dict[str, Any]) -> str:
-    """Return the hex sha256 over the canonical JSON form of *snapshot*.
-
-    Uses the repository's existing canonical-JSON checksum helper so agent
-    revisions and agent export packages hash content the same way. The import is
-    function-local because ``app.services.export_package`` imports the governed
-    write boundary, which imports this module: at module scope the two
-    would form a cycle.
-    """
+    # Imported here: ``export_package`` imports the governed write boundary, which imports this module.
     from .export_package.core import checksum_for_content
 
     return checksum_for_content(snapshot)

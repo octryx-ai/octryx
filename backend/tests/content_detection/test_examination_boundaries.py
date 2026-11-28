@@ -1,12 +1,4 @@
-"""Every B-01 decision boundary with an unfinished examination: no allow, nothing forwarded.
-
-- governed chat (``content_routing.chat``): the first Workspace examination in every mode, and the examination
-  after a Workspace mask obligation;
-- the tool-result check (``content_routing.tool_results``): the examination after a Workspace mask obligation;
-- the launcher's report of a finished tool (``POST /sessions/tool-executed``) for both delivery modes: an MCP tool
-  gets the withheld output, a built-in tool the withhold notice (Claude Code keeps the output; the gateway
-  withholds or refuses it before a model reads it).
-"""
+"""Every decision boundary with an unfinished examination: no allow, nothing forwarded."""
 
 from __future__ import annotations
 
@@ -25,13 +17,12 @@ from tests.content_detection.content_obligations_support import DATA_TEXT, EMAIL
 from tests.content_detection.test_tool_results import MASK_RESULTS, PHONE
 from tests.model_gateway.conftest import ALIAS, gateway_config
 from tests.policy_engine_support import use_custom_policies
-from tests.test_agent_gateway_control_plane import BASE, _gateway, _workspace
+from tests.services.agent_gateway.test_agent_gateway_control_plane import BASE, _gateway, _workspace
 
 UNFINISHED = " ".join(f"10.9.{index // 250}.{index % 250}" for index in range(5200))
 
 
 def _finishing(monkeypatch, scans: int) -> None:
-    """The first ``scans`` segment scans finish; every later one hits the candidate limit (unfinished)."""
     real = scanner._find
     calls = {"count": 0}
 
@@ -80,8 +71,8 @@ async def test_governed_chat_refuses_an_unfinished_first_examination_in_every_mo
 
 @pytest.mark.asyncio
 async def test_governed_chat_refuses_an_unfinished_examination_after_the_mask_obligation(client, monkeypatch):
-    # A policy that never looks at completeness: before the contract a Cedar allow over the unfinished second
-    # examination let the request go on.
+    # A policy that never looks at completeness: a Cedar allow over the unfinished second
+    # examination must not let the request go on.
     policy = ROUTED.replace(f'@reroute_to("{ALIAS}")', '@reroute_to("approved-model")').replace(
         " || '\n          '(context.content.scanned && !context.content.complete)", "").replace(
         " || (context.content.scanned && !context.content.complete)", "")

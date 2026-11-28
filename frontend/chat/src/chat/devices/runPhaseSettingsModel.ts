@@ -17,6 +17,7 @@ export type RunPhaseSettings = {
   browserPhases: string[];
   researchPhases: string[];
   researchMinSources: number;
+  checkAttempts: number;
   canEdit: boolean;
   policyValid: boolean;
 };
@@ -35,6 +36,7 @@ export function readRunPhaseSettings(raw: unknown): RunPhaseSettings | null {
     browserPhases: texts(item.browser_phases),
     researchPhases: texts(item.research_phases),
     researchMinSources: minSources(item.research_min_sources),
+    checkAttempts: minSources(item.check_attempts),
     canEdit: item.can_edit === true,
     policyValid: item.policy_valid !== false,
   };
@@ -58,6 +60,8 @@ export function browserPhaseProblem(draft: string, current: readonly string[],
 export const browserPhasesPatch = (phases: readonly string[]) => ({ browser_phases: [...phases] });
 export const researchPhasesPatch = (phases: readonly string[]) => ({ research_phases: [...phases] });
 export const researchMinSourcesPatch = (count: number) => ({ research_min_sources: count });
+// check_attempts: _BOUNDS (1, 20), DEFAULTS 3, the same bounds as the minimum of sources.
+export const checkAttemptsPatch = (count: number) => ({ check_attempts: count });
 
 /** The typed minimum as the server's integer, or the reason in words. */
 export function minSourcesValue(draft: string): { value: number } | { problem: string } {
@@ -72,7 +76,7 @@ export function minSourcesValue(draft: string): { value: number } | { problem: s
 const REASONS: Record<string, string> = {
   invalid_browser_phases: `Each phase is <workflow>.<phase> with up to ${MAX_BROWSER_PHASE_CHARS} characters; at most ${MAX_BROWSER_PHASES} phases.`,
   invalid_research_phases: `Each research phase is <workflow>.<phase> with up to ${MAX_BROWSER_PHASE_CHARS} characters; at most ${MAX_BROWSER_PHASES} phases.`,
-  invalid_number: `Minimum sources is a whole number from ${MIN_SOURCES_LOW} to ${MIN_SOURCES_HIGH}.`,
+  invalid_number: `Enter a whole number from ${MIN_SOURCES_LOW} to ${MIN_SOURCES_HIGH}.`,
   invalid_device_runs: "The server did not accept this setting; reload the page and try again.",
   agent_gateway_policy_invalid: "The Workspace's coding-tool policy has an invalid value; fix it in this section first.",
   workspace_admin_required: "Only the Workspace's admins and owners change this.",

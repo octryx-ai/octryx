@@ -1,18 +1,5 @@
 """What agents may do on a repository a Workspace registered through a connection: ``read_only`` or ``read_write``.
-
-A Knowledge repository source linked to a Bitbucket connection carries an ``access_mode`` (``sync/git_config.py``),
-chosen at registration (default ``read_only``) and changeable by the Workspace's authors. It is enforced on the
-server for every write that reaches the repository through a connection (a branch, a commit pushed, a pull request,
-a comment, ...): :func:`repository_write_refusal` answers ``repository_read_only`` when the run's Workspace
-registered the repository and no registration of it there is ``read_write``.
-
-A repository is identified by where it lives, not by which connection reads it: the Data Center instance's URL
-(``https://<host>[/<context path>]``) with ``KEY/slug`` (key upper-case, slug lower-case), or ``bitbucket.org``
-with ``workspace/slug``. Two connections of the same instance therefore see the same registration.
-
-A repository the Workspace did not register at all is not governed here (today's behaviour, reported as
-``unregistered`` by :func:`repository_access_mode`).
-"""
+Enforced on the server for every write."""
 
 from __future__ import annotations
 
@@ -41,14 +28,11 @@ _CLOUD_HOSTS = frozenset({"bitbucket.org", "api.bitbucket.org"})
 
 @dataclass(frozen=True, slots=True)
 class RepositoryIdentity:
-    """``base``: the instance (``https://bitbucket.org`` for Cloud); ``path``: ``KEY/slug`` or ``workspace/slug``."""
-
     base: str
     path: str
 
 
 def identity_of(base_url: object, project_key: object, repo_slug: object) -> RepositoryIdentity | None:
-    """The identity of ``project_key/repo_slug`` on the Bitbucket instance at ``base_url`` (a connection's URL)."""
     project = project_key.strip() if isinstance(project_key, str) else ""
     slug = repo_slug.strip().lower() if isinstance(repo_slug, str) else ""
     if not project or not slug or "/" in project or "/" in slug:
@@ -63,7 +47,6 @@ def identity_of(base_url: object, project_key: object, repo_slug: object) -> Rep
 
 
 def identity_of_remote(remote_url: object, base_url: object) -> RepositoryIdentity | None:
-    """The identity of a Git remote (``…/scm/<key>/<slug>.git`` or ``bitbucket.org/<ws>/<slug>.git``), else ``None``."""
     parts = urlsplit(str(remote_url or "").strip())
     host = (parts.hostname or "").lower()
     # A remote may carry a sign-in (``user:secret@host``): the repository is the same, the userinfo is dropped.
@@ -97,8 +80,6 @@ def _registered_identity(scope: dict) -> RepositoryIdentity | None:
 
 
 async def repository_access_mode(db: AsyncSession, project_id: str | None, identity: RepositoryIdentity) -> str:
-    """``read_write`` when any registration of the repository in the Workspace allows writes, ``read_only`` when it
-    is registered only read-only, else ``unregistered``."""
     if not project_id:
         return ACCESS_UNREGISTERED
     rows = (await db.execute(select(KnowledgeSourceConnector.scope).where(
@@ -114,10 +95,6 @@ async def repository_access_mode(db: AsyncSession, project_id: str | None, ident
 
 
 async def registered_repositories(db: AsyncSession, project_id: str | None) -> list[dict[str, str]]:
-    """The Bitbucket repositories the Workspace registered through a connection, as ``bitbucket_allowed_repos``
-    entries (``project_key``, ``repo_slug``). A registered repository is allowed for the connector tools of the
-    Workspace (counting only the configured ``bitbucket_allowed_repos`` list would make ``scm.create_branch`` refuse a
-    registered repository); whether a write is allowed stays :func:`repository_write_refusal`."""
     if not project_id:
         return []
     rows = (await db.execute(select(KnowledgeSourceConnector.scope).where(
@@ -136,8 +113,6 @@ async def registered_repositories(db: AsyncSession, project_id: str | None) -> l
 
 
 async def registered_access_mode(db: AsyncSession, project_ids: list[str], references: set[str]) -> str | None:
-    """The access mode of a registered repository named by ``references`` (``KEY/slug``, a clone URL or its tail),
-    ``read_write`` winning over ``read_only``; ``None`` when none of the Workspaces registered it."""
     if not project_ids or not references:
         return None
     rows = (await db.execute(select(KnowledgeSourceConnector.scope).where(
@@ -161,7 +136,6 @@ async def registered_access_mode(db: AsyncSession, project_ids: list[str], refer
 
 async def repository_write_refusal(db: AsyncSession | None, project_id: str | None,
                                    identity: RepositoryIdentity | None) -> str | None:
-    """``repository_read_only`` when the Workspace registered the repository read-only; ``None`` otherwise."""
     if db is None or identity is None:
         return None
     mode = await repository_access_mode(db, project_id, identity)

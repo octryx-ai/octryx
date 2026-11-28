@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
-
 import pytest
 
-from app.agent.core.prompts.prompt_builder import build_system_prompt_parts
-from app.services.agent_mode import DEFAULT_AGENT_MODE_KEY
 from app.services.workflow_routing.model_catalog import (
     MODEL_WORKFLOW_CATALOG_MAX_ENTRIES,
     MODEL_WORKFLOW_CATALOG_MAX_ONE_LINER_CHARS,
@@ -75,34 +71,3 @@ async def test_workflows_endpoint_includes_when_to_use(client, auth_headers):
         assert item["when_to_use"], item["key"]
 
 
-@pytest.mark.parametrize("prompt_variant", ["full", "minimal", "summary", "admin", "bounded_evidence"])
-def test_system_prompt_contains_catalog_in_every_variant(prompt_variant):
-    agent_mode = SimpleNamespace(
-        key=DEFAULT_AGENT_MODE_KEY,
-        name="Diagnosis",
-        capability_type="diagnosis",
-        prompt_instructions="",
-    )
-    catalog_block = render_model_workflow_catalog_prompt(
-        [
-            {
-                "workflow_key": "aws-topology-diagram-routing",
-                "title": "AWS topology diagram routing",
-                "when_to_use": "Use for AWS architecture diagrams.",
-                "capability": "diagnosis",
-            }
-        ]
-    )
-
-    parts = build_system_prompt_parts(
-        agent_type=DEFAULT_AGENT_MODE_KEY,
-        agent_mode=agent_mode,
-        personality="",
-        memory="",
-        skills="",
-        prompt_variant=prompt_variant,
-        workflow_catalog=catalog_block,
-    )
-
-    assert "## Workflow catalog" in parts.stable
-    assert "aws-topology-diagram-routing" in parts.stable

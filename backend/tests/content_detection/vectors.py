@@ -1,8 +1,4 @@
-"""Test vectors for the content detectors: published examples and synthetic text only.
-
-The IBANs are the published registry examples; the mod-10 numbers are the textbook example of the check digit.
-None of them belongs to a real account.
-"""
+"""Test vectors for the content detectors: published examples and synthetic text only."""
 
 # Mod 10 holds (the textbook example) / fails (last digit changed).
 MOD10_VALID = "79927398713"

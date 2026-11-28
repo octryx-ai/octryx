@@ -1,22 +1,4 @@
-"""Prompt-cache token split and catalog charge of one usage event.
-
-Two usage conventions reach usage accounting:
-
-- *additional* (Anthropic; the gateway inbound route and ``session_ingest``):
-  ``tokens_in`` is the uncached input, cache reads and writes come separately;
-- *Bedrock Converse* (the platform's own Bedrock provider): the usage payload
-  carries ``inputTokens`` (uncached) plus ``cacheReadInputTokens`` /
-  ``cacheWriteInputTokens``, and the prompt count folds all three.
-
-Both are recorded on a ``UsageEvent`` in the additional convention
-(``tokens_in`` uncached, cache tokens in ``cache_read_tokens`` /
-``cache_creation_tokens``), so token totals mean the same on both paths.
-
-The charge never guesses a rate. With the model row's cache pair, cache tokens are
-charged at it. Without it, every path charges cache tokens at the input rate: a
-Converse turn and an additional-convention event (``session_ingest``) alike, as
-the gateway does, never free. Each outcome is its own ``cost_status``.
-"""
+"""Prompt-cache token split and catalog charge of one usage event."""
 
 from __future__ import annotations
 
@@ -55,8 +37,6 @@ class PromptTokenSplit:
 
 
 def converse_prompt_split(usage: Mapping[str, Any] | None) -> PromptTokenSplit | None:
-    """The split of a Bedrock Converse usage payload; ``None`` when it reports no cache tokens."""
-
     payload = usage or {}
     cache_read = _count(payload.get("cacheReadInputTokens"))
     cache_write = _count(payload.get("cacheWriteInputTokens"))
@@ -77,8 +57,6 @@ def resolve_prompt_split(
     cache_read_tokens: int = 0,
     cache_creation_tokens: int = 0,
 ) -> PromptTokenSplit:
-    """A Converse payload decides on its own; otherwise the cache counts are additional to ``prompt_tokens``."""
-
     converse = converse_prompt_split(usage)
     if converse is not None:
         return converse
@@ -96,11 +74,6 @@ def charge_prompt_split(
     prompt_tokens: int,
     completion_tokens: int,
 ) -> tuple[Decimal, str]:
-    """Unrounded USD charge and its ``cost_status``.
-
-    ``prompt_tokens`` is the supplied prompt count; it is the charge base whenever no cache rate applies.
-    """
-
     if split.cache_tokens == 0:
         return pricing.charge(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens), COST_STATUS_PRICED
     if pricing.has_cache_rates:

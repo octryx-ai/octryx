@@ -1,12 +1,6 @@
 import { sourceLabel } from "./incident/workSourceModel";
 import type { WorkItem } from "./workItemTypes";
 
-// What is out of the ordinary on a Work Item. Pure: no React.
-//
-// A card and the detail show one status (the source's) and, beside it, badges only for exceptions: something
-// blocks it, an agent may start it, the agent's work needs a review, the sync went wrong, or its status is not
-// mapped. The normal states ("Human only", "unchanged", the workflow state the column already names) get none.
-
 export type WorkException = { key: string; label: string; tone: "attention" | "danger" | "running" };
 
 const SYNC_PROBLEMS: Record<string, string> = {
@@ -16,8 +10,7 @@ const SYNC_PROBLEMS: Record<string, string> = {
   failed: "Sync failed",
 };
 
-// Finished items: nothing blocks them and no agent starts them, even while the automation eligibility still
-// lists its reasons (a Done item never reads "Blocked").
+// A Done item never reads "Blocked", even while the automation eligibility still lists reasons.
 const CLOSED_STATES = new Set(["done", "closed", "cancelled", "canceled"]);
 
 export function workItemExceptions(item: WorkItem): WorkException[] {
@@ -40,14 +33,12 @@ export function workItemExceptions(item: WorkItem): WorkException[] {
   return exceptions;
 }
 
-/** The one badge a list row shows: the first exception, or none. */
 export function firstException(item: WorkItem): WorkException | null {
   return workItemExceptions(item)[0] ?? null;
 }
 
 const words = (value: string | null | undefined) => String(value || "").trim().replaceAll("_", " ");
 
-/** The detail's status line: "Jira: In Progress · development · Priority High" (empty parts left out). */
 export function workItemDetailStatus(item: WorkItem): string {
   const source = sourceLabel(item.source_type);
   const status = words(item.source_status);

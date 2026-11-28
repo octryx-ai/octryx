@@ -1,8 +1,5 @@
-"""The span step of a projector run: upsert (or retire) a bounded batch after the cursor.
-
-``projector`` passes its own per-run bound and lease keeper, so the bound stays a setting of
-the projector and every span is still preceded by the lease check.
-"""
+"""The span step of a projector run: upsert (or retire) a bounded batch after the cursor. Every span is preceded by the
+lease check."""
 
 from __future__ import annotations
 
@@ -31,7 +28,6 @@ async def project_span_batch(
     hold_lease: Callable[[], Awaitable[bool]],
     max_spans: int,
 ) -> tuple[int, int, bool]:
-    """Write at most ``max_spans`` spans after the claim's cursor: ``(written, last ordinal, more pending)``."""
     cursor = claim.projected_through_ordinal
     # One row over the bound: enough to know more work is owed, without reading it.
     spans = await load_spans(db, workspace.canonical, claim.revision_id, after_ordinal=cursor, limit=max_spans + 1)
@@ -58,7 +54,6 @@ async def project_span_batch(
 async def _span_scope(
     db: AsyncSession, runtime: EvidenceRuntime, workspace: WorkspaceId, revision_id: str, batch: list
 ) -> tuple:
-    """``(products, version, acl_keys, bodies)`` every projected span of the batch carries."""
     # Every projected span carries its revision's product and version scope
     # and its source's ACL marker, read per batch from the ledger.
     await converge_acl_marker(db, runtime.runtime_client, workspace)

@@ -1,18 +1,5 @@
-"""The one redactor for subprocess output that is kept as a product result.
-
-Most subprocess output never leaves its call site: failures carry a closed code and the exit
-status (see ``services/error_facts.py``). Some output is the product itself, for example a
-test run, a lint report or a command the agent ran and must read. That output is kept, but
-only after ``redact_process_output``:
-
-- URL userinfo is removed for every scheme (``https://user:tok3n@host/x.git`` becomes
-  ``https://[redacted]@host/x.git``), also when only a token stands in the user part;
-- token-shaped strings are replaced: provider token prefixes (GitHub, GitLab, Slack, OpenAI
-  style ``sk-``), AWS access key ids, JWTs, bearer/basic credentials, ``secret=value``
-  assignments and private key blocks (the shared ``redact_secret_text`` patterns).
-
-Paths and ordinary text stay, because the reader (the agent or the user) needs them.
-"""
+"""The one redactor for subprocess output that is kept as a product result. Output kept as a result passes through here
+first."""
 
 from __future__ import annotations
 
@@ -38,7 +25,6 @@ _TOKEN_SHAPED_RE = re.compile(
 
 
 def redact_process_output(value: Any, *, max_chars: int | None = None) -> str:
-    """Subprocess output with URL userinfo and token-shaped strings removed, optionally bounded."""
     if isinstance(value, bytes):
         value = value.decode("utf-8", errors="replace")
     text = "" if value is None else str(value)

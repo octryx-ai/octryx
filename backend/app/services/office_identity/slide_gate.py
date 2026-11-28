@@ -1,46 +1,4 @@
-"""Deterministic post-composition quality gate for PowerPoint decks.
-
-Same contract as the AWS diagram gate: every deck is measured against
-invariants that can be checked from the artefact itself, and violations are
-**reported, never silently corrected**. The composer attaches the findings to
-its result as ``quality_findings`` so a caller can put them in front of a
-human; nothing here rewrites a slide.
-
-Finding classes:
-
-``picture_covers_title``
-    The picture *as placed* fills the slide (or covers a title/footer
-    rectangle) while the slide carries a title — the branded background, the
-    logo and the title are lost. Measured against the geometry the composer
-    produced, not against the slot it came from: a full-bleed slot filled in
-    inset mode covers nothing and stays silent, as does a deliberately
-    title-less full-screen picture.
-``empty_content_next_to_picture`` (severity ``info``)
-    A titled slide left a content slot empty while a picture sits beside it.
-    Not a defect — but that half of the slide reads as unfinished.
-``text_overflow``
-    The estimated text block is taller than its placeholder. The estimate
-    assumes a 0.5 em average glyph advance and single line spacing, and is only
-    reported past a 15 % margin — a marginal case stays silent by design.
-    Placeholders that explicitly shrink text to fit are skipped entirely.
-``empty_required_slot``
-    The chosen layout offers a title that stayed empty, or a content area that
-    received neither text nor a picture. A content slot left empty *next to* a
-    filled picture is intentional (a diagram on a split layout) and stays
-    silent.
-``capacity_exceeded``
-    The plan entry carries more content units or pictures than the layout holds.
-``image_distorted``
-    A picture's rendered aspect ratio departs from its source aspect ratio.
-``off_brand_font_or_color``
-    A run sets a typeface or an explicit RGB colour outside the template theme.
-``title_illegible``
-    The layout declares a light title colour and paints no backdrop behind it,
-    and no picture sits under the title either — the title is invisible.
-``unknown_layout``
-    A slide uses a layout that is not in the snapshot — the deck and the
-    evidence brief disagree and no other check can be trusted for that slide.
-"""
+"""Deterministic post-composition quality gate for PowerPoint decks."""
 
 from __future__ import annotations
 
@@ -69,11 +27,7 @@ MAX_FINDINGS = 200
 def check_deck_quality(
     snapshot: dict[str, Any], plan: list[dict[str, Any]], deck_path: str | Path
 ) -> list[dict[str, Any]]:
-    """Measure a composed deck against the template's own evidence brief.
-
-    Returns a deterministically sorted, bounded list of findings; an empty list
-    means the deck passed. Nothing is modified.
-    """
+    """Measure a composed deck against the template's own evidence brief."""
     from pptx import Presentation  # local import: heavy optional dependency
 
     presentation = Presentation(str(deck_path))

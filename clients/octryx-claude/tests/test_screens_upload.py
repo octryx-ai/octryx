@@ -1,5 +1,3 @@
-"""System test screenshots go to the reviewer at Stop of a changing phase."""
-
 from __future__ import annotations
 
 import os
@@ -49,7 +47,6 @@ def test_only_screenshots_written_during_the_pass_count(tmp_path):
 
 
 def test_the_screenshots_are_those_of_the_last_declared_system_test_run(tmp_path):
-    """The screenshots come from the CI-like run of the declared command."""
     contract = {**_contract(), "phase": {"capability_class": "change",
                                          "system_tests": {"command": ".venv/bin/python -m pytest -v tests/system"}}}
     session = tmp_path / "session"

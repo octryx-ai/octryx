@@ -1,14 +1,5 @@
-"""Every indexed span carries its ACL marker: the convergence and the gate.
-
-Retrieval admits a span only when its ``acl_keys`` intersect the caller's (``access/acl_keys.py``).
-A restricted span is always written together with its marker in one upsert, so it is never
-unmarked; a span without a marker is marked ``public`` by a bounded, idempotent statement that only
-ever touches spans *without* a marker.
-
-The convergence is recorded in PostgreSQL (``KnowledgeWorkspaceAclMarker``) before every projection
-batch, and retrieval refuses a Workspace without that record (it has never been projected) with an
-explicit state instead of an empty answer.
-"""
+"""Every indexed span carries its ACL marker: the convergence and the gate. Retrieval refuses a Workspace without a
+convergence record."""
 
 from __future__ import annotations
 
@@ -37,7 +28,6 @@ async def acl_marker_current(db: AsyncSession, project_id: str) -> bool:
 
 
 async def converge_acl_marker(db: AsyncSession, client: EvidenceIndexClient, workspace: WorkspaceId) -> bool:
-    """Mark the Workspace's unmarked spans public, bounded. True once every span carries a marker."""
     if await acl_marker_current(db, workspace.canonical):
         return True
     for _ in range(MAX_MARK_CALLS):

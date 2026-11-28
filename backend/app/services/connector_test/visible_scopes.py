@@ -1,23 +1,4 @@
-"""What a connection's account can actually see: the "list visible scopes" probes.
-
-A connector descriptor may declare one (``ConnectorDescriptor.visible_scopes``); ``scope_check.py`` runs it
-after a successful connection test and compares the result with the configured or bound keys. Read-only and
-bounded:
-
-- **Confluence spaces**: ``GET /rest/api/space`` paged (:data:`PAGE_SIZE` per request, at most
-  :data:`MAX_PAGES` requests); a configured space not in a truncated list is asked for directly
-  (``GET /rest/api/space/{key}``), so "not visible" is never a guess from a cut-off list;
-- **Jira projects**: ``GET /rest/api/2/project`` (every project the account can browse); a configured key
-  not in it is asked for directly (``GET /rest/api/2/project/{key}``) when the list was cut;
-- **ServiceNow tables**: no cheap listing exists, so each configured table (at most :data:`MAX_DIRECT`) is
-  read with ``sysparm_limit=1`` on the Table API; without configured tables, or with Scripted REST, nothing
-  is probed.
-
-Only keys matching the connector's binding pattern are reported (no other text of an answer is kept), and
-a failure is a closed code (``visible_scopes_unavailable`` with the HTTP status, or the identity provider's
-code), never the answer. A transport error or an answer that is not JSON is ``visible_scopes_unavailable`` too:
-the probe never turns a passed connection test into a failed one.
-"""
+"""What a connection's account can actually see: the "list visible scopes" probes."""
 
 from __future__ import annotations
 
@@ -28,12 +9,12 @@ from typing import Any
 
 import httpx
 
-from app.services.atlassian_auth_modes import CONFLUENCE, JIRA
+from app.services.connector_auth.atlassian_modes import CONFLUENCE, JIRA
 
-from ..atlassian_auth import request_auth, resolve_credential
-from ..oidc_client_credentials import OidcTokenError
+from ..connector_auth.atlassian import request_auth, resolve_credential
+from ..connector_auth.oidc_client_credentials import OidcTokenError
+from ..connector_auth.servicenow import resolve_servicenow_auth
 from ..outbound_egress import CONNECTION_CONFLUENCE, CONNECTION_JIRA, CONNECTION_SERVICENOW, egress_transport
-from ..servicenow_auth import resolve_servicenow_auth
 from ..servicenow_scripted import ScriptedEndpointError, scripted_api
 
 PAGE_SIZE = 100
@@ -50,8 +31,6 @@ _TABLE = re.compile(r"^[A-Za-z0-9_]{1,80}$")
 
 @dataclass(frozen=True, slots=True)
 class VisibleScopes:
-    """Keys the account sees (canonical as listed); ``complete``: the whole listing was read."""
-
     keys: tuple[str, ...] = ()
     complete: bool = True
     # Configured keys checked one by one (beyond a cut listing): key -> visible.
@@ -98,7 +77,6 @@ def _missing_from(listed: Iterable[str], configured: frozenset[str] | None) -> l
 
 
 async def _run(probe, *args) -> VisibleScopes:
-    """The probe's result; any failure is the closed code, so a passed connection test never turns failed."""
     try:
         return await probe(*args)
     except _ProbeFailedError as failed:

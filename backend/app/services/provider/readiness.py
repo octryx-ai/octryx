@@ -6,7 +6,6 @@ from typing import Any
 
 from ...agent.providers import get_driver_spec, infer_provider_runtime
 from ...models import LLMProvider
-from ...models.runtime.provider_oauth_config import oauth_metadata_from_provider
 from ..model_gateway.litellm.readiness import gateway_configuration_reason
 from ..model_gateway.litellm.runtime_admission import LITELLM_GATEWAY_DRIVER
 
@@ -29,7 +28,6 @@ _UNAVAILABLE_HEALTH_STATUSES = {
     "validation_failed",
 }
 _API_KEY_AUTH_MODES = {"api_key", "token", "bearer"}
-_NO_CREDENTIAL_DRIVERS = {"ollama"}
 
 
 def resolve_provider_readiness(provider: LLMProvider | None) -> dict[str, Any]:
@@ -92,16 +90,9 @@ def resolve_provider_readiness(provider: LLMProvider | None) -> dict[str, Any]:
             runtime_attempt_allowed=True,
             runtime=runtime,
         )
-    if _supports_native_health_check(provider, runtime):
-        return _readiness(
-            READINESS_UNKNOWN,
-            "health_unchecked",
-            runtime_attempt_allowed=True,
-            runtime=runtime,
-        )
     return _readiness(
         READINESS_UNKNOWN,
-        "health_not_required",
+        "health_unchecked",
         runtime_attempt_allowed=True,
         runtime=runtime,
     )
@@ -117,25 +108,13 @@ def _missing_endpoint_reason(provider: LLMProvider, runtime: dict[str, str]) -> 
 
 
 def _missing_gateway_contract_reason(provider: LLMProvider, runtime: dict[str, str]) -> str | None:
-    """A governed gateway stays non-runnable until its whole contract is valid."""
-
     if runtime["driver"] != LITELLM_GATEWAY_DRIVER:
         return None
     return gateway_configuration_reason(provider) or None
 
 
 def _missing_auth_reason(provider: LLMProvider, runtime: dict[str, str]) -> str | None:
-    driver = runtime["driver"]
     auth_mode = str(provider.auth_mode or runtime.get("auth_mode") or "").strip().lower()
-    if driver in _NO_CREDENTIAL_DRIVERS or runtime["runtime_kind"] == "cli":
-        return None
-    if driver == "bedrock_api":
-        if auth_mode in {"aws_role", "environment"}:
-            return None
-        metadata = oauth_metadata_from_provider(provider)
-        if auth_mode == "aws_credentials" and not metadata.get("aws_static_credentials_configured"):
-            return "aws_credentials_not_configured"
-        return None
     if auth_mode in {"oauth", "auth_session", "profile", "none"}:
         return None
     if auth_mode in _API_KEY_AUTH_MODES and not _provider_has_api_key(provider):
@@ -145,15 +124,6 @@ def _missing_auth_reason(provider: LLMProvider, runtime: dict[str, str]) -> str 
 
 def _provider_has_api_key(provider: LLMProvider) -> bool:
     return bool(str(getattr(provider, "api_key_secret_ref", "") or "").strip())
-
-
-def _supports_native_health_check(provider: LLMProvider, runtime: dict[str, str]) -> bool:
-    capabilities = provider.capabilities_json if isinstance(provider.capabilities_json, dict) else {}
-    return (
-        bool(capabilities.get("supports_health_check"))
-        or runtime["driver"] in {"ollama", LITELLM_GATEWAY_DRIVER}
-        or runtime["runtime_kind"] == "cli"
-    )
 
 
 def _readiness(

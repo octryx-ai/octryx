@@ -1,8 +1,4 @@
-"""Octryx Mobile "live": the owner messages Claude Code sessions running on their own device, through its channel.
-
-Only the owner, only by their interactive login, only to a session the device lists right now; the device's reports
-are normalized; the channel tick carries the text to the device and the device settles it.
-"""
+"""Octryx Mobile "live": the owner messages Claude Code sessions running on their own device, through its channel."""
 
 # ruff: noqa: F811  (the shared ``cookie_client`` fixture is imported, then requested by name)
 from __future__ import annotations
@@ -37,9 +33,8 @@ async def _reporting_device(db, user, sessions=None, *, live=True):
 
 
 @pytest.mark.asyncio
-async def test_round_trip_owner_to_session_and_back(cookie_client, db):
-    owner = await _admin(db)
-    device = await _reporting_device(db, owner)
+async def test_round_trip_owner_to_session_and_back(cookie_client, db, auth_user):
+    device = await _reporting_device(db, auth_user)
 
     listed = await cookie_client.get("/api/v1/mobile/live")
     assert listed.status_code == 200, listed.text
@@ -58,8 +53,8 @@ async def test_round_trip_owner_to_session_and_back(cookie_client, db):
     await db.commit()
     live_sends = [body for kind, body in connection.sent if kind == "live_send"]
     assert live_sends == [{"message_id": message_id, "peer": PEER, "text": "Status?",
-                           "sender": owner.display_name or owner.username}]
-    await handlers.tick(db, connection)  # sent once
+                           "sender": auth_user.display_name or auth_user.username}]
+    await handlers.tick(db, connection)
     assert len([kind for kind, _ in connection.sent if kind == "live_send"]) == 1
 
     await handlers.message(db, connection, {"type": "live_delivery", "body": {
@@ -77,9 +72,8 @@ async def test_round_trip_owner_to_session_and_back(cookie_client, db):
 
 
 @pytest.mark.asyncio
-async def test_bearer_and_api_key_are_refused(client, db, auth_headers):
-    owner = await _admin(db)
-    device = await _reporting_device(db, owner)
+async def test_bearer_and_api_key_are_refused(client, db, auth_headers, auth_user):
+    device = await _reporting_device(db, auth_user)
     for path in ("/api/v1/mobile/live", "/api/v1/mobile/live/messages"):
         if path.endswith("messages"):
             refused = await client.post(path, headers=auth_headers, json={"device_id": device.id, "peer": PEER,
@@ -92,11 +86,10 @@ async def test_bearer_and_api_key_are_refused(client, db, auth_headers):
 
 
 @pytest.mark.asyncio
-async def test_only_listed_running_sessions_of_the_own_device(cookie_client, db):
-    owner = await _admin(db)
+async def test_only_listed_running_sessions_of_the_own_device(cookie_client, db, auth_user):
     other = await user_named(db, "someone")
     foreign = await _reporting_device(db, other)
-    device = await _reporting_device(db, owner)
+    device = await _reporting_device(db, auth_user)
 
     async def send(**body):
         payload = {"device_id": device.id, "peer": PEER, "text": "hi", **body}
@@ -125,9 +118,8 @@ async def test_only_listed_running_sessions_of_the_own_device(cookie_client, db)
 
 
 @pytest.mark.asyncio
-async def test_open_messages_are_capped_and_time_out(cookie_client, db):
-    owner = await _admin(db)
-    device = await _reporting_device(db, owner)
+async def test_open_messages_are_capped_and_time_out(cookie_client, db, auth_user):
+    device = await _reporting_device(db, auth_user)
     for _ in range(MAX_OPEN):
         ok = await cookie_client.post("/api/v1/mobile/live/messages",
                                       json={"device_id": device.id, "peer": PEER, "text": "hi"})
@@ -147,17 +139,15 @@ async def test_open_messages_are_capped_and_time_out(cookie_client, db):
 
 
 @pytest.mark.asyncio
-async def test_device_reports_are_normalized_and_bound_to_the_device(db):
-    owner = await _admin(db)
+async def test_device_reports_are_normalized_and_bound_to_the_device(db, auth_user):
     other = await user_named(db, "someone")
-    device = await _reporting_device(db, owner)
+    device = await _reporting_device(db, auth_user)
     foreign = await _reporting_device(db, other)
     handlers = DeviceJobHandlers()
-    message = LiveMessage(owner_user_id=owner.id, device_id=device.id, peer=PEER, direction="out", text="hi",
+    message = LiveMessage(owner_user_id=auth_user.id, device_id=device.id, peer=PEER, direction="out", text="hi",
                           state="sent", created_at=utc_now(), updated_at=utc_now())
     db.add(message)
     await db.flush()
-    # Another device cannot settle this device's message, and a bad state is ignored.
     await handlers.message(db, RecordingConnection(foreign.id), {"type": "live_delivery", "body": {
         "message_id": message.id, "state": "delivered"}})
     await handlers.message(db, RecordingConnection(device.id), {"type": "live_delivery", "body": {
@@ -169,7 +159,7 @@ async def test_device_reports_are_normalized_and_bound_to_the_device(db):
 
     cleaned = normalize_sessions([
         {**SESSION, "pid": "1; rm", "profile": "Pri<v>ate!", "extra": "dropped"},
-        {**SESSION},  # same inbox twice
+        {**SESSION},
         {"peer": "uds:relative.sock"},
         "junk",
     ])
@@ -188,18 +178,16 @@ async def test_device_reports_are_normalized_and_bound_to_the_device(db):
 
 
 @pytest.mark.asyncio
-async def test_kill_switch_and_pause_stop_live_texts(cookie_client, db):
-    """Like every device run, the platform switch and the device's pause stop live texts."""
+async def test_kill_switch_and_pause_stop_live_texts(cookie_client, db, auth_user):
     from app.services.devices.platform_switch import set_device_runs_platform_enabled
 
-    owner = await _admin(db)
-    device = await _reporting_device(db, owner)
+    device = await _reporting_device(db, auth_user)
     device_id = device.id
     queued = await cookie_client.post("/api/v1/mobile/live/messages",
                                       json={"device_id": device_id, "peer": PEER, "text": "queued before"})
     assert queued.status_code == 202
 
-    await set_device_runs_platform_enabled(db, enabled=False, actor_id=owner.id)
+    await set_device_runs_platform_enabled(db, enabled=False, actor_id=auth_user.id)
     await db.commit()
     refused = await cookie_client.post("/api/v1/mobile/live/messages",
                                        json={"device_id": device_id, "peer": PEER, "text": "hi"})
@@ -211,7 +199,7 @@ async def test_kill_switch_and_pause_stop_live_texts(cookie_client, db):
     stopped = (await db.execute(select(LiveMessage))).scalars().one()
     assert (stopped.state, stopped.reason) == ("failed", "device_runs_platform_disabled")
 
-    await set_device_runs_platform_enabled(db, enabled=True, actor_id=owner.id)
+    await set_device_runs_platform_enabled(db, enabled=True, actor_id=auth_user.id)
     device = await db.get(type(device), device_id)
     device.paused = True
     await db.commit()

@@ -7,6 +7,7 @@ import { test } from "node:test";
 import {
   browserPhaseProblem,
   browserPhasesPatch,
+  checkAttemptsPatch,
   minSourcesValue,
   readRunPhaseSettings,
   researchMinSourcesPatch,
@@ -120,5 +121,12 @@ test("research phases: same rule as browser phases, own patch key, own refusal; 
   assert.match(runPhaseSaveError({ status: 400, code: "invalid_research_phases", path: `${path}.research_phases` }),
     /research phase is <workflow>\.<phase>/);
   assert.match(runPhaseSaveError({ status: 400, code: "invalid_number", path: `${path}.research_min_sources` }),
-    /Minimum sources is a whole number from 1 to 20/);
+    /whole number from 1 to 20/);
+});
+
+test("attempts after failed checks: 1..20, default 3, own patch key", () => {
+  assert.equal(readRunPhaseSettings(section).checkAttempts, 3);
+  assert.equal(readRunPhaseSettings({ ...section, check_attempts: 5 }).checkAttempts, 5);
+  assert.equal(readRunPhaseSettings({ ...section, check_attempts: 0 }).checkAttempts, 3);
+  assert.deepEqual(checkAttemptsPatch(4), { check_attempts: 4 });
 });

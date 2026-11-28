@@ -1,21 +1,4 @@
-"""Claude Code through the Claude Agent SDK for one device job turn.
-
-- ``cli_path`` is the user's own ``claude`` (``launch.resolve_claude``), ``settings`` the launcher's generated
-  session settings, ``mcp_servers`` its MCP config, ``env`` its child env, ``cwd`` the checked job folder;
-  ``setting_sources`` are those of an interactive launch. Never ``--bare``; the permission mode is always
-  ``default`` (bypass is disabled by the settings anyway); nothing from the platform's offer is passed here
-  except the prompt and the model the session checked (``model``; empty keeps the launcher's ``main`` alias).
-  Every turn starts Claude Code anew with ``resume``, so a model changed in the chat applies from the next turn
-  and the conversation is kept.
-- ``can_use_tool`` fires where Claude Code would prompt a person, after the platform's ``PreToolUse`` hook and
-  the deny/ask rules; the job manager turns it into a chat approval. "Allow edits for this job" answers with a
-  session-scoped ``acceptEdits`` mode, nothing persists on disk.
-- Stop: ``interrupt()`` ends the turn cleanly; the job manager falls back to ``disconnect()`` after 10 s.
-- Start: a Claude Code process that does not come up (the SDK's 60 s ``initialize`` control request times out,
-  for example when macOS blocks the folder) is ``DriverStartError`` with a fixed code, never a bare exception.
-
-The SDK is imported lazily; tests hand in a fake module with the same names.
-"""
+"""Claude Code through the Claude Agent SDK for one device job turn."""
 
 from __future__ import annotations
 
@@ -61,8 +44,6 @@ class DriverUnavailableError(Exception):
 
 
 class DriverStartError(Exception):
-    """Claude Code did not start for this turn; ``code`` is fixed and goes back to the chat."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -90,8 +71,6 @@ CONTEXT_STEP_TOKENS = 2000
 
 
 def _can_use_tool(sdk: Any, prepared: PreparedSession, decide: Decide) -> Callable[..., Awaitable[Any]]:
-    """Where Claude Code would prompt a person: the chat's approval (``decide``)."""
-
     async def can_use_tool(tool_name: str, tool_input: dict[str, Any], context: Any) -> Any:
         if open_network_host(prepared, tool_name, tool_input):
             return sdk.PermissionResultAllow(updated_input=tool_input)
@@ -124,11 +103,7 @@ async def _ask_the_phone(hook_input: Any, tool_use_id: Any, context: Any) -> dic
 
 def _local_options(sdk: Any, prepared: PreparedSession, *, cwd: str, env: dict[str, str], resume: str | None,
                    fork: bool, can_use_tool: Any) -> Any:
-    """A take-over in a profile outside octryx: its own settings and MCP servers, resuming its session.
-
-    Every tool that is not a plain read asks the phone, whatever the profile's allow rules, so a phone-started action
-    is always the person's explicit decision. Octryx's own state (device grant, refresh tokens) is never readable or
-    editable from a take-over; flag settings add only that."""
+    # Every non-read tool asks the phone, whatever the profile's allow rules: a phone-started action is explicit.
     state = str(prepared.extra.get("state_root") or "").lstrip("/")
     protected = {"permissions": {"deny": [f"Read(//{state}/**)", f"Edit(//{state}/**)"]}} if state else {}
     return sdk.ClaudeAgentOptions(
@@ -142,7 +117,6 @@ def _local_options(sdk: Any, prepared: PreparedSession, *, cwd: str, env: dict[s
 
 
 def _lean_args(prepared: PreparedSession, env: dict[str, str], resume: str | None) -> tuple[dict[str, str | None], str]:
-    """The CLI flags and MCP config of an octryx turn; a story session also gets no background tasks in ``env``."""
     extra_args: dict[str, str | None] = {"strict-mcp-config": None}
     lean = bool(prepared.extra.get("lean"))
     story = lean and story_session(prepared)
@@ -171,8 +145,6 @@ def _lean_args(prepared: PreparedSession, env: dict[str, str], resume: str | Non
 
 
 class SdkDriver:
-    """Runs one turn; ``interrupt``/``disconnect`` may be called from another task while it runs."""
-
     def __init__(self, sdk: Any = None) -> None:
         self._sdk = sdk
         self._client: Any = None
@@ -219,7 +191,6 @@ class SdkDriver:
     async def run_turn(self, prepared: PreparedSession, *, cwd: str, prompt: str, resume: str | None,
                        fork: bool = False,
                        decide: Decide, emit: Emit) -> dict[str, Any]:
-        """Run the prompt to its result; returns ``{status, result_text, cost_usd, usage, claude_session_id}``."""
         options = self._options(prepared, cwd=cwd, resume=resume, decide=decide, fork=fork)
         result: dict[str, Any] = {"status": "error", "result_text": "", "claude_session_id": resume}
         context = {"tokens": 0, "sent": 0}  # the app shows how full the context is

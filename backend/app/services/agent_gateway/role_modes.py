@@ -1,17 +1,4 @@
-"""What a person may let their Claude Code sessions do, by their role in the Workspace.
-
-Each role has a ceiling, set per Workspace by its
-admins (``agent_gateway_policy.role_modes``, the admin panel's Coding tools & devices); the defaults:
-
-- **viewer** (or no role): ``read_only``. Sessions read and answer; no change, also not on the person's Mac (a phone
-  turn runs in ``plan``);
-- **member**: ``edit``. "Ask first" and "Accept edits", no bypass;
-- **owner** and **admin** (a platform admin; one who is an owner by membership counts as owner): ``bypass``.
-
-On top, per Workspace: ``agent_gateway_policy.free_sessions = "read_only"`` makes everybody a viewer and
-``bypass_permissions = "disabled"`` takes bypass from owners too. The platform's deny rules (execution policy, the
-Workspace's tool rules, secrets, the kill switch) apply in every role and mode.
-"""
+"""What a person may let their Claude Code sessions do, by their role in the Workspace."""
 
 from __future__ import annotations
 
@@ -38,7 +25,6 @@ DEFAULT_ROLE_CEILINGS = {"viewer": CEILING_READ_ONLY, "member": CEILING_EDIT, "o
 
 
 def role_ceilings(project: Project | None) -> dict[str, str]:
-    """The Workspace's ceiling per role: its ``role_modes`` over the defaults."""
     policy = (project.config or {}).get("agent_gateway_policy") if project is not None else None
     stored = policy.get("role_modes") if isinstance(policy, dict) else None
     ceilings = dict(DEFAULT_ROLE_CEILINGS)
@@ -66,7 +52,6 @@ def workspace_ceiling(project: Project | None) -> str:
 
 
 async def session_ceiling(db: AsyncSession, *, user_id: str | None, workspace_id: str | None) -> str:
-    """The tighter of the person's role ceiling and the Workspace's own setting."""
     if not workspace_id or not user_id:
         return CEILING_READ_ONLY
     project = await db.get(Project, workspace_id)

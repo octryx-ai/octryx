@@ -68,16 +68,16 @@ async def test_agents_ask_read_answer_and_ack_with_the_data_notice_everywhere(db
     assert message["author"] == {"type": "agent", "user": {"id": anna, "display_name": message["author"]["user"]
                                                            ["display_name"]}, "agent_hash": session_key_hash(anna_key)}
     assert message["on_behalf_of"]["id"] == anna and message["to"]["agent_hash"] == ben_hash
-    assert message["to"]["user"]["id"] == ben and message["to"]["role"] is None  # owner of the agent hash
+    assert message["to"]["user"]["id"] == ben and message["to"]["role"] is None
     assert message["work_item"] == {"id": item.id, "key": "BRD-6", "title": "Login"}
     assert (message["acked_by_me"], message["decided"]) == (False, None)
     assert unread_before == 1 and acked["acked"] == again["acked"] == 1
     assert after["items"][0]["acked_by_me"] is True
     own_view = await _call(db, anna, "board_read", {"kind": "question"}, session_key=anna_key)
-    assert own_view["items"][0]["acked_by_me"] is False  # Ben's ack is not Anna's
+    assert own_view["items"][0]["acked_by_me"] is False
     assert await unread_for_agent(db, agent_hash=ben_hash, user_id=ben, project_id=workspace_id) == 0
-    assert answered["message"]["project_id"] == workspace_id  # from the replied message
-    assert [entry["kind"] for entry in anna_inbox["items"]] == []  # the answer is not addressed to Anna's agent
+    assert answered["message"]["project_id"] == workspace_id
+    assert [entry["kind"] for entry in anna_inbox["items"]] == []
     acks = (await db.execute(select(func.count(AgentBoardAck.id)))).scalar_one()
     assert acks == 1
 
@@ -106,7 +106,6 @@ async def test_addressed_to_me_and_the_unread_count_follow_the_agent_rules(db):
     await db.flush()
     assert await unread_for_agent(db, agent_hash=ben_hash, user_id=ben, project_id=workspace_id) == 2
 
-    # Once Ben is a Workspace admin, messages to admins are addressed to his agent as well.
     from app.models.security.user import UserProject
 
     membership = (await db.execute(select(UserProject).where(UserProject.user_id == ben))).scalar_one()
@@ -228,7 +227,7 @@ async def test_the_stop_hook_answer_carries_the_unread_count(client, db):
 async def test_the_knowledge_mcp_server_registers_the_board_and_claim_tools():
     from app.services.mcp_knowledge_protocol import build_knowledge_mcp_server
 
-    names = {tool.name for tool in await build_knowledge_mcp_server().list_tools()}
+    names = {tool.name for tool in await build_knowledge_mcp_server().visible_tools()}
     assert {"board_post", "board_read", "board_ack", "work_item_claim", "work_item_release",
             "who_is_working_on", "work_item_handoff_write", "work_item_handoff_read", "work_item_takeover_request",
             "work_item_takeover_status"} <= names
@@ -237,7 +236,6 @@ async def test_the_knowledge_mcp_server_registers_the_board_and_claim_tools():
 
 @pytest.mark.asyncio
 async def test_an_agent_only_addressee_shows_its_user_when_the_platform_knows_it(db):
-    """Resolved from the Workspace's sessions, claims, posts or acks; never guessed, never cross-Workspace."""
     workspace_id, anna, ben, anna_key, ben_key = await _setup(db)
     from app.services.agent_board.identity import mcp_identity_hash
     from tests.agent_board.support import agent, seed_item
@@ -262,11 +260,11 @@ async def test_an_agent_only_addressee_shows_its_user_when_the_platform_knows_it
         user = posted["message"]["to"]["user"]
         return user["id"] if user else None
 
-    assert await addressee(session_key_hash(ben_key)) == ben  # gateway session in this Workspace
-    assert await addressee(grant_hash) == ben  # known from a claim
-    assert await addressee(poster_hash) == anna  # known from a post
-    assert await addressee(acker_hash) == ben  # known from an agent ack
-    assert await addressee("0" * 24) is None  # unknown: stays unresolved
-    assert await addressee(elsewhere) is None  # another Workspace's session is never used
+    assert await addressee(session_key_hash(ben_key)) == ben
+    assert await addressee(grant_hash) == ben
+    assert await addressee(poster_hash) == anna
+    assert await addressee(acker_hash) == ben
+    assert await addressee("0" * 24) is None
+    assert await addressee(elsewhere) is None
     page = await _call(db, ben, "board_read", {"limit": 1}, session_key=ben_key)
     assert page["items"][0]["author"]["user"]["id"] == anna

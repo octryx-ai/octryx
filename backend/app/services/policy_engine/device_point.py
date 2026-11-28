@@ -1,10 +1,5 @@
-"""The ``device_dispatch`` enforcement point's Cedar query: may this user run a chat request of the
-Workspace on this device with this profile?
-
-Built from the facts the device dispatch gate already holds (``devices/device_policy``): the Workspace's
-classification, its ``device_runs`` section, the matrix rule of its level, the device and whether the folder is in
-its reported allowlist.
-"""
+"""The ``device_dispatch`` enforcement point's Cedar query: may this user run a chat request of the Workspace on this
+device with this profile?"""
 
 from __future__ import annotations
 

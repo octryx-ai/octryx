@@ -1,12 +1,4 @@
-"""Fragment provenance in a composite run's graph, events and run view.
-
-The composite version is the one the store keeps: the compiled graph in ``definition_json`` and the composition block
-in ``runtime_settings["composition"]``. The block is written here exactly in the contract's shape (a stub of
-``composition_settings``) instead of through the compiler and the store.
-
-The ``node_entered`` / ``run_started`` assertions run through the engine lines (``_enter`` and
-``start_phased_run``); the events route passes its reader, so a platform admin sees the checksum.
-"""
+"""Fragment provenance in a composite run's graph, events and run view."""
 
 from __future__ import annotations
 
@@ -33,6 +25,9 @@ from app.services.workflow_runs.seeding import definition_digest
 from app.services.workflow_runs.views import run_nodes
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
 from tests.policy_engine_support import bearer, make_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FRAGMENT_KEY = "sf-probe"
 CHECKSUM = "sha256:" + "ab" * 32
@@ -41,11 +36,10 @@ FRAGMENT_EDGES = ("e2", "rework")
 
 
 def composition_block(definition: dict, *, version_id: str) -> dict:
-    """``runtime_settings["composition"]`` as the store writes it (``composition/v1``)."""
     pin = {"ref": "probe", "key": FRAGMENT_KEY, "version": 1, "version_id": version_id, "checksum": CHECKSUM}
     return {
         "schema": "composition/v1",
-        "source": {"execution_kind": "phased", "nodes": [], "edges": []},  # the authored source (not read here)
+        "source": {"execution_kind": "phased", "nodes": [], "edges": []},
         "source_hash": "sha256:" + "cd" * 32,
         "compiled_digest": definition_digest(definition),
         "fragments": [{**pin, "namespace": "", "nodes": list(FRAGMENT_NODES), "edges": list(FRAGMENT_EDGES)}],
@@ -54,7 +48,6 @@ def composition_block(definition: dict, *, version_id: str) -> dict:
 
 
 async def _composite(db, *, project_id: str | None = None) -> tuple[str, FlowDefinitionVersion, str]:
-    """A published composite: ``work`` and ``verify`` were compiled from the fragment ``sf-probe`` v1."""
     definition = phased_definition()
     key = await publish_phased(db, definition)
     flow = (await db.execute(select(FlowDefinition).where(FlowDefinition.key == key))).scalar_one()
@@ -97,7 +90,7 @@ def test_the_provenance_readers_return_the_contract_shapes_and_never_guess():
     provenance = version_provenance(version)
     assert sorted(provenance) == sorted(FRAGMENT_NODES)
     graph = parse_phased_definition(phased_definition())
-    assert graph.provenance == {}  # parse_phased_definition is unchanged: it never fills provenance
+    assert graph.provenance == {}
     graph.provenance = provenance
     assert node_provenance(graph, "work") == {"key": FRAGMENT_KEY, "version": 1, "checksum": CHECKSUM, "ref": "probe"}
     assert node_provenance(graph, "start") is None and node_provenance(graph, "done") is None
@@ -105,7 +98,6 @@ def test_the_provenance_readers_return_the_contract_shapes_and_never_guess():
     assert reader_fragment(provenance["work"], admin=False) == {"key": FRAGMENT_KEY, "version": 1, "ref": "probe"}
     assert reader_fragment(provenance["work"], admin=True) == {
         "key": FRAGMENT_KEY, "version": 1, "ref": "probe", "version_id": "v-1", "checksum": CHECKSUM}
-    # A plain or malformed version has no provenance (no guess, no exception).
     for settings in ({}, {"composition": "x"}, {"composition": {"provenance": [1]}},
                      {"composition": {"provenance": {"work": {"key": ""}}, "fragments": [{"version": 1}]}}):
         plain = FlowDefinitionVersion(runtime_settings=settings)
@@ -155,7 +147,7 @@ async def test_run_nodes_show_key_version_ref_to_every_reader_and_the_pin_only_t
     for node_id in ("start", "done"):
         assert as_member[node_id] == as_admin[node_id] and set(as_member[node_id]) == {"id", "title", "kind"}
     anonymous = {node["id"]: node for node in await run_nodes(db, run)}
-    assert "checksum" not in anonymous["work"]["fragment"]  # no reader given → the run-reader projection
+    assert "checksum" not in anonymous["work"]["fragment"]
 
     await db.commit()
     member_view = (await client.get(f"/api/v1/workflow-runs/{run.id}", headers=bearer(member.id))).json()["run"]
@@ -182,7 +174,6 @@ async def test_run_events_withhold_the_checksum_from_the_requester_and_show_it_t
                 if item["node_id"] == "verify"]
     assert as_member[-1]["fragment"] == {"key": FRAGMENT_KEY, "version": 1, "ref": "probe"}
     assert as_admin[-1]["fragment"]["checksum"] == CHECKSUM
-    # The events route passes no reader yet: it gets the reader projection.
     assert "checksum" not in [item["detail"] for item in (await run_events(db, run))["events"]
                               if item["node_id"] == "verify"][-1]["fragment"]
 
@@ -207,7 +198,7 @@ async def test_the_events_route_passes_its_reader_so_only_an_admin_sees_the_chec
     assert started[0]["detail"]["composition"] == [{"key": FRAGMENT_KEY, "version": 1}]
     assert started[1]["detail"]["composition"] == [{"key": FRAGMENT_KEY, "version": 1, "checksum": CHECKSUM}]
     assert CHECKSUM not in str(as_member)
-    assert fragment_version_id not in str(as_member) + str(as_admin)  # never in an event
+    assert fragment_version_id not in str(as_member) + str(as_admin)
 
 
 @pytest.mark.asyncio
@@ -226,7 +217,7 @@ async def test_node_entered_carries_the_fragment_exactly_for_fragment_nodes(db):
                                                 "ref": "probe"}
         else:
             assert "fragment" not in event.detail
-        assert fragment_version_id not in str(event.detail)  # the version id is never in an event
+        assert fragment_version_id not in str(event.detail)
     started = await _events(db, run, "run_started")
     assert started[0].detail["composition"] == [{"key": FRAGMENT_KEY, "version": 1, "checksum": CHECKSUM}]
 

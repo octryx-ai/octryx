@@ -1,8 +1,4 @@
-"""Workflow B's documentation phase: the output, the data-flow law and the rendered page, unit by unit.
-
-The end-to-end path (draft → merge → final documentation → acceptance → publish → audience proofs → deploy) is in
-``test_workflow_acceptance_b_feature_delivery``; the publication's own rules are in the ``test_s1_*`` suites.
-"""
+"""Workflow B's documentation phase: the output, the data-flow law and the rendered page, unit by unit."""
 
 from __future__ import annotations
 
@@ -35,7 +31,6 @@ async def test_the_output_needs_title_what_why_and_how_to_use():
 
 
 def _without(definition: dict, node_id: str, *, rewire: tuple[str, str]) -> dict:
-    """``definition`` without ``node_id``: the edge ``rewire[0]`` now leads to ``rewire[1]``."""
     for edge in definition["edges"]:
         if edge["id"] == rewire[0]:
             edge["target_node_id"] = rewire[1]
@@ -46,12 +41,9 @@ def _without(definition: dict, node_id: str, *, rewire: tuple[str, str]) -> dict
 
 
 async def test_publish_validation_ensures_the_producer_chain():
-    """The S1 publish chain (card (b) -> publish_v2 -> sync) is checked at publish."""
     assert validate_phased_definition(_b())["valid"]
-    # Publishing without the requester's confirmation (card (b)) before it is refused at publish.
     assert "consumer_without_producer" in _codes(
         _without(_b(), "confirm_publication", rewire=("e-reserve", "publish_docs")))
-    # A Knowledge step without a published page before it.
     assert "consumer_without_producer" in _codes(
         _without(_b(), "publish_docs", rewire=("e-publication-confirmed", "docs_in_knowledge")))
 

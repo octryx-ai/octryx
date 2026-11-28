@@ -1,16 +1,5 @@
-"""Explicit lifecycle states for flow definition versions.
-
-A flow version is ``draft``, ``published`` or ``archived``. Every operation that takes a
-version id (run, publish, unpublish) resolves it here, so an unknown id or a version in the
-wrong state is a closed refusal (404/409 with a fixed ``reason``) instead of an unhandled
-exception. Reasons never carry ids or free text.
-
-- run: ``draft`` and ``published`` versions with ``schema_version`` 2.0 run (the Flow Builder runs
-  drafts as traces); ``archived`` versions are hidden or rejected and do not run.
-- publish: ``draft`` or unpublished (``archived`` on an active flow) versions publish; a
-  version that is already published, or belongs to a rejected flow, does not.
-- unpublish: only a ``published`` version unpublishes.
-"""
+"""Explicit lifecycle states for flow definition versions. An unknown id or a wrong state is a closed refusal (404/409
+with a fixed ``reason``)."""
 
 from __future__ import annotations
 
@@ -63,11 +52,7 @@ _MESSAGE_BY_REASON: dict[str, str] = {
 
 
 class FlowVersionStateError(ValueError):
-    """A closed refusal for a flow version operation.
-
-    Subclasses ``ValueError`` so runtime callers that already treat runner refusals as
-    ``ValueError`` keep working; HTTP routes map it with :meth:`to_http`.
-    """
+    # A ``ValueError`` because runtime callers already treat runner refusals as one.
 
     def __init__(self, reason: str) -> None:
         super().__init__(_MESSAGE_BY_REASON[reason])
@@ -92,19 +77,6 @@ async def load_version_flow(db: AsyncSession, version: FlowDefinitionVersion) ->
     return flow
 
 
-def ensure_runnable(version: FlowDefinitionVersion) -> None:
-    if version.status == "archived":
-        raise FlowVersionStateError(FLOW_VERSION_ARCHIVED)
-    if not (dict(version.definition_json or {}).get("nodes") or []):
-        raise FlowVersionStateError(FLOW_VERSION_EMPTY)
-    if dict(version.definition_json or {}).get("execution_kind") == "phased":
-        raise FlowVersionStateError(FLOW_VERSION_PHASED)
-    if dict(version.definition_json or {}).get("execution_kind") == FRAGMENT_EXECUTION_KIND:
-        raise FlowVersionStateError(FLOW_VERSION_FRAGMENT)
-    if str(dict(version.definition_json or {}).get("schema_version") or "").strip() != RUNNABLE_FLOW_SCHEMA_VERSION:
-        raise FlowVersionStateError(FLOW_VERSION_UNSUPPORTED_SCHEMA)
-
-
 def ensure_publishable(version: FlowDefinitionVersion, flow: FlowDefinition) -> None:
     if flow.status == "archived" or not flow.is_active:
         raise FlowVersionStateError(FLOW_ARCHIVED)
@@ -112,6 +84,3 @@ def ensure_publishable(version: FlowDefinitionVersion, flow: FlowDefinition) -> 
         raise FlowVersionStateError(FLOW_VERSION_ALREADY_PUBLISHED)
 
 
-def ensure_unpublishable(version: FlowDefinitionVersion) -> None:
-    if version.status != "published":
-        raise FlowVersionStateError(FLOW_VERSION_NOT_PUBLISHED)

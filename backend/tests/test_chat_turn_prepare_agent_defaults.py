@@ -10,6 +10,9 @@ from app.models import AgentDefinition, ControlPlaneRuntimeTarget, Project, User
 from app.services.workspace_composition import seed_workspace_bundle_foundation
 from tests.turn_preparation_support import prepare_chat_turn
 
+# A gateway model answers only in a Workspace with a data class.
+CLASSIFIED = {"data_policy": {"classification": "internal"}}
+
 
 @pytest.mark.asyncio
 async def test_prepare_chat_turn_applies_only_the_workspace_default_agent_to_a_document_turn(db):
@@ -47,7 +50,7 @@ async def test_prepare_chat_turn_applies_only_the_workspace_default_agent_to_a_d
     await db.commit()
 
     await seed_workspace_bundle_foundation(db, workspace_id=project.id)
-    project.config = {}
+    project.config = dict(CLASSIFIED)
     db.add(project)
     await db.commit()
 
@@ -126,7 +129,8 @@ async def test_prepare_chat_turn_explicit_agent_type_skips_the_workspace_default
 async def test_prepare_chat_turn_preserves_explicit_start_contract_over_agent_defaults(db):
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
     legacy_project = Project(id=str(uuid.uuid4()), name="legacy-agent-project", config={}, is_active=True)
-    explicit_project = Project(id=str(uuid.uuid4()), name="explicit-start-project", config={}, is_active=True)
+    explicit_project = Project(id=str(uuid.uuid4()), name="explicit-start-project", config=dict(CLASSIFIED),
+                               is_active=True)
     db.add_all([legacy_project, explicit_project])
     await db.flush()
 

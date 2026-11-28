@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { loadCaseRuns, loadTasks } from "./mobileApi";
 import { type MobileError } from "./mobileSession";
 import { nextOffset, readCases, readTaskCounts, stateLabel, type Case, type TaskCounts } from "./mobileTasksModel";
+import { EpicCards } from "./EpicCards";
 import { Icon } from "./icons";
 import { TabHeader } from "./PageHeader";
 import { useRefreshEvent } from "./pullToRefresh";
@@ -154,6 +155,7 @@ export function TasksPage({
             {mine && !state && !search && <LinkHint />}
           </p>
         )}
+        <EpicCards items={items} onOpen={onOpen} />
         <ul className="m-rows m-group">
           {items.map((item) => (
             <TaskRow key={item.id} item={item} workspace={workspaces[item.projectId] ?? ""} onOpen={onOpen} />

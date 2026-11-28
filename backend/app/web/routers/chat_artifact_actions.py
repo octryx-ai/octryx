@@ -34,7 +34,6 @@ async def chat_artifact_actions_api(
 
 
 async def _resolve_requested_office_action(db: AsyncSession, user, payload: dict) -> dict:
-    """The Office action a request names (``path``, ``action_id``, ``mode``) resolved for the user's artifact."""
     from ...services.office.documents import (
         is_office_document,
         resolve_office_action,

@@ -1,10 +1,4 @@
-"""Native charts: one chart spec for PowerPoint, Word and the Excel chart builder.
-
-A spec comes either structured (``chart_type``, ``categories``, ``series: [{name, values}]``) or as the flat
-properties the tools always accepted (``chartType``, ``categories="Q1,Q2"``, ``series1="Revenue:12,16"``,
-``data="Revenue:12,16;Cost:8,9"``). PowerPoint charts are python-pptx charts; Word charts are the same chart
-XML (python-pptx's writer) stored as a Word chart part with its embedded workbook, so Word can edit the data.
-"""
+"""Native charts: one chart spec for PowerPoint, Word and the Excel chart builder."""
 
 from __future__ import annotations
 
@@ -159,7 +153,6 @@ def pptx_chart_data(spec: ChartSpec) -> Any:
 
 
 def format_chart(chart: Any, spec: ChartSpec) -> None:
-    """Title, legend, series colours and axis titles on a python-pptx chart object."""
     from pptx.dml.color import RGBColor
     from pptx.enum.chart import XL_LEGEND_POSITION
 
@@ -221,7 +214,6 @@ def _next_docpr_id(document: Any) -> int:
 
 
 def add_docx_chart(document: Any, spec: ChartSpec, *, paragraph: Any, cx: int, cy: int) -> None:
-    """Append a native chart to ``paragraph`` (a python-docx paragraph)."""
     from docx.opc.packuri import PackURI
     from docx.opc.part import Part
     from docx.oxml import parse_xml as parse_docx_xml

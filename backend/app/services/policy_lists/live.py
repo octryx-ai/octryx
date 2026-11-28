@@ -1,13 +1,4 @@
-"""The live values of the governed policy lists, as the synchronous runtime reads them (W22b).
-
-The runtime consumers are synchronous (tool surface, runtime requirement, compaction tier), so
-the live values are one immutable process snapshot. It is refreshed from
-the database at every turn-preparation boundary (``prepare_turn_in_session`` and
-``prepare_agent_run``) and right after an admin write, so every process picks up an edit before
-its next turn. Before the first refresh the snapshot is the seed, which is exactly what an
-untouched database holds. A turn records what it used (``tool_surface_set`` names the set
-key and version), so the decision stays explainable.
-"""
+"""The live values of the governed policy lists, as the synchronous runtime reads them (W22b)."""
 
 from __future__ import annotations
 
@@ -60,7 +51,6 @@ _live: LivePolicyLists | None = None
 
 
 def live_policy_lists() -> LivePolicyLists:
-    """The current snapshot (the seed until the first refresh)."""
     global _live
     if _live is None:
         _live = seed_policy_lists()
@@ -68,14 +58,12 @@ def live_policy_lists() -> LivePolicyLists:
 
 
 async def refresh_live_policy_lists(db: AsyncSession) -> LivePolicyLists:
-    """Re-read every list from the database and publish the new snapshot."""
     global _live
     _live = _build(await read_policy_list_states(db, ALL_POLICY_LIST_SPECS))
     return _live
 
 
 def reset_live_policy_lists() -> None:
-    """Drop the snapshot so the next read is the seed (test isolation)."""
     global _live
     _live = None
 

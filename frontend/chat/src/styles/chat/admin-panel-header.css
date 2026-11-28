@@ -27,14 +27,14 @@
 .admin-panel__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
 .admin-panel__title {
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.015em;
   color: var(--text);
 }

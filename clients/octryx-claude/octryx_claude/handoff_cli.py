@@ -1,12 +1,5 @@
-"""``octryx-claude handoff`` and ``octryx-claude resume`` (root freeze 3c).
-
-Both run in a plain terminal with the user's Octryx login: no running session, no model and no seat
-allowance. Inside a session (the hooks) the session's own key and work item are used; outside, a fresh key
-identifies only this call.
-
-    octryx-claude handoff [KEY] [--to USER] [--note TEXT] [--all] [--workspace ID]
-    octryx-claude resume KEY [--workspace ID] [--no-start]
-"""
+"""``octryx-claude handoff`` and ``octryx-claude resume`` in a plain terminal with the user's Octryx login.
+No running session, model or seat allowance is needed."""
 
 from __future__ import annotations
 
@@ -42,7 +35,6 @@ def add_parsers(sub: argparse._SubParsersAction) -> None:
 
 
 def cli_context(state: LocalState, workspace: str, environ: dict[str, str] | None = None) -> SessionContext | str:
-    """The control-plane context, or a refusal message."""
     source = os.environ if environ is None else environ
     config = state.config()
     base_url = str(config.get("base_url") or "").rstrip("/")

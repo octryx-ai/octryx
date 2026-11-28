@@ -1,19 +1,4 @@
-"""What the platform's tool-result check says about a finished tool, as PostToolUse output.
-
-``POST /sessions/tool-executed`` answers with ``content`` when a content policy acts on the tool's output:
-what was found (detector × count, never the data), whether it is masked or kept out of the model, the policy and
-the decision. The launcher shows the user a one-line notice (``systemMessage``) and tells the model that the
-values are masked placeholders (``additionalContext``). For an MCP tool the platform returns the masked output,
-which replaces the original (``updatedMCPToolOutput``). Parts the platform could not finish checking (``kind:
-withhold``) are withheld: an MCP tool gets the withheld output, and the model is told why (``additionalContext``).
-A built-in tool's output stays as Claude Code has it (``kept_by_client``): the notice says what was found and that
-the gateway checks a request carrying it (it refuses one a Workspace policy denies) — nothing is called masked,
-withheld or kept out.
-
-When the gateway routes a conversation to a governed model because of a content policy, the PostToolUse and Stop
-answers carry ``content_route`` (categories, detector counts, policy, decision, target; never the data).
-``route_notice_once`` turns it into a one-time ``systemMessage`` per conversation (``/clear`` starts a new one).
-"""
+"""The platform's tool-result check for a finished tool, as PostToolUse output."""
 
 from __future__ import annotations
 
@@ -38,7 +23,6 @@ def _found(content: dict[str, Any]) -> str:
 
 
 def content_output(result: Any, tool_name: str) -> dict[str, Any] | None:
-    """The PostToolUse output for the platform's answer, or ``None`` when no policy acted on the output."""
     content = result.get("content") if isinstance(result, dict) else None
     if not isinstance(content, dict) or not content:
         return None
@@ -65,8 +49,6 @@ def content_output(result: Any, tool_name: str) -> dict[str, Any] | None:
 
 
 def _withheld_output(content: dict[str, Any], tool_name: str) -> dict[str, Any]:
-    """The platform withheld parts it could not finish checking: an MCP tool gets the withheld output; a built-in
-    tool's output stays with Claude Code, and the gateway withholds or refuses it before any model reads it."""
     withheld = content.get("withheld") if type(content.get("withheld")) is int else 0
     specific: dict[str, Any] = {"hookEventName": "PostToolUse", "additionalContext": WITHHELD_NOTE}
     if tool_name.startswith("mcp__") and "updated_output" in content:
@@ -86,7 +68,6 @@ def _name(value: object) -> str:
 
 
 def route_message(route: dict[str, Any], *, seat: bool) -> str:
-    """The terminal notice for a routed conversation (names and counts only)."""
     alias = _name(route.get("route_to")) or "the approved model"
     categories = [_name(item) for item in route.get("categories") or [] if _name(item)]
     words = " and ".join(dict.fromkeys(CATEGORY_WORDS.get(item, f"{item} data") for item in categories))
@@ -103,7 +84,6 @@ def route_message(route: dict[str, Any], *, seat: bool) -> str:
 
 
 def route_notice_once(state: LocalState, session_key: str, body: Any, *, seat: bool) -> str:
-    """The notice the first time a conversation is reported as routed; ``""`` afterwards and otherwise."""
     route = body.get("content_route") if isinstance(body, dict) else None
     conversation = _name(route.get("conversation")) if isinstance(route, dict) else ""
     if not conversation:

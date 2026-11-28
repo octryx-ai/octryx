@@ -1,18 +1,4 @@
-"""One run per device folder (``folder_busy``).
-
-Without it, several runs could be started on the same device folder. Their device
-turns ran in one working tree at the same time: each switched the branch under the others, each WIP push took the
-others' files, and one run paused ``workspace_dirty`` on another run's uncommitted spec. A device folder is one
-working tree, so it belongs to one active run: a start or ``change_runtime`` onto a folder another active run of
-another run family holds is refused with ``folder_busy`` naming that run. A run's own family (its parent chain:
-epic → story → sub-workflow) shares the folder by design, its steps hand the tree on.
-
-A run that only watches its delivered pull request (``watching``: merge, CI) holds no folder (a team member
-who handed in a PR is free for the next task, and a finished run must not block the next one in
-its folder). When such a run needs the tree again (CI red → fix), its next device turn takes the
-folder back (:func:`folder_holder` in ``octryx.continuation``); while another run holds it, it waits
-``folder_busy`` and the device's channel resumes it once the folder is free.
-"""
+"""One run per device folder (``folder_busy``)."""
 
 from __future__ import annotations
 
@@ -31,7 +17,6 @@ MAX_DEPTH = 20
 
 
 def folder_key(target: dict[str, Any] | None) -> tuple[str, str] | None:
-    """``(device id, folder)`` of a device target, else ``None``."""
     if not isinstance(target, dict) or target.get("kind") != KIND_DEVICE:
         return None
     device, folder = str(target.get("device_id") or ""), str(target.get("folder") or "").strip()
@@ -49,13 +34,11 @@ async def _root(db: AsyncSession, run_id: str | None) -> str | None:
 
 
 def holds_folder(run: WorkflowRun) -> bool:
-    """An active run holds its folder, except while it only watches its delivered pull request."""
     return run.status in ACTIVE_STATUSES and not (run.status == STATUS_WAITING and run.waiting_kind == WAITING_WATCH)
 
 
 async def folder_holder(db: AsyncSession, target: dict[str, Any] | None, *, run_id: str | None = None,
                         parent_run_id: str | None = None) -> WorkflowRun | None:
-    """The run of another run family that holds the target's device folder, else ``None``."""
     key = folder_key(target)
     if key is None:
         return None
@@ -72,7 +55,6 @@ async def folder_holder(db: AsyncSession, target: dict[str, Any] | None, *, run_
 
 async def refuse_busy_folder(db: AsyncSession, target: dict[str, Any] | None, *, run_id: str | None = None,
                              parent_run_id: str | None = None) -> None:
-    """Raise ``folder_busy`` when another run family's active run holds the target's device folder."""
     other = await folder_holder(db, target, run_id=run_id, parent_run_id=parent_run_id)
     if other is not None:
         key = folder_key(target)

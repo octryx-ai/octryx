@@ -1,22 +1,4 @@
-"""The Git credential a server working copy's ``origin`` is fetched with.
-
-The server prepare (``server_prepare.py``) fetches the run's branch and its work in progress from ``origin``. Without
-a credential a private Bitbucket Data Center repository refuses both fetches and every server-side run would stop
-there. So the fetches get exactly the environment the Bitbucket tools clone and push with
-(``tools/bitbucket_impl._bitbucket_git_auth_env_async``): the repository's own Git token when the Workspace set one
-(``knowledge/sources/repository_git_token.py``), else the connection's sign-in — a Bearer token as
-``http.<origin>/.extraHeader`` through ``GIT_CONFIG_*`` (``services/git_http_auth.bearer_header_env``), a Basic
-sign-in through the askpass environment. Never in argv, the remote URL or a file.
-
-The connection is the one the Bitbucket tools would use for the run's repository: the same route plan over the
-Workspace's configuration (``named_connections/tool_routing.routed_execute``) with the run's requester as the tool
-context (``platform/dispatch.tool_context``). The credential goes only to that connection's host
-(``_require_connection_host``): a working copy whose ``origin`` points elsewhere gets nothing.
-
-``None`` — fetch without a credential — for another provider (GitHub, GitLab), a working copy without an
-``origin`` over HTTP(S), or a connection that cannot give one (refused route, incomplete sign-in). The reason is
-logged as a fixed sentence; no URL, token or Git output is.
-"""
+"""The Git credential a server working copy's ``origin`` is fetched with."""
 
 from __future__ import annotations
 
@@ -33,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 async def origin_git_env(db: AsyncSession, run: WorkflowRun, root: Path | str) -> dict[str, str] | None:
-    """The environment of a Git command against ``root``'s ``origin`` with the run's Bitbucket credential."""
     from ....tools.bitbucket_impl._bitbucket_internal_core import _bitbucket_git_auth_env_async
     from ...named_connections.tool_routing import routed_execute
     from ..platform.dispatch import tool_context

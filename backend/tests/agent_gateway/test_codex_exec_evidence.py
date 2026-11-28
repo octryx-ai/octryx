@@ -1,10 +1,4 @@
-"""Codex code mode: inner calls of one ``exec`` count as gateway evidence.
-
-A hook-reported inner call (``exec-<uuid>``) counts when the same tool with the same literal arguments appears in an
-``exec`` input the gateway recorded for the same session, after the model asked for that exec, each occurrence once.
-Dynamic arguments never count; the Stop answer then tells the model to use a literal command string. A Claude Code
-session is never touched.
-"""
+"""Codex code mode: inner calls of one ``exec`` count as gateway evidence."""
 
 from __future__ import annotations
 
@@ -33,7 +27,6 @@ SESSION = "codex-session"
 
 
 def _previous_write(at: datetime, session_id: str = SESSION) -> ToolCall:
-    """The gateway write that ended the response emitting the next exec."""
     return ToolCall(session_id=session_id, tool_name="exec", request_id=f"call_{uuid.uuid4().hex}",
                     parameters={"source": "model_gateway", "block_index": 0, "input": {"input": "text(1)"}},
                     result={"is_error": False, "excerpt": "Script completed"}, status="success", created_at=at)
@@ -64,9 +57,6 @@ def _readme_read(at: datetime, **kwargs) -> ToolCall:
         "tool": "Bash", "read_tool": "read_workspace_file", "in_root": True, "path": "README.md"}, **kwargs)
 
 
-# --- parsing --------------------------------------------------------------------------------------------------------
-
-
 def test_only_literal_calls_are_recognised():
     found = exec_occurrences(
         'text(await tools.exec_command({cmd:"cat README.md"})); '
@@ -83,9 +73,6 @@ def test_only_literal_calls_are_recognised():
     ]
 
 
-# --- positive ---------------------------------------------------------------------------------------------------------
-
-
 def test_cat_readme_inside_exec_is_read_evidence():
     rows = [_previous_write(T0), _readme_read(T0 + timedelta(seconds=2)),
             _exec('text(await tools.exec_command({cmd:"cat README.md"}))', T0 + timedelta(seconds=6))]
@@ -93,7 +80,7 @@ def test_cat_readme_inside_exec_is_read_evidence():
     assert len(matched.matched) == 1 and not matched.unmatched
     use = native_read_use(_counted(matched.rows)[0])
     assert use.name == "read_workspace_file" and use.succeeded is True
-    assert native_read_use(rows[1]).succeeded is False  # the stored row itself is unchanged
+    assert native_read_use(rows[1]).succeeded is False
 
 
 def test_promise_all_settled_with_three_literal_calls_matches_each_once():
@@ -136,9 +123,6 @@ def test_a_test_whose_exec_reports_a_non_zero_exit_is_not_green():
                       '"output":"..."', '"output":"1 failed, 2 passed in 0.1s"'))]
     evidence = phase_evidence(match_exec_calls(rows).rows, since=None, test_prefixes=(("pytest",),))
     assert evidence.tools[-1].name == "run_test_suite" and evidence.tools[-1].result["all_green"] is False
-
-
-# --- negative ---------------------------------------------------------------------------------------------------------
 
 
 def test_interpolation_is_no_evidence_and_earns_the_hint():
@@ -200,8 +184,6 @@ def test_a_claude_code_session_is_not_touched():
 
 
 def test_a_const_bound_to_a_literal_counts_as_a_literal_argument():
-    """Codex can build its patch as ``const patch = "*** Begin Patch…"`` and call ``tools.apply_patch(patch)``;
-    the spec draft must still count as written, or the phase stalls."""
     from app.services.agent_gateway.codex_exec_parser import exec_occurrences
 
     script = ('const patch = "*** Begin Patch\\n*** Add File: SPEC.md\\n+# Spec\\n*** End Patch";\n'
@@ -219,8 +201,6 @@ def test_a_const_bound_to_a_literal_counts_as_a_literal_argument():
 
 
 def test_a_secret_looking_argument_masked_by_the_recorder_keeps_the_call_literal():
-    """Codex passes ``max_output_tokens:20000``; the recorder masks it as ``max_output_tokens:[redacted]``, and
-    every exec_command must keep its evidence, or the read check fails."""
     rows = [_previous_write(T0), _readme_read(T0 + timedelta(seconds=2)),
             _exec('text(await tools.exec_command({cmd:"cat README.md",max_output_tokens:[redacted]}))',
                   T0 + timedelta(seconds=6))]

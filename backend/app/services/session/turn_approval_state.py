@@ -1,17 +1,4 @@
-"""One owner for a chat turn paused at an approval.
-
-Both session entry paths (``/api/v1/sessions/{id}/messages`` and ``/chat/api/send``)
-mark the turn in flight with :func:`begin_chat_turn`. When a tool in that turn asks
-for an approval, ``ensure_approval_request`` binds the new approval to the turn with
-:func:`hold_turn_for_approval`. The binding lives under its own metadata key, so it
-survives the end of the turn on either path, and the approval decision can resume
-exactly the turn that asked for it with :func:`take_paused_turn`.
-
-A binding is keyed by approval id inside the session's own metadata and is consumed
-once. Grants stay one-shot and bound to ``(session, tool, request fingerprint)`` in
-``services/tool_approval_gate.py``; this module only remembers *which turn* to resume
-and *as whom*.
-"""
+"""The chat turn an approval paused, so its decision resumes exactly that turn."""
 
 from __future__ import annotations
 
@@ -37,8 +24,6 @@ NOT_RESUMABLE_USER_MESSAGE_MISSING = "user_message_missing"
 
 @dataclass(frozen=True, slots=True)
 class PausedTurn:
-    """A turn bound to an approval, ready to resume as its owner."""
-
     approval_id: str
     user_message_id: str
     owner_user_id: str
@@ -47,30 +32,22 @@ class PausedTurn:
 
 @dataclass(frozen=True, slots=True)
 class TurnNotResumable:
-    """Explicit reason why an approval decision has no turn to resume."""
-
     approval_id: str
     reason: str
 
 
 def begin_chat_turn(metadata: dict[str, Any], *, user_message_id: str, started_at: datetime) -> None:
-    """Mark ``user_message_id`` as the turn in flight (both entry paths and resume)."""
     metadata[CURRENT_TURN_USER_MESSAGE_KEY] = user_message_id
     metadata[CURRENT_TURN_STARTED_AT_KEY] = started_at.isoformat()
 
 
 def end_chat_turn(metadata: dict[str, Any]) -> None:
-    """Clear the turn-in-flight marker; paused-turn bindings are kept."""
     metadata.pop(CURRENT_TURN_USER_MESSAGE_KEY, None)
     metadata.pop(CURRENT_TURN_STARTED_AT_KEY, None)
 
 
 def hold_turn_for_approval(session: AgentSession, *, approval_id: str, requested_by: str) -> bool:
-    """Bind ``approval_id`` to the turn in flight; ``False`` when no turn is in flight.
-
-    Approvals raised outside a chat turn (task runs, tools called without a turn
-    marker) have nothing to resume, so nothing is held for them.
-    """
+    # Approvals raised outside a chat turn have nothing to resume, so nothing is held for them.
     metadata = dict(session.metadata_ or {})
     user_message_id = str(metadata.get(CURRENT_TURN_USER_MESSAGE_KEY) or "").strip()
     if not approval_id or not user_message_id:
@@ -92,7 +69,6 @@ async def take_paused_turn(
     *,
     approval_id: str,
 ) -> PausedTurn | TurnNotResumable:
-    """Consume the turn bound to ``approval_id`` (one-shot)."""
     metadata = dict(session.metadata_ or {})
     paused = dict(metadata.get(PAUSED_TURNS_METADATA_KEY) or {})
     entry = paused.pop(approval_id, None)
@@ -123,7 +99,6 @@ async def take_paused_turn(
 
 
 async def require_approval_decision_access(db: AsyncSession, *, approval: Approval, user_id: str) -> None:
-    """Only a user with write access to the approval's session may decide it (404/403)."""
     await require_session_access(db, session_id=str(approval.session_id or ""), user_id=user_id, require_write=True)
 
 

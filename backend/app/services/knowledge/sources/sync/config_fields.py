@@ -34,8 +34,6 @@ _CONNECTION_ID = re.compile(r"^[A-Za-z0-9_-]{1,36}$")
 
 @dataclass(frozen=True, slots=True)
 class BuiltInFields:
-    """The fields of the built-in kinds as given, unvalidated."""
-
     spaces: object = None
     page_trees: object = None
     project_keys: object = None
@@ -77,7 +75,6 @@ class BuiltInFields:
 
 
 def check_field_kinds(kind: object, fields: BuiltInFields) -> None:
-    """A field of another kind is refused before any scope is validated."""
     if fields.releases is not None and kind != CONNECTOR_KIND_JIRA:
         raise InvalidEvidenceRequestError()
     if fields.page_trees is not None and kind != CONNECTOR_KIND_CONFLUENCE:
@@ -91,7 +88,6 @@ def check_field_kinds(kind: object, fields: BuiltInFields) -> None:
 
 
 def built_in_scope(kind: object, f: BuiltInFields) -> tuple[dict[str, object], dict[str, object] | None]:
-    """The validated scope of a built-in kind, and a ``git_repository``'s raw git fields."""
     others = (f.spaces, f.project_keys, f.jql)
     if kind == CONNECTOR_KIND_KUBERNETES:
         if any(value is not None for value in others) or f.servicenow_set():
@@ -180,7 +176,6 @@ def _jql(raw: object) -> str | None:
 
 
 def git_connection(raw: object) -> str | None:
-    """The connection a ``git_repository`` source is linked to (its id), or ``None``."""
     if raw is None or raw == "":
         return None
     if type(raw) is not str or not _CONNECTION_ID.fullmatch(raw) or raw == "default":
@@ -189,7 +184,6 @@ def git_connection(raw: object) -> str | None:
 
 
 def validate_kubernetes_scope(*, cluster: object, namespaces: object) -> dict[str, object]:
-    """One cluster (a named connection's binding, or the default entry's) and optionally some namespaces."""
     if type(cluster) is not str or not KUBERNETES_CLUSTER.fullmatch(cluster.strip()):
         raise InvalidEvidenceRequestError()
     names: tuple[str, ...] = ()
@@ -203,7 +197,6 @@ def validate_kubernetes_scope(*, cluster: object, namespaces: object) -> dict[st
 
 
 def connection_pin(kind: str, raw: object) -> str | None:
-    """The named connection (by id, or ``default``) a connector is pinned to; ``None``: by binding."""
     if raw is None or raw == "":
         return None
     if kind not in pinnable_kinds() or type(raw) is not str or not _CONNECTION_ID.fullmatch(raw):

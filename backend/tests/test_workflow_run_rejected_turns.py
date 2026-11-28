@@ -1,14 +1,4 @@
-"""A run's device turn the launcher refused never leaves the run ``running`` with nothing driving it.
-
-The launcher's workspace-preparation report can move the run into ``implement`` but answer after the launcher's
-timeout; the launcher then refuses the turn (``workspace_preparation_platform_unreachable``), and without handling the
-run stays ``running`` at ``implement`` with no turn, no pause and nothing visible.
-
-- a refusal for an unreachable platform is offered once more by itself after a short wait; a second one pauses;
-- any other refusal pauses at once, with the same pause shape as a failed device turn;
-- the refusal is judged against the run as it is once claimed (not as it was read before a concurrent change);
-- "Continue in a new chat" offers the pass's turn again in a fresh session.
-"""
+"""A run's device turn the launcher refused never leaves the run ``running`` with nothing driving it."""
 
 from __future__ import annotations
 
@@ -27,7 +17,10 @@ from app.services.workflow_runs.octryx.turn_failures import is_transient_rejecti
 from app.services.workflow_runs.runtime_target.device_wait import REASON_PLATFORM_RETRY, resume_for_device
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _confirm, _device_run, _hub, _jobs  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 UNREACHABLE = "workspace_preparation_platform_unreachable"
 
@@ -94,14 +87,13 @@ async def test_a_turn_refused_for_an_unreachable_platform_is_offered_once_more_t
     assert run.context[CONTEXT_KEY]["state"] == "pending"
     [retry] = await _events(db, run, "device_turn_retry")
     assert retry.detail["failure"] == UNREACHABLE and retry.detail["rejected"] is True
-    assert await resume_for_device(db, device.id) == []  # the short wait first
+    assert await resume_for_device(db, device.id) == []
 
     assert await _after_backoff(db, run, device) == [run.id]
     jobs = await _jobs(db, thread)
-    [again] = [item for item in jobs if item.id != job.id]  # the refused job ended: a new job carries the turn
+    [again] = [item for item in jobs if item.id != job.id]
     assert (run.status, again.status, again.folder) == ("running", "offered", job.folder)
     assert run.context[CONTEXT_KEY]["job_id"] == again.id
-    # The same turn as first offered: the agent never started, so no "temporary error" prompt.
     assert "phase 'Work'" in again.turn_prompt and "temporary error" not in again.turn_prompt
 
     await _reject(db, again, UNREACHABLE)
@@ -124,8 +116,6 @@ async def test_a_turn_refused_for_a_lasting_reason_pauses_the_run_at_once(db):
 
 
 def _ended_unfinished_once(run) -> None:
-    """The pass already ended unfinished once: the second time (stall_after, default 2) pauses (the
-    first time it goes on by itself, tests/test_platform_evidence.py)."""
     from app.services.workflow_runs.octryx.same_pass import UNFINISHED_KEY
 
     run.context = {**dict(run.context or {}), UNFINISHED_KEY: {
@@ -138,7 +128,6 @@ async def test_a_normal_turn_is_not_retried_and_ends_as_before(db):
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
     _ended_unfinished_once(run)
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
-    # The phase's checks never passed, a second time: the run pauses with the agent's words.
     assert (run.status, run.pause_reason, run.node_state["pause"]["code"]) == (
         "paused", "phase_not_finished", "phase_not_finished")
     assert job.status == "idle" and len(await _jobs(db, thread)) == 1
@@ -147,8 +136,6 @@ async def test_a_normal_turn_is_not_retried_and_ends_as_before(db):
 
 @pytest.mark.asyncio
 async def test_a_refusal_judges_the_run_as_it_is_once_claimed_not_as_it_was_read(db):
-    """The race: the turn is offered at ``prepare``; the launcher's report moves the run to ``work`` in another
-    transaction, which still holds the run when the refusal arrives. The refusal read the run at ``prepare``."""
     from app.services.workflow_runs.engine import restart_at
     from app.services.workflow_runs.records import _CLAIMS
     from app.services.workflow_runs.workspace.preparation import record_report
@@ -163,7 +150,7 @@ async def test_a_refusal_judges_the_run_as_it_is_once_claimed_not_as_it_was_read
     await record_report(db, run, {"node_id": "prepare", "entry": run.node_state["entry"], "runtime": "device",
                                   "branch": {"state": "already"}, "environment": {"state": "not_declared"}},
                         session_id="launcher-session")
-    assert run.current_node_id == "work" and run.context[CONTEXT_KEY]["node_id"] == "work"  # carried into work
+    assert run.current_node_id == "work" and run.context[CONTEXT_KEY]["node_id"] == "work"
     await db.flush()
     await db.execute(update(WorkflowRun).where(WorkflowRun.id == run.id).values(
         state_version=WorkflowRun.state_version + 1))
@@ -187,11 +174,10 @@ async def test_continue_in_a_new_chat_offers_a_refused_turn_again_in_a_fresh_ses
 
     admin, device, thread, run, job = await _at_work(db)
     await apply_event(db, job, "job_rejected", {"turn_id": job.turn_id, "reason": UNREACHABLE}, limits={})
-    run.status, run.waiting_kind = "running", None  # as live: running at the phase, the refused turn ended
+    run.status, run.waiting_kind = "running", None
     run.node_state = {key: value for key, value in run.node_state.items() if key != "waiting"}
     run.context = {**run.context, CONTEXT_KEY: {"node_id": "work", "entry": run.node_state["entry"],
                                                 "state": "started", "job_id": job.id, "phase": True}}
-    # An earlier pass of the phase left a session the continuation would otherwise resume.
     run.context = {**run.context, "device_phase_sessions": {"work": {
         "node_id": "work", "claude_session_id": "claude-earlier", "device_id": device.id, "folder": job.folder,
         "profile": job.profile}}}
@@ -201,7 +187,7 @@ async def test_continue_in_a_new_chat_offers_a_refused_turn_again_in_a_fresh_ses
     assert (await db.get(Session, fresh.id)).metadata_["execution_target"]["device_id"] == device.id
     [offered] = await _jobs(db, fresh)
     assert (offered.status, offered.folder, run.status) == ("offered", job.folder, "running")
-    assert offer_body(offered, limits={})["resume_session_id"] is None  # a fresh session
+    assert offer_body(offered, limits={})["resume_session_id"] is None
     assert run.context[CONTEXT_KEY]["job_id"] == offered.id and "phase 'Work'" in offered.turn_prompt
 
 
@@ -225,21 +211,18 @@ async def test_continue_in_a_new_chat_leaves_a_running_turn_and_a_paused_run_alo
     admin, _device, thread, run, job = await _at_work(db)
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
     fresh = await continue_in_new_thread(db, run, admin)
-    assert await _jobs(db, fresh) == [] and job.status == "running"  # the old thread's turn still works
+    assert await _jobs(db, fresh) == [] and job.status == "running"
 
     admin, _device, thread, run, job = await _at_work(db)
     await _reject(db, job, "profile_unavailable_on_device")
     assert run.status == "paused"
     fresh = await continue_in_new_thread(db, run, admin)
-    assert await _jobs(db, fresh) == [] and run.status == "paused"  # Continue decides
+    assert await _jobs(db, fresh) == [] and run.status == "paused"
     assert (await db.execute(select(DeviceJob).where(DeviceJob.session_id == fresh.id))).first() is None
 
 
 @pytest.mark.asyncio
 async def test_a_turn_refused_by_a_full_device_waits_and_is_offered_again_until_the_limit(db, monkeypatch):
-    """ondemand-1 attempt 4: 17 parallel runs on one device; a phase turn the device refused with
-    ``device_busy`` paused the run for a person. It waits and runs when the device is free; only past the limit
-    (``devices/busy_wait.json``) does it pause, saying the device was saturated."""
     from app.services.devices import busy_wait
 
     _admin, device, thread, run, job = await _at_work(db)
@@ -247,14 +230,14 @@ async def test_a_turn_refused_by_a_full_device_waits_and_is_offered_again_until_
     waiting = run.node_state["waiting"]
     assert (run.status, waiting["reason"]) == ("waiting", "device_busy") and run.pause_reason is None
     assert run.context[CONTEXT_KEY]["state"] == "pending"
-    assert await resume_for_device(db, device.id) == []  # offered again only after the retry interval
+    assert await resume_for_device(db, device.id) == []
 
-    assert await _after_backoff(db, run, device) == [run.id]  # the device has a free slot again
+    assert await _after_backoff(db, run, device) == [run.id]
     [again] = [item for item in await _jobs(db, thread) if item.id != job.id]
     assert (run.status, again.status) == ("running", "offered")
-    assert "temporary error" not in again.turn_prompt  # the agent never started: the same turn as first offered
+    assert "temporary error" not in again.turn_prompt
 
-    await _reject(db, again, "device_busy")  # full again: it keeps waiting, it does not use up a retry
+    await _reject(db, again, "device_busy")
     assert (run.status, run.node_state["waiting"]["reason"]) == ("waiting", "device_busy")
 
     monkeypatch.setattr(busy_wait, "MAX_WAIT_SECONDS", 0.0)

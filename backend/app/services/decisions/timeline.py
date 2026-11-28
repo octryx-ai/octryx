@@ -1,14 +1,4 @@
-"""Observability → Decisions: the timeline of every non-allow outcome of every gate (O2).
-
-Reads ``policy_decision_log`` (bounded window, server paging, filters by outcome, gate, Workspace, policy, run,
-approval) and ``policy_decision_counters`` (allows, counted per hour). A record of an older revision without a
-``gate`` is attributed by its point (content → content routing, device dispatch → device job, else Cedar).
-
-``what`` and ``rule`` are served in words by the approval formatter (``approval/presentation``), with the stored
-codes next to them as ``what_code``/``rule_code``: raw codes such as "Approve tool execution for run_cli_command"
-and "execution_gate: needs_configuration" would disagree with an approval card that says "Run a command on the
-Octryx server". An approval's records take the approval card's own title and subtitle, so both pages say the same.
-"""
+"""Observability → Decisions: the timeline of every non-allow outcome of every gate (O2)."""
 
 from __future__ import annotations
 
@@ -115,7 +105,6 @@ async def list_decisions(
 
 
 async def _labels(db: AsyncSession, rows: list[Any]) -> dict[str, str]:
-    """Usernames for principals/actors that are user ids, and Workspace names."""
     user_ids = {value for row in rows for value in (row[0].principal, row[0].actor_id) if value}
     workspace_ids = {value for row in rows for value in (row[0].workspace_id, row.session_project_id) if value}
     labels: dict[str, str] = {}
@@ -129,7 +118,6 @@ async def _labels(db: AsyncSession, rows: list[Any]) -> dict[str, str]:
 
 
 async def _approval_previews(db: AsyncSession, rows: list[Any]) -> dict[str, dict[str, Any]]:
-    """The newest stored change preview of each approval the rows belong to (one query for the page)."""
     from ..change_preview.service import serialize_change_preview
 
     approval_ids = {row[0].approval_id for row in rows if row[0].approval_id}
@@ -145,8 +133,6 @@ async def _approval_previews(db: AsyncSession, rows: list[Any]) -> dict[str, dic
 
 
 def _texts(record: PolicyDecisionLog, previews: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    """``what``/``subtitle``/``rule`` in words and the stored codes. An approval's records read like its card; the
-    request record (no rule of its own) names the approval's reason, a decision keeps its approval rule."""
     stored_rule = record.rule or (", ".join(record.determining or []) or None)
     preview = previews.get(record.approval_id) if record.approval_id else None
     if record.approval_id and record.action == "approval":
@@ -220,7 +206,6 @@ async def get_decision(db: AsyncSession, decision_id: str) -> dict[str, Any] | N
 
 
 async def decisions_today(db: AsyncSession) -> dict[str, Any]:
-    """Today's (UTC) decisions by outcome and the allows counted today."""
     start = utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
     by_outcome = {
         outcome: int(count)
@@ -236,7 +221,6 @@ async def decisions_today(db: AsyncSession) -> dict[str, Any]:
 
 
 async def policy_denial_counts(db: AsyncSession, *, days: int = 7) -> dict[str, int]:
-    """Denied (or would-deny) decisions per determining policy in the last ``days`` (Settings → Policies)."""
     since = utc_now() - timedelta(days=days)
     counts: dict[str, int] = {}
     for (determining,) in (await db.execute(

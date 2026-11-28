@@ -1,10 +1,4 @@
-"""The closed table of node-id-valued config keys: what the compiler renames when it namespaces a fragment.
-
-A key whose value names another node of the same graph must be renamed with the node it names, otherwise a
-namespaced fragment would point at a node that no longer exists (or, worse, at a composite node of the same id).
-``tests/test_s4_node_ref_keys.py`` guards the table: a new ``config.get(...)`` read in the workflow runtime is either
-listed here or declared as not naming a node.
-"""
+"""The closed table of node-id-valued config keys: what the compiler renames when it namespaces a fragment."""
 
 from __future__ import annotations
 
@@ -13,12 +7,12 @@ from collections.abc import Callable
 from typing import Any
 
 NODE_REF_KEYS: frozenset[tuple[str, str]] = frozenset({
-    ("gate", "phase"),                      # graph._validate_node, engine._gate_evidence, test_runs
-    ("decision", "source"),                 # conditions (validation, decision_route)
-    ("review", "producer"),                 # review.artefact_contract / artefact_evidence (artefact mode)
-    ("review", "phase"),                    # review.screens.reviewed_phase, runner (the phase the review checks)
-    ("review", "screens_node"),             # review.screens / runner (whose screenshots the review shows)
-    ("user_confirmation", "payload_from"),  # data_flow, confirmation_payloads
+    ("gate", "phase"),
+    ("decision", "source"),
+    ("review", "producer"),
+    ("review", "phase"),
+    ("review", "screens_node"),
+    ("user_confirmation", "payload_from"),
 })
 DEFINITION_NODE_REF_KEYS = frozenset({"plan_node"})
 
@@ -31,7 +25,6 @@ def _refs(node: dict[str, Any]) -> list[tuple[str, str]]:
 
 
 def rewrite_node_refs(node: dict[str, Any], rename: Callable[[str], str]) -> dict[str, Any]:
-    """A deep copy of ``node`` whose node-id-valued config values are renamed (its own id is left to the caller)."""
     copied = copy.deepcopy(node)
     for key, value in _refs(node):
         copied["config"][key] = rename(value)
@@ -39,7 +32,6 @@ def rewrite_node_refs(node: dict[str, Any], rename: Callable[[str], str]) -> dic
 
 
 def external_refs(node: dict[str, Any], local_ids: set[str]) -> list[str]:
-    """The node ids ``node`` names that are not in ``local_ids`` (a fragment may only name its own nodes)."""
     return [value for _key, value in _refs(node) if value not in local_ids]
 
 

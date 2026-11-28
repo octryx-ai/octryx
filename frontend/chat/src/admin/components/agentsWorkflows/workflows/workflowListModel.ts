@@ -1,29 +1,18 @@
-// One Workflows list with both execution kinds: workflows that run in phases and workflows that run as a flow
-// (flow graphs). Pure: the list rows, the kind filter and the page's address (the list, or one open workflow on the
-// canvas).
+// The Workflows list, pure: the rows, the filters and the page's address (the list or one open workflow).
 import { formatExactTime, formatRelative, timeOf } from "../../../utils/dateTime";
-import { FLOW_ID_PARAM, NEW_FLOW_PARAM } from "../../../editorLinks";
+import { PHASED_PARAM } from "../../../editorLinks";
 import { statusLabel, type FlowWorkflowRow, type ScopeFilter, type WorkflowsOverview } from "./workflowsModel";
 
-export type WorkflowKind = "flow" | "phased";
-export type KindFilter = "all" | WorkflowKind;
-
-export const KIND_LABELS: Record<WorkflowKind, string> = {
-  flow: "Runs as a flow",
-  phased: "Runs in phases",
-};
-
-export type ListedWorkflow = { kind: WorkflowKind; id: string; key: string; title: string; row: FlowWorkflowRow };
+export type ListedWorkflow = { id: string; key: string; title: string; row: FlowWorkflowRow };
 
 export function listedWorkflows(overview: WorkflowsOverview): ListedWorkflow[] {
-  return overview.flows.map((row): ListedWorkflow => ({ kind: row.executionKind, id: row.flowId, key: row.key, title: row.title, row }));
+  return overview.flows.map((row): ListedWorkflow => ({ id: row.flowId, key: row.key, title: row.title, row }));
 }
 
 export type ListFilter = {
   query: string;
   capability: string;
   scope: ScopeFilter;
-  kind: KindFilter;
   // Smoke / test / validation flows stay hidden unless asked for.
   showTestFlows?: boolean;
 };
@@ -31,7 +20,6 @@ export type ListFilter = {
 export function filterListed(items: ListedWorkflow[], filter: ListFilter): ListedWorkflow[] {
   const needle = filter.query.trim().toLowerCase();
   return items.filter((item) => {
-    if (filter.kind !== "all" && item.kind !== filter.kind) return false;
     const row = item.row;
     if (row.testFlow && !filter.showTestFlows) return false;
     if (filter.capability && row.capabilityClass !== filter.capability) return false;
@@ -61,37 +49,25 @@ export function lastChangedLabel(item: ListedWorkflow, now: number = Date.now())
   return { text: ageLabel(item.row.updatedAt, now), title: formatExactTime(item.row.updatedAt) };
 }
 
-// --- The page address: the list (`view=table`, the entry) or one open workflow on the canvas (`view=canvas` and
-// its id). A flow uses `flow_id`, a workflow that runs in phases uses `phased`. ---
-
 export const VIEW_PARAM = "view";
-export const PHASED_PARAM = "phased";
 export type WorkflowsListView = "table" | "canvas";
-export type OpenWorkflow = { kind: WorkflowKind; id: string } | null;
+export type OpenWorkflow = string | null;
 
-// The list is the entry; the canvas only for an address that opens a workflow or creates one (`view=canvas` alone
-// lands on the list).
+// `view=canvas` alone lands on the list: only an address that names a workflow opens the canvas.
 export function readListView(search: string): WorkflowsListView {
-  const creating = new URLSearchParams(search).get(NEW_FLOW_PARAM) === "1";
-  return readOpenWorkflow(search) || creating ? "canvas" : "table";
+  return readOpenWorkflow(search) ? "canvas" : "table";
 }
 
 export function readOpenWorkflow(search: string): OpenWorkflow {
-  const params = new URLSearchParams(search);
-  const flowId = (params.get(FLOW_ID_PARAM) ?? "").trim();
-  if (flowId) return { kind: "flow", id: flowId };
-  const phasedId = (params.get(PHASED_PARAM) ?? "").trim();
-  return phasedId ? { kind: "phased", id: phasedId } : null;
+  return (new URLSearchParams(search).get(PHASED_PARAM) ?? "").trim() || null;
 }
 
 // The address for a view and open workflow; other parameters (area, tab, workspace) stay.
 export function listUrl(href: string, view: WorkflowsListView, open: OpenWorkflow): string {
   const url = new URL(href);
   url.searchParams.set(VIEW_PARAM, view);
-  url.searchParams.delete(FLOW_ID_PARAM);
-  url.searchParams.delete(PHASED_PARAM);
-  const param = { flow: FLOW_ID_PARAM, phased: PHASED_PARAM } as const;
-  if (open) url.searchParams.set(param[open.kind], open.id);
+  if (open) url.searchParams.set(PHASED_PARAM, open);
+  else url.searchParams.delete(PHASED_PARAM);
   return `${url.pathname}${url.search}${url.hash}`;
 }
 

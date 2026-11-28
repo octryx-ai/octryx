@@ -1,20 +1,4 @@
-"""Presence of governed coding-client sessions: registration, liveness, allowance, listing.
-
-- :func:`register_session`: the launcher registers every session at launch, for both profiles, before
-  Claude Code starts. ``seat`` is refused here unless the Workspace allows it (``seat_policy``); a
-  refusal means the session never starts. The profile is recorded once, so a request can never claim
-  ``seat`` on its own. A ``seat`` registration returns the session-bound credential once.
-- :func:`touch_presence`: every gateway and hook call moves ``last_seen_at`` (throttled) and renews the
-  leases of the session's work-item claims.
-- :func:`record_allowance`: a seat call's upstream rate-limit headers update the allowance;
-  ``rejected`` or a percentage at 100 or more is ``limit_reached``. At or near the limit with live claims, the
-  board gets automatic handoff requests (``agent_board.automation``).
-- :func:`stop_presence`: finalize ends the presence and revokes the seat credential.
-- :func:`list_presence`: one entry per person and device (``presence_devices``), within the seven-day
-  retention. ``allowance`` is filled only for Workspace admins/owners and platform admins; everyone
-  else gets ``null``. The session key is never shown, only a stable hash. A session without a call for
-  :data:`IDLE_AFTER` reads ``idle``.
-"""
+"""Presence of governed coding-client sessions: registration, liveness, allowance, listing."""
 
 from __future__ import annotations
 
@@ -64,7 +48,6 @@ def session_key_hash(session_key: str) -> str:
 
 
 def _optional_field(body: Mapping[str, Any], name: str) -> str | None | bool:
-    """The bounded narrow value, ``None`` when absent, ``False`` when present but invalid."""
     value = body.get(name)
     if value is None or value == "":
         return None
@@ -81,7 +64,6 @@ async def _find(db: AsyncSession, session_key: str) -> AgentPresence | None:
 async def register_session(
     db: AsyncSession, *, identity: GatewayIdentity, session: Session, body: Mapping[str, Any]
 ) -> dict[str, Any] | str:
-    """The registration answer, or a fixed refusal reason. The seat policy is checked by the caller."""
     profile = body.get("profile")
     if profile not in PROFILES:
         return REASON_PROFILE_INVALID
@@ -128,6 +110,7 @@ async def register_session(
             action=REGISTER_AUDIT_ACTION,
             resource_type="agent_presence",
             resource_id=row.id,
+            project_id=row.project_id,
             details={"profile": profile, "client": row.client, "client_version": row.client_version,
                      "workspace_id": identity.workspace_id},
         )
@@ -137,7 +120,6 @@ async def register_session(
 
 
 async def touch_presence(db: AsyncSession, session_key: str, *, model: str | None = None) -> None:
-    """Move ``last_seen_at`` (at most every :data:`TOUCH_EVERY`), renew claims, remember the model. Flushes."""
     row = await _find(db, session_key)
     if row is None or row.stopped_at is not None:
         return
@@ -153,8 +135,6 @@ async def touch_presence(db: AsyncSession, session_key: str, *, model: str | Non
 
 async def record_allowance(db: AsyncSession, session_key: str, allowance: Allowance,
                            engine: str = "claude_code") -> None:
-    """Store an observed allowance and derive ``limit_reached``; missing values keep the stored ones. The stored
-    values are also the seat's Prometheus gauges of ``engine`` (in memory, ``seat_allowance_metrics``)."""
     if not allowance.observed:
         return
     row = await _find(db, session_key)
@@ -184,7 +164,6 @@ async def record_allowance(db: AsyncSession, session_key: str, allowance: Allowa
 
 
 async def stop_presence(db: AsyncSession, session_key: str) -> None:
-    """Finalize: the session is ``stopped`` and its seat credential no longer exists. Flushes."""
     row = await _find(db, session_key)
     if row is None:
         return
@@ -226,7 +205,6 @@ async def _work_items(db: AsyncSession, project_id: str, keys: set[str]) -> dict
 
 
 async def list_presence(db: AsyncSession, *, project_id: str, include_allowance: bool) -> dict[str, Any]:
-    """One entry per person and device, newest first. The caller authorizes (membership; admin for allowance)."""
     now = utc_now()
     entries = collapse_entries(
         (

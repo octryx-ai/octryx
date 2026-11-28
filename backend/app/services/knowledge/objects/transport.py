@@ -1,20 +1,5 @@
-"""The S3 transport boundary: one client builder and one failure mapping.
-
-Extracted so the immutable ingestion store (``store.py``) and the operator-owned
-maintenance capability (``maintenance.py``) cannot drift apart on either of the two
-things that decide how this boundary behaves on the wire and how it fails:
-
-- the client is always path-style, SigV4, and bounded by explicit connect/read timeouts,
-  so a bucket name can never influence which host is contacted and no call can hang;
-- a transport or S3 failure is reduced to a *fixed* error state and nothing from the
-  original exception is retained — no endpoint, key, credential, signed request or server
-  error body — so a mapped error is safe to raise, log and render.
-
-Credentials are never passed in: boto3 resolves them from its default chain, so the
-process that runs a client decides which identity it holds. That is what lets the API
-process keep a ``PutObject``/``GetObject`` identity while an operator process runs the
-inventory/delete identity.
-"""
+"""The S3 transport boundary: one client builder and one failure mapping. Nothing from an original exception is
+retained."""
 
 from __future__ import annotations
 
@@ -39,7 +24,6 @@ _ABSENT_BUCKET_CODES = frozenset({"NoSuchBucket"})
 
 
 def build_s3_client(config: KnowledgeObjectStoreConfig) -> Any:
-    """Build the synchronous S3 client both capabilities of this package use."""
     import boto3
     from botocore.config import Config
 
@@ -63,7 +47,6 @@ def build_s3_client(config: KnowledgeObjectStoreConfig) -> Any:
 
 
 def error_code(error: BaseException) -> str:
-    """The S3 error code as a bare token, used only to pick a fixed state."""
     response = getattr(error, "response", None)
     if not isinstance(response, dict):
         return ""
@@ -77,12 +60,7 @@ def error_code(error: BaseException) -> str:
 
 
 def failure_cause(error: BaseException) -> str:
-    """A fixed token naming what failed: the S3 error code, else the client exception class.
-
-    Both are identifiers chosen by code (``InternalError``, ``503``, ``ReadTimeoutError``,
-    ``ConnectionClosedError``), never a message, endpoint, key or body, so the token is safe to
-    log. It tells a timeout from a server refusal, which the mapped state does not.
-    """
+    # Code-chosen identifiers only, never a message, endpoint, key or body, so the token is safe to log.
     code = error_code(error)
     if code:
         return code
@@ -91,7 +69,6 @@ def failure_cause(error: BaseException) -> str:
 
 
 def mapped_error(error: BaseException, operation: KnowledgeObjectOperation) -> KnowledgeObjectError:
-    """Map a transport or S3 failure onto a fixed error, retaining nothing from it."""
     code = error_code(error)
     if code in _NOT_FOUND_CODES:
         return KnowledgeObjectNotFoundError(operation)

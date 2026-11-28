@@ -1,39 +1,4 @@
-"""Server-owned Workspace admission for every provider-dispatch boundary.
-
-The main chat turn has a verified :class:`ProjectModelAdmission`. Without this
-module every other dispatch owner receives the deny-everything singleton the
-provider client-kwargs builder attaches, so it can only fail — usually swallowed
-into a generic error. This module is the one door those owners go through.
-
-What makes the admission trustworthy:
-
-- **Policy comes from the row, never from the caller.** The resolver loads
-  ``projects.config`` itself and reads only ``model_policy`` (the key registered
-  to this owner in ``services/admin/project/admin_project_config_service.py``).
-  No caller may pass a policy mapping, an allowed-alias list or a project config
-  dict, so a request body or a model argument cannot widen admission.
-- **The named project must exist and be active.** A caller supplies an *anchor*
-  (a session's, work item's or config row's project id); the resolver verifies it
-  against the row and denies otherwise. Where the anchor is user-supplied the
-  owner also passes its authorized scope so the resolver can refuse a project the
-  actor may not act for.
-- **A multi-project scope is admitted by intersection.** Some owners legitimately
-  span a Workspace plus its federated candidates. An alias is admitted only when
-  *every* project in the scope admits it; the carried admission is the anchor
-  project's real DB-derived admission, which by construction allows that alias.
-  An empty scope is ``needs_configuration`` — it can never be an implicit allow.
-- **Denials are values, not exceptions.** Every owner in the inventory already
-  wrapped its dispatch in a broad ``except Exception``, so a typed exception would
-  be swallowed exactly like today's generic failure. The boundary answers a
-  :class:`DispatchAdmission` the caller has to branch on;
-  :class:`DispatchAdmissionDeniedError` exists only for the owners whose contract is
-  to raise, and carries the same bounded payload.
-- **Non-gateway chains are untouched.** With no gateway runtime in the list the
-  resolver returns the list unchanged and reads nothing from the database.
-
-Registered owners live in :mod:`.dispatch_owners`; an unregistered owner key
-cannot obtain an admission.
-"""
+"""Server-owned Workspace admission for every provider-dispatch owner (registered in dispatch_owners)."""
 
 from __future__ import annotations
 
@@ -85,8 +50,6 @@ _REASON_STATES = {
 
 
 def _normalized_scope(project_ids: Any) -> tuple[str, ...]:
-    """Deduplicated project ids in caller order; the first one is the anchor."""
-
     if project_ids is None:
         return ()
     if isinstance(project_ids, str):
@@ -105,8 +68,6 @@ def _normalized_scope(project_ids: Any) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceAdmission:
-    """One owner's resolved Workspace scope and its alias decision function."""
-
     state: str
     owner: str
     reason: str = ""
@@ -122,16 +83,10 @@ class WorkspaceAdmission:
     def anchor(self) -> ProjectModelAdmission | None:
         return self.scope[0] if self.scope else None
 
+    # Alias grants intersect across the whole scope; the strictest classification of the scope (missing, unknown or more
+    # sensitive) must reach the driver's gate, never hidden by a less sensitive anchor.
     @property
     def driver_admission(self) -> ProjectModelAdmission | None:
-        """Anchor admission carrying the strictest classification in the scope.
-
-        Alias grants are intersected across the complete Workspace scope. Data
-        policy must be at least as strict: one missing, unknown, or more-sensitive
-        classification must survive into the driver's authoritative pre-dispatch
-        gate instead of being hidden by a less-sensitive anchor Workspace.
-        """
-
         anchor = self.anchor
         if anchor is None:
             return None
@@ -146,8 +101,6 @@ class WorkspaceAdmission:
         return replace(anchor, data_classification=effective)
 
     def decide(self, alias: str | None) -> ModelAliasAccessDecision:
-        """Admit an alias only when every project in the scope admits it."""
-
         normalized_alias = str(alias or "").strip()
         if not self.allowed:
             return ModelAliasAccessDecision(normalized_alias, False, self.reason)
@@ -158,8 +111,6 @@ class WorkspaceAdmission:
         return ModelAliasAccessDecision(normalized_alias, True, "")
 
     def evidence(self, *, alias: str = "", denial_reason: str = "") -> dict[str, Any]:
-        """Bounded, allowlist-closed evidence about the *source* of a decision."""
-
         anchor = self.anchor
         return build_denial_evidence(
             gateway_state=GATEWAY_STATE_ALIAS_DENIED,
@@ -173,8 +124,6 @@ class WorkspaceAdmission:
 
 @dataclass(frozen=True, slots=True)
 class DispatchAdmission:
-    """The admission outcome for one owner's runtime list."""
-
     state: str
     owner: str
     runtimes: tuple[dict[str, Any], ...] = ()
@@ -189,33 +138,22 @@ class DispatchAdmission:
     def needs_configuration(self) -> bool:
         return self.state == DISPATCH_STATE_NEEDS_CONFIGURATION
 
+    # An owner that exhausts such a chain reports the refusal too, so the last provider failure does not stand for the
+    # whole outcome.
     @property
     def partially_refused(self) -> bool:
-        """Some gateway target was refused although the chain stayed dispatchable.
-
-        The owner that exhausts such a chain must report the refusal too, instead
-        of letting the last provider failure stand for the whole outcome.
-        """
-
         return self.allowed and bool(self.reason)
 
     def dispatchable_runtimes(self) -> tuple[dict[str, Any], ...]:
-        """Runtimes no policy owner refused, in the caller's priority order."""
-
         return tuple(runtime for runtime in self.runtimes if not runtime.get(ADMISSION_DENIAL_KEY))
 
     def first_dispatchable_runtime(self) -> dict[str, Any] | None:
         dispatchable = self.dispatchable_runtimes()
         return dispatchable[0] if dispatchable else None
 
+    # Nothing derived from a response body, a transport string, a configuration value or a secret: a reason constant and
+    # allowlist-closed evidence.
     def to_result(self) -> dict[str, Any]:
-        """The bounded, observable state an owner surfaces instead of swallowing.
-
-        Nothing here is derived from a response body, a transport string, a
-        configuration value or a secret: the reason is one of this module's
-        constants and the evidence went through the gateway evidence allowlist.
-        """
-
         result: dict[str, Any] = {"status": self.state, "dispatch_owner": self.owner}
         if self.reason:
             result["admission_reason"] = self.reason
@@ -226,14 +164,9 @@ class DispatchAdmission:
         return result
 
 
+# str(exc) is the fixed ALIAS_DENIED_MESSAGE, so nothing interpolated leaks through a traceback or a persisted runtime
+# attempt.
 class DispatchAdmissionDeniedError(RuntimeError):
-    """Typed denial for the owners whose contract is to raise.
-
-    ``str(exc)`` is the fixed ``ALIAS_DENIED_MESSAGE`` constant, so nothing
-    interpolated can leak through a traceback or a persisted runtime attempt; the
-    state, reason and bounded evidence travel on the attached admission.
-    """
-
     def __init__(self, admission: DispatchAdmission):
         super().__init__(ALIAS_DENIED_MESSAGE)
         self.admission = admission
@@ -250,6 +183,8 @@ class DispatchAdmissionDeniedError(RuntimeError):
         return self.admission.to_result()
 
 
+# Owners whose anchor comes from a user request pass authorized_project_ids; a project outside it is refused before any
+# row is trusted.
 async def resolve_workspace_admission(
     db: AsyncSession,
     *,
@@ -257,12 +192,6 @@ async def resolve_workspace_admission(
     owner: str,
     authorized_project_ids: Iterable[str] | None = None,
 ) -> WorkspaceAdmission:
-    """Resolve one owner's Workspace scope from the project rows themselves.
-
-    ``authorized_project_ids`` is passed by owners whose anchor comes from a user
-    request; a project outside it is refused before any row is trusted.
-    """
-
     registered = dispatch_owner(owner)
     if registered.mode != DISPATCH_MODE_ADMITTED:
         raise ValueError(
@@ -319,8 +248,6 @@ async def resolve_workspace_admission(
 
 
 def _denial_annotation(workspace: WorkspaceAdmission, decision: ModelAliasAccessDecision) -> dict[str, Any]:
-    """The existing ``admission_denial`` contract, so the engine needs no change."""
-
     anchor = workspace.anchor
     return build_alias_denial_annotation(
         decision=decision,
@@ -330,6 +257,8 @@ def _denial_annotation(workspace: WorkspaceAdmission, decision: ModelAliasAccess
     )
 
 
+# Gateway targets are annotated, never dropped: a refusal stays visible in the runtime attempts and one refused target
+# cannot fail a chain that still has admitted ones.
 async def admit_runtimes_for_dispatch(
     db: AsyncSession,
     runtimes: Sequence[Mapping[str, Any]] | None,
@@ -338,15 +267,6 @@ async def admit_runtimes_for_dispatch(
     owner: str,
     authorized_project_ids: Iterable[str] | None = None,
 ) -> DispatchAdmission:
-    """Admit or annotate one owner's runtime list before any client is built.
-
-    Gateway targets are annotated rather than dropped, so a refusal stays visible
-    in the turn's runtime attempts and a policy gap on one target cannot hard-fail
-    a chain that still has admitted targets. Non-gateway targets pass through
-    untouched, and a list without any gateway target reads nothing from the
-    database.
-    """
-
     registered = dispatch_owner(owner)
     normalized = [dict(runtime) for runtime in (runtimes or []) if isinstance(runtime, Mapping)]
     if not any(runtime_uses_gateway_driver(runtime) for runtime in normalized):
@@ -403,6 +323,8 @@ async def admit_runtimes_for_dispatch(
     )
 
 
+# The boundary's model key is removed again unless the caller had one, so a splat into get_provider passes exactly the
+# caller's kwargs and non-gateway drivers stay unchanged.
 async def admit_client_kwargs_for_dispatch(
     db: AsyncSession,
     client_kwargs: Mapping[str, Any] | None,
@@ -412,16 +334,6 @@ async def admit_client_kwargs_for_dispatch(
     owner: str,
     authorized_project_ids: Iterable[str] | None = None,
 ) -> DispatchAdmission:
-    """``admit_runtimes_for_dispatch`` for an owner that holds one client kwargs
-    mapping plus a model rather than a resolved runtime chain.
-
-    The alias is needed to decide, not to construct, so the returned runtime is
-    the caller's own mapping: the boundary's ``model`` key is removed again unless
-    the caller already had one. An owner that splats the result into
-    ``get_provider`` therefore passes exactly the kwargs it passed before this
-    boundary existed, which is what keeps every non-gateway driver unchanged.
-    """
-
     caller_kwargs = dict(client_kwargs or {})
     admission = await admit_runtimes_for_dispatch(
         db,

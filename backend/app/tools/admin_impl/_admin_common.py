@@ -8,7 +8,6 @@ from app.tools.context import ToolContext
 
 
 def _require_admin(context: ToolContext) -> str | None:
-    """Return error string if user is not admin, else None."""
     if "admin" not in (context.roles or []):
         return "Access denied: admin role required."
     return None

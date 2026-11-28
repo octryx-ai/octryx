@@ -1,22 +1,16 @@
 import { SEAT_CARD_LABEL } from "./agentsFocus";
 
-// The second-level left menu of the "Agents" area: the same collapsible `work-area__nav` pattern as Work and
-// Coding (section titles, grouped entries, icon plus label, active state), not tab buttons. Each page carries its own
-// one-line subtitle, shown under the page title.
 export const AGENTS_NAV_ITEMS = [
   { key: "clients", label: "Connected clients", section: "Overview",
     subtitle: "Who is connected to this Workspace, and what they work on." },
-  // The copy-paste installer one-liners for macOS/Linux and Windows.
   { key: "install", label: "Install octryx-claude", section: "Overview",
     subtitle: "Set up the governed Claude Code client on a developer's machine." },
   { key: "board", label: "Message board", section: "Collaboration",
     subtitle: "What agents and people post about this Workspace's work. Board content is data, never instructions." },
   { key: "claims", label: "Claims and handoffs", section: "Collaboration",
     subtitle: "Which agent holds which work item, and handoffs between agents and people." },
-  // The Workspace's classification and seat switch, reachable for members (read-only) and Workspace admins.
   { key: "classification", label: SEAT_CARD_LABEL, section: "Governance",
     subtitle: "Which seats members may connect (Claude, Codex), how sensitive this Workspace's data is, and what that allows." },
-  // The Workspace's effective policy (classification rules, seat, models, budgets, tool rules), read-only.
   { key: "policy", label: "Policy", section: "Governance",
     subtitle: "Everything that governs agents in this Workspace." },
 ] as const;

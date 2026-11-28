@@ -17,7 +17,7 @@ MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
 class CorpIdentityUploadTooLargeError(ValueError):
-    """Raised when an uploaded corporate identity file exceeds the allowed size."""
+    pass
 
 
 async def _read_stream_bounded(

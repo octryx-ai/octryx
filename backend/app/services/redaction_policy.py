@@ -83,8 +83,7 @@ _PRIVATE_KEY_BLOCK_RE = re.compile(
 
 
 def _known_token_patterns() -> list[re.Pattern[str]]:
-    """Known secret forms redacted wherever they appear: ``backend/scripts/secret_patterns.py``, the one list the
-    transcript rules and the launcher use too."""
+    # The one list the transcript rules and the launcher use too (``backend/scripts/secret_patterns.py``).
     import importlib.util
     from pathlib import Path
 
@@ -108,13 +107,12 @@ def is_sensitive_key(key: str) -> bool:
 
 
 def setting_key_words(key: str) -> list[str]:
-    """The lower-case words of a setting name: ``KeystorePass`` -> ``keystore``, ``pass``."""
     split = _KEY_WORD_BOUNDARY.sub("_", str(key or ""))
     return [word.lower() for word in _KEY_WORD_SPLIT.split(split) if word]
 
 
 def is_secret_setting_key(key: str) -> bool:
-    """Whether a configuration setting named ``key`` holds a secret (by name only)."""
+    # By name only.
     words = setting_key_words(key)
     if not words:
         return False
@@ -130,8 +128,6 @@ def has_embedded_credentials(value: Any) -> bool:
 
 
 def redact_embedded_credentials(value: Any) -> tuple[str, int]:
-    """``value`` with ``user:password@`` / ``user/password@`` / an http(s) ``token@`` replaced, keeping scheme and
-    host."""
     text, url_hits = _CREDENTIAL_URL_RE.subn(lambda match: f"{match.group(1)}{REDACTED_SECRET}@", str(value or ""))
     text, user_hits = _CREDENTIAL_HTTP_USER_RE.subn(lambda match: f"{match.group(1)}{REDACTED_SECRET}@", text)
     text, jdbc_hits = _CREDENTIAL_JDBC_SLASH_RE.subn(lambda match: f"{match.group(1)}{REDACTED_SECRET}@", text)
@@ -139,7 +135,6 @@ def redact_embedded_credentials(value: Any) -> tuple[str, int]:
 
 
 def is_secret_setting(key: str, value: Any) -> bool:
-    """Whether a configuration setting must never keep its value: secret by name or by value."""
     return is_secret_setting_key(key) or looks_like_secret_value(value)
 
 
@@ -226,11 +221,6 @@ def redaction_matrix() -> dict[str, dict[str, str]]:
             "owner": "backend/app/services/provider",
             "entry_point": "redact_provider_public_metadata",
             "rule": "redact nested provider credential metadata before admin exposure",
-        },
-        "traces": {
-            "owner": "backend/app/services/trace_events.py",
-            "entry_point": "redact_trace_payload",
-            "rule": "redact trace payloads before persistence or API serialization",
         },
         "tool_results": {
             "owner": "backend/app/tools/results.py",

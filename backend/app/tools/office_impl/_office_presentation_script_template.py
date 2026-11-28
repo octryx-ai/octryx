@@ -216,7 +216,6 @@ def render_presentation_script_template(
     text_ops_body: str,
     visual_ops_body: str,
 ) -> str:
-    """The generated script text, assembled from its blocks in script order."""
     return (
         _presentation_script_header(
             import_root=import_root,

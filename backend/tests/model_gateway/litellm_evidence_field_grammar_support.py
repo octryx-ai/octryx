@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-# The exact values the review reproduced as refused. Each one is a legitimate
-# identifier of the target environment and each one carries ``sk-`` as a
-# substring.
+# Legitimate identifiers of the target environment that each carry ``sk-`` as a substring.
 TARGET_ALIAS = "task-router"
 
 
@@ -25,8 +23,7 @@ TARGET_IDENTIFIERS = (
 )
 
 
-# Hostile values, one per class the generic scan exists for. Each is applied to
-# every grammar-governed field.
+# Hostile values, one per class the generic scan exists for, applied to every grammar-governed field.
 REAL_KEY = ("sk-li" + "ve-4eC39HqLyjWDarjtT1zdp7dc")
 
 

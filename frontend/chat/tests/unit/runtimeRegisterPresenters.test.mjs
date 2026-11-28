@@ -5,35 +5,9 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { providerAuthLabel } from "../../src/admin/components/providerTab/providerAuthLabel.ts";
 import { executionModeSummary } from "../../src/admin/components/runtimeTab/executionModeSummary.ts";
-import {
-  REDUCTION_MEANING,
-  filterCompressionLogs,
-  filterCompressors,
-} from "../../src/admin/components/runtimeTab/compressionModel.ts";
 import { researchProfileSummary } from "../../src/admin/components/researchPolicies/researchProfileSummary.ts";
 import { mcpCatalogRequirements } from "../../src/admin/components/mcpCatalogSummary.ts";
-
-describe("provider credential label (48)", () => {
-  test("Bedrock without static keys uses AWS IAM, never 'No key'", () => {
-    assert.equal(providerAuthLabel({ driver: "bedrock_api", has_api_key: false }), "AWS IAM / profile");
-    assert.equal(
-      providerAuthLabel({ driver: "bedrock_api", auth_mode: "aws_credentials", aws_static_credentials_configured: true }),
-      "AWS access keys configured",
-    );
-    assert.equal(
-      providerAuthLabel({ driver: "bedrock_api", auth_mode: "aws_credentials", aws_static_credentials_configured: false }),
-      "AWS access keys missing",
-    );
-  });
-
-  test("other providers keep the key state", () => {
-    assert.equal(providerAuthLabel({ driver: "openrouter_api", has_api_key: false }), "No key");
-    assert.equal(providerAuthLabel({ driver: "openrouter_api", has_api_key: true }), "Key configured");
-    assert.equal(providerAuthLabel({ runtime_kind: "local", endpoint_url: "http://ollama:11434" }), "local runtime");
-  });
-});
 
 describe("effective execution mode (49c)", () => {
   test("host, docker with and without host fallback", () => {
@@ -55,27 +29,6 @@ describe("effective execution mode (49c)", () => {
       execution_runtime_sandbox_mode: "hard",
     });
     assert.match(hard.detail, /fails instead of running on the host/);
-  });
-});
-
-describe("compression filter (49h)", () => {
-  const items = [
-    { id: "1", tool_name: "get_jira_ticket", strategy: "jira_extract_fields", is_active: true },
-    { id: "2", tool_name: "loki_query", strategy: "loki_tail_errors", is_active: false },
-  ];
-
-  test("search matches tool, profile key or label; status uses the draft", () => {
-    assert.deepEqual(filterCompressors(items, {}, "jira", "all").map((i) => i.id), ["1"]);
-    assert.deepEqual(filterCompressors(items, {}, "tail errors", "all").map((i) => i.id), ["2"]);
-    assert.deepEqual(filterCompressors(items, {}, "", "off").map((i) => i.id), ["2"]);
-    const drafts = { loki_query: { strategy: "loki_tail_errors", config: {}, is_active: true } };
-    assert.deepEqual(filterCompressors(items, drafts, "", "on").map((i) => i.id), ["1", "2"]);
-  });
-
-  test("the log follows the same search and 0 % is explained", () => {
-    const logs = [{ id: "a", tool_name: "loki_query", strategy: "loki_tail_errors" }];
-    assert.equal(filterCompressionLogs(logs, "jira").length, 0);
-    assert.match(REDUCTION_MEANING, /0 % means nothing was removed/);
   });
 });
 

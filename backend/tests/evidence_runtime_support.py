@@ -1,7 +1,5 @@
-"""The ``evidence`` scenario on the harness parity turn: its script is set per test in ``_SCENARIO_OVERRIDES``.
-
-``_evidence_scenario`` is autouse: a test module that imports it by name gets it for every test.
-"""
+"""The ``evidence`` scenario on the harness parity turn.
+``_evidence_scenario`` is autouse for a module that imports it."""
 
 from __future__ import annotations
 

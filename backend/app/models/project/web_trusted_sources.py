@@ -1,15 +1,4 @@
-"""The trusted-source registry of the governed web search (search control plane).
-
-One row is one source pattern (a host, optionally with a path prefix, such as ``docs.spring.io`` or
-``github.com/spring-projects/spring-boot/wiki``) in one scope: the whole platform, or one
-Workspace. Its state decides what research and search may use:
-
-- ``trusted``: research searches and follows links there, and its documents may be ingested;
-- ``proposed``: an agent found it (a verified entry point) and asks an admin to decide;
-- ``blocked``: never searched, never fetched, dropped from every search result.
-
-``scope_key`` is ``platform`` or the Workspace id, so one unique index covers both scopes.
-"""
+"""The trusted-source registry of the governed web search."""
 
 from __future__ import annotations
 
@@ -18,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 SCOPE_PLATFORM = "platform"
@@ -35,7 +25,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class WebTrustedSource(Base):
+class WebTrustedSource(WorkspaceBound, Base):
     __tablename__ = "web_trusted_sources"
     __table_args__ = (
         UniqueConstraint("scope_key", "pattern", name="uq_web_trusted_sources_scope_pattern"),

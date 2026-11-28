@@ -1,14 +1,5 @@
-"""Stop the running turn of a session: one cancel path for every entry path.
-
-The turn's task is registered in ``turn_tasks.CHAT_RUN_TASKS`` whether it runs in the
-background (``/chat/api``, approval resume) or inside a ``/api/v1`` request
-(``turn_runner.run_request_turn``). Cancelling it lets the runner settle the turn
-(``turn_failure.settle_cancelled_turn``: "Generation stopped by user."); then the session
-is finalized as user-stopped (``stop.finalize_user_stopped_session``) and committed.
-Callers: ``/chat/api/sessions/{id}/stop``, ``/api/v1/sessions/{id}/stop`` and the
-coordinator ``stop`` control. A turn owned by another process is stopped through
-``remote_stop``.
-"""
+"""Stop the running turn of a session: one cancel path for every entry path. The task is in ``CHAT_RUN_TASKS`` whether
+it runs in the background or inside a request; cancelling lets the runner settle the turn."""
 
 from __future__ import annotations
 
@@ -28,7 +19,6 @@ CANCEL_WAIT_SECONDS = 2
 
 
 async def cancel_running_turn(session_id: str) -> bool:
-    """Cancel the session's registered turn task; ``True`` when one was running."""
     task = CHAT_RUN_TASKS.get(session_id)
     if task is None or task.done():
         return False
@@ -43,12 +33,13 @@ async def cancel_running_turn(session_id: str) -> bool:
 
 
 async def stop_session_turn(db: AsyncSession, session: AgentSession) -> None:
-    """Cancel the running turn and persist the user-stopped state of ``session``.
+    # A turn another live process runs is cancelled there: the stop records a request its ``RemoteTurnStopWatcher`` acts
+    # on within about a second.
+    from ..devices.agent_runtime import stop_session_jobs
 
-    A turn another live process runs (a sibling API process, the platform worker) is cancelled there:
-    the stop records a request its ``RemoteTurnStopWatcher`` acts on within about a second.
-    """
     cancelled_here = await cancel_running_turn(session.id)
+    # The thread's turn on a device or server runner stops too (the person's own jobs only).
+    await stop_session_jobs(db, session_id=session.id, actor_id=str(session.user_id or ""))
     await db.refresh(session)
     if not cancelled_here:
         record_remote_stop_request(db, session)

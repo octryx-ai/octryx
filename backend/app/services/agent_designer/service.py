@@ -1,14 +1,4 @@
-"""Load, save and publish an Agent Definition through the visual Agent Designer.
-
-The designer itself is a static artifact with no network access and no credential;
-the admin host page carries its document to and from these functions. Saving goes
-through the governed write boundary as one writer scope, so the definition
-and all of its steps become exactly one immutable revision and one audit row.
-Publication reuses ``publish_revision``, which re-validates the snapshot.
-
-Scope: the same as the admin panel agent builder — the definition's owner, reached
-only through an authenticated global-admin panel route.
-"""
+"""Load, save and publish an Agent Definition through the visual Agent Designer."""
 
 from __future__ import annotations
 
@@ -57,7 +47,6 @@ async def _latest_revision(db: AsyncSession, agent_id: str) -> dict[str, Any] | 
 
 
 async def load_designer_document(db: AsyncSession, *, user_id: str, agent_id: str) -> dict[str, Any]:
-    """Return the designer document for the live definition and its newest revision."""
     agent = await _owned_definition(db, user_id=user_id, agent_id=agent_id)
     document = document_from_definition(
         name=str(agent.name or ""),
@@ -106,11 +95,6 @@ async def _apply(agent: AgentDefinition, designed: DesignerDefinition, db: Async
 
 
 async def save_designer_document(db: AsyncSession, *, user_id: str, agent_id: str, document: Any) -> dict[str, Any]:
-    """Validate and store a designer document as one governed write; refuse with 422.
-
-    The result says whether the save created a revision (``changed``) or matched the
-    newest one exactly (the boundary then records ``unchanged`` and appends nothing).
-    """
     designed = definition_from_document(document)
     await _owned_definition(db, user_id=user_id, agent_id=agent_id)
     before = await _latest_revision(db, agent_id)
@@ -130,10 +114,6 @@ async def save_designer_document(db: AsyncSession, *, user_id: str, agent_id: st
 async def publish_displayed_revision(
     db: AsyncSession, *, user_id: str, agent_id: str, revision_id: str
 ) -> dict[str, Any]:
-    """Publish exactly the revision the person was shown, and only while it is still the newest.
-
-    A newer revision written meanwhile by any other writer is never published unseen: 409.
-    """
     await _owned_definition(db, user_id=user_id, agent_id=agent_id)
     revisions = await list_agent_definition_revisions(db, agent_id)
     if not revisions:

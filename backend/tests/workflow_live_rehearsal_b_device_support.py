@@ -27,14 +27,11 @@ from octryx_claude.state import LocalState  # noqa: E402
 
 
 def _clean_environment(working_copy: Path) -> dict[str, str]:
-    """The device's shell: the declared path first, nothing of the outer test session's pytest settings."""
     environment = {key: value for key, value in os.environ.items() if not key.startswith(("PYTEST", "PYTHONPATH"))}
     return {**environment, "PATH": f"{working_copy / '.tools'}{os.pathsep}{environment.get('PATH', '')}"}
 
 
 class Device:
-    """A device job session: the launcher's hooks against the real gateway endpoints, the shell in the job folder."""
-
     def __init__(self, client, db, headers: dict, root: Path, state_dir: Path, run_id: str) -> None:
         self.client, self.db, self.headers, self.root, self.run_id = client, db, headers, root, run_id
         self.key = headers["X-Octryx-Session"]
@@ -42,7 +39,6 @@ class Device:
         self.gateway = None
 
     async def contract(self) -> dict:
-        """The run contract the launcher remembers (the gateway answers it with every hook)."""
         run = await self.db.get(WorkflowRun, self.run_id)
         await self.db.refresh(run)
         contract = await run_contract(self.db, run)
@@ -62,7 +58,6 @@ class Device:
         return answer.json()
 
     async def _executed(self, hook: dict, output: str, *, failed: bool) -> None:
-        """PostToolUse through the gateway, and the tool call as the model gateway's transcript records it."""
         answer = await self.client.post(f"{GATEWAY}/tool-executed", headers=self.headers, json=hook)
         assert answer.status_code == 200, answer.text
         messages = [{"role": "user", "content": "go"},
@@ -89,7 +84,6 @@ class Device:
         return decided
 
     async def bash(self, command: str) -> subprocess.CompletedProcess:
-        """The declared command, verbatim: allowed, run in the folder, its JUnit report attached by the launcher."""
         tool_use_id = f"toolu_{uuid.uuid4().hex[:12]}"
         decided = await self.pre("Bash", tool_use_id, command=command)
         assert decided["decision"] == "allow", decided
@@ -142,7 +136,6 @@ def _outcomes(test_run: dict) -> dict[str, str]:
 
 
 def _pipeline_junit(bare: Path, head: str, tmp: Path) -> str:
-    """CI: a fresh clone at the pushed commit runs the repository's declared test command and uploads its report."""
     checkout = tmp / "pipeline"
     subprocess.run(["git", "clone", "-q", str(bare), str(checkout)], check=True, capture_output=True)
     subprocess.run(["git", "checkout", "-q", head], cwd=checkout, check=True, capture_output=True)

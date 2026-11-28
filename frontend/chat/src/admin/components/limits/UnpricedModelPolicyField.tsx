@@ -9,8 +9,7 @@ const OPTIONS: Array<[Policy, string, string]> = [
   ["warn", "Run and warn", "The model runs; Observability shows its usage as unpriced. Cost caps cannot stop it, because its cost counts as $0."],
 ];
 
-// O-D4 (observability O3), on Runtime → Limits & budgets: a cost cap is estimated from the model's price, so it
-// cannot stop an unpriced model. Saved on its own; the choice is audited.
+// A cost cap is estimated from the model's price, so it cannot stop an unpriced model.
 export function UnpricedModelPolicyField() {
   const [policy, setPolicy] = useState<Policy | null>(null);
   const [message, setMessage] = useState<string | null>(null);

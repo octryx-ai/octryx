@@ -1,4 +1,4 @@
-// Provider model draft actions: save planner budget, output token limit and pricing drafts of one model.
+// Provider model draft actions: save output token limit and pricing drafts of one model.
 import type { Dispatch, SetStateAction } from "react";
 import type { AdminModel } from "../types/adminPanelTypes.usersProviders";
 import type { ReadJsonFn } from "./useAdminTabLoader.types";
@@ -9,8 +9,6 @@ type SetDrafts = Dispatch<SetStateAction<Drafts>>;
 type ProviderModelDraftActionsArgs = {
   readJson: ReadJsonFn;
   setProviderModels: Dispatch<SetStateAction<Record<string, AdminModel[]>>>;
-  modelBudgetDrafts: Drafts;
-  setModelBudgetDrafts: SetDrafts;
   modelOutputDrafts: Drafts;
   setModelOutputDrafts: SetDrafts;
   modelPricingInputDrafts: Drafts;
@@ -19,13 +17,11 @@ type ProviderModelDraftActionsArgs = {
   setModelPricingOutputDrafts: SetDrafts;
 };
 
-type DraftField = "planner_context_budget" | "max_tokens_per_request" | "pricing_input" | "pricing_output";
+type DraftField = "max_tokens_per_request" | "pricing_input" | "pricing_output";
 
 export function createProviderModelDraftActions({
   readJson,
   setProviderModels,
-  modelBudgetDrafts,
-  setModelBudgetDrafts,
   modelOutputDrafts,
   setModelOutputDrafts,
   modelPricingInputDrafts,
@@ -35,14 +31,12 @@ export function createProviderModelDraftActions({
 }: ProviderModelDraftActionsArgs) {
   const save = (field: DraftField, drafts: Drafts, setDrafts: SetDrafts) =>
     (providerId: string, modelId: string) => saveModelDraft({ readJson, setProviderModels, field, drafts, setDrafts, providerId, modelId });
-  const handleSaveModelPlannerBudget = save("planner_context_budget", modelBudgetDrafts, setModelBudgetDrafts);
   const handleSaveModelMaxTokens = save("max_tokens_per_request", modelOutputDrafts, setModelOutputDrafts);
   const handleSaveModelPricingInput = save("pricing_input", modelPricingInputDrafts, setModelPricingInputDrafts);
   const handleSaveModelPricingOutput = save("pricing_output", modelPricingOutputDrafts, setModelPricingOutputDrafts);
 
   return {
     handleSaveModelMaxTokens,
-    handleSaveModelPlannerBudget,
     handleSaveModelPricingInput,
     handleSaveModelPricingOutput,
   };

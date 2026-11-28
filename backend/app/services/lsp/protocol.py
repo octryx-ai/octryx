@@ -10,7 +10,6 @@ from typing import Any
 
 
 def _lsp_error_text(error: Any) -> str:
-    """A server's JSON-RPC error as closed facts: its numeric code, never its message text."""
     code = error.get("code") if isinstance(error, dict) else None
     if isinstance(code, int) and not isinstance(code, bool):
         return f"lsp_request_failed lsp_error_code={code}"

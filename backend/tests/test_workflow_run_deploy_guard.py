@@ -1,10 +1,5 @@
-"""Final review fixes: four-eyes before a deploy is structural, and the deploy watch follows its own build.
-
-- publish refuses a phased workflow whose ``deploy.run`` is reachable without passing an approval node;
-- at runtime ``deploy.run`` starts only with an approved four-eyes decision of this pass, once per approval, and
-  a new phase pass clears it;
-- the ``deployed`` watch reads exactly the build the deploy's queue item started, never a concurrent build.
-"""
+"""Four-eyes before a deploy is structural (publish and runtime), and the deploy watch follows exactly the
+build its own queue item started."""
 
 from __future__ import annotations
 
@@ -20,10 +15,12 @@ from app.services.workflow_runs.records import start_run
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import admin_user
 from tests.prompt_catalog_publish_support import second_admin
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def approve(db, run, approver=None, *, node_id: str = "approve_deploy") -> Approval:
-    """A four-eyes approval of the run's current pass at ``node_id``, decided by another admin."""
     from app.services.workflow_runs.deploy_four_eyes import record_approval
 
     approver = approver or await second_admin(db)
@@ -36,7 +33,6 @@ async def approve(db, run, approver=None, *, node_id: str = "approve_deploy") ->
 
 
 def deploy_definition(*, other_approval: bool = False) -> dict:
-    """start → (an approval of another subject → confirmation →) the deploy's approval → deploy → done."""
     nodes = [{"id": "start", "type": "start"},
              {"id": "approve_merge", "type": "approval", "label": "Approve the merge", "config": {"unlocks": "merge"}},
              {"id": "confirm", "type": "user_confirmation", "label": "Go on", "config": {"subject": "advance"}},
@@ -58,7 +54,6 @@ def deploy_definition(*, other_approval: bool = False) -> dict:
 
 
 async def at_deploy(db, project_id: str):
-    """A run of :func:`deploy_definition` positioned at its deploy node (the engine's path there is tested above)."""
     from tests.phased_workflow_fixtures import publish_phased
 
     run = await start_run(db, user=await admin_user(db), workflow_key=await publish_phased(db, deploy_definition()),
@@ -126,8 +121,6 @@ async def test_a_deploy_starts_only_with_an_unused_four_eyes_approval_of_this_pa
 
 
 class QueueClient(JenkinsClient):
-    """A Jenkins whose queue item 41 started build 7, while a concurrent build 8 of the same job passed."""
-
     def __init__(self):
         super().__init__(JenkinsRuntimeConfig(base_url="https://ci.invalid", username=None, token=None))
 

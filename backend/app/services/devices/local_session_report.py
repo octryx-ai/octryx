@@ -40,7 +40,6 @@ def _when(value: Any) -> datetime | None:
 
 
 def normalize_report(body: Any) -> tuple[list[str], list[dict[str, Any]]]:
-    """``(profiles, sessions)`` from a device report; anything malformed is dropped, never stored."""
     raw_profiles = body.get("profiles") if isinstance(body, dict) else None
     profiles = []
     for name in raw_profiles if isinstance(raw_profiles, list) else []:

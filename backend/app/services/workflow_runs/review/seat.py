@@ -1,27 +1,4 @@
-"""The reviewer on the run's person's own seat: a separate, tool-less device turn.
-
-The platform never holds a person's subscription: the Claude seat route (``model_gateway/inbound/seat``) and the
-Codex seat route (``inbound/codex_seat``) only pass on the ``Authorization`` the device's own Claude Code or Codex
-sends, and store nothing of it. So the server cannot call a seat by itself; a seat review runs where the
-subscription is, as its own turn on the person's device:
-
-1. **its own thread**: every review attempt gets a new chat thread (``metadata.purpose = workflow_run_review``), bound
-   to no run: no run contract, no author history, no phase tools. Each call of the attempt is a turn with a fresh
-   Claude Code / Codex session (``fresh_session``) on profile ``seat``, the review model and the run's engine;
-2. **the request stays on the server** until the device asks for it: the thread holds the call (system, task,
-   screenshots) under :data:`REQUEST_KEY`; the device's session, registered with the job's id, reads it through the
-   control plane (``GET /api/v1/agent-gateway/review-request``) and posts the answer back
-   (``POST /api/v1/agent-gateway/review-answer``) — the device channel's 256 KB message limit is never in the way;
-3. **no tools**: the offer carries ``review_call``, the launcher runs one call with no tools, no MCP server, no
-   settings of the folder, in an empty working directory (``octryx_claude.review_call``); the gateway also denies
-   every tool call of such a session at the PreToolUse check (``agent_gateway.tool_decision``), whatever the client;
-4. the worker waits for the answer (:data:`CALL_TIMEOUT_SECONDS`), then clears the request from the thread.
-
-**Seat unavailable** (no reachable device with the seat profile, the seat at its usage limit, a refused or failed
-turn): the same rule as for an implement turn — the review goes on with the same model on a company runtime, as a
-visible run event (:data:`EVENT_SEAT_FALLBACK`), and that governed spend counts against the run's budget
-(``octryx.model_guard``): a run whose budget is used up gets no fallback review (``workflow_run_budget_exhausted``).
-"""
+"""The reviewer on the run's person's own seat: a separate, tool-less device turn."""
 
 from __future__ import annotations
 
@@ -50,7 +27,6 @@ PURPOSE_KEY = "purpose"
 RUN_KEY = "review_of_run"
 REQUEST_KEY = "review_request"
 ANSWER_KEY = "review_answer"
-# The gateway session the device registered for a review turn (``mark_review_session``).
 GATEWAY_REVIEW_JOB_KEY = "review_job_id"
 EVENT_SEAT_SESSION = "review_seat_session"
 EVENT_SEAT_FALLBACK = "review_seat_fallback"
@@ -77,12 +53,6 @@ def is_review_thread(session: Session | None) -> bool:
 
 async def seat_device(db: AsyncSession, run: WorkflowRun, *, engine: str = ENGINE_CLAUDE_CODE,
                       user: User | None = None, review_call: bool = False) -> tuple[UserDevice, str] | str:
-    """The device and folder a seat review of ``engine`` runs on (the run's own device first, then a device with a
-    known folder of the repository), or why there is none.
-
-    ``review_call``: the turn is the reviewer's tool-less call (``SeatReviewModel``: no tools, no MCP, an empty
-    temporary folder on the device), so any seat device of the person with an allowlisted folder takes it too. A turn
-    with tools never gets a device without a known folder of the repository."""
     from ...devices.hub import device_hub
     from ...devices.seat_quota import seat_limited_until
     from ..runtime_target.auto import _known_folders, _usable_devices, seat_exhausted
@@ -130,8 +100,6 @@ async def _wait_a_moment(seconds: float) -> None:
 
 
 class SeatReviewModel:
-    """One review attempt's calls, each a fresh tool-less turn on the person's seat (see the module)."""
-
     runtime_shared = False
 
     def __init__(self, db: AsyncSession, run: WorkflowRun, choice: Any, device: UserDevice, folder: str, *,
@@ -163,14 +131,12 @@ class SeatReviewModel:
         return await self.finish(job, thread)
 
     async def start(self, *, system: str, user: str, images: list[Any] | None = None) -> tuple[DeviceJob, Session]:
-        """Offer the call to the device: its thread holds the request, the channel tick offers the turn."""
         from ...devices.chat_turn import DeviceTurnStarted, start_device_turn
 
         db = self._db
         thread = await self._review_thread()
-        # The device row was read when the review began; its last_seen_at moves every few seconds and the dispatch
-        # gate reads it from this session (otherwise "device_offline" for a connected device after a long
-        # review prompt build). Read it again right before the turn.
+        # The device's last_seen_at moves every few seconds and the dispatch gate reads it from this session: read it
+        # again right before the turn.
         await db.refresh(self._device)
         started = await start_device_turn(
             db, user_id=self._person_id, prompt=TURN_PROMPT, session_id=thread.id, fresh_session=True,
@@ -186,11 +152,10 @@ class SeatReviewModel:
             "turn_id": job.turn_id, "system": system, "user": user, "images": encoded_images(images),
             "model": self._choice.model, "engine": self._choice.engine}}
         flag_modified(thread, "metadata_")
-        await db.commit()  # the channel tick offers the turn from here
+        await db.commit()
         return job, thread
 
     async def finish(self, job: DeviceJob, thread: Session) -> ReviewAnswer:
-        """Wait for the device's answer of a started call, then clear the request from the thread."""
         db = self._db
         try:
             answered = await self._wait(job, thread)
@@ -242,9 +207,7 @@ class SeatReviewModel:
 
 
 async def _keep_attempt_alive(db: AsyncSession, run: WorkflowRun) -> None:
-    """The attempt is alive while it waits on the device: its ``started_at`` moves on, so the review sweep
-    (``runner.STALE_ATTEMPT_MINUTES``) never takes over an attempt that still runs: otherwise
-    an attempt of several seat calls outlived the 6 minutes and was started again next to itself."""
+    # Moving started_at keeps the review sweep from starting a still-running attempt again next to itself.
     from ....time_utils import utc_now
 
     await db.refresh(run)

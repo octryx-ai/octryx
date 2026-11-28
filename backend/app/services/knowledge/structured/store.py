@@ -1,26 +1,4 @@
-"""Writing the structured graph: per-revision replace, retirement, and linkage diffs.
-
-- :func:`replace_revision` swaps one revision's nodes and edges for a new extraction and records it
-  in the extraction ledger, in the caller's transaction. Re-extracting the same revision under the
-  same profile therefore never duplicates a row.
-- :func:`write_revision` does the same in insert batches against a slice ``deadline``: past it,
-  it stops after a batch without the ledger row (the revision stays *partial*: rows, no ledger).
-  The next slice re-extracts the revision (extraction is deterministic) and resumes: rows already
-  written are kept, the missing ones inserted, and the ledger row is added when all are in.
-  :func:`partial_revisions` finds such revisions, so a build resumes or retires them.
-  With a ``lease`` it first renews the build's lease in the same transaction, fenced on the
-  claiming worker (:class:`.build_states.BuildLeaseLostError` when another worker claimed the build):
-  the row stays locked until the caller commits, so no claim takes the build mid-write.
-- :func:`retire_revisions` removes everything a revision stated, when it stopped being current, left
-  its layer, or was extracted under another profile.
-- :func:`sync_linkage` makes the linkage edges of one layer (``revision_id`` ``NULL``) equal to a
-  computed set: an edge is identified by a key of its type and endpoints, so a rebuild inserts,
-  updates or deletes only what changed.
-- :func:`merge_linkage` and :func:`prune_linkage` do the same in steps, for a linkage computed over
-  several build slices: every step stamps the edges it states (``created_at`` = the step's time)
-  and keeps the higher-scored statement of an edge already stamped in the same pass; the last step
-  removes the layer's edges of that type the pass did not stamp (and rows of another profile).
-"""
+"""Writing the structured graph: per-revision replace, retirement, and linkage diffs."""
 
 from __future__ import annotations
 
@@ -66,13 +44,7 @@ async def write_revision(
     deadline: float | None = None,
     lease: BuildLease | None = None,
 ) -> tuple[WriteCounts, bool]:
-    """Write one revision's extraction in batches; ``(counts, complete)``.
-
-    ``resume``: the revision is partial (an earlier slice stopped at its deadline), keep what it
-    wrote. Otherwise every row of the revision is replaced. At least one batch is written per call,
-    so a revision larger than one slice still completes over several slices. ``lease``: write only
-    while that worker holds the build (:func:`hold_lease`, before the first row changes).
-    """
+    # At least one batch per call, so a revision larger than one slice still completes.
     if lease is not None:
         await hold_lease(db, lease)
     await db.execute(
@@ -133,7 +105,6 @@ async def replace_revision(
 async def sync_linkage(
     db: AsyncSession, *, project_id: str, layer: str, profile_id: str, desired: list[LinkEdge]
 ) -> WriteCounts:
-    """Make the layer's linkage edges equal to ``desired``; rows of another profile are removed too."""
     wanted = {edge.key: edge for edge in desired}
     rows = (
         await db.execute(
@@ -179,7 +150,6 @@ def _score(properties: object) -> float:
 async def merge_linkage(
     db: AsyncSession, *, project_id: str, layer: str, profile_id: str, desired: list[LinkEdge], pass_started: datetime
 ) -> WriteCounts:
-    """Upsert one step of a pass's linkage edges; an edge stamped earlier in the pass keeps the higher score."""
     wanted = {edge.key: edge for edge in desired}
     if not wanted:
         return WriteCounts()
@@ -219,7 +189,6 @@ async def merge_linkage(
 async def prune_linkage(
     db: AsyncSession, *, project_id: str, layer: str, edge_type: str, profile_id: str, pass_started: datetime
 ) -> tuple[int, int]:
-    """End a stepwise pass: drop the edges it did not stamp; returns ``(removed, kept)``."""
     scope = (
         KnowledgeStructuredEdge.project_id == project_id,
         KnowledgeStructuredEdge.revision_id.is_(None),

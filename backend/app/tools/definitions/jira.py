@@ -205,7 +205,6 @@ _JIRA_TICKET_DEFINITIONS: dict[str, dict] = {
 
 
 def get_jira_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for jira tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return {
         **copy.deepcopy({**_JIRA_TICKET_DEFINITIONS, **JIRA_PLANNING_DEFINITIONS}),

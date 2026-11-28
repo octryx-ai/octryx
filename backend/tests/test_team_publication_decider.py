@@ -1,8 +1,4 @@
-"""S1 publication authorisation remains bound to its original human decision node.
-
-Real role/membership services and publication executor, isolated fixture DB and Cloud transport.
-The confirming actor differs from the requester, who retains governed execution/tool identity.
-"""
+"""S1 publication authorisation remains bound to its original human decision node."""
 from __future__ import annotations
 
 import uuid

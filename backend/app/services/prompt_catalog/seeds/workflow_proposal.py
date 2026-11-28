@@ -1,7 +1,4 @@
-"""Seeds of the workflow proposal texts: the classifier prompt and the confirmation next action.
-
-The only code copy of these texts; the catalog serves the published version.
-"""
+"""Seeds of the workflow proposal texts: the classifier prompt and the confirmation next action."""
 
 from __future__ import annotations
 

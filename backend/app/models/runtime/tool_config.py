@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class BuiltInToolConfig(Base):
+class BuiltInToolConfig(WorkspaceBound, Base):
     __tablename__ = "built_in_tool_configs"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

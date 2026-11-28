@@ -116,7 +116,6 @@ def _static_gates(
     source_refs: list[dict[str, Any]],
     lifecycle: dict[str, Any],
 ) -> list[QualityGateResult]:
-    """The gates that read only the node itself, in report order."""
     distinct_source_types = sorted({str(ref.get("source_type") or "unknown") for ref in source_refs})
     return [
         _gate(

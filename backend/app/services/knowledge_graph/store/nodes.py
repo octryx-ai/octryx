@@ -84,13 +84,8 @@ async def upsert_node(
     embed: bool = True,
     resolve_by_alias: bool = True,
 ) -> KnowledgeGraphNode:
-    """``resolve_by_alias=False`` restricts identity resolution to the node key.
-
-    Use it for node types whose display names are generic across parents (e.g.
-    code modules: every repository has a ``Dockerfile``) — alias-first resolution
-    would silently merge them. Aliases are still registered, but never stolen
-    from another node.
-    """
+    """Upsert a node, resolving its identity by alias first; ``resolve_by_alias=False`` restricts that to the node
+    key."""
     scope = _project_scope(project_id)
     alias_values = [value for value in [node_key, display_name, *(aliases or [])] if str(value or "").strip()]
     candidates = {normalize_alias(value) for value in alias_values if normalize_alias(value)}

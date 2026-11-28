@@ -1,11 +1,4 @@
-"""The four gateway routes of an external coding agent, each with its captured upstream, for the gateway matrix.
-
-``open_*`` starts a session on one route and returns a :class:`GatewayRoute`: where to post, with which headers,
-the requests the fake upstream captured, the Workspace, and the route's body builder (Anthropic Messages for the
-governed Anthropic route and the Claude Code seat, OpenAI Responses for the governed ``/openai`` route and the Codex
-seat). Every body carries a re-sent turn with a tool call (its arguments) and its result, an offered tool definition
-and the newest user text, each replaceable.
-"""
+"""The four gateway routes of an external coding agent, each with its captured upstream, for the gateway matrix."""
 
 from __future__ import annotations
 
@@ -29,7 +22,7 @@ SEAT_MODEL = "claude-sonnet-5"
 def messages_body(model: str, *, newest: str = "Now summarize.", result: str = "3 passed",
                   tool: dict[str, Any] | None = None, history: str = "Run the tests.",
                   extra_block: dict[str, Any] | None = None,
-                  arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+                  arguments: dict[str, Any] | None = None, answered: bool = False) -> dict[str, Any]:
     newest_blocks: list[Any] = [{"type": "tool_result", "tool_use_id": "toolu_1", "content": result},
                                 {"type": "text", "text": newest}]
     if extra_block is not None:
@@ -45,6 +38,7 @@ def messages_body(model: str, *, newest: str = "Now summarize.", result: str = "
                 {"type": "text", "text": "Running them."},
                 {"type": "tool_use", "id": "toolu_1", "name": "Bash", "input": arguments or {"command": "pytest -q"}}]},
             {"role": "user", "content": newest_blocks},
+            *([{"role": "assistant", "content": "Done."}, {"role": "user", "content": "Thanks."}] if answered else []),
         ],
     }
 
@@ -52,7 +46,7 @@ def messages_body(model: str, *, newest: str = "Now summarize.", result: str = "
 def responses_body(model: str, *, newest: str = "Now summarize.", result: str = "3 passed",
                    tool: dict[str, Any] | None = None, history: str = "Run the tests.",
                    extra_block: dict[str, Any] | None = None,
-                   arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+                   arguments: dict[str, Any] | None = None, answered: bool = False) -> dict[str, Any]:
     newest_parts: list[Any] = [{"type": "input_text", "text": newest}]
     if extra_block is not None:
         newest_parts.append(extra_block)
@@ -68,6 +62,9 @@ def responses_body(model: str, *, newest: str = "Now summarize.", result: str = 
              "arguments": json.dumps(arguments or {"command": ["pytest", "-q"]})},
             {"type": "function_call_output", "call_id": "call_1", "output": result},
             {"type": "message", "role": "user", "content": newest_parts},
+            *([{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Done."}]},
+               {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "Thanks."}]}]
+              if answered else []),
         ],
     }
 
@@ -101,7 +98,6 @@ class GatewayRoute:
 
 
 async def configure(db, workspace_id: str, kind: str, action: str, alias: str | None = None) -> None:
-    """Store the Workspace's ``action`` for ``kind`` and, when given, its governance ``alias``."""
     db.add(WorkspaceContentHandling(workspace_id=workspace_id, kind=kind, action=action))
     if alias is not None:
         await db.merge(WorkspaceContentGovernance(workspace_id=workspace_id, governance_alias=alias))

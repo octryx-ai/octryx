@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from ...agent.core.execution_support import _is_sqlite_lock_error
+from ...db.lock_errors import is_sqlite_lock_error
 from ...models import (
     AnalyticsDaily,
     ReportExport,
@@ -281,7 +281,7 @@ class AnalyticsWorker:
             except asyncio.CancelledError:
                 raise
             except OperationalError as exc:
-                if _is_sqlite_lock_error(exc):
+                if is_sqlite_lock_error(exc):
                     logger.warning("Analytics worker skipped iteration after database lock", exc_info=exc)
                 else:
                     logger.exception("Analytics worker loop failed")

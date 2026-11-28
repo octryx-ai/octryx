@@ -1,10 +1,6 @@
-// Pure rules of the canonical agent workspace (judge J-E-004/J-E-005).
-
 export type WorkspaceOption = { id: string; name: string; is_active?: boolean };
 
-// Workspace choices for creating or editing an agent: active workspaces only;
-// an inactive workspace the agent is already assigned to stays visible and
-// labelled, so editing never silently rebinds the agent.
+// An inactive workspace the agent already uses stays visible so editing never silently rebinds the agent.
 export function agentWorkspaceOptions(projects: WorkspaceOption[], currentProjectId?: string | null) {
   const current = (currentProjectId || "").trim();
   return projects
@@ -16,9 +12,7 @@ export function agentWorkspaceOptions(projects: WorkspaceOption[], currentProjec
     }));
 }
 
-// "Test in chat": a new chat with this agent in the agent's own workspace. A
-// global agent needs an explicit test workspace (or explicit Global), so the
-// chat never silently keeps a workspace remembered elsewhere.
+// A global agent needs an explicit workspace so the chat never keeps one remembered elsewhere.
 export function agentTestChatHref(agentId: string, workspaceId: string | null): string {
   const params = new URLSearchParams({ new: "true", agent_id: agentId });
   if (workspaceId) {
@@ -37,8 +31,6 @@ export function revisionLabel(revision: AgentRevision | null): string {
   return `Revision ${revision.revision_number} · ${revision.status}`;
 }
 
-// Step tool restriction in honest terms: an empty list does not grant every
-// registered tool; mode, workspace connectors and policy still apply.
 export function stepToolsLabel(allowedTools: string[] | undefined): string {
   return allowedTools?.length
     ? `Limited to: ${allowedTools.join(", ")}`
@@ -47,10 +39,6 @@ export function stepToolsLabel(allowedTools: string[] | undefined): string {
 
 export type AgentExecutionSource = { mode: string; published_revision_number: number | null };
 
-// Which content "Test in chat" runs, from the platform execution mode
-// (`agent_definition_execution_mode`, read-only here): draft mode runs the
-// saved definition including unpublished changes; published mode runs the
-// published revision or refuses without one. `blocked` mirrors that refusal.
 export function executionSourceLabel(
   execution: AgentExecutionSource | null,
   latest: AgentRevision | null,

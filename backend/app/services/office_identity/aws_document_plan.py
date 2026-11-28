@@ -1,13 +1,4 @@
-"""Evidence-bound Word document plan for an AWS architecture report.
-
-The document mirror of ``build_aws_deck_plan``: it turns the AWS topology
-snapshot into an ordered list of document blocks the composer writes with the
-template's own styles. It reuses the deck's evidence helpers verbatim — the same
-permitted-numbers guard, the same theme buckets, the same closed label catalog —
-so a claim that is safe on a slide is safe in the report, and the missing 20%
-surfaces as ``[DECISION]``/``[CHECK NUMBER]`` markers and an open-points
-section exactly as it does in the deck.
-"""
+"""Evidence-bound Word document plan for an AWS architecture report."""
 
 from __future__ import annotations
 
@@ -92,7 +83,6 @@ def _diagram_blocks(diagram_images: list[Any] | None) -> list[dict[str, Any]]:
 
 
 def _resource_blocks(node_counts: dict[str, int]) -> tuple[list[dict[str, Any]], list[str]]:
-    """Per-theme resource sections, plus the node types the catalog could not place."""
     unmapped: list[str] = []
     if not node_counts:
         return [], unmapped

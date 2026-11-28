@@ -13,17 +13,18 @@ from app.services.policy_engine.decision_log import flush_decision_log
 from tests.agent_gateway.seat_presence_support import SEAT, _body, _found_anywhere, _seat_headers, _seat_session
 from tests.agent_gateway.seat_upstream_support import anthropic  # noqa: F401 - fixture, see below
 from tests.content_detection.content_admission_support import BLOCK_IBAN, IBAN
-from tests.model_gateway.conftest import ALIAS, verified_admission
-from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture, see below
-from tests.model_gateway.test_inbound_anthropic_gateway import AWS_KEY_LOOKALIKE, ROUTE, _request_body
 
 # The two fixtures come from the folder's conftest too; a gate that selects only some files can leave this module
 # without them ("fixture 'gateway_setup' not found"): imported here they are always its own.
+from tests.content_security.gateway_route_support import configure
+from tests.model_gateway.conftest import ALIAS, verified_admission
+from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture, see below
+from tests.model_gateway.test_inbound_anthropic_gateway import AWS_KEY_LOOKALIKE, ROUTE, _request_body
 from tests.policy_engine_support import use_custom_policies
 
 BLOCK_SEAT_PII = ('@id("no-personal-data-on-seat")\nforbid (principal, action == Action::"call_model", resource)\n'
                   'when { context.route == "seat" && context.content.categories.contains("secrets") };')
-#: C12F-08: the gateway's built-in kinds are credentials and credential assignments only (no IBAN there).
+#: The gateway's built-in kinds are credentials and credential assignments only (no IBAN there).
 ASSIGNMENT = "Hunter2024x"
 BLOCK_ASSIGNMENT = BLOCK_IBAN.replace('"iban"', '"credential_assignment"')
 
@@ -34,18 +35,12 @@ async def _records(db):
     return list((await db.execute(select(PolicyDecisionLog))).scalars())
 
 
-# --- segments ---------------------------------------------------------------------------------------------
-
-
 def test_chat_segments_cover_system_messages_and_the_newest_turn():
     messages = [{"role": "system", "content": "sys"}, {"role": "user", "content": "old"},
                 {"role": "assistant", "content": "a"}, {"role": "tool", "content": "result"},
                 {"role": "user", "content": [{"type": "text", "text": "now"}, {"type": "image_url"}]}]
     assert [(item.source, item.text) for item in chat_segments(messages)] == [
         ("system", "sys"), ("tool_result", "result"), ("prompt", "now"), ("document", "")]
-
-
-# --- the governed route -----------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -82,15 +77,16 @@ async def test_enforce_refuses_with_the_policy_and_counts_before_dispatch(client
 
 
 @pytest.mark.asyncio
-async def test_secret_scan_is_the_generated_policy_and_keeps_its_refusal(client, db, gateway_setup):  # noqa: F811 - the fixture imported above
+async def test_a_workspace_that_refuses_secrets_keeps_its_refusal(client, db, gateway_setup):  # noqa: F811 - the fixture imported above
     fake, build = gateway_setup
     headers = await build()
+    await configure(db, headers["X-Octryx-Workspace"], "secrets", "refuse")  # the default masks
     response = await client.post(ROUTE, json=_request_body(newest_text=f"use {AWS_KEY_LOOKALIKE}"), headers=headers)
     assert response.status_code == 400
     assert response.headers["x-octryx-gateway-reason"] == "secret_detected_in_prompt"
     assert fake.requests == []
     [record] = await _records(db)
-    assert record.outcome == "denied" and record.determining == ["platform:secrets-never-leave"]
+    assert record.outcome == "denied" and record.determining == ["workspace:content-handling:secrets:refuse"]
     assert record.obligation["stage"] == "content" and record.obligation["applied"] == {"secrets": "refuse"}
     assert record.content["kinds"] == ["aws_access_key_id"] and AWS_KEY_LOOKALIKE not in str(record.content)
 
@@ -112,13 +108,11 @@ async def test_approved_alias_is_exempt_through_resource_approved_for(client, db
     assert allowed.status_code == 200, allowed.text
 
 
-# --- the seat route ---------------------------------------------------------------------------------------
-
-
 @pytest.mark.committed_db  # the seat call records in its own session (see test_seat_presence)
 @pytest.mark.asyncio
 async def test_seat_route_asks_call_model_with_route_seat(client, db, anthropic):  # noqa: F811 - the fixture imported above
-    _workspace_id, _user_id, gateway, credential = await _seat_session(client, db)
+    workspace_id, _user_id, gateway, credential = await _seat_session(client, db)
+    await configure(db, workspace_id, "secrets", "refuse")
     use_custom_policies(BLOCK_SEAT_PII, mode="enforce")
     refused = await client.post(SEAT, json=_body(text=f"login password={ASSIGNMENT}"), headers=_seat_headers(gateway, credential))
     assert refused.status_code == 403
@@ -134,9 +128,6 @@ async def test_seat_route_asks_call_model_with_route_seat(client, db, anthropic)
     assert sorted(row.obligation["stage"] for row in records) == ["cedar", "content"], "one record per refusal"
     assert {row.resource for row in records} == {"gateway seat:claude-sonnet-5"}
     assert await _found_anywhere(db, ASSIGNMENT) == []
-
-
-# --- the chat driver --------------------------------------------------------------------------------------
 
 
 def _chat_entry():

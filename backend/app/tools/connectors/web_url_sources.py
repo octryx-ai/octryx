@@ -1,28 +1,4 @@
-"""Source links for connector reads whose web host is configured, not guessed.
-
-The connectors in this table answer from an API host their items do not open on. With the connector's
-optional ``<connector>_web_url`` set (``services/tool_config/web_url.py``), each item gets
-``source_title`` / ``source_url`` / ``cite_as``: that configured web base plus the item's key, in the
-vendor's page form below. Without it, nothing is added and the read stays unsourced
-(``tests/connector_evidence_coverage_catalog.py``).
-
-One hook applies the table: ``tools/registry._dispatch_registered_tool`` calls
-:func:`link_configured_web_sources` on every registered tool's result; a tool outside the table, an
-error result, or a connector without a web URL passes through unchanged.
-
-| Tool(s) | Field | Item page |
-|---|---|---|
-| ``list_monitors`` | ``datadog_web_url`` | ``/monitors/{id}`` |
-| ``get_events`` | ``datadog_web_url`` | ``/event/event?id={id}`` |
-| ``get_alerts`` (New Relic) | ``newrelic_web_url`` | ``/accounts/{account}/incidents/{incident_id}`` |
-| ``list_vulnerabilities``, ``get_severity``, ``get_fix_advice`` | ``snyk_web_url`` (org page) | ``/project/{project_id}#issue-{id}`` |
-| ``get_schedule``, ``get_escalation_policy``, ``list_oncall`` (PagerDuty) | ``pagerduty_web_url`` | ``/schedules/{id}``, ``/escalation_policies/{id}`` |
-| the same tools (Opsgenie) | ``opsgenie_web_url`` | ``/settings/schedule/detail/{id}``, ``/settings/escalation/detail/{id}`` |
-| ``list_components`` | ``statuspage_web_url`` (public page) | the status page itself |
-| AWS lists | ``aws_web_url`` (console base) | the service console page with ``?region=`` and the item in the fragment |
-| Azure lists | ``azure_web_url`` (portal, ``#@tenant``) | ``/resource{resource id}`` |
-| GCP lists | ``gcp_web_url`` (console) | the service page with ``?project=`` |
-"""
+"""Source links for connector reads whose web host is configured, not guessed."""
 
 from __future__ import annotations
 
@@ -159,7 +135,6 @@ WEB_URL_LINKERS: dict[str, Linker] = {
 
 
 def link_configured_web_sources(tool_name: str, result: Any, project_config: dict[str, Any] | None) -> Any:
-    """``result`` with source fields from the connector's configured web URL; unchanged otherwise."""
     linker = WEB_URL_LINKERS.get(tool_name)
     if linker is None or not isinstance(result, dict) or result.get("error"):
         return result

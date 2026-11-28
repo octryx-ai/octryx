@@ -1,10 +1,4 @@
-"""Which Workspaces' threads a user may see in the chat sidebar, resolved once per bootstrap.
-
-The bootstrap asks the same question for the project list, the group counts, every group's first page
-and the archived count; each answer costs several queries (global admin check and project access with
-its role lookups). Inside ``thread_visibility_memo()`` the first answer is reused for that user; outside
-it every call resolves afresh, so a change of membership is never hidden across requests.
-"""
+"""Which Workspaces' threads a user may see in the chat sidebar, resolved once per bootstrap."""
 
 from __future__ import annotations
 
@@ -38,8 +32,6 @@ def thread_visibility_memo() -> Iterator[None]:
 
 
 def with_thread_visibility_memo(fn: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
-    """Run ``fn`` inside one ``thread_visibility_memo()`` (one answer per user for the whole call)."""
-
     @functools.wraps(fn)
     async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         with thread_visibility_memo():

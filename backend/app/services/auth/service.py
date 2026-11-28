@@ -20,7 +20,6 @@ security = HTTPBearer(auto_error=False)
 
 
 def _check_api_key_scope(api_key_scopes: list[str] | None, required_scope: str) -> bool:
-    """Check if API key has the required scope."""
     if not api_key_scopes:
         return False
     return required_scope in {str(s).strip().lower() for s in api_key_scopes}
@@ -100,12 +99,7 @@ async def require_role(*role_names: str):
 
 
 def require_api_key_scope(*required_scopes: str):
-    """Dependency factory: require API key to have one of the given scopes.
-
-    Works alongside `get_current_user` — if auth was via bearer token (not API key),
-    the scope check is skipped (full user session grants all access).
-    If auth was via API key, the key's scopes are validated.
-    """
+    """Dependency factory: require API key to have one of the given scopes."""
 
     async def scope_checker(request: Request) -> None:
         if not hasattr(request.state, "api_key_id"):

@@ -17,7 +17,6 @@ _PKG_REL = "http://schemas.openxmlformats.org/package/2006/relationships"
 
 
 def _sheet_parts(archive: zipfile.ZipFile) -> dict[str, str]:
-    """Sheet name → worksheet part name inside the package."""
     workbook = etree.fromstring(archive.read("xl/workbook.xml"))
     rels = etree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
     targets = {rel.get("Id"): rel.get("Target") for rel in rels.iter(f"{{{_PKG_REL}}}Relationship")}

@@ -12,7 +12,6 @@ from .failure import connection_success, exception_failure
 
 
 def _build_health_context(config: dict[str, Any], db: Any = None) -> ToolContext:
-    """The test's tool context; ``db``: the caller's session, so tool helpers resolve as in a real call."""
     return ToolContext(
         user_id="connector-health",
         project_ids=[],

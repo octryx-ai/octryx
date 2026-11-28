@@ -2,18 +2,21 @@
 from __future__ import annotations
 
 import asyncio
-import uuid
 
 import pytest
 from fastapi import HTTPException
 from sqlalchemy import func, select
 
-from app.models import FlowDefinition, Session, Task, TaskRun, TaskStep, User, WorkflowRun
+from app.models import FlowDefinition, Task, TaskStep, User
 from app.scheduler import TaskScheduler
 from app.scheduler.dispatch.loop import _can_execute_locally_without_worker
 from app.services.admin.task import _admin_task_management as admin_tasks
 from tests.action_agent_binding_support import _dispatch, _entry, _scheduler
-from tests.test_action_runtime_admission import _admin, _project, _run, _single_session
+from tests.scheduler.test_action_runtime_admission import _admin, _project, _run
+from tests.scripted_pool_support import (
+    scripted_pool,  # noqa: F401 - fixture
+    scripted_turns,  # noqa: F401 - fixture
+)
 
 
 def _config(**changes):
@@ -40,7 +43,7 @@ async def test_binding_is_explicit_never_inferred_and_updates_keep_it(db):
     assert missing.value.detail["code"] == "dispatch_binding_invalid"
     own = await admin_tasks.create_task(db, user_id=owner.id, payload={**data, "dispatch_binding": "task_definition"})
     assert own["dispatch_binding"] == "task_definition"
-    assert not await _can_execute_locally_without_worker(db, await db.get(Task, own["id"]))
+    assert await _can_execute_locally_without_worker(db, await db.get(Task, own["id"]))  # an agent turn: runners
     assert (await admin_tasks.update_task(db, task_id=task.id, payload={"name": "renamed"}))["dispatch_binding"] == "workflow_run"
     with pytest.raises(HTTPException):
         await admin_tasks.update_task(db, task_id=task.id, payload={"dispatch_binding": None})
@@ -101,6 +104,10 @@ async def test_later_state_change_is_refused_before_session_or_model(db, monkeyp
 async def test_ordinary_queue_claims_workflow_and_keeps_implicit_waiting(db, monkeypatch):
     bound, _ = await _bound(db)
     implicit, _ = await _bound(db, binding="task_definition")
+    from app.models.project.task import TaskStep
+
+    db.add(TaskStep(task_id=implicit.id, position=1, name="Fix", step_type="agent", is_enabled=True))  # needs a worker
+    await db.commit()
     scheduler, started = _scheduler(db, monkeypatch)
     yes = await scheduler.run_task_now(bound.id, started_by=bound.owner_id)
     no = await scheduler.run_task_now(implicit.id, started_by=implicit.owner_id)
@@ -136,43 +143,6 @@ async def test_selected_worker_still_wins_and_other_wait_reason_never_bypassed(d
     assert await _dispatch(scheduler) == 0 and started == []
 
 
-async def test_webhook_lineage_dispatches_with_service_principal_not_action_admin(db, monkeypatch):
-    import app.agent.engine as engine
-    import app.db as database_module
-    task, _ = await _bound(db)
-    from app.models.integration.webhook import Webhook
-    from app.services.webhook_service_user import ensure_webhook_service_user
-
-    webhook = Webhook(id=str(uuid.uuid4()), project_id=task.project_id, owner_id=task.owner_id,
-                      name="Synthetic acceptance webhook", task_id=task.id)
-    db.add(webhook)
-    await db.flush()
-    service = await ensure_webhook_service_user(db, webhook)
-    await db.commit()
-    scheduler = TaskScheduler()
-    monkeypatch.setattr(database_module, "async_session_factory", lambda: _single_session(db))
-    observed = []
-    async def scripted_agent(**kwargs):
-        session = await db.get(Session, kwargs["session_id"])
-        run = (await db.execute(select(WorkflowRun).where(WorkflowRun.requested_by == task.owner_id))).scalar_one()
-        observed.append((kwargs["user_id"], session.user_id, run.workflow_key, run.requested_by))
-        if False:
-            yield None
-    monkeypatch.setattr(engine, "run_agent", scripted_agent)
-    payload = await scheduler.run_task_now(task.id, trigger_type="webhook", trigger_id="fixture-webhook",
-                                          started_by=service.id, run_input={"inbound_alert": {
-                                              "event_id": "fixture-event", "alert": {"title": "Synthetic alert"},
-                                              "is_test": False}})
-    assert await scheduler._dispatch_queued_runs_once() == 1
-    # The dispatched run shares this test's session (async_session_factory above): wait for it to end, commit
-    # included, instead of polling for a while (polling can end in IllegalStateChangeError at teardown under load).
-    await scheduler._wait_for_dispatched_runs()
-    assert observed == [(service.id, service.id, "incident-analysis", task.owner_id)]
-    run = await db.get(TaskRun, payload["task_run_id"])
-    assert run.started_by == service.id and run.trigger_type == "webhook" and run.trigger_id == "fixture-webhook"
-    assert run.completed_at is not None
-
-
 async def test_redis_queue_uses_same_explicit_workflow_claim(db, monkeypatch):
     import app.services.redis_queue.service as redis_queue_service
     task, _ = await _bound(db)
@@ -196,7 +166,6 @@ async def test_redis_queue_uses_same_explicit_workflow_claim(db, monkeypatch):
 
 
 async def test_a_dispatched_run_is_referenced_until_it_ends_and_can_be_awaited():
-    """asyncio keeps only a weak reference to a task; the scheduler holds each dispatched run until it ends."""
     scheduler = TaskScheduler()
     release = asyncio.Event()
     ended = []

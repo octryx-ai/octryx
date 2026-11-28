@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -10,7 +11,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class DataExportJob(Base):
+class DataExportJob(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_scope__ = ("scope_type", ("project",), "scope_id")
     __tablename__ = "data_export_jobs"
     __table_args__ = (
         Index("ix_data_export_jobs_type_created", "export_type", "created_at"),
@@ -33,7 +36,8 @@ class DataExportJob(Base):
     completed_at = Column(DateTime, nullable=True)
 
 
-class DataImportJob(Base):
+class DataImportJob(WorkspaceBound, Base):
+    __workspace_column__ = "target_project_id"
     __tablename__ = "data_import_jobs"
     __table_args__ = (Index("ix_data_import_jobs_type_created", "import_type", "created_at"),)
 

@@ -1,15 +1,4 @@
-"""``get_gitlab_commit_checks``: the CI results of one commit of an allowed GitLab project (read only).
-
-The PR review bot reads them for the commit it reviewed (``pr_review_bot.ci_results``): a red check is a finding, a
-running one is named. On GitLab every pipeline job is a commit status, and so is every external status (another
-CI, another bot): ``GET /projects/:id/repository/commits/:sha/statuses`` lists the latest one per name, page by
-page. ``status``: ``success``; ``failed`` (red unless the job is ``allow_failure``); ``created`` / ``pending`` /
-``running`` / ``preparing`` / ``waiting_for_resource`` / ``scheduled`` (still running); ``canceled`` /
-``skipped`` / ``manual`` (neither).
-
-Every check is returned as ``{name, kind, state, url, description}`` with ``state`` one of ``success``, ``failure``,
-``pending`` or ``other``, the shape of ``get_github_commit_checks``.
-"""
+"""``get_gitlab_commit_checks``: the CI results of one commit of an allowed GitLab project (read only)."""
 
 from __future__ import annotations
 

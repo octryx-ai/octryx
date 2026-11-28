@@ -1,25 +1,5 @@
-"""The Workspace's ServiceNow connection, read from its existing ``servicenow`` tool configuration.
-
-The fields and the credential are the ServiceNow tools' own (``services/servicenow_auth.py``):
-``servicenow_url`` plus the credential of the explicit ``servicenow_auth_mode`` (client credentials,
-OAuth with username and password, bearer token or Basic).
-
-Secrets arrive already resolved from ``*_secret_ref`` fields (``connections.merged_tool_config``), live
-only in this frozen value, are excluded from ``repr``, and become an ``Authorization`` header at the
-transport. They are never logged, returned or persisted. The client-credentials mode names its (https-only)
-token endpoint itself, which may be an external identity provider. Every grant
-passes the same egress check as every read (``egress.py``), never follows a redirect, and is exchanged
-lazily at the first request of a run (then cached and retried once on a 401), never while an author only
-saves a configuration.
-
-With ``servicenow_api_style=scripted`` the connection carries the validated Scripted REST endpoints
-(``services/servicenow_scripted.py``) and the sync reads them instead of the Table API
-(``servicenow_scripted_source.py``).
-
-``servicenow_assignment_groups``/``servicenow_services`` limit the record targets.
-``servicenow_allowed_tables`` is the tool's own table allowlist and bounds Source Sync the same way:
-empty means the tools may read any table, so an explicitly configured scope is accepted.
-"""
+"""The Workspace's ServiceNow connection, read from its existing ``servicenow`` tool configuration. Secrets are excluded
+from ``repr``."""
 
 from __future__ import annotations
 
@@ -28,10 +8,10 @@ from dataclasses import dataclass, field
 import httpx
 
 from .....models.project.knowledge_source_sync import CONNECTOR_KIND_SERVICENOW
-from ....oidc_client_credentials import OidcTokenError
-from ....oidc_token_cache import access_token
-from ....servicenow_auth import ServiceNowAuth, resolve_servicenow_auth
-from ....servicenow_password_grant import access_token as password_access_token
+from ....connector_auth.oidc_client_credentials import OidcTokenError
+from ....connector_auth.oidc_token_cache import access_token
+from ....connector_auth.servicenow import ServiceNowAuth, resolve_servicenow_auth
+from ....connector_auth.servicenow_password_grant import access_token as password_access_token
 from ....servicenow_record_limit import RecordLimit, record_limit
 from ....servicenow_scripted import ScriptedApi, ScriptedEndpointError, scripted_api
 from ...ledger.errors import InvalidEvidenceRequestError
@@ -42,8 +22,6 @@ from .token_errors import reason_for_token_error
 
 @dataclass(frozen=True, slots=True)
 class RequestAuth:
-    """What a :class:`SourceReader` needs: the base URL, the static header and the token auth, if any."""
-
     base_url: str
     header: str = field(repr=False)
     kind: str = CONNECTOR_KIND_SERVICENOW
@@ -94,7 +72,6 @@ def _allowed_tables(config: dict) -> frozenset[str] | None:
 
 
 def servicenow_connection(config: dict) -> ServiceNowConnection:
-    """The connection of one resolved ``servicenow`` tool config, or ``connection_not_configured``."""
     try:
         base_url = normalize_source_url(_text(config, "servicenow_url").rstrip("/"))
     except InvalidEvidenceRequestError:

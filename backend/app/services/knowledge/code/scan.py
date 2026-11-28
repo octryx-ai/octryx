@@ -1,18 +1,5 @@
-"""The code elements of a checkout that a framework change can hit.
-
-Deterministic and bounded; it reads files and never runs a build or a subprocess. It collects:
-
-- ``import``: Java and Kotlin import statements, with their fully qualified names;
-- ``annotation``: annotations in use (``@JsonComponent``);
-- ``property``: configuration keys from ``application*.properties``, ``application*.yml`` and
-  ``application*.yaml``, with YAML nesting flattened to dotted keys;
-- ``dependency``: Maven ``<artifactId>`` entries (dependencies, parent, plugins), Gradle
-  ``group:artifact`` coordinates, and Gradle plugin ids;
-- ``build_property``: Maven ``<properties>`` names (``java.version``) with their values.
-
-Every element carries its path relative to the scanned root and its 1-based line, so an impact
-item points at the exact place a change applies to.
-"""
+"""The code elements of a checkout that a framework change can hit. Deterministic and bounded; it reads files and never
+runs a build or a subprocess."""
 
 from __future__ import annotations
 
@@ -89,7 +76,6 @@ def _elements_of(path: Path, relative: str) -> list[CodeElement]:
 
 
 def is_scanned_file(relative: str) -> bool:
-    """Whether the scanner reads elements from a file of this name (by its closed file classes)."""
     name = relative.rsplit("/", 1)[-1]
     return (
         name.endswith((".java", ".kt", ".kts", ".groovy", ".gradle"))
@@ -100,11 +86,7 @@ def is_scanned_file(relative: str) -> bool:
 
 
 def elements_of_text(relative: str, text: str) -> list[CodeElement]:
-    """The code elements of one file's text; ``relative`` is its repository-relative path.
-
-    The file class comes from the file name only, exactly as for a checkout scan, so an uploaded
-    file and the same file in a checkout yield the same elements.
-    """
+    # The file class comes from the file name only, so an upload and a checkout yield the same elements.
     lines = text.splitlines()
     name = relative.rsplit("/", 1)[-1]
     found: list[CodeElement] = []
@@ -145,7 +127,6 @@ def elements_of_text(relative: str, text: str) -> list[CodeElement]:
 
 
 def scan_checkout(root: Path) -> tuple[CodeElement, ...]:
-    """Every code element under ``root``, bounded; ``root`` must be a directory."""
     root = root.resolve()
     elements: list[CodeElement] = []
     for path in _files(root):

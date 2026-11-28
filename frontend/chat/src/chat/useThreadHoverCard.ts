@@ -6,10 +6,6 @@ const HOVER_DELAY_MS = 550;
 
 export type ThreadHoverState = { thread: ThreadSummary; workspace: string; top: number; left: number };
 
-/**
- * The full title and facts of a row, beside the sidebar after a short delay — never over the next
- * row (it replaces the native `title` tooltip). Desktop only; off in bulk mode.
- */
 export function useThreadHoverCard(sidebarRef: RefObject<HTMLElement | null>, disabled: boolean) {
   const [hover, setHover] = useState<ThreadHoverState | null>(null);
   const timer = useRef<number | null>(null);

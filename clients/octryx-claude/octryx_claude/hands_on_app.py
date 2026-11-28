@@ -1,6 +1,4 @@
-"""The app of a hands-on pass (``hands_on``): its serve group, the serve URL's lock on this device, and the
-groups a previous instance of the launcher left running.
-"""
+"""The app of a hands-on pass: its serve group, the serve URL's lock and groups an earlier launcher left running."""
 
 from __future__ import annotations
 
@@ -34,8 +32,6 @@ LOCK_WAIT_SECONDS = 1800
 
 
 def _step(name: str, since: float, **facts: Any) -> None:
-    """One step of a hands-on pass in the device log, with its seconds, so a slow or silent pass shows which step
-    (setup, the URL's lock, the app's start, the browser, the base recheck) takes the time."""
     import logging  # noqa: PLC0415
 
     logging.getLogger(__name__).info("hands-on: %s after %.0f s%s", name, time.monotonic() - since,
@@ -44,7 +40,6 @@ def _step(name: str, since: float, **facts: Any) -> None:
 
 @contextlib.contextmanager
 def url_lock(url: str, wait_seconds: float = LOCK_WAIT_SECONDS) -> Iterator[bool]:
-    """Hold this device's lock for ``url`` (``True``), or ``False`` when another pass held it too long."""
     import fcntl  # noqa: PLC0415 - POSIX: the device runs on macOS / Linux (WSL2)
 
     parsed = urllib.parse.urlsplit(url)
@@ -72,7 +67,6 @@ def _serve_file(url: str) -> Path:
 
 
 def _started(pid: int) -> str:
-    """The process's start time as ``ps`` shows it (``""``: gone); unchanged by an exec, so it names the process."""
     try:
         done = subprocess.run(["ps", "-o", "lstart=", "-p", str(pid)], capture_output=True, text=True, timeout=5,
                               check=False)
@@ -82,19 +76,14 @@ def _started(pid: int) -> str:
 
 
 def _owner(root: Path | None = None) -> str:
-    """The launcher a serve group belongs to: its state folder. Two launchers on one Mac (a test stack's next to the
-    person's own, or two test workers) share the temp folder; one never ends the other's running app (
-    a starting device service ended a running hands-on test's http.server, S2 got ERR_CONNECTION_REFUSED)."""
+    # Launchers on one Mac share the temp folder; one must never end another's running app.
     from .tools import default_root  # noqa: PLC0415
 
     return str((root or default_root()).resolve())
 
 
 def reap_orphan(url: str) -> bool:
-    """End this device's own serve group a stopped launcher left on ``url`` (a launcher restart
-    left 's `python3 -m http.server 8090` running; every later hands-on run refused "something else already
-    answers"). Only the group the file names, only this launcher's, and only while its leader is the same process
-    (its start time)."""
+    # Only while the group's leader is the same process (start time), so a reused PID is never killed.
     return _reap_record(_serve_file(url), _owner())
 
 
@@ -129,10 +118,7 @@ def _reap_record(record: Path, owner: str) -> bool:
 
 
 def reap_all(root: Path | None = None) -> int:
-    """At the device service's start: end every serve group a previous instance of this launcher (``root``, its
-    state folder) recorded and left running (a launcher restart would otherwise leave a hands-on run's server
-    behind, adopted by PID 1). Each group only while its leader is still the recorded process; another
-    launcher's groups stay. The number of groups ended."""
+    # A launcher restart would otherwise leave a hands-on server behind, adopted by PID 1.
     owner = _owner(root)
     return sum(1 for record in Path(tempfile.gettempdir()).glob("octryx-hands-on-*.serve.json")
                if _reap_record(record, owner))
@@ -148,7 +134,6 @@ APP_STATES = {APP_EXITED: "exited", APP_KILLED: "was killed", APP_NOT_ANSWERING:
 
 
 def start_app(serve: dict[str, Any], folder: Path, env: dict[str, str], log: Path) -> tuple[Any, str]:
-    """``(process, problem)``: the app's serve command running and answering on its URL, or why not."""
     import json  # noqa: PLC0415
 
     with log.open("wb") as out:
@@ -178,7 +163,6 @@ def start_app(serve: dict[str, Any], folder: Path, env: dict[str, str], log: Pat
 
 
 def app_problem_code(problem: str) -> str:
-    """The code of :func:`start_app`'s problem (its own state words)."""
     return next((code for code, words in APP_STATES.items() if f") {words} on " in problem), APP_NOT_ANSWERING)
 
 
@@ -188,7 +172,6 @@ LAST_END: dict[str, Any] = {}
 
 
 def stop_app(process: Any, url: str = "", *, by: str = "stop_app") -> dict[str, Any]:
-    """End the serve group (TERM, KILL after 15 s); how it ended, also written to its serve log."""
     if url:
         _serve_file(url).unlink(missing_ok=True)
     if process is None:

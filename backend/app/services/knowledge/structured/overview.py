@@ -1,14 +1,4 @@
-"""The structured explorer's overview sample and totals.
-
-Without them the overview shows only the structural spine (``runs_in``, ``configures``) and says nothing
-about how big the graph is. Two cheap reads fix that:
-
-- :func:`domain_seeds` — the best-connected nodes of **every** node type (top ``per_type`` by degree),
-  so rules, merchants, teams, models … appear next to the spine. One grouped query, bounded.
-- :func:`structured_totals` — distinct nodes and edges this reader may see: rows of visible revisions;
-  a cross-revision edge (no own revision, e.g. ``inconsistent_across``) counts when both endpoints are
-  visible. Cached for a minute per Workspace, reader principals and layers.
-"""
+"""The structured explorer's overview sample and totals."""
 
 from __future__ import annotations
 
@@ -31,7 +21,6 @@ _cache: dict[tuple, tuple[float, dict]] = {}
 async def domain_seeds(
     db: AsyncSession, project_id: str, profile_id: str, layers: tuple[str, ...], per_type: int = PER_TYPE
 ) -> dict[str, list[str]]:
-    """``{node_type: [node ids by degree desc]}``, at most ``per_type`` per type and :data:`MAX_TYPES` types."""
     edge, node = KnowledgeStructuredEdge, KnowledgeStructuredNode
     scope = (edge.project_id == project_id, edge.profile == profile_id, edge.layer.in_(layers))
     ends = union_all(
@@ -59,7 +48,6 @@ async def domain_seeds(
 
 
 async def structured_totals(db: AsyncSession, authorized: AuthorizedWorkspace, layers: tuple[str, ...]) -> dict:
-    """``{nodes, edges}`` of the structured layers this reader may see."""
     key = (authorized.project_id, tuple(sorted(authorized.principal_keys or ())), layers)
     hit = _cache.get(key)
     if hit and time.monotonic() - hit[0] < TOTALS_SECONDS:

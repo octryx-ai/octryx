@@ -1,12 +1,4 @@
-"""External events a watching run waits for, read into one closed shape. Pure.
-
-``scm_pull_request`` webhooks (GitHub, GitLab, Bitbucket Server/Data Center and Cloud) become ``pr.approved`` /
-``pr.merged`` / ``pr.declined`` (with the pull request's web URL from the signed payload, whose host binds the
-event to one host); ``ci_build`` webhooks (GitHub Actions, GitLab pipelines, Jenkins, Bitbucket Cloud
-commit statuses) become ``ci.succeeded`` / ``ci.failed``; a polled Jira change becomes ``jira.status`` with the
-Work state the write-back mapping maps its status to; a decided approval becomes ``approval.decided``. Anything
-else is ``None`` — never guessed.
-"""
+"""External events a watching run waits for, read into one closed shape."""
 
 from __future__ import annotations
 
@@ -35,10 +27,10 @@ class WatchEvent:
     ticket_key: str = ""
     work_state: str = ""
     approval_id: str = ""
-    sha: str = ""  # the commit a CI event built
-    workflow: str = ""  # the GitHub Actions workflow of a CI event
-    build_number: str = ""  # the Jenkins build a notification reports
-    reverts: str = ""  # a merged pull request that reverts another one: that one's id (trust metrics)
+    sha: str = ""
+    workflow: str = ""
+    build_number: str = ""
+    reverts: str = ""
     pr_url: str = ""  # the pull request's web URL in the signed payload: its host binds the event (``watch.matches``)
 
     def to_dict(self) -> dict[str, Any]:
@@ -62,7 +54,6 @@ _REVERT_BRANCH = re.compile(r"^revert-(?:pr-)?(\d+)(?:-|$)")
 
 
 def reverted_id(title: Any, body: Any, branch: Any) -> str:
-    """The id of the pull request a merged one reverts, from its description or branch; ``""`` when it is none."""
     for pattern in _REVERTS:
         if found := pattern.search(str(body or "")):
             return found.group(1)

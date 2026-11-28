@@ -29,11 +29,6 @@ def _persist_unresolved_rows(
     unresolved_to_persist: list[Any],
     unresolved_edges: list[tuple[str, int, str, str]],
 ) -> int:
-    """Add extractor-reported references first, then edges whose endpoints did not resolve.
-
-    Both passes share the seen-key sets, so an edge gap already reported by the extractor is
-    not stored twice.
-    """
     scope = {"db": db, "graph_run": graph_run, "graph_repo": graph_repo, "repository_id": repository_id}
     seen_unresolved_keys: _UnresolvedKeys = set()
     seen_projected_unresolved_keys: _ProjectedKeys = set()

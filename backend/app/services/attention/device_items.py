@@ -1,18 +1,4 @@
-"""Attention entries for work on the person's Mac, so the person is notified.
-
-Push notifications follow the attention queue (``mobile/push``). Besides approvals, questions and workflow runs, it
-holds two kinds, so a person working in bypass mode, or talking to a running session over the live channel, is
-notified too:
-
-- **live** (``needs you``): a running Claude Code session wrote back to the person (``live_messages``, direction
-  ``in``). One entry per conversation, for its newest unread answer; reading the conversation clears it
-  (:func:`mark_live_read`), and the next answer notifies again;
-- **turn** (``problem`` when it failed, ``done`` when it finished): a turn of the person's chat on their Mac ended
-  (its ``turn_finished`` event). A stopped turn is not reported; "Done" clears an entry.
-
-Both use the existing dismissals (an audit row per person and key, no new table) and look back
-:data:`WITHIN`.
-"""
+"""Attention entries for work on the person's Mac, so the person is notified."""
 
 from __future__ import annotations
 
@@ -103,7 +89,6 @@ async def turn_entries(db: AsyncSession, user: User, dismissed: set[str]) -> lis
 
 
 async def _sample_sessions(db: AsyncSession, session_ids: set[str]) -> set[str]:
-    """The sessions of these that belong to an imported sample run (``views.is_sample``), in one query."""
     if not session_ids:
         return set()
     from ..workflow_runs.views import is_sample
@@ -115,7 +100,6 @@ async def _sample_sessions(db: AsyncSession, session_ids: set[str]) -> set[str]:
 
 
 async def mark_live_read(db: AsyncSession, user: User, *, device_id: str, peer: str) -> None:
-    """The person read this conversation: its newest answer no longer needs them."""
     from .dismissals import dismiss, dismissed_keys
 
     newest = (await db.execute(select(LiveMessage.id).where(

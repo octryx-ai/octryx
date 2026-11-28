@@ -1,9 +1,3 @@
-"""The hands-on test on the device: the built app served and used in the installed Chrome.
-
-The two apps below are the regression proof of the feature request "onboarding": one keeps "onboarding done" in
-localStorage, the other only in memory, so after a reload the onboarding shows up again and the test is red.
-"""
-
 from __future__ import annotations
 
 import json

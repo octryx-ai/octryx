@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { AdminAgentMode } from "../types/adminPanelTypes.agents";
 import type { AdminConnector, AdminDatabaseConnector, AdminDatabaseTool, AdminToolCatalogEntry } from "../types/adminPanelTypes.usersProviders";
-import type { AdminScenarioProfile } from "../types/adminPanelTypes.governance";
 
 export function useAdminConnectorCoreState() {
   const [connectors, setConnectors] = useState<AdminConnector[]>([]);
@@ -10,9 +9,6 @@ export function useAdminConnectorCoreState() {
   >([]);
   const [databaseTools, setDatabaseTools] = useState<AdminDatabaseTool[]>([]);
   const [toolCatalog, setToolCatalog] = useState<AdminToolCatalogEntry[]>([]);
-  const [scenarioProfiles, setScenarioProfiles] = useState<
-    AdminScenarioProfile[]
-  >([]);
   const [agentModes, setAgentModes] = useState<AdminAgentMode[]>([]);
 
   const [showAddConnector, setShowAddConnector] = useState(false);
@@ -67,8 +63,6 @@ export function useAdminConnectorCoreState() {
     setDatabaseTools,
     expandedConnector,
     setExpandedConnector,
-    scenarioProfiles,
-    setScenarioProfiles,
     showAddConnector,
     setShowAddConnector,
     toolCatalog,

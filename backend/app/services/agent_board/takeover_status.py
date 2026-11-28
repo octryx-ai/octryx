@@ -36,7 +36,6 @@ def effective_status(takeover: WorkItemTakeover, now=None) -> str:
 
 
 async def expire_pending(db: AsyncSession, *, work_item_id: str | None = None) -> None:
-    """Store ``expired`` on pending takeovers past their time (compare-and-set)."""
     statement = update(WorkItemTakeover).where(
         WorkItemTakeover.status == STATUS_PENDING, WorkItemTakeover.expires_at <= utc_now()
     )

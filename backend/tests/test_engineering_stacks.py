@@ -15,7 +15,7 @@ def test_the_built_in_stacks_carry_todays_values():
     data = stacks.built_in()
     assert "pubspec.yaml" in stacks.manifests(data) and "package.json" in stacks.manifests(data)
     assert {"build", ".dart_tool", "node_modules"} <= stacks.skip_folders(data)
-    assert "python" in data["stacks"]  # the key of the shipped Python Engineering Knowledge Pack
+    assert "python" in data["stacks"]
 
 
 def test_a_level_adds_a_stack_and_removes_one():
@@ -27,7 +27,6 @@ def test_a_level_adds_a_stack_and_removes_one():
 
 
 def test_a_new_stack_is_data_only(tmp_path: Path):
-    """A stack the platform never shipped: its app folder, l10n texts and dependencies are found from the data."""
     app = tmp_path / "apps" / "shop"
     (app / "priv" / "locales").mkdir(parents=True)
     (app / "mix.exs").write_text('{:phoenix, "~> 1.7"}\n', encoding="utf-8")
@@ -60,7 +59,6 @@ def test_the_consumers_name_no_manifest_folder_or_catalog():
 
 
 def test_a_test_file_is_known_by_the_stacks_test_folders_and_names():
-    """The test paths are stack data too; today's set is unchanged."""
     for path in ("app/test/x_test.dart", "app/integration_test/app.dart", "web/src/__tests__/a.ts", "web/e2e/b.ts",
                  "web/src/a.test.ts", "web/src/a.spec.ts", "api/tests/conftest.py", "api/test_a.py",
                  "app/system_test/run_system_test.py", "svc/handler_test.go"):
@@ -74,8 +72,6 @@ def test_a_test_file_is_known_by_the_stacks_test_folders_and_names():
 
 
 def test_a_declared_runner_takes_its_harmless_options_in_every_phase_and_the_hint_names_them():
-    """The fix phase must accept `flutter test -j 1`, the command the platform's own hint asks for.
-    The options and the hint come from the same stack data (test_runner)."""
     from app.services.workflow_runs.evidence_pause import concurrent_hint
     from app.services.workflow_runs.octryx.shell_rules import strict_shell_allows
 
@@ -93,8 +89,6 @@ def test_a_declared_runner_takes_its_harmless_options_in_every_phase_and_the_hin
 
 
 def test_the_full_run_hint_is_the_runners_own():
-    """A generic "-q, -x are fine" would send a Flutter agent to `flutter test -q`, which the shell policy refuses; the
-    Stop feedback and the system test rule name the runner's own full-run options (stack data)."""
     from app.services.workflow_runs.octryx.system_tests import rule_text
 
     assert "-q, -x" in stacks.full_run_hint(".venv/bin/python -m pytest -v")

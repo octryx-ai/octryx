@@ -9,20 +9,10 @@ export type CompanionState = {
   attention: Attention | null;
   problem: string | null;
   reload: () => void;
-  /** Takes an answered or dismissed item out at once; the next load confirms it. */
   remove: (key: string) => void;
-  /**
-   * Watches one run over the attention socket ({"watch": run_id}); `onChange` runs on each job_changed nudge for it.
-   * null (or another run) sends {"unwatch": run_id} for the previous run; later nudges for it are ignored anyway.
-   */
   watchJob: (runId: string | null, onChange?: () => void) => void;
 };
 
-/**
- * Loads the attention list, reloads on a WebSocket nudge ({type: "attention_changed"}, or job_changed without a run) over the
- * session cookie, every 30 s and when the window gets focus (the fallback when the socket is missing or drops), and
- * raises a browser notification for new items that notify (title only, never a body).
- */
 export function useCompanion({ userId, notificationApi, onOpenItem, pollMs = COMPANION_POLL_MS, socket = true }: {
   userId: string;
   notificationApi: NotificationApi | null;
@@ -47,8 +37,7 @@ export function useCompanion({ userId, notificationApi, onOpenItem, pollMs = COM
     readAttention({ generation, failures, seen, latest, setProblem, setAttention });
   }, []);
 
-  // Every trigger (socket nudge, focus, poll, the tab becoming visible) reads through one throttle; a hidden tab
-  // only remembers that it is behind and reads once when it is shown again.
+  // A hidden tab only remembers that it is behind and reads once when it is shown again.
   const throttle = useMemo(() => createThrottle(readNow, NUDGE_MIN_GAP_MS), [readNow]);
   useEffect(() => () => throttle.cancel(), [throttle]);
   const reload = useCallback(() => {

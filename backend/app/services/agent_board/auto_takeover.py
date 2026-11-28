@@ -1,26 +1,4 @@
-"""Automatic takeover under a Workspace's ``auto`` handoff policy.
-
-A pending takeover is confirmed **by the server** only when every condition holds; otherwise it stays pending
-for a person:
-
-1. **holder:** the held claim is live, and its gateway session is ``limit_reached``, at or above
-   ``auto_threshold_pct`` seven-day use, ``stopped``, or stale (no heartbeat for :data:`STALE_AFTER`), or the
-   holder handed the item over itself (``claim.handed_off_at``: ``/handoff``, the trigger);
-2. **requester spare:** the requester's own agent session is active and its last known seven-day use is at most
-   ``100 − require_spare_pct``; unknown counts only for a governed (non-seat) session;
-3. **requester allowed:** the requester's user is a Workspace member, and an admin/owner when the policy says
-   ``admins_and_owners``;
-4. **handoff:** the item has a handoff; without one it stays ``confirm``.
-
-The decision is the human one (``takeovers.decide_takeover``: compare-and-set, the same claim transfer, the old
-holder fenced, ``handoff_accept``), recorded as ``decided_by: system`` with the policy snapshot. Losing the
-compare-and-set to a person is not an error: the takeover simply is no longer pending. Both users get an **info**
-notification (type ``agent_board_info.handoff_auto``, never an action-needed item).
-
-It only ever runs for a takeover an agent **requested** (offer, never assign). :func:`pick_requester`
-names the best candidate for an **offer** (``automation.make_offer``): the qualifying agent (conditions 2 and 3)
-with the most spare allowance; the server never requests or confirms on its behalf.
-"""
+"""Automatic takeover under a Workspace's ``auto`` handoff policy."""
 
 from __future__ import annotations
 
@@ -96,8 +74,6 @@ async def requester_allowed(db: AsyncSession, user_id: str, project_id: str, pol
 
 
 async def auto_conditions(db: AsyncSession, takeover: WorkItemTakeover, policy: HandoffPolicy) -> dict[str, bool]:
-    """Each condition's result. A holder that handed the item over itself satisfies condition 1 while its claim
-    is live (handoff any time)."""
     claim = await db.get(WorkItemClaim, takeover.from_claim_id) if takeover.from_claim_id else None
     live = claim is not None and is_live(claim, utc_now())
     holder = await session_of(db, takeover.project_id, claim.holder_ref_hash) \
@@ -133,7 +109,6 @@ async def _info_notifications(db: AsyncSession, takeover: WorkItemTakeover) -> N
 
 
 async def maybe_auto_confirm(db: AsyncSession, takeover: WorkItemTakeover) -> bool:
-    """Confirm ``takeover`` by the server when the policy is ``auto`` and every condition holds. Flushes."""
     if takeover.status != STATUS_PENDING or takeover.expires_at <= utc_now() or not takeover.to_agent_hash:
         return False
     policy = await workspace_handoff_policy(db, takeover.project_id)
@@ -159,13 +134,6 @@ async def maybe_auto_confirm(db: AsyncSession, takeover: WorkItemTakeover) -> bo
 async def pick_requester(
     db: AsyncSession, claim: WorkItemClaim, policy: HandoffPolicy, *, exclude: frozenset[str] = frozenset()
 ) -> AgentPresence | None:
-    """The qualifying agent session with the most spare allowance, or ``None`` when none qualifies.
-
-    Freeze 3c replaces 3b's "exactly one": the lowest known use (``max`` of the five-hour and seven-day
-    percentages; an unknown use of a governed session counts as 0) wins, and a tie goes to the most recent
-    heartbeat. The holder, stopped or stale sessions and the hashes in ``exclude`` (already offered) are never
-    candidates.
-    """
     sessions = (
         await db.execute(
             select(AgentPresence).where(AgentPresence.project_id == claim.project_id,

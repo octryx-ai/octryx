@@ -1,7 +1,4 @@
-"""The coordinator splits an epic into stories; the server creates them and the chain builds them in that order.
-
-The flow: ``story_plan`` → ``work.create_stories`` → ``context.stories`` → the epic chain.
-"""
+"""The coordinator splits an epic into stories; the server creates them and the chain builds them in that order."""
 
 from __future__ import annotations
 
@@ -29,9 +26,6 @@ def _story(title, **extra):
     return {"title": title, "goal": "g", "criteria": ["c"], **extra}
 
 
-# --- the validator -------------------------------------------------------------------------------------------------
-
-
 def test_a_valid_plan_is_recorded_in_build_order():
     record, problems = validate_story_plan(PLAN)
     assert problems == []
@@ -57,11 +51,8 @@ def test_every_problem_is_listed_and_no_story_count_is_refused():
     _record, problems = validate_story_plan({"stories": [_story(""), {"title": "B"}, _story("C", depends_on_titles=[
         "Z"])]})
     assert len(problems) == 3
-    many = {"stories": [_story(f"S{n}") for n in range(40)]}  # no artificial limit
+    many = {"stories": [_story(f"S{n}") for n in range(40)]}
     assert validate_story_plan(many)[1] == []
-
-
-# --- work.create_stories -------------------------------------------------------------------------------------------
 
 
 async def _epic_run(db, *, source_type="jira", key="OPS-1", context=None):
@@ -162,7 +153,7 @@ async def test_an_epic_that_has_stories_adopts_them_and_creates_none(db, monkeyp
     outcome = await create_stories(db, run, {"story_workflow": "team-delivery"})
     assert outcome.ok and outcome.result == {"status": "adopted", "stories": ["OPS-5"]}
     assert run.context["stories"] == ["OPS-5"]
-    assert run.context["story_workflow"] == "epic-delivery"  # the run's own choice stays
+    assert run.context["story_workflow"] == "epic-delivery"
 
 
 @pytest.mark.asyncio
@@ -187,9 +178,6 @@ def test_the_action_is_definition_only_and_needs_a_story_plan_before_it():
     assert "story_plan" in consumes(node)
 
 
-# --- the chain builds the stories in the stored order --------------------------------------------------------------
-
-
 def _recording_start(project, admin, started):
     async def fake_start(db_, **kwargs):
         run = WorkflowRun(project_id=project.id, work_item_id=kwargs["work_item_id"], workflow_kind="phased",
@@ -204,7 +192,6 @@ def _recording_start(project, admin, started):
 
 @pytest.mark.asyncio
 async def test_the_chain_starts_the_stories_in_the_stored_order(db, monkeypatch):
-    """X-10 was created before X-9 (or in the same second): the stored order wins over creation time and key."""
     admin, project, epic, _run = await _epic_run(db, key="X-1")
     s10 = WorkItem(source_type="jira", source_instance="cloud", source_key="X-10", title="second", epic_key="X-1",
                    project_id=project.id, work_state="intake")

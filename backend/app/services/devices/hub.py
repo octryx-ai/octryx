@@ -1,12 +1,4 @@
-"""The in-process hub of connected devices: who is connected here and what runs on it.
-
-The device channel (``api/routes/device_channel.py``) registers each live socket here. The source of truth for
-devices, jobs and approvals is the database; this hub only holds the sockets of this process, as the chat
-session stream does (cross-replica delivery is not built yet).
-
-``device_revoked`` / ``devices_paused`` are called after the change is committed: a connected device gets
-``revoke`` / ``pause`` at once and stops its running jobs.
-"""
+"""The in-process hub of connected devices: who is connected here and what runs on it."""
 
 from __future__ import annotations
 
@@ -40,7 +32,6 @@ class DeviceHub:
         self._lock = asyncio.Lock()
 
     async def attach(self, connection: DeviceConnection) -> DeviceConnection | None:
-        """Register ``connection``; returns the connection it replaced (a reconnect), if any."""
         async with self._lock:
             previous = self._connections.get(connection.device_id)
             self._connections[connection.device_id] = connection
@@ -57,7 +48,6 @@ class DeviceHub:
                 self._detached_at[connection.device_id] = utc_now()
 
     def connection(self, device_id: str) -> DeviceConnection | None:
-        """The device's live connection; one whose tick stopped succeeding (``healthy``) does not count."""
         connection = self._connections.get(device_id)
         healthy = getattr(connection, "healthy", None)
         if connection is not None and callable(healthy) and not healthy():
@@ -68,7 +58,6 @@ class DeviceHub:
         return self.connection(device_id) is not None
 
     def reachable(self, device: Any) -> bool:
-        """Connected here, or (no socket here) connected to another process by its recent ``last_seen_at``."""
         device_id = str(device.id)
         if self.connected(device_id):
             return True
@@ -85,7 +74,6 @@ class DeviceHub:
         return now - seen <= REMOTE_LIVE_WINDOW
 
     def attached(self, device_id: str) -> DeviceConnection | None:
-        """The attached connection, healthy or not (a revoke or pause must reach it either way)."""
         return self._connections.get(device_id)
 
     def clear(self) -> None:
@@ -97,7 +85,6 @@ device_hub = DeviceHub()
 
 
 def device_live_state(device_id: str) -> dict[str, Any]:
-    """``{connected, seat_login, codex_seat_login}`` for the serializers; running jobs are counted from the database."""
     connection = device_hub.connection(device_id)
     return {"connected": connection is not None, "seat_login": bool(connection and connection.seat_login),
             "codex_seat_login": bool(connection and getattr(connection, "codex_seat_login", False)),
@@ -111,7 +98,6 @@ async def device_revoked(device_id: str) -> None:
 
 
 async def devices_paused(devices: Iterable[Any], *, paused: bool = True) -> None:
-    """The platform pause changed: a connected device stops its jobs (``pause``) or accepts again (``resume``)."""
     for device in devices:
         connection = device_hub.attached(device.id)
         if connection is not None:

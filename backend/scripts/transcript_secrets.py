@@ -19,7 +19,7 @@ stores it and when the platform serves it:
    ``sk_live_``/``sk_test_``/``rk_``, Anthropic/OpenAI ``sk-``, GitHub, Slack, AWS access key ids, GitLab
    ``glpat-``, JWTs; PEM private-key blocks, ``Bearer``/``Basic`` headers, URLs with ``user:pass@``;
 3. JSON fields such as ``password``, ``secret``, ``token``, ``api_key``, ``access_key``, ``private_key``,
-   ``client_secret`` and ``SecretString``, also escaped inside a string and nested;
+   ``client_secret``, ``SecretString`` and Octryx's ``confirmation_ticket``, also escaped inside a string and nested;
 4. the output of a command that prints a secret (:data:`SECRET_COMMANDS`) or of a read of a credential file
    (``.env*``, ``*.pem``, ``*.key``, ``id_*``, ``.npmrc``, ``.netrc``, ``credentials`` …) is replaced as a whole.
 
@@ -39,7 +39,8 @@ SECRET_OUTPUT = "[redacted: output of a secret command or credential file]"
 
 _SECRET_WORDS = r"(?:KEY|TOKEN|SECRET|PASSWORD|PASSWD|PWD|CREDENTIAL|PRIVATE|AUTH|API_KEY|ACCESS_KEY|CONNECTION_STRING)"
 _SECRET_NAME = rf"[A-Za-z0-9_.-]*{_SECRET_WORDS}[A-Za-z0-9_.-]*"
-_JSON_WORDS = r"(?:password|passwd|secret|token|api_?key|access_?key|private_?key|client_?secret|credential)"
+_JSON_WORDS = (r"(?:password|passwd|secret|token|api_?key|access_?key|private_?key|client_?secret|credential"
+               r"|confirmation_ticket)")
 _JSON_NAME = rf"[A-Za-z0-9_.-]*{_JSON_WORDS}[A-Za-z0-9_.-]*"
 
 _PEM = re.compile(r"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----.*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)", re.S)

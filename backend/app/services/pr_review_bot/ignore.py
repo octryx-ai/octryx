@@ -1,16 +1,4 @@
-"""``@octryx ignore [reason]`` (stage D1b): a finding closed on its pull request, and a team rule proposed.
-
-Written as a reply in a finding's thread (the inline comment the bot posted, ``open_findings[].comment_id`` of the
-pull request's last posted pass):
-
-- the finding leaves the pass's open findings and is kept as ``ignored`` (with who and why); later passes carry the
-  list and drop a new finding on the same file within ``NEAR_LINES`` lines (``without_ignored``), so it does not
-  come back;
-- its thread gets "Ignored by …" and is resolved;
-- the status of the reviewed commit turns ``success`` when the ignored finding was the last blocking one (the
-  blocking ids of the pass, ``posted.blocking``); the summary follows on the next pass;
-- a team rule is proposed to the Workspace's admins (``rule_proposals``).
-"""
+"""``@octryx ignore [reason]`` (stage D1b): a finding closed on its pull request, and a team rule proposed."""
 
 from __future__ import annotations
 
@@ -37,8 +25,6 @@ async def last_posted(db: AsyncSession, project_id: str, repository: str, pr_id:
 
 
 def without_ignored(findings: list[dict[str, Any]], ignored: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The reviewer's findings without those an ``ignore`` closed: the same id, or the same file within
-    ``NEAR_LINES`` lines (the deterministic caller and CI findings are never dropped)."""
     def closed(item: dict[str, Any]) -> bool:
         if item.get("source") in ("caller_check", "ci"):
             return False
@@ -55,7 +41,6 @@ def without_ignored(findings: list[dict[str, Any]], ignored: list[dict[str, Any]
 
 async def ignore_finding(db: AsyncSession, project_id: str, record: CodeRepository, event: CommentEvent,
                          reason: str, user_id: str, who: str, send: Any) -> str:
-    """Close the finding of the thread ``event`` was written in; the outcome (``ignored`` / ``no_finding``)."""
     from .rule_proposals import propose
 
     run = await last_posted(db, project_id, event.repository, event.pr_id)

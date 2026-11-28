@@ -6,6 +6,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -13,7 +14,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class FlowDefinition(Base):
+class FlowDefinition(WorkspaceBound, Base):
     __tablename__ = "flow_definitions"
     __table_args__ = (
         UniqueConstraint("key", "project_id", name="uq_flow_definitions_key_project"),
@@ -44,7 +45,9 @@ class FlowDefinition(Base):
     )
 
 
-class FlowDefinitionVersion(Base):
+class FlowDefinitionVersion(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"flow_id": "flow_definitions"}
     __tablename__ = "flow_definition_versions"
     __table_args__ = (
         UniqueConstraint("flow_id", "version", name="uq_flow_definition_versions_flow_version"),
@@ -69,36 +72,3 @@ class FlowDefinitionVersion(Base):
     flow = relationship("FlowDefinition", back_populates="versions", foreign_keys=[flow_id])
     creator = relationship("User", foreign_keys=[created_by])
     publisher = relationship("User", foreign_keys=[published_by])
-
-
-class FlowNodeRun(Base):
-    __tablename__ = "flow_node_runs"
-    __table_args__ = (
-        Index("ix_flow_node_runs_orchestrator", "orchestrator_run_id"),
-        Index("ix_flow_node_runs_flow_version", "flow_definition_version_id"),
-        Index("ix_flow_node_runs_node", "flow_definition_version_id", "node_id"),
-        Index("ix_flow_node_runs_status", "status"),
-    )
-
-    id = Column(String(36), primary_key=True, default=uuid_pk)
-    orchestrator_run_id = Column(String(36), ForeignKey("orchestrator_agent_runs.id"), nullable=False)
-    flow_definition_version_id = Column(String(36), ForeignKey("flow_definition_versions.id"), nullable=False)
-    node_id = Column(String(128), nullable=False)
-    node_type = Column(String(64), nullable=False, index=True)
-    status = Column(String(32), nullable=False, default="pending")
-    attempt = Column(Integer, nullable=False, default=1)
-    input_json = Column(JSON, nullable=False, default=dict)
-    output_json = Column(JSON, nullable=False, default=dict)
-    error = Column(Text, nullable=True)
-    evidence_summary_json = Column(JSON, nullable=False, default=dict)
-    artifact_refs_json = Column(JSON, nullable=False, default=list)
-    trace_refs_json = Column(JSON, nullable=False, default=dict)
-    token_usage_json = Column(JSON, nullable=False, default=dict)
-    cost_estimate_json = Column(JSON, nullable=False, default=dict)
-    started_at = Column(DateTime, nullable=True, index=True)
-    completed_at = Column(DateTime, nullable=True, index=True)
-    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
-
-    orchestrator_run = relationship("OrchestratorAgentRun")
-    flow_definition_version = relationship("FlowDefinitionVersion")

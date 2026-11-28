@@ -1,10 +1,4 @@
-"""The registry of code-defined workflow families and the contract a turn's selection builds.
-
-Two families exist: ``coding_change_tdd`` (secure-work coding execution, coding phases of a
-workflow run) and ``knowledge_request`` (the triage phase of ``jira-intake-triage``). The family
-comes only from the turn's selection (``workflow_routing.workflow_selection``); the prompt never
-picks one.
-"""
+"""The registry of code-defined workflow families and the contract a turn's selection builds."""
 
 from __future__ import annotations
 
@@ -21,7 +15,6 @@ def workflow_definitions() -> tuple[WorkflowDefinition, ...]:
 
 
 def get_workflow_definition(workflow_id: str) -> WorkflowDefinition | None:
-    """Return the registry definition for an explicit workflow id, if any."""
     normalized_id = str(workflow_id or "").strip()
     if not normalized_id:
         return None
@@ -29,7 +22,6 @@ def get_workflow_definition(workflow_id: str) -> WorkflowDefinition | None:
 
 
 def workflow_phase_tool_names(workflow_contract: dict[str, Any] | None) -> list[str]:
-    """The preferred tools of the contract's family phases, in order (none for a run phase)."""
     contract = workflow_contract if isinstance(workflow_contract, dict) else {}
     if is_run_phase_contract(contract):
         # A phase reuses a family id for its message only: the family never plans its tools.
@@ -54,13 +46,6 @@ def build_task_workflow_contract(
     project_id: str | None = None,
     capability_type: str | None = None,
 ) -> dict[str, Any]:
-    """Build the contract of the workflow the turn's routing resolution selected, or ``{}``.
-
-    The family comes only from the selection: the routing resolution in ``request_analysis``,
-    or, without one, the explicit ``workflow_contract`` a caller put there. No selection means
-    no contract. The definition's ``matcher`` is an applicability guard on the selected family;
-    it reads only the configured contract, never the prompt.
-    """
     from ..workflow_routing.workflow_selection import workflow_selection_from_analysis
 
     selection = workflow_selection_from_analysis(request_analysis)
@@ -119,7 +104,6 @@ def plan_next_workflow_tool_calls(
 
 
 def workflow_contract_from_request_analysis(request_analysis: dict[str, Any] | None) -> dict[str, Any]:
-    """The turn's workflow contract from its request analysis, ``{}`` without one."""
     if not isinstance(request_analysis, dict):
         return {}
     workflow_contract = request_analysis.get("workflow_contract")

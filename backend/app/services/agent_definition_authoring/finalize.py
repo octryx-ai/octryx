@@ -68,7 +68,6 @@ def _deleted_record(
 
 
 def _revision_outcome(scope: GovernedWriteScope, validation: Any) -> tuple[bool, str, str]:
-    """Whether the revision is published, and its status and audit outcome."""
     publishes = writer_spec(scope.writer).publishes and validation.ok
     if publishes:
         return publishes, REVISION_STATUS_PUBLISHED, OUTCOME_PUBLISHED
@@ -114,7 +113,6 @@ async def _finalize_definition(
     deleted: bool,
     captured_project_id: str | None,
 ) -> GovernedWriteRecord:
-    """One record per collected definition — every governed write is evidence."""
     # A deleted definition is audited with the Workspace captured before the row
     # went away, so the deletion record keeps its project attribution.
     if deleted:
@@ -201,6 +199,7 @@ async def _write_audit(
             action=AUDIT_ACTION,
             resource_type=AUDIT_RESOURCE_TYPE,
             resource_id=record.definition_id,
+            project_id=record.project_id,
             details={
                 "writer": scope.writer.value,
                 "writer_class": spec.writer_class.value,

@@ -1,10 +1,5 @@
-// Chat sidebar grouping ("too many projects"). Threads
-// of workspaces the chat cannot select right now (inactive, or not available
-// to this user) stay reachable but move into one collapsed "Other workspaces"
-// section; nothing is hidden by name patterns or deleted. Absence from the
-// selectable list does not prove a workspace is archived, so the section never
-// claims that. While the selectable list is not loaded (empty), nothing moves,
-// so the sidebar does not flicker all groups into the section.
+// Absence from the selectable list does not prove a workspace is archived, so the section never claims that.
+// While the selectable list is not loaded (empty) nothing moves, so the sidebar does not flicker.
 type GroupLike = { projectId?: string; sessions: unknown[]; totalThreadCount?: number };
 
 export function partitionThreadGroups<T extends GroupLike>(groups: T[], selectableProjectIds: Set<string>) {

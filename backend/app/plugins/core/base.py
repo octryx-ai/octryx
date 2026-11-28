@@ -41,15 +41,7 @@ class BasePlugin(ABC):
 
     @abstractmethod
     async def execute(self, params: dict, context: Any) -> dict[str, Any]:
-        """Execute the plugin with given parameters.
-
-        Args:
-            params: Tool parameters from the LLM
-            context: ToolContext with user/project information
-
-        Returns:
-            dict with 'success' and 'data' or 'error' keys
-        """
+        """Execute the plugin with given parameters."""
         pass
 
     @abstractmethod
@@ -67,16 +59,7 @@ class BasePlugin(ABC):
 
 
 class ChannelPlugin(ABC):
-    """
-    Abstract base class for all channel plugins.
-    Each channel plugin must implement these methods to integrate with Octryx.
-
-    ``INBOUND_POLLING`` marks a plugin that pulls its inbound messages itself (IMAP, long polling,
-    sync loops). Such a loop must run in exactly one process: the one that runs the background
-    workers. Elsewhere (an API process of a split deployment) the plugin is loaded for sending only,
-    with ``config["__inbound"] = False``. Webhook-driven plugins receive in whichever
-    API process the webhook reaches.
-    """
+    """Abstract base class for all channel plugins."""
 
     INBOUND_POLLING = False
 
@@ -93,47 +76,27 @@ class ChannelPlugin(ABC):
 
     @abstractmethod
     async def initialize(self) -> None:
-        """
-        Initialize the plugin. This is called after the plugin is loaded.
-        Should set up connections, authenticate, and prepare to receive/send messages.
-        """
+        """Initialize the plugin."""
         pass
 
     @abstractmethod
     async def shutdown(self) -> None:
-        """
-        Shutdown the plugin. Clean up resources, close connections.
-        """
+        """Shutdown the plugin."""
         pass
 
     @abstractmethod
     async def send_message(self, target: str, content: str, **kwargs) -> bool:
-        """
-        Send a message to a target (user, room, group, etc.) via this channel.
-        Returns True if successful, False otherwise.
-        """
+        """Send a message to a target (user, room, group, etc.) via this channel."""
         pass
 
     @abstractmethod
     async def receive_message(self) -> dict[str, Any] | None:
-        """
-        Receive a message from the channel.
-        Should return a dict with at least:
-        - sender_id: identifier of the sender
-        - content: message text
-        - target: where the message was sent to (room, group, user id)
-        - timestamp: when the message was sent (ISO string or epoch)
-        - raw: the original payload from the channel (for debugging/audit)
-        Return None if no message is available (non-blocking poll).
-        """
+        """Receive a message from the channel."""
         pass
 
     @abstractmethod
     def get_plugin_info(self) -> dict[str, Any]:
-        """
-        Return metadata about this plugin for display in admin panel.
-        Should include: name, description, version, author, etc.
-        """
+        """Return metadata about this plugin for display in admin panel."""
         pass
 
     def is_enabled(self) -> bool:

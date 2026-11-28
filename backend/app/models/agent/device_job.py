@@ -1,11 +1,4 @@
-"""A chat thread's work on one of its owner's devices, its events and its tool approvals.
-
-A ``DeviceJob`` is sticky per chat thread: every message of the thread is a *turn* of the same job (one Claude
-Code session on the device, continued with ``resume``). The platform delivers turns, stop requests and
-approval decisions over the device channel; the device reports sequenced events (``DeviceJobEvent``,
-``seq`` per job, stored exactly once). Only the job's owner may answer its approvals
-(``DeviceJobApproval``); an approval left unanswered until ``expires_at`` is a deny.
-"""
+"""A chat thread's work on one of its owner's devices, its events and its tool approvals."""
 
 from __future__ import annotations
 
@@ -14,6 +7,7 @@ import secrets
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -25,18 +19,21 @@ def approval_pk() -> str:
     return f"da_{secrets.token_hex(8)}"
 
 
-class DeviceJob(Base):
+class DeviceJob(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
+    __workspace_column__ = "workspace_id"
     __tablename__ = "device_jobs"
     __table_args__ = (Index("ix_device_jobs_device_status", "device_id", "status"),)
 
     id = Column(String(40), primary_key=True, default=job_pk)
-    device_id = Column(String(40), ForeignKey("user_devices.id"), nullable=False)
+    # Empty while a chat turn waits for a free server runner (``waiting_runner``).
+    device_id = Column(String(40), ForeignKey("user_devices.id"), nullable=True)
     owner_user_id = Column(String(36), ForeignKey("users.id"), nullable=False, index=True)
     session_id = Column(String(36), ForeignKey("sessions.id"), nullable=False, index=True)
     workspace_id = Column(String(36), ForeignKey("projects.id"), nullable=True)
     folder = Column(String(500), nullable=False)
     profile = Column(String(20), nullable=False)
-    # offered → running → idle (turn done) … ; terminal: rejected, failed, device_lost, closed
+    # (waiting_runner →) offered → running → idle (turn done) … ; terminal: rejected, failed, device_lost, closed
     status = Column(String(20), nullable=False, default="offered", index=True)
     status_reason = Column(String(80), nullable=True)
     policy_decision_id = Column(String(80), nullable=True)
@@ -68,7 +65,9 @@ class DeviceJob(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
-class DeviceJobEvent(Base):
+class DeviceJobEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"job_id": "device_jobs"}
     __tablename__ = "device_job_events"
     __table_args__ = (UniqueConstraint("job_id", "seq", name="uq_device_job_events_seq"),)
 
@@ -80,7 +79,9 @@ class DeviceJobEvent(Base):
     created_at = Column(DateTime, default=utc_now, nullable=False)
 
 
-class DeviceJobApproval(Base):
+class DeviceJobApproval(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"job_id": "device_jobs"}
     __tablename__ = "device_job_approvals"
     # A person's pending approvals, newest first: read by every attention and inbox poll.
     __table_args__ = (Index("ix_device_job_approvals_owner_status_created", "owner_user_id", "status", "created_at"),)

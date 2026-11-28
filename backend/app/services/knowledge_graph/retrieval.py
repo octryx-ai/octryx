@@ -1,7 +1,5 @@
-"""Graph retrieval: rank entity nodes (low-level) and relation edges (high-level)
-by semantic + keyword signal; expand entities with graph neighbors.
-Instance-global nodes (project_id NULL) are always in scope.
-"""
+"""Graph retrieval: rank entity nodes and relation edges by semantic and keyword signal. Instance-global nodes are
+always in scope."""
 
 from __future__ import annotations
 
@@ -40,19 +38,13 @@ def _terms(text: str) -> list[str]:
 
 
 def keyword_signal(query: str, haystack: str, *, name: str = "") -> float:
-    """Term-based keyword score for multi-word queries.
-
-    Strongest signal: the entity NAME appears inside the question (the natural
-    direction for "what is X?" lookups). Then full-phrase containment, all
-    meaningful terms, and finally the matched-term fraction — stopwords are
-    excluded so they cannot dilute the score."""
     needle = " ".join(str(query or "").lower().split())
     haystack = str(haystack or "").lower()
     if not needle or not haystack:
         return 0.0
     normalized_name = " ".join(str(name or "").lower().split())
     if normalized_name and len(normalized_name) >= 4:
-        # Word-boundary match: 'gitops' must not fire inside 'acme-orders-gitops'.
+        # Word-boundary match: 'gitops' must not fire inside 'demo-shop-gitops'.
         import re as _re
 
         if _re.search(rf"(?<![\w-]){_re.escape(normalized_name)}(?![\w-])", needle):
@@ -91,7 +83,6 @@ def _project_scoped(stmt, model, project_ids: list[str] | None):
 
 
 def _blended_score(query_text: str, haystack: str, query_embedding: list[float], embedding, *, name: str = ""):
-    """``(score, keyword, semantic)``: semantic + keyword blend, keyword-only without a query embedding."""
     keyword = keyword_signal(query_text, haystack, name=name)
     semantic = (
         compute_semantic_similarity(query_embedding, embedding if isinstance(embedding, list) else None)
@@ -132,12 +123,7 @@ async def search_graph_nodes(
     alias_query: str | None = None,
     matches_only: bool = False,
 ) -> list[dict[str, Any]]:
-    """``alias_query`` carries the ORIGINAL user question for entity linking when
-    ``query`` was rewritten (e.g. LLM-extracted keywords): exact identifiers like
-    ``report-builder.py`` must reach the alias matcher even if the rewrite drops them.
-
-    ``matches_only`` keeps only real matches — a keyword or alias hit, or a semantic score of at
-    least ``SEMANTIC_MATCH_THRESHOLD`` — instead of every node with a score above zero."""
+    """Rank entity nodes for ``query``; ``alias_query`` carries the original question for entity linking."""
     query_text = str(query or "").strip()
     if not query_text:
         return []
@@ -182,7 +168,6 @@ async def search_graph_nodes(
 
 
 async def _alias_matches(db: AsyncSession, query: str) -> set[str]:
-    """Node ids whose alias exactly matches a query n-gram (1-3 words)."""
     words = " ".join(str(query or "").lower().split()).strip("?.!,:;'\"").split()
     ngrams: set[str] = set()
     for size in (1, 2, 3):

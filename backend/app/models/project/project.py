@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -22,7 +23,8 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class Project(Base):
+class Project(WorkspaceBound, Base):
+    __workspace_column__ = "id"
     __tablename__ = "projects"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -69,14 +71,8 @@ class Project(Base):
     )
 
 
-class KnowledgeChunk(Base):
-    """A text chunk of a source document — the naive vector-RAG substrate (tier 1).
-
-    Chunks are derived deterministically from Bronze source content. ``content_hash``
-    enables incremental re-indexing: a re-sync only re-embeds chunks whose text
-    actually changed. The ``embedding`` JSON column is filled by the governed
-    knowledge-embedding provider.
-    """
+class KnowledgeChunk(WorkspaceBound, Base):
+    """A text chunk of a source document — the naive vector-RAG substrate (tier 1)."""
 
     __tablename__ = "knowledge_chunks"
     __table_args__ = (

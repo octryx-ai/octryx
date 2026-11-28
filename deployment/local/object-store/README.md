@@ -125,7 +125,10 @@ Nothing else: no `s3:DeleteObject`, `s3:ListBucket`, `s3:HeadObject` (covered by
 creation is a deployment step, not a runtime privilege.
 
 The **operator reconciliation identity** is separate and is used only by the reconciliation
-inventory (`backend/app/services/knowledge/retention/reconcile.py`), never by the API process:
+inventory (`backend/app/services/knowledge/retention/reconcile.py`). The background workers run it
+for every Workspace with a retention policy, every `OCTRYX_KNOWLEDGE_RETENTION_RECONCILE_INTERVAL_HOURS`
+(default 24), with the shared-credentials profile `OCTRYX_KNOWLEDGE_RECONCILE_AWS_PROFILE`
+(`backend/app/services/knowledge/retention/scheduled.py`); give that profile only this grant:
 
 | Required on AWS S3 (IAM) — reconciliation identity | Why |
 |---|---|
@@ -187,7 +190,7 @@ One passing local implementation is not a statement about every S3-compatible ve
   deliberately does not implement.
 - **Deletion is not raced against a concurrent write here.** The PostgreSQL hold, the settle window
   and the ledger re-verification that make a deletion safe against an in-flight ingestion are proven
-  in `backend/tests/test_knowledge_object_retention_race.py`, not by this fixture: they are database
+  in `backend/tests/services/knowledge/test_knowledge_object_retention_race.py`, not by this fixture: they are database
   behavior, not S3 protocol behavior.
 - **Not qualified**: AWS S3 itself, and any customer-selected implementation. Both remain separate
   decisions.

@@ -10,13 +10,14 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import ConnectorWatcherEvent, User
+from ...models import ConnectorWatcher, ConnectorWatcherEvent, User
 from ...time_utils import utc_now
 from ..connector_watcher_polling import UnsupportedPollingTriggerError, ensure_api_ingestion_polling_trigger
-from ..connector_watcher_scope import WatcherScope, scope_filter
+from ..connector_watcher_scope import SYSTEM_SCOPE, WatcherScope, scope_filter
 from ..secure_work.jira_values import object_value
 from .common import (
     MAX_EVENTS,
+    WATCHER_NOT_FOUND,
     _audit,
     _get_active_watcher,
     _get_event,
@@ -31,18 +32,30 @@ from .serialize import serialize_connector_watcher, serialize_watcher_event
 from .watchers import _verify_webhook_secret
 
 
+async def authenticate_webhook_call(db: AsyncSession, *, watcher_id: str, provided_secret: str | None,
+                                    private: bool) -> ConnectorWatcher:
+    # The secret is checked before anything else of the watcher answers; a watcher without a secret takes no calls.
+    # In a private Workspace a refused call answers like an unknown watcher.
+    watcher = await _get_watcher(db, watcher_id, scope=SYSTEM_SCOPE)
+    try:
+        await _verify_webhook_secret(db, watcher, provided_secret)
+    except HTTPException:
+        if private:
+            raise HTTPException(status_code=404, detail=WATCHER_NOT_FOUND) from None
+        raise
+    return watcher
+
+
 async def ingest_connector_webhook_event(
     db: AsyncSession,
     *,
-    watcher_id: str,
+    watcher: ConnectorWatcher,
     payload: dict[str, Any],
-    provided_secret: str | None = None,
 ) -> dict[str, Any]:
-    # The webhook is authenticated by the watcher's secret, not by a user: any Workspace's watcher answers.
-    watcher = await _get_active_watcher(db, watcher_id, scope=None)
+    if not watcher.is_active:
+        raise HTTPException(status_code=403, detail="Connector watcher is disabled")
     if watcher.mode not in {"webhook", "hybrid"}:
         raise HTTPException(status_code=409, detail="Watcher does not accept webhook events")
-    await _verify_webhook_secret(db, watcher, provided_secret)
     event = await _record_event(db, watcher, payload=payload, source="webhook")
     if event.status == "duplicate":
         _increment_health(watcher, "duplicate_count")
@@ -86,7 +99,8 @@ async def ingest_connector_poll_events(
         watcher.cursor_json = cursor
         watcher.last_cursor = json.dumps(cursor, sort_keys=True)
     watcher.updated_by = current_user.id
-    db.add(_audit(current_user, "connector_watcher.poll_ingested", watcher.id, {"count": len(recorded)}))
+    db.add(_audit(current_user, "connector_watcher.poll_ingested", watcher.id, {"count": len(recorded)},
+                  project_id=watcher.project_id))
     await db.flush()
     return {
         "watcher": serialize_connector_watcher(watcher),
@@ -103,10 +117,7 @@ async def list_connector_watcher_events(
     status: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
-    stmt = select(ConnectorWatcherEvent)
-    condition = scope_filter(ConnectorWatcherEvent.project_id, scope, None)
-    if condition is not None:
-        stmt = stmt.where(condition)
+    stmt = select(ConnectorWatcherEvent).where(scope_filter(ConnectorWatcherEvent.project_id, scope, None))
     if watcher_id:
         stmt = stmt.where(ConnectorWatcherEvent.watcher_id == watcher_id)
     if status:
@@ -147,7 +158,8 @@ async def retry_connector_watcher_event(
         await _process_event(db, watcher=watcher, event=event)
         watcher.status = "active"
         watcher.health_json = _health(watcher, last_event=event)
-        db.add(_audit(current_user, "connector_watcher.event_replayed", event.id, {"status": event.status}))
+        db.add(_audit(current_user, "connector_watcher.event_replayed", event.id, {"status": event.status},
+                      project_id=watcher.project_id))
         await db.flush()
         return serialize_watcher_event(event)
     if event.attempts >= retry_policy["max_attempts"]:
@@ -162,6 +174,7 @@ async def retry_connector_watcher_event(
         _increment_health(watcher, "failure_count")
     watcher.status = "degraded" if event.status == "dead_letter" else "retry_pending"
     watcher.health_json = _health(watcher, last_event=event)
-    db.add(_audit(current_user, "connector_watcher.event_retry", event.id, {"status": event.status}))
+    db.add(_audit(current_user, "connector_watcher.event_retry", event.id, {"status": event.status},
+                  project_id=watcher.project_id))
     await db.flush()
     return serialize_watcher_event(event)

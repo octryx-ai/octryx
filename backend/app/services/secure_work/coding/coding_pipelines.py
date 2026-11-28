@@ -42,11 +42,10 @@ async def list_coding_pipeline_configs(
     *,
     project_id: str | None = None,
     include_inactive: bool = False,
-    project_scope: set[str] | None = None,
+    project_scope: set[str] | None,
+    viewer_id: str,
 ) -> list[dict[str, Any]]:
-    stmt = select(WorkCodingPipelineConfig)
-    if project_scope is not None:  # r10 C-8f: the caller's Workspaces and the global rows (read-only)
-        stmt = stmt.where(scope_filter(WorkCodingPipelineConfig, project_scope))
+    stmt = select(WorkCodingPipelineConfig).where(scope_filter(WorkCodingPipelineConfig, project_scope, viewer_id))
     if project_id:
         stmt = stmt.where(WorkCodingPipelineConfig.project_id == project_id)
     if not include_inactive:
@@ -61,7 +60,7 @@ async def create_coding_pipeline_config(
     current_user: User,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    normalized = await _normalized_config_payload(db, payload)
+    normalized = await _normalized_config_payload(db, current_user.id, payload)
     row = WorkCodingPipelineConfig(**normalized, created_by=current_user.id, updated_by=current_user.id)
     db.add(row)
     await db.flush()
@@ -76,8 +75,8 @@ async def update_coding_pipeline_config(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     row = await _get_config(db, config_id)
-    payload = {"project_id": row.project_id, **unmasked(payload, serialize_coding_pipeline_config(row))}  # C-8c, R11-4
-    normalized = await _normalized_config_payload(db, payload)
+    payload = {"project_id": row.project_id, **unmasked(payload, serialize_coding_pipeline_config(row))}
+    normalized = await _normalized_config_payload(db, current_user.id, payload)
     for key, value in normalized.items():
         setattr(row, key, value)
     row.updated_by = current_user.id
@@ -230,9 +229,9 @@ async def control_coding_pipeline_run(
     return serialize_coding_pipeline_run(run, await _run_stages(db, run.id))
 
 
-async def _normalized_config_payload(db: AsyncSession, payload: dict[str, Any]) -> dict[str, Any]:
+async def _normalized_config_payload(db: AsyncSession, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     project_id = blank_to_none(payload.get("project_id"))
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, user_id, project_id)
     name = str(payload.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="name is required")
@@ -283,5 +282,6 @@ def _audit_log(current_user: User, item: WorkItem, action: str, details: dict[st
         action=action,
         resource_type="secure_work_coding_pipeline",
         resource_id=item.id,
+        project_id=item.project_id,
         details={"work_item_id": item.id, "source_key": item.source_key, **details},
     )

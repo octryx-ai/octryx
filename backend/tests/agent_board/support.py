@@ -18,7 +18,6 @@ async def seed_item(db, workspace_id: str, key: str = "BRD-1", *, title: str = "
 
 
 async def seed_presence(db, user_id: str, workspace_id: str, *, work_item_key: str | None = None) -> str:
-    """A registered gateway session of ``user_id``; returns its session key."""
     session_key = str(uuid.uuid4())
     now = utc_now()
     db.add(AgentPresence(id=str(uuid.uuid4()), session_key=session_key, user_id=user_id, project_id=workspace_id,

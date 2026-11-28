@@ -1,11 +1,5 @@
-"""Successive runs on one Work item: at most one active run per item and workflow, and the earlier runs a new run
-may adopt from ("Lifecycle of successive runs").
-
-What a run adopts is decided by each platform action from these records only — what an earlier run of the *same*
-Work item recorded (``context.branch_created``, ``context.pushed_commits``, ``pull_request``, the ticket key, the
-drafted change plan) — never from a name that merely matches. The adoption itself is recorded on the new run with the
-run it came from (provenance).
-"""
+"""Successive runs on one Work item: at most one active run per item and workflow, and the earlier runs a new run may
+adopt from ("Lifecycle of successive runs")."""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ from .states import ACTIVE_STATUSES
 
 
 async def require_no_active_run(db: AsyncSession, item: WorkItem | None, workflow_key: str) -> None:
-    """Refuse a second active top-level run of ``workflow_key`` on ``item`` (continue or abort the first)."""
     if item is None:
         return
     # Serialises concurrent starts on the same item (a no-op on SQLite).
@@ -36,7 +29,6 @@ async def require_no_active_run(db: AsyncSession, item: WorkItem | None, workflo
 
 
 async def earlier_runs(db: AsyncSession, run: WorkflowRun, *, same_repository: bool = True) -> list[WorkflowRun]:
-    """The ended other runs of the run's Work item (newest first); ``same_repository``: only on its repository."""
     if not run.work_item_id:
         return []
     query = select(WorkflowRun).where(WorkflowRun.work_item_id == run.work_item_id, WorkflowRun.id != run.id)

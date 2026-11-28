@@ -1,15 +1,4 @@
-"""PR review bot, calls outside the diff.
-
-When ``vat(amount)`` becomes ``vat(amount, rate)`` and ``pay/report.py`` (not in the diff) still calls ``vat(net)``,
-a reviewer that sees only the diff passes the pull request. So:
-
-- a call that no longer fits a changed signature, or that uses a removed callable, is a deterministic high finding
-  on the caller's line, and the posted status is ``failure`` even when the reviewer passes;
-- a compatible change (a new parameter with a default) is no finding; the calls that still fit go to the reviewer;
-- only calls bound to the changed module count (absolute, relative and aliased imports, the module itself), never a
-  same-named function of another module;
-- a changed file in another language is named as not checked.
-"""
+"""PR review bot, calls outside the diff."""
 
 from __future__ import annotations
 
@@ -108,7 +97,7 @@ async def test_a_removed_method_and_a_changed_constructor_are_found_through_thei
         "    def total(self, prices):\n        return sum(prices)\n", "")
     root, base = _repo(tmp_path, head)
     fixes = [item["fix"] for item in (await check_callers(root, base)).findings
-             if (item["file"], item["line"]) == ("pay/other.py", 12)]  # Bill(7).total([1]): two calls, two findings
+             if (item["file"], item["line"]) == ("pay/other.py", 12)]
     assert any("misses the required argument 'currency'" in fix for fix in fixes)
     assert any("Invoice.total" in fix and "was removed" in fix for fix in fixes)
 
@@ -125,7 +114,7 @@ def test_a_call_with_star_arguments_cannot_be_judged_and_counts_as_fitting():
     assert call_problem(ast.parse("vat(*args)").body[0].value, signature) == ""
     assert call_problem(ast.parse("vat(1, rate=2)").body[0].value, signature) == ""
     assert "twice" in call_problem(ast.parse("vat(1, amount=2)").body[0].value, signature)
-    assert changed_signatures("def f(:\n", "def f(): pass\n") == []  # a source that does not parse: skipped
+    assert changed_signatures("def f(:\n", "def f(): pass\n") == []
 
 
 def test_a_broken_call_turns_a_passed_review_into_changes():
@@ -133,8 +122,7 @@ def test_a_broken_call_turns_a_passed_review_into_changes():
     passed = {"verdict": "pass", "summary": "Looks good.", "findings": []}
     assert with_caller_findings(passed, [finding])["verdict"] == "changes"
     already = {"verdict": "changes", "summary": "x", "findings": [{**finding, "id": "F1"}]}
-    assert with_caller_findings(already, [finding]) == already  # the reviewer said it on the same line already
-
+    assert with_caller_findings(already, [finding]) == already
 
 
 def test_the_reviewers_context_sections_are_fenced_bounded_and_say_what_they_leave_out():
@@ -146,4 +134,4 @@ def test_the_reviewers_context_sections_are_fenced_bounded_and_say_what_they_lea
     sections = evidence.context_sections(run, "FENCE")
     assert len(sections) == evidence.MAX_CONTEXT_SECTIONS
     assert all("FENCE" in section and "[5 more characters not shown]" in section for section in sections)
-    assert evidence.context_sections(WorkflowRun(context={}), "FENCE") == []  # every other run: nothing added
+    assert evidence.context_sections(WorkflowRun(context={}), "FENCE") == []

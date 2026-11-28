@@ -38,13 +38,7 @@ def _version_for(family: str, model: str) -> str:
 
 @dataclass(frozen=True)
 class KnowledgeEmbeddingProvider:
-    """Resolved embedding provider descriptor.
-
-    Lightweight to construct (metadata only). The heavy driver is built lazily
-    on the first ``embed_text``/``embed_texts`` call and, for real providers,
-    raises ``EmbeddingConfigurationError`` loudly on misconfiguration instead of
-    silently producing non-semantic hash vectors.
-    """
+    """Resolved embedding provider descriptor."""
 
     provider_id: str
     model: str
@@ -87,13 +81,7 @@ def resolve_knowledge_embedding_provider(
     model: str | None = None,
     env: Mapping[str, str] | None = None,
 ) -> KnowledgeEmbeddingProvider:
-    """Resolve the configured embedding provider/model into a descriptor.
-
-    The provider comes from the argument, then the environment, then the
-    ``local_hash`` default. ``local_hash`` is an explicit, labeled choice — the
-    only path that yields non-semantic hash vectors. An unknown provider raises
-    ``EmbeddingConfigurationError`` (loud, no silent fallback).
-    """
+    """Resolve the configured embedding provider/model into a descriptor."""
     source = os.environ if env is None else env
     settings_provider = settings_model = None
     if env is None and not provider_id:

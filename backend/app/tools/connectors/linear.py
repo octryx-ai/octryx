@@ -137,11 +137,6 @@ class CreateLinearIssueTool:
 
 
 async def _team_refusal(context: ToolContext, issue_id: str) -> str | None:
-    """Why an update may not touch this issue: it must belong to an allowed team, like a create or a listing.
-
-    Without this check, update_issue took any issue id the key could reach, so a
-    connection limited to one team could change issues of every other team.
-    """
     allowed = _linear_allowed_team_ids(context)
     if not allowed:
         return None

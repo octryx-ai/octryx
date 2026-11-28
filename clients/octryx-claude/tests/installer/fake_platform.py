@@ -1,15 +1,3 @@
-"""Fake Octryx platform for the installer tests (stdlib + the platform's own builder).
-
-Serves the installer scripts and the package through the platform's real code
-(``backend/app/services/octryx_client``: renderer and wheel builder), built from ``CLIENT_DIR`` so a
-test can change the sources and get a new version. Records ``/oauth/revoke`` calls.
-
-    python fake_platform.py PORT STATE_DIR CLIENT_DIR SCRIPTS_DIR
-
-``STATE_DIR/tamper`` present: the package bytes are altered (checksum mismatch).
-``STATE_DIR/nopackage`` present: the package download answers 404.
-"""
-
 import json
 import sys
 import urllib.parse

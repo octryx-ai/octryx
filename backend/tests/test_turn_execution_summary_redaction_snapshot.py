@@ -3,7 +3,7 @@
 import json
 from types import SimpleNamespace
 
-from app.agent.core.runtime.turn_execution_binding import (
+from app.agent.runtime.turn_execution_binding import (
     bind_turn_execution_snapshot,
     carry_turn_execution_snapshot,
     clear_turn_execution_snapshot,

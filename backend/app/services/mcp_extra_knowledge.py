@@ -1,18 +1,5 @@
-"""``knowledge_sources`` and ``knowledge_feedback`` on the Knowledge MCP (handlers for ``run_parity_mcp_tool``).
-
-The runner has already checked the scope, the user, the rate limit and the connection Workspace
-(authorized for the user). The handlers never read a Workspace or a user from their arguments.
-
-- ``knowledge_sources`` lists the Workspace's Evidence ledger sources like ``GET /api/v1/workspaces/
-  {id}/knowledge/sources`` (``knowledge/ledger/queries.list_sources``): Workspace-filtered, source
-  ACL re-checked for the caller's principals, newest first, bounded. It adds paging (``offset``) and
-  each source's current revision with its origin link (``source_url``) and ready ``cite_as``.
-- ``knowledge_feedback`` rates an Octryx answer exactly like the chat's thumbs
-  (``session/feedback.submit_session_message_feedback``: closed values, bounded texts, secrets
-  refused, one record per person and answer). The session must belong to the caller and to the
-  connection Workspace. The texts reach only the Memory lobe; the activity row and the audit keep no
-  argument value, only the outcome state.
-"""
+"""``knowledge_sources`` and ``knowledge_feedback`` on the Knowledge MCP (handlers for ``run_parity_mcp_tool``). The
+handlers never read a Workspace or a user from their arguments."""
 
 from __future__ import annotations
 
@@ -77,7 +64,6 @@ async def _newest_ordinals(db: AsyncSession, project_id: str, source_ids: list[s
 
 
 async def _current_revisions(db: AsyncSession, project_id: str, source_ids: list[str]) -> dict[str, tuple]:
-    """Per source: its current revision (the newest projected one, else the newest) and its origin link."""
     if not source_ids:
         return {}
     chosen = {

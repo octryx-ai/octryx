@@ -1,16 +1,5 @@
-"""A run's platform actions dispatch in the run's working copy, never the chat session's folder.
-
-When the recovery re-creates the run's copy under the configured base (``…/session-workspaces/…/run-copies/…``)
-and records it as ``run.context.local_path``, ``platform/dispatch`` must not hand the push tool the chat session's old
-folder as its workspace root, or the tool's own path check refuses the run's copy ("local_path must stay inside
-workspace root").
-
-``dispatch.run_root`` gives a run's action the same root its phase turns work in (``run_working_copy``):
-the provider push tools (Bitbucket, GitHub, GitLab) check ``local_path`` against the run's copy; a path outside it or
-a run without a copy is refused ``not_configured`` before any tool runs; a prepare call keeps the session's folder.
-
-Real action path: ``scm.push`` → ``dispatch_tool`` → the governed tool registry → the provider's push tool.
-"""
+"""A run's platform actions dispatch in the run's working copy, never the chat session's folder, or the push
+tool's own path check refuses the run's copy."""
 
 from __future__ import annotations
 
@@ -25,6 +14,9 @@ from app.services.workflow_runs.records import main_session_id, new_chat_session
 from app.tools.context import ToolContext
 from app.tools.registry import TOOL_REGISTRY
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PATHS = {"bitbucket": "PAY/payments", "github": "acme/payments", "gitlab": "acme/payments"}
 INSIDE_ROOT = "must stay inside workspace root"
@@ -40,7 +32,6 @@ def _git_copy(root):
 
 
 def _observe(monkeypatch, tool: str) -> list[dict]:
-    """The real tool runs; each call's workspace root and the tool's own answer are recorded."""
     seen: list[dict] = []
     original = TOOL_REGISTRY[tool].execute
 

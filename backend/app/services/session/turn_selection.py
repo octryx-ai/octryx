@@ -1,10 +1,4 @@
-"""The explicit selection a turn records on its session, the same on both entry paths.
-
-:func:`record_turn_selection` records the workflow key the client sent (mirrored for
-cross-device restore; bootstrap exposes it as ``selectedSession.workflowKey``) and the
-workflow decisions of the turn. Turn preparation calls it for both entry paths
-(``turn_session_record``), always after ``begin_chat_turn``.
-"""
+"""The explicit selection a turn records on its session, the same on both entry paths."""
 
 from __future__ import annotations
 

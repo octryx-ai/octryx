@@ -77,6 +77,7 @@ def test_a_device_run_finds_the_tools_first_and_the_device_reports_them(tmp_path
     monkeypatch.setattr(device_runtime.device_state, "load_device", lambda _state: {})
     monkeypatch.setattr(device_runtime, "seat_logged_in", lambda _state: False)
     monkeypatch.setattr(device_runtime.codex_seat, "reported_login", lambda _root: False)
+    monkeypatch.setattr(device_runtime.engine_report, "seat_engines", lambda _state: [])
     report = device_runtime.device_report(type("State", (), {"root": tmp_path})())
     assert report["tools"] == {"ast-grep": "0.51.0", "gitleaks": None}
 

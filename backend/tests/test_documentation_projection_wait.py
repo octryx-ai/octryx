@@ -1,9 +1,5 @@
-"""The published-version sync waits, bounded, for the asynchronous index projection (live S3.2 follow-up).
+"""The published-version sync waits, bounded, for the asynchronous index projection (live S3.2 follow-up)."""
 
-Live: the sync of the new page completed, but the binding ran before the projector committed the head and the step
-failed with ``index_timeout``; a retry 11 seconds later passed. The step now polls only while the refusal is
-``head_not_projected``; any other refusal ends the wait at once and the authoritative binding reports it.
-"""
 from __future__ import annotations
 
 import pytest

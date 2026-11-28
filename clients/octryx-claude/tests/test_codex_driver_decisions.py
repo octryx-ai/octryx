@@ -1,5 +1,3 @@
-"""Codex hook decisions: patches per file, ask as deny, platform tool names, view_image and browser calls."""
-
 from __future__ import annotations
 
 import tomllib
@@ -64,8 +62,6 @@ def test_the_platforms_mcp_tools_keep_their_platform_name_in_the_hooks():
 
 
 def test_a_shell_apply_patch_is_decided_per_file_like_the_tool(tmp_path):
-    """Codex patches with ``apply_patch <<'EOF'`` in the shell for a model it offers no patch tool (Gemma via
-    LiteLLM): the hook decides it per file like the tool, never as a shell write."""
     root = tmp_path / "repo"
     (root / "docs").mkdir(parents=True)
     script = "apply_patch <<'PATCH'\n*** Begin Patch\n*** Add File: docs/SPEC.md\n+# Spec\n*** End Patch\nPATCH"
@@ -83,8 +79,6 @@ def test_a_shell_apply_patch_is_decided_per_file_like_the_tool(tmp_path):
 
 
 def test_a_broken_patch_is_answered_with_the_patch_format():
-    """A broken ``apply_patch {"command": [...]}`` with ``*** Create File`` is denied with the exact form to use, not as
-    an unclassified tool."""
     broken = ('apply_patch {"command":["apply_patch","*** Begin Patch\\n*** Create File: SPEC.md\\n# S\\n'
               '*** End Patch"]}')
     assert codex_hook_input.unreadable_patch({"tool_name": "Bash", "tool_input": {"command": broken}})
@@ -98,8 +92,6 @@ def test_a_broken_patch_is_answered_with_the_patch_format():
 
 
 def test_view_image_is_decided_as_a_read_and_codex_sub_agents_are_on(tmp_path):
-    """View_image and spawn_agent were denied as unclassified tools, a model round each. Alice
-    : allow by default, block as an admin option; the platform allows unknown tools, sub-agents are on."""
     call = {"tool_name": "view_image", "cwd": "/repo", "tool_input": {"path": "shots/home.png"}}
     assert codex_hook_input.split_apply_patch(call) == [
         {**call, "tool_name": "Read", "tool_input": {"file_path": "/repo/shots/home.png", "codex_tool": "view_image"}}]
@@ -109,8 +101,6 @@ def test_view_image_is_decided_as_a_read_and_codex_sub_agents_are_on(tmp_path):
 
 
 def test_a_phase_that_opted_in_gets_the_same_browser_server_in_codex(tmp_path):
-    """Codex gets the Playwright MCP server of a Claude Code turn, with
-    its restrictions, only when the phase opted in; its own hosted web search stays off."""
     prepared = _prepared(tmp_path)
     plain = tomllib.loads(codex_driver.prepare_home(prepared, sandboxed=False).joinpath("config.toml").read_text())
     assert set(plain["mcp_servers"]) == {"octryx_knowledge"}  # not opted in: unchanged
@@ -150,8 +140,6 @@ def test_codex_browser_calls_are_decided_like_claude_codes(url, allowed, monkeyp
     ("file:///etc/passwd", False), ("javascript:alert(1)", False), ("data:text/html,x", False),
 ])
 def test_a_browser_with_external_pages_reads_public_hosts_only(url, allowed):
-    """B13 (allow by default, block as an admin option): with the offer's ``browser_external`` the
-    browser reads public http(s) pages; internal hosts, the platform and other schemes stay refused."""
     tool = "mcp__playwright__browser_navigate"
     platform = "https://platform.example" if "platform.example" in url else "http://127.0.0.1:24600"
     assert (browser_rules.browser_rule(tool, {"url": url}, platform_url=platform, external=True) is None) is allowed

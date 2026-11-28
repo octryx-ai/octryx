@@ -20,7 +20,6 @@ def _valid(key: str, value: Any) -> bool:
 
 
 def settings(config: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
-    """Each setting with its value and its source (``workspace`` or ``default``)."""
     own = dict(dict(config or {}).get("check_proposals") or {})
     return {key: ({"value": own[key], "source": "workspace"} if key in own and _valid(key, own[key])
                   else {"value": default, "source": "default"}) for key, default in DEFAULTS.items()}

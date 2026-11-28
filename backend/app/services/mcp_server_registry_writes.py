@@ -9,7 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import McpServerRegistration
-from .mcp_capability_policy import normalized_mcp_server_name
+from .mcp_audit_vocabulary import ACTION_ACTIVATION_CHANGED, ACTION_CONFIGURATION_UPDATED, ACTION_CREATED
+from .mcp_governance.capability_policy import normalized_mcp_server_name
 from .mcp_server_registry import (
     _audit_change,
     _normalize_owner,
@@ -35,8 +36,7 @@ async def create_remote_mcp_server(
     actor_user_id: str | None,
     commit: bool = True,
 ) -> McpServerRegistration:
-    """A governed remote server; ``commit=False`` leaves the commit to a caller that writes more in the same
-    transaction (a plugin install) and never rolls back that caller's work."""
+    # ``commit=False`` never rolls back the caller's work.
     owner_scope, workspace_id = _normalize_owner(body.get("owner_scope"), body.get("workspace_id"))
     if workspace_id:
         await _require_workspace(db, workspace_id)
@@ -70,7 +70,7 @@ async def create_remote_mcp_server(
             await db.rollback()
         raise HTTPException(status_code=409, detail=f"MCP server '{name}' already exists") from exc
     await db.refresh(registration, ["secret_bindings"])  # the audit counts them; never a lazy load in async
-    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action="created")
+    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action=ACTION_CREATED)
     if commit:
         await db.commit()
     return await get_registration_by_id(db, registration.id)
@@ -127,7 +127,7 @@ async def install_catalog_mcp_server(
     except IntegrityError as exc:
         await db.rollback()
         raise HTTPException(status_code=409, detail=f"MCP server '{name}' already exists") from exc
-    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action="created")
+    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action=ACTION_CREATED)
     await db.commit()
     return await get_registration_by_id(db, registration.id)
 
@@ -183,7 +183,8 @@ async def update_mcp_server(
     if await registration_is_connected(registration, mcp_client_manager=mcp_client_manager):
         await mcp_client_manager.disconnect(registration.name)
         mcp_client_manager.unregister_server(registration.name)
-    action = "activation_changed" if previous_active != bool(registration.is_active) else "configuration_updated"
+    changed = previous_active != bool(registration.is_active)
+    action = ACTION_ACTIVATION_CHANGED if changed else ACTION_CONFIGURATION_UPDATED
     await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action=action)
     await db.commit()
     return await get_registration_by_id(db, registration.id)

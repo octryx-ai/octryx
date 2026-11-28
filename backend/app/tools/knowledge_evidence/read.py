@@ -1,9 +1,4 @@
-"""``knowledge_read``: a cited passage with the paragraphs around it (contract §7).
-
-Takes an ``evidence_key`` from a ``knowledge_search`` result and returns that span with up
-to ``window`` neighbouring spans of the same revision, from the ledger. Read-only; the Workspaces are
-the run's own and the ones it is bound to read, never a parameter.
-"""
+"""``knowledge_read``: a cited passage with the paragraphs around it (contract §7)."""
 
 from __future__ import annotations
 
@@ -62,7 +57,6 @@ class KnowledgeReadTool:
 
 
 def labelled_text(read: Any) -> str:
-    """One passage as is; a window labels each passage with its own evidence key, so a citation can be exact."""
     if len(read.passages) <= 1:
         return read.text
     return "\n\n".join(f"[{key}]\n{text}" for key, text in read.passages)

@@ -1,23 +1,4 @@
-"""``analyze_work_item``: one governed, cited analysis of a Work Item, idempotent per item version.
-
-1. **Slot.** The item version (``prompt.item_version``: title, description, status, source update time) and
-   the template form ``active_key``. A ``running`` or ``succeeded`` analysis with that key is returned as is
-   (``reused: true``) and nothing runs; the unique key makes that hold under a race too. A failed run frees
-   the key, so it can be retried. ``auto`` runs are also bounded: none for a closed item, at most one per
-   item in 24 hours (``auto_rate_limited``), counting failed ones.
-2. **Run.** The row is committed as ``running`` with its own platform session (``agent_type``
-   ``work_item_analysis``, an enforced ``read_only`` execution profile), then ``governed_run`` runs the
-   ``incident_analysis_v1`` prompt under the Workspace's model policy and cost cap.
-3. **Result.** The answer must be the structured analysis (``contract``), cite what the tools returned and
-   pass the secret scan. Then it is stored as an agent note (``kind: analysis``), announced as a board
-   ``info``, and the optional reporter question is asked. The item's state is never changed.
-4. Every refusal is the row's explicit ``status`` (``failed``, ``needs_configuration``, ``denied``) with a
-   closed ``error_code`` and, for a provider failure, a short sanitized ``error_detail`` (also logged);
-   every start and end is audited.
-5. With the Workspace setting ``runner: seat`` the server never runs a model: a request answers ``skipped`` /
-   ``analysis_runs_in_seat`` with the ``command`` to run (``octryx-claude analyze <KEY>``), and the seat
-   session submits the analysis itself (``seat_submit``).
-"""
+"""``analyze_work_item``: one governed, cited analysis of a Work Item, idempotent per item version."""
 
 from __future__ import annotations
 
@@ -69,11 +50,6 @@ ANALYSIS_PROFILE = {
 
 
 def _evidence_view(analysis: Any) -> Any:
-    """The stored analysis with each evidence entry's ``source`` fields also on the entry itself.
-
-    The contract nests a citation under ``source`` (``{claim, source: {kind, title, locator, url}, verified}``);
-    readers of the view also find ``title``, ``locator``, ``kind`` and ``url`` next to ``claim`` and ``verified``.
-    """
     if not isinstance(analysis, dict) or not isinstance(analysis.get("evidence"), list):
         return analysis
     evidence = []
@@ -86,7 +62,6 @@ def _evidence_view(analysis: Any) -> Any:
 
 
 def seat_command(item: WorkItem) -> str | None:
-    """The command that runs this item's analysis in a seat session, or ``None`` for a key unsafe to print."""
     key = str(item.source_key or "")
     return f"{SEAT_COMMAND} {key}" if _COMMAND_KEY.match(key) else None
 
@@ -135,13 +110,13 @@ async def recent_auto_run(db: AsyncSession, item_id: str) -> bool:
 
 def audit_analysis(db: AsyncSession, action: str, user_id: str, row: WorkItemAnalysis, **details: Any) -> None:
     db.add(AuditLog(user_id=user_id, action=action, resource_type="work_item", resource_id=row.work_item_id,
+                    project_id=row.project_id,
                     session_id=row.session_id,
                     details={"analysis_id": row.id, "project_id": row.project_id, "mode": row.mode, **details}))
 
 
 async def _open(db: AsyncSession, *, item: WorkItem, user: User, mode: str, settings: AnalysisSettings,
                 key: str, version: str) -> WorkItemAnalysis | None:
-    """The committed ``running`` row with its session, or ``None`` when another request holds the slot."""
     row = WorkItemAnalysis(project_id=item.project_id, work_item_id=item.id, item_version=version,
                            template=TEMPLATE_KEY, active_key=key, mode=mode, status=STATUS_RUNNING,
                            requested_by=user.id, model_policy=settings.model_policy, cost_usd=Decimal("0"),
@@ -197,7 +172,6 @@ async def analyze_work_item(
     resolve_runtimes: RuntimeResolver | None = None,
     get_provider: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
-    """Analyse ``item`` for ``user`` (who may already work on it); the caller authorized both. Commits."""
     if mode not in MODES:
         raise ValueError(f"unknown analysis mode {mode!r}")
     if not item.project_id:

@@ -8,13 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_corp_identity_brief(db: AsyncSession, profile_id: str) -> dict[str, Any]:
-    """The unified corporate identity built from all of a profile's templates.
-
-    One shared core (typeface, neutral palette, logo, letterhead) across every
-    uploaded template, plus a separate accent palette per medium (presentation
-    vs document). Brand assets — logos, icons, images — are extracted into the
-    profile and catalogued. Read-only: a stored ``ci_overrides`` value is ignored.
-    """
     from pathlib import Path
 
     from .. import corp_identity_service as svc
@@ -55,12 +48,6 @@ async def update_corp_identity_template(
     template_id: str,
     updates: dict[str, Any],
 ) -> dict[str, Any]:
-    """Persist a template's display name / purpose description durably.
-
-    Metadata is stored under ``template_meta`` keyed by the template's file name,
-    which is stable across registry rebuilds — writing into the rebuilt
-    ``templates`` list would be discarded on the next load.
-    """
     from pathlib import Path
 
     from .. import corp_identity_service as svc

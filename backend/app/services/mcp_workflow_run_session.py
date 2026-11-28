@@ -1,9 +1,4 @@
-"""The calling session of an MCP workflow run tool and the run contract it sees.
-
-Shared by the workflow run tools (``mcp_workflow_run_tools``) and the chat side
-(``mcp_workflow_run_chat``): a launcher session or a platform chat is the gateway a
-run binds to, and every answer carries the run contract as that session sees it.
-"""
+"""The calling session of an MCP workflow run tool and the run contract it sees."""
 
 from __future__ import annotations
 
@@ -39,17 +34,9 @@ async def _gateway(db: AsyncSession, caller: McpCaller, user: User, workspace_id
 
 
 async def _contract(db: AsyncSession, run: WorkflowRun, user: User, gateway: Session | None) -> dict[str, Any]:
-    """The run contract as ``gateway`` (the calling session) sees it.
-
-    A teamwork item's session works under its item's phase and the coordinator's board wake under its plan phase
-    (``run_contract(session=...)``), while the run itself stands at the ``parallel_work`` node, which is no phase.
-    Without the session the hooks see the item's phase but these MCP tools do not: workflow_run_status answers
-    ``phase: null`` and every submit_phase_result is refused ``outside_phase_tools`` while the item's Stop keeps asking
-    for it, until the run pauses on its loop limit.
-    """
+    # Without the session these tools miss the item's phase, and every submit would be refused ``outside_phase_tools``.
     return await run_contract(db, run, principal=user, session=gateway)
 
 
 def _view(contract: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
-    """The compact contract unless the call asks for ``detail`` (``compact_view``)."""
     return contract if arguments.get("detail") is True else compact(contract)

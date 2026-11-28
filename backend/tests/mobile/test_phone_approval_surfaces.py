@@ -1,9 +1,4 @@
-"""Confirmation cards on the phone: a Server chat's connector write is approved or rejected one call at a
-time, as in the web. Every approval the person
-may decide is listed (``/api/v1/approvals/decidable``) and approved or rejected there too (workflow runs, REST writes).
-The standing rule ("Always for this Workspace"), the re-run and the admin routes stay off the phone; every decision
-route keeps its own check of who may decide.
-"""
+"""Confirmation cards on the phone: connector writes and every decidable approval, one call at a time, as in the web."""
 
 from __future__ import annotations
 

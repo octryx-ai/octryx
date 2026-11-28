@@ -30,14 +30,15 @@ async def execute_connector_action(
     task_run: Any,
     render_template_params: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]],
 ) -> dict[str, Any]:
-    """Render connector params and execute the configured tool action."""
     from app.tools.context import ToolContext
 
     from ...services.project import get_project_config
     from ...services.run_capability.schedule_capability import schedule_tool_context_capability
     from ...tools.registry import execute_tool
 
-    project_config = await get_project_config(task.project_id, db)
+    # The step runs in the task's Workspace: the Workspace-scoped tools (knowledge_search) read it from here.
+    project_config = {**await get_project_config(task.project_id, db),
+                      **({"project_id": task.project_id} if task.project_id else {})}
     workspace_root = _connector_step_workspace_root()
     tool_ctx = ToolContext(
         user_id=task.owner_id,
@@ -59,7 +60,6 @@ CONNECTOR_STEP_ROLES = ("operator",)
 
 
 def deduplicate_items(items: list[Any], task: Any) -> tuple[list[Any], dict[str, str]]:
-    """Return only items whose identity or update marker changed since the last run."""
     config = dict(task.config or {})
     items_state: dict[str, str] = dict(config.get("_items_state", {}))
     new_items: list[Any] = []

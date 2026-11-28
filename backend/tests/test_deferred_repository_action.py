@@ -1,8 +1,4 @@
-"""Repository steps run after the request that reached them (``deferred_action``).
-
-The start only marks ``scm.create_branch``; the executor runs it with its own lease, and the run goes on from its
-result. A lost start or a dead executor is started again by the sweep; a run that moved on gets nothing written.
-"""
+"""Repository steps run after the request that reached them (``deferred_action``)."""
 
 from __future__ import annotations
 
@@ -16,9 +12,13 @@ from app.services.workflow_runs.platform import scm
 from app.services.workflow_runs.platform.dispatch import read_outcome
 from app.services.workflow_runs.sweep import sweep_waiting_runs
 from app.time_utils import utc_now
+from tests.scripted_pool_support import (
+    scripted_pool,  # noqa: F401 - fixture
+    scripted_turns,  # noqa: F401 - fixture
+)
 from tests.test_workflow_run_platform_actions import _definition, _item, _run
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.deferred_actions]
+pytestmark = [pytest.mark.asyncio, pytest.mark.deferred_actions, pytest.mark.usefixtures("scripted_pool"), pytest.mark.usefixtures("scripted_turns")]
 
 
 class Branches:
@@ -96,4 +96,4 @@ async def test_a_step_that_never_finishes_fails_after_its_attempts(db, monkeypat
         await db.commit()
     await deferred_action._run_step(db, run.id, claimed[0])
     await db.commit()
-    assert (branches.calls, run.outcome) == (0, "blocked")  # the step's failed route
+    assert (branches.calls, run.outcome) == (0, "blocked")

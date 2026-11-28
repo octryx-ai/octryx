@@ -1,29 +1,4 @@
-"""The closed catalog of typed platform actions a phased workflow can name.
-
-A node ``{"type": "platform_action", "config": {"action": "<key>", "params": {...}}}`` names one of these. Each
-action has a fixed capability class (a remote write is ``deliver``; a read is ``read_only``) and a closed parameter
-set; workflows never carry raw Jira status names (``jira.transition`` takes a Work state the write-back mapping
-translates) nor provider endpoints (the run's repository reference picks the provider).
-
-The shipped workflows add: ``scm.checkout`` (prepare the run's branch to review it), ``deploy.configured`` (whether the
-Workspace has a deploy job) and ``deploy.run`` (start it on the Workspace's CI connection; the run then
-watches its result). ``scm.comment`` posts a run text on the run's pull request (Bitbucket). A deploy job is
-Workspace configuration (``project config deploy_job``), never a workflow parameter.
-
-``work.draft_change_plan`` drafts the Work item's change plan from the test contract a phase
-submitted (``phase_outputs``): a server step of the definition only, never requested by an agent (``requestable``).
-
-``workspace.prepare`` ("Environment readiness") puts the runtime's working folder on the run's branch
-and makes the repository's declared test environment ready before the first agent phase (``workspace/preparation``):
-on the server at once, on a device or terminal through the launcher's report. Definition-only as well.
-
-``work.create_stories`` (teamwork): the epic's stories from the coordinator's recorded ``story_plan``, under
-the epic in Jira or on the platform, in build order (``teamwork.stories``). Definition-only.
-
-``documentation.publish_spec`` / ``documentation.publish_feature`` (
-``documentation.auto_pages``): the epic's spec page, a story's feature page and the epic overview, under the Workspace's
-documentation grant. Optional: they route ``succeeded``, ``failed`` or ``skipped`` and never pause. Definition-only.
-"""
+"""The closed catalog of typed platform actions a phased workflow can name."""
 
 
 from __future__ import annotations
@@ -94,18 +69,13 @@ ACTIONS: dict[str, ActionSpec] = {
     DEPLOY_RUN: ActionSpec(DEPLOY_RUN, "deliver", frozenset()),
     WORK_DRAFT_CHANGE_PLAN: ActionSpec(WORK_DRAFT_CHANGE_PLAN, "change", frozenset(), requestable=False),
     WORKSPACE_PREPARE: ActionSpec(WORKSPACE_PREPARE, "change", frozenset(), requestable=False),
-    # Creates Jira issues (a remote write): ``deliver``. ``story_workflow`` is the stories' workflow by default.
     WORK_CREATE_STORIES: ActionSpec(WORK_CREATE_STORIES, "deliver", frozenset({"issue_type", "story_workflow"}),
                                     requestable=False),
-    # The run's CI pipeline: the declared test commands without an agent (``workflow_runs.pipeline``).
     PIPELINE_RUN: ActionSpec(PIPELINE_RUN, "read_only", frozenset(), requestable=False),
-    # The built app used in a browser from the platform's scenarios (``workflow_runs.hands_on``).
     HANDS_ON_RUN: ActionSpec(HANDS_ON_RUN, "read_only", frozenset(), requestable=False, skippable=True),
-    # The bug flow (``workflow_runs.bugs``): the report's fields, and telling ticket, Work item and reporter.
     BUG_INTAKE_CHECK: ActionSpec(BUG_INTAKE_CHECK, "read_only", frozenset(), requestable=False),
     BUG_REPORT: ActionSpec(BUG_REPORT, "deliver", frozenset({"event"}), frozenset({"event"}),
                            (("event", frozenset({"cannot_reproduce", "fixed", "released"})),), requestable=False),
-    # The epic's pages under the Workspace's documentation grant (``documentation.auto_pages``): optional steps.
     PUBLISH_SPEC: ActionSpec(PUBLISH_SPEC, "deliver", frozenset(), requestable=False),
     PUBLISH_FEATURE: ActionSpec(PUBLISH_FEATURE, "deliver", frozenset(), requestable=False),
 }
@@ -149,8 +119,6 @@ ACTION_ROUTES = {CI_STATUS: frozenset({"succeeded", "failed", "running"}),
                  DEPLOY_CONFIGURED: frozenset({"configured", "not_configured"}),
                  # Nothing configured, no opt-in, a drifted target: ``skipped`` (never a pause).
                  PUBLISH_SPEC: DOCUMENTATION_ROUTES, PUBLISH_FEATURE: DOCUMENTATION_ROUTES,
-                 # The bug flow's reproduce check routes skipped (no scenario, or a person confirms) and
-                 # cannot_reproduce; the hands-on test itself only succeeded / failed.
                  HANDS_ON_RUN: frozenset({"succeeded", "failed", "skipped", "cannot_reproduce"}),
                  BUG_INTAKE_CHECK: frozenset({"succeeded", "incomplete", "failed"})}
 
@@ -167,7 +135,6 @@ for _key, _capability in (("pr_review.prepare", "deliver"), ("pr_review.publish"
                           ("pr_review.report_failure", "deliver"), ("pr_review.explain", "deliver"),
                           ("pr_review.fix_prepare", "change"), ("pr_review.fix_scope", "read_only"),
                           ("pr_review.fix_report", "deliver")):
-    # ``fix_report`` answers for the pushed or the failed end of a ``pr-fix`` run (``params.outcome``).
     ACTIONS[_key] = ActionSpec(_key, _capability, frozenset({"outcome"}) if _key == "pr_review.fix_report"
                                else frozenset(), requestable=False)
 

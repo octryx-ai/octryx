@@ -1,17 +1,5 @@
-"""Prometheus text for the bounded rate-limit key state.
-
-Aggregate only, by design. The labels are the fixed store names and the fixed
-eviction reasons from ``rate_limit_state_policy``; no key, address, credential or
-request detail reaches a metric. Three series are enough to answer the operational
-questions this bound raises — how full is the state, what is it bounded to, and is
-anything being dropped — and anything per-key would be a monitoring product rather
-than a boundary's own observability.
-
-A store appears here once its limiter module has been imported, which for the
-running application happens while the middleware stack and the auth routes are
-wired. The HELP/TYPE headers are emitted unconditionally so the series names exist
-even before the first request.
-"""
+"""Prometheus text for the bounded rate-limit key state. Aggregate only: no key, address, credential or request detail
+reaches a metric."""
 
 from __future__ import annotations
 

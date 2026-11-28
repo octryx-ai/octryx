@@ -1,8 +1,5 @@
-"""Starting a terminal session: target, engine check, registration and the run banner.
-
-Shared by the Claude Code launch (``cli``) and the Codex launch (``codex_cli``). Messages carry fixed
-reason codes only; tokens and response bodies are never printed.
-"""
+"""Starting a terminal session for the Claude Code and Codex launches: target, engine check, registration, banner.
+Messages carry fixed reason codes only; tokens and response bodies are never printed."""
 
 from __future__ import annotations
 
@@ -56,7 +53,6 @@ def aliases(config: dict) -> dict[str, str]:
     return aliases
 
 def code_intelligence(args: argparse.Namespace, state: LocalState, context: SessionContext) -> None:
-    """Bind and snapshot the launch folder's repository; a failure never blocks the launch."""
     if args.no_code_intelligence:
         sys.stderr.write(f"{CODE_INTELLIGENCE_PREFIX}off (skipped_by_flag)\n")
         sys.stderr.flush()
@@ -69,7 +65,6 @@ def code_intelligence(args: argparse.Namespace, state: LocalState, context: Sess
         sys.stderr.flush()
 
 def git_branch() -> str | None:
-    """The current folder's git branch, best effort and bounded; never blocks the launch."""
     try:
         done = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True,
@@ -82,8 +77,6 @@ def git_branch() -> str | None:
 
 def register(state: LocalState, context: SessionContext, profile: str, purpose: str = "",
               engine: str = "") -> tuple[str, str]:
-    """Register the session; ``(seat credential or "", refusal or "")``. The credential is never printed.
-    ``engine="codex"``: the platform checks the Codex seat policy for a seat session."""
     body = {"profile": profile, "client": CLIENT_NAME, "client_version": __version__, "branch": git_branch()}
     if purpose:
         body["purpose"] = purpose
@@ -111,7 +104,6 @@ def register(state: LocalState, context: SessionContext, profile: str, purpose: 
     return credential, ""
 
 def show_run(state: LocalState, context: SessionContext, body: dict) -> None:
-    """A session started for a Work item with an active run: remember its contract and show the run banner."""
     contract = run_contract.remember(state, context.session_key, body)
     contract_notices.remember_platform_agent(state, context.session_key, body)  # also outside a run
     if contract:
@@ -124,7 +116,6 @@ def show_run(state: LocalState, context: SessionContext, body: dict) -> None:
             sys.stderr.write(f"octryx-claude: work item run not attached ({safe_code(attach.get('reason'))})\n")
 
 def session_target(args: argparse.Namespace, state: LocalState) -> tuple[str, str, str] | int:
-    """``(base_url, workspace_id, workspace_label)`` of a terminal session, or the exit code of a refusal."""
     config = state.config()
     base_url = configure_cli.normalized_base_url(str(config.get("base_url") or ""))
     if not base_url or state.credentials().get("base_url") != base_url:
@@ -152,7 +143,6 @@ def session_target(args: argparse.Namespace, state: LocalState) -> tuple[str, st
     return base_url, workspace_id, workspace_label
 
 def engine_refusal(state: LocalState, base_url: str, workspace_id: str, engine: str) -> str:
-    """A terminal session starts only an engine the Workspace allows (``engine_choice``)."""
     with httpx.Client() as http:
         setting = engine_choice.fetch(state, SessionContext(base_url, str(uuid.uuid4()), workspace_id), http=http)
     return engine_choice.refusal(setting, engine)

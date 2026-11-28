@@ -45,7 +45,7 @@
 .stats-panel__value {
   color: var(--highlight);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.03em;
 }
 
@@ -87,7 +87,7 @@
 .stats-panel__row strong {
   color: var(--highlight);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-align: right;
 }
 

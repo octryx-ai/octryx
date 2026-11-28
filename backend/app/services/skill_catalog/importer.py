@@ -1,15 +1,4 @@
-"""Import into the catalog: upload, Git repository and marketplace entry. Every import is a draft.
-
-**Inspect** reads a repository once, read-only, at one commit: every skill folder (name, description, spec
-issues, file and script counts, licence), every MCP server of a plugin, and what is ignored. **Import** takes the
-commit the inspect showed (never re-resolves the ref) and the selected items, and creates one draft per item with
-full provenance: source, path, commit, upstream bundle digest and an upstream snapshot (the later 3-way merge
-base). The nearest LICENSE text (skill folder, then each parent folder up to the repository root) is bundled as
-``LICENSE``, because MIT and MPL-2.0 require the notice to travel with the copy.
-
-An item that already exists from the same source and path is an **update**: it goes through the upstream update
-(3-way merge, local edits kept), never through a plain re-import. A name taken by another skill is refused.
-"""
+"""Import into the catalog: upload, Git repository and marketplace entry."""
 
 from __future__ import annotations
 
@@ -87,7 +76,6 @@ def git_target(payload: dict[str, Any], settings: CatalogSettings) -> GitTarget:
 @asynccontextmanager
 async def open_target(db: AsyncSession, target: GitTarget, settings: CatalogSettings,
                       commit: str | None = None) -> AsyncIterator[OpenedTarget]:
-    """The repository at ``commit`` (or the ref's current commit); a marketplace entry is followed to its plugin."""
     token = await source_token(db, target.named_connection_id)
     fetcher = git_fetcher()
     pinned = commit if commit and COMMIT_PATTERN.match(commit) else None
@@ -274,7 +262,6 @@ async def _category_key(db: AsyncSession, category_id: Any) -> str:
 
 async def upstream_files(snapshot: RepoSnapshot, kind: str, path: str, names: list[str] | None = None
                          ) -> list[BundleFile]:
-    """The files of one item at the snapshot's commit, with the bundled LICENSE (the upstream bundle)."""
     if kind == SKILL_KIND_MCP_SERVER:
         relative = [name for name in (PLUGIN_MANIFEST, MCP_FILE) if _join(path, name) in snapshot.entries]
     else:

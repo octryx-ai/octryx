@@ -1,11 +1,4 @@
-"""Observation of a Codex seat answer (``codex_seat``): read, never rewritten.
-
-The Codex seat relays ChatGPT's Responses answer to Codex byte for byte (like the Claude seat route); this module
-only reads it for usage and transcript with the same rules as the governed relay (``responses_stream``): usage of
-``response.completed``/``incomplete`` in the Anthropic keys, a bounded copy of the assistant text, finished tool
-call items as tool uses, the stop reason, an upstream ``error``/``response.failed`` code. No model check and no
-model rewrite: the seat model is the person's own choice on their own subscription.
-"""
+"""Observation of a Codex seat answer for usage and transcript: read, never rewritten."""
 
 from __future__ import annotations
 
@@ -35,17 +28,12 @@ from .sse_framing import split_sse_event, sse_event_fields
 MAX_OBSERVED_EVENT_BYTES = 4 * 1024 * 1024
 
 
+# No model check and no rewrite: the seat model is the person's own choice on their own subscription.
 class CodexSeatObserver:
-    """Feeds on the relayed chunks; an oversized event is skipped (its bytes were relayed anyway)."""
-
     def __init__(self, observation: Observation) -> None:
         self.observation = observation
         self._buffer = b""
         self._saw_delta = False
-        # What the answer says it is (``response.created``/``completed``): the device report's plausibility check
-        # (``codex_seat_device``) compares them with the admitted model and with the ids seen before.
-        self.response_id = ""
-        self.response_model = ""
 
     def feed(self, chunk: bytes) -> None:
         self._buffer += chunk
@@ -70,7 +58,6 @@ class CodexSeatObserver:
             return
         name = str(payload.get("type") or name or "")
         observation = self.observation
-        self._identify(payload.get("response"))
         if name == EVENT_CREATED:
             observation.message_started = True
         elif name == EVENT_TEXT_DELTA:
@@ -94,19 +81,11 @@ class CodexSeatObserver:
             observation.upstream_error_type = kept_code(_upstream_code(payload))
 
 
-    def _identify(self, response: Any) -> None:
-        if isinstance(response, Mapping):
-            self.response_id = self.response_id or str(response.get("id") or "")[:200]
-            self.response_model = str(response.get("model") or "")[:200] or self.response_model
-
-
 HOSTED_SEARCH_ITEM = "web_search_call"
 MAX_HOSTED_SEARCHES = 50
 
 
 def hosted_search(observation: Observation, item: Mapping[str, Any]) -> None:
-    """One provider-hosted web search of Codex (a research phase on the device, ``codex_driver``): its query or URL and
-    status, from the answer the platform admitted and the device reported (never the model's word)."""
     if len(observation.hosted_searches) >= MAX_HOSTED_SEARCHES:
         return
     action = item.get("action") if isinstance(item.get("action"), Mapping) else {}
@@ -117,7 +96,6 @@ def hosted_search(observation: Observation, item: Mapping[str, Any]) -> None:
 
 
 def observe_responses_body(observation: Observation, body: Any) -> None:
-    """A non-streamed Responses answer: usage, text, tool calls and stop reason."""
     if not isinstance(body, Mapping):
         return
     observation.usage.update(anthropic_usage(body.get("usage")))

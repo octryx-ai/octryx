@@ -44,7 +44,6 @@ def publish_approval_action(version: InstructionVersion) -> str:
 
 
 async def check_version(db: AsyncSession, *, version_id: str) -> list[dict[str, Any]]:
-    """The conflict check of a version as it stands (the preview the editor shows); stores nothing."""
     instruction, version = await load_version(db, version_id)
     return await check_conflicts(db, instruction, version.body)
 
@@ -113,7 +112,7 @@ async def publish(
     if not await _may_approve(db, str(approval.approved_by), workspace_id):
         raise InstructionRefusal("governance_approval_required", approval_gate={"status": "approver_not_authorized"})
     record_self_approval_audit(db, decision, resource_type="instruction_version", resource_id=version.id,
-                               approval_id=approval.id)
+                               approval_id=approval.id, project_id=workspace_id)
     now = utc_now()
     for other in (
         await db.execute(

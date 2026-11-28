@@ -1,6 +1,5 @@
-"""Trust metrics: a run's pull request merged, and a later merged pull
-request reverted it. The revert is read from the provider's own revert description, recorded as the run's
-``pr_reverted`` event when the merge webhook arrives, and counted from that event (never by a query)."""
+"""Trust metrics: a run's merged pull request and a later revert of it, read from the provider's revert
+description, recorded as a ``pr_reverted`` event and counted from that event."""
 
 from __future__ import annotations
 
@@ -51,7 +50,7 @@ def test_each_providers_revert_button_is_recognised_and_a_plain_merge_is_none():
     assert cloud.reverts == "4"
     plain = scm_event(_github(33, title="Revert-proof checkout", branch="revert-handling"),
                       {"X-GitHub-Event": "pull_request"})
-    assert plain.reverts == ""  # "Revert" in a title alone is no revert
+    assert plain.reverts == ""
 
 
 @pytest.mark.asyncio
@@ -64,7 +63,6 @@ async def test_a_revert_merge_marks_the_reverted_runs_pull_request_and_counts_it
     other = WorkflowRun(project_id=project.id, workflow_kind="phased", workflow_key="story-delivery", title="Ship",
                         requested_by=admin.id, status="completed",
                         pull_request=_opened("acme/other", "12"))
-    # The same path and number on another host is another pull request (C12F-06).
     other_host = WorkflowRun(project_id=project.id, workflow_kind="phased", workflow_key="story-delivery",
                              title="Elsewhere", requested_by=admin.id, status="completed",
                              pull_request=_opened("acme/shop", "12", host="ghe.example.test"))

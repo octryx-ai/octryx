@@ -39,7 +39,6 @@ async def _audit_refusal(command: str, where: str, reason: str) -> None:
 
 
 async def _start_audit_refusal(command: str, argv: list[str], cwd: Path) -> dict[str, Any] | None:
-    """Refuse a start inside git's internals or a secret path; otherwise record the one audit row before it starts."""
     from ...services.execution_runtime import command_audit
     from ...services.execution_runtime.foreign_build_guard import cwd_verdict, refusal_payload
 
@@ -56,8 +55,6 @@ async def _start_audit_refusal(command: str, argv: list[str], cwd: Path) -> dict
 async def _mutating_process_guard(
     tool_name: str, params: dict, context: ToolContext, *, argv: list[str], command: str, cwd: Path
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """``(workspace_change_contract, refusal)`` for a process that likely writes the workspace; a refusal for a
-    failed bootstrap or a dirty workspace."""
     if not _command_likely_writes_workspace(argv):
         return None, None
     bootstrap = await _ensure_repository_for_write(context)

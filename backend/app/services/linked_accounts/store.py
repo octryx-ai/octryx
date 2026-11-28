@@ -1,8 +1,4 @@
-"""Read, save and remove a user's linked accounts; every change is an ``audit_log`` row.
-
-Who may change whose accounts is the route's decision (``api/routes/linked_accounts``: the user themself or a
-platform admin); the audit row names the actor and the user. A changed identifier resets the verification.
-"""
+"""Read, save and remove a user's linked accounts; every change is an ``audit_log`` row."""
 
 from __future__ import annotations
 
@@ -69,7 +65,6 @@ async def save_account(
     db: AsyncSession, *, user_id: str, platform_key: str, identifier: str, display_name: str | None, actor_id: str,
     verified: dict[str, Any] | None = None,
 ) -> UserLinkedAccount:
-    """Create or change the user's account on the platform; ``verified`` marks it verified (a lookup found it)."""
     spec = platform(platform_key)
     value = normalized_identifier(spec, identifier)
     row = await account_row(db, user_id, spec.key)

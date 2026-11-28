@@ -1,5 +1,3 @@
-"""``--profile auto`` (the default): seat when the Workspace allows it and the seat login exists, else governed."""
-
 from __future__ import annotations
 
 import json
@@ -99,7 +97,6 @@ def test_only_a_seat_session_that_ended_normally_marks_the_seat_login(launch_env
 
 
 def test_a_codex_seat_login_alone_offers_the_seat_profile(state):
-    """A device with only the person's ChatGPT login (``octryx codex login``) offers seat for Codex."""
     from octryx_claude import codex_seat
 
     assert not profile_choice.seat_logged_in(state)

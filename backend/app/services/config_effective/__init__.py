@@ -1,8 +1,4 @@
-"""``effective(object, workspace)`` and the per-field "narrower" rules.
-
-Pure: no database access. The connections API (``services/connections``) reads what applies in a Workspace
-through this function.
-"""
+"""``effective(object, workspace)`` and the per-field "narrower" rules."""
 
 from .connection_rules import CONNECTION_RULES
 from .effective import (

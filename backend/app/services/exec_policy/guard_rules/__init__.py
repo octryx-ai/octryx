@@ -1,7 +1,4 @@
-"""Exec Policy guard rules: built-in agent guards and admin-defined custom tool guards.
-
-Callers import from ``exec_policy.guard_rules``.
-"""
+"""Exec Policy guard rules: built-in agent guards and admin-defined custom tool guards."""
 
 from __future__ import annotations
 

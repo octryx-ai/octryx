@@ -32,8 +32,6 @@ async def finalize_user_stopped_session(
     *,
     session: Session,
 ) -> None:
-    """Persist a user-cancelled stop state for the session and its linked task run."""
-
     if str(session.status or "").strip().lower() == "running":
         session.status = "active"
 

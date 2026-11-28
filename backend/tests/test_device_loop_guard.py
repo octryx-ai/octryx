@@ -20,6 +20,9 @@ from app.services.workflow_runs.records import main_session_id, new_chat_session
 from app.time_utils import utc_now
 from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _bash(command: str) -> tuple[str, dict]:

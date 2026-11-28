@@ -2,13 +2,9 @@ import { readAttentionAction } from "./companionRead";
 import { type AttentionAction, type AttentionItem, type RunState } from "./companionTypes";
 import { runName, runStatePhrase, targetPhrase } from "./companionLabels";
 
-// The companion's jobs (Octryx stage 1, part B): the person's runs ("Mine") or the runs of the active Workspace
-// ("Team"), and a read-only watch view of one run. Pure functions only, so unit tests read them directly.
-
 export type JobScope = "mine" | "team";
 export type JobPhaseState = "done" | "active" | "problem" | "pending";
 export type JobTarget = { kind: string; label: string; profile: string; reason: string; deviceName: string; online: boolean | null; folder: string | null };
-// `technical` comes from the server with its finished sentence: technical events wait behind their switch.
 export type JobEvent = { text: string; kind: string; at: string | null; technical: boolean };
 export type JobPhase = { id: string; title: string; state: JobPhaseState };
 export type Job = {
@@ -33,7 +29,6 @@ export type Job = {
 export type JobProblem = { reason: string; code: string; message: string };
 export type JobDetail = Job & {
   phases: JobPhase[]; currentStep: JobEvent | null; events: JobEvent[];
-  // Why a paused run stopped, and the owner's decisions on it (only with can_control).
   problem: JobProblem | null; actions: AttentionAction[];
 };
 
@@ -43,7 +38,6 @@ export const PHASE_STATE_LABEL: Record<JobPhaseState, string> = { done: "Done", 
 
 const RUN_STATES: RunState[] = ["working", "needs_you", "done", "problem"];
 const PHASE_STATES: JobPhaseState[] = ["done", "active", "problem", "pending"];
-// A run that has not ended can still be aborted (POST /workflow-runs/{id}/actions {action: "abort", reason}).
 const ACTIVE_STATUSES = ["running", "waiting", "paused"];
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -91,14 +85,12 @@ export function readJob(value: unknown): Job | null {
   };
 }
 
-/** GET /attention/jobs; null when the answer is not a job list. */
 export function readJobs(payload: unknown): Job[] | null {
   const jobs = record(payload)?.jobs;
   if (!Array.isArray(jobs)) return null;
   return jobs.map(readJob).filter((job): job is Job => job !== null);
 }
 
-/** GET /attention/jobs/{run_id}; null when the answer is not a job. */
 export function readJobDetail(payload: unknown): JobDetail | null {
   const job = readJob(payload);
   if (!job) return null;
@@ -118,14 +110,12 @@ export function readJobDetail(payload: unknown): JobDetail | null {
   return { ...job, phases, currentStep: readEvent(value.current_step), events, problem, actions };
 }
 
-// A run that was stopped (emergency stop) or aborted has ended; it reads "Stopped", never "Problem".
 const STOPPED_STATUSES = ["stopped", "aborted", "cancelled", "canceled", "emergency_stopped"];
 
 export function isStopped(job: Pick<Job, "status">): boolean {
   return STOPPED_STATUSES.includes(job.status.toLowerCase());
 }
 
-/** The job's state in one word: "Stopped" for a stopped or aborted run, else the state's label. */
 export function jobStateLabel(
   job: Pick<Job, "state" | "status"> & Partial<Pick<Job, "currentNode" | "waitingKind" | "pauseReason">>,
 ): string {
@@ -133,16 +123,11 @@ export function jobStateLabel(
   return runStatePhrase(job.status, job.currentNode?.id ?? "", job.waitingKind ?? "", JOB_STATE_LABEL[job.state], job.pauseReason ?? "");
 }
 
-/** Whether the job's detail shows the problem box: only a run in problem (not working, not stopped). */
 export function showsProblem(job: JobDetail): boolean {
   if (isStopped(job)) return false;
   return job.state === "problem" || job.problem !== null;
 }
 
-/**
- * The job's own problem as a card (reason in one sentence, the owner's decisions), from the job detail; null when the
- * server sends neither, so the panel shows the current sentence as the reason.
- */
 export function jobProblemItem(job: JobDetail): AttentionItem | null {
   // Only a run in problem gets the card: a working run's actions are no problem.
   if (!showsProblem(job) || (!job.problem && !job.actions.length)) return null;
@@ -164,14 +149,11 @@ export function jobsPath(scope: JobScope, workspaceId: string): string {
 
 export const jobPath = (runId: string) => `${JOBS_PATH}/${encodeURIComponent(runId)}`;
 
-/** The work item (key and title) when the run has one, else the run's own title. */
 export function jobTitle(job: Job): string {
-  // Ticket key first, from the work item or the run itself.
   return runName(job.workItem?.key || job.ticketKey || "", job.workItem?.title || job.title || "",
     job.title || job.workflowKey || "Workflow run");
 }
 
-/** "Phase 2 of 5"; a finished run stands at its last phase; without a known phase "5 phases". */
 export function phaseText(job: Job): string {
   if (!job.phaseCount) return "";
   if (job.phaseIndex) return `Phase ${job.phaseIndex} of ${job.phaseCount}`;
@@ -179,12 +161,10 @@ export function phaseText(job: Job): string {
   return job.phaseCount === 1 ? "1 phase" : `${job.phaseCount} phases`;
 }
 
-/** Where the run runs: "on the server", "on Studio Mac · offline". */
 export function targetText(target: JobTarget | null): string {
   return targetPhrase(target);
 }
 
-/** Where the run is looked at in the app: its work item; null when it has none. */
 export function jobLink(job: Job): { href: string; label: string } | null {
   return job.workItem ? { href: `/chat?area=work&work_item_id=${encodeURIComponent(job.workItem.id)}`, label: "Open work item" } : null;
 }
@@ -195,7 +175,6 @@ export function abortRequest(runId: string, reason: string): { path: string; bod
   return { path: `/api/v1/workflow-runs/${encodeURIComponent(runId)}/actions`, body: { action: "abort", reason } };
 }
 
-/** The socket message that asks for job_changed nudges of one run. */
 export const watchMessage = (runId: string) => JSON.stringify({ watch: runId });
 
 export function jobErrorText(status: number | undefined): string {

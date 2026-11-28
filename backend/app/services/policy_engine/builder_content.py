@@ -1,26 +1,4 @@
-"""Content policies in the guided builder: what the scan must find, and what happens then.
-
-A builder model becomes a content policy when it names detectors (``content.detectors``). It then applies to exactly
-one content action — ``call_model`` (the request body) or ``receive_tool_result`` (the result) — and carries an
-``outcome``:
-
-- ``block`` — a plain forbid;
-- ``mask`` — ``@obligation("mask")`` with ``@mask`` (the detectors) and ``@mask_style``;
-- ``reroute`` / ``mask_reroute`` — routing to ``@reroute_to`` (``call_model`` only), excepted once the request is
-  on the governed route at an alias approved for every category (and, when masking, no longer contains the
-  findings), so the repaired request passes the second check.
-
-``content.sticky`` (the conversation already contained a category) needs a route; ``content.incomplete`` (the scan
-could not finish) is OR-joined with the detectors; ``outcome.approved_except`` (models approved for the categories
-receive the data unmasked) is for ``mask`` on ``call_model``.
-
-Categories: a built-in detector's category comes from the vocabulary; a custom one's from the policy set's custom
-detectors (``custom_detectors``: id → category, the reader's argument). An unknown detector is an issue, never
-dropped. Without that mapping (reading back stored Cedar) a ``custom.*`` id is kept as written and the categories
-are the ones the text names. ``content.categories`` is derived and only kept where the Cedar names them (route or
-approved-model exception), so equal policies have equal models. Reading the Cedar back is
-``builder_content_parse``.
-"""
+"""Content policies in the guided builder: what the scan must find, and what happens then."""
 
 from __future__ import annotations
 
@@ -75,12 +53,10 @@ def masks(outcome: Outcome) -> bool:
 
 
 def is_content_policy(model: Any) -> bool:
-    """The model names detectors (or sets any content/outcome field, which then needs detectors)."""
     return model.content != Content() or model.outcome != Outcome()
 
 
 def custom_categories(definitions: Any) -> dict[str, str]:
-    """``custom_detectors`` for the reader: a policy set's custom detector ids → their categories."""
     return {item.id: item.category for item in definitions.detectors}
 
 
@@ -137,7 +113,6 @@ def read_content(reader: Any, raw: Any, outcome: Outcome, custom: Mapping[str, s
 
 
 def check_content(reader: Any, model: Any, placeholders: set[str]) -> None:
-    """The content rules on top of the block applicability (``builder_model._check_semantics``)."""
     if not is_content_policy(model):
         return
     content, outcome = model.content, model.outcome
@@ -169,7 +144,6 @@ def check_content(reader: Any, model: Any, placeholders: set[str]) -> None:
 
 
 def content_when(model: Any, others: int) -> list[str]:
-    """The route condition and the content group (OR of detectors / incomplete / sticky), after ``others``."""
     parts: list[str] = []
     if model.conditions.route:
         parts.append(f"context.route == {literal(model.conditions.route)}")

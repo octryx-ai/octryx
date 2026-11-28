@@ -4,7 +4,14 @@ import { DeviceModelPill } from "./DeviceModelPill";
 import { loadDeviceRunsPolicy, loadMyDevices } from "./devicesApi";
 import { deviceRunsBlocked, readDeviceRunsPolicy, workspaceAllowsSeat, type DeviceRunsPolicy } from "./deviceRunsPolicyModel";
 import { deviceStatus, osLabel, readMyDevices, relativeTime, type MyDevice } from "./devicesModel";
-import { SERVER_TARGET, setExecutionTarget, useExecutionTarget, type DeviceProfile } from "./executionTarget";
+import {
+  SERVER_TARGET,
+  runOnLabel,
+  runsOnOwnDevice,
+  setExecutionTarget,
+  useExecutionTarget,
+  type DeviceProfile,
+} from "./executionTarget";
 import "./devices.css";
 
 // The composer's "Run on" control: Server or one of the caller's own devices, and for a
@@ -192,7 +199,8 @@ export function RunOnControls({ sessionId, projectId, workspaceName, composerDis
 
   const selected = target.kind === "device" ? devices.find((device) => device.id === target.deviceId) : undefined;
   const blocked = deviceRunsBlocked(policy, workspaceName);
-  const label = target.kind === "device" ? `Run on: ${selected?.name ?? "your device"}` : "Run on: Server";
+  const ownDevice = runsOnOwnDevice(target);
+  const label = runOnLabel(target, selected?.name);
 
   const pickDevice = (device: MyDevice) => {
     const folder = target.kind === "device" && device.folders.includes(target.folder) ? target.folder : device.folders[0] ?? "";
@@ -206,11 +214,11 @@ export function RunOnControls({ sessionId, projectId, workspaceName, composerDis
         <RunOnPopover sessionId={sessionId} target={target} devices={devices} blocked={blocked} setOpen={setOpen}
           pickDevice={pickDevice} />
       ) : null}
-      <button type="button" className={`composer-pill ${target.kind === "device" ? "composer-pill--active" : ""}`}
+      <button type="button" className={`composer-pill ${ownDevice ? "composer-pill--active" : ""}`}
         title="Where this request runs" aria-haspopup="listbox" aria-expanded={open} disabled={composerDisabled}
         onClick={() => setOpen((current) => !current)}>
         <span className="composer-pill__display">
-          {target.kind === "device" ? <LaptopIcon /> : <ServerIcon />}
+          {ownDevice ? <LaptopIcon /> : <ServerIcon />}
           <span>{label}</span>
         </span>
       </button>

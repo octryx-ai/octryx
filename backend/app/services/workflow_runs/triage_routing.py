@@ -1,34 +1,4 @@
-"""Routing by type after the triage ("Routing by type").
-
-- **Mapping** (type → follow-up ``workflow_key``): :data:`DEFAULT_ROUTES` (feature → ``epic-delivery``,
-  bug → ``bug-fix-reproduction``, incident → ``incident-analysis``), overridden per **Workspace**
-  (``Project.config["triage_routing"] = {"routes": {type: key | null}}``, the Workspace's "Triage routing" setting,
-  admin/owner; ``GET/PUT /api/v1/workflow-runs/triage-routing``), overridden again per **triage definition**: a
-  ``routing`` block on the outcome node the run ended at (``{"type": "outcome", "config": {"outcome": "done",
-  "routing": {"routes": {...}}}}``; validated with the definition, ``routing_errors``). Each layer replaces single
-  types; ``null`` switches a type off. The phased canvas has no node-config editor yet (it lists non-phase nodes
-  read-only): the Workspace setting is the editable place, a definition block is authored through the flow API or
-  a seed, and the canvas can later show it on the outcome node (``nodeDetail``) from the phased view's config.
-- **When**: a top-level run of ``jira-intake-triage`` (or any phased run whose ending outcome node carries a
-  ``routing`` block) that completes ``done`` / ``delivered`` (``engine._finish``). Its Definition of Ready's
-  ``type`` selects the route. No route (an unknown or switched-off type): no follow-up, never a guess; the run
-  records ``routing_no_route`` ("No route for type 'X'").
-- **Exactly one follow-up**: the triage run keeps ``context.routing`` (state ``routed`` / ``no_route`` /
-  ``failed``) and the follow-up ``context.routed_from``; both are checked before a start, so a retry or sweep
-  that finishes the run again starts nothing. A refused start (the workflow is not published, a run of it is
-  still active on the item, the requester lost the Workspace) is recorded once as ``routing_failed`` with its code.
-- **Handover**: the follow-up runs for the same Work item and Workspace, on the triage's repository and ticket,
-  requested by the triage's requester, with the triage's responsible person copied as is (never resolved again),
-  and the Definition of Ready handed over (``context.handoff.definition_of_ready``: its phases read it as an input,
-  ``phase_outputs.available_inputs``). It runs where the triage ran (``runtime_target``) when that target is still
-  valid for the requester; otherwise on the Server (a device is only ever the requester's own:
-  ``runtime_device_not_owner`` stays), the reason in the ``routed_to`` event.
-- **Events**: ``routed_to`` on the triage (workflow key, new run id, type), ``routed_from`` on the follow-up.
-- **Entry** (:func:`entry_workflow_for`): an incident skips the triage — a Jira issue of type Incident and a
-  ServiceNow item of the ``incident`` table start ``incident-analysis`` (or the Workspace's incident route), every
-  other item ``jira-intake-triage``. Only a person's start uses it (the run start's preselection); the automatic
-  start is the intake automation.
-"""
+"""Routing by type after the triage ("Routing by type")."""
 
 from __future__ import annotations
 
@@ -49,12 +19,12 @@ from .states import OUTCOME_DELIVERED, OUTCOME_DONE
 logger = logging.getLogger(__name__)
 
 CONFIG_KEY = "triage_routing"
-ROUTING_KEY = "routing"  # on an outcome node's config (definition override) and on the triage run's context
-ROUTED_FROM_KEY = "routed_from"  # on the follow-up run's context
+ROUTING_KEY = "routing"
+ROUTED_FROM_KEY = "routed_from"
 AUDIT_ACTION = "workflow_run.triage_routing_updated"
 INCIDENT_WORKFLOW_KEY = "incident-analysis"
 DEFAULT_ROUTES: dict[str, str] = {
-    "feature": "epic-delivery",  # story / epic delivery
+    "feature": "epic-delivery",
     "bug": "bug-fix-reproduction",
     "incident": INCIDENT_WORKFLOW_KEY,
 }
@@ -78,11 +48,7 @@ class RoutingSettingsError(ValueError):
         self.field = field
 
 
-# ---- the mapping --------------------------------------------------------------------------------------------------
-
 def normalize_routes(value: Any, field: str = f"{CONFIG_KEY}.routes") -> dict[str, str | None]:
-    """``{type: workflow_key | None}``: lower-case type slugs, workflow keys (never the triage itself); ``None``
-    switches a type off. Raises :class:`RoutingSettingsError`."""
     if not isinstance(value, dict):
         raise RoutingSettingsError("object_required", field)
     if len(value) > MAX_ROUTES:
@@ -104,7 +70,6 @@ def normalize_routes(value: Any, field: str = f"{CONFIG_KEY}.routes") -> dict[st
 
 
 def normalize_settings(value: Any) -> dict[str, Any]:
-    """The stored Workspace section ``{"routes": {...}}``; unknown keys are refused."""
     if not isinstance(value, dict):
         raise RoutingSettingsError("object_required", CONFIG_KEY)
     unknown = sorted(str(key) for key in set(value) - {"routes"})
@@ -114,13 +79,10 @@ def normalize_settings(value: Any) -> dict[str, Any]:
 
 
 def normalize_config_value(value: Any) -> Any:
-    """The project-config owner hook: ``None`` clears the key, anything else must validate."""
     return None if value is None else normalize_settings(value)
 
 
 def workspace_routes(config: Any) -> tuple[dict[str, str | None], str]:
-    """The Workspace's own routes and their source: ``workspace``, ``default`` (none stored) or ``invalid`` (a
-    stored value that no longer validates: ignored, so the defaults apply)."""
     stored = config.get(CONFIG_KEY) if isinstance(config, dict) else None
     if stored is None:
         return {}, "default"
@@ -131,7 +93,6 @@ def workspace_routes(config: Any) -> tuple[dict[str, str | None], str]:
 
 
 def definition_routes(node: Any) -> dict[str, str | None] | None:
-    """The ``routing.routes`` block of an outcome node (the triage definition's override), else ``None``."""
     config = getattr(node, "config", None) or {}
     block = config.get(ROUTING_KEY) if isinstance(config, dict) else None
     if not isinstance(block, dict):
@@ -143,7 +104,6 @@ def definition_routes(node: Any) -> dict[str, str | None] | None:
 
 
 def routing_errors(node: Any) -> list[dict[str, str]]:
-    """Validation of an outcome node's ``routing`` block (``graph_validation.validate_phased_definition``)."""
     config = getattr(node, "config", None) or {}
     if ROUTING_KEY not in config:
         return []
@@ -161,7 +121,6 @@ def routing_errors(node: Any) -> list[dict[str, str]]:
 
 def effective_routes(workspace: dict[str, str | None] | None = None,
                      definition: dict[str, str | None] | None = None) -> dict[str, str | None]:
-    """Defaults, then the Workspace's, then the definition's: each layer replaces single types."""
     return {**DEFAULT_ROUTES, **dict(workspace or {}), **dict(definition or {})}
 
 
@@ -170,10 +129,7 @@ async def routes_for_workspace(db: AsyncSession, project_id: str | None) -> dict
     return effective_routes(workspace_routes(project.config if project is not None else None)[0])
 
 
-# ---- the entry workflow of a Work item ----------------------------------------------------------------------------
-
 def is_incident(item: WorkItem | None) -> bool:
-    """A Jira issue of type Incident, or a ServiceNow item of the ``incident`` table."""
     if item is None:
         return False
     source = str(item.source_type or "").strip().lower()
@@ -183,23 +139,17 @@ def is_incident(item: WorkItem | None) -> bool:
 
 
 def entry_workflow_for(work_item: WorkItem | None, routes: dict[str, str | None] | None = None) -> str:
-    """The workflow a Work item's next run starts with: an incident skips the triage (``incident-analysis``, or the
-    Workspace's ``incident`` route when ``routes`` names one), everything else is triaged first."""
     if not is_incident(work_item):
         return TRIAGE_WORKFLOW_KEY
     mapped = (DEFAULT_ROUTES if routes is None else routes).get("incident", INCIDENT_WORKFLOW_KEY)
-    return mapped or TRIAGE_WORKFLOW_KEY  # the Workspace switched the incident route off: incidents are triaged
+    return mapped or TRIAGE_WORKFLOW_KEY
 
-
-# ---- after the triage ---------------------------------------------------------------------------------------------
 
 def routing_state(run: WorkflowRun) -> dict[str, Any]:
     return dict(dict(run.context or {}).get(ROUTING_KEY) or {})
 
 
 def routing_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """For the run card and the app: ``{state, type, workflow_key, run_id, message, code}`` of a routed triage and
-    ``routed_from: {run_id, workflow_key, type}`` of a follow-up; ``None`` when neither applies."""
     state = routing_state(run)
     origin = dict(dict(run.context or {}).get(ROUTED_FROM_KEY) or {})
     if not state and not origin:
@@ -241,8 +191,6 @@ async def _existing_follow_up(db: AsyncSession, run: WorkflowRun) -> WorkflowRun
 
 
 async def _follow_up_target(db: AsyncSession, run: WorkflowRun, requester: User) -> tuple[Any, str | None]:
-    """The triage's target when it is still valid for the requester (a device only their own), else the Server
-    with the refusal's code."""
     from .runtime_target.target import KIND_SERVER, stored_target, validate_target
 
     stored = stored_target(run)
@@ -265,8 +213,6 @@ def is_routed_triage(run: WorkflowRun, node: Any) -> bool:
 
 
 async def route_after_triage(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None) -> WorkflowRun | None:
-    """Start the follow-up of a triage that completed successfully (the module docstring); the follow-up run, or
-    ``None`` when nothing started. Called by ``engine._finish`` on the claimed run."""
     if run.parent_run_id or run.outcome not in SUCCESS_OUTCOMES or routing_state(run):
         return None
     node = await _ending_node(db, run)
@@ -334,8 +280,6 @@ async def _start_follow_up(db: AsyncSession, run: WorkflowRun, *, key: str, kind
     return child
 
 
-# ---- the Workspace setting ----------------------------------------------------------------------------------------
-
 def settings_payload(project: Project, *, can_edit: bool) -> dict[str, Any]:
     routes, source = workspace_routes(project.config)
     return {"project_id": project.id, "routes": routes, "defaults": dict(DEFAULT_ROUTES),
@@ -343,7 +287,6 @@ def settings_payload(project: Project, *, can_edit: bool) -> dict[str, Any]:
 
 
 async def set_workspace_routes(db: AsyncSession, *, project: Project, value: Any, actor_id: str) -> dict[str, Any]:
-    """Store the Workspace's routes (replacing the stored ones) through the project-config path, audited."""
     from ..admin.project.admin_project_config_service import apply_project_config_patch
 
     section = normalize_settings(value)

@@ -14,7 +14,7 @@
   margin: 0;
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 /* The second way to add something is a quiet link inside the page, at the end of its title row. */

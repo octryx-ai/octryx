@@ -33,7 +33,6 @@ async def _scan_file_commits(
     db: AsyncSession | None,
     project_config: dict[str, Any] | None,
 ) -> tuple[Counter[str], Counter[str], set[str], int]:
-    """Authors, co-changed files, ticket keys and the recent-commit count of a file's history."""
     author_counter: Counter[str] = Counter()
     co_change_counter: Counter[str] = Counter()
     jira_tickets: set[str] = set()
@@ -135,7 +134,6 @@ def _coupled_files(
     co_change_count: dict[str, Counter[str]],
     threshold: float,
 ) -> list[dict[str, Any]]:
-    """Files changed together with an anchor at least ``threshold`` of the time; a missing one is flagged."""
     coupled: list[dict[str, Any]] = []
     seen_files: set[str] = set(anchor_files)
     for anchor, counts in co_change_count.items():

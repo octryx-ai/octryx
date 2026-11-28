@@ -1,42 +1,4 @@
-"""Deny-by-default Octryx alias catalog for the LiteLLM gateway.
-
-Agents and users name Octryx *aliases*. The upstream model group is a
-deployment detail that only this catalog knows. An alias is admitted only when
-every governed field is present and valid:
-
-``config_json["litellm_gateway"]``::
-
-    {
-      "host_allowlist": ["litellm.internal.example"],
-      "probe_contract": {"models_path": "/models", "required_model_groups": [...]},
-      "aliases": {
-        "<alias>": {
-          "model_group": "<upstream model group>",
-          "context_limit": 128000,
-          "data_policy_class": "internal",
-          "capabilities": {"tools": true, "structured_output": false,
-                            "reasoning": false, "vision": false},
-          "cost": {"source": "catalog_pricing",
-                    "input_per_million_usd": 0.15, "output_per_million_usd": 0.6},
-          "served_model_ids": ["<upstream model id>"],  # optional
-          "display_name": "<name shown in a model picker>",  # optional
-          "approved_data_categories": ["<content category>"]  # optional
-        }
-      }
-    }
-
-``approved_data_categories`` names the content categories (``pci``, ``pii``, a custom category, …) the
-alias is approved to receive; it becomes ``resource.approved_for`` in Cedar, and only an alias approved for a
-category may be the route target of a content policy for it. Absent means none; a malformed list refuses the alias.
-
-An alias without a cost contract is not admitted: an unpriced model would
-silently contribute zero to every budget guard. ``cost.source`` is a closed
-enum — ``catalog_pricing``, ``gateway_reported``, or ``governed_free`` — and
-only ``governed_free`` (which must name its governance record) may ever settle
-at cost zero. A ``catalog_pricing`` alias must therefore carry a finite,
-strictly positive rate for *both* per-token directions; zero, NaN and infinity
-are all refused.
-"""
+"""Deny-by-default Octryx alias catalog for the LiteLLM gateway (``config_json["litellm_gateway"]``)."""
 
 from __future__ import annotations
 
@@ -162,14 +124,9 @@ class AliasCostContract:
             payload["cost_contract_reference"] = self.contract_reference
         return payload
 
+    # Every source publishes a block, including the two that carry no price: that is what lets sync clear a price the
+    # previous mode stored.
     def catalog_payload(self) -> dict[str, Any]:
-        """The closed contract block this alias publishes to model-catalog sync.
-
-        Every source publishes one, including the two that carry no price: that
-        is what lets sync clear a price the previous mode persisted instead of
-        silently keeping it.
-        """
-
         return build_cost_contract_payload(
             source=self.source,
             input_per_million_usd=self.input_per_million_usd,
@@ -223,14 +180,9 @@ def gateway_config_section(config_json: Any) -> Mapping[str, Any] | None:
     return section if isinstance(section, Mapping) else None
 
 
+# The virtual key lives behind api_key_secret_ref; a config that embeds a key would carry the secret in every serialized
+# provider payload.
 def config_contains_credential_material(section: Any) -> bool:
-    """True when the gateway config carries a credential-looking key.
-
-    The virtual key lives behind ``api_key_secret_ref``. A config that embeds a
-    key must not be admitted, otherwise the secret would travel with every
-    serialized provider payload.
-    """
-
     if isinstance(section, Mapping):
         return any(
             is_sensitive_key(str(key)) or config_contains_credential_material(value)
@@ -241,15 +193,9 @@ def config_contains_credential_material(section: Any) -> bool:
     return False
 
 
+# NaN and infinity pass a naive >= 0 test and usage_contract would compute a NaN or infinite cost it still sees as
+# positive, so they are refused at admission.
 def _finite_rate(value: Any) -> float | None:
-    """A per-token rate that can be charged, or ``None`` for an unusable one.
-
-    Rejects non-numbers, booleans, negatives, NaN and infinity. NaN and infinity
-    matter on their own: both pass a naive ``>= 0`` test, and ``usage_contract``
-    would then compute a NaN or infinite turn cost from them and still see it as
-    "strictly positive", so the price has to be refused at admission.
-    """
-
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     try:
@@ -262,8 +208,6 @@ def _finite_rate(value: Any) -> float | None:
 
 
 def _resolve_cost_contract(raw: Any) -> tuple[AliasCostContract | None, str]:
-    """Resolve the alias cost contract, or a fixed admission denial code."""
-
     if not isinstance(raw, Mapping):
         return None, ALIAS_DENIAL_COST_CONTRACT_MISSING
     source = str(raw.get("source") or "").strip().lower()
@@ -304,7 +248,6 @@ def _resolve_cost_contract(raw: Any) -> tuple[AliasCostContract | None, str]:
 
 
 def _long_context(raw: Mapping[str, Any]) -> tuple[tuple[int | None, float | None], str]:
-    """The optional long-prompt pair: a whole positive threshold and a factor of at least 1, both or neither."""
     raw_threshold, raw_factor = raw.get("long_context_threshold_tokens"), raw.get("long_context_factor")
     if raw_threshold is None and raw_factor is None:
         return (None, None), ""

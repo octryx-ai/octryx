@@ -1,26 +1,4 @@
-"""The outcome of one platform model call's content handling: its one record and its notice.
-
-``model_call.enforced_chat`` collects what the call's checks found in a :class:`CallOutcome` and writes the call's
-one record (:meth:`CallOutcome.write`, idempotent) when the call ends — the record's id is fixed when the outcome
-starts, so a refusal and a notice name it before it is written. The record is request-side only
-(``model_call_record``):
-
-- refused before anything was sent (:meth:`CallOutcome.refuse`: no scope or plan, the fixed rules, a refused kind, a
-  reroute that cannot be made, Cedar, the final check) — ``refused`` with the reason and the stage, every kind it
-  names ``applied: refuse``;
-- handed to the transport (:meth:`CallOutcome.dispatched`: the final check passed, with its examination of the sent
-  bytes) — ``forwarded``, derived from that examination and the completed examination of the input (the probe, before
-  any Workspace policy changed it; ``model_call_record.sent_applied``), whatever happened after the hand-off (the
-  upstream failed, the call was cancelled, the reply was refused). It is written when anything was masked, rerouted,
-  withheld or reported (a report an earlier record already stated included: ``reported_before``), a Workspace
-  (Cedar) policy acted or would have acted, or the reply was refused (:meth:`CallOutcome.reply_refusal`:
-  ``reply_refused``, the reply's only trace in the record); once it is written its new reports count
-  (``model_call_fields.REPORTED``) — a report stated before keeps counting at the earlier record;
-- neither refused nor sent (the driver failed, or the call was cancelled, before the hand-off): no record.
-
-The target is the alias the call is sent to (:attr:`CallOutcome.target`: a Workspace policy may switch it). The record
-names the scope's Workspace (or its platform scope), session and user (``model_call_scope``).
-"""
+"""The outcome of one platform model call's content handling: its one record and its notice."""
 
 from __future__ import annotations
 
@@ -59,7 +37,6 @@ REASON_UNREADABLE = "content_unreadable"
 
 def write_record(outcome: str, policies: tuple[str, ...], examination: Examination, resource: str,
                  handling: Mapping[str, Any] | None = None, decision_id: str | None = None) -> str | None:
-    """The call's one decision record (gate ``content_security``)."""
     scope = bound_scope()
     try:
         entry = build_gate_record(gate=GATE_CONTENT_SECURITY, outcome=outcome, action=ACTION_CALL_MODEL,
@@ -94,8 +71,6 @@ def _empty() -> Examination:
 
 @dataclass(frozen=True, slots=True)
 class _Sent:
-    """What a request handed to the transport applied (see the module doc)."""
-
     entries: list[Applied]
     before: dict[str, str]  # a reported kind only earlier records reported → that record
     examination: Examination  # the counts: sent kinds from the sent bytes, masked kinds from the input
@@ -105,8 +80,6 @@ class _Sent:
 
 @dataclass(slots=True)
 class CallOutcome:
-    """What the checks of one call found, until its one record is written (see the module doc)."""
-
     point: str
     requested: str
     plan: HandlingPlan | None = None
@@ -133,13 +106,11 @@ class CallOutcome:
             self.withheld_at[surface] = self.withheld_at.get(surface, 0) + count
 
     def copied(self, run: RecordedRun, reports: Reports) -> None:
-        """The provider copy: its masks and withholds (stated only once it is sent), and its report kinds."""
         self.masked += run.masked
         self.withhold(run.withheld_at)
         self.reports = reports
 
     def dispatched(self, sent: Examination) -> None:
-        """The final check passed: the request is handed to the transport, carrying what ``sent`` found."""
         self.sent = sent
 
     def _target(self, final: str) -> dict[str, str]:
@@ -148,8 +119,6 @@ class CallOutcome:
     def refuse(self, policies: tuple[str, ...], model: str, reason: str, stage: str, *,
                examination: Examination | None = None, entries: list[Applied] | None = None,
                target: Mapping[str, object] | None = None) -> ContentPolicyRefusedError:
-        """The call is refused before anything was sent: the refusal to raise; the record says so when the call
-        ends."""
         examination = examination if examination is not None else _empty()
         if self.refusal is None and self.sent is None:
             handling = None if self.plan is None else call_record(
@@ -160,7 +129,6 @@ class CallOutcome:
 
     def reply_refusal(self, policies: tuple[str, ...], model: str, reason: str,
                       examination: Examination | None = None) -> ContentPolicyRefusedError:
-        """The reply is refused (not released): the record of the sent request says ``reply_refused``."""
         self.reply_refused = True
         return refusal_error(policies, examination if examination is not None else _empty(), model, reason,
                              self.decision_id)
@@ -200,8 +168,6 @@ class CallOutcome:
         return OUTCOME_REMEDIED if masked or self.masked or self.withheld or self.rerouted else OUTCOME_REPORTED
 
     def forwarded(self, result: Any, model: str, cedar_notice: Mapping[str, Any]) -> Any:
-        """The reply is released (``cedar_notice``: what a Workspace policy changed, for the person): the notice
-        names the record written when the call ends."""
         sent = self._sent()
         if sent is None:
             return result
@@ -212,7 +178,6 @@ class CallOutcome:
         return result
 
     def write(self) -> str | None:
-        """The call's one record (see the module doc); a second call writes nothing."""
         if self.written:
             return None
         self.written = True
@@ -232,7 +197,6 @@ class CallOutcome:
 
     def _notice(self, cedar: Mapping[str, Any], sent: _Sent, decision_id: str | None,
                 model: str) -> dict[str, Any]:
-        """The chat notice; ``model`` is the final alias the call was sent to."""
         if not self.masked and not self.withheld and not self.rerouted:
             return {**cedar, "decision_id": decision_id} if cedar else {}
         found = dict(cedar.get("found") or {})

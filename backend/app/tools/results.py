@@ -74,14 +74,10 @@ class ToolExecutionResult:
 
 
 def safe_tool_error_message(value: Any, *, max_chars: int = _MAX_ERROR_MESSAGE_CHARS) -> str:
-    """Return a bounded, secret-redacted error message safe for tool results."""
-
     return redact_secret_text(value, max_chars=max_chars)
 
 
 def coerce_tool_result_payload(result: Any) -> dict[str, Any]:
-    """Normalize plain dicts and ToolResult-like values into a dict payload."""
-
     if isinstance(result, dict):
         return dict(result)
     data = getattr(result, "data", None)
@@ -109,12 +105,6 @@ def annotate_tool_result_payload(
     policy: str | None = None,
     retryable: bool | None = None,
 ) -> dict[str, Any]:
-    """Attach typed execution metadata to blocked or errored tool payloads.
-
-    Successful payloads are returned unchanged so model-visible tool data
-    does not grow unless there is a dispatch/error state to inspect.
-    """
-
     payload = coerce_tool_result_payload(result)
     if "tool_execution" in payload:
         return payload
@@ -241,12 +231,6 @@ TOOL_CALL_AWAITING_APPROVAL = "awaiting_approval"
 
 
 def tool_call_status(result: Any) -> str:
-    """The status a finished tool call is stored and streamed with: ``success``, ``error`` or ``awaiting_approval``.
-
-    Without this, ``propose_write_plan`` produced its plan card
-    and waited for the person correctly, yet the step stood as "Propose Write Plan failed" (Error), because a result
-    asking for approval carries an ``error`` sentence for the model and the status was ``"error" in result``. A call
-    that waits for the person's approval has not failed."""
     if not isinstance(result, dict) or "error" not in result:
         return "success"
     pending = str(result.get("approval_status") or "").strip().lower() == "pending"

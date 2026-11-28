@@ -1,15 +1,4 @@
-"""Where ``@octryx`` comments come from: the sync's poll and a webhook, both into ``commands``.
-
-- **Poll** (``poll_comments``): every repository whose bot syncs is asked for the comments on its open pull requests
-  since its cursor (``bot_state.cursor``) less ``OVERLAP``, through the governed ``list_*_pull_request_heads`` tool
-  (``comments_since``). The first poll of a repository only sets the cursor: a command written before the bot
-  listened is never acted on. The worker polls every ``POLL_INTERVAL_SECONDS``; the hourly sync and ``POST sync``
-  poll too. A local installation gets no webhook, so this is how commands reach it.
-- **Webhook** (``on_comment``): a comment event of a repository whose bot is on, acted on in the background.
-
-The answer is a comment in the pull request's conversation, or a reply in the thread the command was written in,
-through the post tool on the repository's connection as the Workspace's bot user.
-"""
+"""Where ``@octryx`` comments come from: the sync's poll and a webhook, both into ``commands``."""
 
 from __future__ import annotations
 
@@ -37,7 +26,6 @@ def _now() -> datetime:
 
 
 async def list_repository(db: AsyncSession, record: CodeRepository, user_id: str, **extra: Any) -> dict[str, Any]:
-    """The governed ``list_*_pull_request_heads`` answer (open pull requests, and what ``extra`` asks for)."""
     from ...tools.registry import execute_tool_with_plugins
     from ..workflow_runs.platform.repo_ref import parse_repository
     from .providers import LIST_TOOLS
@@ -89,7 +77,6 @@ def _reply(db: AsyncSession, record: CodeRepository, user_id: str,
 
 def reply_for(db: AsyncSession, record: CodeRepository, user_id: str, heads: dict[str, PullRequestEvent],
               event: CommentEvent) -> Reply:
-    """A reply bound to one comment, outside a poll (a background start that failed, ``fix_command``)."""
     reply, current = _reply(db, record, user_id, heads)
     current["event"] = event
     return reply
@@ -124,7 +111,6 @@ async def act_on(db: AsyncSession, record: CodeRepository, user_id: str, comment
 
 async def poll_comments(db: AsyncSession, record: CodeRepository, user_id: str,
                         answer: dict[str, Any] | None = None) -> dict[str, int]:
-    """Act on the command comments since the repository's cursor; ``answer``: a listing that already carries them."""
     started, since = _now(), bot_state.cursor(record)
     if not since:
         bot_state.set_cursor(record, started.isoformat())
@@ -149,13 +135,11 @@ async def poll_comments(db: AsyncSession, record: CodeRepository, user_id: str,
 
 
 def poll_since(record: CodeRepository) -> dict[str, str]:
-    """The ``comments_since`` argument of a listing that also serves the poll (``{}`` before the first poll)."""
     since = bot_state.cursor(record)
     return {"comments_since": (datetime.fromisoformat(since) - OVERLAP).isoformat()} if since else {}
 
 
 async def poll_all(db: AsyncSession) -> dict[str, int]:
-    """One comment poll over every repository whose bot syncs; one failing repository never stops the others."""
     from sqlalchemy import select
 
     from .bot_user import ensure_review_bot_user
@@ -175,8 +159,6 @@ async def poll_all(db: AsyncSession) -> dict[str, int]:
 
 
 async def _people_comments(db: AsyncSession, project_id: str, events: list[CommentEvent]) -> None:
-    """A person's comment that is no command: a correction of the agent's work (From Correction to Check), and in a
-    finding's thread an answer the next pass weighs (``finding_replies``)."""
     from ..workflow_runs.corrections import pr_comment
     from .finding_replies import remember
 
@@ -186,7 +168,6 @@ async def _people_comments(db: AsyncSession, project_id: str, events: list[Comme
 
 
 async def on_person_comment(project_id: str, event: CommentEvent, session_factory: Any = None) -> None:
-    """A webhook's comment without a command, in its own session: kept as a correction, nothing else."""
     if session_factory is None:
         from ...db import async_session_factory as session_factory
     try:
@@ -198,7 +179,6 @@ async def on_person_comment(project_id: str, event: CommentEvent, session_factor
 
 
 async def on_comment(project_id: str, event: CommentEvent, session_factory: Any = None) -> str:
-    """A webhook's command comment, in its own session (the webhook was answered at once)."""
     from .bot_user import ensure_review_bot_user
     from .settings import repository_record
 

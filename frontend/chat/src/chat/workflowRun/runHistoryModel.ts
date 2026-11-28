@@ -4,7 +4,6 @@ import {
 } from "./allowedByDefaultModel";
 import type { Remedy } from "../devices/remedyModel";
 import { documentationLine, type RunHistoryLink } from "./documentationEventsModel";
-import { seatEventLine } from "./seatEventsModel";
 import type { StatusTone } from "../../layout/StatusLabel";
 import { WORKFLOW_RUNS_PATH } from "./workflowRunRequests";
 import { type RunNode } from "./workflowRunTypes";
@@ -136,11 +135,6 @@ export function runHistory(
     if (documentation) {
       const { link, ...line } = documentation;
       entries.push({ ...base, ...line, ...(link ? { link } : {}) });
-      continue;
-    }
-    const seat = seatEventLine(event.kind, detail);
-    if (seat) {
-      entries.push({ ...base, ...seat });
       continue;
     }
     if (event.kind === "auto_accepted") {

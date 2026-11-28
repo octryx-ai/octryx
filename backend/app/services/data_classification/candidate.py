@@ -1,9 +1,4 @@
-"""A candidate classification policy for previews.
-
-While a draft is checked (saved test cases, generated policies), every reader of the classification policy in this
-task — the decision points the test bench asks and the baseline translator — sees the draft instead of the live
-policy. Scoped to the current task by a ``ContextVar``; live traffic never sees a candidate.
-"""
+"""A candidate classification policy for previews."""
 
 from __future__ import annotations
 

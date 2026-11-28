@@ -241,8 +241,6 @@ async def test_lost_reply_reconciles_approved_attempt_not_a_newer_redraft(db):
 
 
 async def test_a_space_key_matches_without_case_as_in_confluence():
-    """The space is "Coffe", the Workspace setting is stored "COFFE" and Confluence answers ``keys=COFFE`` with
-    "Coffe"; the key comparison ignores case, so this is not refused as malformed."""
     fake = FakeCloudV2()
     fake.spaces = {"77": "Coffe"}
     async with CloudV2Client(SITE, {}, transport=fake.transport()) as client:

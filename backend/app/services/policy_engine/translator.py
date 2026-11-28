@@ -1,26 +1,4 @@
-"""The baseline policy set, generated from today's policy sources.
-
-Sources and what they become:
-
-- the classification policy matrix → ``classification:<level>:…`` policies, one per rule that narrows;
-- a Workspace's ``agent_gateway_policy`` ``tool_rules`` → ``workspace:<id>:tool-rule:<rule id>`` (the gateway's
-  PreToolUse check), its ``client_permissions`` ``deny`` → ``workspace:<id>:client-deny:<n>`` (Claude Code's own
-  permission layer, ``context.point == "client"``; never evaluated server-side, shown in the editor and the test
-  bench; ``ask`` entries and forms Cedar cannot express are kept as comments);
-- a Workspace's ``model_policy`` → ``workspace:<id>:model-…`` grants and denials;
-- the seat switches (``seat_mode``, ``requires_governed_routing``) are Workspace entity attributes read by the
-  ``platform:`` policies, not generated rules: they are switches, not lists.
-
-``platform:`` policies are the code-owned invariants every decision point already enforces (an unresolved
-classification denies, an unknown data-policy class denies, …). The content family holds the gateway's
-hard-coded secret scan as ``platform:secrets-never-leave`` (the same refusal, now visible as a policy), the grant of
-a seat-route model request (the seat route's own checks admitted the model) and the grant of a tool result.
-
-Every function is pure and deterministic: the same sources give byte-identical text (golden tests). The
-enforcement points evaluate only the families and the level/Workspace a request concerns; because every
-generated policy is scoped by its level or Workspace in its condition, that subset decides exactly as the full
-instance set (:func:`instance_baseline`).
-"""
+"""The baseline policy set, generated from today's policy sources."""
 
 from __future__ import annotations
 
@@ -178,8 +156,6 @@ def model_level_policies(level: str, allowed_aliases: Iterable[str] | None) -> l
 
 
 def no_model_policies(level: str, families: Iterable[str] = FAMILIES) -> list[GeneratedPolicy]:
-    """A level no model may process that sits below a level models may process: the rank
-    comparison of ``platform:`` alone would admit a model cleared above it, so the level forbids models itself."""
     registry = level_registry()
     this = registry.get(level)
     if this is None or this.models_allowed or not any(
@@ -259,7 +235,6 @@ def matrix_policies(matrix: ClassificationPolicy) -> list[GeneratedPolicy]:
 
 
 def _normalized_aliases(value: Any) -> list[str]:
-    """``model_alias_access_decision``'s normalization: strings only by ``str()``, stripped, non-empty."""
     if not isinstance(value, list):
         return []
     return sorted({str(item or "").strip() for item in value if str(item or "").strip()})
@@ -334,7 +309,6 @@ def _client_permission(prefix: str, scope: list[str], index: int, entry: str) ->
 
 
 def workspace_gateway_policies(workspace_id: str, gateway: GatewayPolicy) -> GatewayTranslation:
-    """The gateway tool rules (``point == "gateway"``) and the client permissions (``point == "client"``)."""
     prefix = f"workspace:{workspace_id}"
     gateway_scope = [_workspace(workspace_id), f"context.point == {literal(POINT_GATEWAY)}"]
     translation = GatewayTranslation()
@@ -385,8 +359,6 @@ _OVERRIDE_ACTIONS: dict[str, tuple[str, ...]] = {
 
 
 def workspace_classification_policies(workspace_id: str, overrides: Mapping[str, Any] | None) -> list[GeneratedPolicy]:
-    """``workspace:<id>:classification:<rule>`` forbids for a Workspace's stricter overrides. Forbid-only: an override
-    can never widen what its level allows."""
     if not overrides:
         return []
     prefix = f"workspace:{workspace_id}:classification"
@@ -416,7 +388,6 @@ def _comment(text: str) -> str:
 
 
 def instance_baseline(matrix: ClassificationPolicy, workspaces: Sequence[WorkspaceSources]) -> str:
-    """The full generated baseline, byte-identical for the same sources."""
     sections = [
         _comment(f"Octryx baseline policy set - generated, do not edit. Schema {SCHEMA_VERSION}."),
         _comment(f"Classification matrix: {matrix.state}. Workspaces: {len(workspaces)}."),

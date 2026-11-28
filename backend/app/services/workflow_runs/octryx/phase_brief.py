@@ -1,14 +1,4 @@
-"""The phase in a few lines, before the agent starts (``phase.brief``).
-
-Without it, agents learned the rules from refusals: ``cd e2e/node && npm test`` refused
-three times, five refused edits of the same test file, and 17 refused reads of the full contract (its answer was too
-long, Claude Code moved it into a file under the launcher's protected home). The compact contract the launcher puts
-into the turn leaves out ``preparation``, so the test command and the app folder were exactly what the agent could not
-see. Block less and tell the agent before: this brief names, from the run's own facts, what the phase's
-enforcement points decide: which test and lint command runs where, the app folder and the pinned environment file,
-which files the phase may change, what the platform does itself, and which evidence it checks at the end. Every line
-is a ``run.brief.*`` catalog text; the code only picks the lines that apply and fills them.
-"""
+"""The phase in a few lines, before the agent starts (``phase.brief``)."""
 
 from __future__ import annotations
 
@@ -51,8 +41,6 @@ def _test_lines(environment: dict[str, Any], phase: dict[str, Any]) -> list[str]
 
 
 def _shell_lines(phase: dict[str, Any]) -> list[str]:
-    """The strict shell's rule, when the phase has it (``tool_policy``: a read-only phase, or one that protects the
-    confirmed tests)."""
     from ..run_texts import run_text
 
     rules = dict(phase.get("path_rules") or {})
@@ -98,8 +86,6 @@ def _platform_lines(run: Any, phase: dict[str, Any]) -> list[str]:
 
 
 def _short_output(run: Any, contract: dict[str, Any]) -> str:
-    """The short form of the run's test command: one an earlier run of the app found (run memory), else the matching
-    stack runner's ``short_output`` (``stacks.json``), else the declared command piped into tail; ``""`` if none."""
     from ...engineering_knowledge.stacks import test_runners
     from ..run_memory import for_brief
 
@@ -117,8 +103,6 @@ def _short_output(run: Any, contract: dict[str, Any]) -> str:
 
 
 def _output_lines(run: Any, contract: dict[str, Any], phase: dict[str, Any]) -> list[str]:
-    """Cost lever 1: where the pipeline makes the evidence itself, the agent's output needs only the
-    result; a long output is carried in every later call (e.g. two logs of about 270k tokens)."""
     from ..run_texts import run_text
 
     if not phase.get("pipeline_after"):
@@ -128,7 +112,6 @@ def _output_lines(run: Any, contract: dict[str, Any], phase: dict[str, Any]) -> 
 
 
 def _memory_lines(run: Any) -> list[str]:
-    """What earlier runs of the app learned (``run_memory``, given at the phase's entry), as information."""
     from ..run_memory import for_brief
     from ..run_memory.store import data
     from ..run_texts import run_text
@@ -149,7 +132,6 @@ def _memory_lines(run: Any) -> list[str]:
 
 
 def phase_brief(run: Any, contract: dict[str, Any]) -> str:
-    """The brief of the contract's phase (``""`` without one). Call inside ``run_texts`` (the run's catalog)."""
     from ..run_texts import run_text
 
     phase = contract.get("phase")

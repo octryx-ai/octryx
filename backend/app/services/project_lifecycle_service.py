@@ -12,7 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Project, User, UserProject
 from app.services.admin.project.admin_project_config_service import refuse_connection_keys
-from app.services.knowledge.projection.workspace_classification_default import apply_instance_default_classification
+from app.services.knowledge.projection.workspace_classification_default import (
+    new_workspace_default,
+    stamp_new_workspace_default,
+)
 from app.services.project_deletion_cascade import deactivate_project_bindings
 from app.services.project_template_service import PROJECT_SOURCE_MANUAL
 from app.services.trace_capture import ensure_default_trace_capture_config
@@ -60,6 +63,7 @@ async def create_project_for_admin(
 
     # A connection lives in the Workspace's tool entry, never in Project.config (coded 422).
     refuse_connection_keys(dict(config or {}))
+    default = await new_workspace_default(db)
     project = Project(
         id=str(uuid.uuid4()),
         name=project_name,
@@ -69,20 +73,18 @@ async def create_project_for_admin(
         source_type=PROJECT_SOURCE_MANUAL,
         is_system=False,
     )
+    # A new Workspace gets the Instance default level at creation (a Workspace without a level
+    # is refused seats and remote models). A level in the submitted config wins; nothing is written without a default.
+    stamp_new_workspace_default(db, project, default, current_user.id)
     db.add(project)
     await db.flush()
     db.add(UserProject(user_id=current_user.id, project_id=project.id, role="owner"))
-    # A new Workspace gets the Instance default level at creation (a Workspace without a level
-    # is refused seats and remote models). A level in the submitted config wins; nothing is written without a default.
-    await apply_instance_default_classification(db, project_id=project.id, actor_id=current_user.id)
-    await _allow_all_cleared_models(db, project.id, actor_id=current_user.id)
+    await allow_all_cleared_models(db, project.id, actor_id=current_user.id)
     return project
 
 
-async def _allow_all_cleared_models(db: AsyncSession, project_id: str, *, actor_id: str) -> None:
-    """A new Workspace may use every model cleared for its level (including the
-    platform default), not a single pre-ticked one, so device runs always find a model.
-    A team narrows it to selected models later. Never blocks the creation."""
+async def allow_all_cleared_models(db: AsyncSession, project_id: str, *, actor_id: str) -> None:
+    # Every model cleared for the level, so device runs always find one; never blocks the creation.
     from .workspace_models.contract import MODE_ALL
     from .workspace_models.store import read_models, save_models
 
@@ -102,7 +104,6 @@ async def update_project_for_admin(
     description: str | None = None,
     is_active: bool | None = None,
 ) -> Project:
-    """Update project basics; config changes go through ``apply_project_config_patch``."""
     project = await _get_project_or_404(db, project_id)
     if name is not None:
         project_name = _clean_project_name(name)
@@ -143,7 +144,6 @@ async def restore_project_for_admin(db: AsyncSession, *, project_id: str) -> Pro
 
 
 async def delete_project_for_admin(db: AsyncSession, *, project_id: str, actor: User) -> Project:
-    """Soft delete: the project row stays inactive, and what is bound to it is deactivated with it."""
     project = await _get_project_or_404(db, project_id)
     if project.is_system:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="System project cannot be deleted")

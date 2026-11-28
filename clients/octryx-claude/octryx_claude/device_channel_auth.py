@@ -14,10 +14,7 @@ from .tokens import DEVICE_AUDIENCE, TokenUnavailableError, get_access_token
 
 
 def channel_token(state: LocalState, force: bool, *, http_factory: Callable[[], httpx.Client] = httpx.Client) -> str:
-    """A channel access token from the device credential; ``force`` drops the cached one first (after a 4401).
-
-    A refused refresh (a lost rotation, the grant's end) renews the credential with the device key first; only a
-    refused renewal reaches the channel as ``renewal_rejected`` / ``device_revoked``."""
+    # A refused refresh renews the credential with the device key; only a refused renewal reaches the channel.
     device_creds = state.with_credential_set(CREDENTIAL_SET_DEVICE)
     if force:
         with device_creds.credentials_lock():
@@ -41,7 +38,5 @@ def channel_token(state: LocalState, force: bool, *, http_factory: Callable[[], 
 
 def revocation_check(state: LocalState, *, http_factory: Callable[[], httpx.Client] = httpx.Client,
                      recheck: bool = False) -> str:
-    """Confirm a revoke signal with the platform before it is persisted (``device_renewal.confirm_revocation``);
-    ``recheck``: verify a ``revoked`` already persisted."""
     with http_factory() as http:
         return device_renewal.confirm_revocation(state, http=http, recheck=recheck)

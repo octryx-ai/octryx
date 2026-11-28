@@ -1,4 +1,3 @@
-// Minimal skeletons: containers and consts for required fields, never invented free values.
 import { classifySchema, isRecord, normalizeField, requiredSet } from "./schemaResolve";
 import type { JsonSchema } from "./schemaFormTypes";
 
@@ -29,25 +28,15 @@ function skeleton(root: JsonSchema, schema: JsonSchema, depth: number): unknown 
     case "array":
       return [];
     default:
-      // Free scalars, unions (the variant is an explicit choice) and any-JSON stay unset.
+      // Unions stay unset: the variant is an explicit choice.
       return undefined;
   }
 }
 
-/**
- * Minimal valid skeleton: required objects/maps/arrays become empty containers,
- * consts (and single-value enums) are filled, everything free stays `undefined`.
- * A discriminated union stays unset until the user picks a variant; for a
- * picked branch call this with the branch schema.
- */
 export function defaultValueFor(root: JsonSchema, schema: JsonSchema): unknown {
   return skeleton(root, schema, 0);
 }
 
-/**
- * Value for a newly added map entry or array item: the skeleton, or an empty
- * container/string so the entry exists and the client checks can flag it.
- */
 export function newEntryValue(root: JsonSchema, schema: JsonSchema): unknown {
   const value = defaultValueFor(root, schema);
   if (value !== undefined) return value;

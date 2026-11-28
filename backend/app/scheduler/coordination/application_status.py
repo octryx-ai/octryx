@@ -1,21 +1,4 @@
-"""Read model: has the scheduling worker applied this Scheduler row?
-
-``worker_application`` describes *registration*, not task execution:
-
-* ``paused`` — the row is inactive: its schedule enqueues no new run (enforced at fire time); runs
-  already queued or running are not affected.
-* ``worker_unavailable`` — no live owner lease: no scheduling worker currently registers schedules.
-* ``pending`` — an owner is live, but its acknowledgement is missing, from another epoch, for other
-  content, or carries a next run older than the refresh window (the owner stopped refreshing).
-* ``invalid_schedule`` — the current owner applied this exact content and found it unschedulable.
-* ``applied`` — the current owner acknowledged exactly this content with status ``registered``,
-  which it writes only for a job APScheduler holds; ``next_run_at`` is that job's next run (UTC ISO,
-  or ``null`` when the trigger has no further run) in ``timezone``. Any other or unknown stored
-  status reads ``pending``.
-
-Batched: one lease read, one acknowledgement read and one clock read for any number of rows.
-No process id, epoch, token, secret or error text leaves this module.
-"""
+"""Read model: has the scheduling worker applied this Scheduler row?"""
 
 from __future__ import annotations
 

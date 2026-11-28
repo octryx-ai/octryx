@@ -1,8 +1,4 @@
-"""Prometheus metric types kept in process memory (``octryx_*``): counters and histograms with bounded labels.
-
-A metric keeps at most ``MAX_SERIES`` label sets; further ones are counted under ``other``. Rendered in the
-Prometheus text format by ``render()``. Standard library only.
-"""
+"""Prometheus metric types kept in process memory (``octryx_*``): counters and histograms with bounded labels."""
 
 from __future__ import annotations
 
@@ -94,8 +90,6 @@ class Histogram(_Metric):
 
 
 class Gauge(_Metric):
-    """A value set from data (reference values), not counted."""
-
     kind = "gauge"
 
     def set(self, value: float, **labels: Any) -> None:

@@ -1,10 +1,4 @@
-"""Task models: the model each background task uses (Runtime → Default & fallback → Task models).
-
-Background tasks are not a conversation. Each uses the platform default (#1 of the platform order) unless a model is
-set here; a Workspace may override a task (``projects.config.model_task_overrides``, written by the Workspace Models
-section). Stored in ``system_config`` ``runtime.task_models`` as ``{task: catalog_key}``; a task that is absent uses
-the platform default.
-"""
+"""Task models: the model each background task uses (Runtime → Default & fallback → Task models)."""
 
 from __future__ import annotations
 
@@ -57,7 +51,6 @@ def decode_task_models(raw: str | None) -> dict[str, str]:
 
 
 async def load_task_models(db: AsyncSession) -> dict[str, str]:
-    """``{task: catalog_key}`` for the tasks that have their own model."""
     return decode_task_models(await get_system_config_value(db, TASK_MODELS_KEY))
 
 
@@ -77,7 +70,6 @@ async def workspace_override_counts(db: AsyncSession) -> dict[str, int]:
 
 
 async def save_task_models(db: AsyncSession, *, tasks: Any, actor_id: str) -> dict[str, dict[str, str]]:
-    """Replace the task models; ``None``/empty = platform default. Returns before/after for the audit."""
     if not isinstance(tasks, dict) or set(tasks) - TASK_KEYS:
         raise TaskModelsError(ERROR_TASKS_INVALID)
     chosen = {}
@@ -108,7 +100,7 @@ async def save_task_models(db: AsyncSession, *, tasks: Any, actor_id: str) -> di
             raise TaskModelsError(ERROR_TASK_NOT_IN_ORDER)
     before = await load_task_models(db)
     await set_system_config_value(
-        db, key=TASK_MODELS_KEY, value=json.dumps(chosen, sort_keys=True) if chosen else None, updated_by=actor_id,
+        db, key=TASK_MODELS_KEY, value=json.dumps(chosen, sort_keys=True) if chosen else None,
         description="Model per background task ({task: catalog_key}); absent = the platform default.",
     )
     await db.flush()

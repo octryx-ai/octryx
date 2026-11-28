@@ -1,14 +1,4 @@
-"""Cedar entities built from the facts an enforcement point already holds.
-
-The enforcement point is the policy information point: it resolves the Workspace classification, the tool's
-connector family, the command segments and so on exactly as the existing decision does, and hands Cedar those
-facts as entity attributes. Cedar never re-derives them (it cannot parse a shell command or read tool metadata).
-
-Command facts mirror ``agent_gateway/command_match`` so that a translated tool rule matches exactly when the
-structural matcher does: ``prefixes`` stop at the first token that is empty or contains whitespace (a rule
-token never does, so no longer prefix could equal a rule), and ``arguments`` holds every token after the program
-plus the name of every ``name=value`` token (``segment_has_argument``'s ``argument=`` form).
-"""
+"""Cedar entities built from the facts an enforcement point already holds."""
 
 from __future__ import annotations
 
@@ -53,11 +43,6 @@ def principal_entities(
     client: str = "",
     sensitive: Iterable[str] = (),
 ) -> tuple[EntityRef, list[dict[str, Any]]]:
-    """The principal (the AgentSession when ``session_id`` is given, else the User) and its entities.
-
-    ``sensitive``: the content categories the conversation already contained; a principal loaded once per
-    request carries none, and the content points set them per conversation (:func:`with_sensitive`).
-    """
     user = EntityRef(ENTITY_USER, str(user_id or "").strip() or UNKNOWN_ID)
     parents = [EntityRef(ENTITY_ROLE, role) for role in sorted(set(roles))]
     parents += [EntityRef(ENTITY_GROUP, group) for group in sorted(set(groups))]
@@ -73,7 +58,6 @@ def principal_entities(
 def with_sensitive(
     principal: EntityRef, records: Sequence[Mapping[str, Any]], categories: Iterable[str]
 ) -> list[Mapping[str, Any]]:
-    """``records`` with the AgentSession principal's ``sensitive`` set to ``categories`` (a User is unchanged)."""
     if principal.type != ENTITY_AGENT_SESSION:
         return list(records)
     wanted = sorted(set(categories))
@@ -100,7 +84,6 @@ def workspace_entity(
 
 def device_entity(device_id: str, *, owner_user_id: str, os: str, profiles: Iterable[str],
                   status: str) -> tuple[EntityRef, dict[str, Any]]:
-    """A user's device, child of its owner."""
     ref = EntityRef(ENTITY_DEVICE, str(device_id or "").strip() or UNKNOWN_ID)
     attrs = {"os": str(os or ""), "profiles": sorted(set(profiles)), "status": str(status or "")}
     return ref, _record(ref, attrs, [EntityRef(ENTITY_USER, str(owner_user_id or "").strip() or UNKNOWN_ID)])
@@ -113,7 +96,6 @@ def tool_entity(name: str, family: str | None) -> tuple[EntityRef, dict[str, Any
 
 
 def model_alias_entity(alias: str, approved_for: Iterable[str] = ()) -> tuple[EntityRef, dict[str, Any]]:
-    """``approved_for``: the alias catalog's ``approved_data_categories``; a seat model has none."""
     ref = EntityRef(ENTITY_MODEL_ALIAS, alias)
     return ref, _record(ref, {"alias": alias, "approved_for": sorted(set(approved_for))})
 
@@ -160,7 +142,6 @@ def command_facts(segment: Sequence[str]) -> dict[str, Any]:
 
 
 def command_entity(uid: str, segment: Sequence[str] | None, raw: str = "") -> tuple[EntityRef, dict[str, Any]]:
-    """One segment's Command, or (``segment`` ``None``) the unparseable command as a whole."""
     ref = EntityRef(ENTITY_COMMAND, uid)
     if segment is None:
         attrs = {"line": str(raw)[:MAX_LINE_CHARS], "program": "", "parseable": False, "prefixes": [],

@@ -1,8 +1,4 @@
-"""The platform kill switch for device runs: ``system_config`` key ``device_runs.enabled``.
-
-Absent means enabled (the Workspace opt-in is off by default, so nothing runs until a Workspace turns it on).
-Switching it off refuses every new device turn and stops every running one within seconds.
-"""
+"""The platform kill switch for device runs: ``system_config`` key ``device_runs.enabled``."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ async def device_runs_platform_enabled(db: AsyncSession) -> bool:
 
 
 async def set_device_runs_platform_enabled(db: AsyncSession, *, enabled: bool, actor_id: str) -> None:
-    """Write the switch (audited); switching off stops every running device turn. Flushes."""
     row = (await db.execute(select(SystemConfig).where(SystemConfig.key == CONFIG_KEY))).scalar_one_or_none()
     if row is None:
         row = SystemConfig(key=CONFIG_KEY, description="Platform kill switch for remote device sessions")

@@ -25,8 +25,6 @@ MESSAGE = "Please migrate this codebase to Spring Boot 4."
 
 
 class _FakeProvider:
-    """Records every proposal call and answers with the scripted content."""
-
     def __init__(self, content: str) -> None:
         self.content = content
         self.calls: list[list[dict]] = []
@@ -47,8 +45,6 @@ def _answer(
 
 @pytest.fixture
 def proposal_model(monkeypatch):
-    """Install one non-gateway runtime and a scripted fake provider for the proposal call."""
-
     def install(content: str, runtimes: list[dict] | None = None) -> _FakeProvider:
         provider = _FakeProvider(content)
 

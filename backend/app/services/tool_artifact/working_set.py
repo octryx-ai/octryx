@@ -20,7 +20,6 @@ MAX_RETAINED_KNOWLEDGE_TOTAL_CHARS = 30000
 
 
 def _knowledge_read_bodies(tool_positions: list[tuple[int, dict[str, Any]]]) -> set[int]:
-    """The newest distinct successful knowledge_read results, within the research evidence bounds."""
     kept: set[int] = set()
     seen: set[str] = set()
     spent = 0

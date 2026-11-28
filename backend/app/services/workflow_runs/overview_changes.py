@@ -1,8 +1,4 @@
-"""Who changed a listed workflow last, and when: the Workflows list's "Last changed" and "By" columns.
-
-A flow keeps every change as a new version (a draft or a saved layout), so the latest version says when the workflow
-last changed and its author who changed it. Display only.
-"""
+"""Who changed a listed workflow last, and when: the Workflows list's "Last changed" and "By" columns."""
 
 from __future__ import annotations
 
@@ -28,7 +24,6 @@ def last_change(versions: Iterable[Any], *, names: dict[str, str]) -> dict[str, 
 
 
 async def author_names(db: AsyncSession, owners: Iterable[Any]) -> dict[str, str]:
-    """Display names of the latest versions' authors (the username when no display name is set)."""
     ids = {version.created_by for owner in owners if (version := latest_version(owner.versions)) and version.created_by}
     if not ids:
         return {}

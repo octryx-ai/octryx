@@ -1,21 +1,5 @@
 """The status block: is seat and governance set up, and what does this session use.
-
-Printed on stderr at every start before Claude Code starts, and by ``octryx-claude status``::
-
-    octryx-claude: Workspace Acme Orders (ws-1)
-    octryx-claude:   seat (your Claude subscription): ready
-    octryx-claude:   governed (company model):        ready
-    octryx-claude:   seat allowance:                  5h 42% · 7d 13% (as of 11:58)
-    octryx-claude:   daily budget:                    3.25 / 50.00 USD today (resets 02:00)
-    octryx-claude:   → this session: seat, model claude-opus-5-5 (auto: Workspace allows seat and ...)
-    octryx-claude:   company models (/model):         company/claude-opus-5-5 (billed to the Workspace budget)
-    octryx-claude:   seat login: octryx-claude login --seat
-
-The data: the client policy (seat decision, policy state), the presence-only seat login check, the stored seat
-problem (``seat_status``), the client policy's picker rows (``model_picker``) and the user's own usage
-read (``usage``: the seat allowance, shown unless the Workspace forbids seat, and the daily budget, shown when
-governance is set up). Numbers, fixed codes and labels only.
-"""
+Printed on stderr at every start and by ``octryx-claude status``; numbers, fixed codes and labels only."""
 
 from __future__ import annotations
 
@@ -55,7 +39,6 @@ def governed_label(policy_ok: bool, codes: str, *, unusable: bool = False, no_co
 
 
 def no_company_model(policy: Mapping[str, object]) -> bool:
-    """The platform's picker (the client policy's ``models``) admits no company model for the governed profile."""
     if not isinstance(policy, Mapping):
         return True
     return not [row for row in model_picker.picker_rows(policy, profile_choice.PROFILE_GOVERNED)
@@ -63,23 +46,15 @@ def no_company_model(policy: Mapping[str, object]) -> bool:
 
 
 def model_note(policy: Mapping[str, object], seat: SeatState) -> str:
-    """:data:`NO_MODEL_AVAILABLE` when nothing can run a session: no company model and no usable seat login. Outsider
-    walk: without ``login --seat`` the device offered only governed, the Workspace had no model key, and
-    the path ended silently at the start of a run."""
     usable_seat = seat.code in (seat_status.STATE_READY, seat_status.STATE_LIMIT_REACHED)
     return NO_MODEL_AVAILABLE if no_company_model(policy) and not usable_seat else ""
 
 
 def nothing_to_run_on(policy: Mapping[str, object], seat: SeatState) -> bool:
-    """``True`` when the platform admits no company model for the governed profile and the Workspace refuses seat.
-
-    Then governed is not "ready": a Claude Code session has nothing to run on. An allowed seat is a way to run.
-    """
     return seat.code == seat_status.STATE_FORBIDDEN and no_company_model(policy)
 
 
 def session_model(claude_args: Sequence[str], aliases: Mapping[str, str]) -> str:
-    """The session's main model: a ``--model`` passed to Claude Code wins over the ``main`` alias."""
     model = ""
     for index, arg in enumerate(claude_args):
         if arg == "--model" and index + 1 < len(claude_args):
@@ -92,8 +67,6 @@ def session_model(claude_args: Sequence[str], aliases: Mapping[str, str]) -> str
 
 
 def admitted_note(policy: Mapping[str, Any], profile: str, model: str) -> str:
-    """``model`` as the status names it; a governed model the Workspace does not admit says so (fresh-install test
-    : "next session: governed, model claude-opus-5-5" while the Workspace offered only a local model)."""
     if profile != profile_choice.PROFILE_GOVERNED:
         return model
     company = [row["model"] for row in model_picker.picker_rows(policy, profile)
@@ -131,7 +104,6 @@ def policy_ok(result: PlatformResult) -> bool:
 
 
 def seat_state_for(state: LocalState, result: PlatformResult) -> SeatState:
-    """The seat state for the client policy ``result`` (presence-only login check, stored problem)."""
     ok = policy_ok(result)
     return seat_status.seat_state(state, policy_ok=ok, seat_refusal=seat_status.seat_refusal(result.body) if ok else "",
                                   logged_in=profile_choice.seat_logged_in(state))
@@ -140,7 +112,6 @@ def seat_state_for(state: LocalState, result: PlatformResult) -> SeatState:
 def lines_for(state: LocalState, result: PlatformResult, codes: str, *, workspace: str, requested: str,
               model: str = "", seat: SeatState | None = None, upcoming: bool = False,
               usage_result: PlatformResult | None = None) -> list[str]:
-    """The block for the client policy ``result``; no session or usage line when governance is not set up."""
     ok = policy_ok(result)
     seat = seat or seat_state_for(state, result)
     choice = profile_choice.choose_profile(requested, seat=seat) if ok else None

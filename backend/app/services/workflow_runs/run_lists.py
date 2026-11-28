@@ -15,9 +15,6 @@ MAX_EVENTS = 200
 
 
 async def work_extras(db: AsyncSession, runs: list[WorkflowRun]) -> dict[str, dict[str, Any]]:
-    """What Work › Runs shows per row beyond ``run_row``: the step with its
-    place among the phases, the pause facts, the pull request and the model cost. One cost query for all rows; a
-    workflow version's graph is parsed once."""
     from ..operations.costs import RunCost, run_cost_split
 
     # One cost rule with Operations (``operations/costs``): the API cost, and apart from it the seat calls' API
@@ -53,7 +50,6 @@ async def work_extras(db: AsyncSession, runs: list[WorkflowRun]) -> dict[str, di
 
 
 async def run_events(db: AsyncSession, run: WorkflowRun, *, user: Any = None) -> list[dict[str, Any]]:
-    """The run's events and decisions; a fragment checksum is shown only to a platform ``user``."""
     from .fragments.provenance import is_platform_admin, redact_event_detail
     from .review.artefact_projection import event_detail
 

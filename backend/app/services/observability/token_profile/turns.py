@@ -1,9 +1,4 @@
-"""A run's device turns, read from its own events when its Tokens view is opened (a UI read, not a metric).
-
-Per job and turn: the launcher's ``token_profile`` parts (measured), else the turn's usage, tool uses and results and
-the job's first context reading (estimated); the phase is the node the platform started the job's turn for
-(``device_continuation_started``), else the phase entered last before the turn.
-"""
+"""A run's device turns, read from its own events when its Tokens view is opened (a UI read, not a metric)."""
 
 from __future__ import annotations
 
@@ -51,7 +46,6 @@ def _latest(marks: list[tuple[datetime, str]], when: datetime) -> str:
 
 
 async def run_turns(db: AsyncSession, run_id: str) -> list[Turn]:
-    """The run's device turns in the order they ran, each with its phase."""
     by_job, entered = await _phase_marks(db, run_id)
     facts: dict[tuple[str, str], TurnFacts] = {}
     first_context: dict[str, int] = {}

@@ -1,14 +1,4 @@
-"""Tracker write-back drivers: one explicit contract per source system.
-
-The WorkItem model is source-agnostic (``source_type``/``source_instance``/
-``source_key``); this module makes the write-back side match. A driver owns
-the outbound state-sync operation for one source type, and resolution is
-explicit — platform items are local-only by definition, an unmapped source
-type is a visible ``no_driver`` result, never a silent guess. Adding a new
-tracker (ServiceNow, GitHub, ...) means registering one driver here, or giving
-the Work source in ``intake/registry`` a ``state_sync_driver`` (a source brings
-its write-back with it); the workflow layer stays untouched.
-"""
+"""Tracker write-back drivers: one explicit contract per source system."""
 
 from __future__ import annotations
 
@@ -44,7 +34,6 @@ async def _local_only_driver(
     workflow: WorkItemWorkflowDefinition,
     preview: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Platform-native items: state lives here, there is nothing to sync."""
     return None
 
 
@@ -55,7 +44,6 @@ TRACKER_STATE_SYNC_DRIVERS: dict[str, TrackerStateSyncDriver] = {
 
 
 def _source_driver(source_type: str) -> TrackerStateSyncDriver | None:
-    """The write-back a registered Work source brings (``state_sync_driver``), if any."""
     from .intake.registry import source_for
 
     return getattr(source_for(source_type), "state_sync_driver", None)
@@ -68,16 +56,7 @@ async def execute_tracker_state_sync(
     workflow: WorkItemWorkflowDefinition,
     preview: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Dispatch the write-back to the item's source-type driver.
-
-    Returns the driver's execution result, None when the transition stays
-    local, or an explicit ``no_driver`` marker for source types without a
-    registered driver — the transition still applies locally, but the gap
-    is visible in the preview instead of silently swallowed. The gap only
-    exists where write-back is on: an intake whose own ``sync_mode`` (else the
-    workflow's) is not ``execute`` wants nothing written, so it stays local
-    (``sync_policy``).
-    """
+    # An explicit ``no_driver`` marker keeps the gap visible in the preview; the transition still applies locally.
     source_type = str(item.source_type or "").strip().lower()
     driver = TRACKER_STATE_SYNC_DRIVERS.get(source_type) or _source_driver(source_type)
     if driver is None:

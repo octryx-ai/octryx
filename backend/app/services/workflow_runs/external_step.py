@@ -1,24 +1,4 @@
-"""A platform step whose work runs outside the run's transaction.
-
-Some steps call a service that commits on its own (the Knowledge Source Sync commits its lease, its sync run and
-its items). Run inside the run's transaction, such a commit silently ends the run claim — and on PostgreSQL the row
-lock — while the step still believes it owns the run, and the ledger, the events and the engine's continuation
-were then written against a run another writer may have stopped or moved meanwhile.
-
-The contract here makes that boundary explicit:
-
-1. :func:`release_for_external_work` — inside the claimed transaction: refuse when the same pass is already in
-   flight (a second worker or a replay, ``action_in_flight``), record an in-flight lease for the idempotency key,
-   **commit** (claim and row lock end here, on purpose and visibly) and return what the step held.
-2. The caller runs the external work in its **own** session.
-3. :func:`resume_after_external_work` — re-read the run and continue only if nothing moved: the same
-   ``state_version``, status ``running``, node, entry, lease token and the facts the step depends on (the
-   published page's id and version); then claim it again (compare-and-set) and clear the lease. Otherwise
-   ``run_moved_on``: the caller writes nothing — no ledger, no event, no continuation.
-
-A lease left by a crashed worker expires after :data:`LEASE_SECONDS`; the next activation of the pass runs again
-(the external work is idempotent per pass: the Source Sync re-reads its scope).
-"""
+"""A platform step whose work runs outside the run's transaction."""
 
 from __future__ import annotations
 
@@ -40,8 +20,6 @@ LEASE_SECONDS = 30 * 60
 
 @dataclass(frozen=True, slots=True)
 class HeldStep:
-    """What the step owned when it released the run."""
-
     run_id: str
     key: str
     token: str
@@ -52,7 +30,6 @@ class HeldStep:
 
 
 def pass_key(run: WorkflowRun, node_id: str | None = None) -> str:
-    """The idempotency key of the current pass through a node: ``<node id>#<entry>``."""
     return f"{node_id or run.current_node_id}#{dict(run.node_state or {}).get('entry') or 0}"
 
 
@@ -70,7 +47,6 @@ def _live(lease: Any, now: datetime) -> bool:
 
 async def release_for_external_work(db: AsyncSession, run: WorkflowRun, *, key: str,
                                     facts: dict[str, Any]) -> HeldStep:
-    """Lease the pass ``key``, commit, and return the held state (the run must be claimed by the caller)."""
     now = utc_now()
     lease = _leases(run).get(key)
     if lease is not None and _live(lease, now):
@@ -100,7 +76,6 @@ def _moved(run: WorkflowRun, held: HeldStep, facts: dict[str, Any]) -> list[str]
 
 async def resume_after_external_work(db: AsyncSession, run: WorkflowRun, held: HeldStep,
                                      facts: dict[str, Any]) -> None:
-    """Re-claim the run for the step's result, or raise ``run_moved_on`` (write nothing)."""
     await db.refresh(run)
     moved = _moved(run, held, facts)
     if moved or not await reclaim_run(db, run):

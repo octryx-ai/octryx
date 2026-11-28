@@ -1,10 +1,4 @@
-"""Current-principal projections and submit integration for the additive spec-handoff records.
-
-A spec-bound engineering child consumes its ``spec`` only from the accepted durable handoff, resolved for the
-actual caller (``origin.viewer_spec``); never from copied child context or the run's own outputs. Every waiting
-payload and phase fact of such a run is source-backed: a viewer without their own current source authority sees
-neither the payload nor its hash.
-"""
+"""Current-principal projections and submit integration for the additive spec-handoff records."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -37,14 +31,12 @@ async def _accepted_input(db, run, kind: str) -> bool:
 
 
 async def _accepted_principal(db, run, principal):
-    """The actual viewer; only the server's own internal card build acts as the verified accepted owner."""
     from ....models import User
 
     return principal if principal is not None else await db.get(User, run.requested_by)
 
 
 def _coverage(run, criteria: list[dict[str, Any]], envelope: dict[str, Any]) -> tuple[list[dict], list[str]]:
-    """Each exact accepted criterion next to what the recorded test contract proves it with (no inference)."""
     from ..phase_outputs import recorded_output
 
     contract = dict((recorded_output(run, "test_contract") or {}).get("record") or {})
@@ -129,7 +121,6 @@ def _withhold(waiting: dict, payload: dict) -> None:
 
 
 async def protected_waiting(db, run) -> bool:
-    """A waiting payload that only its actual viewer's current source authority may disclose."""
     from .origin import spec_bound
 
     payload = dict(dict(dict(run.node_state or {}).get("waiting") or {}).get("payload") or {})
@@ -137,7 +128,7 @@ async def protected_waiting(db, run) -> bool:
 
 
 async def projected_node_state(db, run, *, principal) -> dict[str, Any]:
-    """Run membership alone never discloses source-bearing waiting payloads after ACL/head drift."""
+    # Run membership alone never discloses source-bearing payloads after ACL or head drift.
     from .lineage import SpecificationUnavailable
     from .origin import spec_bound, viewer_spec
 
@@ -168,7 +159,6 @@ async def projected_node_state(db, run, *, principal) -> dict[str, Any]:
 
 
 async def authorized_phase_definition(db, run, node, *, principal):
-    """Inject only freshly authorized new-kind inputs into the otherwise unchanged phase contract."""
     from ..phase_contract import phase_definition
     from ..phase_marker import RUN_PHASE_CONTRACT_KEY
     from ..phase_outputs import phase_inputs
@@ -207,14 +197,12 @@ def source_phase(node) -> bool:
 
 
 async def source_backed_phase(db, run, node) -> bool:
-    """A phase whose facts only its actual caller's current source authority may read."""
     from .origin import spec_bound
 
     return source_phase(node) or await spec_bound(db, run)
 
 
 async def projected_phase_facts(db, run, node, *, principal) -> dict:
-    """Native status is a read by its actual caller, never a projection as the requester."""
     from ..phase_marker import RUN_PHASE_CONTRACT_KEY
     from .lineage import SpecificationUnavailable
 

@@ -1,10 +1,4 @@
-"""Seeds of the Knowledge LLM prompts: episode and memory capture, package research, graph extraction,
-community reports, retrieval keywords, the evaluation runner, the Knowledge MCP instructions, the
-Engineering Knowledge runtime context, the Teams call prompts and the README worker.
-
-The only code copy of these texts. JSON answer contracts the parsers depend on stay code constants
-and arrive as the ``{answer_contract}`` placeholder.
-"""
+"""Seeds of the Knowledge LLM prompts."""
 
 from __future__ import annotations
 
@@ -278,68 +272,6 @@ SPECS: tuple[PromptKeySpec, ...] = (
             "The instructions the Knowledge MCP server announces. Set when the server is built (the seed, then the "
             "published version once descriptions resolve per connection)."
         ),
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.build_first",
-        area=AREA,
-        title="Engineering Knowledge runtime: build the pack first",
-        seed=(
-            "Phase contract: Engineering Knowledge first, repository changes second.\n"
-            "Instruction: do not edit source files, do not run migration recipes, and do not claim migration readiness "
-            "yet.\n"
-            "Instruction: an Engineering Knowledge Pack for this technology must be built first. Use the @Knowledge "
-            "Pack Builder Agent or `build_engineering_knowledge_pack` before continuing."
-        ),
-        risk=RISK_HIGH,
-        description="Lines of the Engineering Knowledge Runtime Context when no published pack covers the target.",
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.build_arguments",
-        area=AREA,
-        title="Engineering Knowledge runtime: build arguments",
-        seed="Build tool arguments: {build_arguments}",
-        placeholders=frozenset({"build_arguments"}),
-        description="{build_arguments} is the JSON of the build tool arguments.",
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.draft_build_arguments",
-        area=AREA,
-        title="Engineering Knowledge runtime: draft build arguments",
-        seed="Draft build tool arguments (add the discovered source_versions first): {build_arguments}",
-        placeholders=frozenset({"build_arguments"}),
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.continue_after_pack",
-        area=AREA,
-        title="Engineering Knowledge runtime: continue after the pack",
-        seed="Only continue with code migration after a published quality-passed pack is available.",
-        risk=RISK_HIGH,
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.blocked",
-        area=AREA,
-        title="Engineering Knowledge runtime: blocked",
-        seed="Instruction: do not implement code yet. Ask the focused clarification question first.",
-        risk=RISK_HIGH,
-        description="Line of the runtime context when the resolution has blockers.",
-    ),
-    PromptKeySpec(
-        key="knowledge.engineering.runtime.baseline",
-        area=AREA,
-        title="Engineering Knowledge runtime: pack baseline",
-        seed=(
-            "Phase contract: Engineering Knowledge first, repository changes second.\n"
-            "Instruction: treat the published quality-passed pack below as the source-backed migration baseline.\n"
-            "Instruction: before changing source files, inspect the retrieved evidence and the repository's current "
-            "versions/dependencies.\n"
-            "Instruction: if private dependencies or internal parent/BOM versions cannot be proven from the pack or "
-            "repository, ask focused questions before editing.\n"
-            "Source boundary: project Knowledge contains internal facts; Engineering Pack retrieval below contains "
-            "vendor/versioned facts.\n"
-            "Retrieved Engineering Pack items:"
-        ),
-        risk=RISK_HIGH,
-        description="Lines of the runtime context before the retrieved pack items.",
     ),
     PromptKeySpec(
         key="knowledge.teams.call_default_system",

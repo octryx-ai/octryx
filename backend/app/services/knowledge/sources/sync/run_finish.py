@@ -25,7 +25,6 @@ RUN_AUDIT_ACTION = "knowledge.connector.run"
 
 
 async def _reconcile(db: AsyncSession, ref: ConnectorRef, pass_number: int, report: RunReport) -> None:
-    """The pass completed: every served item it did not list is gone at the source."""
     for state in await served_items_unseen_in(db, ref, pass_number):
         external_id = state.external_id
         await retire_item(db, state, withheld=False, outcome=REASON_REMOVED_AT_SOURCE)
@@ -61,6 +60,7 @@ async def _finish(
             action=RUN_AUDIT_ACTION,
             resource_type="knowledge_source_connector",
             resource_id=ref.id,
+            project_id=row.project_id,
             details={
                 "workspace_id": ref.project_id,
                 "run_id": run_id,

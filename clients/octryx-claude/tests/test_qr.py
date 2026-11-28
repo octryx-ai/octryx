@@ -1,10 +1,4 @@
-"""The pairing QR code: the encoder's structure and error correction, and, where the reference library ``segno`` is
-installed (a development check, not a dependency), module for module against it.
-
-``segno`` writes one extra zero byte after the terminator when the data ends on a byte boundary; both are valid
-(a reader stops at the terminator), so the cross-check places segno's own codewords with this encoder's function
-patterns, masks and format bits and compares the whole matrix.
-"""
+# segno writes an extra zero byte after the terminator on a byte boundary, so the cross-check places its codewords.
 
 from __future__ import annotations
 

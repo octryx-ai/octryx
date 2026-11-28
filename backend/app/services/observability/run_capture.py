@@ -1,16 +1,4 @@
-"""What a run stores: one capture policy per Workspace, applied to ``turn_traces`` at storage.
-
-The Workspace setting ``trace_capture.mode`` (Workspace settings → Observability; platform default ``standard``)
-governs the store that holds run content:
-
-- ``minimal``: no content is stored, only the run's metadata (model, tokens, outcome, the gate that stopped it);
-- ``standard`` / ``debug`` / ``audit``: content is stored within the runtime trace limits.
-
-In every mode secrets are redacted before the row is written (not at display). The keys the run summary, the
-decision record and the effective setup read are always kept. The first write applies the policy in
-``persist_turn_trace``; every later write of a content column (the tool batch and tool follow-up rewrite the tool
-trace and the context after the tools ran) passes the ``before_flush`` listener below, so no writer can bypass it.
-"""
+"""What a run stores: one capture policy per Workspace, applied to ``turn_traces`` at storage."""
 
 from __future__ import annotations
 
@@ -63,7 +51,6 @@ def _kept(payload: Any, keys: tuple[str, ...]) -> dict[str, Any]:
 def captured(
     mode: str, *, input_messages: Any, context_snapshot: Any, tool_trace: Any, raw_output: Any,
 ) -> tuple[Any, Any, Any, Any]:
-    """The four payloads as stored under ``mode``: redacted, or reduced to metadata for ``minimal``."""
     if mode == MODE_MINIMAL:
         error = raw_output.get("error") if isinstance(raw_output, Mapping) else None
         output = {**METADATA_ONLY, **_kept(raw_output, _KEPT_OUTPUT_KEYS), **({"error": True} if error else {})}
@@ -90,7 +77,6 @@ def _stored_mode(session: OrmSession, trace: TurnTrace) -> str:
 
 @event.listens_for(OrmSession, "before_flush")
 def _capture_later_writes(session: OrmSession, _flush_context: Any, _instances: Any) -> None:
-    """Apply the capture policy to every later write of a stored run's content columns."""
     for trace in [item for item in session.dirty if isinstance(item, TurnTrace)]:
         state = inspect(trace)
         changed = [column for column in _CONTENT_COLUMNS if state.attrs[column].history.has_changes()]
@@ -106,7 +92,6 @@ def _capture_later_writes(session: OrmSession, _flush_context: Any, _instances: 
 
 
 def gateway_capture(mode: str, *, input_messages: Any, context_snapshot: Any, raw_output: Any) -> dict[str, Any]:
-    """``TurnTrace`` keyword arguments for a model-gateway call under ``mode``."""
     stored_input, stored_context, _tools, stored_output = captured(
         mode, input_messages=input_messages, context_snapshot=context_snapshot, tool_trace=[], raw_output=raw_output
     )

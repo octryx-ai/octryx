@@ -21,13 +21,15 @@ from app.services.workflow_runs.watch import deliver_event, deliver_jira_change,
 from app.time_utils import utc_now
 from tests.agent_definition_revision_fixtures import make_project
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools, _repository, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PR_URL = "https://github.com/acme/pay/pull/4"
 
 
 def _opened(url: str = PR_URL, repository: str = "acme/pay") -> dict:
-    """The run's pull request as ``scm.open_pr`` stores it: with the identity derived from the provider's URL."""
     return {"provider": "github", "repository": repository, "id": "4", "url": url,
             "identity": pull_request_identity("github", url, repository, "4")}
 
@@ -113,9 +115,8 @@ async def test_a_signed_pr_webhook_moves_the_watching_run_after_the_requesters_g
                                                                                     monkeypatch):
     definition = _watching(["pr.merged", "pr.declined"])
     definition["nodes"][1]["config"] = {"action": "scm.open_pr"}
-    # The run needs a branch before its PR: give the definition's run one through the PR facts directly.
     run, _tools, project = await _pr_run(db, monkeypatch, definition)
-    assert run.outcome == "blocked"  # no branch yet: the PR step fails explicitly
+    assert run.outcome == "blocked"
     admin = await admin_user(db)
     run = await _run(db, definition, project_id=project.id, repository="github:acme/pay")
     run.status, run.waiting_kind, run.current_node_id = "waiting", "watching", "watch"
@@ -129,8 +130,6 @@ async def test_a_signed_pr_webhook_moves_the_watching_run_after_the_requesters_g
     secret = await issue_webhook_secret(db, webhook)
     await db.flush()
     body = _merged(PR_URL)
-    # Signed events of the same path and number on another host, or of another owner's same-named repository, never
-    # match: the event is bound to the host of the pull request URL in its signed payload first.
     for index, other in enumerate((_merged("https://ghe.example.test/acme/pay/pull/4"),
                                    _merged("https://github.com/other/pay/pull/4", "other/pay"),
                                    json.dumps({"action": "closed", "repository": {"full_name": "acme/pay"},
@@ -159,13 +158,12 @@ async def test_the_poll_fallback_jira_changes_approvals_and_the_timeout(db, monk
     run, tools, project = await _pr_run(db, monkeypatch, _watching(["pr.merged"], advance="auto", open_pr=False))
     run.status, run.waiting_kind = "waiting", "watching"
     tools.answers["get_github_pull_request"] = [{"number": 4, "state": "closed", "merged": True}]
-    # Recorded on another host than the repository's connection (github.com) serves: never read, never moves.
     run.pull_request = _opened("https://ghe.example.test/acme/pay/pull/4")
     assert await poll_watching_runs(db) == 0 and "get_github_pull_request" not in tools.tools()
     run.pull_request = _opened()
     assert await poll_watching_runs(db) == 1
     assert tools.calls[-1][:2] == ("get_github_pull_request", {"repository": "acme/pay", "pr_number": "4"})
-    assert (run.status, run.outcome) == ("completed", "done")  # auto: a read-only outcome needs no "go on"
+    assert (run.status, run.outcome) == ("completed", "done")
 
     admin = await admin_user(db)
     db.add(WorkItemWorkflowDefinition(name="wb", states_json=[], mappings_json={"review": {"source_status": "In Review"}},
@@ -177,7 +175,6 @@ async def test_the_poll_fallback_jira_changes_approvals_and_the_timeout(db, monk
     db.add(WorkItem(source_type="jira", source_instance="t", source_key="PAY-77", title="x", project_id=project.id))
     await db.flush()
     assert await deliver_jira_change(db, {"key": "PAY-77", "status": "Done"}, project_id=project.id) == []
-    # A change source of another Workspace never moves this Workspace's runs (review: Workspace scoping).
     assert await deliver_jira_change(db, {"key": "PAY-77", "status": "In Review"}, project_id="other") == []
     assert await deliver_jira_change(db, {"key": "PAY-77", "status": "In Review"}, project_id=project.id) == [
         jira_run.id]
@@ -208,8 +205,6 @@ async def test_succession_adoption_reads_only_the_stored_identity_on_the_reposit
                            requested_by=admin.id, status="completed", work_item_id=run.work_item_id,
                            repository=run.repository, branch=branch, pull_request={**pull_request, "branch": branch})
 
-    # Same path and number on another host, open on another branch: another repository's pull request, so it neither
-    # blocks (pr_conflict) nor is read.
     elsewhere = earlier("elsewhere", _opened("https://ghe.example.test/acme/pay/pull/4"), "feature/other")
     db.add(elsewhere)
     await db.flush()

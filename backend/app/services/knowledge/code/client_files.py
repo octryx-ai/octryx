@@ -1,17 +1,5 @@
-"""Code elements from files an MCP client sends explicitly (``knowledge_code_impact`` over MCP).
-
-An external client such as Claude Code works in its own checkout, which the server cannot read. The
-explicit way to ask about "this codebase" without a recorded snapshot is to send the files that
-carry the elements: build files, configuration and sources. They are validated at the boundary:
-
-- at most :data:`MAX_CLIENT_FILES` files and :data:`MAX_CLIENT_BYTES` of text in total;
-- every path is repository-relative and safe (``repository_index.validate_repository_path``);
-- only files the scanner reads (by file class) are accepted. Any other file is refused, never
-  silently ignored, so the client learns what was not considered;
-- the content is text. A NUL byte is refused.
-
-Nothing is stored. The elements live only for the one answer.
-"""
+"""Code elements from files an MCP client sends explicitly (``knowledge_code_impact`` over MCP). Files are bounded and
+validated, refused rather than ignored, and never stored."""
 
 from __future__ import annotations
 
@@ -38,7 +26,6 @@ class ClientFilesRefusedError(Exception):
 
 
 def client_file_elements(files: object) -> ClientFiles:
-    """The elements of ``[{path, content}, ...]``, or :class:`ClientFilesRefusedError`."""
     if not isinstance(files, list) or not files:
         raise ClientFilesRefusedError("files_invalid")
     if len(files) > MAX_CLIENT_FILES:

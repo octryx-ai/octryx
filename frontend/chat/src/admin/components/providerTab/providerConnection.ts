@@ -1,11 +1,9 @@
-import { providerAuthLabel } from "./providerAuthLabel";
-
-// One provider connection card on Runtime → Providers: connection and health
-// only. Which models are offered, cleared and used lives in the Model catalog. No driver key or id is shown.
+// One provider connection on Models › Providers: connection and health only. Which models are offered,
+// cleared and used lives in the Model catalog. No driver key or id is shown.
 
 export type ConnectionView = {
   initial: string;
-  kind: "gateway" | "bedrock" | "other";
+  kind: "gateway" | "other";
   status: string;
   tone: "active" | "neutral" | "attention";
   meta: string;
@@ -17,17 +15,11 @@ const READINESS_LABELS: Record<string, string> = {
 };
 
 const KIND_LABELS: Record<ConnectionView["kind"], string> = {
-  gateway: "Model gateway", bedrock: "Amazon Bedrock", other: "",
+  gateway: "Model gateway", other: "",
 };
 
-function kindOf(provider: Record<string, any>): ConnectionView["kind"] {
-  if (provider.driver === "litellm_gateway") return "gateway";
-  if (provider.driver === "bedrock_api") return "bedrock";
-  return "other";
-}
-
 export function connectionView(provider: Record<string, any>): ConnectionView {
-  const kind = kindOf(provider);
+  const kind: ConnectionView["kind"] = provider.driver === "litellm_gateway" ? "gateway" : "other";
   const name = String(provider.display_name || KIND_LABELS[kind] || "Provider");
   const readiness = String(provider.readiness?.status ?? provider.readiness_status ?? "");
   let status = READINESS_LABELS[readiness] ?? "Not checked";
@@ -38,9 +30,8 @@ export function connectionView(provider: Record<string, any>): ConnectionView {
   }
   const parts = [
     KIND_LABELS[kind],
-    kind === "bedrock" ? provider.aws_region : "",
-    providerAuthLabel(provider),
+    provider.has_api_key ? "Key configured" : "No key",
     `${Number(provider.active_model_count) || 0} of ${Number(provider.model_count) || 0} models enabled`,
-  ].filter((part) => typeof part === "string" && part.trim());
+  ].filter((part) => part.trim());
   return { initial: name.trim().charAt(0).toUpperCase() || "P", kind, status, tone, meta: parts.join(" · ") };
 }

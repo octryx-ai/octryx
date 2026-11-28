@@ -1,12 +1,4 @@
-"""The Cost tab of a catalog model.
-
-- **Gateway model**: the price authority is the alias cost contract (``alias_catalog``: ``catalog_pricing`` with two
-  strictly positive rates and an optional strictly positive cache pair, or ``gateway_reported`` /
-  ``governed_free`` naming their contract record). The catalog writes the contract into the alias and mirrors
-  the rates onto the row, with ``cost_source`` = the contract source, so there is no second price.
-- **Any other model**: ``admin/provider/model_price_edit`` decides: refused while a governed cost source owns the
-  price, cache rates only as a pair.
-"""
+"""The Cost tab of a catalog model."""
 
 from __future__ import annotations
 
@@ -45,7 +37,6 @@ def _rate(value: Any, *, required: bool) -> float | None:
 
 
 def gateway_cost_contract(payload: dict[str, Any]) -> dict[str, Any]:
-    """The alias ``cost`` block for a submitted Cost tab; raises ``ModelCatalogError`` like the admission would."""
     source = str(payload.get("cost_source") or "").strip().lower()
     if source not in COST_SOURCES:
         raise ModelCatalogError(ERROR_COST_INVALID)

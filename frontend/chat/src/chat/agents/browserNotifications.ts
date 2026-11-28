@@ -1,12 +1,8 @@
-// Browser notifications for action-needed items (S3 decision): permission is asked only on an explicit click,
-// never on page load. Pure helpers plus the one permission request; the Notification API is passed in for tests.
-
 export type NotificationApi = {
   permission: "default" | "granted" | "denied";
   requestPermission: () => Promise<"default" | "granted" | "denied">;
 };
 
-// "failed": the permission request was rejected; nothing changed and the user may try again.
 export type BrowserNotificationState = "unsupported" | "default" | "granted" | "denied" | "failed";
 
 export function browserNotificationApi(): NotificationApi | null {
@@ -27,7 +23,7 @@ export function browserNotificationText(state: BrowserNotificationState): string
   return "Get a browser notification when an agent needs your decision (only while Octryx is open).";
 }
 
-/** Asks for permission; only ever called from a click handler. */
+/** Only ever called from a click handler: permission is never asked on page load. */
 export async function requestBrowserNotifications(api: NotificationApi | null): Promise<BrowserNotificationState> {
   if (!api) return "unsupported";
   try {
@@ -41,11 +37,7 @@ export async function requestBrowserNotifications(api: NotificationApi | null): 
 type ShownNotification = { onclick: ((event?: unknown) => void) | null; close?: () => void };
 type NotificationConstructor = new (title: string, options?: { tag?: string }) => ShownNotification;
 
-/**
- * Raises one system notification when permission is granted. Only a title and a dedupe tag are
- * passed: no `body` option, so a board message body can never reach the operating system. A click focuses the app.
- * Returns whether a notification was shown.
- */
+/** No `body` option, so a board message body can never reach the operating system. */
 export function showBrowserNotification(api: NotificationApi | null, title: string, tag: string, onClick: () => void): boolean {
   if (!api || api.permission !== "granted" || typeof api !== "function") return false;
   try {
@@ -62,8 +54,7 @@ export function showBrowserNotification(api: NotificationApi | null, title: stri
   }
 }
 
-// D-F4: the global on/off switch is the browser permission plus this in-app toggle, stored per user in this browser.
-// Default on (granting the permission is the opt-in); per-kind preferences come with S3b.
+// Default on: granting the browser permission is the opt-in.
 const TOGGLE_PREFIX = "octryx-agent-board-notify";
 
 export function readNotifyToggle(userId: string): boolean {

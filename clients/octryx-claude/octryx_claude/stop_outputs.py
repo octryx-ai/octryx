@@ -14,12 +14,7 @@ MAX_PHASE_PROMPT_CHARS = 4000  # the next phase's prompt (``next_phase``), befor
 
 
 def is_internal_subagent(hook_input: dict[str, Any]) -> bool:
-    """A SubagentStop of Claude Code's own forked helper (the conversation compaction, ``querySource: compact``), not
-    of an agent the model started.
-
-    Claude Code sends ``agent_type`` with every SubagentStop: the Task agent's type, ``""`` for its own forks (e.g.
-    its compaction), which have no type and are not judged like a sub-agent doing the phase's work. A SubagentStop
-    without ``agent_type`` keeps the gate."""
+    # Claude Code sends agent_type "" for its own forks such as compaction; a stop without agent_type keeps the gate.
     if str(hook_input.get("hook_event_name") or "") != "SubagentStop" or "agent_type" not in hook_input:
         return False
     return not str(hook_input.get("agent_type") or "").strip()
@@ -38,7 +33,6 @@ def stop_output(
     prior_blocks: int,
     cap: int = STOP_BLOCK_CAP,
 ) -> tuple[dict[str, Any] | None, int]:
-    """Hook stdout for a verification result plus the new consecutive-block count."""
     blocks = prior_blocks if stop_hook_active else 0
     if result.outcome != "ok":
         return (
@@ -75,13 +69,11 @@ def stop_output(
 
 
 def unread_count(result: PlatformResult) -> int | None:
-    """The verification answer's ``unread_for_me``, or ``None`` when there is no usable count."""
     count = result.body.get("unread_for_me") if result.outcome == "ok" else None
     return count if type(count) is int and count >= 0 else None
 
 
 def board_reminder(count: int) -> str:
-    """The one reminder line: a count, never a body (worded as a friendly note)."""
     if count == 1:
         return "1 unread board message for you. Read it with board_read, then continue or stop."
     return f"{min(count, 9999)} unread board messages for you. Read them with board_read, then continue or stop."
@@ -90,14 +82,7 @@ def board_reminder(count: int) -> str:
 def with_board_reminder(
     output: dict[str, Any] | None, result: PlatformResult, *, reminded: int
 ) -> tuple[dict[str, Any] | None, int]:
-    """The unread reminder: block once per **new** unread count; returns ``(output, remembered)``.
-
-    - A verification block carries the line in its reason (the agent reads it).
-    - Otherwise the stop is blocked with the line only when the count rose above the count last reminded of;
-      the same count never blocks twice, so the next stop always goes through (no loop).
-    - A lower count (``board_ack``) is remembered, so a later rise blocks again. Without a usable count
-      nothing changes.
-    """
+    # The same count never blocks twice, so the next stop always goes through.
     count = unread_count(result)
     if count is None:
         return output, reminded

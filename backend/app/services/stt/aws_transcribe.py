@@ -1,12 +1,4 @@
-"""AWS Transcribe STT Service with built-in Speaker Diarization.
-
-Uses Amazon Transcribe streaming or batch API for speech-to-text with
-optional speaker diarization (up to 10 speakers).
-
-References:
-    https://docs.aws.amazon.com/transcribe/latest/dg/diarization.html
-    https://docs.aws.amazon.com/transcribe/latest/APIReference/API_streaming_StartStreamTranscription.html
-"""
+"""AWS Transcribe STT Service with built-in Speaker Diarization."""
 
 from __future__ import annotations
 
@@ -25,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TranscribeSegment:
-    """A transcribed segment with optional speaker label."""
-
     text: str
     speaker_label: str | None = None
     start_time: float = 0.0
@@ -36,8 +26,6 @@ class TranscribeSegment:
 
 @dataclass
 class TranscribeResult:
-    """Result from AWS Transcribe with diarization info."""
-
     text: str
     segments: list[TranscribeSegment]
     num_speakers: int = 0
@@ -49,14 +37,7 @@ class TranscribeResult:
 
 
 class AWSTranscribeSTTService:
-    """Transcribe audio using AWS Transcribe with optional speaker diarization.
-
-    This service uses the AWS Transcribe batch API (via pre-signed S3 URLs or
-    direct audio upload to the TranscribeService). For short audio (<60s),
-    it uses the synchronous StartTranscriptionJob approach with inline media.
-
-    For real-time streaming, see AWSTranscribeStreamingService (future).
-    """
+    """Transcribe audio using AWS Transcribe with optional speaker diarization."""
 
     def __init__(
         self,
@@ -85,11 +66,7 @@ class AWSTranscribeSTTService:
         *,
         diarization: bool | None = None,
     ) -> str:
-        """Transcribe audio bytes using AWS Transcribe.
-
-        Returns the plain transcription text. For diarization results,
-        use transcribe_with_diarization().
-        """
+        """Transcribe audio bytes using AWS Transcribe."""
         result = await self.transcribe_with_diarization(
             audio_bytes, filename=filename, diarization=diarization
         )
@@ -102,10 +79,7 @@ class AWSTranscribeSTTService:
         *,
         diarization: bool | None = None,
     ) -> TranscribeResult:
-        """Transcribe audio and return full result with speaker diarization.
-
-        Uses AWS Transcribe via boto3 (async wrapper).
-        """
+        """Transcribe audio and return full result with speaker diarization."""
         import asyncio
 
         use_diarization = diarization if diarization is not None else self.enable_diarization
@@ -124,7 +98,6 @@ class AWSTranscribeSTTService:
         filename: str,
         use_diarization: bool,
     ) -> TranscribeResult:
-        """Synchronous transcription using boto3."""
         import time
 
         import boto3
@@ -247,7 +220,6 @@ class AWSTranscribeSTTService:
         return self._parse_transcribe_result(result_json, use_diarization)
 
     def _cleanup_job(self, transcribe_client, s3, bucket_name, s3_key, job_name):
-        """Clean up S3 object and transcription job."""
         try:
             s3.delete_object(Bucket=bucket_name, Key=s3_key)
         except Exception:
@@ -260,7 +232,6 @@ class AWSTranscribeSTTService:
     def _parse_transcribe_result(
         self, result_json: dict, use_diarization: bool
     ) -> TranscribeResult:
-        """Parse AWS Transcribe JSON output into TranscribeResult."""
         results = result_json.get("results", {})
         transcripts = results.get("transcripts", [])
 
@@ -319,7 +290,6 @@ class AWSTranscribeSTTService:
 
     @staticmethod
     def _detect_format(audio_bytes: bytes, filename: str) -> str:
-        """Detect audio format from bytes or filename."""
         if audio_bytes[:4] == b"RIFF":
             return "wav"
         if audio_bytes[:3] == b"ID3" or audio_bytes[:2] == b"\xff\xfb":
@@ -334,7 +304,6 @@ class AWSTranscribeSTTService:
 
     @staticmethod
     def _detect_sample_rate(audio_bytes: bytes, media_format: str) -> int | None:
-        """Try to detect sample rate from WAV header."""
         if media_format == "wav" and len(audio_bytes) > 44:
             try:
                 buf = io.BytesIO(audio_bytes)

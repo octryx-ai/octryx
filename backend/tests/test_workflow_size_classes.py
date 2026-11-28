@@ -1,9 +1,4 @@
-"""A workflow's ``size_classes`` block is data the engine evaluates generically.
-
-No hardcoding: the workflow owner defines the classes, the rules, the skipped checks, the rounds and the session
-settings in the definition. A synthetic workflow with its own node and class names proves the engine is not tied to
-the shipped seeds; the seeds carry the current values.
-"""
+"""A workflow's ``size_classes`` block is data the engine evaluates generically."""
 
 from __future__ import annotations
 
@@ -67,16 +62,16 @@ def test_a_synthetic_workflow_with_its_own_names_validates_and_classifies():
 
 
 @pytest.mark.parametrize(("change", "says"), [
-    ({"skip_nodes": [{"node": "ship"}]}, "'ship' cannot be skipped"),  # a push is evidence, never skipped
+    ({"skip_nodes": [{"node": "ship"}]}, "'ship' cannot be skipped"),
     ({"skip_nodes": [{"node": "nowhere"}]}, "does not have"),
-    ({"max_rounds": {"b": 1}}, "max_rounds"),  # not a loop edge
+    ({"max_rounds": {"b": 1}}, "max_rounds"),
     ({"escalate_to": "huge"}, "escalate_to"),
     ({"session": "sometimes"}, "session"),
     ({"context_cap_tokens": 0}, "context_cap_tokens"),
     ({"colour": "red"}, "takes"),
     ({"phase_change": "sometimes"}, "phase_change"),
     ({"red_on_base": "yes"}, "red_on_base is true or false"),
-    ({"session": "per_phase", "phase_change": "same_turn"}, "with session shared"),  # one turn needs one session
+    ({"session": "per_phase", "phase_change": "same_turn"}, "with session shared"),
 ])
 def test_a_wrong_block_is_refused_with_a_clear_text(change, says):
     [message] = _codes(_with(**change))
@@ -146,8 +141,6 @@ class _Db:
 @pytest.mark.asyncio
 async def test_a_run_continuing_a_chain_started_without_classes_takes_none_and_escalation_follows_the_block(
         monkeypatch):
-    """A story continuing an unclassified epic stays unclassified. A classified run
-    escalates along its class's escalate_to, recording why."""
     import app.services.workflow_runs.size_class as module
 
     events = []

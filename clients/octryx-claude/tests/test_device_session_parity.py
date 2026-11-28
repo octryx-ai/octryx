@@ -1,12 +1,4 @@
-"""A device job turn is set up like a terminal session.
-
-- the job's run goes with every control-plane call (``X-Octryx-Workflow-Run``), registration and the
-  repository binding included, and the hooks read it from the child env;
-- the registration's run contract is remembered for the hooks, as at a terminal launch;
-- the job folder's repository is bound by the terminal's own code intelligence (remote, HEAD, root);
-- a run-bound turn does not start without that binding or when the platform does not attach the run; a root the
-  platform refuses for the device's folders ends any turn. Fakes for the platform, a real git repository.
-"""
+"""A device job turn is set up like a terminal session."""
 
 from __future__ import annotations
 
@@ -25,7 +17,8 @@ from tests.gitrepo import make_repo, requires_git
 
 RUN = "0b6a1c1e-4f7d-4c84-9a52-1f2d3c4b5a69"
 BASE = "https://octryx.example.test"
-CONTRACT = {"digest": "d1", "run": {"id": RUN}, "phase": {"node_id": "tests_first", "protected_files": []}}
+CONTRACT = {"digest": "d1", "run": {"id": RUN, "branch": "feature/orders-total"},
+            "phase": {"node_id": "tests_first", "protected_files": []}}
 
 
 @pytest.fixture
@@ -38,7 +31,6 @@ def device_state(short_state, monkeypatch):
 
 
 def _answer(status: int, body: dict) -> httpx.Response:
-    """As the gateway answers: a refusal also names its state and reason in headers."""
     return httpx.Response(status, json=body, headers={"x-octryx-gateway-state": str(body.get("state") or ""),
                                                       "x-octryx-gateway-reason": str(body.get("reason") or "")})
 
@@ -127,14 +119,17 @@ def test_a_run_bound_turn_needs_a_git_repository_a_free_turn_does_not(device_sta
     with _platform(record) as http, pytest.raises(SessionRefusedError) as refused:
         _prepare(device_state, folder, http)
     assert refused.value.code == "repository_not_a_git_repository"
+    branchless = {**CONTRACT, "run": {"id": RUN, "branch": None}}  # a run that works in no repository
+    attached = (200, {"state": "registered", "workflow_run_attach": {"state": "attached"}, "workflow_run": branchless})
+    with _platform(record, register=attached) as http:
+        _prepare(device_state, folder, http).close()
     with _platform(record, register=(200, {"state": "registered"})) as http:
         prepared = _prepare(device_state, folder, http, run="")
     prepared.close()  # code intelligence is off, as in a terminal outside a repository
 
 
 def test_a_codex_seat_turn_ignores_a_phases_fixed_claude_model(device_state, tmp_path, monkeypatch):
-    """Epic-delivery's implement phase fixes claude-haiku-5-5; ChatGPT has no such model, so the
-    Codex seat turn runs on Codex's own default. A governed Codex turn and every Claude turn keep their model."""
+    # ChatGPT has no claude-* model, so the Codex seat turn runs on Codex's own default.
     from octryx_claude import codex_driver, codex_seat
 
     monkeypatch.setattr(codex_driver, "resolve_codex", lambda: "/usr/local/bin/codex")

@@ -1,8 +1,4 @@
-// The turn's checked reply-format result (shown). Pure: no requests, no React.
-//
-// The summary's `reply_contract` is null for free-text agents and unchecked turns, else the closed
-// record {kind: "json_object", status: "satisfied" | "violated", reason}
-// (turn_execution_snapshot.read_agent_reply_contract). Anything else reads as no record.
+// Anything but the closed record reads as no record.
 
 export type TurnReplyContract = {
   status: "satisfied" | "violated";

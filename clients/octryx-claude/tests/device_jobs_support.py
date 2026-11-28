@@ -1,5 +1,3 @@
-"""Shared helpers for the test_device_jobs_* modules."""
-
 from __future__ import annotations
 
 import asyncio
@@ -24,8 +22,6 @@ class FakeChannel:
 
 
 class FakeDriver:
-    """Runs a scripted turn: optional tool decisions, then waits until released or interrupted."""
-
     def __init__(self, tools=(), hold: asyncio.Event | None = None) -> None:
         self.tools = list(tools)
         self.hold = hold

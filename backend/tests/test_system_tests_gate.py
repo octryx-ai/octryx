@@ -22,7 +22,7 @@ from app.services.workflow_runs.workspace.spec import (
 )
 
 SYSTEM = ".venv/bin/python -m pytest -v tests/system"
-RULE = rule_text(SYSTEM)  # the catalog's run.system_tests.rule with this command's full-run options
+RULE = rule_text(SYSTEM)
 UNIT = ".venv/bin/python -m pytest -v --ignore=tests/system"
 START = datetime(2026, 11, 11, 13, 0)
 
@@ -38,7 +38,7 @@ def test_the_repository_declares_its_system_test_command():
     environment = declared_environment(setup)
     assert environment["system_test"] == SYSTEM
     assert runtime_environment(environment)["system_test"] == SYSTEM
-    assert SYSTEM in declared_commands(environment)  # runs verbatim in a changing phase
+    assert SYSTEM in declared_commands(environment)
     declared, errors = validate_environment({"test": UNIT, "system_test": SYSTEM})
     assert not errors and declared["system_test"] == SYSTEM
     assert "system_test" not in runtime_environment(declared_environment({"test_commands": [UNIT]}))
@@ -63,7 +63,7 @@ def test_the_last_system_test_run_of_the_pass_must_be_green():
     assert system_tests_result(system, [_bash(SYSTEM, green=False, minute=1), _bash(SYSTEM, green=True, minute=2)],
                                START) is None
     old = [_bash(SYSTEM, green=True, minute=-5)]
-    assert "never run" in system_tests_result(system, old, START).description  # an earlier pass does not count
+    assert "never run" in system_tests_result(system, old, START).description
     assert system_tests_result(None, [], START) is None
 
 
@@ -72,11 +72,10 @@ def test_a_system_test_run_is_not_the_unit_test_evidence():
     evidence = phase_evidence(rows, since=START, test_prefixes=((".venv/bin/python", "-m", "pytest"),),
                               system=(SYSTEM,))
     assert [use.name for use in evidence.tools][-1] == "run_system_tests"
-    assert len(evidence.test_runs) <= 1  # only the unit test run is a test run
+    assert len(evidence.test_runs) <= 1
 
 
 def test_a_green_run_that_skipped_its_system_tests_does_not_count():
-    # A model may mark every system test skipped when the sandbox blocks the browser.
     system = {"command": SYSTEM, "rule": RULE}
     skipped = _bash(SYSTEM, green=True, minute=1, excerpt="===== 3 skipped in 0.35s =====")
     result = system_tests_result(system, [skipped], START)
@@ -89,7 +88,6 @@ def test_a_green_run_that_skipped_its_system_tests_does_not_count():
 
 
 def test_a_product_change_without_a_system_test_does_not_finish_the_phase():
-    # A model builds the checklist API, runs only the two existing system tests, and must not pass.
     from app.services.workflow_runs.octryx.system_tests import changed_files, uncovered_change
 
     def patch(*names):
@@ -101,8 +99,8 @@ def test_a_product_change_without_a_system_test_does_not_finish_the_phase():
     assert "no system test in tests/system/" in uncovered_change(SYSTEM, product)
     covered = patch("src/packmate/api/checklist.py", "tests/system/test_checklist_system.py")
     assert uncovered_change(SYSTEM, covered) == ""
-    assert uncovered_change(SYSTEM, patch("packmate/SPEC.md", "tests/test_x.py")) == ""  # no product change
-    assert uncovered_change(SYSTEM, {"base": "a", "base_unavailable": True}) == ""  # cannot judge
+    assert uncovered_change(SYSTEM, patch("packmate/SPEC.md", "tests/test_x.py")) == ""
+    assert uncovered_change(SYSTEM, {"base": "a", "base_unavailable": True}) == ""
     assert uncovered_change(SYSTEM, {**product, "truncated": True}) == ""
 
     system = {"command": SYSTEM, "rule": RULE}
@@ -112,7 +110,6 @@ def test_a_product_change_without_a_system_test_does_not_finish_the_phase():
 
 
 def test_a_system_test_that_does_nothing_does_not_count():
-    # A placeholder test with only ``pass``.
     from app.services.workflow_runs.octryx.system_tests import empty_tests
 
     patch = ("diff --git a/tests/system/test_corpus_system.py b/tests/system/test_corpus_system.py\n"
@@ -129,7 +126,6 @@ def test_a_system_test_that_does_nothing_does_not_count():
 
 
 def test_a_system_test_without_an_assertion_does_not_count():
-    # A test that fills the input, takes a screenshot and checks nothing.
     from app.services.workflow_runs.octryx.system_tests import empty_tests
 
     patch = ("diff --git a/tests/system/test_search_system.py b/tests/system/test_search_system.py\n"
@@ -142,15 +138,13 @@ def test_a_system_test_without_an_assertion_does_not_count():
 
 
 def test_the_system_test_rule_goes_only_to_phases_that_may_write_the_system_test_folder():
-    """The rule ("add or extend a test in the system test folder") does not reach backend and frontend items whose
-    paths exclude tests/system/**, nor the coordinator (docs/stories/** only)."""
     environment = {"test": UNIT, "system_test": SYSTEM}
     wanted = {"command": SYSTEM, "rule": RULE}
-    assert phase_system_tests("change", environment, write=[]) == wanted  # no path rules: it may write anything
+    assert phase_system_tests("change", environment, write=[]) == wanted
     assert phase_system_tests("change", environment, write=["tests/system/**"]) == wanted
     assert phase_system_tests("change", environment, write=["tests/**", "src/**"]) == wanted
-    assert phase_system_tests("change", environment, write=["e2e/**"], role="test") == wanted  # the test role
-    assert phase_system_tests("change", environment, write=["docs/stories/**"]) is None  # the coordinator
+    assert phase_system_tests("change", environment, write=["e2e/**"], role="test") == wanted
+    assert phase_system_tests("change", environment, write=["docs/stories/**"]) is None
     assert phase_system_tests("change", environment, write=["src/kitchen-helper/api/**", "tests/test_api.py"],
                               role="backend") is None
     assert phase_system_tests("change", environment, write=["web/**"], role="frontend") is None

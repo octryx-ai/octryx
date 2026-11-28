@@ -1,9 +1,4 @@
-"""The fixed, versioned analysis prompt ``incident_analysis_v1``.
-
-The template is code, not catalog text: a change is a new version (``incident_analysis_v2``), and the stored
-analysis names the version and the digest it ran with. The Work Item's own fields are quoted as data; the
-model is told they are never instructions.
-"""
+"""The fixed, versioned analysis prompt ``incident_analysis_v1``."""
 
 from __future__ import annotations
 
@@ -66,7 +61,6 @@ def _people(item: WorkItem) -> dict[str, Any]:
 
 
 def analysis_task(item: WorkItem) -> str:
-    """The user message: the item's fields as quoted JSON data."""
     data = {
         "work_item_id": item.id,
         "key": item.source_key,
@@ -87,7 +81,6 @@ def analysis_task(item: WorkItem) -> str:
 
 
 def item_version(item: WorkItem) -> str:
-    """The item's content version: what the analysis read (title, description, status, source update time)."""
     basis = json.dumps(
         [item.title, item.description, item.source_status, str(item.last_source_updated_at or "")],
         ensure_ascii=False,

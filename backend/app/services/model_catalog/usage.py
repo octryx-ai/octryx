@@ -1,11 +1,4 @@
-"""Where a catalog model is used: its platform order position and the Workspaces that may use it.
-
-- **Order position**: the 1-based position among the active runtime targets of the active control-plane
-  configuration (``control_plane_runtime_targets``, the platform order, shown as "Default & fallback").
-- **Used by n Workspaces**: active Workspaces that reach the model through their own grant: a runtime binding
-  (``runtime-target:<id>``) to a target of the model, or, for a gateway model, the Workspace ``model_policy``
-  admitting the alias (``model_alias_access_decision``, the same decision the gateway admission makes).
-"""
+"""Where a catalog model is used: its platform order position and the Workspaces that may use it."""
 
 from __future__ import annotations
 
@@ -33,7 +26,6 @@ class CatalogUsage:
         return self.order_positions.get(ref)
 
     def workspaces(self, ref: ModelRef, *, alias: str | None) -> int:
-        """Active Workspaces with a runtime binding to the model or, for a gateway alias, a model grant."""
         used = set(self.bound_workspaces.get(ref, set()))
         if alias:
             used.update(

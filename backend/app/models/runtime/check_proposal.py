@@ -1,12 +1,12 @@
-"""A check the platform proposes after a correction repeated (From Correction to Check; see the
-check proposals API contract). The proposal's parts are JSON as the contract names them; the columns
-the list filters and orders by are their own."""
+"""A check the platform proposes after a correction repeated (From Correction to Check; see the check proposals API
+contract)."""
 
 import uuid
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -14,7 +14,8 @@ def uuid_pk():
     return "chp_" + uuid.uuid4().hex
 
 
-class CheckProposal(Base):
+class CheckProposal(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "check_proposals"
 
     id = Column(String(40), primary_key=True, default=uuid_pk)

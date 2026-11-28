@@ -1,23 +1,4 @@
-"""Whether a device's own subscription (the ``seat`` profile) is at its usage limit right now, per engine.
-
-A seat at 100 % of its subscription cannot take more work. A workflow run should not
-start a seat turn only to have it fail: the platform remembers the last limit answer of the device's seat and its
-reset time, and routes to ``governed`` until then.
-
-No new storage: the answer is in the device's recorded ``turn_finished`` events of failed turns (``result_text`` such
-as "You've hit your weekly limit · resets Nov 13 at 11am (Europe/Zurich)"). A later successful seat turn clears it. A
-reset time that cannot be read counts for :data:`UNKNOWN_RESET` (the platform tries the seat again after that).
-
-**Structured signals only**: a failed turn counts as the seat's limit when the engine
-reported it as such: the launcher's error code (:data:`LIMIT_CODES`: Claude Code's ``rate_limit`` / ``billing_error``,
-Codex's usage limit, an HTTP 429), or the account's own limit message, which is matched as an exact known opening
-(:data:`ACCOUNT_LIMIT_MESSAGES`), never as words anywhere in the text: free text that
-an agent wrote ("recipe limit reached: 1000") must not move a run off its seat; a sentence that mentions "rate limit" or
-"usage limit" is the agent's, not the account's.
-
-**Per device and engine**: a Claude seat at its limit does not hold back the device's Codex seat (the person's
-ChatGPT login) and the other way round; the limit is read from the device's jobs of that engine only.
-"""
+"""Whether a device's own subscription (the ``seat`` profile) is at its usage limit right now, per engine."""
 
 from __future__ import annotations
 
@@ -58,18 +39,15 @@ _TRY_AGAIN = re.compile(r"try again in\s+(?:(?P<days>\d+)\s*days?)?[\s,]*(?:(?P<
 
 
 def is_limit_answer(text: str) -> bool:
-    """The text is one of the accounts' own limit answers (an exact known opening, see the module)."""
     lowered = " ".join(str(text or "").replace("\u2019", "'").split()).lower()
     return bool(lowered) and lowered.startswith(ACCOUNT_LIMIT_MESSAGES)
 
 
 def is_limit_failure(code: str, text: str = "", *, http_status: Any = None) -> bool:
-    """A failed turn ended on the account's limit: the launcher's code, an HTTP 429, or the account's own answer."""
     return str(code or "") in LIMIT_CODES or http_status == 429 or is_limit_answer(text)
 
 
 def known_reset(text: str, *, said_at: datetime) -> datetime | None:
-    """The reset as naive UTC when the answer names it, ``None`` when it does not (see :func:`reset_time`)."""
     text = str(text or "")
     epoch = _EPOCH.search(text)
     if epoch is not None:
@@ -102,8 +80,6 @@ def known_reset(text: str, *, said_at: datetime) -> datetime | None:
 
 
 def reset_time(text: str, *, said_at: datetime) -> datetime:
-    """The reset as naive UTC, from the answer's "resets <Mon> <d> at <h>[:mm]am|pm (<Zone>)" (or Claude Code's
-    "|<epoch>", Codex's "try again in <d> days <h> hours"); else said_at + :data:`UNKNOWN_RESET`."""
     return known_reset(text, said_at=said_at) or said_at + UNKNOWN_RESET
 
 
@@ -115,7 +91,6 @@ class SeatLimit:
 
 
 def turn_limit(body: dict[str, Any], *, said_at: datetime) -> SeatLimit | None:
-    """The limit a failed seat turn's ``turn_finished`` body reports, ``None`` when it reports none."""
     if str(body.get("status") or "") in ("", "success"):
         return None
     text = str(body.get("result_text") or "")
@@ -128,10 +103,6 @@ def turn_limit(body: dict[str, Any], *, said_at: datetime) -> SeatLimit | None:
 
 
 def rate_limit_reset(limits: Any) -> datetime | None:
-    """The reset (naive UTC) of the seat's exhausted window as Codex recorded it (``seat_rate_limits``: the launcher
-    reads the thread's rollout, ``{primary|secondary: {used_percent, window_minutes, resets_at}}``); the latest one
-    when both are used up, so a run does not pause with an unknown reset while the rollout
-    names one."""
     if not isinstance(limits, dict):
         return None
     resets = []
@@ -153,11 +124,6 @@ def _engine_filter(engine: str):
 
 async def seat_limit(db: AsyncSession, device_id: str, *, engine: str = ENGINE_CLAUDE_CODE,
                      now: datetime | None = None, chosen_at: datetime | None = None) -> SeatLimit | None:
-    """The device's seat limit for ``engine`` that still holds, ``None`` when it is not known to be at its limit.
-
-    ``chosen_at``: when a person chose the seat for this work. A limit the seat reported before that choice does not
-    hold it back (an old "resets Nov 13" answer must not keep every run off a seat that works again; a seat turn that
-    does hit the limit still switches to governed at once)."""
     now = now or utc_now()
     rows = (await db.execute(
         select(DeviceJobEvent.body, DeviceJobEvent.created_at)
@@ -184,7 +150,6 @@ async def seat_limit(db: AsyncSession, device_id: str, *, engine: str = ENGINE_C
 
 async def seat_limited_until(db: AsyncSession, device_id: str, *, engine: str = ENGINE_CLAUDE_CODE,
                              now: datetime | None = None, chosen_at: datetime | None = None) -> datetime | None:
-    """The time the device's ``engine`` seat is usable again, or ``None`` (see :func:`seat_limit`)."""
     limit = await seat_limit(db, device_id, engine=engine, now=now, chosen_at=chosen_at)
     return limit.until if limit is not None else None
 

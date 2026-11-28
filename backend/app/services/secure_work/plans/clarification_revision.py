@@ -1,11 +1,5 @@
-"""Pure rules for revising an exact Work Plan from clarification answers.
-
-- ``validate_answers`` binds each answer to the source plan's exact question, or refuses;
-- ``source_plan_context`` carries the source plan's own scope and requirements into the revision
-  prompt, every field whole (no budget);
-- ``revision_open_questions`` keeps every unanswered source question open in the revision, whatever
-  the model returned, so the plan stays ``needs_clarification`` until they are answered.
-"""
+"""Pure rules for revising an exact Work Plan from clarification answers. Every unanswered source question stays open,
+so the plan stays ``needs_clarification`` until answered."""
 
 from __future__ import annotations
 
@@ -42,12 +36,11 @@ SOURCE_CONTEXT_FIELDS = (
 
 
 def refusal(status_code: int, code: str, message: str) -> HTTPException:
-    """A refusal whose ``detail`` starts with a closed code: ``<code>: <message>``."""
     return HTTPException(status_code=status_code, detail=f"{code}: {message}")
 
 
 def validate_answers(questions: list[str], answers: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Bind each answer to the exact source question; refuse instead of dropping or cutting text."""
+    # Refuse instead of dropping or cutting text.
     if len(answers) > MAX_ANSWERS:
         raise refusal(422, "too_many_answers", f"At most {MAX_ANSWERS} answers can be sent at once.")
     bound: list[dict[str, Any]] = []
@@ -76,7 +69,6 @@ def unanswered_indexes(plan: WorkChangePlan, answers: list[dict[str, Any]]) -> l
 
 
 def source_plan_context(plan: WorkChangePlan) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The source plan's fields, every one whole, and a record of what was included."""
     context: dict[str, Any] = {}
     omitted: list[str] = []
     used = 0
@@ -139,13 +131,8 @@ def _question_key(question: str) -> str:
 def revision_open_questions(
     plan: WorkChangePlan, answers: list[dict[str, Any]], generated: list[str]
 ) -> tuple[list[str], list[str]]:
-    """Unanswered source questions first, then the model's questions, without duplicates.
-
-    Two questions are the same when they differ only in whitespace, case or a leading prompt label
-    (``Q2:``/``Q2 (unanswered):``); the first one kept is the source plan's own text.
-
-    Returns the revision's open questions and the source questions that were carried over by rule.
-    """
+    # Questions differing only in whitespace, case or a leading prompt label (``Q2:``) are the same; the source plan's
+    # own text wins.
     questions = list(plan.open_questions_json or [])
     carried = [questions[index] for index in unanswered_indexes(plan, answers)]
     merged: list[str] = []

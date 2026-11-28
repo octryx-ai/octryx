@@ -1,10 +1,4 @@
-"""Observability → Health (O4): one row per thing that can break, with a link to where it is fixed.
-
-Groups: Platform (API, database, scheduler and every background worker), Connections, Syncs & intakes,
-Providers (last hour), Background jobs (dead letters, circuit breakers, device clients). ``unknown`` and
-``disabled`` are their own states: a worker that never started, a check that went stale or a component that is
-switched off is never shown as ``ok``. Details stay with the owner; Health only rolls up.
-"""
+"""Observability → Health (O4): one row per thing that can break, with a link to where it is fixed."""
 
 from __future__ import annotations
 
@@ -37,6 +31,7 @@ WORKER_NOT_SET_UP = {"not_configured": "not configured: no knowledge store is se
 DEVICE_ONLINE = timedelta(minutes=5)
 _CHECK_STATUS = {"ok": OK, "degraded": DEGRADED, "error": FAILING, "unknown": UNKNOWN, "disabled": DISABLED}
 _WORKER_FAILED = {"failed", "error"}
+_WORKER_PARTIAL = "partial"
 RUNTIME_LINK = {"tab": "runtimeExecution", "label": "Runtime → Execution & storage"}
 SCHEDULER_LINK = {"tab": "schedulers", "label": "Automation → Schedulers"}
 
@@ -61,6 +56,12 @@ def _component_rows(checks: dict[str, dict[str, Any]], now: datetime) -> list[di
     return rows
 
 
+def _partial_detail(state: BackgroundWorkerRunState) -> str:
+    counts = (state.details_json or {}).get("counts") or {}
+    outcome = " · ".join(f"{key} {value}" for key, value in counts.items())
+    return " · ".join(part for part in (str(state.error or "partial failure"), outcome) if part)[:160]
+
+
 async def _worker_state_rows(db: AsyncSession, now: datetime) -> list[dict[str, Any]]:
     rows = []
     states = select(BackgroundWorkerRunState).order_by(BackgroundWorkerRunState.worker_name)
@@ -71,6 +72,8 @@ async def _worker_state_rows(db: AsyncSession, now: datetime) -> list[dict[str, 
             status, detail = DISABLED, WORKER_NOT_SET_UP[str(state.error)]
         elif str(state.status or "") in _WORKER_FAILED:
             status, detail = FAILING, str(state.error or state.status)[:160]
+        elif str(state.status or "") == _WORKER_PARTIAL:
+            status, detail = DEGRADED, _partial_detail(state)
         else:
             status, detail = OK, f"{state.run_count} runs · {state.failure_count} failures"
         rows.append(row(f"Worker {state.worker_name}", status, since=state.started_at, last_check=state.updated_at,

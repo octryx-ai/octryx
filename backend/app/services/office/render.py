@@ -1,17 +1,4 @@
-"""Pixel-faithful Office rendering (PDF/PNG) with LibreOffice — only where it cannot reach a network.
-
-Two ways, both hardened by ``render_sandbox`` (minimal environment, locked-down per-call profile, process-group
-kill, rlimits, two concurrent conversions, OOXML only, size cap):
-
-1. **The render sidecar** (deployments): ``OCTRYX_OFFICE_RENDER_SOCKET`` names the Unix socket of the
-   ``office-render`` service, a container with ``network_mode: none`` (``render_server.py``). The API sends the
-   document bytes and gets the rendering back; LibreOffice never runs in the API container.
-2. **A local no-network wrapper** (development): ``unshare --net`` (Linux, user namespaces) or ``sandbox-exec``
-   denying IP traffic (macOS).
-
-Where neither is available every render is the explicit state ``office_preview_unavailable``; nothing renders
-with a network. The structural HTML preview (``engine/html.py``) needs no LibreOffice.
-"""
+"""Pixel-faithful Office rendering (PDF/PNG) with LibreOffice — only where it cannot reach a network."""
 
 from __future__ import annotations
 
@@ -39,8 +26,6 @@ MAX_RESULT_BYTES = 128 * 1024 * 1024
 
 
 class OfficePreviewUnavailableError(RuntimeError):
-    """No no-network renderer exists where the backend runs."""
-
     code = OFFICE_PREVIEW_UNAVAILABLE
 
     def __init__(self) -> None:
@@ -48,8 +33,6 @@ class OfficePreviewUnavailableError(RuntimeError):
 
 
 class OfficeRenderError(RuntimeError):
-    """A refused or failed render with its closed code (busy, too large, unsupported type, failed)."""
-
     def __init__(self, code: str = OFFICE_RENDER_FAILED, fact: str = "") -> None:
         super().__init__(f"{code} {fact}".strip())
         self.code = code
@@ -83,7 +66,6 @@ async def _render_via_sidecar(socket_path: str, data: bytes, suffix: str, fmt: s
 
 
 async def render_office_document(path: str | Path, fmt: str = "pdf") -> bytes:
-    """``fmt`` ``pdf`` (every page) or ``png`` (first page / slide)."""
     source = Path(path)
     try:
         sandbox.check_request(source.suffix, source.stat().st_size, fmt)
@@ -124,7 +106,6 @@ STATE_STATUS = {
 
 
 def render_state_page(code: str) -> str:
-    """The page a browser tab shows instead of a PDF: the closed state and what it means."""
     title, text = _STATE_TEXT.get(code, _STATE_TEXT[OFFICE_RENDER_FAILED])
     return (
         '<!doctype html><html><head><meta charset="utf-8"><title>'
@@ -134,7 +115,6 @@ def render_state_page(code: str) -> str:
 
 
 async def render_check(path: str | Path) -> dict[str, Any]:
-    """The opt-in render step of validation: does the document render to a PDF, and with how many pages."""
     try:
         pdf = await render_office_document(path, "pdf")
     except OfficePreviewUnavailableError:

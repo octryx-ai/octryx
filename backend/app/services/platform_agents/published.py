@@ -1,12 +1,4 @@
-"""The one resolution of a platform agent for execution: its **published** revision (AFS-1).
-
-A platform agent's behaviour — instructions, name, capability ceiling, runtime preference, tools deny, tool surface —
-comes only from its highest published revision, on every path (chat turns, phase turns and their bindings, the
-octryx run contract, the reviewer, the gateway's runtime check). An edit of the live row is a draft until a second
-admin publishes it (``publish_governance``); it never reaches a run, whatever the global
-``agent_definition_execution_mode`` says. The live row supplies only identity and the admission switches
-(``is_active``), which is checked separately.
-"""
+"""The one resolution of a platform agent for execution: its **published** revision (AFS-1)."""
 
 from __future__ import annotations
 
@@ -63,7 +55,6 @@ async def published_platform_agent(db: AsyncSession, key: str) -> PublishedPlatf
 
 
 def published_agent_refusal(agent: PublishedPlatformAgent | None, *, needed_class: str = "read_only") -> str:
-    """``""`` when the agent may run a phase of ``needed_class``, else the typed reason."""
     if agent is None:
         return "agent_missing"
     if not agent.active:

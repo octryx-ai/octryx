@@ -1,17 +1,4 @@
-"""One rule for turns without a live owner, applied at startup and by the sweeper.
-
-The rule: a ``running`` chat session, or an active Product Run Attempt, whose owning
-process has no live lease is settled as ``interrupted_by_restart``; a running workflow run
-whose Server thread was settled pauses (``workflow_runs.restart_interruption``); a running task run whose
-executing process is gone ends as ``error`` (``task_runs``). Paused and every
-other non-active state is never touched. The same function runs once when a process
-starts (its predecessor's turns are orphaned by the restart) and periodically (a
-process that crashed without any restart leaves its lease to expire).
-
-The audit carries counts only: one ``audit_log`` row per affected session, owned by
-the session's user, with the trigger and how many rows were settled. No prompt,
-message, error text or other process's id is written.
-"""
+"""One rule for turns without a live owner, applied at startup and by the sweeper."""
 
 from __future__ import annotations
 
@@ -46,7 +33,6 @@ class InterruptionSettlement:
 
 
 async def settle_interrupted_turns(db: AsyncSession, *, trigger: str) -> InterruptionSettlement:
-    """Apply the no-live-owner rule once; the caller commits."""
     if trigger not in TRIGGERS:
         raise ValueError("unknown interruption trigger")
     sessions = await settle_orphaned_running_sessions(db)

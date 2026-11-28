@@ -1,20 +1,22 @@
-"""Codex CLI's per-session home.
-
-config.toml (the Octryx model provider, hooks, MCP servers), the env wrapper and the shared threads folder.
-"""
+"""Codex CLI's per-session home: config.toml, the env wrapper and the shared threads folder."""
 
 from __future__ import annotations
 
 import contextlib
 import json
+import os
 import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
 from octryx_claude import launch_settings
 
+from . import codex_hook_guard
 from .codex_hook_input import CODEX_MCP_SERVER
+from .codex_trust import HookDeclaration, pin_hooks
 from .device_sdk import DriverStartError
+from .launch_sandbox import TEST_RUN_SHIM_ENV
 
 OPENAI_GATEWAY_PATH = "/api/v1/model-gateway/openai/v1"
 
@@ -25,8 +27,14 @@ HOME_DIR = "codex-home"
 # Codex's thread files (``sessions/…/rollout-*.jsonl``) of every session on this device, in one folder: the epic's
 # next story runs in a new launcher session (its own CODEX_HOME) and resumes the thread of the story before it.
 THREADS_DIR = "codex-threads"
+CODEX_HOMES_DIR = "codex-homes"
 
 ENV_WRAPPER = "octryx-env.sh"
+
+# Set by the server runner image: without user namespaces Codex's sandbox cannot start; the container is the boundary.
+CONTAINER_BOUNDARY_ENV = "OCTRYX_CODEX_CONTAINER_BOUNDARY"
+ASK_BEFORE_CHANGES = "default"  # the chat's permission mode that asks before a change
+CONFIG_APPROVAL = "on-request"
 
 TOKEN_REFRESH_MS = 4 * 60 * 1000
 
@@ -38,7 +46,6 @@ NOTE = (
 )
 
 def _toml(value: Any) -> str:
-    """A TOML value: JSON strings, numbers, booleans and arrays of them are valid TOML."""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
@@ -51,68 +58,127 @@ def _inline(table: dict[str, str]) -> str:
     return "{ " + ", ".join(f"{json.dumps(key)} = {_toml(value)}" for key, value in table.items()) + " }"
 
 def hook_env(prepared: Any) -> dict[str, str]:
-    """What the hook entry needs to find its session: the launcher's own variables (no credentials)."""
     from .codex_hook_input import CODEX, ENGINE_ENV  # noqa: PLC0415
+
+    env = {key: value for key, value in prepared.env.items()
+           if key in SESSION_METADATA or key.startswith("GIT_CONFIG_")}  # the job folder as safe git directory
+    env[ENGINE_ENV] = CODEX  # the hooks know they answer Codex (no ``ask``)
+    return {**env, **agent_env(prepared)}
+
+
+def agent_env(prepared: Any) -> dict[str, str]:
+    # Under an agent account: its own HOME and the launcher's token broker instead of the credential file.
+    if not agent_mode():
+        return {}
+    from .runner import AGENT_HOME, broker_socket  # noqa: PLC0415
+    from .state import LocalState  # noqa: PLC0415
+    from .token_broker import SOCKET_ENV  # noqa: PLC0415
+
+    root = prepared.env.get("OCTRYX_CLAUDE_HOME") or ""
+    return {SOCKET_ENV: str(broker_socket(LocalState(Path(root) if root else None))), "HOME": AGENT_HOME}
+
+
+# Started by the wrapper with ``python -I``: nothing from the session's PATH, PYTHONPATH or work folder is imported.
+_BOOT = "import sys; sys.path.insert(0, sys.argv.pop(1)); from octryx_claude.entry import main; sys.exit(main())"
+
+
+def launcher_command() -> list[str]:
+    return [sys.executable, "-I", "-c", _BOOT, str(Path(__file__).resolve().parents[1])]
+
+
+def hook_path(prepared: Any) -> str:
+    from . import tools  # noqa: PLC0415
+
+    root = prepared.env.get("OCTRYX_CLAUDE_HOME") or ""
+    launcher = tools.bin_dirs(Path(root)) if root else [str(Path(sys.executable).parent)]
+    return os.pathsep.join([*launcher, *SYSTEM_PATH])
+
+def write_env_wrapper(home: Path, prepared: Any) -> Path:
+    path = home / ENV_WRAPPER
+    env = {**hook_env(prepared), TEST_RUN_SHIM_ENV: str(path)}
     from .hooks import DEFER_STOP_ENV  # noqa: PLC0415
 
-    env = {key: value for key, value in prepared.env.items() if key.startswith("OCTRYX_")}
-    env[DEFER_STOP_ENV] = "1"
-    env[ENGINE_ENV] = CODEX  # the hooks know they answer Codex (no ``ask``)
-    if prepared.env.get("PATH"):
-        env["PATH"] = prepared.env["PATH"]
-    return env
-
-def write_env_wrapper(home: Path, prepared: Any, shim: str) -> Path:
-    """Codex runs hooks with a login shell (whose profile may reset the environment) and the MCP headers helper
-    with an empty environment (``python_not_found``, exit 2). Every launcher command Codex runs
-    goes through this wrapper, which sets the launcher's variables again (no credentials among them)."""
     lines = ["#!/bin/sh"]
-    lines += [f"export {key}={shlex.quote(value)}" for key, value in sorted(hook_env(prepared).items())]
-    lines += [f'exec {shlex.quote(shim)} "$@"']
-    path = home / ENV_WRAPPER
+    lines += [f"export {key}={shlex.quote(value)}" for key, value in sorted(env.items())]
+    lines += [# Codex's Stop is deferred; the launcher's own replay of it sets 0.
+              f': "${{{DEFER_STOP_ENV}:=1}}"; export {DEFER_STOP_ENV}',
+              # A wrapped test run is the agent's own command and keeps its shell's PATH and PYTHONPATH (an item
+              # worktree's sources first); everything else the launcher decides is out of the work folder's reach.
+              f'case "$1" in test-run) ;; *) unset {" ".join(STEERING_ENV)}; '
+              f'PATH={shlex.quote(hook_path(prepared))}; export PATH ;; esac',
+              f'exec {shlex.join(launcher_command())} "$@"']
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    path.chmod(0o700)
+    path.chmod(0o755 if agent_mode() else 0o700)
     return path
 
-def _hook_block(event: str, command: str, timeout: int, matcher: str = "") -> list[str]:
-    lines = [f"[[hooks.{event}]]"]
-    if matcher:
-        lines.append(f"matcher = {_toml(matcher)}")
-    lines += [f"[[hooks.{event}.hooks]]", 'type = "command"', f"command = {_toml(command)}", f"timeout = {timeout}", ""]
-    return lines
+GUARD_MARGIN_SECONDS = 5
 
-def _provider(*, base_url: str, headers: dict[str, str], wrapper: str, seat: bool, seat_proxy: str = "",
-              web: bool = False) -> list[str]:
-    """The session's only provider: the platform's governed Responses gateway, or its seat route (the person's own
-    ChatGPT login, ``codex_seat``; the seat credential comes from the process environment, never a file). With the
-    platform's ``seat_traffic`` on ``device``, the seat's provider is the job's loopback seat proxy
-    (``codex_seat_proxy``, ``seat_proxy`` = its URL), reached with the job's token from the process environment."""
+
+def guard_command(wrapper: str) -> list[str]:
+    return [sys.executable, "-I", str(Path(codex_hook_guard.__file__).resolve()),
+            str(launch_settings.PRE_TOOL_USE_HOOK_TIMEOUT - GUARD_MARGIN_SECONDS), wrapper, "hook", "pre-tool-use"]
+
+
+def hook_declarations(wrapper: str, *, guarded: bool = False) -> list[HookDeclaration]:
+    hook = f"{shlex.quote(wrapper)} hook"
+    # A device turn's PreToolUse is the guard itself (exec, no shell around it): Codex lets a call run when the
+    # hook's runner fails, so nothing but the guard may stand between them.
+    pre_tool_use = (f"exec {shlex.join(guard_command(wrapper))}" if guarded else
+                    f"{hook} pre-tool-use || "
+                    "{ echo 'Octryx hook failed; tool call denied (fail closed).' >&2; exit 2; }")
+    return [HookDeclaration("PreToolUse", pre_tool_use, launch_settings.PRE_TOOL_USE_HOOK_TIMEOUT),
+            HookDeclaration("PostToolUse", f"{hook} post-tool-use", launch_settings.POST_TOOL_USE_HOOK_TIMEOUT),
+            HookDeclaration("Stop", f"{hook} stop", launch_settings.STOP_HOOK_TIMEOUT)]
+
+def _hook_block(hook: HookDeclaration) -> list[str]:
+    return [f"[[hooks.{hook.event}]]", f"[[hooks.{hook.event}.hooks]]", 'type = "command"',
+            f"command = {_toml(hook.command)}", f"timeout = {hook.timeout}", ""]
+
+# Tool shells get none of the launcher's variables and no platform credential (Codex passes the whole environment
+# on by default, *TOKEN* included); the few that tools read come back by value (:func:`shell_environment`).
+SHELL_ENVIRONMENT = {"inherit": "all", "ignore_default_excludes": False,
+                     "exclude": ["OCTRYX_*", "ANTHROPIC_*", "CLAUDE_CODE_*"]}
+SHELL_PASSTHROUGH = ("OCTRYX_TURN_MARK", "OCTRYX_BROWSER_CHANNEL", "OCTRYX_BROWSER_MISSING", "OCTRYX_NO_BUILD_CACHE")
+# What the hook wrapper may carry: the session's facts, never a credential (the wrapper is a file).
+SESSION_METADATA = frozenset({
+    "OCTRYX_BASE_URL", "OCTRYX_BROWSER_CHANNEL", "OCTRYX_BROWSER_EXTERNAL", "OCTRYX_BROWSER_MISSING",
+    "OCTRYX_CLAUDE_EXECUTABLE", "OCTRYX_CLAUDE_HOME", "OCTRYX_CODEX_CONTAINER_BOUNDARY", "OCTRYX_CODEX_PATH",
+    "OCTRYX_CONTEXT_MANAGER", "OCTRYX_CREDENTIAL_SET", "OCTRYX_DEFER_SESSION_END", "OCTRYX_NO_BUILD_CACHE",
+    "OCTRYX_PROFILE", "OCTRYX_SANDBOX_BRANCH", "OCTRYX_SANDBOX_RUN_ID", "OCTRYX_SESSION_KEY",
+    "OCTRYX_SESSION_LESSONS", "OCTRYX_SESSION_MODE", "OCTRYX_TEST_RUN_SHIM", "OCTRYX_TURN_MARK",
+    "OCTRYX_WORKFLOW_RUN", "OCTRYX_WORKSPACE", "OCTRYX_WORKSPACE_ID", "OCTRYX_WORK_ITEM", "OCTRYX_TOKEN_SOCKET",
+    "OCTRYX_SHARED_STATE"})
+LOGIN_CREDENTIALS = ("OCTRYX_USERNAME", "OCTRYX_PASSWORD")
+SYSTEM_PATH = ("/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin")
+# Variables that steer an interpreter or a shell started below the wrapper.
+STEERING_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP", "PYTHONUSERBASE", "PYTHONINSPECT", "PYTHONEXECUTABLE",
+                "PYTHONSAFEPATH", "PYTHONPLATLIBDIR", "PYTHONBREAKPOINT", "BASH_ENV", "ENV", "CDPATH", "IFS",
+                "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES", "DYLD_LIBRARY_PATH")
+
+
+def shell_environment(prepared: Any) -> dict[str, Any]:
+    kept = {name: prepared.env[name] for name in SHELL_PASSTHROUGH if prepared.env.get(name)}
+    return {**SHELL_ENVIRONMENT, **({"set": kept} if kept else {})}
+
+def _shell_environment() -> list[str]:
+    return ["[shell_environment_policy]", *(f"{key} = {_toml(value)}" for key, value in SHELL_ENVIRONMENT.items()), ""]
+
+def _provider(*, base_url: str, headers: dict[str, str], wrapper: str, seat: bool) -> list[str]:
     from .codex_seat import SEAT_CREDENTIAL_ENV, SEAT_CREDENTIAL_HEADER, SEAT_PROVIDER_ID, SEAT_ROUTE  # noqa: PLC0415
-    from .codex_seat_proxy import PROXY_TOKEN_ENV
-    from .seat_proxy_http import PROXY_TOKEN_HEADER  # noqa: PLC0415
 
     if seat:
-        env_headers = {SEAT_CREDENTIAL_HEADER: SEAT_CREDENTIAL_ENV,
-                       **({PROXY_TOKEN_HEADER: PROXY_TOKEN_ENV} if seat_proxy else {})}
         return [f"[model_providers.{SEAT_PROVIDER_ID}]", 'name = "Octryx seat (ChatGPT)"',
-                f"base_url = {_toml(seat_proxy or base_url + SEAT_ROUTE)}", 'wire_api = "responses"',
+                f"base_url = {_toml(base_url + SEAT_ROUTE)}", 'wire_api = "responses"',
                 "requires_openai_auth = true", f"http_headers = {_inline(headers)}",
-                f"env_http_headers = {_inline(env_headers)}",
-                # A turn with the web searches with Codex's standalone ``web.run`` (the gpt-6 models are Responses Lite,
-                # which never offers the hosted web_search): offered for a custom provider only with this
-                # flag, and sent to ``<base_url>/alpha/search``, which only the device's seat proxy serves.
-                *(["supports_standalone_web_search = true"] if web and seat_proxy else []), ""]
+                f"env_http_headers = {_inline({SEAT_CREDENTIAL_HEADER: SEAT_CREDENTIAL_ENV})}", ""]
     return [f"[model_providers.{PROVIDER_ID}]", 'name = "Octryx"',
             f"base_url = {_toml(base_url + OPENAI_GATEWAY_PATH)}", 'wire_api = "responses"',
             f"http_headers = {_inline(headers)}", "",
             f"[model_providers.{PROVIDER_ID}.auth]", f"command = {_toml(wrapper)}", 'args = ["api-key-helper"]',
             f"refresh_interval_ms = {TOKEN_REFRESH_MS}", ""]
 
+# No ``-`` in the server name, so Codex names the tools ``mcp__playwright__browser_*`` like Claude Code.
 def _browser_server(spec: dict[str, Any] | None) -> list[str]:
-    """The phase's own browser (``browser_mcp.server_spec``, only when the phase opted in): the same Playwright MCP
-    server, arguments and restrictions as a Claude Code turn (own profile under the session folder, loopback origins,
-    the platform's port blocked, downloads off). Its name has no ``-``, so Codex shows the tools as
-    ``mcp__playwright__browser_*`` like Claude Code, and the hooks decide them alike (``run_shell.browser_rule``)."""
     from . import browser_mcp  # noqa: PLC0415
 
     if not isinstance(spec, dict) or not spec.get("command"):
@@ -122,59 +188,51 @@ def _browser_server(spec: dict[str, Any] | None) -> list[str]:
     env = spec.get("env") if isinstance(spec.get("env"), dict) else {}
     if env:
         lines.append(f"env = {_inline({str(key): str(value) for key, value in env.items()})}")
-    # exec mode (approval ``never``) declines MCP tools without it; the PreToolUse hook decides every call.
+    # The PreToolUse hook decides every call; Codex must not ask a second time.
     return [*lines, 'default_tools_approval_mode = "approve"', ""]
 
 def config_toml(*, base_url: str, headers: dict[str, str], model: str, wrapper: str, sandboxed: bool,
                 interactive: bool = False, story: bool = False, seat: bool = False,
-                browser: dict[str, Any] | None = None, seat_proxy: str = "", web: bool = False) -> str:
+                browser: dict[str, Any] | None = None, container_boundary: bool = False, device_turn: bool = False,
+                context_window: int = 0) -> str:
     from .codex_seat import SEAT_PROVIDER_ID  # noqa: PLC0415
 
-    hook = f"{shlex.quote(wrapper)} hook"
-    pre_tool_use = (f"{hook} pre-tool-use || "
-                    "{ echo 'Octryx hook failed; tool call denied (fail closed).' >&2; exit 2; }")
     lines = [
         "# Written by octryx for one session. Models only through the platform; no key on disk.",
         f"model_provider = {_toml(SEAT_PROVIDER_ID if seat else PROVIDER_ID)}",
         *([f"model = {_toml(model)}"] if model else []),
+        # A gateway alias Codex does not know: its window from the platform, for the context it reports.
+        *([f"model_context_window = {int(context_window)}"] if context_window > 0 else []),
         # A seat session reads the person's own login through its auth.json link; any other stores nothing.
         f"cli_auth_credentials_store = {_toml('file' if seat else 'ephemeral')}",
-        # A device turn cannot ask anyone; the terminal (``octryx codex``) asks the person before a command.
-        f"approval_policy = {_toml('on-request' if interactive else 'never')}",
-        f"sandbox_mode = {_toml('workspace-write' if sandboxed else 'danger-full-access')}",
+        # A one-shot ``codex exec`` cannot ask anyone; the terminal and a device turn ask through their client.
+        f"approval_policy = {_toml('on-request' if interactive or device_turn else 'never')}",
+        f"sandbox_mode = {_toml('workspace-write' if sandboxed and not container_boundary else 'danger-full-access')}",
         # Only an epic's story session (plain, decided on the device) gets the story note; any other phase follows
         # the platform's prompt and run contract, and the terminal session is the person's own.
         *([f"developer_instructions = {_toml(NOTE)}"] if story and not interactive else []),
         "check_for_update_on_startup = false",
-        # No provider-hosted web search: it bypasses the platform's tools and egress, and company models refuse the
-        # tool type ("Tool type 'web_search' is not supported").
-        # Except a turn with the web (the offer's ``web``) on the person's seat (a server may not reach the web, so
-        # research runs on the device): the search runs at the provider, the call leaves from this device and the
-        # platform records each search from the answer.
-        f"web_search = {_toml('live' if web and seat else 'disabled')}",
+        # No provider-hosted web search, on the seat too: it bypasses the platform's web tools and egress, and company
+        # models refuse the tool type ("Tool type 'web_search' is not supported").
+        'web_search = "disabled"',
         "",
         "[analytics]",
         "enabled = false",
         "",
         "[features]",
         "hooks = true",
-        # Codex's own sub-agents (collaboration.spawn_agent): allow by default, block as an admin option, so the
-        # platform admits their calls and they are on.
         "multi_agent = true",
         "",
-        *_provider(base_url=base_url, headers=headers, wrapper=wrapper, seat=seat, seat_proxy=seat_proxy,
-                   web=web),
+        *_provider(base_url=base_url, headers=headers, wrapper=wrapper, seat=seat),
         f"[mcp_servers.{CODEX_MCP_SERVER}]",
         f"url = {_toml(base_url + launch_settings.KNOWLEDGE_MCP_PATH)}",
         f"http_headers_helper = {_toml(f'{shlex.quote(wrapper)} mcp-headers')}",
-        # Without it Codex declines the platform's MCP tools in exec mode (approval ``never``): the chat eval of
-        # Measured it. The platform decides those calls itself (PreToolUse hook).
+        # The PreToolUse hook decides every platform tool call; Codex must not ask a second time.
         'default_tools_approval_mode = "approve"',
         "",
         *_browser_server(browser),
-        *_hook_block("PreToolUse", pre_tool_use, launch_settings.PRE_TOOL_USE_HOOK_TIMEOUT),
-        *_hook_block("PostToolUse", f"{hook} post-tool-use", launch_settings.POST_TOOL_USE_HOOK_TIMEOUT),
-        *_hook_block("Stop", f"{hook} stop", launch_settings.STOP_HOOK_TIMEOUT),
+        *(_shell_environment() if device_turn else []),
+        *(line for hook in hook_declarations(wrapper, guarded=device_turn) for line in _hook_block(hook)),
     ]
     return "\n".join(lines) + "\n"
 
@@ -187,22 +245,19 @@ def session_headers(prepared: Any) -> dict[str, str]:
                                 str(gateway.get("workflow_run") or ""))
     return dict(line.split(": ", 1) for line in raw.splitlines() if ": " in line)
 
-def prepare_home(prepared: Any, *, sandboxed: bool, interactive: bool = False, seat_proxy: str = "") -> Path:
-    """The session's ``CODEX_HOME`` next to its other state (``<state>/sessions/<key>/codex-home``); ``seat_proxy``:
-    the URL of the job's loopback seat proxy when the seat's calls leave from this device."""
+def prepare_home(prepared: Any, *, sandboxed: bool, interactive: bool = False, device_turn: bool = False) -> Path:
     gateway = prepared.extra.get("gateway") or {}
     shim = str(prepared.extra.get("hook_shim") or prepared.env.get("OCTRYX_TEST_RUN_SHIM") or "")
     if not shim or not gateway.get("base_url"):
         raise DriverStartError("codex_session_incomplete")
-    home = Path(prepared.settings_path).parent / HOME_DIR
-    home.mkdir(parents=True, exist_ok=True, mode=0o700)
+    home = codex_home(prepared)
     share_threads(home, prepared)
     seat = bool(prepared.extra.get("codex_seat"))
     if seat:
         from .codex_seat import link_login  # noqa: PLC0415
 
         link_login(home, prepared.extra.get("state_root") or Path(prepared.settings_path).parents[2])
-    wrapper = write_env_wrapper(home, prepared, shim)
+    wrapper = write_env_wrapper(home, prepared)
     (home / "config.toml").write_text(config_toml(
         base_url=str(gateway["base_url"]), headers=session_headers(prepared),
         # A seat session uses Codex's own default model unless one is named; a governed one the device's alias.
@@ -210,20 +265,58 @@ def prepare_home(prepared: Any, *, sandboxed: bool, interactive: bool = False, s
         wrapper=str(wrapper), sandboxed=sandboxed, interactive=interactive,
         story=bool(prepared.extra.get("plain")), seat=seat,
         # A run phase that opted in to a browser (``browser_mcp``); never the terminal session or a chat turn.
-        browser=prepared.extra.get("browser_mcp") if not interactive else None, seat_proxy=seat_proxy,
-        web=prepared.extra.get("web") is True and not interactive),
+        browser=prepared.extra.get("browser_mcp") if not interactive else None,
+        container_boundary=container_boundary(prepared), device_turn=device_turn,
+        context_window=int(prepared.extra.get("model_context_window") or 0)),
         encoding="utf-8")
+    pin_hooks(home / "config.toml", hook_declarations(str(wrapper), guarded=device_turn))
+    (home / "config.toml").chmod(0o644 if agent_mode() else 0o600)
     return home
 
+
+def agent_mode() -> bool:
+    from .runner import agent_uid  # noqa: PLC0415
+
+    return agent_uid() is not None
+
+
+def codex_home(prepared: Any) -> Path:
+    # Under an agent account the home lies outside the session folder, in a folder only the launcher writes: Codex
+    # may add its own files there (sticky), never replace the launcher's.
+    if not agent_mode():
+        home = Path(prepared.settings_path).parent / HOME_DIR
+        home.mkdir(parents=True, exist_ok=True, mode=0o700)
+        return home
+    homes = Path(prepared.env.get("OCTRYX_CLAUDE_HOME") or "") / CODEX_HOMES_DIR
+    homes.mkdir(parents=True, exist_ok=True)
+    homes.chmod(0o2750)
+    home = homes / Path(prepared.settings_path).parent.name
+    home.mkdir(exist_ok=True)
+    home.chmod(0o3770)
+    return home
+
+def container_boundary(prepared: Any) -> bool:
+    return (prepared.env.get(CONTAINER_BOUNDARY_ENV) or os.environ.get(CONTAINER_BOUNDARY_ENV)) == "1"
+
+
+def thread_approval(prepared: Any) -> str:
+    # Behind a container boundary Codex has no sandbox whose refusal would make it ask, so "ask before changes" is
+    # Codex's policy of asking before every command not known to be read-only. Per thread only: Codex 0.169 refuses
+    # ``untrusted`` in config.toml.
+    if container_boundary(prepared) and prepared.extra.get("permission_mode") == ASK_BEFORE_CHANGES:
+        return "untrusted"
+    return CONFIG_APPROVAL
+
+
 def share_threads(home: Path, prepared: Any) -> None:
-    """``<home>/sessions`` is the device's shared thread folder (story 2 of a Codex epic ran in a
-    new CODEX_HOME, ``codex exec resume <thread>`` found nothing and exited 1). Codex looks a thread up in its own
-    database first and then by file name, so the shared files are enough; configuration and hooks stay per session."""
+    # One thread folder per device: an epic's next story runs in a new CODEX_HOME and resumes the thread by id.
     root = prepared.env.get("OCTRYX_CLAUDE_HOME") or ""
     if not root:
         return
     shared = Path(root) / THREADS_DIR
     shared.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if agent_mode() and shared.stat().st_uid == os.getuid():
+        shared.chmod(0o2770)  # Codex writes its threads under the agent's account
     link = home / "sessions"
     if link.is_symlink() or not link.exists():
         with contextlib.suppress(FileNotFoundError):
@@ -231,11 +324,12 @@ def share_threads(home: Path, prepared: Any) -> None:
         link.symlink_to(shared, target_is_directory=True)
 
 
-def environment(prepared: Any, home: Path, *, proxy_token: str = "") -> dict[str, str]:
+def environment(prepared: Any, home: Path) -> dict[str, str]:
     env = {key: value for key, value in prepared.env.items() if not key.startswith(("ANTHROPIC_", "CLAUDE_CODE_"))}
-    for name in ("OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_BASE_URL"):
+    for name in ("OPENAI_API_KEY", "CODEX_API_KEY", "CODEX_ACCESS_TOKEN", "OPENAI_BASE_URL", *LOGIN_CREDENTIALS):
         env.pop(name, None)  # the session's provider is the platform, never a key of the person's shell
     env["CODEX_HOME"] = str(home)
+    env.update(agent_env(prepared))
     from .codex_hook_input import CODEX, ENGINE_ENV  # noqa: PLC0415
     from .codex_seat import SEAT_CREDENTIAL_ENV  # noqa: PLC0415
 
@@ -243,8 +337,4 @@ def environment(prepared: Any, home: Path, *, proxy_token: str = "") -> dict[str
     credential = str(prepared.extra.get("seat_credential") or "")
     if prepared.extra.get("codex_seat") and credential:
         env[SEAT_CREDENTIAL_ENV] = credential  # the seat route's session credential, in the process env only
-    if proxy_token:
-        from .codex_seat_proxy import PROXY_TOKEN_ENV  # noqa: PLC0415
-
-        env[PROXY_TOKEN_ENV] = proxy_token  # the job's seat proxy token, in the process env only
     return env

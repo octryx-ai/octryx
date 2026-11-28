@@ -1,9 +1,4 @@
-"""Test-contract semantics: every contract test is ``new`` or ``regression``.
-
-Tests first may write new tests (red on their assertions) next to existing tests of a regression criterion (green);
-a red gate that requires *every* confirmed test to fail would fail on the green ones (``does not fail``) until the
-run pauses at its loop limit. The repository's declared test command (with ``--junitxml``) is allowed in Tests first.
-"""
+"""Test-contract semantics: every contract test is ``new`` or ``regression``."""
 
 from __future__ import annotations
 
@@ -14,8 +9,11 @@ from app.services.workflow_checks.test_results import all_red
 from app.services.workflow_runs.phase_outputs import submit_output
 from app.services.workflow_runs.test_runs import gate_fields, record_turn_test_runs
 from tests.phased_seed_definitions import seed_definitions
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_hitl import _item, _start, contract_definition, drafted_plan, reach_contract
 from tests.workflow_run_octryx_support import ROOT, _bound_run, _decide, _fix_definition, _hook
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FILE = "tests/test_textkit.py"
 NEW = [f"{FILE}::test_slugify_{name}" for name in (
@@ -57,7 +55,6 @@ async def _confirmed_live_contract(client, auth_headers, db):
 @pytest.mark.asyncio
 async def test_the_live_case_nine_new_red_and_two_regression_green_passes_the_red_gate(client, auth_headers, db):
     run, payload = await _confirmed_live_contract(client, auth_headers, db)
-    # The confirmation showed every test's role; the confirm bound them.
     assert payload["test_roles"] == {**dict.fromkeys(NEW, "new"), **dict.fromkeys(REGRESSION, "regression")}
     plan = await drafted_plan(db, run)
     assert plan.acceptance_criteria_json[1]["test_roles"] == dict.fromkeys(REGRESSION, "regression")
@@ -65,7 +62,7 @@ async def test_the_live_case_nine_new_red_and_two_regression_green_passes_the_re
 
     await record_turn_test_runs(db, run, [LIVE_RED], node_id="work")
     fields = gate_fields(run)
-    assert fields["red_seen"] is True  # red by role: green on a new test would come after this
+    assert fields["red_seen"] is True
     [result] = evaluate_checks(RED_CHECK, TurnEvidence(**fields))
     assert result.outcome == "passed", result.detail
 
@@ -80,7 +77,6 @@ async def test_a_regression_test_failing_in_the_red_run_fails_the_red_gate(clien
     [result] = evaluate_checks(RED_CHECK, TurnEvidence(**fields))
     assert result.outcome == "failed" and "regression test does not pass" in result.detail
     assert REGRESSION[0] in result.detail
-    # A regression test the run does not report is not seen, either.
     [unseen] = evaluate_checks(RED_CHECK, TurnEvidence(**{**fields, "test_runs": [_run_of(dict.fromkeys(NEW,
                                                                                                          "failed"))]}))
     assert unseen.outcome == "failed" and "not seen" in unseen.detail
@@ -89,7 +85,7 @@ async def test_a_regression_test_failing_in_the_red_run_fails_the_red_gate(clien
 def test_red_by_role_and_the_rule_before_roles():
     roles = {**dict.fromkeys(NEW, "new"), **dict.fromkeys(REGRESSION, "regression")}
     assert all_red(LIVE_RED, NEW + REGRESSION, roles) == (True, "")
-    ok, why = all_red(LIVE_RED, NEW + REGRESSION)  # a contract confirmed before roles: every test is new
+    ok, why = all_red(LIVE_RED, NEW + REGRESSION)
     assert not ok and "does not fail" in why
     still_green = _run_of({**{test_id: "failed" for test_id in NEW[1:]}, NEW[0]: "passed",
                            **{test_id: "passed" for test_id in REGRESSION}})
@@ -117,7 +113,6 @@ async def test_a_new_test_the_branch_already_passes_is_refused_at_submit(db):
         LIVE_CRITERIA[0], {**LIVE_CRITERIA[1], "tests": [{"id": NEW[0], "role": "regression"}]}]})
     assert twice["state"] == "refused" and "one test has one role" in twice["message"]
 
-    # A plain id leaves the role to the server: seen passing → regression, not seen → new.
     derived = await submit_output(db, run, "submit_test_contract", {"criteria": [
         {**LIVE_CRITERIA[0], "tests": [REGRESSION[0], NEW[0]]}]})
     assert derived["state"] == "recorded", derived
@@ -132,7 +127,6 @@ async def test_a_new_test_seen_passing_before_the_confirmation_blocks_the_confir
     await reach_contract(db, run, session, LIVE_CRITERIA)
     await db.commit()
     stale_hash = run.node_state["waiting"]["payload_hash"]
-    # The branch shows a "new" test passing before Tests first changed anything: it cannot be new.
     await record_turn_test_runs(db, run, [_run_of({NEW[0]: "passed"})], node_id="contract")
     await db.commit()
     stale = await client.post(f"/api/v1/workflow-runs/{run.id}/actions", headers=auth_headers,
@@ -155,7 +149,7 @@ def test_c_reproduction_is_new_and_the_rest_of_the_suite_is_regression():
     broken = _run_of({reproduction: "failed", "tests/test_fees.py::test_fee": "failed"})
     [result] = evaluate_checks(check, _with_runs(evidence, [broken]))
     assert result.outcome == "failed" and "regression tests fail: tests/test_fees.py::test_fee" in result.detail
-    reproduction_only = [{**check[0], "params": {}}]  # without ``regression: suite`` only the reproduction is judged
+    reproduction_only = [{**check[0], "params": {}}]
     assert evaluate_checks(reproduction_only, _with_runs(evidence, [broken]))[0].outcome == "passed"
 
 
@@ -174,7 +168,7 @@ async def _tests_first_run(db, environment: dict | None):
         await db.flush()
     from tests.workflow_run_octryx_support import STRICT, set_tool_defaults
 
-    await set_tool_defaults(db, workspace_id, **STRICT)  # these tests judge the strict shell
+    await set_tool_defaults(db, workspace_id, **STRICT)
 
     async def bash(command: str) -> dict:
         return await _decide(db, gateway, key, workspace_id, _hook("Bash", command=command))
@@ -189,18 +183,18 @@ DECLARED = {"source": "declared", "test": DECLARED_TEST, "lint": "flake8 .", "se
 async def test_the_declared_test_command_runs_verbatim_and_a_modified_one_stays_denied(db):
     bash = await _tests_first_run(db, DECLARED)
     assert (await bash(DECLARED_TEST))["decision"] == "allow"
-    assert (await bash("flake8 ."))["decision"] == "allow"  # the declared lint command
+    assert (await bash("flake8 ."))["decision"] == "allow"
     for modified in (DECLARED_TEST.replace("report.xml", "other.xml"), DECLARED_TEST + " -p evil",
                      "python -m pytest -v tests/ --junitxml=/tmp/report.xml", DECLARED_TEST + " > out.txt",
                      DECLARED_TEST + " && rm -rf src", "flake8 . --output-file=x"):
         assert (await bash(modified))["reason"] == "outside_phase_tools", modified
-    assert (await bash("python -m pytest -v tests/"))["decision"] == "allow"  # the strict allow-list still applies
+    assert (await bash("python -m pytest -v tests/"))["decision"] == "allow"
     assert (await bash(f"cd {ROOT} && git push"))["reason"] == "push_by_platform"
 
 
 @pytest.mark.asyncio
 async def test_only_a_person_s_declaration_is_allowed_verbatim(db):
-    proposed = await _tests_first_run(db, {**DECLARED, "source": "ci_derived"})  # a CI-derived proposal
+    proposed = await _tests_first_run(db, {**DECLARED, "source": "ci_derived"})
     assert (await proposed(DECLARED_TEST))["reason"] == "outside_phase_tools"
     unprepared = await _tests_first_run(db, None)
     assert (await unprepared(DECLARED_TEST))["reason"] == "outside_phase_tools"
@@ -233,10 +227,8 @@ def test_the_declared_command_s_junit_report_is_the_preferred_evidence():
     stored = test_report("Bash", hook)
     assert stored == {"format": "junit", "path": "r.xml", "junit_xml": JUNIT}
     assert test_report("Read", hook) is None and test_report("Bash", {"tool_name": "Bash"}) is None
-    excerpt = "tests/test_textkit.py::test_slugify_lowercases PASSED"  # the (truncated) output says otherwise
+    excerpt = "tests/test_textkit.py::test_slugify_lowercases PASSED"
     parsed, files = bash_test_results({"test_report": {**stored, "files": [FILE]}}, excerpt)
-    # The report decides; its classnames name a module, keyed canonically once the file is known (no hint here:
-    # the launcher's files travel separately and the run resolves them when it records the run).
     assert parsed.results == {} and files == [FILE]
     assert {item["raw"]: item["outcome"] for item in parsed.unresolved} == {
         "tests.test_textkit.test_slugify_lowercases": "failed",
@@ -273,14 +265,12 @@ def test_b_asks_for_regression_and_c_counts_a_changed_existing_test_red_on_base(
     b_nodes = {node["id"]: node for node in seeds["feature-delivery-tdd"]["definition"]["nodes"]}
     assert "regression" in b_nodes["clarify"]["config"]["workflow_contract"]["when_to_use"]
     c_nodes = {node["id"]: node for node in seeds["bug-fix-reproduction"]["definition"]["nodes"]}
-    # A changed existing test counts when it fails on the base commit.
     assert c_nodes["reproduces"]["config"]["checks"][0]["params"] == {"regression": "suite",
                                                                        "existing_tests": "red_on_base"}
 
 
 @pytest.mark.asyncio
 async def test_a_device_turn_with_the_declared_report_records_the_live_red(db):
-    """The run's test history takes the report's per-test results, not the excerpt's."""
     from app.models import ToolCall
     from app.services.workflow_runs.octryx.stop_evidence import phase_evidence
 
@@ -290,7 +280,7 @@ async def test_a_device_turn_with_the_declared_report_records_the_live_red(db):
     evidence = phase_evidence([row], since=None, test_prefixes=(("python", "-m", "pytest"),))
     [unresolved, _passing] = evidence.test_runs[0]["unresolved"]
     assert (unresolved["classname"], unresolved["name"], unresolved["outcome"]) == (
-        "tests.test_textkit", "test_slugify_lowercases", "failed")  # keyed when the run records it
+        "tests.test_textkit", "test_slugify_lowercases", "failed")
 
 
 @pytest.mark.asyncio
@@ -303,7 +293,7 @@ async def test_submitted_test_ids_are_stored_canonical_and_a_bare_name_is_refuse
                                                                                     "tests": spelled}]})
     assert recorded["state"] == "recorded", recorded
     criterion = run.context["outputs"]["test_contract"]["record"]["criteria"][0]
-    canonical = [NEW[0], NEW[1], f"{FILE}::test_slugify_empty_string"]  # the dotted one resolved by its sibling
+    canonical = [NEW[0], NEW[1], f"{FILE}::test_slugify_empty_string"]
     assert criterion["tests"] == canonical and criterion["test_roles"] == dict.fromkeys(canonical, "new")
     bare = await submit_output(db, run, "submit_test_contract", {"criteria": [
         {**LIVE_CRITERIA[0], "tests": [{"id": "test_slugify_lowercases", "role": "new"}]}]})
@@ -312,7 +302,6 @@ async def test_submitted_test_ids_are_stored_canonical_and_a_bare_name_is_refuse
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-# Rule codes of ``tool_approval_gate`` (kept as literals: the gate imports this module, not the other way round).
+# Rule codes of ``tool_approval.gate`` (kept as literals: the gate imports this module, not the other way round).
 RULE_REQUIRE_FOR_TOOLS = "require_for_tools"
 RULE_REQUIRE_FOR_RISKS = "require_for_risks"
 RULE_UNATTENDED_EXTERNAL_WRITE = "unattended_external_write"
@@ -67,7 +67,6 @@ def _article(word: str) -> str:
 
 
 def connector_label(connector: str) -> str:
-    """``jira`` -> "Jira": the named-connection descriptor's label, else the table above, else the name in words."""
     from ..named_connections.descriptors import descriptor_of
 
     descriptor = descriptor_of(connector)
@@ -82,7 +81,6 @@ def _mcp_parts(tool_name: str) -> tuple[str, str] | None:
 
 
 def system_label(tool_name: str) -> str:
-    """The system a call writes to, by name ("Jira", the REST API or MCP server), else "an external system"."""
     from ...tools.definitions import get_tool_definition_metadata
 
     metadata = get_tool_definition_metadata(str(tool_name or "").strip())
@@ -93,7 +91,6 @@ def system_label(tool_name: str) -> str:
 
 
 def _connector_title(tool_name: str, connector: str) -> str:
-    """"add_jira_comment" -> "Comment on a Jira issue": verb and object from the name, the system from metadata."""
     label = connector_label(connector)
     connector_tokens = set(connector.split("_"))
     tokens = [token for token in tool_name.split("_") if token and token not in connector_tokens]
@@ -112,10 +109,6 @@ def _connector_title(tool_name: str, connector: str) -> str:
 
 
 def tool_title(tool_name: str, *, on_device: bool = False, label: str = "") -> str:
-    """What the call does, in words: "Run a command on the Octryx server", "Comment on a Jira issue".
-
-    ``label`` is an explicit approval subject's own name (an MCP capability); an unknown tool reads as its name in
-    words, never as "Execute tool <name>"."""
     from ...tools.definitions import get_tool_definition_metadata
 
     name = str(tool_name or "").strip()
@@ -141,7 +134,6 @@ def risk_text(risk: str) -> str:
 
 
 def rule_text(rule: str, *, risk: str = "", system: str = "") -> str:
-    """Why the person is asked, in one sentence (no ": ", see the module docstring)."""
     where = system or UNKNOWN_SYSTEM
     code = str(rule or "").strip()
     if code == RULE_REQUIRE_FOR_TOOLS:
@@ -164,10 +156,6 @@ def rule_text(rule: str, *, risk: str = "", system: str = "") -> str:
 
 def gate_texts(tool_name: str, *, rule: str, risk: str, label: str = "",
                on_device: bool = False) -> dict[str, Any]:
-    """The readable fields of a tool gate's preview, plus ``rule``/``risk`` as codes next to them.
-
-    ``explanation`` (the stored detail lines) leaves the subtitle out, so the card does not say
-    "This tool needs approval in this Workspace" twice, once as the subtitle and once as the first detail."""
     subtitle = rule_text(rule, risk=risk, system=system_label(tool_name))
     return {
         "title": tool_title(tool_name, on_device=on_device, label=label),
@@ -179,8 +167,6 @@ def gate_texts(tool_name: str, *, rule: str, risk: str, label: str = "",
 
 
 def readable_title(title: str, tool_name: str, *, on_device: bool = False) -> str:
-    """A stored title in words: a missing one reads as the tool's title; any other title (a tool's own preview,
-    "Create Jira issue PROJ-1") stays as it is."""
     text = str(title or "").strip()
     if not text:
         name = str(tool_name or "")

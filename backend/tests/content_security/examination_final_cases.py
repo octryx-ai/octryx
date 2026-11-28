@@ -1,9 +1,4 @@
-"""Property cases (``test_examination_contract``) of the final check, the one budget and the one record.
-
-Each runs under an unfinished-scan cause and asserts its own boundary: an unfinished request is refused at the final
-check (``final_check``, ``model_call_outbound``), a gateway request whose deadline passed is refused unfinished and
-recorded once (``gateway_outcome``), and a call's one record states the incompletion (``model_call_outcome``).
-"""
+"""Property cases (``test_examination_contract``) of the final check, the one budget and the one record."""
 
 from __future__ import annotations
 
@@ -46,16 +41,17 @@ def _spent() -> RequestBudget:
 
 async def gateway_outcome_case(fx):
     from app.services.content_routing import gateway, gateway_outcome
+    from app.services.content_security import format_request_body
 
     entries: list[dict] = []
     fx.monkeypatch.setattr(gateway_outcome, "record_decision", entries.append)
     outcome = gateway_outcome.GatewayOutcome(budget=_spent())
     outcome.bind(route="governed", workspace_id="ws-1", session_id="s", user_id="u", alias="m")
-    scan = gateway.scan_request(_payload(), "ws-1", outcome.budget)
+    scan = format_request_body.examine_request_body(_payload(), "ws-1", outcome.budget)
     refused = gateway.fixed_refusal(scan, outcome, scan.finished and not outcome.budget.overrun)
     assert refused.reason == "content_scan_unfinished" and refused.http_status == 400
     outcome.write()
-    outcome.write()  # idempotent: written once
+    outcome.write()
     (entry,) = entries
     assert (entry["obligation"]["outcome"], entry["obligation"]["fixed"]) == ("refused", "unfinished")
 

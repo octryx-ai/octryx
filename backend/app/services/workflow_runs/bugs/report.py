@@ -1,18 +1,4 @@
-"""``bug.report``: the reporter learns what happened to the bug, wherever they reported it.
-
-``params.event``:
-
-- ``cannot_reproduce``: the bug's scenarios passed on the unchanged app; the text names them and their screenshots
-  and asks for what differs. The Work item goes to ``clarification`` with that text (its history shows it);
-- ``fixed``: after the pull request: the root cause the reviewer named, the fix, the pull request and the
-  reproduction's before (red) and after (green) screenshots;
-- ``released``: after the merge: "fixed in <merge commit>" and the Work item goes to ``done``.
-
-Each time: a comment on the run's Jira ticket (when the Work item came from Jira; never a second ticket), the
-Work item's history (its transition's reason), and a platform notification to the person who started the run, so a
-reporter without Jira (a form, the chat) sees it too. Linear write-back is a separate, open item: a Linear Work item
-gets the history and the notification only.
-"""
+"""``bug.report``: the reporter learns what happened to the bug, wherever they reported it."""
 
 from __future__ import annotations
 

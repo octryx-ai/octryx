@@ -1,19 +1,4 @@
-"""Calls outside the diff that a pull request breaks: deterministic, without a model.
-
-After the checkout (``actions.prepare``) the bot compares the changed Python files' public signatures between the
-merge base and the head (``signatures``) and finds their calls in the checked-out head:
-
-- candidates by ``git grep -w`` over the ``*.py`` files (the code graph's callers take this place once a repository
-  is indexed with a graph; today the graph has no caller query);
-- a call counts only where the name is bound to the changed module: the module itself, ``from <module> import name``
-  (absolute or relative, with ``as``), or ``import <module> [as m]`` then ``m.name(...)``; a method ``Class.method``
-  only where ``Class`` is bound that way and the method name is defined once in the repository;
-- each call is checked against the new signature (``signatures.call_problem``); a call that no longer fits, or of a
-  removed callable, is a deterministic **high** finding on the caller's file and line. Calls that still fit go to the
-  reviewer as context (``review_context_sections``), so it can judge behaviour, not only arity.
-
-Changed source files in other languages are named as not checked, never silently passed.
-"""
+"""Calls outside the diff that a pull request breaks: deterministic, without a model."""
 
 from __future__ import annotations
 
@@ -56,7 +41,6 @@ def module_of(path: str) -> str:
 
 
 def _resolved(node: ast.ImportFrom, path: str) -> str:
-    """The absolute module an ``ImportFrom`` names (relative imports against ``path``'s package)."""
     if not node.level:
         return node.module or ""
     package = Path(path).parent.parts
@@ -65,7 +49,6 @@ def _resolved(node: ast.ImportFrom, path: str) -> str:
 
 
 def _bindings(tree: ast.Module, path: str, module: str, top: str) -> tuple[set[str], set[str]]:
-    """``(names, module aliases)`` under which ``module.top`` is reachable in a file."""
     names, aliases = ({top} if module_of(path) == module else set()), set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom):
@@ -104,7 +87,6 @@ async def _grep(root: str, word: str) -> list[str]:
 
 
 async def _definitions(root: str, method: str) -> int:
-    """How often the head defines ``method`` (``git grep`` exits 1 when there is none: 0)."""
     code, out, _err = await safe_git.git(root, "grep", "-c", "-w", "-e", f"def {method}", "--", "*.py")
     return sum(int(line.rsplit(":", 1)[-1]) for line in out.splitlines() if ":" in line) if code == 0 else 0
 
@@ -126,7 +108,6 @@ async def _changes(root: str, base: str) -> tuple[list[tuple[str, Change]], list
 
 
 async def check_callers(root: str, base: str) -> CallerCheck:
-    """Every call in the checked-out head that a changed signature breaks, and the ones that still fit."""
     result = CallerCheck()
     changes, result.not_checked = await _changes(root, base)
     for path, change in changes:

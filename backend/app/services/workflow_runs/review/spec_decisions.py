@@ -1,36 +1,4 @@
-"""The specification's decisions against the code (without this, a story could pass
-every pipeline and review with an in-memory record store although SPEC.md decided "drift/SQLite"; spec decisions
-were silently not implemented).
-
-For each entry of the spec's **Decisions** / **Technical requirements** section the platform looks for evidence in the
-reviewed working copy before the reviewer is asked:
-
-- a decision that names a technology of the code style's catalog (``code_style.technologies``: storage engines,
-  frameworks, state libraries, platform APIs; extendable per installation, Workspace and repository) is **hard**: a
-  ``library`` is ``implemented`` when it is a dependency of the app's manifest *and* used in its non-test code
-  (``file:line`` of both), ``missing`` when it is neither, ``unclear`` when only one of the two; a ``platform_api``
-  (IndexedDB, localStorage, Core Data) has no package: its use in the code is enough;
-- a decision with concrete values (a number with its unit, a quoted string) is checked **soft**: the value near its
-  term in the code or its data assets is ``implemented``, the term with another value is ``missing`` (soft: a medium
-  finding, never blocking), else ``unclear``;
-- any other decision (a rule, a scope) cannot be proven by a search: ``unclear``, for the reviewer.
-
-A ``missing`` hard decision blocks the review (a high finding, verdict ``changes``, also in a follow-up round: the
-platform's check, not the model, decides it); a soft one is a medium finding; an ``unclear`` one reaches the
-reviewer as a line of the decisions table it checks. The whole table is the run event ``spec_decisions_checked``.
-
-**A feature on an existing app**: only the decisions this
-work's specification introduced are checked: the decisions the epic's (or the story's) spec-writing run recorded when
-it pushed the spec (``spec_commit``: commit, path and the decisions it added or changed, kept on that run of the work
-item, so a squash or rebase loses nothing), else the newest spec commit whose subject names the epic or story key
-(``git log``, against its parent), plus those the change under review adds to the spec itself.
-Every other decision is **context** (listed, never checked, never a ✗). A new app's specification commit has no
-parent spec: all its decisions are new. Nothing that identifies the work's decisions: the whole spec is checked, never
-nothing.
-
-Only the spec of the app the change touches is read (the ``SPEC.md`` whose folder holds most changed paths), and only
-that app folder is searched (a monorepo holds several products). Nothing here runs repository code.
-"""
+"""The specification's decisions checked against the code, so a decided technology cannot silently stay unbuilt."""
 
 from __future__ import annotations
 
@@ -64,7 +32,7 @@ class Decision:
     hard: bool = False
     state: str = UNCLEAR
     technologies: list[str] = field(default_factory=list)
-    evidence: list[str] = field(default_factory=list)  # "file:line kind: excerpt"
+    evidence: list[str] = field(default_factory=list)
     reason: str = ""
 
     def line(self) -> str:
@@ -78,9 +46,9 @@ class Decision:
 
 @dataclass
 class DecisionCheck:
-    spec: str  # the spec's path in the working copy
+    spec: str
     decisions: list[Decision]
-    scope: str = "whole_spec"  # or "feature: <commit> <subject>" (only the decisions it introduced are checked)
+    scope: str = "whole_spec"
 
     @property
     def missing(self) -> list[Decision]:
@@ -93,10 +61,7 @@ class DecisionCheck:
         return {"spec": self.spec, "scope": self.scope, "decisions": [item.to_dict() for item in self.decisions]}
 
 
-# ---- the spec -------------------------------------------------------------------------------------------------------
-
 def decision_items(text: str) -> list[str]:
-    """The entries of the spec's decisions sections (numbered or bulleted; a continuation line joins its entry)."""
     items: list[str] = []
     level = 0
     for line in text.splitlines():
@@ -119,8 +84,6 @@ def decision_items(text: str) -> list[str]:
 
 
 def spec_for_change(root: Path, changed: tuple[str, ...]) -> Path | None:
-    """The ``SPEC.md`` of the app the change touches: the one whose folder holds most changed paths (deepest wins a
-    tie), else the repository's top one."""
     specs = [path for path in (*root.glob("SPEC.md"), *root.glob("*/SPEC.md"), *root.glob("*/*/SPEC.md"),
                                *root.glob("*/*/*/SPEC.md"), *root.glob("*/*/*/*/SPEC.md")) if path.is_file()]
     if not specs:
@@ -142,8 +105,6 @@ def _key(text: str) -> str:
 def check_decisions(root: Path | None, changed: tuple[str, ...], *, introduced: set[str] | None = None,
                     scope: str = "whole_spec", catalog: dict[str, dict[str, Any]] | None = None,
                     stacks: dict[str, Any] | None = None) -> DecisionCheck | None:
-    """The decisions table of the spec of the change's app; ``None`` without a spec or a decisions section.
-    ``introduced`` (normalized texts): only these are checked, the others are context."""
     if root is None:
         return None
     spec = spec_for_change(root, changed)
@@ -194,10 +155,8 @@ def _technologies(decision: Decision, files: AppFiles, catalog: dict[str, dict[s
             reasons.append(f"{key}: declared but never used")
         elif not dependencies:
             reasons.append(f"{key}: used but not declared as a dependency")
-    # A platform API the decision names next to a package that is there ("localStorage via shared_preferences") is
-    # used through that package, not by the app's own code: unclear for the reviewer, never missing. Otherwise
-    # decision 16 was "missing" on "local_storage: not used in the app's code" although its
-    # shared_preferences (whose web backend is localStorage) was declared and used.
+    # A platform API the decision names next to a package that is there is used through that package: unclear for the
+    # reviewer, never missing.
     provided = [key for key, state in zip(decision.technologies, states, strict=True)
                 if state == IMPLEMENTED and catalog[key].get("kind") != "platform_api"]
     if provided:
@@ -211,7 +170,6 @@ def _technologies(decision: Decision, files: AppFiles, catalog: dict[str, dict[s
 
 
 def _values(decision: Decision, files: AppFiles) -> None:
-    """A decision's concrete values near their terms (soft: never blocking)."""
     stated = literals(decision.text)
     if not stated:
         decision.reason = "not provable by a code search: the reviewer checks it"
@@ -242,9 +200,6 @@ async def feature_decisions(root: Path | None, changed: tuple[str, ...], keys: t
                             base: str = "", *, recorded: dict[str, Any] | None = None,
                             catalog: dict[str, dict[str, Any]] | None = None,
                             stacks: dict[str, Any] | None = None) -> DecisionCheck | None:
-    """The decisions table scoped to this work (see the module docstring): the decisions the spec-writing run
-    ``recorded`` at its push, else those the spec commit of the epic or story (``keys``) introduced, plus those the
-    change itself adds to the spec (against ``base``). Nothing identifies the work's decisions: the whole spec."""
     if root is None:
         return None
     spec = spec_for_change(root, changed)
@@ -290,9 +245,7 @@ async def feature_decisions(root: Path | None, changed: tuple[str, ...], keys: t
 
 async def _base_open(check: DecisionCheck, root: Path, spec: Path, base: str,
                      catalog: dict[str, dict[str, Any]] | None) -> None:
-    """With nothing identifying the work's decisions (a bug fix), a technology decision the base does not implement
-    either is the app's open decision, not this change's: context, never blocking. Otherwise
-   "SPEC decision 2 drift/SQLite not implemented" (high) held an unrelated bug fix red."""
+    # A technology decision the base does not implement either is the app's open decision: context, never blocking.
     import asyncio  # noqa: PLC0415
     import io  # noqa: PLC0415
     import tarfile  # noqa: PLC0415

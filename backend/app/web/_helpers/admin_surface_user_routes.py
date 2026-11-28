@@ -1,13 +1,4 @@
-"""The intentionally user-level routes served under an admin path.
-
-``admin_surface_gate.py`` refuses every state-changing route with an ``admin`` or ``panel`` path
-segment unless the caller is admin-capable. The routes below are the exceptions. Every one is
-the ``/admin``-mounted twin of a chat route that is also served at the root (``web/__init__.py``
-includes the chat routers both at the root and under ``/admin``), or the login itself. Each still
-runs its own authentication and its own ownership or approver check. An entry is an exact
-``(METHOD, path template)``, so a new route is never exempt by accident; adding one is a reviewed
-decision with its reason, and ``tests/test_admin_surface_gate.py`` proves the list is exact.
-"""
+"""The intentionally user-level routes served under an admin path: the exceptions of the admin-surface gate."""
 
 from __future__ import annotations
 

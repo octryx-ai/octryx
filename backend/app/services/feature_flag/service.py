@@ -70,8 +70,6 @@ def _normalize_rollout_percentage(value: Any) -> int:
 
 
 def _feature_flag_outcome(*, key: str, reason: str, enabled: bool) -> dict[str, Any]:
-    """The answer of the public evaluation: the flag's key, whether it is on for the caller, and why. The flag's
-    configuration (its Workspace and role allowlists) stays on the admin surface: any signed-in user evaluates."""
     return {"key": key, "enabled": enabled, "reason": reason}
 
 
@@ -131,6 +129,7 @@ async def upsert_feature_flag(
         action="admin.security.feature_flag.saved",
         resource_type="feature_flag",
         resource_id=row.key,
+        project_id=None,
         before=before_audit,
         after=serialize_feature_flag(row),
         details={
@@ -161,6 +160,7 @@ async def delete_feature_flag(
         action="admin.security.feature_flag.deleted",
         resource_type="feature_flag",
         resource_id=key,
+        project_id=None,
         before=before_audit,
         after=None,
         details={"operation": "delete_feature_flag"},

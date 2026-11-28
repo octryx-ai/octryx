@@ -1,9 +1,5 @@
-"""Reproductions from an external risk review of the agent boundaries: a platform agent runs only its published
-revision, in the octryx view, the reviewer, the device contract, the device hooks and the gateway admission.
-
-Ported in substance (only formatting changed). The fuller cases live next to the code they
-cover (``test_platform_agent_published_execution.py``, ``test_workspace_agents_d5.py``).
-"""
+"""Reproductions of agent-boundary risks: a platform agent runs only its published revision in the octryx
+view, the reviewer, the device contract and hooks, and the gateway admission."""
 
 from __future__ import annotations
 
@@ -19,12 +15,12 @@ from app.services.agent_gateway.contract import HEADER_GATEWAY_REASON, HEADER_GA
 from app.services.workflow_runs.octryx.agent_view import agent_view
 from app.services.workflow_runs.review.reviewer_agent import reviewer_setup
 from tests.egress_support import public_source_dns  # noqa: F401  (fixture)
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 def _gateway_request():
-    """A gateway request as the handler decorator leaves it: with the request's content outcome."""
     from app.services.content_routing.gateway_outcome import GatewayOutcome
 
     return SimpleNamespace(headers={}, state=SimpleNamespace(gateway_outcome=GatewayOutcome()))

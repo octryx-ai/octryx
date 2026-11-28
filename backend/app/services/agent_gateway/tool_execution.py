@@ -1,28 +1,4 @@
-"""Execution evidence for a governed client tool call (``POST sessions/tool-executed``).
-
-Claude Code fires ``PostToolUse`` after a tool call succeeded and
-``PostToolUseFailure`` after a tool that started executing failed. Neither fires for
-a call rejected before execution (a refused permission prompt, a PreToolUse deny, a
-validation error). The launcher registers both hooks for ``Bash``; each one reports
-here, so the verification gate can tell "the test failed" from "the test never ran"
-without reading the tool result's text.
-
-The evidence lands on the model-gateway ToolCall row of the same ``tool_use`` id
-(``request_id``) in the caller's session as ``parameters["executed"] = {"outcome",
-"source"}``; no hook content (command output, error text) is stored. The hook runs
-before Claude Code sends the tool result with the next model call, so the row usually
-does not exist yet: it is then created with only ``source``, ``tool_use_id`` and
-``executed``, and the model gateway merges the tool_use fields into that row
-(``model_gateway/inbound/transcript.py``). Each writer only sets its own keys.
-
-For Claude Code's own reads (Read, Grep, Glob, LS) the server also records what was read, derived here from the
-hook payload: ``parameters["read_target"]`` (``read_evidence``), the read evidence of a workflow phase.
-
-A Bash call that ran the repository's declared test command may carry the JUnit report that command wrote
-(``workflow_run_facts.test_report``: the launcher reads it only when the file changed during this call). It is
-stored bounded as ``parameters["test_report"]`` and is the preferred per-test evidence of that call
-(``workflow_runs/gateway_tests``).
-"""
+"""Execution evidence for a governed client tool call (``POST sessions/tool-executed``)."""
 
 from __future__ import annotations
 
@@ -46,6 +22,7 @@ from .contract import (
     TOOL_CALL_SOURCE_HOOK,
     TOOL_CALL_STATUS_REQUESTED,
 )
+from .stored_types import ExecutionEvidence, ExecutionOutcome, StoredTestReport
 
 STATE_RECORDED = "recorded"
 REASON_EXECUTION_CREATED = "execution_recorded_new_row"
@@ -59,7 +36,7 @@ TEST_REPORT_KEY = "test_report"
 MAX_TEST_REPORT_CHARS = 1_000_000
 _TOOL_USE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _AGENT_ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
-_OUTCOME_BY_EVENT = {
+_OUTCOME_BY_EVENT: dict[str, ExecutionOutcome] = {
     "PostToolUse": EXECUTION_OUTCOME_SUCCEEDED,
     "PostToolUseFailure": EXECUTION_OUTCOME_FAILED,
 }
@@ -76,12 +53,11 @@ class ExecutionRecord:
         return {"state": self.state, "reason": self.reason, "outcome": self.outcome}
 
 
-def execution_evidence(outcome: str) -> dict[str, str]:
+def execution_evidence(outcome: ExecutionOutcome) -> ExecutionEvidence:
     return {"outcome": outcome, "source": TOOL_CALL_SOURCE_HOOK}
 
 
-def test_report(tool_name: str, hook_input: Mapping[str, Any]) -> dict[str, Any] | None:
-    """The JUnit report a Bash test call wrote, as the launcher attached it (bounded), else ``None``."""
+def test_report(tool_name: str, hook_input: Mapping[str, Any]) -> StoredTestReport | None:
     facts = hook_input.get("workflow_run_facts")
     report = facts.get(TEST_REPORT_KEY) if tool_name == "Bash" and isinstance(facts, Mapping) else None
     xml = report.get("junit_xml") if isinstance(report, Mapping) else None
@@ -109,7 +85,6 @@ def _gateway_rows(rows: Any) -> list[ToolCall]:
 def _recorded_fields(
     session: Session, hook_input: Mapping[str, Any], tool_name: str, tool_use_id: str
 ) -> dict[str, Any]:
-    """What the row keeps beside the outcome: the sub-agent, the read target, the test report, the exec call."""
     # The Claude Code sub-agent that ran the tool (its SubagentStop reports this child's evidence).
     agent_id = str(hook_input.get("agent_id") or "")
     recorded = {"agent_id": agent_id} if _AGENT_ID.match(agent_id) else {}
@@ -133,8 +108,6 @@ def _recorded_fields(
 async def record_tool_execution(
     db: AsyncSession, *, session: Session, hook_input: Mapping[str, Any]
 ) -> ExecutionRecord:
-    """Record the hook's execution evidence on the session's row. Flushes only."""
-
     outcome = _OUTCOME_BY_EVENT.get(str(hook_input.get("hook_event_name") or ""))
     if outcome is None:
         return ExecutionRecord(STATE_NEEDS_CONFIGURATION, REASON_HOOK_EVENT_UNSUPPORTED, 400)

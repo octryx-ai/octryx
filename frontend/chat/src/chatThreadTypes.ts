@@ -148,12 +148,17 @@ export type ChatMessage = {
   /** "workflow": the platform sent this message to continue a workflow run; it is not the person's.
    * "device": a device job wrote this answer. */
   origin?: string | null;
+  /** The person who wrote a user message; it stays theirs when the chat is handed over. */
+  authorId?: string | null;
+  authorName?: string | null;
 };
 
 export type SelectedSession = {
   id: string;
   threadNumber?: number;
   title: string;
+  /** Where the title came from: "prompt" (the first prompt), "run" or "user". */
+  titleSource?: string | null;
   status: string;
   runStatus?: string | null;
   runCompletionReason?: string | null;

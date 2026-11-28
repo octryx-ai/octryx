@@ -1,6 +1,5 @@
-"""The plan of one connector call (:class:`RoutePlan`) and the helpers its planner (``route_planner``), the
-connection gate and the executors share: scope keys, refusals, usability and the candidates a refusal lists.
-"""
+"""The plan of one connector call (:class:`RoutePlan`) and the helpers its planner (``route_planner``), the connection
+gate and the executors share: scope keys, refusals, usability and the candidates a refusal lists."""
 
 from __future__ import annotations
 
@@ -20,8 +19,6 @@ REASON_CONNECTION_SCOPE_MISMATCH = "connection_scope_mismatch"
 
 @dataclass(frozen=True, slots=True)
 class RoutePlan:
-    """``targets``: the connections the call runs on (``None``: the default); ``passthrough``: unrouted."""
-
     descriptor: ConnectorDescriptor | None
     targets: tuple[ResolvedNamedConnection | None, ...] = ()
     keys: tuple[str, ...] = ()
@@ -32,7 +29,6 @@ class RoutePlan:
 
     @property
     def connection_ids(self) -> tuple[str, ...]:
-        """The ids the call uses (``default`` for the default connection); ``()`` for a refusal or no connector."""
         if self.refusal is not None or self.descriptor is None:
             return ()
         if self.passthrough:
@@ -45,7 +41,6 @@ def clean_text(value: object) -> str:
 
 
 def scope_keys(descriptor: ConnectorDescriptor, tool_name: str, params: dict) -> tuple[str, ...]:
-    """The scope keys a call names, canonical and de-duplicated (``()`` for none)."""
     keys: list[str] = []
     for key in descriptor.request_keys(tool_name, params):
         if clean_text(key) and scope_key(descriptor.connector, key) not in keys:
@@ -62,7 +57,6 @@ def usable(descriptor: ConnectorDescriptor, config: dict) -> bool:
 
 
 def candidates(routes: NamedConnectionRoutes, tool: str) -> list[dict[str, Any]]:
-    """What a refusal lists: every named connection (id, name, scope, keys) and the default."""
     listed = [
         {"id": c.id, "name": c.name, "scope": c.scope, "binds": sorted(c.bound_scopes)} for c in routes.of(tool)
     ]

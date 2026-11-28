@@ -52,8 +52,6 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
-# ── Domain exception handlers ─────────────────────────────────────────────────
-
 
 async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
     return JSONResponse(
@@ -92,11 +90,8 @@ async def authorization_handler(request: Request, exc: AuthorizationError) -> JS
 
 
 async def domain_error_handler(request: Request, exc: OctryxError) -> JSONResponse:
-    """Catch-all for any domain exception not handled more specifically.
-
-    Subclasses such as ``ProviderError`` and ``ToolExecutionError`` wrap provider and tool text,
-    so the message never leaves; the response carries the fixed code and the class name.
-    """
+    # ProviderError and ToolExecutionError wrap provider and tool text, so the message never leaves; the response
+    # carries the fixed code and the class name.
     return JSONResponse(
         status_code=500,
         content=build_error_payload(
@@ -109,9 +104,8 @@ async def domain_error_handler(request: Request, exc: OctryxError) -> JSONRespon
 
 
 def _json_safe(value):
-    """A ``ValueError`` raised in a Pydantic
-    validator lands as the exception object in ``ctx.error``; JSONResponse cannot serialise it and the 422 became a
-    500. Every validation error passes here: anything not JSON-native becomes its text."""
+    # A ValueError raised in a Pydantic validator lands as the exception object in ctx.error; JSONResponse cannot
+    # serialise it, so the 422 would become a 500.
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, list | tuple | set):

@@ -1,19 +1,4 @@
-"""Configuration files plus Git: the configuration layer of one repository file revision.
-
-Selected: the current revision of every indexed file (``knowledge_code_files``) of a profile
-connector kind (``git_repository``) whose file name matches a profile file rule (``*.ini``,
-``*.properties``, ``values*.yaml``). The text read is the stored object, which the code ingest
-already redacted line-preserving; :mod:`.config_files` masks secret-looking values once more.
-
-Per file: a ``ConfigFile`` node, the ``AppComponent`` it ``configures`` (its top-level directory,
-``conf`` or ``worker``; the repository for a top-level file), one ``ConfiguredSetting`` per key with
-its section, the section's plugin type and the 1-based line, and the file's ``base_path`` (the
-path itself, or the base file of a profile variant: ``app.ini-test`` → ``app.ini``, with
-``variant`` ``test``), ``defines`` edges, ``mentions`` of
-ticket keys in the comments above a key (or anywhere in the file), and ``changes_file`` from the
-commit that introduced the file's current blob (``knowledge_code_file_blobs.first_commit``; the
-snapshot keeps no commit messages). Every citation is the code span that covers the line.
-"""
+"""Configuration files plus Git: the configuration layer of one repository file revision."""
 
 from __future__ import annotations
 
@@ -43,7 +28,6 @@ def rule_for(path: str, rules: tuple[ConfigFileRule, ...]) -> ConfigFileRule | N
 
 
 def variant_of(path: str, patterns: tuple[ProfilePattern, ...]) -> tuple[str, str | None]:
-    """``(base path, variant)`` of a file: ``conf/app.ini-test`` → ``("conf/app.ini", "test")``."""
     folder, name = posixpath.split(path)
     for pattern in patterns:
         found = pattern.fullmatch(name)

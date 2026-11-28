@@ -9,12 +9,12 @@ from urllib.parse import parse_qs, urlsplit
 
 import httpx
 
-from app.services.atlassian_auth_modes import CONFLUENCE
+from app.services.connector_auth.atlassian_modes import CONFLUENCE
 
-from ....services.atlassian_auth import auth_headers, request_auth
 from ....services.outbound_egress import CONNECTION_CONFLUENCE, egress_transport
 from ....services.outbound_egress.pinned_transport import EgressRefusedError
 from ....tools._confluence_instance import confluence_instance
+from ...connector_auth.atlassian import auth_headers, request_auth
 from .confluence_v2_errors import (
     KIND_CONFLICT,
     KIND_MALFORMED,
@@ -44,14 +44,13 @@ _NOT_SENT_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout,
 
 @dataclass(frozen=True, slots=True)
 class V2Base:
-    site: str  # the Confluence site incl. ``/wiki`` (page links)
-    api: str  # the REST v2 base (``<site>/api/v2``)
-    origin: str  # scheme://host
-    prefix: str  # the path before ``/wiki`` ("" on a site, ``/ex/confluence/<id>`` on the gateway)
+    site: str
+    api: str
+    origin: str
+    prefix: str
 
 
 def api_base(instance: object) -> V2Base:
-    """The REST v2 base of a pinned Cloud instance, or :class:`V2ProfileRefusalError` (no DC, no rewrite)."""
     normalized = confluence_instance(instance)
     if not normalized:
         raise V2ProfileRefusalError("the pinned Confluence instance is not an absolute http(s) URL")
@@ -73,7 +72,6 @@ def api_base(instance: object) -> V2Base:
 
 
 def _link_next(response: httpx.Response) -> str | None:
-    """The ``rel="next"`` target of the ``Link`` header, if any."""
     for part in response.headers.get_list("link") if hasattr(response.headers, "get_list") else []:
         for item in part.split(","):
             match = re.match(r'\s*<([^>]+)>\s*;\s*rel="?next"?', item)
@@ -83,8 +81,6 @@ def _link_next(response: httpx.Response) -> str | None:
 
 
 class V2Transport:
-    """The pinned base, the connection's credentials and the classified transport of :class:`CloudV2Client`."""
-
     def __init__(self, instance: str, config: dict[str, Any], *, transport: httpx.AsyncBaseTransport | None = None,
                  timeout: float = TIMEOUT_SECONDS) -> None:
         from ....tools._confluence_access import normalize_page_rules
@@ -152,7 +148,6 @@ class V2Transport:
             raise _malformed("the body is not JSON", sent=SENT_UNKNOWN if mutating else SENT_NO) from None
 
     def _next_url(self, payload: dict[str, Any], response: httpx.Response, endpoint: str) -> str | None:
-        """The validated next-page URL (same origin, same endpoint, a cursor), ``None`` at the end."""
         links = payload.get("_links")
         if links is not None and not isinstance(links, dict):
             raise _malformed("_links is not an object")
@@ -182,7 +177,6 @@ class V2Transport:
         return f"{self.base.origin}{path}?{parts.query}"
 
     async def _scan(self, endpoint: str, params: dict[str, Any], parse) -> V2Scan:
-        """Every page of a cursor listing, or an incomplete scan (an error, a loop or the cap)."""
         items: list[Any] = []
         url, query, seen = endpoint, dict(params), set()
         for read in range(1, MAX_SCAN_PAGES + 1):

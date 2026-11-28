@@ -1,17 +1,4 @@
-"""The page-tree part of a Confluence connector's scope.
-
-Besides whole spaces (``spaces``), a Confluence connector may name page trees:
-``"page_trees": [{"space_key": "DEMO", "root_page_id": "100002"}]``, each the root page and all of
-its descendants. Values are refused, never cleaned up: a space key exactly as Confluence writes it,
-a root page id as a string of digits (a pasted page URL is the UI's to turn into an id, visibly), no
-duplicate tree, and no tree inside a space the connector already lists whole (its pages would be
-listed twice). Every refusal is an :class:`InvalidPageTreeError` with a fixed code (422).
-
-The tree's space must lie inside the Workspace's ``confluence_allowed_spaces`` like any listed
-space (``config.scope_within_connection``). The listing asks CQL for
-``space = "<key>" and type = page and (id = <root> or ancestor = <root>)``, so a root outside its
-declared space lists nothing, and a page moved out of the tree is retired when the pass completes.
-"""
+"""The page-tree part of a Confluence connector's scope. Values are refused, never cleaned up."""
 
 from __future__ import annotations
 
@@ -32,8 +19,6 @@ CODE_CONFLUENCE_ONLY = "page_trees_confluence_only"
 
 
 class InvalidPageTreeError(ValueError):
-    """A refused page-tree scope; ``code`` and ``field`` are fixed strings, never a value."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -41,7 +26,6 @@ class InvalidPageTreeError(ValueError):
 
 
 def validate_page_trees(raw: object, *, spaces: tuple[str, ...]) -> list[dict[str, str]]:
-    """The validated trees (``[]`` for none); ``spaces`` are the spaces the connector lists whole."""
     if raw is None:
         return []
     if not isinstance(raw, list) or len(raw) > MAX_PAGE_TREES:
@@ -64,13 +48,11 @@ def validate_page_trees(raw: object, *, spaces: tuple[str, ...]) -> list[dict[st
 
 
 def tree_cql(tree: dict[str, str]) -> str:
-    """The CQL of one page tree; keys and ids are validated, so nothing here needs quoting rules."""
     root = tree["root_page_id"]
     return f'space="{tree["space_key"]}" and type=page and (id = {root} or ancestor = {root})'
 
 
 def scope_space_keys(scope: dict) -> tuple[str, ...]:
-    """Every space a Confluence scope reads: the whole spaces and the spaces of its page trees."""
     trees = scope.get("page_trees") or ()
     return (*(scope.get("spaces") or ()), *(str(tree.get("space_key") or "") for tree in trees))
 

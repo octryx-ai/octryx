@@ -80,7 +80,6 @@ class SearchJiraTickets:
 
 
 def _project_clause(project_key: str, allowed_projects: list[str] | None) -> tuple[dict[str, Any] | None, list[str]]:
-    """The project part of a built JQL; a project outside the allowlist is refused."""
     jql_parts: list[str] = []
     if allowed_projects:
         if project_key:
@@ -99,7 +98,6 @@ def _project_clause(project_key: str, allowed_projects: list[str] | None) -> tup
 def _search_jql(
     query: str, jql: str, project_key: str, fix_versions: list[str], allowed_projects: list[str] | None
 ) -> tuple[dict[str, Any] | None, str]:
-    """The JQL to run: given, recognised in the query, or built from free text (recent tickets when empty)."""
     jql_has_fix_version_filter = False
     if not query and not jql:
         # No explicit query — build a default "recent tickets" JQL
@@ -217,7 +215,6 @@ def _jql_quote(value: str) -> str:
 
 
 async def _user_by_email(context: ToolContext, jira_url: str, email: str) -> dict[str, Any]:
-    """The Atlassian account of exactly this email (Jira Cloud only; ``_jira_user_email``)."""
     if not is_jira_cloud(jira_url, context.project_config):
         return {"error": "A lookup by email needs a Jira Cloud connection (Atlassian accounts)."}
     headers = {"Accept": "application/json", **_jira_auth_headers(context)}
@@ -228,7 +225,6 @@ async def _user_by_email(context: ToolContext, jira_url: str, email: str) -> dic
 
 
 async def _user_by_account_id(context: ToolContext, jira_url: str, account_id: str) -> dict[str, Any]:
-    """The Atlassian account with exactly this id (Jira Cloud only)."""
     if not is_jira_cloud(jira_url, context.project_config):
         return {"error": "A lookup by account id needs a Jira Cloud connection (Atlassian accounts)."}
     headers = {"Accept": "application/json", **_jira_auth_headers(context)}

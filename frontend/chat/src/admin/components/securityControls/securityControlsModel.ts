@@ -1,20 +1,3 @@
-// The security controls of in the UI (backend). Pure: view state, request bodies
-// and refusal codes in words; no requests, no React.
-//
-// 1. Emergency stop holds new starts: GET …/admin/operations/emergency-stop/preview answers `new_starts_held`;
-//    POST …/emergency-stop/resume {workspace_id?, reason} lifts exactly that scope and answers
-//    {workspace_id, new_starts_held, log_id}; 422 `reason_required` without a reason, 409 `not_stopped` when
-//    the scope holds nothing itself. The preview also names who holds: `held_by` platform|workspace|null and
-//    `hold` {scope, workspace_id, by:{id,name}, at, reason}; a platform hold wins and only a platform resume lifts it.
-// 2. Automatic analyses only propose reporter questions: the analysis view carries `id`, `mode` and
-//    `reporter_question` {state: proposed|posted|skipped|failed, reason?, questions?}; a person posts proposed ones with
-//    POST …/secure-work/work-items/{item}/analyses/{analysis}/ask-reporter (no body), which answers
-//    {sent, attempt:{state: posted|skipped|failed, reason?}, reporter_question}: not sent keeps it proposed. Same permission as reading the analysis (work operator in the item's scope).
-// 3. A remote MCP capability's run class follows its risk: `policy_config.risk` on its Workspace binding,
-//    read | write | admin | unknown; read → read-only runs, unknown → change, write/admin → deliver.
-// 4. Unattended runs write externally only after approval; the platform default's `unattended_allowed_tools`
-//    names the tools that may write without one. Platform default only: a Workspace never stores it.
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -22,9 +5,6 @@ const plural = (count: number, one: string, many: string) => `${count} ${count =
 const errorCode = (error: unknown) => (isRecord(error) && typeof error.code === "string" ? error.code : "");
 const errorStatus = (error: unknown) => (isRecord(error) && typeof error.status === "number" ? error.status : 0);
 
-// ---- 1. Emergency stop: new starts held, resume ----------------------------------------------------------------
-
-/** Whether the preview of a scope says its new starts are held (by its own stop or a platform stop). */
 export function newStartsHeld(preview: unknown): boolean {
   return isRecord(preview) && preview.new_starts_held === true;
 }
@@ -35,27 +15,21 @@ export function resumeBody(workspaceId: string, reason: string): Record<string, 
 
 export type Hold = { scope: "platform" | "workspace"; by: string; at: string | null; reason: string };
 
-/** Who holds new starts here; null when nothing holds or the preview does not say. */
 export function readHold(preview: unknown): Hold | null {
   if (!isRecord(preview) || !isRecord(preview.hold)) return null;
   const scope = preview.held_by === "platform" || preview.held_by === "workspace" ? preview.held_by : null;
   if (!scope) return null;
   const by = isRecord(preview.hold.by) ? text(preview.hold.by.name) : "";
-  // The server sends only the person's own words.
   const reason = text(preview.hold.reason);
   return { scope, by, at: text(preview.hold.at) || null, reason };
 }
 
-/** "Stopped for the whole platform by Anna" (the time and the reason follow in the view). */
 export function holdByText(hold: Hold, workspaceName: string): string {
   const where = hold.scope === "platform" ? "the whole platform" : workspaceName || "this Workspace";
   return `Stopped for ${where}${hold.by ? ` by ${hold.by}` : ""}`;
 }
 
-/**
- * What the held line offers: `resume` this scope; under a platform hold in a Workspace view, `platform` (switch to the
- * platform view to resume) for platform admins and `none` for everyone else, never a Workspace resume that answers 409.
- */
+// Never a Workspace resume under a platform hold: the server would answer 409.
 export function resumeOffer(hold: Hold | null, workspaceId: string, isPlatformAdmin: boolean): "resume" | "platform" | "none" {
   if (hold?.scope !== "platform" || !workspaceId) return "resume";
   return isPlatformAdmin ? "platform" : "none";
@@ -68,7 +42,7 @@ export function heldText(workspaceName: string): string {
   return `An emergency stop holds every new run ${where}: schedules and webhook Actions start nothing until an admin resumes.`;
 }
 
-/** After a resume: still held means a platform stop holds this Workspace too. */
+// Still held after a resume means a platform stop holds this Workspace too.
 export function resumeResultText(payload: unknown, workspaceName: string): string {
   const where = workspaceName ? `in ${workspaceName}` : "on the platform";
   if (isRecord(payload) && payload.new_starts_held === true) {
@@ -94,8 +68,6 @@ export function resumeRefusalText(error: unknown): string {
   return `Not resumed: ${message}`;
 }
 
-// ---- 2. Reporter questions an automatic analysis proposed -----------------------------------------------------
-
 export type ReporterQuestion =
   | { state: "proposed"; questions: number }
   | { state: "posted"; questions: number; at: string | null }
@@ -114,12 +86,10 @@ export function readReporterQuestion(value: unknown): ReporterQuestion | null {
 export const askReporterPath = (workItemId: string, analysisId: string) =>
   `/api/v1/secure-work/work-items/${encodeURIComponent(workItemId)}/analyses/${encodeURIComponent(analysisId)}/ask-reporter`;
 
-/** The send button shows only for questions an automatic analysis proposed and nobody posted yet. */
 export function canSendQuestions(question: ReporterQuestion | null, openQuestions: number): boolean {
   return question?.state === "proposed" && openQuestions > 0;
 }
 
-// reporter_questions.py, checked in this order; a connection refusal answers its own code.
 const SKIP_TEXT: Record<string, string> = {
   no_open_questions: "the analysis has no open questions",
   ask_reporter_off: "asking the reporter is switched off for this Workspace",
@@ -142,7 +112,6 @@ export function skipReasonText(reason: string): string {
   return reason ? "the questions could not be posted to Jira" : "the server gave no reason";
 }
 
-/** The line under the questions: what happened to them. */
 export function reporterQuestionText(question: ReporterQuestion | null): string | null {
   if (!question) return null;
   if (question.state === "proposed") {
@@ -155,10 +124,6 @@ export function reporterQuestionText(question: ReporterQuestion | null): string 
 
 export type AskReporterAnswer = { sent: boolean; attempt: string | null; question: ReporterQuestion | null };
 
-/**
- * The answer of a send: `sent` only when the comment reached Jira; otherwise the question stays proposed (the
- * button stays) and `attempt` says why in words.
- */
 export function readAskReporterAnswer(payload: unknown): AskReporterAnswer {
   const body = isRecord(payload) ? payload : {};
   const question = readReporterQuestion(body.reporter_question);
@@ -168,7 +133,6 @@ export function readAskReporterAnswer(payload: unknown): AskReporterAnswer {
   return { sent, question, attempt: sent ? null : `Not sent: ${why}.` };
 }
 
-/** A refused send (HTTP error), in words. */
 export function askReporterRefusalText(error: unknown): string {
   const status = errorStatus(error);
   if (errorCode(error) === "analysis_not_found" || status === 404) return "Not sent: this analysis no longer exists. Reload the item.";
@@ -177,8 +141,6 @@ export function askReporterRefusalText(error: unknown): string {
   return `Not sent: ${message}.`;
 }
 
-// ---- 3. Risk class of a remote MCP tool ------------------------------------------------------------------------
-
 export type McpRisk = "read" | "write" | "admin" | "unknown";
 export const MCP_RISKS: { value: McpRisk; label: string }[] = [
   { value: "read", label: "Read" },
@@ -186,7 +148,7 @@ export const MCP_RISKS: { value: McpRisk; label: string }[] = [
   { value: "admin", label: "Admin" },
   { value: "unknown", label: "Not classified" },
 ];
-// tool_approval_gate.unattended_external_write: write, admin and unknown capabilities of an unattended run need approval.
+// Mirrors tool_approval: write, admin and unknown capabilities of an unattended run need approval.
 export const MCP_RISK_HINT = "Only Read tools run in chat and read-only runs. Every other class needs approval in unattended runs.";
 
 export function normalizedRisk(value: unknown): McpRisk {
@@ -196,7 +158,6 @@ export function normalizedRisk(value: unknown): McpRisk {
 
 export type McpToolBinding = { id: string; tool: string; enabled: boolean; risk: McpRisk; policy: Record<string, unknown> };
 
-/** The mirrored tools of one server among a Workspace's capability bindings (not the server's history marker). */
 export function mcpToolBindings(bindings: unknown, serverName: string): McpToolBinding[] {
   const server = serverName.trim().toLowerCase();
   return (Array.isArray(bindings) ? bindings : [])
@@ -214,7 +175,7 @@ export function mcpToolBindings(bindings: unknown, serverName: string): McpToolB
     .sort((a, b) => a.tool.localeCompare(b.tool));
 }
 
-/** The binding update for a new risk: the stored policy with only `risk` changed (the server replaces the rest). */
+// The server replaces the whole policy, so the stored one is sent with only risk changed.
 export function riskPatch(binding: Pick<McpToolBinding, "policy">, risk: McpRisk): { policy_config: Record<string, unknown> } {
   return { policy_config: { ...binding.policy, risk } };
 }
@@ -223,15 +184,12 @@ export function riskSavedText(tool: string, risk: McpRisk): string {
   return `${tool} is now ${MCP_RISKS.find((option) => option.value === risk)?.label ?? risk}.`;
 }
 
-// ---- 4. Platform policy: tools unattended runs may use without approval ------------------------------------------
-
 export const UNATTENDED_WARNING =
   "Tools listed here may write in runs no person started, without a per-call approval.";
 
-// tool_approval_policy._TOOL_PATTERN: a tool name or an MCP capability key (server:tool).
+// Same pattern as the backend's tool name check.
 const TOOL_NAME = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$/;
 
-/** A name to add to the list, or why not. */
 export function unattendedToolProblem(name: string, current: string[]): string | null {
   const value = name.trim();
   if (!value) return "Enter a tool name.";

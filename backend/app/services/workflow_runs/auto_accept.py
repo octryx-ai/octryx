@@ -1,21 +1,4 @@
-"""The product owner is asked at the start; after that the work goes on by itself.
-
-A ``user_confirmation`` node with ``config.auto_accept: "review_passed"`` (ticket delivery's "ship it or answer")
-is confirmed by the platform, without a person, when everything the platform can check says the work is done:
-
-- the independent review's last verdict is ``pass`` with no finding of severity high or medium;
-- the run has a task list and every task is ``verified`` (``task_status``).
-
-Otherwise the work goes back to the agent ``config.auto_revise`` times; after those revisions the node is confirmed
-when no finding of severity high is open (and every task is verified where the node needs tasks): the medium and
-low findings left become notes for the product owner (``context.review_notes``, also on the decision). Most
-review verdicts ask for changes, revisions rarely converge, and a single cosmetic medium would keep a finished story
-waiting for the product owner. Only a high finding (an acceptance
-criterion or a confirmed decision broken, a security risk, a task a user cannot complete) still asks the person. The
-decision is recorded like a person's (``decided_by`` empty, event
-``auto_accepted`` with the reason), so the product owner sees afterwards what went through and can still answer
-on the pull request or start a follow-up.
-"""
+"""The product owner is asked at the start; after that the work goes on by itself."""
 
 from __future__ import annotations
 
@@ -46,12 +29,6 @@ REVISE_ON_HIGH = "high"
 
 def accept_reason(run: WorkflowRun, *, needs_tasks: bool = True, after_revisions: int | None = None,
                   revise_on: str | None = None, prefer: tuple[str, ...] = ()) -> str:
-    """Why the platform may confirm for the product owner; "" when it may not. ``needs_tasks=False``: a run
-    without a task list (spec writing) passes on the review alone. ``after_revisions``: the automatic revisions are
-    used up (their number), so only a high finding blocks; medium and low ones are notes. ``revise_on="high"``
-    (team delivery): only a high finding is worth a revision at all, so the node accepts at once
-    when none is open and the medium and low findings become notes. A run whose pipeline was skipped (a server run
-    has no pipeline runner yet) cannot verify its tasks: the review decides alone, and the reason says so."""
     from .pipeline import state as pipeline_state
     from .task_list import run_task_list
     from .task_status import VERIFIED
@@ -84,14 +61,12 @@ REVIEW_NOTES_KEY = "review_notes"
 
 
 def review_notes(run: WorkflowRun) -> list[dict[str, Any]]:
-    """The open findings below high of the last verdict: what the product owner reads after an automatic accept."""
     review = dict(dict(run.context or {}).get("review") or {})
     return [dict(item) for item in review.get("findings") or []
             if isinstance(item, dict) and str(item.get("severity") or "") in ("medium", "low")]
 
 
 def _confirm(db: AsyncSession, run: WorkflowRun, subject: str, payload: dict[str, Any], reason: str) -> None:
-    """Record the platform's confirmation like a person's, with the notes kept on the run and the decision."""
     from .graph import CONFIRMED
     from .pause import record_decision
 
@@ -114,7 +89,6 @@ REVISE_ANSWER = (
 
 
 async def epic_story_reason(db: AsyncSession, run: WorkflowRun) -> str:
-    """Why the readiness answers of this run need no product owner: its work item is a story of an epic."""
     from ...models.runtime.secure_work import WorkItem
 
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
@@ -123,8 +97,6 @@ async def epic_story_reason(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 async def accept_on_entry(db: AsyncSession, run: WorkflowRun, node: Any) -> bool:
-    """A confirmation node with ``auto_accept: "epic_story"`` is confirmed as it is entered when the rule holds:
-    the proposals stand as the product owner's answer (``po_answers``), recorded like a person's decision."""
     from ...time_utils import utc_now
     from .graph import CONFIRMED
     from .pause import record_decision
@@ -152,7 +124,6 @@ async def accept_on_entry(db: AsyncSession, run: WorkflowRun, node: Any) -> bool
 
 
 async def auto_accept(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Confirm the waiting node for the product owner when its rule holds; ``True`` when it did."""
     from .engine import resolve_current_node
     from .graph import CONFIRMED, NODE_CONFIRMATION, graph_for_run
     from .states import STATUS_WAITING, WAITING_CONFIRMATION
@@ -212,12 +183,6 @@ ACCEPT_AFTER_REVISIONS_KEY = "accept_after_revisions"
 
 
 async def _accept_after_revisions(db: AsyncSession, run: WorkflowRun, node: Any, done: int) -> bool:
-    """The automatic revisions are used up: confirm when no high finding is open (every task verified where the
-    node needs tasks); the medium and low findings left are notes for the product owner.
-
-    A specification (``accept_after_revisions``) is accepted without a task list: a spec review keeps finding
-    new points of precision in every round (25, 22, 23 in three rounds); the stories decide such points
-    themselves and name them as assumptions (ask once at the start, then automatic)."""
     from .engine import resolve_current_node
     from .graph import CONFIRMED
 
@@ -241,26 +206,19 @@ ON_OPEN_HIGH_KEY = "on_open_high"
 ON_OPEN_HIGH_WAIT = "wait"
 ON_OPEN_HIGH_CONTINUE = "continue_with_findings"
 ON_OPEN_HIGH_VALUES = (ON_OPEN_HIGH_WAIT, ON_OPEN_HIGH_CONTINUE)
-#: Workflows whose decisions gate goes on with open high findings unless the node says otherwise
-#: (an epic's stories run unattended; the person who merges decides the findings on the pull request).
-CONTINUE_BY_DEFAULT = frozenset({"epic-delivery"})
 OPEN_FINDINGS_KEY = "open_findings"
 EVENT_ACCEPTED_WITH_OPEN_FINDINGS = "accepted_with_open_findings"
 _SEVERITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
-def on_open_high(node: Any, workflow_key: str | None) -> str:
-    """What the gate does when a high finding is still open after the automatic revisions: the node's
-    ``config.on_open_high``, else the workflow's default ("continue_with_findings" for epic-delivery,
-    "wait" for a person everywhere else)."""
+def on_open_high(node: Any) -> str:
+    # Set by the workflow definition (epic-delivery's decisions gate continues); unset means wait.
     value = str(dict(node.config or {}).get(ON_OPEN_HIGH_KEY) or "")
-    if value in ON_OPEN_HIGH_VALUES:
-        return value
-    return ON_OPEN_HIGH_CONTINUE if str(workflow_key or "") in CONTINUE_BY_DEFAULT else ON_OPEN_HIGH_WAIT
+    return value if value in ON_OPEN_HIGH_VALUES else ON_OPEN_HIGH_WAIT
 
 
 def on_open_high_errors(graph: Any) -> list[dict[str, str]]:
-    """The designer's check of ``on_open_high``: one of its two values, so a typo never silently means "wait"."""
+    # A typo must never silently mean "wait".
     from .graph import NODE_CONFIRMATION
     from .graph_node_rules import _error, _name
 
@@ -276,25 +234,19 @@ def on_open_high_errors(graph: Any) -> list[dict[str, str]]:
 
 
 def open_findings(run: WorkflowRun) -> list[dict[str, Any]]:
-    """Every finding of the last verdict, high first: what the person who merges must decide."""
     review = dict(dict(run.context or {}).get("review") or {})
     items = [dict(item) for item in review.get("findings") or [] if isinstance(item, dict)]
     return sorted(items, key=lambda item: _SEVERITY_ORDER.get(str(item.get("severity") or "").lower(), 3))
 
 
 async def _continue_with_findings(db: AsyncSession, run: WorkflowRun, node: Any, done: int) -> bool:
-    """A high finding is still open after the revisions and the node says ``continue_with_findings``: confirm, so the
-    run pushes and opens the pull request, with every open finding on top of its description.
-
-    an epic's stories ran unattended until one high finding after two revisions stopped the whole
-    chain at the decisions gate overnight; the finding is better decided on the pull request than by waiting."""
     from .engine import resolve_current_node
     from .graph import CONFIRMED
     from .pause import record_decision
 
     findings = open_findings(run)
     high = sum(1 for item in findings if str(item.get("severity") or "").lower() == "high")
-    if on_open_high(node, run.workflow_key) != ON_OPEN_HIGH_CONTINUE:
+    if on_open_high(node) != ON_OPEN_HIGH_CONTINUE:
         return False
     if high:
         reason = (f"{high} high finding{'s' if high != 1 else ''} still open after {done} automatic revisions; "
@@ -316,8 +268,6 @@ async def _continue_with_findings(db: AsyncSession, run: WorkflowRun, node: Any,
 
 
 async def _auto_revise(db: AsyncSession, run: WorkflowRun, node: Any, *, accept: bool = True) -> bool:
-    """Send the work back to the agent with the review's findings, at most ``config.auto_revise`` times; then the
-    product owner decides (ask once at the start, then automatic)."""
     from ...time_utils import utc_now
     from .engine import resolve_current_node
     from .graph import CHANGED

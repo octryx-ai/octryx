@@ -1,31 +1,4 @@
-"""In-memory sliding-window rate limiter for API endpoints.
-
-Authenticated traffic is limited per user, never per address, so the users behind one company proxy
-or NAT never share a budget, and a person clicking through the app never meets a limit:
-
-- a request whose credential verifies in process (``rate_limit_identity.request_principal``: a platform
-  session token or a platform OAuth access token) is keyed by its user (plus the OAuth grant). Its safe
-  reads (``GET``/``HEAD``/``OPTIONS``) only have a runaway-loop guard (``user_read``, default 3000/min) and its
-  writes ``user_write`` (default 600/min). The heavy and agent-gateway scopes keep their budgets, per user;
-- anything else is anonymous and keeps the per-address scopes (``ip_general``, ``ip_write``); a forged or
-  expired token is anonymous, so it can never select a fresh per-user bucket;
-- ``/api/v1/auth/*`` is always the strict per-address ``auth`` scope (and the login routes add a per-username
-  failed-login limit, ``services.auth_rate_limit``);
-- safe reads of every static mount (``/admin/static/``, ``/chat/static/``) and of the SPA page shells
-  (``/chat``, ``/admin`` and their one-level pages) are never limited.
-
-Every limit comes from ``Settings`` (``rate_limit_settings.py``, with env overrides); a 429 names its scope in
-the body (``code: rate_limit_<scope>``, ``scope``) and keeps ``Retry-After`` and ``X-RateLimit-*``.
-
-The address comes from the validated trusted-proxy boundary, so a forwarded header from an untrusted
-peer can neither pick a fresh bucket nor exhaust another client's bucket, and only validated IP literals
-become keys.
-
-The set of live keys is bounded by ``rate_limit_state_policy``: a window that can no longer count
-anything is evicted, and a configured hard bound caps the retained key count. User keys live in their own
-store, so no number of client addresses can evict (reset) a user's window. This module keeps owning the window
-arithmetic and the scope limits; only key lifecycle is delegated.
-"""
+"""In-memory sliding-window rate limiter for API endpoints."""
 
 from __future__ import annotations
 
@@ -139,7 +112,6 @@ class _RateLimitBucket:
 
 
 def _configured_key_capacity() -> int:
-    """The configured per-store key bound, read from current settings."""
     return get_settings().max_rate_limit_keys
 
 
@@ -169,7 +141,6 @@ _BUCKETS_LOCK = asyncio.Lock()
 
 
 def _client_ip(request: Request) -> str:
-    """Effective client address, resolved at the trusted-proxy boundary."""
     return rate_limit_client_key(request)
 
 
@@ -205,14 +176,12 @@ def _should_exempt(request: Request) -> bool:
 
 
 def _scope_limit(scope: RateLimitScope) -> int:
-    """The scope's budget: its ``Settings`` field when it has one (env overrides), else its default."""
     return int(getattr(get_settings(), scope.setting)) if scope.setting else scope.max_requests
 
 
 async def _check_rate_limit(
     scope_key: str, max_requests: int, window_seconds: int, *, store: BoundedKeyStateStore | None = None
 ) -> tuple[bool, int, int]:
-    """Check and record a request. Returns (limited, remaining, retry_after)."""
     now = monotonic()
     async with _BUCKETS_LOCK:
         bucket = (store if store is not None else _BUCKETS).touch(scope_key, now=now)
@@ -225,7 +194,6 @@ async def _check_rate_limit(
 
 
 def _rate_limit_identity(request: Request) -> tuple[str, str]:
-    """The scope and the bucket key: the verified user, or (anonymous, auth scope) the client address."""
     path = request.url.path
     principal = None if path.startswith("/api/v1/auth") else request_principal(request)
     scope = _determine_scope(path, request.method, authenticated=principal is not None)
@@ -270,7 +238,6 @@ async def rate_limit_middleware(request: Request, call_next: Callable) -> Respon
 
 
 def clear_rate_limit_buckets() -> None:
-    """Clear all rate limit buckets and their eviction counters. Use for testing."""
     _BUCKETS.clear()
     _USER_BUCKETS.clear()
 

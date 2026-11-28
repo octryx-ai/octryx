@@ -1,11 +1,4 @@
-"""Project-scoped connector access: whether a Workspace uses a connector, and its allowlists/limits.
-
-The access save merges into the Workspace's tool config entry: it sets ``is_active`` and
-replaces only the allowlist/limit fields. The Workspace's own connection (URL, auth mode,
-principals, secret refs; ``workspace_connection_service.py``) is never touched by it, and never
-re-validated either: only the fields this save changes are validated, so an entry the connection save would now
-refuse keeps saving access. A refusal is a coded 422.
-"""
+"""Project-scoped connector access: whether a Workspace uses a connector, and its allowlists/limits."""
 
 from __future__ import annotations
 
@@ -98,13 +91,6 @@ MAX_BATCH_WORKSPACES = 200
 
 async def connector_limits_in_workspaces(db: AsyncSession, *, connector_name: str, project_ids: list[str],
                                          user_id: str) -> dict[str, Any]:
-    """One connector's limits (``project_limits``, the global ``inherited_limits``) in several Workspaces at once.
-
-    Reading every Workspace's whole connector list for a connection's "Today, unbound" view runs many requests in
-    parallel with two pooled connections each; with the page's other reads that can exhaust the API's database pool
-    and take the API out of service. Two queries, one connection, the same values as
-    :func:`list_project_connector_access`. Unknown Workspaces and somebody else's private ones are left out (the
-    per-Workspace route answers 404 for those; ``private_workspace_gate`` checks only one named id)."""
     from ...project.private_workspace import hidden_private_ids
 
     if connector_name not in TOOL_CONFIG_PRESETS:

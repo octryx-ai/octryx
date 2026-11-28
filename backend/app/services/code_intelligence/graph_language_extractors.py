@@ -27,8 +27,6 @@ from app.services.code_intelligence.outline_java import _tree_sitter_java_outlin
 
 @dataclass(frozen=True)
 class NativeLanguageExtractor:
-    """Language extraction plugin used by the deterministic graph builder."""
-
     name: str
     languages: tuple[str, ...]
     symbol_extractor: Callable[[str, str, str], list[dict[str, Any]]]

@@ -14,8 +14,7 @@ from ..records import WorkflowRunError, lock_run
 from ..states import STATUS_WAITING, WAITING_REVIEW
 from .model import DISPATCH_OWNER
 
-# A review takes well under a minute (two calls with one retry); an attempt older than this died with its process
-# (otherwise a deploy that killed a review left the run waiting 15 minutes for nothing).
+# A review takes well under a minute; an attempt older than this died with its process.
 STALE_ATTEMPT_MINUTES = 6
 
 
@@ -61,8 +60,6 @@ async def _claim_attempt(db: AsyncSession, run: WorkflowRun) -> str | None:
 
 
 def _attributed(run: WorkflowRun, row: Any) -> Any:
-    """The review's usage row carries its run for the token metrics (``observability.attribution``): the run is in
-    memory here, so nothing is read for the labels."""
     from ...observability import attribution, live_state
 
     def field(name: str) -> Any:
@@ -113,15 +110,12 @@ async def _record_usage(db: AsyncSession, run: WorkflowRun, usage: Any, attempt:
         request_id=f"{DISPATCH_OWNER}:{attempt}", dispatch_owner=DISPATCH_OWNER)))
 
 
-# Every verdict's findings stay with its event (otherwise the next review replaced ``context.review``
-# and a spec run's 39 first-round findings were gone, so nobody could judge whether they were fair). Bounded.
+# Every verdict's findings stay with its event, bounded, so earlier rounds can still be judged.
 MAX_KEPT_FINDINGS = 80
 MAX_KEPT_TEXT = 600
 
 
 async def shallow_review(db: AsyncSession, verdict: Any, usage: Any, diff_lines: int) -> dict[str, Any] | None:
-    """The thresholds a review of a large change fell short of (``review_keys.SHALLOW_DEFAULTS`` under the
-    installation's ``review_defaults.shallow``); ``None`` when it did not."""
     from ...agent_gateway.review_keys import SHALLOW_DEFAULTS, ReviewPolicyError
     from .choice import installation_defaults
 

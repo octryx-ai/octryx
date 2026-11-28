@@ -1,7 +1,4 @@
-"""The translations as the platform's code style check needs them: every catalog the style's
-``l10n.files`` patterns find (``<lang>`` and ``<namespace>`` in the pattern; also below an app folder), parsed to its
-keys and each key's placeholders, and new UI text written straight into the changed code (a heuristic per language).
-The launcher only reads and reports; the server judges (``code_style.check.l10n_findings``)."""
+"""The translation catalogs and new hard-coded UI text the platform's code style check needs; the server judges."""
 
 from __future__ import annotations
 
@@ -35,7 +32,6 @@ _UI_SUFFIX = {"dart": (".dart",), "typescript": (".tsx", ".jsx"), "javascript": 
 
 
 def _pattern(pattern: str) -> tuple[str, re.Pattern[str]]:
-    """The glob and the regex (with ``lang`` and ``namespace`` groups) of one ``files`` pattern."""
     glob = pattern.replace("<lang>", "*").replace("<namespace>", "*")
     regex = re.escape(pattern).replace(re.escape("**/"), "(?:.*/)?")
     regex = regex.replace(re.escape("<lang>"), r"(?P<lang>[A-Za-z_-]+)")
@@ -82,7 +78,6 @@ def _gettext(text: str) -> dict[str, str]:
 
 
 def parse(path: Path, fmt: str) -> dict[str, str]:
-    """``{key: message}`` of one catalog."""
     if path.stat().st_size > MAX_CATALOG_BYTES:
         return {}
     text = path.read_text(encoding="utf-8", errors="replace")
@@ -118,7 +113,6 @@ def placeholders(message: str, fmt: str) -> list[str]:
 
 
 def catalogs(root: Path, style: dict[str, Any]) -> list[dict[str, Any]]:
-    """Each namespace's catalogs per locale, per language whose style has ``l10n``."""
     out: dict[tuple[str, str, str], dict[str, Any]] = {}
     for language, rules in sorted(dict(style.get("languages") or {}).items()):
         l10n = dict(dict(rules or {}).get("l10n") or {})
@@ -158,7 +152,6 @@ def _base_text(root: Path, base: str, name: str) -> str:
 
 
 def hardcoded(root: Path, base: str, files: list[str]) -> list[list[Any]]:
-    """``[path, line, text, language]`` of UI text written into lines the change added (tests not counted)."""
     found: list[list[Any]] = []
     for name in files:
         language = next((lang for lang, suffixes in _UI_SUFFIX.items() if name.lower().endswith(suffixes)), None)

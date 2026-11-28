@@ -8,10 +8,7 @@ export type PluginSlotState = { entries: PluginSlotEntry[]; installs: PluginInst
 
 const EMPTY: PluginSlotState = { entries: [], installs: [] };
 
-/**
- * The slots of the active installs the viewer sees in a Workspace (its installs and the platform's), from the list
- * API; a frame asks for its own /ui only when it opens. A refusal or an Octryx without plugins means no slots.
- */
+/** A frame asks for its own /ui only when it opens; a refusal means no slots. */
 export function usePluginSlots(workspaceId: string | null, fetcher: Fetcher, reloadKey: unknown = 0): PluginSlotState {
   const [state, setState] = useState<PluginSlotState>(EMPTY);
   useEffect(() => {

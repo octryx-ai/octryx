@@ -1,16 +1,4 @@
-"""Fixtures for tests whose connectors pass the outbound URL policy (``services/outbound_url_policy.py``).
-
-The policy resolves every target's hostname before a request; tests never touch real DNS:
-
-- ``public_source_dns``: every hostname resolves to a documentation address the policy treats as
-  public (``203.0.113.10``, TEST-NET-3), for fixtures such as ``https://wiki.example.test``;
-- ``loopback_stub_exemption_fixture``: the stubbed connection types (Source Sync and the connector tools
-  alike) run with the loopback stub exemption for the two pod-loopback stubs
-  (``127.0.0.1:8095`` / ``:8096``) on a development profile with loopback origins only. The real gate
-  (``app/loopback_stub_policy.py``) decides; nothing here bypasses it.
-
-A test module opts in with ``pytestmark = pytest.mark.usefixtures(...)`` after importing the fixture.
-"""
+"""Fixtures for tests whose connectors pass the outbound URL policy (``services/outbound_url_policy.py``)."""
 
 from __future__ import annotations
 
@@ -45,17 +33,10 @@ def loopback_stub_exemption_fixture(monkeypatch):
 
 
 def use_stub_settings(monkeypatch, settings) -> None:
-    """The settings the loopback stub policy reads on every request."""
     monkeypatch.setattr("app.loopback_stub_policy._settings", lambda: settings)
 
 
 def answer_public_web(monkeypatch, handler):
-    """The uncredentialed web fetches keep their pinned check; ``handler(request)`` answers after it.
-
-    ``public_web_client`` builds its transport through ``public_web_transport``; the replacement is
-    the real pinned ``public_web`` transport with a recorded-response ``inner``, so every request
-    and redirect hop is still checked by the egress rule before the handler sees it.
-    """
     import httpx
 
     from app.services.outbound_egress import CONNECTION_PUBLIC_WEB, PinnedEgressTransport

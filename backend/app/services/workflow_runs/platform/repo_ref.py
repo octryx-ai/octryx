@@ -86,15 +86,13 @@ _SERVER_NAME = re.compile(r"(?:^|/)projects/([^/]+)/repos/([^/]+)$")
 
 
 def record_path(name: str | None) -> str:
-    """A repository record's name as ``<owner>/<repo>``. Bitbucket Server records are named
-    ``bitbucket/projects/SHOP/repos/demo-shop`` while the run names ``shop/demo-shop``; the declared coding setup
-    (test and system test commands) would otherwise never be found."""
+    # Bitbucket Server record names differ from the run's <owner>/<repo>; without this the coding setup is never found.
     text = str(name or "").strip().strip("/").lower()
     match = _SERVER_NAME.search(text)
     if match:
         return f"{match.group(1)}/{match.group(2)}"
     head, _, rest = text.partition("/")
-    return rest if head in PROVIDERS and rest.count("/") >= 1 else text  # a snapshot's "<provider>/<owner>/<repo>"
+    return rest if head in PROVIDERS and rest.count("/") >= 1 else text
 
 
 def _setup(record: CodeRepository | None) -> dict[str, Any]:
@@ -103,12 +101,6 @@ def _setup(record: CodeRepository | None) -> dict[str, Any]:
 
 
 def ai_trailers(run: WorkflowRun, item: WorkItem | None, used_models: list[str] | None = None) -> str:
-    """The AI-output trailers of the run's commit (EU AI Act Art. 50(2)), the same lines
-    the launcher gives Claude Code (``octryx_claude.launch.run_attribution``): the commit carries the agent's work.
-
-    One ``AI-Generated-By-octryx`` line per model the run's turns actually used (``used_models``, :func:`run_models`);
-    the run's target model only when none is recorded (otherwise the trailer named only
-    the target Haiku although the plan ran on Sonnet)."""
     context = dict(run.context or {})
     target = context.get("runtime_target") if isinstance(context.get("runtime_target"), dict) else {}
     models = [_trailer_value(name) for name in used_models or []]
@@ -124,8 +116,6 @@ def _trailer_value(model: str) -> str:
 
 
 async def run_models(db: AsyncSession, run: WorkflowRun) -> list[str]:
-    """Every model the run's turns used, in order of first use: device and server turns of each session the run
-    ever bound (main, items, reviewer; ``turn_traces``) and governed model calls in them (``usage_events``)."""
     from ....models import TurnTrace, UsageEvent, WorkflowRunSession
 
     sessions = select(WorkflowRunSession.session_id).where(WorkflowRunSession.run_id == run.id)
@@ -138,7 +128,6 @@ async def run_models(db: AsyncSession, run: WorkflowRun) -> list[str]:
 
 
 def work_key(run: WorkflowRun, item: WorkItem | None) -> str:
-    """The key that names the branch, commit and pull request: the run's ticket, else a platform Work item's own key."""
     key = str(run.ticket_key or "").strip()
     if not key and item is not None and str(item.source_type or "").lower() == "platform":
         key = str(item.source_key or "").strip()
@@ -164,7 +153,6 @@ def _not_found(outcome: ToolOutcome) -> bool:
 
 
 async def reviewers_for(db: AsyncSession, run: WorkflowRun, ref: RepoRef) -> PrReviewers:
-    """The requester's SCM identity (``pr_reviewers``; unresolved never blocks) plus the repository owners."""
     requester, platform_key, unresolved = await requester_reviewer(db, run, ref)
     is_author = unresolved == REQUESTER_IS_AUTHOR
     owners = [str(name) for name in _setup(await _record(db, run, ref)).get("owners") or [] if str(name).strip()]

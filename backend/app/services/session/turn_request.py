@@ -1,13 +1,4 @@
-"""What an entry path asks turn preparation for, and what a prepared turn is.
-
-Both entry paths build one :class:`TurnRequest`: ``/chat/api`` (send, continue, workflow
-proposal decision, artifact action) and the services that start a chat turn
-(coordinator continue, sub-agent resume, coding execution) use
-``SESSION_SCOPE_OWN_OR_NEW``; ``/api/v1/sessions/{id}/messages`` uses
-``SESSION_SCOPE_EXISTING`` (the named session must exist and be writable by the caller).
-The ``*_explicit`` flags say which values the caller chose itself; an explicit value is
-never replaced by a session, agent or Workspace default.
-"""
+"""What an entry path asks turn preparation for, and what a prepared turn is."""
 
 from __future__ import annotations
 
@@ -51,8 +42,6 @@ class TurnRequest:
 
 @dataclass(frozen=True, slots=True)
 class PreparedTurn:
-    """A committed, marked turn: ``running`` / ``in_progress``, owned by this process."""
-
     session_id: str
     user_message_id: str
     prompt: str

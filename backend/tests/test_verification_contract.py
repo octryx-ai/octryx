@@ -91,21 +91,6 @@ def test_workflow_contract_application_from_session_metadata():
     assert with_paths["expected_paths"] == ["terraform/todelete", "terraform"]
 
 
-def test_delivery_toolset_resolution_is_provider_explicit():
-    from app.services.workflow_contracts.agent_definition import resolve_coding_delivery_tools
-
-    assert resolve_coding_delivery_tools(
-        {"source_control_provider": "bitbucket", "ticket_provider": "jira"}
-    ) == (
-        "commit_and_push_repository_branch",
-        "create_bitbucket_pull_request",
-        "add_jira_comment",
-    )
-    # Any unknown or missing provider resolves to no delivery at all.
-    assert resolve_coding_delivery_tools({"source_control_provider": "bitbucket"}) == ()
-    assert resolve_coding_delivery_tools({"ticket_provider": "jira"}) == ()
-    assert resolve_coding_delivery_tools({"source_control_provider": "gitlab", "ticket_provider": "jira"}) == ()
-    assert resolve_coding_delivery_tools(None) == ()
 
 
 def test_governed_coding_contract_signal():
@@ -134,21 +119,6 @@ def test_routing_never_displaces_governed_coding_contract():
     assert "workflow_contract" not in metadata
 
 
-def test_turn_resolution_keeps_persisted_governed_contract():
-    from app.agent.loops.control._loop_workflow_contract_state import resolve_workflow_contract_for_turn
-
-    governed = {
-        "workflow_id": "coding_change_tdd",
-        "verification_contract": {"commands": [{"command": "x", "source": "change_unit"}]},
-        "delivery": {"source_control_provider": "bitbucket", "ticket_provider": "jira"},
-    }
-    resolved = resolve_workflow_contract_for_turn(
-        current_turn_content="Call the tool commit_and_push_repository_branch once, now.",
-        built_workflow_contract={"workflow_id": "knowledge_request", "knowledge_lookup_settings": {}},
-        session_metadata={"workflow_contract": governed},
-    )
-    assert resolved["workflow_id"] == "coding_change_tdd"
-    assert resolved["verification_contract"] == governed["verification_contract"]
 
 
 def test_governed_session_routing_is_stable_across_follow_up_turns():

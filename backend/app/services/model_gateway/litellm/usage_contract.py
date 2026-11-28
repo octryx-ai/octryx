@@ -1,32 +1,4 @@
-"""Response usage and cost contract for the governed LiteLLM gateway.
-
-Cost safety is the reason this module exists. ``compute_usage_event_cost_attribution``
-(``services/budget/cost_attribution.py``) treats a cost of ``None``/``""``/``"0"``/``0`` as
-"not reported" and then falls back to ``LLMModel`` pricing; an alias whose model
-row carries no pricing lands on ``status="missing_pricing"`` with ``cost=0``,
-which every budget guard happily passes. A gateway call that was really billed
-must therefore never leave this module with a zero or unknown cost.
-
-The contract per declared cost source (see ``alias_catalog``):
-
-``catalog_pricing``
-    The response must report usable token counts (``prompt_tokens`` > 0,
-    ``completion_tokens`` >= 0) and the cost computed from the catalog prices
-    must be strictly positive.
-
-``gateway_reported``
-    The response must carry a strictly positive numeric cost in ``usage.cost``
-    or top-level ``response_cost``. Absent, malformed, negative, and zero
-    (including the string ``"0"``) are all refused.
-
-``governed_free``
-    The only contract allowed to settle at cost 0. Token counts are still
-    required, and a *positive* reported cost contradicts the declaration and is
-    refused.
-
-Every refusal is a post-dispatch response-contract violation: the answer was
-already billed, so it is discarded rather than retried.
-"""
+"""Response usage and cost contract for the governed LiteLLM gateway: a billed call never settles at zero or unknown."""
 
 from __future__ import annotations
 
@@ -54,29 +26,18 @@ def _violation(denial_reason: str) -> LiteLLMGatewayError:
     )
 
 
+# Finiteness first: int(nan) and int(inf) raise, and a gateway body may parse to either; neither may escape unclassified
+# instead of becoming a response-contract denial.
 def _token_count(value: Any) -> int | None:
-    """Accept only a finite, integral, non-negative token count.
-
-    The finiteness guard comes first because it is the one that keeps an
-    exception inside the gateway boundary: ``int(nan)`` raises ``ValueError`` and
-    ``int(inf)`` raises ``OverflowError``, and a gateway body may legitimately
-    parse to either (``numeric_contract``). Neither may escape this module
-    unclassified instead of becoming a response-contract denial.
-    """
-
     count = finite_number(value)
     if count is None or count != float(int(count)) or int(count) < 0:
         return None
     return int(count)
 
 
+# A billed call without usable token counts cannot be priced or attributed, so it is refused instead of recorded as
+# zero.
 def resolve_reported_tokens(raw_usage: Any) -> tuple[int, int]:
-    """Return the validated ``(prompt_tokens, completion_tokens)`` pair.
-
-    A billed call that reports no usable token counts cannot be priced and
-    cannot be attributed, so it is refused instead of being recorded as zero.
-    """
-
     if not isinstance(raw_usage, Mapping) or not raw_usage:
         raise _violation(USAGE_DENIAL_NOT_REPORTED) from None
     prompt_tokens = _token_count(raw_usage.get("prompt_tokens"))
@@ -127,8 +88,6 @@ def resolve_usage_payload(
     body: Mapping[str, Any],
     raw_usage: Any,
 ) -> dict[str, Any]:
-    """Build the validated usage payload for one served gateway response."""
-
     # Raises unless ``raw_usage`` is a non-empty mapping with usable counts.
     prompt_tokens, completion_tokens = resolve_reported_tokens(raw_usage)
     usage: Mapping[str, Any] = raw_usage

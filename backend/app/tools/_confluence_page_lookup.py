@@ -8,7 +8,7 @@ from ._confluence_access import ancestor_ids_of
 
 
 class MalformedConfluenceAnswerError(ValueError):
-    """A successful HTTP answer whose content is not the documented page shape: never proof of anything."""
+    pass
 
 
 async def fetch_page_record(

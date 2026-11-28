@@ -1,11 +1,5 @@
-"""A test-first run's test contract must specify the new behaviour.
-
-A Clarify agent can submit a contract with only existing tests, all ``regression``, none ``new``; accepting it, the
-Clarify check would pass and the confirmation card would show a contract under which the run delivers nothing.
-
-Real phase path: the registry's ``submit_test_contract`` tool (the handler a phase turn calls), the run's phase
-checks through the turn-end checks guard, and the seeded A–E definitions for which runs are test-first.
-"""
+"""A test-first run's test contract must specify the new behaviour; a contract of only regression tests would
+let the run deliver nothing."""
 
 from __future__ import annotations
 
@@ -27,7 +21,10 @@ from tests.contract_coverage_support import (  # noqa: F401
 )
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import phase_turn
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_hitl import contract_definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 DOR = ["truncate_words keeps the first n words joined by single spaces",
        "an ellipsis follows the last kept word when words were dropped",
@@ -58,10 +55,9 @@ async def test_an_all_regression_contract_is_refused_and_the_clarify_check_fails
     assert answer["status"] == "refused" and answer["error"] == "invalid_output"
     assert "every test is 'regression'" in answer["message"] and "at least one 'new' test" in answer["message"]
     assert "outputs" not in run.context or "test_contract" not in run.context["outputs"]
-    # The phase's own check sees the failed submit: not verified (the guard reminds once), never the card.
+    # The phase's own check sees the failed submit: the turn is not verified, never the card.
     resolution = await run_turn_resolution(db, session, user_message="Clarify.")
-    outcome = await phase_turn(db, session.id, resolution, ["knowledge_search"])
-    assert outcome is not None and outcome.get("action") == "continue"  # the one checks reminder
+    assert await phase_turn(db, session.id, resolution, ["knowledge_search"]) != "passed"
     assert run.current_node_id == "clarify"
 
 

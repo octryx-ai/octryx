@@ -173,8 +173,6 @@ _HEREDOC_EXPANSION = re.compile(r"\$\(|`")
 
 @dataclass(frozen=True, slots=True)
 class ForeignBuildVerdict:
-    """The guard's verdict: ``blocked`` with the command class and program that decided it."""
-
     blocked: bool
     command_class: str
     program: str = ""

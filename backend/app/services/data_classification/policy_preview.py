@@ -1,10 +1,4 @@
-"""What a classification policy version changes, in words and in generated policies.
-
-- :func:`change_lines` — every rule and the default level that differ between two contents, one line each;
-- :func:`generated_policies` — the ``classification:<level>:…`` Cedar policies a content generates
-  (``policy_engine.translator.matrix_policies``), for "View policy" and the diff of a draft;
-- :func:`affected_workspaces` — how many active Workspaces sit at a level a change touches.
-"""
+"""What a classification policy version changes, in words and in generated policies."""
 
 from __future__ import annotations
 
@@ -128,7 +122,6 @@ def rule_sentence(rule: Any, registry: Any) -> str:
 
 
 def effect_policies(content: Mapping[str, Any]) -> list[dict[str, str]]:
-    """The Cedar text of the added rules, for review. The platform check named in the catalog enforces them."""
     registry = content_registry(content)
     policies = []
     for rule in rules_from_content(content):
@@ -197,7 +190,6 @@ def policy_diff(before: Mapping[str, Any], after: Mapping[str, Any]) -> dict[str
 
 
 async def workspace_levels(db: AsyncSession) -> list[tuple[str, str, str | None]]:
-    """``(id, name, declared level)`` of every active Workspace, by name."""
     rows = (await db.execute(select(Project.id, Project.name, Project.config).where(Project.is_active.is_(True))
                              .order_by(Project.name))).all()
     return [(str(project_id), str(name), declared_classification(config.get(DATA_POLICY_CONFIG_KEY)

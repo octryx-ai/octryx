@@ -1,8 +1,4 @@
-"""The content files of a plugin package read and checked: skills, workflows and roles (no database).
-
-Every issue is appended to the caller's list with a fixed code and the file it is in; ``package.read_package`` reads
-the manifest first and raises once with all of them.
-"""
+"""The content files of a plugin package read and checked: skills, workflows and roles (no database)."""
 
 from __future__ import annotations
 
@@ -105,7 +101,6 @@ def _document(files: dict[str, bytes], path: str, issues: list[dict[str, str]]) 
 
 
 def workflow_writes(definition: dict[str, Any]) -> list[str]:
-    """The connection kinds a workflow's platform steps write to (``scm`` = any code host)."""
     found = set()
     for node in definition.get("nodes") or []:
         if isinstance(node, dict) and node.get("type") == "platform_action":

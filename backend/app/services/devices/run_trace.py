@@ -1,15 +1,4 @@
-"""Device turns as runs.
-
-A device turn runs Claude Code on the user's machine. When the turn ends (finished, rejected by the device, or
-failed), one ``turn_traces`` row records it for Observability → Runs: outcome, model, usage and cost as the device
-reported them, and the start (the thread's newest user prompt). The row holds no content: the answer text is already
-the thread's assistant message.
-
-A turn that sends its model calls through the platform's gateway registers a fresh launcher key for that turn
-(``POST /agent-gateway/sessions/register`` with the job id). ``stamp_gateway_session`` writes the job and the job's
-current turn onto that gateway session, so the trace view can list the turn's calls; the Claude Code session id is
-not enough, because a resumed turn keeps the old id but sends its calls under the new key.
-"""
+"""Device turns as runs."""
 
 from __future__ import annotations
 
@@ -44,7 +33,6 @@ def device_answer_key(job: DeviceJob) -> str:
 
 
 async def stamp_gateway_session(db: AsyncSession, session: AgentSession, job_id: str, user_id: str) -> None:
-    """Mark a launcher's gateway session as the one of this job's current turn (the caller's own job only)."""
     if not job_id:
         return
     turn_id = (await db.execute(select(DeviceJob.turn_id).where(
@@ -62,6 +50,8 @@ async def record_device_turn(db: AsyncSession, job: DeviceJob, message_type: str
         select(func.max(Message.created_at)).where(Message.session_id == job.session_id, Message.role == "user")
     )).scalar_one_or_none()
     raw_output = {"status": status, "reason": reason, "device_status": reported, "turn": job.turn_count}
+    if body.get("gateway_reason"):
+        raw_output["gateway_reason"] = str(body["gateway_reason"])[:80]
     usage = dict(body["usage"]) if isinstance(body.get("usage"), dict) else {}
     cost = body.get("cost_usd")
     usage.update({"device_cost_usd": cost if isinstance(cost, (int, float)) else None,
@@ -95,10 +85,6 @@ async def record_device_turn(db: AsyncSession, job: DeviceJob, message_type: str
 
 
 async def compact_finished_turn_text(db: AsyncSession, job: DeviceJob) -> int:
-    """Drop the streamed ``text_delta`` chunks of a finished turn: its ``text`` events carry the full text.
-
-    The chat merges deltas while the turn streams and displays the final text afterward, so nothing visible is lost.
-    """
     if not job.turn_id:
         return 0
     rows = (await db.execute(select(DeviceJobEvent.id, DeviceJobEvent.body).where(

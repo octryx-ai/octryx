@@ -1,23 +1,4 @@
-"""The Octryx pet's view of the attention queue: one state, a few items, a poll hint (Octryx companion, stage 2).
-
-The pet (``octryx-claude pet``, a tray icon) shows what the web companion shows, condensed to one state. The view
-is derived from :func:`services.attention.service.attention` only, never from a second logic. The order is the
-same as the companion's: Needs you → Problems → Working → Done.
-
-- ``needs_you``: an ``action`` entry (question, gate, device approval, handover) or a threshold entry
-  (``budget`` at 80 %, ``allowance`` at 95 %; the queue lists those as ``warning``);
-- ``problem``: any other ``warning`` (a paused run); ``reason`` is the run's fixed pause code, never free text;
-- ``working``: a run of ``running`` whose state is ``working`` (waiting and recently finished runs are not work);
-- ``done``: an ``info`` entry (finished and not dismissed, or a pull request that waits for review);
-- ``resting``: nothing of the above.
-
-Only an action or a result makes an item, so a phase change or green tests never change the state to one that
-notifies (the queue has no entries for those). ``items[].id`` is the queue's stable entry key (the same key the
-dismissals use), so the pet can tell a new item from one it already showed.
-
-A gateway login bound to Workspaces sees only entries of those Workspaces (and the user-wide seat allowance).
-``etag`` is a hash of the whole view; the route answers ``If-None-Match`` with 304.
-"""
+"""The Octryx pet's view of the attention queue: one state, a few items, a poll hint (Octryx companion, stage 2)."""
 
 from __future__ import annotations
 
@@ -80,7 +61,6 @@ def _reason(entry: dict[str, Any]) -> str | None:
 
 
 def pet_view(queue: dict[str, Any], *, workspaces: Collection[str] | None = None) -> dict[str, Any]:
-    """The pet's view of an attention answer, limited to ``workspaces`` when the login is bound."""
     entries = [entry for entry in queue.get("items") or [] if _visible(entry, workspaces)]
     running = [run for run in queue.get("running") or [] if _visible(run, workspaces)]
     needs = [entry for entry in entries

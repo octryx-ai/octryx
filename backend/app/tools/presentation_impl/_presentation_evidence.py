@@ -1,12 +1,4 @@
-"""Turn evidence for the deterministic presentation composer.
-
-The composer never invents content: every input it receives comes from a tool
-result that already ran in the same turn. This module reads that turn history —
-the AWS topology snapshot, optional knowledge facts, and the diagrams produced
-by our own pipeline — and hands them to the planner in the exact shapes it
-documents. Nothing is fabricated here; a missing input stays missing so the
-planner can mark it visibly.
-"""
+"""Turn evidence for the deterministic presentation composer."""
 
 from __future__ import annotations
 
@@ -32,26 +24,12 @@ _PNG_RENDER_SCALE = 2
 
 
 def aws_snapshot_from_history(turn_tool_history: list[dict[str, Any]] | None) -> dict[str, Any]:
-    """The turn's AWS topology snapshot, or ``{}`` when the tool has not run."""
     history = [item for item in (turn_tool_history or []) if isinstance(item, dict)]
     snapshot = _latest_successful_tool_result(history, AWS_SNAPSHOT_TOOL)
     return snapshot if isinstance(snapshot, dict) else {}
 
 
 def externalized_snapshot_artifact_id(turn_tool_history: list[dict[str, Any]] | None) -> str:
-    """Artifact id of the turn's snapshot when its payload was externalized.
-
-    A large snapshot (live: 297 KB) is stored as an artifact and the turn history
-    keeps only a hard-capped preview — key names, no values. Composing from that
-    preview yields a deck that is silently thin (no account, no counts), so the
-    composer loads the real payload instead.
-
-    The id is taken from the **history item**, not from a marker inside the
-    result: by the time the loop hands history to a tool, the storage pointer has
-    already been unwrapped to its compact preview, so ``_artifact_storage`` is
-    gone while ``artifact_id`` remains (live finding — the first version keyed on
-    the marker and never fired).
-    """
     for item in reversed([item for item in (turn_tool_history or []) if isinstance(item, dict)]):
         if str(item.get("tool_name") or "").strip() != AWS_SNAPSHOT_TOOL:
             continue
@@ -65,7 +43,6 @@ def externalized_snapshot_artifact_id(turn_tool_history: list[dict[str, Any]] | 
 
 
 def snapshot_is_usable(snapshot: dict[str, Any]) -> bool:
-    """A snapshot the planner can actually build evidence-backed slides from."""
     if not isinstance(snapshot, dict) or not snapshot:
         return False
     if snapshot.get("_hard_capped"):
@@ -74,7 +51,6 @@ def snapshot_is_usable(snapshot: dict[str, Any]) -> bool:
 
 
 async def load_snapshot_artifact(db: Any, artifact_id: str) -> dict[str, Any]:
-    """Read the externalized snapshot payload back from the artifact store."""
     if db is None or not artifact_id:
         return {}
     from app.services.artifact_store.records import load_tool_artifact_record, read_tool_artifact_payload
@@ -87,18 +63,6 @@ async def load_snapshot_artifact(db: Any, artifact_id: str) -> dict[str, Any]:
 
 
 async def load_full_diagram_xml(db: Any, *, session_id: str, diagram_id: str) -> str:
-    """Read the full, un-truncated draw.io XML for one diagram from its tool call.
-
-    The turn history keeps only a hard-capped preview of a ``create_diagram``
-    result: the model never needs the full ~20 KB draw.io document in context,
-    so the string is truncated (live: to ~4000 chars). Rendering the deck's
-    diagram image from that preview embeds a diagram cut off after its first
-    few cells — the containers keep their full size but their interior is empty
-    (live finding: a 232-node AWS topology embedded as one subnet with two
-    nodes). The full XML lives in the persisted ``ToolCall`` row (artifact-store
-    aware), keyed by the ``diagram_id`` the history preview still carries — the
-    same source the chat diagram card renders from.
-    """
     diagram_id = str(diagram_id or "").strip()
     if db is None or not str(session_id or "").strip() or not diagram_id:
         return ""
@@ -136,12 +100,6 @@ async def load_full_diagram_xml(db: Any, *, session_id: str, diagram_id: str) ->
 
 
 def knowledge_facts_from_history(turn_tool_history: list[dict[str, Any]] | None) -> list[dict[str, str]]:
-    """Knowledge facts as ``{statement, source}`` from the governed ``knowledge_search``.
-
-    Each fact is one cited passage: its text, and its ``cite_as`` link as the source.
-    Absent or unusable results yield an empty list — the planner then sets its
-    ``[SOURCE MISSING: ...]`` marker instead of receiving invented prose.
-    """
     history = [item for item in (turn_tool_history or []) if isinstance(item, dict)]
     facts: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -174,20 +132,6 @@ async def diagram_images_from_history(
     db: Any = None,
     session_id: str = "",
 ) -> tuple[list[dict[str, str]], list[str]]:
-    """Render the turn's diagram artifacts to PNG for the deck's image slots.
-
-    Returns ``(diagram_images, warnings)``. Diagrams come from our own
-    deterministic pipeline only — this never draws anything. A diagram that
-    cannot be rendered is reported as a warning and left out, so the planner
-    marks the missing diagram slide instead of the deck claiming one.
-
-    The XML is loaded from the persisted tool call, not from the turn history:
-    history keeps only a hard-capped preview of the diagram, and rendering that
-    embeds a diagram cut off after its first cells (see
-    :func:`load_full_diagram_xml`). The history preview is used only for the id
-    and title, and as a last-resort fallback when the full payload cannot be
-    loaded.
-    """
     from ...services.diagram_export_service import (
         DiagramRenderError,
         DiagramRendererUnavailableError,

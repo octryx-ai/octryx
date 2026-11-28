@@ -1,11 +1,4 @@
-"""A user's paired phones: resolving the phone's credential, listing, revoking.
-
-A phone is valid while it is active, its owner is active, the octryx-claude login it was paired from is not
-revoked and its web login is still alive (signing out of the platform ends the phone), and the platform's device
-login validity (``devices/login_validity``, counted from the pairing) has not
-passed. Revoking takes effect on the next request
-(``session.mobile_access_refusal`` checks the phone on every authenticated API and chat request).
-"""
+"""A user's paired phones: resolving the phone's credential, listing, revoking."""
 
 from __future__ import annotations
 
@@ -20,6 +13,7 @@ from ...models import AuditLog, MobileDevice, User
 from ...models.security.mobile import MOBILE_ACTIVE, MOBILE_REVOKED
 from ...models.security.oauth_provider import OAuthGrant
 from ...time_utils import ensure_utc, utc_now, utc_now_aware
+from ..data_access import bind_request_viewer
 from ..devices.login_validity import login_expires_at, login_validity
 from ..oauth_provider.flows import _login_session_alive
 from .contract import AUDIT_DEVICE_REVOKED, REASON_LOGIN_EXPIRED, REASON_NOT_FOUND, REASON_NOT_PAIRED, REASON_REVOKED
@@ -27,7 +21,6 @@ from .pairing import secret_hash
 
 
 async def phone_refusal(db: AsyncSession, device: MobileDevice | None, *, validity: timedelta | None = None) -> str:
-    """``""`` while the phone may act for its owner, else the fixed reason."""
     if device is None:
         return REASON_NOT_PAIRED
     if device.status != MOBILE_ACTIVE:
@@ -48,7 +41,6 @@ async def phone_refusal(db: AsyncSession, device: MobileDevice | None, *, validi
 
 
 async def resolve_phone(db: AsyncSession, secret: str) -> MobileDevice | str:
-    """The phone behind its credential cookie, or the fixed reason; marks it seen. Flushes."""
     if not isinstance(secret, str) or not 20 <= len(secret) <= 128:
         return REASON_NOT_PAIRED
     device = (
@@ -59,6 +51,7 @@ async def resolve_phone(db: AsyncSession, secret: str) -> MobileDevice | str:
         return refusal
     assert device is not None
     await touch_if_stale(db, MobileDevice, device.id, device.last_seen_at, column="last_seen_at")
+    bind_request_viewer(device.owner_user_id)
     return device
 
 
@@ -79,7 +72,6 @@ async def owned_phone(db: AsyncSession, *, owner_user_id: str, device_id: str) -
 
 
 async def revoke_phone(db: AsyncSession, device: MobileDevice, *, actor_id: str, reason: str) -> None:
-    """Revoke one phone now (audited). Flushes."""
     if device.status == MOBILE_REVOKED:
         return
     device.status, device.revoked_at = MOBILE_REVOKED, utc_now()
@@ -90,7 +82,6 @@ async def revoke_phone(db: AsyncSession, device: MobileDevice, *, actor_id: str,
 
 
 async def revoke_user_phones(db: AsyncSession, *, user_id: str, reason: str) -> None:
-    """A credential change (password change, deactivation) ends every phone of the user. Flushes."""
     await db.execute(
         update(MobileDevice)
         .where(MobileDevice.owner_user_id == user_id, MobileDevice.status == MOBILE_ACTIVE)

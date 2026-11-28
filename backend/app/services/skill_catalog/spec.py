@@ -1,17 +1,4 @@
-"""The Agent Skills format (agentskills.io specification, checked 2026-10-07) as the catalog's canonical artefact.
-
-``SKILL.md`` is YAML frontmatter between ``---`` lines plus a Markdown body. Spec rules enforced here:
-
-- ``name``: 1-64 chars of ``a-z0-9-``, no leading, trailing or double hyphen, equal to the skill folder name;
-- ``description``: 1-1024 chars;
-- optional ``license``, ``compatibility`` (<= 500 chars), ``metadata`` (string map), ``allowed-tools``;
-- ``SKILL.md`` should stay under 500 lines (warning); reference files sit one level below the skill root.
-
-Claude Code accepts more frontmatter keys. :data:`DELIVERY_FRONTMATTER_KEYS` is the allowlist the catalog
-delivers; every other key is dropped on delivery, and :data:`EXECUTION_FRONTMATTER_KEYS` are the ones that would
-widen permissions or change how the skill executes (reported by the scanner so the reviewer sees what upstream
-intended). Nothing here guesses: parsing is YAML ``safe_load`` and every refusal carries a fixed code.
-"""
+"""The Agent Skills format (agentskills.io specification, checked 2026-10-07) as the catalog's canonical artefact."""
 
 from __future__ import annotations
 
@@ -65,8 +52,6 @@ _FRONTMATTER_RE = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)",
 
 
 class SkillSpecError(Exception):
-    """``SKILL.md`` cannot be read as an Agent Skill (no frontmatter, invalid YAML, not a mapping)."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(code)
         self.code = code
@@ -116,12 +101,10 @@ def render_frontmatter(frontmatter: dict[str, Any]) -> str:
 
 
 def render_skill_md(frontmatter: dict[str, Any], body: str) -> str:
-    """Inverse of :func:`parse_skill_md`: ``parse_skill_md(render_skill_md(f, b)).body == b``."""
     return f"---\n{render_frontmatter(frontmatter)}\n---\n{body}"
 
 
 def replace_frontmatter(text: str, frontmatter: dict[str, Any]) -> str:
-    """``text`` with only its frontmatter replaced; the body stays byte-for-byte (upstream diffs stay small)."""
     parsed = parse_skill_md(text)
     if parsed.frontmatter == frontmatter:
         return text
@@ -143,7 +126,6 @@ def name_issue(name: Any) -> SpecIssue | None:
 def validate_skill(
     frontmatter: dict[str, Any], body: str, *, folder_name: str | None, skill_md_text: str, paths: list[str]
 ) -> list[SpecIssue]:
-    """Spec checks for one skill bundle; ``paths`` are the bundle paths relative to the skill root."""
     issues: list[SpecIssue] = []
     name = frontmatter.get("name")
     found = name_issue(name)
@@ -189,7 +171,6 @@ def validate_skill(
 
 
 def delivery_frontmatter(frontmatter: dict[str, Any], metadata_extra: dict[str, str]) -> dict[str, Any]:
-    """The allowlisted frontmatter delivered to Claude Code; catalog metadata (``octryx-*``) is added last."""
     delivered: dict[str, Any] = {}
     for key in DELIVERY_FRONTMATTER_KEYS:
         if key in frontmatter:
@@ -207,7 +188,6 @@ def stripped_keys(frontmatter: dict[str, Any]) -> list[str]:
 
 
 def normalize_tags(value: Any) -> list[str]:
-    """Free lower-case tags: deduplicated, sorted, invalid ones refused by the caller via :func:`tag_issues`."""
     if not isinstance(value, list):
         return []
     return sorted({str(item).strip().lower() for item in value if str(item or "").strip()})

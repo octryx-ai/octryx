@@ -1,23 +1,4 @@
-"""A short, sanitized cause of a failed gateway request, safe to log and to show.
-
-The gateway's error *messages* stay fixed (``errors.py``: the engine copies ``str(exc)`` into persisted
-attempt evidence). This module derives one bounded *detail* next to them, so an operator can see why the
-upstream refused (``"temperature is not supported for this model"``) instead of a bare ``provider_error``:
-
-1. Only the upstream's own error text is read: ``error.message`` (OpenAI/LiteLLM shape), else ``error`` as a
-   string, else ``detail``/``message``; a body that is not JSON contributes nothing. At most
-   :data:`MAX_BODY_BYTES` of the body are looked at.
-2. The text is redacted with the shared redaction policy (credential URLs, bearer/basic tokens, ``key=value``
-   secrets, private keys). Then every remaining opaque token-like run (long base64/hex-ish strings,
-   ``sk-``/``AKIA`` style keys) is replaced by ``[redacted]``. A run is opaque when it mixes upper case, lower
-   case and digits, contains a 20+ character hex stretch or a 32+ alnum stretch, or has a ``-``/``_``-separated
-   segment of 16+ characters that mixes letters and digits. Model ids (``gpt-4o-2024-08-06``,
-   ``us.anthropic.claude-sonnet-5-20260101-v1:0``) keep short segments and stay readable.
-3. If the model-gateway secret scan still finds credential material, the text is dropped entirely.
-4. Whitespace is collapsed and the result is cut to :data:`MAX_DETAIL_CHARS`.
-
-Nothing here raises; an unreadable body yields ``""``.
-"""
+"""A short, sanitized cause of a failed gateway request, safe to log and to show."""
 
 from __future__ import annotations
 
@@ -65,7 +46,6 @@ def _letters_and_digits(text: str) -> bool:
 
 
 def _opaque(match: re.Match[str]) -> str:
-    """A run is a token when it mixes cases and digits, holds long hex/alnum, or has a long letter+digit segment."""
     run = match.group(0)
     mixed = any(ch.isupper() for ch in run) and any(ch.islower() for ch in run) and any(ch.isdigit() for ch in run)
     long_segment = any(
@@ -75,7 +55,6 @@ def _opaque(match: re.Match[str]) -> str:
 
 
 def sanitize_detail(text: str, *, max_chars: int = MAX_DETAIL_CHARS) -> str:
-    """``text`` without secrets, credential-shaped tokens or line breaks, at most ``max_chars``; may be ``""``."""
     cleaned = redact_secret_text(text)
     cleaned = _VENDOR_KEY.sub(REDACTED_SECRET, cleaned)
     cleaned = _AWS_KEY_ID.sub(REDACTED_SECRET, cleaned)
@@ -89,7 +68,6 @@ def sanitize_detail(text: str, *, max_chars: int = MAX_DETAIL_CHARS) -> str:
 
 
 def upstream_error_detail(raw_body: bytes | None) -> str:
-    """The sanitized upstream error text of a failed gateway response body, or ``""``."""
     if not raw_body or len(raw_body) > MAX_BODY_BYTES:
         return ""
     try:

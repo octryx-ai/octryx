@@ -1,11 +1,4 @@
-"""Record gate decisions into the decision log.
-
-``record_gate_decision`` stores one non-allow outcome of any gate; ``count_allowed`` counts an allow per hour, gate,
-action and Workspace (allows are counted, never stored one by one). Both are synchronous and never raise: a
-gate's decision must not fail because its record could not be kept. Records go through the policy engine's bounded
-buffer (``policy_engine.decision_log``) and are written by the periodic flush (``flusher``) or the next policy
-maintenance, whichever comes first; a full buffer drops the oldest record and the log says so.
-"""
+"""Record gate decisions into the decision log."""
 
 from __future__ import annotations
 
@@ -85,7 +78,6 @@ def build_gate_record(
     actor_id: str | None = None,
     created_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """The ``policy_decision_log`` row for one non-allow decision of ``gate``."""
     return {
         "id": str(uuid.uuid4()),
         "created_at": created_at or utc_now(),
@@ -114,11 +106,6 @@ def build_gate_record(
 
 
 def record_gate_decision(**fields: Any) -> str | None:
-    """Buffer one non-allow decision (see :func:`build_gate_record`); returns its id, ``None`` if not recorded.
-
-    For decisions made inside a database transaction (approvals) write the row in that
-    transaction instead (``build_gate_record``), so the record commits or rolls back with the decision.
-    """
     try:
         entry = build_gate_record(**fields)
         record_decision(entry)
@@ -129,12 +116,10 @@ def record_gate_decision(**fields: Any) -> str | None:
 
 
 def count_allowed(*, gate: str, action: str, workspace_id: str | None = None) -> None:
-    """Count one allow of ``gate`` for ``action`` in the current hour (flushed with the decision log)."""
     _ALLOWS[(_hour(utc_now()), gate[:40], str(action or "unknown")[:80], (workspace_id or "")[:64])] += 1
 
 
 def take_allow_counts() -> list[tuple[datetime, str, str, str, int]]:
-    """Pop the buffered allow counts (for the flush)."""
     items = [(*key, count) for key, count in _ALLOWS.items()]
     _ALLOWS.clear()
     return items

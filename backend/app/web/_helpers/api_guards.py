@@ -44,17 +44,7 @@ def _enforce_same_origin_for_cookie_auth(
     *,
     cookie_names: tuple[str, ...] = ("access_token",),
 ) -> None:
-    """Same-origin rule for the ``/api/v1/auth`` cookie routes.
-
-    The exemption order mirrors that surface's own resolver,
-    :func:`app.services.auth.get_current_user`, which takes ``X-API-Key`` first,
-    then a bearer token, and only then the cookie: there, a request carrying an
-    API key or a bearer token is genuinely not authenticated by the cookie. The
-    panel surface resolves the *other* way round (cookie first, and it never
-    authenticates an API key), so its boundary
-    (:mod:`app.panel_csrf_policy`) deliberately orders these branches the
-    opposite way. Each policy follows the credential its own routes use.
-    """
+    # The order of get_current_user (API key, bearer, cookie); the panel's own policy resolves the cookie first.
     if str(request.headers.get(API_KEY_HEADER) or "").strip():
         return
     if _has_bearer_authorization(request):
@@ -111,14 +101,6 @@ def _chat_app_missing_response():
 
 
 async def _require_api_user(request: Request, db: AsyncSession) -> User:
-    """Active cookie/bearer principal for a JSON surface, or 401.
-
-    Every admin-panel guard below funnels through this function, so the active
-    check belongs here and not at each of the ~250 panel mutation routes: a
-    deactivated account is refused with the same 401 and the same detail the
-    authenticated API returns, before the route evaluates a role, a permission,
-    a Workspace scope, or touches a service.
-    """
     return await require_active_api_principal(request, db)
 
 

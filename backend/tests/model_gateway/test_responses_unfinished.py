@@ -1,11 +1,5 @@
-"""Both public Responses endpoints (``/openai`` governed and the Codex seat) with unfinished and unknown content.
-
-The routes forward the client's own Responses body unchanged or refuse it (the gateway changes nothing): an
-unfinished newest turn, an unfinished re-sent call output and call arguments too wide to examine are refused
-(``content_scan_unfinished``); a part type the gateway does not know is read like any other part of the body (a
-credential in it is refused); a reasoning summary is examined like text while its encrypted content is opaque state
-forwarded as it is. Each property is asserted at both public endpoints.
-"""
+"""Both public Responses endpoints (``/openai`` governed and the Codex seat) refuse unfinished content and read
+unknown part types like any other part of the body."""
 
 from __future__ import annotations
 
@@ -21,7 +15,7 @@ from tests.model_gateway.model_gateway_openai_responses_support import responses
 
 from .test_inbound_anthropic_gateway import AWS_KEY_LOOKALIKE
 
-# Credential assignments (a gateway kind, C12F-08) past a detector's candidate limit: the scan cannot finish.
+# Credential assignments (a gateway kind) past a detector's candidate limit: the scan cannot finish.
 FRAGMENT = "password=Value0x"
 UNFINISHED = " ".join(f"password=Value{index}x" for index in range(5200))
 # More internal-address candidates than a detector examines in one call's arguments.
@@ -29,7 +23,6 @@ WIDE = {f"host_{index}": f"password=Wide{index}x" for index in range(5200)}
 
 
 def _history(body: dict, output: str) -> dict:
-    """``body`` whose history call output is ``output``, followed by an assistant message the client wrote."""
     items = list(body["input"])
     outputs = [index for index, item in enumerate(items) if item.get("type") == "function_call_output"]
     items[outputs[0]] = {**items[outputs[0]], "output": output}
@@ -65,10 +58,34 @@ REFUSED = {
         "content_scan_unfinished"),
     "unfinished-re-sent-output": (lambda body: _history(body, UNFINISHED), "content_scan_unfinished"),
     "arguments-too-wide-to-examine": (_wide, "content_scan_unfinished"),
-    "credential-in-an-unknown-part-type": (_unknown_part, "secret_detected_in_prompt"),
-    "credential-in-a-reasoning-summary": (lambda body: _summary(body, f"key {AWS_KEY_LOOKALIKE}"),
-                                          "secret_detected_in_prompt"),
 }
+# A credential in a part the gateway knows no type of, or in a readable reasoning field: read, and masked (WP-C3).
+MASKED = {
+    "credential-in-an-unknown-part-type": _unknown_part,
+    "credential-in-a-reasoning-summary": lambda body: _summary(body, f"key {AWS_KEY_LOOKALIKE}"),
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", sorted(MASKED))
+async def test_openai_masks(client, responses_setup, name):  # noqa: F811
+    fake, build = responses_setup
+    response = await client.post(openai_support.ROUTE, json=MASKED[name](openai_support._body()),
+                                 headers=await build())
+    assert response.status_code == 200, response.text
+    (sent,) = fake.requests
+    assert f"key {AWS_KEY_LOOKALIKE}" not in sent.content.decode()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("name", sorted(MASKED))
+async def test_the_codex_seat_masks(client, db, chatgpt, name):  # noqa: F811
+    _workspace_id, _user, gateway, credential = await _codex_session(client, db)
+    response = await client.post(codex_seat_support.ROUTE, json=MASKED[name](codex_seat_support._body()),
+                                 headers=_headers(gateway, credential))
+    assert response.status_code == 200, response.text
+    (sent,) = chatgpt.requests
+    assert f"key {AWS_KEY_LOOKALIKE}" not in sent.content.decode()
 
 
 @pytest.mark.asyncio

@@ -1,9 +1,4 @@
-"""What a run's size class changes at a step: a skipped check, and the class's note for the agent.
-
-Both come from the run's class snapshot (``size_classes`` of its workflow, ``context.size_class``); the engine knows
-no step or class by name. A skipped step takes its ``succeeded`` exit with the event ``node_skipped`` naming the class,
-so the run's history says what it left out and why (the team sees why a run ran lightly).
-"""
+"""What a run's size class changes at a step: a skipped check, and the class's note for the agent."""
 
 from __future__ import annotations
 
@@ -21,8 +16,6 @@ UNLESS_UI = "ui_paths"
 
 
 def _kept_by_change(run: WorkflowRun, node_id: str) -> str:
-    """Why a skip with ``"unless_changed": "ui_paths"`` keeps the step: the change touches what a person sees (the
-    stacks' ``ui_paths``), or the platform cannot read the change; ``""`` when it skips."""
     from ...engineering_knowledge.stacks import touches_ui
     from ..octryx.system_tests import changed_files
 
@@ -37,8 +30,6 @@ def _kept_by_change(run: WorkflowRun, node_id: str) -> str:
 
 
 async def skip_entered(db: AsyncSession, run: WorkflowRun, node: Any) -> bool:
-    """``True`` (and the event) when the run's class skips the step it just entered; the step's action still does
-    what the steps after it need (:func:`platform_actions.action_skipped`)."""
     skips = list(dict(dict(run.context or {}).get(CONTEXT_KEY) or {}).get("skips") or [])
     if node.id not in skips:
         return False
@@ -54,7 +45,6 @@ async def skip_entered(db: AsyncSession, run: WorkflowRun, node: Any) -> bool:
 
 
 def agent_facts(run: WorkflowRun) -> dict[str, Any] | None:
-    """The class and its note for the agent's contract (``None`` without a note)."""
     note = str(class_config(run).get("agent_note") or "").strip()
     return {"class": size_of(run), "note": note} if note else None
 

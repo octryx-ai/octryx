@@ -20,8 +20,6 @@ from app.services.code_intelligence.storage_runtime import _coerce_list
 
 
 def build_native_code_graph_payload(*, repo_root: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
-    """Build a deterministic graph payload from repository files."""
-
     file_items = [item for item in _coerce_list(snapshot.get("files")) if isinstance(item, dict)]
     module_index = build_module_index(file_items)
     nodes: list[dict[str, Any]] = []

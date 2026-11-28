@@ -1,16 +1,5 @@
-"""The PostgreSQL statement behind each Evidence registry operation.
-
-Every statement is fixed text and scoped by ``:project_id``, which the client derives from the
-validated :class:`WorkspaceId` — no caller supplies it, so no operation can reach another
-Workspace's rows. Query text only ever arrives as a bound value: ``plainto_tsquery`` parses it as
-plain words with the same ``simple`` parser that built the indexed ``tsvector``, so a term matches
-whole tokens, and operators in it are just characters.
-
-- A lexical fetch has a server-owned ``LIMIT :cap`` and orders the matches by ``ts_rank_cd``
-  before cutting, so the candidate window is the best-matching spans for the term.
-- The vector search filters by ACL, product and version *inside* the scan and returns the exact
-  nearest ``:k`` that pass, so a restricted or out-of-scope span never costs recall.
-"""
+"""The PostgreSQL statement behind each Evidence registry operation. Every statement is fixed text scoped by
+``:project_id``; query text is only a bound value."""
 
 from __future__ import annotations
 
@@ -62,7 +51,6 @@ VECTOR_SCOPES = MappingProxyType(
 
 
 def vector_search(dimensions: int, scope: str) -> str:
-    """Exact cosine nearest neighbours of one space inside one Workspace, filtered in the scan."""
     typed = f"vector({int(dimensions)})"
     return (
         f"SELECT i.evidence_key AS evidence_key, i.body_text AS body_text, "

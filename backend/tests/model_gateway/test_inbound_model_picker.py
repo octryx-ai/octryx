@@ -1,10 +1,4 @@
-"""Company models in the Claude Code ``/model`` picker.
-
-``GET /v1/models`` on the governed and the seat route, the client policy's ``models``, and a company model
-chosen in a seat session (``company/<alias>``), which must be governed exactly like a governed-route call.
-LiteLLM and Anthropic are ``httpx.MockTransport`` fakes that record every request, so a refusal is proven to
-dispatch nothing and the subscription token is proven never to reach LiteLLM. No live model call is made.
-"""
+"""Company models in the Claude Code ``/model`` picker."""
 
 from __future__ import annotations
 
@@ -28,9 +22,6 @@ from .conftest import ALIAS, MODEL_GROUP, gateway_config
 POLICY = "/api/v1/agent-gateway/client-policy"
 
 
-# --- governed route --------------------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_the_governed_route_lists_exactly_the_aliases_a_tool_call_would_be_admitted_for(client, db):
     _workspace_id, gateway = await _workspace(db, policy=None)
@@ -39,7 +30,6 @@ async def test_the_governed_route_lists_exactly_the_aliases_a_tool_call_would_be
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    # Not granted, granted without the tools capability: both left out.
     assert _ids(payload) == [ALIAS, SECOND]
     assert payload["data"][0] == {"type": "model", "id": ALIAS, "display_name": "General model",
                                   "description": "Company model through Octryx, billed to the Workspace budget",
@@ -90,7 +80,7 @@ def test_list_paging_follows_the_anthropic_shape():
     assert _ids(list_page(models, {"limit": "2", "before_id": "m4"})) == ["m2", "m3"]
     assert list_page(models, {"limit": "2", "before_id": "m4"})["has_more"] is True
     assert list_page(models, {"limit": "5", "before_id": "m4"})["has_more"] is False
-    assert list_page(models, {"limit": "2", "before_id": "m2"})["has_more"] is False  # exactly the rest
+    assert list_page(models, {"limit": "2", "before_id": "m2"})["has_more"] is False
     assert list_page(models, {"limit": "5"})["has_more"] is False
     assert list_page(models, {"limit": "3", "after_id": "m1"})["has_more"] is False
     assert list_page(models, {"limit": "1001"}) is None
@@ -118,9 +108,6 @@ def test_a_display_name_is_optional_and_bounded():
         assert admitted(invalid).denial_reason == "alias_display_name_invalid"
     plain = resolve_alias_admission(ALIAS, gateway_config(aliases={ALIAS: _alias(MODEL_GROUP)}))
     assert plain.entry.display_name == ""
-
-
-# --- client policy and the policy key -------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

@@ -1,20 +1,4 @@
-"""The variant of a selected workflow family, as a closed state on its contract.
-
-A selected workflow family can have variants: a ``knowledge_request`` answers as a lookup or as
-a definition. The variant comes only from the selected definition's configured contract, never
-from the prompt.
-
-Every contract the family builder produces carries its variant under ``workflow_variant``:
-
-- ``resolved``: the definition fixes the variant (``reason_code`` names the field that did), or
-  it names none and the family runs its generic variant (``no_variant_configured``).
-- ``needs_configuration``: the definition's variant fields contradict each other or name an
-  unsupported value. The execution profile turns this into a ``needs_configuration`` turn
-  (``execution_profile_service``) and the execution gate holds it; nothing is guessed.
-
-This module is models-free so the execution profile can read it without importing the family
-builders.
-"""
+"""The variant of a selected workflow family, as a closed state on its contract."""
 
 from __future__ import annotations
 
@@ -53,10 +37,6 @@ class WorkflowVariant:
 
 
 def unresolved_workflow_variant(workflow_contract: Any) -> dict[str, Any] | None:
-    """The variant record of a contract whose variant is not resolved, or ``None``.
-
-    A record with an unknown state counts as unresolved: an unclear variant never runs.
-    """
     contract = workflow_contract if isinstance(workflow_contract, dict) else {}
     record = contract.get(WORKFLOW_VARIANT_CONTRACT_KEY)
     if not isinstance(record, dict):

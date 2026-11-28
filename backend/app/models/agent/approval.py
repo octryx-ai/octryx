@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,9 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class Approval(Base):
+class Approval(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions", "task_run_id": "task_runs"}
+    __workspace_column__ = "workspace_id"
     __tablename__ = "approvals"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

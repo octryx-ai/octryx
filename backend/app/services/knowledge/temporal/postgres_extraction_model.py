@@ -77,14 +77,12 @@ def normalized_fact(fact: str) -> str:
 
 
 def episode_uuid(project_id: str, revision_id: str, ordinal: int, profile: str) -> str:
-    """Stable per span and profile, so a rerun replaces the same episode."""
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"octryx-graph:{project_id}:{revision_id}:{ordinal}:{profile}"))
 
 
 def build_messages(
     profile: ExtractionProfile, *, title: str, group: str, version: str | None, spans: list[SpanInput]
 ) -> list[_Message]:
-    """The prompt: what to extract (the profile's types and instructions), then the numbered passages."""
     lines = [
         "You read numbered passages of one document and extract the facts they state.",
         f"Document: {title}" + (f" (product {group}, version {version})" if version else f" (product {group})"),

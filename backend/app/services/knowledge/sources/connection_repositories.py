@@ -1,25 +1,5 @@
-"""Find the repositories a Bitbucket connection can read, to register them as Knowledge repository sources.
-
-Stage A visibility: a connection lists exactly what its own technical client sees (no per-user filtering), and
-only a Workspace author may ask (the route authorizes). The connection must be usable in the Workspace (available,
-active, its ``knowledge`` use on: ``sync/git_bitbucket.usable_connection``); every refusal is a fixed reason.
-
-- :func:`repository_connections`: the Bitbucket connections usable for Knowledge in a Workspace;
-- :func:`list_repositories`: one page (at most 25) of the connection's repositories, optionally searched by name
-  (``PROJ/`` or ``PROJ/name`` narrows a Data Center listing to one project):
-
-  * Data Center: ``GET {base}/rest/api/1.0/repos?name=&start=&limit=`` (``/projects/{KEY}/repos`` for a project),
-    paged by ``isLastPage`` / ``nextPageStart``;
-  * Cloud: ``GET https://api.bitbucket.org/2.0/repositories?role=member&q=name~"..."``, paged by ``page``;
-
-- :func:`default_branch`: one repository's default branch, read lazily when a repository is picked;
-- :func:`target_workspaces`: the Workspaces the caller authors where the connection is usable ("make available in").
-
-Every request goes through the pinned egress transport of the ``bitbucket`` connection type with the connection's
-own sign-in (``atlassian_auth.credential_auth``: Basic, a personal access token, or the OpenID Connect client
-credentials grant's Bearer). Only keys, slugs, names, web URLs and branch names are returned; never a credential,
-a response body or a header.
-"""
+"""Find the repositories a Bitbucket connection can read, to register them as Knowledge repository sources. Only a
+Workspace author may ask."""
 
 from __future__ import annotations
 
@@ -31,16 +11,16 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import BITBUCKET, is_bitbucket_cloud
+from app.services.connector_auth.atlassian_modes import BITBUCKET, is_bitbucket_cloud
 from app.services.knowledge.sources.sync.git_cloud import ConnectedGitConnection
 
 from ....models import ConnectorNamedConnection, Project
 from ....models.project.knowledge_source_sync import CONNECTOR_KIND_GIT_REPOSITORY, KnowledgeSourceConnector
 from ...access_control import _user_is_admin
-from ...atlassian_auth import credential_auth
+from ...connector_auth.atlassian import credential_auth
+from ...connector_auth.oidc_client_credentials import OidcTokenError
 from ...named_connections.grants import grant_for
 from ...named_connections.linked_use import USE_KNOWLEDGE, deviation_refusal
-from ...oidc_client_credentials import OidcTokenError
 from ...outbound_egress import CONNECTION_BITBUCKET, EgressRefusedError, egress_transport
 from ...project.service import get_project_access_details
 from ..access.authorization import AUTHOR_PROJECT_ROLES
@@ -73,7 +53,6 @@ def _deployment(config: dict) -> str:
 
 
 async def repository_connections(db: AsyncSession, project_id: str) -> list[dict[str, Any]]:
-    """The Bitbucket connections a Knowledge repository source of ``project_id`` may read with, by name."""
     rows = (await db.execute(
         select(ConnectorNamedConnection).where(ConnectorNamedConnection.tool_name == BITBUCKET)
         .order_by(ConnectorNamedConnection.name)
@@ -149,7 +128,6 @@ async def list_repositories(
     db: AsyncSession, project_id: str, connection_id: str, *, q: object = None, start: object = 0,
     limit: object = PAGE_SIZE, transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, Any]:
-    """One page of the connection's repositories (see the module doc); ``registered`` marks this Workspace's."""
     connection = await _connection(db, project_id, connection_id)
     query, first, size = _bounded(q, start, limit)
     if connection.base_url is None:
@@ -231,7 +209,6 @@ async def default_branch(
     db: AsyncSession, project_id: str, connection_id: str, project_key: str, slug: str, *,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> str | None:
-    """The repository's default branch name, or ``None`` when it has none (an empty repository)."""
     if not _PROJECT_KEY.fullmatch(project_key or "") or not _SLUG.fullmatch(slug or ""):
         raise ConnectorError(REASON_REPOSITORY_NOT_ON_CONNECTION_HOST)
     connection = await _connection(db, project_id, connection_id)
@@ -251,7 +228,6 @@ async def default_branch(
 
 
 async def target_workspaces(db: AsyncSession, user_id: str, connection_id: str, current: str) -> list[dict[str, Any]]:
-    """The Workspaces ``user_id`` authors where the connection is usable for Knowledge, the current one first."""
     row = await db.get(ConnectorNamedConnection, connection_id)
     if row is None or row.tool_name != BITBUCKET:
         return []

@@ -1,8 +1,6 @@
-// The review bot's calls: one fetch that keeps a refusal's status and body (`{state: "denied", reason, path?}`).
-
 export type Answer = { ok: boolean; status: number; body: unknown };
 
-/** status 0 = no answer. */
+// status 0 = no answer.
 export async function call(path: string, method = "GET", body?: unknown): Promise<Answer> {
   try {
     const response = await fetch(path, {
@@ -12,7 +10,7 @@ export async function call(path: string, method = "GET", body?: unknown): Promis
       body: body === undefined ? undefined : JSON.stringify(body),
     });
     let payload: unknown = null;
-    try { payload = await response.json(); } catch { /* an answer without JSON keeps its status */ }
+    try { payload = await response.json(); } catch { /* An answer without JSON keeps its status. */ }
     return { ok: response.ok, status: response.status, body: payload };
   } catch {
     return { ok: false, status: 0, body: null };

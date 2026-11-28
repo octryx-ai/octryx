@@ -94,12 +94,7 @@ async def resolve_corp_identity_office_template_path(
 
 
 def resolve_corp_identity_composer_template(profile: dict[str, Any]) -> ResolvedTemplate:
-    """The template a deterministic composer should build from for this profile.
-
-    The normalised derivative when it is current for the stored original — and
-    the original itself whenever it is not, with the reason stated rather than
-    silently substituted.
-    """
+    # A derivative that is not current is never silently substituted: the original comes back with the reason.
     return _resolve_template_for_profile(profile)
 
 

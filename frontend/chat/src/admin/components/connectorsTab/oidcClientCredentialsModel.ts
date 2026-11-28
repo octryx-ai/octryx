@@ -1,13 +1,4 @@
-// OpenID Connect client credentials as a connector sign-in method. Pure: no requests, no React.
-//
-// The connector fetches a short-lived
-// access token from the identity provider's token endpoint (grant_type=client_credentials) and calls the product with
-// `Authorization: Bearer <token>`. Every value is entered by the admin: nothing here names a host, realm, tenant or
-// client id, and placeholders stay neutral.
-// - Confluence/Jira: `<product>_oidc_token_url`, `_oidc_client_id`, `_oidc_client_secret` (secret), `_oidc_scope`,
-//   `_oidc_audience`, `_oidc_client_auth`.
-// - ServiceNow keeps its stored names: `servicenow_token_url`, `_client_id`, `_client_secret`, `_oauth_scope`, plus
-//   `servicenow_oidc_audience` and `servicenow_oidc_client_auth`.
+// Every value is entered by the admin: nothing here names a host, realm, tenant or client id.
 
 export type OidcFieldNames = {
   tokenUrl: string;
@@ -62,19 +53,17 @@ export const SERVICENOW_OIDC_FIELDS: OidcFieldNames = {
   clientAuth: "servicenow_oidc_client_auth",
 };
 
-/** The non-secret fields beyond the client id: token URL and the optional settings. */
 export function oidcSettingFields(names: OidcFieldNames): string[] {
   return [names.tokenUrl, names.scope, names.audience, names.clientAuth];
 }
 
 const LOOPBACK = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
-/** A loopback host: plain http is accepted there only, for local test endpoints. */
+/** Plain http is accepted only on a loopback host, for local test endpoints. */
 export function isLoopbackHost(hostname: string): boolean {
   return LOOPBACK.has(hostname.toLowerCase());
 }
 
-/** Why a token endpoint URL cannot be used, or null. https only; http only for a loopback host (local tests). */
 export function tokenUrlProblem(value: string): string | null {
   let url: URL;
   try {
@@ -96,8 +85,6 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
 
 export type OidcFieldError = { message: string; live: boolean };
 
-/** Errors of the token URL and client authentication; the client id and secret follow the caller's principal and
- * keep-or-enter rules. */
 export function oidcSettingErrors(names: OidcFieldNames, draft: Record<string, string>): Record<string, OidcFieldError> {
   const errors: Record<string, OidcFieldError> = {};
   const tokenUrl = text(draft[names.tokenUrl]);
@@ -113,10 +100,7 @@ export function oidcSettingErrors(names: OidcFieldNames, draft: Record<string, s
   return errors;
 }
 
-/**
- * The non-secret OIDC fields of a save body. Required ones are sent when entered; an optional one is sent when set,
- * and as "" when it was stored and is now cleared (so a removed scope or audience is not kept silently).
- */
+/** A stored optional field that is cleared is sent as "", so a removed scope or audience is not kept silently. */
 export function oidcSaveFields(
   names: OidcFieldNames,
   draft: Record<string, string>,
@@ -137,7 +121,6 @@ export function oidcSaveFields(
   return body;
 }
 
-/** The fixed codes of a connection test or a refused call, in plain words (errors). */
 const TEST_CODE_HINTS: Record<string, string> = {
   oidc_token_endpoint_unreachable:
     "The token endpoint could not be reached. Check the token endpoint URL and that the egress policy allows its host.",
@@ -170,7 +153,6 @@ export function testCodeHint(code: unknown): string | null {
   return typeof code === "string" ? TEST_CODE_HINTS[code] ?? null : null;
 }
 
-/** The coded hint of a test result (`auth_code`), unless the summary already says it. */
 export function testResultHint(result: unknown): string | null {
   if (!result || typeof result !== "object") return null;
   const record = result as Record<string, unknown>;

@@ -1,11 +1,4 @@
-"""Static document checks: the ``issues`` view and the core of ``validate``.
-
-Each issue is ``{code, severity, message, path}``; severity ``error`` means the document is broken for its
-reader (a formula error, a reference to a missing sheet), ``warning`` a visible defect (an unfilled
-placeholder, an empty slide, a shape off the slide), ``info`` a quality hint (missing alt text).
-Deck geometry beyond the slide bounds (text overflow, picture over title, off-brand runs) is the corporate
-identity slide gate's job; the tools layer adds its findings for presentations.
-"""
+"""Static document checks: the ``issues`` view and the core of ``validate``."""
 
 from __future__ import annotations
 

@@ -1,11 +1,4 @@
-"""When the pet asks the platform again (adaptive polling).
-
-- after an answer: the server's ``poll_after_seconds`` (kept within 5 s … 15 min), else a default per state
-  (sooner while something works or waits for the person);
-- after a failure (unreachable, 5xx): exponential backoff 15 s → 5 min with jitter ×0.5–1.5, reset by an answer;
-- signed out or refused for good (401/403): every 5 minutes, so a new login is picked up without a restart;
-- "Refresh now" from the menu wakes the loop at once (``runner``).
-"""
+"""When the pet asks the platform again (adaptive polling with backoff)."""
 
 from __future__ import annotations
 

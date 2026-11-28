@@ -1,11 +1,4 @@
-"""A transition is applied exactly as it was previewed.
-
-The dry-run finishes its preview here: the target status is resolved (from the mapping, else read-only from
-the issue's transitions), the effects are listed, and an ``effects_hash`` binds them together with the
-workflow's ``updated_at``, the item and both states. The apply recomputes the same preview and must send
-the hash it confirmed: a missing or different hash (the workflow or its mapping changed, or Jira now
-offers another target) is 409 ``preview_stale`` before anything is written.
-"""
+"""A transition is applied exactly as it was previewed."""
 
 from __future__ import annotations
 
@@ -25,7 +18,7 @@ CODE_WORKFLOW_INACTIVE = "workflow_inactive"
 
 
 def require_active(workflow: WorkItemWorkflowDefinition) -> None:
-    """409 ``workflow_inactive``: a deactivated workflow neither previews nor applies (C-3)."""
+    # A deactivated workflow neither previews nor applies.
     if not workflow.is_active:
         raise HTTPException(
             status_code=409,
@@ -50,7 +43,6 @@ def _effects_hash(workflow: WorkItemWorkflowDefinition, preview: dict[str, Any])
 async def finish_preview(
     db: AsyncSession, *, item: WorkItem, workflow: WorkItemWorkflowDefinition, preview: dict[str, Any]
 ) -> None:
-    """Resolve the target status, list the effects and bind them with ``effects_hash`` (in place)."""
     sync_preview = preview["jira_sync_preview"]
     own_effects = _source_effects(item)
     if own_effects is None:
@@ -70,7 +62,7 @@ def _source_effects(item: WorkItem):  # noqa: ANN202 - the source's ``write_effe
 
 
 def require_previewed(preview: dict[str, Any], confirmed_hash: object) -> None:
-    """409 ``preview_stale`` unless the apply sends the hash of exactly this preview."""
+    # The apply must send the hash of exactly this preview.
     if not isinstance(confirmed_hash, str) or confirmed_hash != preview["jira_sync_preview"].get("effects_hash"):
         raise HTTPException(
             status_code=409,

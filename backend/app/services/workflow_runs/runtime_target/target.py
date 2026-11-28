@@ -1,19 +1,4 @@
-"""The runtime target of a workflow run: chosen at start, validated, stored on the run and on its chat thread.
-
-- ``server``: the run's agent works on the platform; ``workspace.prepare`` prepares the server working copy.
-- ``device {device_id, folder, profile, model}``: one of the requester's own devices and one of its allowed folders.
-  Checked when it is chosen: the device is the requester's and active, the folder is in its allowlist, the profile
-  is one the device offers, the model one the profile offers here, and the Workspace's device-run policy allows it.
-  An offline device is no refusal: the run waits ``waiting_for_device`` at its first runtime step (``device_wait``).
-  Only the device can read its folder, so the folder's repository is verified there before anything changes (the
-  preparation names the run's repository) and again by the server on the report (``workspace.preparation``).
-- ``terminal``: an octryx-claude session works on the run; it prepares its folder when it launches.
-
-The target is on the run (``context.runtime_target``) and, for a device, on the run's chat thread
-(``execution_target``), which every device turn of the run uses (``octryx.continuation``). A run started without a
-target (``runtime_target`` is optional at start) derives its runtime from its thread and terminal
-(``workspace.preparation.runtime_of``).
-"""
+"""The runtime target of a workflow run: chosen at start, validated, stored on the run and on its chat thread."""
 
 from __future__ import annotations
 
@@ -27,12 +12,20 @@ from ....models.security.device import DEVICE_STATUS_ACTIVE, UserDevice
 from ....time_utils import utc_now
 from ...devices.chat_turn import EXECUTION_TARGET_METADATA_KEY, REFUSAL_MESSAGES
 from ...devices.dispatch_gate import folder_allowlisted, normalized_folder
+from ...devices.runner_pool import (
+    POOL_DEVICE_ID,
+    REASON_POOL_FORBIDDEN,
+    is_pool_runner,
+    pool_allowed,
+    resolve_runner,
+    runners_online,
+)
 from ..records import WorkflowRunError
 
 CONTEXT_KEY = "runtime_target"
 KIND_SERVER, KIND_DEVICE, KIND_TERMINAL = "server", "device", "terminal"
 KINDS = (KIND_SERVER, KIND_DEVICE, KIND_TERMINAL)
-KIND_AUTO = "auto"  # resolved at start (``runtime_target.auto``); never stored
+KIND_AUTO = "auto"
 EVENT_SET = "runtime_target_set"
 _RECENT_RUNS = 20
 _KIND_LABELS = {KIND_SERVER: "the Server", KIND_TERMINAL: "an octryx-claude terminal"}
@@ -43,7 +36,6 @@ def _invalid(message: str) -> WorkflowRunError:
 
 
 def parse_target(raw: Any) -> dict[str, Any] | None:
-    """The requested target's known fields, or ``None`` when none was requested; a malformed one is refused."""
     if raw is None or raw == "":
         return None
     if isinstance(raw, str):
@@ -59,6 +51,9 @@ def parse_target(raw: Any) -> dict[str, Any] | None:
         return {"kind": kind}
     device_id = str(raw.get("device_id") or "").strip()[:40]
     folder = normalized_folder(raw.get("folder"))
+    profile, model = str(raw.get("profile") or "").strip()[:20], str(raw.get("model") or "").strip()[:200]
+    if device_id == POOL_DEVICE_ID:
+        return {"kind": kind, "device_id": device_id, "folder": "", "pool": True, "profile": profile, "model": model}
     if not device_id or not folder:
         raise _invalid("A device target names the device and one of its allowed folders.")
     return {"kind": kind, "device_id": device_id, "folder": folder,
@@ -70,29 +65,49 @@ def _refused(state: str, reason: str) -> WorkflowRunError:
                             403 if state == "denied" else 409)
 
 
+async def _on_pool(db: AsyncSession, *, user: User, project_id: str | None,
+                   provenance: dict[str, Any]) -> dict[str, Any]:
+    validated = await validate_target(db, user=user, project_id=project_id,
+                                      raw={"kind": KIND_DEVICE, "device_id": POOL_DEVICE_ID})
+    return {**dict(validated or {}), **provenance}
+
+
 async def validate_target(db: AsyncSession, *, user: User, project_id: str | None, raw: Any,
                           repository: str | None = None) -> dict[str, Any] | None:
-    """The normalized target the requester may choose here (raises :class:`WorkflowRunError` otherwise).
-
-    ``auto`` is resolved here (``runtime_target.auto``: device-first with a seat, governed by rule or as fallback);
-    a device it picks is validated like a chosen one, and the target keeps ``resolved_from`` and ``reason``."""
     from ...devices.device_models import admitted_device_model
     from ...devices.device_policy import device_run_decision
 
     target = parse_target(raw)
+    if target is None or target["kind"] == KIND_SERVER:  # the server's agents are its runners
+        return await _on_pool(db, user=user, project_id=project_id, provenance={"resolved_from": KIND_SERVER})
     if target is not None and target["kind"] == KIND_AUTO:
         from .auto import resolve_auto
 
         resolved = await resolve_auto(db, user=user, project_id=project_id, repository=repository)
         provenance = {"resolved_from": KIND_AUTO, "reason": resolved["reason"]}
+        if resolved["kind"] == KIND_SERVER:
+            return await _on_pool(db, user=user, project_id=project_id, provenance=provenance)
         if resolved["kind"] != KIND_DEVICE:
             return {"kind": resolved["kind"], **provenance}
         validated = await validate_target(db, user=user, project_id=project_id, raw=resolved)
         return {**dict(validated or {}), **provenance}
     if target is None or target["kind"] != KIND_DEVICE:
         return target
+    if target.get("pool"):
+        if target["profile"] == "seat":  # no runner holds a seat: the run pauses for a takeover (``seat_required``)
+            return {**target, "device_name": "the server runners"}
+        choice = await resolve_runner(db, workspace_id=project_id, owner_user_id=user.id)
+        if isinstance(choice, str):
+            raise _refused("denied" if choice == REASON_POOL_FORBIDDEN else "needs_configuration", choice)
+        target = {**target, "device_id": choice.device.id, "folder": choice.folder}
+        if not target["model"]:  # a runner has no model of its own: the Workspace's first governed one
+            from ...devices.chat_turn import pool_default_model
+
+            target["model"] = await pool_default_model(db, user_id=user.id, workspace_id=project_id or "",
+                                                       device_id=choice.device.id)
     device = await db.get(UserDevice, target["device_id"])
-    if device is None or device.owner_user_id != user.id:
+    runner = await is_pool_runner(db, device) and await pool_allowed(db, project_id)
+    if device is None or (device.owner_user_id != user.id and not runner):
         raise WorkflowRunError("runtime_device_not_owner", "Only one of your own devices runs your workflow run.", 403)
     if device.status != DEVICE_STATUS_ACTIVE:
         raise WorkflowRunError("runtime_device_revoked", "This device is revoked.", 403)
@@ -122,14 +137,12 @@ def stored_target(run: WorkflowRun | None) -> dict[str, Any] | None:
 
 def with_target(context: dict[str, Any] | None, target: dict[str, Any] | None, *, actor_id: str | None
                 ) -> dict[str, Any]:
-    """``context`` with the run's target (unchanged without one)."""
     if target is None:
         return dict(context or {})
     return {**dict(context or {}), CONTEXT_KEY: {**target, "chosen_by": actor_id, "at": utc_now().isoformat()}}
 
 
 def apply_to_thread(thread: Session | None, target: dict[str, Any] | None) -> None:
-    """The run's chat thread runs where the run runs: a device target is the thread's, any other clears it."""
     if thread is None or target is None:
         return
     metadata = dict(thread.metadata_ or {})
@@ -146,11 +159,12 @@ def target_label(target: dict[str, Any] | None) -> str:
         return "the Server"
     if target["kind"] != KIND_DEVICE:
         return _KIND_LABELS[target["kind"]]
+    if target.get("pool"):
+        return "the server runners"
     return f"{target.get('device_name') or 'your device'} ({target.get('folder')}, {target.get('profile')})"
 
 
 def target_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """The run card's "Runs on" fact: where, and whether a device is online now."""
     from ...devices.hub import device_hub
 
     target = stored_target(run)
@@ -182,7 +196,6 @@ async def _first_runtime(db: AsyncSession) -> Any:
 
 
 async def governed_model_label(db: AsyncSession) -> str | None:
-    """The platform's governed model as a person reads it (its first active runtime: model and provider), or None."""
     target = await _first_runtime(db)
     if target is None or not target.model_id:
         return None
@@ -195,9 +208,6 @@ _KEYED_HOSTS = frozenset({"api.anthropic.com", "api.openai.com"})
 
 
 async def governed_key_missing(db: AsyncSession) -> bool:
-    """The governed model's provider calls a public model API with no key stored. Without this check (e.g.
-    an empty ``LLM_API_KEY``): the start dialog said "runs governed with claude-sonnet-5 (Anthropic)", governed could
-    not run at all, and the path ended silently."""
     from urllib.parse import urlsplit
 
     target = await _first_runtime(db)
@@ -213,8 +223,6 @@ GOVERNED_KEY_MISSING = ("Governed runs cannot run here yet: the platform's model
 
 
 async def auto_help(db: AsyncSession) -> str:
-    """"Automatic" in the start dialog, from what is configured (otherwise it named "Bedrock
-    (Frankfurt)" on a stack whose only model was a local stub)."""
     if await governed_key_missing(db):
         return f"Uses a free seat on your device. {GOVERNED_KEY_MISSING}"
     model = await governed_model_label(db)
@@ -224,8 +232,6 @@ async def auto_help(db: AsyncSession) -> str:
 
 
 async def target_options(db: AsyncSession, *, user: User) -> list[dict[str, Any]]:
-    """What the requester can choose: the Server, a terminal, and each of their active devices' folders × profiles
-    (an offline device is listed: the run then waits for it)."""
     from ...devices.hub import device_hub
 
     options = [{"key": KIND_AUTO, "label": "Automatic", "target": {"kind": KIND_AUTO},
@@ -234,6 +240,12 @@ async def target_options(db: AsyncSession, *, user: User) -> list[dict[str, Any]
                {"key": KIND_TERMINAL, "label": "octryx-claude terminal (prepares at its next launch)",
                 "target": {"kind": KIND_TERMINAL}}]
     keyless = await governed_key_missing(db)
+    if online_runners := await runners_online(db):
+        # Server runners only run governed: no person's seat ever reaches them.
+        pool = {"kind": KIND_DEVICE, "device_id": POOL_DEVICE_ID, "folder": "", "pool": True, "profile": "governed"}
+        options.append({"key": option_key(pool), "target": pool, "online": True, "label": "Server runners · governed",
+                        "help": f"A fresh folder on one of {online_runners} platform runner(s); nothing of your "
+                                "machine is reachable from there."})
     devices = (await db.execute(select(UserDevice).where(
         UserDevice.owner_user_id == user.id, UserDevice.status == DEVICE_STATUS_ACTIVE).order_by(UserDevice.name)
     )).scalars().all()
@@ -252,7 +264,6 @@ async def target_options(db: AsyncSession, *, user: User) -> list[dict[str, Any]
 
 
 async def last_target(db: AsyncSession, *, user: User, project_id: str | None) -> dict[str, Any] | None:
-    """The target of the requester's most recent run in this Workspace that chose one (the start dialog's default)."""
     rows = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.requested_by == user.id, WorkflowRun.project_id == project_id,
     ).order_by(WorkflowRun.created_at.desc()).limit(_RECENT_RUNS))).scalars().all()
@@ -260,8 +271,6 @@ async def last_target(db: AsyncSession, *, user: User, project_id: str | None) -
 
 
 async def target_choices(db: AsyncSession, *, user: User, project_id: str | None) -> dict[str, Any]:
-    """The start dialog's choices: the options and the default (``auto`` unless the requester explicitly chose a
-    target for their last run here). The Work item dialog and the chat's start card offer the same."""
     options = await target_options(db, user=user)
     last = await last_target(db, user=user, project_id=project_id)
     keys = {option["key"] for option in options}

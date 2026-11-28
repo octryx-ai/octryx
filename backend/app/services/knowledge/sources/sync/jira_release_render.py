@@ -1,17 +1,4 @@
-"""A deterministic Markdown rendering of one Jira release (a version and its fixVersion issues).
-
-What the ledger stores and hashes, so it holds only what describes the release, in a fixed order
-with fixed headings: the version facts, the release description, then one ``##`` section per
-configured release-note section (``jira_release_config.ReleaseSection``) or, for issues no section
-matches, per Jira issue type. Each issue is its own ``###`` span carrying its deep link, so every
-citation of a change opens the issue it came from.
-
-Issue **status** is deliberately not rendered: it changes daily, and "what is the status" is
-answered live by ``jira_release_status``, never from stored knowledge. Resolution is rendered, as
-it is part of what the release delivered. Issues with an issue security level never reach this
-rendering (``jira_releases.py`` leaves them out), because a release note is readable by the whole
-Workspace and a security level's members cannot be expanded.
-"""
+"""A deterministic Markdown rendering of one Jira release (a version and its fixVersion issues)."""
 
 from __future__ import annotations
 
@@ -58,7 +45,6 @@ def render_release(
     sections: tuple[ReleaseSection, ...],
     truncated_at: int | None,
 ) -> str:
-    """``issues`` are (key, fields) of the release's readable issues; ``truncated_at`` a listing bound hit."""
     lines = [f"# Release {version}", ""]
     facts = (
         ("Product", product),

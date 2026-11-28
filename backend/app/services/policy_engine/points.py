@@ -1,14 +1,4 @@
-"""One Cedar query per enforcement point, built from the inputs the existing decision received.
-
-Each builder returns the baseline fragment that point needs (the ``platform:`` policies of its family, the
-matrix policies of the Workspace's level, the Workspace's own generated rules), the requests and the entities.
-The fragment comes from the same translator functions as the full instance baseline, applied to the very rules
-object the legacy decision is using, so a shadow mismatch is a translator, schema or engine defect, never a
-stale snapshot.
-
-The decision log stores ``PointQuery.log_resource`` where ``resource`` could carry secrets (the gateway tool
-check, ``gateway_point``); the full ``resource`` stays in memory for the test bench.
-"""
+"""One Cedar query per enforcement point, built from the inputs the existing decision received."""
 
 from __future__ import annotations
 
@@ -84,7 +74,6 @@ EMPTY_CONTENT: Mapping[str, Any] = {"scanned": False, "complete": True, "detecte
 
 
 def alias_approved_for(alias: str) -> frozenset[str]:
-    """``ModelAlias.approved_for`` from the runtime snapshot of the alias catalogs."""
     from .runtime import current_runtime
 
     return frozenset(current_runtime().alias_approvals.get(alias, frozenset()))
@@ -129,7 +118,6 @@ def seat_query(
     *, workspace_id: str | None, level: str | None, rules: LevelRules | None, raw_policy: Mapping[str, Any],
     user_id: str | None = None, principal: Principal | None = None,
 ) -> PointQuery:
-    """``seat_decision_for``: ``rules`` ``None`` is an unresolved classification."""
     resolved = level if rules is not None and level else None
     workspace, workspace_record = workspace_entity(
         workspace_id, classification=resolved, classification_rank=classification_rank(resolved),
@@ -155,7 +143,6 @@ def _classified_workspace(workspace_id: str | None, classification: WorkspaceDat
 
 
 def model_query(admission: Any, alias: str | None, *, principal: Principal | None = None) -> PointQuery:
-    """``ProjectModelAdmission.decide``: the project grant, then the effective level's alias list."""
     normalized = str(alias or "").strip()
     verified = bool(admission.verified)
     level, (workspace, workspace_record) = _classified_workspace(admission.project_id,
@@ -178,7 +165,6 @@ def remote_query(
     *, project_id: str, classification: WorkspaceDataClassification, data_policy_class: Any, model_kind: str,
     rules: LevelRules | None, principal: Principal | None = None,
 ) -> PointQuery:
-    """``admit_remote``: the data-policy gate, then the level's reranker / remote-embeddings rule."""
     action = ACTION_USE_RERANKER if model_kind == REMOTE_KIND_RERANKER else ACTION_USE_REMOTE_EMBEDDINGS
     level, (workspace, workspace_record) = _classified_workspace(project_id, classification)
     alias_class = normalized_classification(data_policy_class)
@@ -198,10 +184,6 @@ def tool_query(
     tool_name: str, section: Mapping[str, Any] | None, params: Mapping[str, Any] | None, *,
     principal: Principal | None = None, connections: Iterable[str] = (),
 ) -> PointQuery:
-    """``classification_tool_decision``: family access and log reads for the Workspace's level.
-
-    ``connections``: the named-connection ids the call runs on, ``context.connections`` in Cedar.
-    """
     from ..classification_tool_policy import tool_connector_family, tool_reads_logs, tool_writes
 
     name = str(tool_name or "").strip()

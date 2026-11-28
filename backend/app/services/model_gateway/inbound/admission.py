@@ -1,24 +1,4 @@
-"""Admission of one inbound Anthropic Messages call (dispatch owner
-``model_gateway_inbound_anthropic``).
-
-The Workspace is the one the gateway identity resolved from the token and the
-``X-Octryx-Workspace`` header; it is passed as both the scope and the
-authorized scope, so nothing in the request body can widen it. Then:
-
-1. ``resolve_workspace_admission`` reads the Workspace's own ``model_policy`` and
-   data classification from the project row;
-2. the gateway provider is the single active ``litellm_gateway`` provider whose
-   alias catalog lists the requested alias — none is ``denied/alias_not_listed``,
-   more than one is ``needs_configuration/alias_provider_ambiguous`` (never a
-   silent pick);
-3. the same three layers as the governed driver (``litellm/entry_admission``):
-   project grant, catalog admission, data policy;
-4. the alias must declare the ``tools`` capability when the request carries
-   tools (declared configuration only; the catalog probe is not consulted here);
-5. the validated :class:`LiteLLMGatewayConfig` is built from the provider row
-   and its virtual key, resolved through the Secret Reference boundary by the
-   shared provider client-kwargs builder.
-"""
+"""Admission of one inbound model call: the identity's Workspace, one gateway provider, the three layers."""
 
 from __future__ import annotations
 
@@ -94,7 +74,6 @@ async def _virtual_key_kwargs(db: AsyncSession, provider: LLMProvider) -> dict[s
 
 
 async def workspace_project_admission(db: AsyncSession, workspace_id: str) -> ProjectModelAdmission | InboundRefusal:
-    """The Workspace's own model admission (the first step), as dispatch owner :data:`INBOUND_DISPATCH_OWNER`."""
     workspace = await resolve_workspace_admission(
         db,
         project_ids=[workspace_id],
@@ -110,7 +89,6 @@ async def workspace_project_admission(db: AsyncSession, workspace_id: str) -> Pr
 def _admitted_entry(
     project_admission: ProjectModelAdmission, alias: str, provider: LLMProvider, *, declares_tools: bool
 ) -> tuple[AliasEntry, DataPolicyDecision]:
-    """Steps 3 and 4 for one alias of ``provider``; raises :class:`LiteLLMGatewayError`."""
     entry, data_decision = admitted_alias_entry(
         project_admission, alias, gateway_config_section(provider.config_json) or {}
     )
@@ -121,15 +99,9 @@ def _admitted_entry(
     return entry, data_decision
 
 
+# The same steps as admit_inbound_call for every catalog alias, so the picker never offers a model the call then
+# refuses; nothing is dispatched and no virtual key is resolved.
 async def admitted_tool_aliases(db: AsyncSession, workspace_id: str) -> tuple[AliasEntry, ...]:
-    """Every alias a tool-carrying call of this Workspace would be admitted for (the model picker).
-
-    The same steps as :func:`admit_inbound_call` for each catalog alias, so the list never offers a model the
-    call then refuses: an alias listed by more than one provider is left out (a call is
-    ``alias_provider_ambiguous``), and so is every alias the grant, the level's list, Cedar's ``call_model``,
-    the catalog, the data policy or the ``tools`` capability refuses. Nothing is dispatched and no virtual
-    key is resolved. Order: provider name, then catalog order.
-    """
     project_admission = await workspace_project_admission(db, workspace_id)
     if isinstance(project_admission, InboundRefusal):
         return ()

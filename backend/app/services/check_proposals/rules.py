@@ -1,9 +1,4 @@
-"""The four-eyes decision on a proposed check.
-
-Pure functions over the proposal dict, the same rule as the prompt catalog: who wrote or changed a proposal does not
-approve it. The platform as author counts as nobody, so one permitted person may approve an unedited platform
-proposal; an edited one needs a second person. Every refusal says what to do instead.
-"""
+"""The four-eyes decision on a proposed check."""
 
 from __future__ import annotations
 
@@ -20,7 +15,6 @@ class CheckProposalRefusedError(Exception):
 
 
 def authors(proposal: dict[str, Any]) -> set[str]:
-    """The people who wrote or changed it (the platform author is nobody)."""
     people = {str(edit.get("by")) for edit in proposal.get("edits") or [] if edit.get("by")}
     author = proposal.get("author") or {}
     if author.get("kind") == "person" and author.get("user_id"):
@@ -30,7 +24,6 @@ def authors(proposal: dict[str, Any]) -> set[str]:
 
 def approve_refusal(proposal: dict[str, Any], *, user_id: str, may_approve: bool,
                     accept_unproven: bool) -> CheckProposalRefusedError | None:
-    """Why ``user_id`` may not approve ``proposal`` now, or ``None``."""
     if proposal.get("state") != STATE_PROPOSED:
         return CheckProposalRefusedError("not_proposed",
                                          f"This check is {proposal.get('state')}; only a proposed check is approved.")
@@ -56,7 +49,6 @@ def editable_refusal(proposal: dict[str, Any]) -> CheckProposalRefusedError | No
 
 
 def instead_refusal(message: dict[str, Any]) -> CheckProposalRefusedError | None:
-    """A check's message names the allowed alternative; a bare "not allowed" is a defect (concept, Rules)."""
     if not str((message or {}).get("instead") or "").strip():
         return CheckProposalRefusedError("instead_required",
                                          "The message must say what to do instead; add the allowed alternative.",

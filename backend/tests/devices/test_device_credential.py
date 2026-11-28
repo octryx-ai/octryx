@@ -21,7 +21,7 @@ from app.services.devices.credential import (
 from app.services.oauth_provider.tokens import mint_access_token
 from app.time_utils import utc_now
 from tests.devices.device_support import device_with_grant, oauth_client, user_named
-from tests.oauth_test_utils import obtain_oauth_tokens
+from tests.support.oauth_test_utils import obtain_oauth_tokens
 
 
 async def _refresh(client, refresh_token: str, resource: str):
@@ -33,6 +33,7 @@ async def _refresh(client, refresh_token: str, resource: str):
 
 def test_device_grant_scopes_never_exceed_the_login():
     assert device_grant_scopes(["model:invoke", "knowledge:write", "work:manage"]) == ["device:connect",
+                                                                                         "knowledge:write",
                                                                                          "model:invoke"]
     assert device_grant_scopes([]) == ["device:connect"]
 
@@ -46,7 +47,7 @@ async def test_device_grant_refreshes_without_a_web_session_and_mints_short_chan
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["expires_in"] == 15 * 60
-    assert set(body["scope"].split()) == {"device:connect", "model:invoke", "knowledge:read"}
+    assert set(body["scope"].split()) == {"device:connect", "model:invoke", "knowledge:read", "knowledge:write"}
     resolved = await resolve_device_credential(db, body["access_token"])
     assert isinstance(resolved, DeviceCredential)
     assert resolved.device.id == device.id and resolved.user_id == user.id

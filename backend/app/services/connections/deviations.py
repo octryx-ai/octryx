@@ -1,18 +1,4 @@
-"""A Workspace's view of its connections and its deviations.
-
-``GET /api/v1/workspaces/{ws}/connections`` → ``{connections: [{id, name, type, state, effective, deviation,
-can_edit}]}``: only the connections available in the Workspace, each through ``config_effective.effective``.
-
-The base a deviation narrows, per use, in this Workspace:
-
-- ``knowledge`` / ``tickets``: the linked Knowledge source / intake of this Workspace (enabled, scope, schedule;
-  tickets also write-back), else off with the connection's ``bound_scopes`` as the scope (``None``: unrestricted);
-- ``agent_tools``: the connection's level.
-
-``PUT …/deviation`` stores a deviation that is narrower in every field (``422 deviation_not_narrower`` with
-``field`` otherwise) and returns ``{effective, deviation}``; ``DELETE`` resets it (``deviation: null``). Both are
-for the Workspace's admins and platform admins (``can_edit``) and are audited.
-"""
+"""A Workspace's view of its connections and its deviations."""
 
 from __future__ import annotations
 
@@ -44,7 +30,6 @@ def _bound(row: ConnectorNamedConnection) -> dict[str, list[str]] | None:
 
 
 async def base_of(db: AsyncSession, row: ConnectorNamedConnection, workspace_id: str) -> dict[str, Any]:
-    """The connection's values in ``workspace_id`` before any deviation (see the module doc)."""
     tool, kinds, base = str(row.tool_name), uses_of(str(row.tool_name)), {}
     if USE_KNOWLEDGE in kinds:
         source = next((item for item in (await knowledge_rows(db, [row.id]))[row.id]
@@ -72,7 +57,6 @@ async def base_of(db: AsyncSession, row: ConnectorNamedConnection, workspace_id:
 
 
 def _canonical(row: ConnectorNamedConnection, fields: Any) -> Any:
-    """Scope keys in the binding's case; a scope must use the type's scope key."""
     if not isinstance(fields, dict):
         return fields
     key, descriptor = SCOPE_KEYS.get(str(row.tool_name)), descriptor_of(row.tool_name)
@@ -158,7 +142,8 @@ async def reset_deviation(db: AsyncSession, viewer: Viewer, workspace_id: str, c
 
 def _audit(db, viewer: Viewer, action: str, row: ConnectorNamedConnection, workspace_id: str, before, after) -> None:
     record_admin_config_audit(db, actor_user_id=viewer.user_id, action=action, resource_type="connection_deviation",
-                              resource_id=f"{row.id}:{workspace_id}", before=before, after=after,
+                              resource_id=f"{row.id}:{workspace_id}", project_id=workspace_id,
+                              before=before, after=after,
                               details={"connection_type": row.tool_name, "connection_name": row.name,
                                        "workspace_id": workspace_id})
 

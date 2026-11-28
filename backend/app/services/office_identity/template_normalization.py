@@ -1,24 +1,4 @@
-"""Close a template's layout gaps at upload time, without touching the original.
-
-A corporate template is built for the decks its designers had in mind. Our
-composer needs one thing those templates rarely provide: a layout that shows a
-**large diagram next to a visible title**, rather than a decorative photograph
-that swallows the slide. Typical corporate templates show the gap: their largest
-picture slot that spares the title stays well below half the slide, and
-everything larger is full bleed and hides title, logo and footer.
-
-Normalisation answers that at upload time. The original stays the source of
-truth; beside it a **derivative** is written in which the missing layouts exist
-as real ``slideLayout`` parts, cloned from a layout of the same master. The
-identity is not re-created, it is inherited: master, theme, colours, fonts,
-logo and background are never edited. Only which placeholders a layout carries,
-and where its picture placeholder sits, is decided here — and that geometry is
-the content band the template measures out itself, between the donor layout's
-title, the footer row and the gutter its own layouts start their content at.
-
-If the template already covers a shape, nothing is generated and the result
-says so. An empty derivative would be a worse lie than an honest gap.
-"""
+"""Close a template's layout gaps at upload time, without touching the original."""
 
 from __future__ import annotations
 
@@ -53,11 +33,6 @@ def _sha256(path: Path) -> str:
 def _derived_records(
     generated: list[GeneratedLayout], derived_snapshot: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """One record per generated layout, keyed by what the derivative reports.
-
-    The key is read back from the snapshot of the written file rather than
-    predicted: the manifest describes the artefact, not the intention.
-    """
     by_part = {str(layout.get("part")): layout for layout in derived_snapshot.get("layouts", [])}
     records: list[dict[str, Any]] = []
     for item in generated:
@@ -132,12 +107,7 @@ def normalize_template(
     *,
     manifest_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Write a derivative of ``source_path`` that covers the required shapes.
-
-    Returns a report; ``status`` is ``"unchanged"`` when the template already
-    covers everything (no file is written then), ``"normalized"`` when a
-    derivative and its manifest were created.
-    """
+    """Write a derivative of ``source_path`` that covers the required shapes."""
     source = Path(source_path)
     if not source.is_file():
         raise NormalizationError(f"template not found: {source}")

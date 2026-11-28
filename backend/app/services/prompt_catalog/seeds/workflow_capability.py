@@ -1,7 +1,4 @@
-"""Seeds of the workflow capability section and the workflow catalog rules.
-
-The ``## Workflow catalog`` heading stays a code constant (the loop detects the section by it).
-"""
+"""Seeds of the workflow capability section and the workflow catalog rules."""
 
 from __future__ import annotations
 

@@ -15,6 +15,7 @@ from ...models import AuditLog, User
 from ...time_utils import ensure_utc, utc_now
 from ..redaction_policy import redact_secret_payload
 from .categories import CATEGORIES, category_expression
+from .workspace_scope import owner_known
 
 WINDOW_DAYS = (1, 7, 30, 90)
 DEFAULT_WINDOW_DAYS = 30
@@ -28,7 +29,8 @@ def _statement(*, window_days: int, category: str | None, query: str | None):
     statement = (
         select(AuditLog, User.username, category_column)
         .outerjoin(User, User.id == AuditLog.user_id)
-        .where(AuditLog.created_at >= utc_now() - timedelta(days=window_days), category_column.is_not(None))
+        .where(AuditLog.created_at >= utc_now() - timedelta(days=window_days), category_column.is_not(None),
+               owner_known())
     )
     if category in CATEGORIES:
         statement = statement.where(category_column == category)
@@ -81,7 +83,6 @@ async def list_audit(
 async def export_audit_csv(
     db: AsyncSession, *, viewer_id: str, window_days: int, category: str | None, query: str | None,
 ) -> str:
-    """The filtered rows as CSV (at most ``MAX_EXPORT_ROWS``); the export itself is audited."""
     window_days = window_days if window_days in WINDOW_DAYS else DEFAULT_WINDOW_DAYS
     rows = (await db.execute(_statement(window_days=window_days, category=category, query=query)
                              .order_by(AuditLog.created_at.desc()).limit(MAX_EXPORT_ROWS))).all()

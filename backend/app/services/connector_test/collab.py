@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.atlassian_auth_modes import BITBUCKET, CONFLUENCE, JIRA, SCHEME_OIDC, AtlassianAuthConfigError
-from app.services.atlassian_auth_validation import (
+from app.services.connector_auth.atlassian_modes import (
+    BITBUCKET,
+    CONFLUENCE,
+    JIRA,
+    SCHEME_OIDC,
+    AtlassianAuthConfigError,
+)
+from app.services.connector_auth.atlassian_validation import (
     auth_failure_hint,
     confluence_cloud_url_problem,
     jira_cloud_url_problem,
@@ -18,9 +24,9 @@ from app.services.outbound_egress import (
 )
 
 from ...tools.jira_impl._jira_api_versions import api_versions, remember_api_version
-from ..atlassian_auth import request_auth, resolve_credential
+from ..connector_auth.atlassian import request_auth, resolve_credential
+from ..connector_auth.oidc_client_credentials import CODE_CONNECTOR_UNAUTHORIZED, OidcTokenError
 from ..github_url import normalize_github_api_base_url
-from ..oidc_client_credentials import CODE_CONNECTOR_UNAUTHORIZED, OidcTokenError
 from .failure import connection_success, http_status_failure
 
 # One fixed summary per probed endpoint; the account behind the token is never echoed.
@@ -31,7 +37,6 @@ JIRA_SUCCESS_SUMMARIES = {
 
 
 def _auth_problem(connector: str, config: dict[str, Any]) -> dict[str, Any] | None:
-    """A fixed refusal for an unknown or incomplete auth mode; field names only, never values."""
     try:
         validate_auth_config(connector, config)
     except AtlassianAuthConfigError as exc:
@@ -40,11 +45,6 @@ def _auth_problem(connector: str, config: dict[str, Any]) -> dict[str, Any] | No
 
 
 def _auth_failure(service: str, connector: str, status_code: int, config: dict[str, Any]) -> dict[str, Any]:
-    """The status failure, plus a fixed mode-aware hint on 401/403 (no secret, no response body).
-
-    With client credentials the token was issued and the system still refused it (after one retry with a
-    fresh token): ``connector_unauthorized``.
-    """
     result = http_status_failure(service, status_code)
     if status_code in (401, 403):
         hint = auth_failure_hint(connector, config)
@@ -57,7 +57,6 @@ def _auth_failure(service: str, connector: str, status_code: int, config: dict[s
 
 
 def _token_failure(service: str, error: OidcTokenError) -> dict[str, Any]:
-    """The identity provider gave no token: its closed code and fixed message, never its answer."""
     return {"ok": False, "summary": f"{service}: {error}", "auth_code": error.code, "auth_hint": str(error)}
 
 
@@ -97,7 +96,6 @@ async def test_jira_connection(config: dict[str, Any], *, httpx_module: Any) -> 
 
 
 async def _test_bitbucket_cloud(config: dict[str, Any], *, httpx_module: Any) -> dict[str, Any]:
-    """Bitbucket Cloud: the account email and its Atlassian API token (Bitbucket scopes) read the account."""
     email = str(config.get("bitbucket_username") or "").strip()
     token = str(config.get("bitbucket_token") or "").strip()
     if not email or not token:
@@ -116,8 +114,6 @@ async def _test_bitbucket_cloud(config: dict[str, Any], *, httpx_module: Any) ->
 
 
 async def test_bitbucket_connection(config: dict[str, Any], *, httpx_module: Any) -> dict[str, Any]:
-    """Server/Data Center: the connection's sign-in (``basic``, ``bearer_pat`` or the OpenID Connect client
-    credentials grant, ``atlassian_auth``) reads the application properties. Cloud: its own check."""
     problem = _auth_problem(BITBUCKET, config)
     if problem:
         return problem

@@ -1,6 +1,4 @@
-"""The page side of a hands-on step (``hands_on_browser``): a Flutter web app's accessibility tree, finding a
-text on the page, scrolling to it and filling a labelled field.
-"""
+"""The page side of a hands-on step: a Flutter web app's accessibility tree, finding, scrolling and filling."""
 
 from __future__ import annotations
 
@@ -36,8 +34,6 @@ FLUTTER_VIEW = "flt-glass-pane, flutter-view, flt-semantics-placeholder"
 
 
 def _semantics(page: Any) -> None:
-    """A Flutter web app draws on a canvas: once it has started, switch on its accessibility tree (its texts and
-    labels become DOM elements). A page without Flutter has nothing to switch on."""
     try:
         page.wait_for_load_state("load", timeout=TIMEOUT_MS)
     except Exception:  # noqa: BLE001 - a slow load is judged by the steps that follow
@@ -66,16 +62,12 @@ SCROLL_STEPS = 8
 
 
 def _in_view(page: Any, point: dict[str, float]) -> bool:
-    """Inside the middle band of the view: an app bar on top or a button bar at the bottom covers the edges (
-    "Weight" at y 770 of 800 lay under the bottom bar with Cancel / Save, the click hit the bar)."""
+    # App bars at the top and button bars at the bottom cover the edges of the view.
     size = page.viewport_size or {"width": 1280, "height": 800}
     return 0 <= point["x"] <= size["width"] and size["height"] * 0.15 <= point["y"] <= size["height"] * 0.75
 
 
 def _reach(page: Any, text: str) -> dict[str, float] | None:
-    """The point of ``text`` inside the viewport, scrolled there when needed (a click or a field), as a person
-    scrolls to a target below the fold. A target outside the view is scrolled to; one not found is searched by
-    scrolling down, then up."""
     point = _point(page, text)
     size = page.viewport_size or {"width": 1280, "height": 800}
     center = {"x": size["width"] / 2, "y": size["height"] / 2}
@@ -103,10 +95,7 @@ def _in_fields(page: Any, text: str) -> bool:
 
 
 def field_values(page: Any) -> list[str]:
-    """The values of the text fields in view. A Flutter field draws its value on the canvas and keeps it in the DOM
-    only while it has focus, so each field is focused to read it (otherwise a field showing 15.0 never satisfies
-    expect_text '15'). A tap that opens no editing input (a date
-    field's picker) is closed with Escape."""
+    # A Flutter field keeps its value in the DOM only while focused, so each field is focused to read it.
     values: list[str] = []
     for point in page.evaluate(_FIELDS)[:MAX_FIELDS]:
         page.mouse.click(point["x"], point["y"])
@@ -165,9 +154,7 @@ SETTLE_MS = 300
 
 
 def _fill(page: Any, label: str, value: str) -> None:
-    """Fill a field. A Flutter field is a semantics node: click it, wait until Flutter has put its editing <input>
-    in focus, type, and check the value arrived. Keys typed right after the click can be lost (before Flutter
-    listens); a locator fill never reaches a semantics node and only waits."""
+    # Keys typed before Flutter listens are lost; a locator fill never reaches a semantics node.
     field = page.get_by_label(label, exact=False).first
     try:
         editable = field.count() > 0 and field.evaluate(

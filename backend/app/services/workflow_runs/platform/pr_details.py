@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 def _no_pr_target(run: WorkflowRun, outcome: ToolOutcome) -> ToolOutcome:
-    """The pull request of a run that started on an empty repository was refused: what happened and what to do."""
     reason = (f"the repository had no commits when the run started, so the run's branch '{run.branch}' is its first "
               "branch and there is no target branch to open a pull request into. Create the repository's default "
               "branch (for example from this branch) in the source control system, then retry this step"
@@ -37,11 +36,6 @@ def _no_pr_target(run: WorkflowRun, outcome: ToolOutcome) -> ToolOutcome:
 
 
 async def _pr_target(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> tuple[str, str]:
-    """``(target branch, stacking note)``: the step's ``target_branch``, else a chained story's base branch.
-
-    Without it, every story PR targeted main, so PR(Sn) showed the spec and S1…Sn-1 until the
-    earlier pull requests were merged. A story of an epic targets the branch it was built on (stacked pull requests);
-    its description names the pull request it stacks on and that they merge in order."""
     explicit = str(params.get("target_branch") or "").strip()
     base = str(dict(run.context or {}).get("base_branch") or "").strip()
     if explicit or not base:
@@ -69,11 +63,6 @@ def _finding_lines(items: list[dict[str, Any]]) -> list[str]:
 
 
 def review_notes_text(run: WorkflowRun) -> str:
-    """The independent review's medium and low findings the run shipped with, for the pull request's description.
-
-    "revise only on high": epic-delivery sends only high findings back into the building session;
-    the rest went to ``context.review_notes`` where only the run page showed them. On the pull request the person who
-    merges reads them where the change is."""
     from ..auto_accept import REVIEW_NOTES_KEY
 
     notes = [dict(item) for item in dict(run.context or {}).get(REVIEW_NOTES_KEY) or [] if isinstance(item, dict)]
@@ -87,8 +76,6 @@ OPEN_FINDINGS_TITLE = "Open review findings — decide before merging"
 
 
 def open_findings_text(run: WorkflowRun) -> str:
-    """The findings a run continued with (``on_open_high: continue_with_findings``), high first, as
-    the top section of the pull request: the high one was not fixed by the automatic revisions."""
     from ..auto_accept import OPEN_FINDINGS_KEY
 
     items = [dict(item) for item in dict(run.context or {}).get(OPEN_FINDINGS_KEY) or [] if isinstance(item, dict)]
@@ -103,21 +90,29 @@ def open_findings_text(run: WorkflowRun) -> str:
 MAX_PR_DESCRIPTION = 60_000
 
 
-def _bounded_description(text: str, run: WorkflowRun) -> str:
-    if len(text) <= MAX_PR_DESCRIPTION:
-        return text
+# The links block is the tail: never cut, so a shortened description still leads back to the run, session and plan.
+def _bounded_description(text: str, run: WorkflowRun, links: str = "") -> str:
+    tail = f"\n\n{links}" if links else ""
+    if len(text) + len(tail) <= MAX_PR_DESCRIPTION:
+        return text + tail
     note = f"\n\n(Shortened: the whole list is on the platform's page of workflow run {run.id}.)"
-    return text[:MAX_PR_DESCRIPTION - len(note)].rstrip() + note
+    return text[:MAX_PR_DESCRIPTION - len(note) - len(tail)].rstrip() + note + tail
+
+
+async def run_links(db: AsyncSession, run: WorkflowRun) -> str:
+    from ..pr_links import links_block
+    from ..records import main_session_id
+
+    return await links_block(db, run=run, session_id=await main_session_id(db, run))
 
 
 async def _pr_description(db: AsyncSession, run: WorkflowRun, chosen: PrReviewers, description: str
                           ) -> tuple[PrReviewers, str]:
-    """The reviewers and the description's note about the requester (the author, a stand-in, or unresolved)."""
     if chosen.is_author:
         description = author_note(description, await requester_mention(db, run))
     elif chosen.unresolved:
         identity, name = await stand_in(db, run, chosen.platform)
-        if identity:  # the Workspace's reviewer by the rule (``pr_reviewers.json``) instead of nobody
+        if identity:
             chosen = replace(chosen, owners=tuple(dict.fromkeys([identity, *chosen.owners])))
             description = stand_in_note(description, await requester_mention(db, run), chosen.platform, name)
         else:
@@ -127,10 +122,9 @@ async def _pr_description(db: AsyncSession, run: WorkflowRun, chosen: PrReviewer
 
 async def _record_opened(db: AsyncSession, run: WorkflowRun, ref: RepoRef, chosen: PrReviewers, outcome: ToolOutcome,
                          item: Any, title: str) -> None:
-    """The opened pull request on the run (with a skipped reviewer and its identity) and on the Work item, and its
-    work state."""
     from ...secure_work.pull_requests.pull_requests import sync_pull_request
     from ...secure_work.pull_requests.record_identity import answered_pull_request, pull_request_identity
+    from ..records import main_session_id
 
     skipped = str(outcome.result.get("reviewer_skipped") or "") or (REQUESTER_IS_AUTHOR if chosen.is_author else "")
     why = chosen.unresolved
@@ -152,6 +146,7 @@ async def _record_opened(db: AsyncSession, run: WorkflowRun, ref: RepoRef, chose
         await sync_pull_request(db, current_user=user, workspace_id=run.project_id, payload={
             "work_item_id": item.id, "identity": identity,
             "pr_url": url, "title": title, "source_branch": run.branch, "status": "open", "reviewers": reviewers,
+            "run_id": run.id, "session_id": await main_session_id(db, run),
         })
         try:
             await pr_work_state.pull_request_opened(db, run, item, user)

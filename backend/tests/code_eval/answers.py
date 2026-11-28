@@ -1,16 +1,4 @@
-"""Code-question verdicts: an answer has its facts, and every citation is the repository at its commit.
-
-``Verdict`` holds only counts, file paths, URLs and missing fact tokens, never source text, so it can
-be printed as the check's fact line.
-
-- ``judge_search``: REST hybrid ``knowledge_search`` hits. The facts must appear across the hits'
-  text; every hit's ``source_url`` must be a pinned blob URL of the repository, and one of them must
-  be a file the answer is grounded in.
-- ``judge_chat``: a chat answer. The facts must appear in the answer; it must carry at least one
-  link, every link must be a pinned blob URL of the repository, one must be a grounding file, and the
-  turn must have used a Knowledge tool.
-- ``judge_impact``: the step 4 answer and its ``knowledge_code_impact`` results.
-"""
+"""Code-question verdicts: an answer has its facts, and every citation is the repository at its commit."""
 
 from __future__ import annotations
 
@@ -55,8 +43,6 @@ def judge_search(question: Question, payload: object, repo: PinnedRepo, tree: fr
     states = (payload or {}).get("mode_states") or {}
     citations = [classify(str(hit.get("source_url") or "no-link"), repo, tree) for hit in hits]
     counts = citation_counts(citations)
-    # Indexed code identifiers may be in the file/symbol locator of an import span.
-    # Ground truth independently confirms each declared entity at the pinned commit.
     retrieved = "\n".join(
         " ".join(str(hit.get(key) or "") for key in ("text", "source_title", "section_path")) for hit in hits
     )
@@ -84,7 +70,6 @@ def judge_chat(
 
 
 def judge_impact(answer: str, results: list[dict], repo: PinnedRepo, tree: frozenset[str]) -> list[tuple[str, Verdict]]:
-    """Three verdicts: the tool ran on the pinned commit, its locations are real files, the answer links them."""
     verdicts: list[tuple[str, Verdict]] = []
     ok_results = [result for result in results if result.get("state") == "ok"]
     best = max(ok_results, key=lambda result: int(result.get("impacted_fact_count") or 0), default=None)

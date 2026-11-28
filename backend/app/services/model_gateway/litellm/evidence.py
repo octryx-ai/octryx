@@ -1,10 +1,4 @@
-"""Closed call evidence for the governed LiteLLM gateway client.
-
-Evidence is *built* from an allowlist of known-safe fields rather than filtered
-out of a larger payload: a filter fails open when the upstream adds a field,
-an allowlist fails closed. Nothing here accepts a response body, a header
-value, a prompt fragment, or a transport string.
-"""
+"""Closed call evidence for the governed LiteLLM gateway client, built from an allowlist."""
 
 from __future__ import annotations
 
@@ -87,8 +81,6 @@ GATEWAY_EVIDENCE_LABEL = "litellm_gateway"
 
 
 def close_evidence(payload: dict[str, Any]) -> dict[str, Any]:
-    """Drop anything outside the closed evidence allowlist."""
-
     return {key: value for key, value in payload.items() if key in _CALL_EVIDENCE_KEYS}
 
 
@@ -131,13 +123,7 @@ def build_denial_evidence(
     project_scope_size: int | None = None,
     data_policy: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Evidence for a denial raised before a config or client could be built.
-
-    ``data_policy`` is the closed decision payload from
-    ``services/model_gateway/data_policy`` (workspace classification, its source,
-    and the alias class). It is merged through the same allowlist as everything
-    else, so a producer cannot widen the payload by passing extra keys.
-    """
+    """Evidence for a denial before a config or client exists; ``data_policy`` passes the same allowlist."""
 
     payload: dict[str, Any] = {"gateway": GATEWAY_EVIDENCE_LABEL, "gateway_state": gateway_state}
     if denial_reason:

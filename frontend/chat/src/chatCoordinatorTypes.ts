@@ -2,12 +2,11 @@
 
 export type CoordinatorMode =
   | "direct"
-  | "sub_agent_group"
   | "worker_delegation"
   | "deterministic_workflow"
   | "unknown";
 
-export type CoordinatorControlAction = "continue" | "stop";
+export type CoordinatorControlAction = "stop";
 
 export type CoordinatorStateContract = {
   root_session_id: string;
@@ -18,13 +17,10 @@ export type CoordinatorStateContract = {
   run_completion_reason?: string | null;
   child_session_ids: string[];
   delegated_session_ids: string[];
-  sub_agent_group_id?: string | null;
   delegation_ids: string[];
   progress_counts: Record<string, number>;
   progress_ratio?: number | null;
-  document_flow?: Record<string, string | number | boolean | null> | null;
   synthesis_ready: boolean;
-  can_continue: boolean;
   can_stop: boolean;
 };
 

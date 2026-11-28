@@ -70,15 +70,6 @@ function limitsPayload(args: RuntimeSettingsActionArgs) {
     agent_request_cost_limit_usd: args.runtimeRequestCostLimitDraft
       ? Number(args.runtimeRequestCostLimitDraft)
       : 0,
-    llm_cache_ttl_seconds: optionalNumber(args.runtimeCacheTtlDraft),
-    llm_cache_tools_ttl_seconds: optionalNumber(args.runtimeToolsCacheTtlDraft),
-    llm_tool_planner_trace_call_enabled: args.runtimeToolPlannerTraceCallEnabled,
-    llm_tool_planner_max_tokens: args.runtimeToolPlannerMaxTokensDraft
-      ? Number(args.runtimeToolPlannerMaxTokensDraft)
-      : 900,
-    llm_tool_planner_timeout_seconds: args.runtimeToolPlannerTimeoutDraft
-      ? Number(args.runtimeToolPlannerTimeoutDraft)
-      : 30,
   };
 }
 
@@ -151,7 +142,7 @@ function applyExecutionDrafts(
   args.setRuntimeOfficeTemplatesDraft(updated.office_template_library || []);
 }
 
-// Security analyzer, review models and completion token drafts.
+// Security analyzer and review model drafts.
 function applySecurityDrafts(
   updated: AdminRuntimeSettings,
   args: RuntimeSettingsActionArgs,
@@ -168,15 +159,9 @@ function applySecurityDrafts(
   args.setRuntimeSecurityAnalyzerChainDraft(
     (updated.security_analyzer_chain || []).join(", "),
   );
-  args.setRuntimeDefaultCompletionDraft(
-    String(updated.default_completion_tokens ?? 4096),
-  );
-  args.setRuntimeExtendedCompletionDraft(
-    String(updated.extended_completion_tokens ?? 8192),
-  );
 }
 
-// Trace, timeout, cost cap, cache and tool planner drafts.
+// Trace, timeout and cost cap drafts.
 function applyLimitsDrafts(
   updated: AdminRuntimeSettings,
   args: RuntimeSettingsActionArgs,
@@ -196,19 +181,6 @@ function applyLimitsDrafts(
   );
   args.setRuntimeRequestCostLimitDraft(
     String(updated.agent_request_cost_limit_usd ?? 1.5),
-  );
-  args.setRuntimeCacheTtlDraft(String(updated.llm_cache_ttl_seconds ?? 300));
-  args.setRuntimeToolsCacheTtlDraft(
-    String(updated.llm_cache_tools_ttl_seconds ?? 120),
-  );
-  args.setRuntimeToolPlannerTraceCallEnabled(
-    Boolean(updated.llm_tool_planner_trace_call_enabled),
-  );
-  args.setRuntimeToolPlannerMaxTokensDraft(
-    String(updated.llm_tool_planner_max_tokens ?? 900),
-  );
-  args.setRuntimeToolPlannerTimeoutDraft(
-    String(updated.llm_tool_planner_timeout_seconds ?? 30),
   );
 }
 

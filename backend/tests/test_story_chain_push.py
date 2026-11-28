@@ -12,10 +12,8 @@ from app.services.workflow_runs.platform.dispatch import CLASS_PERMISSION, CLASS
 from tests.phased_workflow_fixtures import admin_user
 from tests.workflow_run_succession_support import _git, _origin
 
-# --- the push ------------------------------------------------------------------------------------------------------
 
 async def _url_push_tool(monkeypatch, origin: Path):
-    """The Bitbucket push tool as on Cloud: it pushes to an explicit URL (here the local bare origin)."""
     import app.tools.bitbucket_impl._bitbucket_sync_repo as sync_repo
 
     async def allowed(*_args, **_kwargs):
@@ -33,8 +31,6 @@ async def _url_push_tool(monkeypatch, origin: Path):
 
 @pytest.mark.asyncio
 async def test_a_url_push_moves_the_tracking_ref_and_a_retry_reports_the_pushed_head(monkeypatch, tmp_path):
-    """The URL push does not move ``refs/remotes/origin/<branch>``, so the retried push must find its commit on
-    Bitbucket another way instead of ending blocked with "nothing to push"."""
     from app.tools.context import ToolContext
 
     _seed, work = _origin(tmp_path)
@@ -58,8 +54,6 @@ async def test_a_url_push_moves_the_tracking_ref_and_a_retry_reports_the_pushed_
 
 @pytest.mark.asyncio
 async def test_a_retried_push_with_nothing_new_counts_as_pushed_and_records_the_commit(db, monkeypatch, tmp_path):
-    """The push step's half of the retried push: ``no_changes`` with the head the tool just pushed is the run's push,
-    and the commit is recorded so the next run of the Work item adopts the branch as its own."""
     _seed, work = _origin(tmp_path)
     base = _git(work, "rev-parse", "HEAD")
     _git(work, "checkout", "-q", "-B", "feature/CHEF-2-x")
@@ -96,7 +90,6 @@ async def test_a_retried_push_with_nothing_new_counts_as_pushed_and_records_the_
 
 
 def test_a_failed_push_says_why_without_git_output():
-    """A failed push says more than "git push failed"."""
     from app.tools.bitbucket_impl._bitbucket_sync_repo import _push_failure
 
     secret = "https://x-token-auth:SECRET@bitbucket.org/acme/kitchen-helper.git"

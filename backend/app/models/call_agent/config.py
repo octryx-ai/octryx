@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, Str
 from sqlalchemy.orm import relationship
 
 from app.db import Base
+from app.db.workspace_bound import WorkspaceBound
 from app.time_utils import utc_now
 
 
@@ -23,7 +24,7 @@ _DEFAULT_SYSTEM_PROMPT = (
 )
 
 
-class CallAgentConfig(Base):
+class CallAgentConfig(WorkspaceBound, Base):
     """Configuration for CallAgent per project and optional channel."""
 
     __tablename__ = "call_agent_configs"
@@ -33,7 +34,6 @@ class CallAgentConfig(Base):
     name = Column(String(200), nullable=False)
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
     channel_id = Column(String(36), nullable=True, index=True)
-    calling_webhook_url = Column(String(500), nullable=True)
     llm_model = Column(String(100), default="claude-sonnet-4-4")
     max_tool_calls = Column(Integer, default=5)
     system_prompt = Column(Text, nullable=False, default=_DEFAULT_SYSTEM_PROMPT)
@@ -57,7 +57,6 @@ class CallAgentConfig(Base):
             "name": self.name,
             "project_id": self.project_id,
             "channel_id": self.channel_id,
-            "calling_webhook_url": self.calling_webhook_url,
             "llm_model": self.llm_model,
             "max_tool_calls": self.max_tool_calls,
             "system_prompt": self.system_prompt,

@@ -1,32 +1,4 @@
-"""Bounded per-turn snapshot of the execution profile and execution-gate decision.
-
-The session's ``execution_profile`` metadata is overwritten on every turn, so it
-cannot explain an older turn. ``run_agent`` captures this snapshot right after the
-execution gate decided (allowed and blocked paths alike) and every ``TurnTrace``
-persisted for that turn stores it under ``TURN_EXECUTION_SNAPSHOT_KEY`` inside
-``context_snapshot_json`` (no schema migration; the key is written once per turn and
-carried over when the loop refreshes the trace context).
-
-Security contract: the snapshot is an allow-list projection. It never stores the
-profile's free-text ``reason``, routing reasons, workflow contracts, policy
-dictionaries, runtime/LLM-router payloads, or prompts. Every retained value is a
-closed enum, a boolean, a bounded integer, or a charset-validated bounded token;
-anything else is dropped to ``None`` (or ``"unknown"`` for enums). Readers re-validate
-with the same rules so a malformed or foreign value can never pass through.
-
-Turn identity: ``turn.user_message_id`` is the session's
-``current_turn_user_message_id`` at preparation time, so every trace of one user turn
-(tool-only assistant messages, suppressed traces, the final answer) shares it.
-``turn.sequence`` is assigned per bound turn when a trace is stamped.
-
-Runtime outcome: ``runtime_outcome`` is absent until the loop explicitly marks the
-final trace: ``RUNTIME_OUTCOME_FINISHED`` for an accepted normal completion, or
-``RUNTIME_OUTCOME_STOPPED`` with a closed ``runtime_stop_reason`` when a runtime guard
-ended the turn with an explicit stop answer, including the answer-evidence guard's
-final refusal and a final reply its agent's checked reply contract refused.
-Readers drop anything else (and a stop without a recognised reason), so
-a missing or foreign marker never reads as finished or stopped.
-"""
+"""Bounded per-turn snapshot of the execution profile and the execution-gate decision."""
 
 from __future__ import annotations
 
@@ -133,7 +105,6 @@ _SAFE_DISPLAY = re.compile(r"^[\w][\w .,:()/+&'\-]{0,119}$")
 
 
 def safe_token(value: Any) -> str | None:
-    """Return ``value`` if it is a bounded identifier token, otherwise ``None``."""
     if not isinstance(value, str):
         return None
     candidate = value.strip()
@@ -141,7 +112,6 @@ def safe_token(value: Any) -> str | None:
 
 
 def safe_display_name(value: Any) -> str | None:
-    """Return ``value`` if it is a bounded plain display name, otherwise ``None``."""
     if not isinstance(value, str):
         return None
     candidate = value.strip()
@@ -149,7 +119,6 @@ def safe_display_name(value: Any) -> str | None:
 
 
 def closed_value(value: Any, allowed: frozenset[str]) -> str:
-    """Map ``value`` onto a closed enum; anything unrecognized becomes ``unknown``."""
     candidate = value.strip().lower() if isinstance(value, str) else ""
     return candidate if candidate in allowed else UNKNOWN_VALUE
 
@@ -192,7 +161,7 @@ def _capability_section(raw: Any) -> dict[str, Any]:
 
 
 def workflow_proposal_section(raw: Any) -> dict[str, Any] | None:
-    """Closed projection of a proposal record; the model-written ``reason`` never enters it."""
+    # The model-written ``reason`` never enters the projection.
     if not isinstance(raw, dict):
         return None
     confidence = raw.get("confidence")
@@ -219,7 +188,6 @@ def _turn_workflow_proposal(session_metadata: dict[str, Any]) -> dict[str, Any] 
 
 
 def tool_surface_section(source: Any, surface_set: Any) -> dict[str, Any]:
-    """Closed projection of the turn's tool surface: its source and governed set key."""
     return {"source": closed_value(source, _TOOL_SURFACE_SOURCE_VALUES), "set": safe_token(surface_set)}
 
 
@@ -230,7 +198,6 @@ def build_turn_execution_snapshot(
     session_metadata: dict[str, Any] | None,
     agent_definition: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Project the run-time profile and gate decision into the bounded snapshot."""
     profile = execution_profile if isinstance(execution_profile, dict) else {}
     metadata = session_metadata if isinstance(session_metadata, dict) else {}
     agent = agent_definition if isinstance(agent_definition, dict) else {}
@@ -268,12 +235,6 @@ def build_turn_execution_snapshot(
 
 
 def read_turn_execution_snapshot(context_snapshot: Any) -> tuple[str, dict[str, Any] | None]:
-    """Read and re-validate the snapshot stored on a trace's context snapshot.
-
-    Returns ``("missing", None)`` for a trace without a snapshot, ``("malformed", None)`` for
-    anything that does not match the v1 shape, and ``("ok", snapshot)`` with every
-    value re-sanitized otherwise.
-    """
     context = context_snapshot if isinstance(context_snapshot, dict) else {}
     raw = context.get(TURN_EXECUTION_SNAPSHOT_KEY)
     if raw is None:
@@ -330,13 +291,6 @@ def _runtime_outcome_section(raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def with_runtime_stop(context_snapshot: dict[str, Any], stop_reason: str) -> dict[str, Any]:
-    """A copy of ``context_snapshot`` whose turn snapshot records a stop with a closed reason.
-
-    For a producer handing its final stop answer to persistence. A context without a turn
-    snapshot, or a reason outside ``RUNTIME_STOP_REASONS``, is copied unchanged. Persistence
-    still re-stamps the bound snapshot (``stamp_turn_execution_snapshot``) and marks the stored
-    trace itself, so a caller-supplied snapshot is never the trusted record.
-    """
     copied = dict(context_snapshot or {})
     snapshot = copied.get(TURN_EXECUTION_SNAPSHOT_KEY)
     if stop_reason in RUNTIME_STOP_REASONS and isinstance(snapshot, dict):
@@ -349,15 +303,6 @@ def with_runtime_stop(context_snapshot: dict[str, Any], stop_reason: str) -> dic
 
 
 def read_agent_reply_contract(context_snapshot: Any) -> dict[str, Any] | None:
-    """The closed reply-contract check result a trace records, or ``None`` (text, unchecked, stale or foreign).
-
-    Only ``{"kind": "json_object", "status": "satisfied", "reason": None}`` or a ``violated`` status
-    with one of the closed validator codes passes, and only where it agrees with the trace's own
-    runtime outcome: ``satisfied`` on a ``finished`` trace, ``violated`` on a ``stopped`` trace whose
-    stop reason is that code. A record left from an earlier candidate on a trace that ended another
-    way therefore reads as no record. Corrupt values (any type) read as no record and
-    never raise.
-    """
     record = context_snapshot.get(AGENT_REPLY_CONTRACT_KEY) if isinstance(context_snapshot, dict) else None
     if not isinstance(record, dict) or set(record) != {"kind", "status", "reason"}:
         return None

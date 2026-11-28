@@ -1,6 +1,6 @@
 # Octryx AI
 
-**The layer above your coding agents.** Your developers keep Claude Code (Codex support is experimental).
+**The layer above your coding agents.** Your developers keep Claude Code or Codex.
 Octryx AI gives the whole team one process, one set of rules and one record, from an idea in chat to a reviewed pull
 request. Open source, self-hosted.
 
@@ -8,7 +8,7 @@ request. Open source, self-hosted.
 - Documentation: <https://octryx.ai/docs/>
 - Benchmark: <https://github.com/octryx-ai/octryx-bench>
 
-## Status: v0.0.1-alpha
+## Status: v0.0.2-alpha
 
 Early and changing: expect rough edges and breaking changes. Do not run this alpha with production data or expose it
 to the internet. See the [known limitations](#known-limitations).
@@ -18,12 +18,16 @@ to the internet. See the [known limitations](#known-limitations).
 ## Try it: the local demo
 
 A Workspace to click through on your own machine: a sample app on a local fake GitHub, its docs as Knowledge, a PR
-review bot and two work items. You need Docker with `docker compose` 2.23+ (8 GB memory, 20 GB disk) and access to
-one model (Anthropic, an OpenAI-compatible endpoint or AWS Bedrock).
+review bot and two work items. You need Docker with `docker compose` 2.23+ (at least 4 GB memory and 25 GB free disk)
+and access to one model (Anthropic, an OpenAI-compatible endpoint or AWS Bedrock). The first start takes about 5
+minutes plus the image download.
+
+Before the first `up`, set one model block in `.env`: `LLM_PROVIDER`, `AGENT_DEFAULT_MODEL` and its key or AWS
+credentials. Without them compose refuses to start.
 
 ```bash
 git clone https://github.com/octryx-ai/octryx.git && cd octryx
-cp .env.example .env        # fill in ONE model block
+cp .env.example .env        # set LLM_PROVIDER, AGENT_DEFAULT_MODEL and the key of ONE model block
 docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 docker compose -f docker-compose.yml -f docker-compose.demo.yml logs api | grep "setup code"
 ```
@@ -45,10 +49,11 @@ The full walkthrough (the three ways to try the demo, pairing Claude Code, ports
 
 ## Known limitations
 
-The alpha's known limitations, each planned for 0.0.2, are listed in the documentation:
+The alpha's known limitations are listed in the documentation:
 [known limitations](https://octryx.ai/docs/start/known-limitations).
 
-**Security note:** in v0.0.1-alpha the experimental Codex device mode applies a repository's own Codex configuration. Use it only with repositories you trust, or use Claude Code. See [GHSA-h4xh-8wqf-rxj4](https://github.com/octryx-ai/octryx/security/advisories/GHSA-h4xh-8wqf-rxj4); fixed in 0.0.2.
+**Security note:** 0.0.2 fixes [GHSA-h4xh-8wqf-rxj4](https://github.com/octryx-ai/octryx/security/advisories/GHSA-h4xh-8wqf-rxj4):
+in v0.0.1-alpha the Codex device mode applied a repository's own Codex configuration. Upgrade from v0.0.1-alpha.
 
 ## Contributing
 

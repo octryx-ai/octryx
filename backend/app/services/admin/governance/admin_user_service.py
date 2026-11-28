@@ -196,9 +196,6 @@ async def deactivate_user(db: AsyncSession, *, admin_id: str, user_id: str) -> d
 
 
 async def _notify_account_recovery(db: AsyncSession, user_id: str, title: str) -> None:
-    """An admin who resets a password or changes an email can sign in as the person, private
-    Workspace included. That cannot be prevented (account recovery), so the person is told, and the audit names them.
-    """
     from ...team_notification.service import create_notification  # noqa: PLC0415
 
     try:

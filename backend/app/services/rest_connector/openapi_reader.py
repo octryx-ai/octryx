@@ -1,14 +1,4 @@
-"""A small OpenAPI reader: OpenAPI 3.0/3.1 and Swagger 2 (basic), JSON or YAML, local ``$ref`` only.
-
-Own code instead of an OpenAPI library: fastmcp's OpenAPI integration brings its own HTTP
-client, which cannot use the pinned egress transport, and a new dependency needs a new base image. What the
-connector needs from a spec is small: servers, one auth scheme, and per operation its method, path, parameters
-and JSON body schema.
-
-``$ref`` resolution is local (``#/...``) with a cycle guard: a schema that refers back to itself (a tree node with
-children of its own type, common in real specs) is cut at the second visit into a plain ``object`` that names the
-reference, so the reader always terminates. An external reference (another file or URL) is never fetched.
-"""
+"""A small OpenAPI reader: OpenAPI 3.0/3.1 and Swagger 2 (basic), JSON or YAML, local ``$ref`` only."""
 
 from __future__ import annotations
 
@@ -30,7 +20,7 @@ MAX_REF_DEPTH = 64
 
 
 class OpenApiError(ValueError):
-    """The text is not a readable OpenAPI or Swagger document; the message names the problem only."""
+    pass
 
 
 def parse_document(text: str) -> dict[str, Any]:
@@ -62,7 +52,6 @@ def _pointer(root: dict[str, Any], ref: str) -> Any:
 
 
 def resolve_refs(node: Any, root: dict[str, Any], stack: tuple[str, ...] = ()) -> Any:
-    """``node`` with every local ``$ref`` replaced by a copy of its target; a cycle ends in a named object."""
     if isinstance(node, list):
         return [resolve_refs(item, root, stack) for item in node]
     if not isinstance(node, dict):
@@ -84,10 +73,6 @@ def resolve_refs(node: Any, root: dict[str, Any], stack: tuple[str, ...] = ()) -
 
 
 def _servers(document: dict[str, Any], warnings: list[str]) -> list[str]:
-    """The usable server URLs, variables replaced by their defaults; a URL still without a host is dropped.
-
-    An SAP Hub server ``https://{host}:{port}/sap/opu/odata/sap/API_BUSINESS_PARTNER`` with ``default: ''``
-    becomes ``https://:/sap/...``, which must never be the first (the proposed) base URL."""
     usable = []
     for url in _server_urls(document):
         problem = http_url_problem(url)
@@ -193,10 +178,6 @@ def _parameter(raw: dict[str, Any], swagger: bool) -> dict[str, Any] | None:
 
 
 def _exploded(raw: dict[str, Any], swagger: bool) -> bool:
-    """Whether an array query value repeats its name (``a=1&a=2``) or is one comma list (``a=1,2``).
-
-    In SAP Hub specs ``$select`` is an array with ``explode: false``, and OData reads
-    only ``$select=A,B``. OpenAPI 3 defaults to repeating; Swagger 2 to a comma list (``collectionFormat: csv``)."""
     if swagger:
         return str(raw.get("collectionFormat") or "csv") == "multi"
     return raw.get("explode") is not False
@@ -262,8 +243,6 @@ def _operations(document: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _mark_odata(operations: list[dict[str, Any]], version: str | None, warnings: list[str]) -> None:
-    """OData operations inherit the definition's default preset (set once, overridable per
-    operation); ``$batch`` is marked unsupported (``odata``)."""
     for operation in operations:
         operation.update({"records_path": None, "pagination": {} if version else {"type": "none"}})
         operation["unsupported"] = odata.unsupported_reason(operation["path"], operation["request_body"])
@@ -277,7 +256,6 @@ def _mark_odata(operations: list[dict[str, Any]], version: str | None, warnings:
 
 
 def read_openapi(text: str) -> dict[str, Any]:
-    """The connector's view of an OpenAPI/Swagger document; raises :class:`OpenApiError`."""
     document = parse_document(text)
     warnings: list[str] = []
     info = document.get("info") if isinstance(document.get("info"), dict) else {}

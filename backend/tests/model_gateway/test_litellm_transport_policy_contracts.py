@@ -102,9 +102,6 @@ def test_a_tls_bundle_against_a_plaintext_endpoint_is_a_conflict() -> None:
     assert resolution.denial_reason == TLS_DENIAL_MODE_CONFLICTS_WITH_ENDPOINT
 
 
-# --- Governed proxy ----------------------------------------------------------
-
-
 def test_an_absent_proxy_section_is_the_explicit_direct_path() -> None:
     section = gateway_section()
     section.pop("proxy")
@@ -170,8 +167,6 @@ def test_malformed_proxy_contracts_are_refused_with_fixed_codes() -> None:
 
 
 def test_a_plaintext_proxy_hop_needs_a_tls_gateway_leg() -> None:
-    """Without TLS to the gateway the virtual key would leave the tunnel in clear."""
-
     section = gateway_section(
         host_allowlist=["127.0.0.1"],
         tls={"mode": "plaintext_loopback"},

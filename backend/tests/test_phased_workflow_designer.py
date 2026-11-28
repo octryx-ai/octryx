@@ -24,7 +24,6 @@ NODES = frozenset({"start", "work", "verify", "done"})
 
 
 def _incomplete() -> dict:
-    """A draft someone is still drawing: the gate has no check, the phase has no exit."""
     definition = phased_definition()
     definition["nodes"][2]["config"] = {"checks": []}
     definition["edges"] = [edge for edge in definition["edges"] if edge["id"] != "e2"]
@@ -64,14 +63,12 @@ async def test_an_invalid_draft_is_saved_with_its_report_but_never_published_or_
     assert body["validation_report"]["valid"] is False
     stored = await db.get(FlowDefinitionVersion, body["version_id"])
     assert stored.validation_report["valid"] is False
-    # The view says it before the click: Publish is disabled for the author, with the reason.
     assert body["can_publish"] is False and "second admin" in body["publish_reason"]
     codes = {error["code"] for error in stored.validation_report["errors"]}
     assert {"gate_without_checks", "dead_end"} <= codes
     await db.refresh(flow)
-    assert flow.current_version_id == published_id  # the published version keeps running
+    assert flow.current_version_id == published_id
 
-    # The author is refused by the four eyes (D2b2); a second admin by the validation.
     own = await client.post(f"/api/v1/flows/versions/{body['version_id']}/publish", headers=auth_headers)
     assert own.status_code == 409 and own.json()["detail"]["reason"] == "workflow_four_eyes"
     reviewer = await make_admin(db)
@@ -117,18 +114,6 @@ async def test_an_invalid_phased_workflow_is_created_but_a_flow_graph_or_a_secre
     assert leaked.value.status_code == 422
 
 
-@pytest.mark.asyncio
-async def test_a_dag_flow_draft_stays_refused_while_invalid(client, auth_headers):
-    valid = {"schema_version": "2.0",
-             "nodes": [{"id": "start", "type": "trigger", "output_schema": {"request": "string"}},
-                       {"id": "end", "type": "output", "input_schema": {"request": "string"}}],
-             "edges": [{"source_node_id": "start", "target_node_id": "end"}]}
-    flow = (await client.post("/api/v1/flows", headers=auth_headers, json={
-        "key": "designer-dag", "name": "DAG flow", "definition": valid})).json()
-    broken = {"schema_version": "2.0", "nodes": [{"id": "start", "type": "unknown_kind"}], "edges": []}
-    response = await client.post(f"/api/v1/flows/{flow['id']}/drafts", headers=auth_headers, json={
-        "expected_latest_version_id": flow["versions"][0]["id"], "name": "DAG flow", "definition": broken})
-    assert response.status_code == 422
 
 
 def test_validation_names_the_box_or_arrow_in_plain_words():
@@ -155,7 +140,6 @@ async def test_the_catalog_lists_what_the_side_panel_offers_to_admins_only(clien
                             "confirmationSubjects", "watchConditions", "outcomes", "deciders", "workItemFields",
                             "parallelWork"}
     assert all({"key", "label", "kind"} <= set(field) for field in catalog["workItemFields"])
-    # Teamwork: the "Parallel work" box routes done | replan and runs the coordinator's work plan.
     assert catalog["parallelWork"]["routes"] == ["done", "replan"]
     assert catalog["parallelWork"]["planTool"] == "submit_work_plan"
     assert catalog["workItemFields"]
@@ -187,10 +171,10 @@ async def test_the_catalog_lists_what_the_side_panel_offers_to_admins_only(clien
 def test_groups_are_cleaned_like_positions():
     raw = [
         {"id": "g1", "label": "  Evidence  ", "members": ["work", "ghost", "verify", "work"]},
-        {"id": "g2", "label": 7, "members": ["verify", "done"]},  # verify belongs to g1 already
+        {"id": "g2", "label": 7, "members": ["verify", "done"]},
         {"id": "g1", "label": "duplicate id", "members": ["start"]},
         {"id": "", "members": ["start"]},
-        {"id": "g3", "members": ["ghost"]},  # empty once cleaned
+        {"id": "g3", "members": ["ghost"]},
         "not a group",
     ]
     assert clean_groups(raw, NODES) == [
@@ -198,7 +182,7 @@ def test_groups_are_cleaned_like_positions():
         {"id": "g2", "label": "", "members": ["done"]},
     ]
     assert clean_groups(None, NODES) is None
-    assert clean_groups([], NODES) == []  # every group dissolved by hand
+    assert clean_groups([], NODES) == []
     assert layout_groups({"layout": {"groups": "garbage"}}, NODES) is None
 
 
@@ -209,7 +193,6 @@ def test_groups_never_change_validation_or_the_graph_that_runs_and_survive_a_lay
     assert validate_flow_definition(grouped)["valid"] is True
     graph, reference = parse_phased_definition(grouped), parse_phased_definition(plain)
     assert (graph.nodes, graph.edges, graph.order) == (reference.nodes, reference.edges, reference.order)
-    # Moving every box back to the auto-layout keeps the groups.
     assert with_layout(grouped, {})["layout"] == {"groups": [{"id": "g1", "label": "Evidence",
                                                                "members": ["work", "verify"]}]}
     dirty = copy.deepcopy(grouped)
@@ -242,7 +225,6 @@ async def test_saved_groups_come_back_cleaned_in_the_view(client, auth_headers, 
     moved = (await client.post(f"{url}/layout", headers=auth_headers, json={
         "base_version_id": saved["version_id"], "positions": {"work": {"x": 5, "y": 5}}})).json()
     assert moved["layout"]["groups"] == saved["layout"]["groups"]
-    # The author asks for publishing (D2b2): the view says the draft is in review.
     requested = await client.post(f"/api/v1/flows/versions/{moved['version_id']}/request-review", headers=auth_headers)
     assert requested.status_code == 200, requested.text
     assert (await client.get(url, headers=auth_headers)).json()["review_state"] == "awaiting_approval"
@@ -257,9 +239,6 @@ def test_acceptance_fixtures_are_test_flows_hidden_from_the_list():
 
 @pytest.mark.asyncio
 async def test_a_workflow_built_from_fragments_becomes_editable_through_a_detached_draft(client, auth_headers, db):
-    """A seeded workflow is built from fragments, so the designer cannot change it in place. "Edit as draft"
-    detaches it: the draft stores the compiled boxes as a plain definition that the designer can change; the
-    published composite keeps running until the draft is published."""
     from tests.s4_fragment_support import create, probe_composite, publish, published_fragment, unique_key
 
     author, reviewer = await make_admin(db), await make_admin(db)
@@ -283,7 +262,6 @@ async def test_a_workflow_built_from_fragments_becomes_editable_through_a_detach
     assert (draft["version_status"], draft["composite"]) == ("draft", False)
     assert {node["id"] for node in draft["nodes"]} == {node["id"] for node in view["nodes"]}
 
-    # The detached draft is a normal one: a box can be added and saved.
     extended = copy.deepcopy(draft["definition"])
     extended["nodes"].append({"id": "extra", "type": "outcome", "label": "Extra", "config": {"outcome": "done"}})
     saved = await client.post(f"{url}/definition", headers=auth_headers, json={
@@ -292,4 +270,4 @@ async def test_a_workflow_built_from_fragments_becomes_editable_through_a_detach
     assert "extra" in {node["id"] for node in saved.json()["nodes"]}
     flow = await db.get(FlowDefinition, created["id"])
     await db.refresh(flow)
-    assert flow.current_version_id == created["versions"][0]["id"]  # the published composite keeps running
+    assert flow.current_version_id == created["versions"][0]["id"]

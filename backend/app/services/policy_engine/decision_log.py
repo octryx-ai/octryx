@@ -1,15 +1,4 @@
-"""The policy decision log: bounded, OCSF-like records of the decisions worth reading.
-
-Recorded: shadow mismatches, custom-policy divergences, evaluation errors and (enforce mode) denials. A match
-is only counted (``shadow.decision_counters``), never stored. Records are buffered in memory by the enforcement
-points (which may be synchronous) and written by :func:`flush_decision_log` with its own session; a full buffer
-drops the oldest record and counts it. The next flush writes one ``dropped`` marker record with the count, so a
-loss is visible in the log and survives restarts; enforce readiness refuses while the shadow window has one
-(``enforce.REASON_DROPPED``). Selecting shadow resets the in-process counter (:func:`reset_dropped_records`).
-
-Retention: rows older than ``policy_engine.decision_log_retention_days`` (default 365, 1..365) are pruned at most
-once an hour by the flush, and the table never keeps more than :data:`MAX_ROWS` rows.
-"""
+"""The policy decision log: bounded, OCSF-like records of the decisions worth reading."""
 
 from __future__ import annotations
 
@@ -62,7 +51,6 @@ def dropped_records() -> int:
 
 
 def dropped_since(since: datetime) -> bool:
-    """Whether this process dropped a record at or after ``since``."""
     last = _STATE["last_drop_at"]
     return bool(_STATE["dropped"]) and last is not None and last >= since
 
@@ -115,7 +103,6 @@ async def _write(db: AsyncSession, entries: list[dict[str, Any]], *, prune: bool
 
 
 async def flush_decision_log(db: AsyncSession | None = None, *, prune: bool | None = None) -> int:
-    """Write the buffered records (own session and commit unless ``db`` is given; then the caller commits)."""
     entries: list[dict[str, Any]] = []
     while _BUFFER:
         entries.append(_BUFFER.popleft())
@@ -145,7 +132,6 @@ async def flush_decision_log(db: AsyncSession | None = None, *, prune: bool | No
 
 
 def serialize_decision(row: PolicyDecisionLog) -> dict[str, Any]:
-    """The OCSF-like view: who, what, on what, the decision, why, and the legacy decision it was compared with."""
     return {
         "id": row.id,
         "time": row.created_at.isoformat() if row.created_at else None,

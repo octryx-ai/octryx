@@ -1,32 +1,5 @@
-"""A read-only Confluence Server/DC REST stub for the source-ACL acceptance check (K6).
-
-It answers exactly the requests the governed Confluence Source Sync connector makes
-(``services/knowledge/sources/sync/confluence.py`` and ``confluence_acl.py``), with the response
-shapes it parses, over ``confluence_fixtures.py``:
-
-- ``GET /rest/api/content?spaceKey=&type=page&status=current&start=&limit=&expand=``: the space
-  listing, paged by offset, with version, ancestors and read restrictions;
-- ``GET /rest/api/content/{id}?expand=body.view``: the rendered page body;
-- ``GET /rest/api/content/{id}/restriction/byOperation/read``: one page's read restrictions;
-- ``GET /rest/api/user?username=|key=&expand=details.personal``: one account and the address
-  Confluence reports for it (none for a hidden profile; ``accountId`` is Cloud-only: 404);
-- ``GET /rest/api/group/{name}/member?start=&limit=``: the members of a group, paged;
-- ``GET /rest/api/space/{key}``: the space (for a connection test; the sync does not call it).
-
-Every other request is refused: 405 for any method but GET, 401 without the stub's Basic
-credential, 404 for anything unknown. Served by ``server.py confluence`` (``stub_http.py``).
-
-:class:`CloudConfluence` is the Atlassian Cloud-shaped counterpart for tests: everything
-under the ``/wiki`` context path, ``_links.base``/``_links.context`` on every collection, a
-``_links.webui`` per page, opaque cursor ``_links.next`` (no offsets), version numbers that move on
-every edit, accounts known by ``accountId`` only with hidden addresses, CQL change search
-(``/rest/api/content/search``) and queued ``429``/``503`` answers with ``Retry-After``. It is
-mutable (edit, rename, create, delete, move) so a test can drive freshness end to end. Pages may
-have a parent: listings report the ``ancestors`` chain, the page-tree CQL
-``space="K" and type=page and (id = N or ancestor = N)`` (optionally ``and lastmodified >= "…"``)
-lists a root and its descendants, and ``…/restriction/byOperation/read`` answers a page's own
-read restrictions.
-"""
+"""Read-only Confluence Server/DC REST stub answering exactly the requests the governed sync connector makes, plus the
+mutable Cloud-shaped :class:`CloudConfluence`; every other request is refused."""
 
 from __future__ import annotations
 
@@ -150,7 +123,6 @@ def _group_members(name: str, query: dict[str, list[str]]) -> tuple[int, dict]:
 
 
 def handle(method: str, target: str, authorization: str | None) -> tuple[int, dict]:
-    """Answer one request: ``(status, JSON body)``. Pure, so tests can call it without a socket."""
     path, query = split_target(target)
     if method != "GET":
         return 405, {"message": "read-only stub"}
@@ -173,8 +145,6 @@ def handle(method: str, target: str, authorization: str | None) -> tuple[int, di
 
 
 class CloudConfluence:
-    """An Atlassian Cloud-shaped Confluence space (``/wiki``, cursors, accountId-only users), mutable."""
-
     CONTEXT = "/wiki"
 
     def __init__(self, origin: str, *, space: str, principal: str, secret: str) -> None:
@@ -193,8 +163,6 @@ class CloudConfluence:
         # Page writes (create, update) — off by default: the Knowledge checks need a read-only source.
         self.writable = False
 
-    # --- mutations ------------------------------------------------------------------------------
-
     def tick(self, minutes: int = 5) -> None:
         self.clock += timedelta(minutes=minutes)
 
@@ -212,11 +180,9 @@ class CloudConfluence:
         }
 
     def move(self, page_id: str, parent: str | None) -> None:
-        """Re-parent a page; like Cloud, without a version bump."""
         self.pages[page_id]["parent"] = parent
 
     def ancestors(self, page_id: str) -> list[str]:
-        """The page's ancestors from the top down."""
         chain: list[str] = []
         parent = self.pages[page_id].get("parent")
         while parent is not None and parent in self.pages and parent not in chain:
@@ -237,8 +203,6 @@ class CloudConfluence:
     def webui(self, page_id: str) -> str:
         slug = quote(str(self.pages[page_id]["title"]).replace(" ", "+"), safe="+")
         return f"/spaces/{self.space}/pages/{page_id}/{slug}"
-
-    # --- responses ------------------------------------------------------------------------------
 
     @staticmethod
     def _cursor(offset: int) -> str:
@@ -267,7 +231,6 @@ class CloudConfluence:
         }
 
     def _full(self, page_id: str) -> dict[str, object]:
-        """One page with its body (view and storage), space and links, as ``GET /content/{id}`` answers it."""
         payload = self._entry(page_id)
         body = self.pages[page_id]["body"]
         payload["body"] = {"view": {"value": body, "representation": "view"},
@@ -344,8 +307,6 @@ class CloudConfluence:
 
     def handle(self, method: str, target: str, authorization: str | None,
                body: dict | None = None) -> tuple[int, dict, dict[str, str]]:
-        """``(status, JSON body, headers)`` for one request; pure apart from the recorded request (and, when
-        ``writable``, the page a POST creates or a PUT updates)."""
         path, query = split_target(target)
         self.requests.append(f"{method} {path}")
         if method != "GET" and not (self.writable and method in ("POST", "PUT")):
@@ -365,7 +326,6 @@ class CloudConfluence:
             status, payload = self._update(path.removeprefix("/rest/api/content/"), body or {})
             return status, payload, {}
         if path == "/rest/api/content" and (query.get("title") or [""])[0]:
-            # A page by title (the write tools' lookup): exactly the page with that title in the space.
             title = (query.get("title") or [""])[0]
             found = [page_id for page_id, page in sorted(self.pages.items()) if page["title"] == title]
             space_ok = (query.get("spaceKey") or [""])[0] == self.space

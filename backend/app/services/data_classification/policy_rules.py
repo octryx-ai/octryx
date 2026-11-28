@@ -56,8 +56,6 @@ DERIVED_RULE_KEYS: frozenset[str] = frozenset({"allowed_model_aliases"})
 
 
 class ClassificationPolicyError(ValueError):
-    """A matrix that does not validate; ``code`` is fixed, ``path`` names the field."""
-
     def __init__(self, code: str, path: str) -> None:
         super().__init__(f"{path}: {code}")
         self.code = code
@@ -80,7 +78,6 @@ class LevelRules:
 
     @property
     def seat_in_policy(self) -> bool:
-        """Seat is allowed by the level: its own switch, and governed routing not required."""
         return self.seat_allowed and not self.requires_governed_routing
 
     def connector_access(self, family: str) -> str:
@@ -96,7 +93,6 @@ class LevelRules:
 
 
 def default_rules(level: str) -> LevelRules:
-    """Today's behaviour: seat below ``confidential``; everything else as the runtime admits it."""
     rank = classification_rank(level)
     return LevelRules(seat_allowed=rank is not None and rank < classification_rank(CLASSIFICATION_CONFIDENTIAL))
 
@@ -135,7 +131,6 @@ class ClassificationPolicy:
         return {level: self.rules_for(level) for level in DATA_CLASSIFICATION_ORDER}
 
     def model_allowlists(self) -> dict[str, frozenset[str]]:
-        """``{level: aliases}`` for the levels that narrow the gateway aliases; absent levels do not narrow."""
         return {
             level: frozenset(rules.allowed_model_aliases)
             for level, rules in self.levels().items()

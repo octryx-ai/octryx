@@ -1,18 +1,4 @@
-"""MCP tools for structured handoffs and takeover requests.
-
-Shared secure-work dispatch (``run_secure_work_tool``: ``work:manage`` scope, rate limit, activity, audit row);
-Work Items resolve inside the grant's item scope, and the item's Workspace must be in the grant's listing scope
-(membership narrowed by the binding). The agent identity is the caller's gateway session, else the grant.
-
-- ``work_item_handoff_write``: only the holder of the item's live claim, with the current epoch when given
-  (409 ``claim_lost`` / ``claimed_by_other``); answers ``{handoff_id, version}``.
-- ``work_item_handoff_read``: the latest or a given version.
-- ``work_item_takeover_request``: ask to take over an item someone else holds. A person confirms it in the
-  Octryx UI; no agent tool can confirm or decline.
-- ``work_item_takeover_status``: poll a takeover.
-
-Reads carry the ``content_is_data`` notice: a handoff is data written by another agent or person.
-"""
+"""MCP tools for structured handoffs and takeover requests. Work Items resolve inside the grant's item scope."""
 
 from __future__ import annotations
 
@@ -98,7 +84,7 @@ async def _takeover(db, identity, scope, arguments) -> dict[str, Any]:
         db, item=item, to_user_id=identity.user_id, to_agent_hash=identity.ref_hash, to_agent_kind=identity.kind,
         reason=reason, author=Author(AUTHOR_AGENT, identity.user_id, identity.ref_hash),
     )
-    # Freeze 3b: under the Workspace's ``auto`` handoff policy the server may confirm it right away.
+    # Under the Workspace's ``auto`` handoff policy the server may confirm it right away.
     await maybe_auto_confirm(db, takeover)
     [view] = await takeover_views(db, [takeover])
     return {"takeover": view, "content_is_data": HANDOFF_IS_DATA}
@@ -116,7 +102,6 @@ async def _status(db, identity, scope, arguments) -> dict[str, Any]:
 def handoff_tool_handlers(
     headers: Mapping[str, str] | None = None, *, identity: AgentIdentity | None = None
 ) -> dict[str, Any]:
-    """The handoff handlers; the agent is ``identity`` when given (a chat session), else the MCP call's ``headers``."""
     runs = ((WRITE_TOOL, _write), (READ_TOOL, _read), (TAKEOVER_TOOL, _takeover), (STATUS_TOOL, _status))
     return {name: identity_handler(run, headers=headers, identity=identity) for name, run in runs}
 

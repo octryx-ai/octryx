@@ -11,7 +11,6 @@ from .evidence_fields import item_url, with_source
 
 
 def _alert_rule_url(grafana_url: object, uid: object) -> str | None:
-    """An alert rule's view page on the configured Grafana: ``{grafana}/alerting/grafana/{uid}/view``."""
     return item_url(str(grafana_url or "").rstrip("/"), "alerting", "grafana", uid, "view")
 
 

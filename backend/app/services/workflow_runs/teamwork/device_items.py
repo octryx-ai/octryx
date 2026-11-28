@@ -1,31 +1,4 @@
-"""Teamwork items on the run's device.
-
-The device's main folder is the story's integration copy on the run's branch. Every git operation on it (an item's
-worktree, a merge) runs as a launcher step on the main thread before any agent, like the pipeline: the platform
-queues ops (``context.work_git``), sends them with a main-thread turn (the contract's ``work_git``), and the launcher
-runs them and reports ``POST sessions/work-git`` (:func:`work_git_reported`), ending its job with ``work_git_done``.
-One job per thread serializes them for free.
-
-Each item then runs as its own chat thread (origin ``sub_agent``, parent = the main thread) on the same device, in
-``<main>/.octryx-items/<key>``, with its own model and Claude Code session, bound to the run as role ``item``; its
-gateway
-session binds as ``octryx:<key>`` (``octryx.attach``) so the main thread's binding stays. Its turn starts through the
-same path as a phase's (``continuation.start_run_turn``: run permission mode, model fallback, seat fallback). When an
-item's job ends, :func:`job_ended` reports it to the scheduler; when any job of the run ends, the scheduler advances
-(a device slot may have freed).
-
-**One session per item, refusals counted** (otherwise one run made ~170 item sessions in three
-minutes): an item keeps its one thread for every start (a new one only when it has none, and never a second one for
-the same key and plan version); a start the device refuses goes to the scheduler (``item_start_refused``), never
-straight into a new start. The item's folder is prepared on the item's own branch (:func:`item_preparation`): the
-run's branch is checked out in the main folder, and git refuses it in a second worktree ("already used by worktree"),
-so every item job was rejected ``environment_not_ready``. Abort stops the items' jobs and the git work
-(:func:`stop_jobs`).
-
-**Sequential fallback** (same scheduler, one item at a time, in the main folder on the main thread, no worktrees and
-no merges) when the device runs only one job at a time, the node says ``parallel: false``, or a ``branch`` op
-failed. Each item still gets a fresh session and its own model, remembered under ``SESSIONS_KEY["<node>/<key>"]``.
-"""
+"""Teamwork items on the run's device or server runner."""
 
 from __future__ import annotations
 
@@ -35,9 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....models import Session, WorkflowRun
 from ..records import record_event
-from . import EXECUTOR_DEVICE, EXECUTOR_SEQUENTIAL, RUNNING, item_marker, register_executor, work_of
+from . import EXECUTOR_DEVICE, EXECUTOR_SEQUENTIAL, RUNNING, item_marker, work_of
 from .device_work_state import (
     EVENT_SEQUENTIAL,
+    FALLBACK_NO_DEVICE,
     FALLBACK_NOT_PARALLEL,
     FALLBACK_ONE_SLOT,
     _is_turn,
@@ -52,8 +26,8 @@ from .work_git import flush, queue_op
 
 
 async def fallback_reason(db: AsyncSession, run: WorkflowRun, target: dict[str, Any]) -> str:
-    """Why the items run one after another in the main folder ("" when they run in parallel worktrees)."""
     from ....models import UserDevice
+    from ...devices.runner_pool import RUNNER_SERVICE_KIND
 
     if _state(run).get("fallback"):
         return str(_state(run)["fallback"])
@@ -61,22 +35,22 @@ async def fallback_reason(db: AsyncSession, run: WorkflowRun, target: dict[str, 
     if node is not None and dict(node.config or {}).get("parallel") is False:
         return FALLBACK_NOT_PARALLEL
     device = await db.get(UserDevice, str(target.get("device_id") or ""))
-    if device is None or int(device.max_parallel_jobs or 1) < 2:
+    if device is None:
+        return FALLBACK_ONE_SLOT
+    # A runner's one slot is the pool's unit of scale, not a person's limit: its items still get their own worktree
+    # branches and run one after another.
+    if int(device.max_parallel_jobs or 1) < 2 and device.service_kind != RUNNER_SERVICE_KIND:
         return FALLBACK_ONE_SLOT
     return ""
 
 
 class DeviceExecutor:
-    """Runs the plan's items on the run's device (``teamwork.Executor``)."""
-
     def __init__(self, *, slots: int, sequential: str = "") -> None:
         self.slots = slots
         self.sequential = sequential
         self.name = EXECUTOR_SEQUENTIAL if sequential else EXECUTOR_DEVICE
 
     def capacity(self, run: Any) -> int | None:
-        """Every slot runs an item when the device leaves the main thread's platform turns (git work, coordinator
-        answers) out of its limit (``teamwork.slots``)."""
         if self.sequential or _state(run).get("fallback"):
             return 1
         return max(1, self.slots)
@@ -96,7 +70,6 @@ class DeviceExecutor:
         if self.sequential or not dict(_state(run).get("branched") or {}).get(item["id"]):
             from .item_results import merge_reported
 
-            # Built in the main folder itself: nothing to merge.
             await merge_reported(db, run, key=item["id"], merged=True)
             return
         queue_op(run, "merge", item["id"])
@@ -109,12 +82,6 @@ class DeviceExecutor:
 
 
 def _branched_for_plan(run: WorkflowRun, key: str) -> dict[str, Any]:
-    """The item's worktree record when it was branched under the current plan; an item branched under an earlier
-    plan (not merged: blocked, failed, reopened by the replan) is branched again with the story's current work
-    merged into its branch (``resync``), as after a merge conflict.
-
-    Otherwise items blocked "src/hellokitchen not in this worktree" were
-    resumed after the replan in the same worktree, with no branch op, and never saw the items merged meanwhile."""
     state = _state(run)
     branched = dict(state.get("branched") or {})
     entry = dict(branched.get(key) or {})
@@ -126,13 +93,14 @@ def _branched_for_plan(run: WorkflowRun, key: str) -> dict[str, Any]:
     return {}
 
 
-async def executor_for(db: AsyncSession, run: WorkflowRun) -> DeviceExecutor | None:
-    """The device executor for a run whose main thread runs on a device; ``None`` otherwise (the server runs it)."""
+async def executor_for(db: AsyncSession, run: WorkflowRun) -> DeviceExecutor:
     from ....models import UserDevice
 
     thread, target = await _main_thread(db, run)
     if thread is None or target is None:
-        return None
+        # Neither a device nor a server runner holds the run's thread (a terminal drives it): each item's start fails
+        # with that reason and the coordinator decides.
+        return DeviceExecutor(slots=1, sequential=FALLBACK_NO_DEVICE)
     reason = await fallback_reason(db, run, target)
     device = await db.get(UserDevice, str(target.get("device_id") or ""))
     if reason and not _state(run).get("fallback_recorded") == reason:
@@ -141,17 +109,8 @@ async def executor_for(db: AsyncSession, run: WorkflowRun) -> DeviceExecutor | N
     return DeviceExecutor(slots=int(getattr(device, "max_parallel_jobs", 0) or 1), sequential=reason)
 
 
-register_executor(EXECUTOR_DEVICE, executor_for, first=True)
-
-
-# --- job ends -------------------------------------------------------------------------------------------------
-
-
 async def _item_turn_ended(db: AsyncSession, run: WorkflowRun, key: str, session_id: str, failure: str | None,
                            said: str, *, refused: bool = False) -> None:
-    """The item's job ended: a failed turn, or one that ended without finishing its item, reaches the scheduler
-    (a turn whose Stop passed already reported through ``record_phase_turn``). ``refused``: the device turned the
-    job down before the agent ran — a refused start, counted and retried with the same thread."""
     from ..octryx.turn_failures import is_transient_failure
     from .item_results import item_finished, item_start_refused
 
@@ -184,9 +143,6 @@ async def _remember_sequential_session(db: AsyncSession, run: WorkflowRun, key: 
 
 async def job_ended(db: AsyncSession, run: WorkflowRun, session_id: str, *, failure: str | None = None,
                     said: str = "") -> bool:
-    """A device job of the run's thread ``session_id`` ended. ``True`` when it was teamwork's own (an item's turn, a
-    sequential item on the main thread, the git work), so the phase continuation leaves it alone. Either way, a run at
-    its ``parallel_work`` node sends queued git work and advances (a device slot may have freed)."""
     from ...devices.jobs import thread_job
     from ..records import lock_run
 
@@ -196,9 +152,7 @@ async def job_ended(db: AsyncSession, run: WorkflowRun, session_id: str, *, fail
     thread = await db.get(Session, session_id)
     job = await thread_job(db, session_id)
     if work.get("route") or run.current_node_id != work.get("node_id"):
-        # The run left the parallel node: an item's job (or teamwork's git work) that ends now is still teamwork's
-        # own and never the run's current phase turn. Otherwise an item's turn that ended after
-        # the run went back to its plan phase and paused the whole run ``runtime_failed``.
+        # The run left the parallel node: an item's job ending now is still teamwork's own, never the run's phase turn.
         return _own_job(run, thread, job)
     run = await lock_run(db, run)
     state = _state(run)
@@ -226,7 +180,6 @@ async def job_ended(db: AsyncSession, run: WorkflowRun, session_id: str, *, fail
 
 
 def _own_job(run: WorkflowRun, thread: Any, job: Any) -> bool:
-    """Whether a job of the run is teamwork's own: an item's thread, a sequential item's turn or the git work."""
     marker = item_marker(thread)
     if marker is not None and marker.get("run_id") == run.id:
         return True

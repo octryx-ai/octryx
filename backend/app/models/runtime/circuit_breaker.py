@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -21,7 +22,9 @@ class CircuitBreakerState(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False, index=True)
 
 
-class FailedTaskRun(Base):
+class FailedTaskRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"task_id": "tasks"}
     __tablename__ = "failed_task_runs"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

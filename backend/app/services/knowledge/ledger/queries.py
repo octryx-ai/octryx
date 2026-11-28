@@ -1,23 +1,5 @@
-"""Bounded read projections of the Evidence ledger for the API surface.
-
-Every statement filters on ``project_id``, and every statement that returns rows
-carries an explicit ``LIMIT``, so no read can return another Workspace's rows and
-none can grow with the corpus. (The two aggregate statements return one row per
-outbox state and one count respectively, so a ``LIMIT`` would be decoration.) A
-source that exists in another Workspace is simply absent from the result, which is
-what lets the transport answer the same 404 for "foreign" and "missing".
-
-Limits are enforced against the documented maximum, never clamped to it: a
-caller-supplied limit outside ``1..maximum`` is :class:`InvalidEvidenceRequestError`
-(400), so a request for 5000 sources is refused instead of quietly answered with
-``MAX_SOURCE_LIMIT`` rows that look like the whole list. The counts a bounded read
-reports are queried rather than derived from the truncated list, so the bound never
-makes the payload understate what the Workspace holds.
-
-These are transport-shaped views: fixed scalar fields only. No object key, bucket,
-database name, parser path, or failure text is exposed, because a Workspace reader
-has no use for them and they describe deployment topology.
-"""
+"""Bounded read projections of the Evidence ledger for the API surface. Every statement filters on ``project_id``; a
+limit out of range is refused, never clamped."""
 
 from __future__ import annotations
 
@@ -44,8 +26,6 @@ MAX_REVISION_LIMIT = 100
 
 @dataclass(frozen=True, slots=True)
 class SourceSummary:
-    """One Workspace source with its revision count and newest revision."""
-
     source_id: str
     source_key: str
     display_title: str
@@ -55,8 +35,6 @@ class SourceSummary:
 
 @dataclass(frozen=True, slots=True)
 class RevisionSummary:
-    """One immutable revision, without any storage or parser location detail."""
-
     revision_id: str
     revision_ordinal: int
     content_sha256: str
@@ -68,16 +46,12 @@ class RevisionSummary:
 
 @dataclass(frozen=True, slots=True)
 class SourceDetail:
-    """One source and its bounded, newest-first revision list."""
-
     source: SourceSummary
     revisions: tuple[RevisionSummary, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class ProjectionBacklog:
-    """How many projection obligations a Workspace has, by outbox state."""
-
     by_state: dict[str, int]
 
     def count(self, state: str) -> int:
@@ -85,12 +59,7 @@ class ProjectionBacklog:
 
 
 def _validated_limit(limit: object, default: int, maximum: int) -> int:
-    """A caller-supplied limit outside its bounds is a bad request, not a fault.
-
-    The limit arrives from the query string, so an out-of-range value must render
-    as 400 ``invalid_request``; reporting it as a dependency contract violation
-    (502) would blame the deployment for the caller's input.
-    """
+    # The limit comes from the query string: out of range is a 400, never a 502 contract violation.
     if limit is None:
         return default
     if type(limit) is not int or not 1 <= limit <= maximum:
@@ -101,7 +70,6 @@ def _validated_limit(limit: object, default: int, maximum: int) -> int:
 async def list_sources(
     db: AsyncSession, authorized: AuthorizedWorkspace, *, limit: object = None
 ) -> tuple[SourceSummary, ...]:
-    """Newest-first sources of one Workspace, bounded."""
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     bounded = _validated_limit(limit, DEFAULT_SOURCE_LIMIT, MAX_SOURCE_LIMIT)
@@ -200,7 +168,6 @@ async def _revision_summaries(
 
 
 async def get_source_detail(db: AsyncSession, authorized: AuthorizedWorkspace, source_id: object) -> SourceDetail:
-    """One source of this Workspace, or the not-found state."""
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     if type(source_id) is not str or not source_id or len(source_id) > 36:
@@ -231,7 +198,6 @@ async def get_source_detail(db: AsyncSession, authorized: AuthorizedWorkspace, s
 
 
 async def projection_backlog(db: AsyncSession, authorized: AuthorizedWorkspace) -> ProjectionBacklog:
-    """Outbox entry counts per state for one Workspace."""
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     statement = (
@@ -243,7 +209,6 @@ async def projection_backlog(db: AsyncSession, authorized: AuthorizedWorkspace) 
 
 
 async def workspace_products(db: AsyncSession, authorized: AuthorizedWorkspace) -> dict[str, list[str]]:
-    """Product key -> the versions its current revisions are about (``""`` when unversioned), sorted."""
     rows = await db.execute(
         select(KnowledgeRevisionScope.products, KnowledgeRevisionScope.version)
         .join(KnowledgeSourceRevision, KnowledgeSourceRevision.id == KnowledgeRevisionScope.revision_id)

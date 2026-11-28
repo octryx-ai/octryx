@@ -35,6 +35,8 @@ KNOWN_TOKENS: tuple[tuple[str, str], ...] = (
     ("stripe-restricted-loose", r"\brk_[A-Za-z0-9]{16,}"),
     ("gcp-api-key", r"\bAIza[0-9A-Za-z_-]{35}\b"),
     ("jwt", r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
+    # No word boundary before the bot id: the Bot API URL puts the token right after ``/bot``.
+    ("telegram-bot-api-token", r"(?<![0-9])[0-9]{5,16}:A[A-Za-z0-9_-]{34}(?![A-Za-z0-9_-])"),
 )
 
 

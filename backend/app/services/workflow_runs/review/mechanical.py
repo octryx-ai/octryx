@@ -1,16 +1,5 @@
-"""Whether a file's change is purely mechanical, so a review may leave it out of the diff it shows (a stage of the
-PR review bot; the rules are strict because this hides code from the reviewer):
-
-- **renamed** only at 100 % similarity (git ``R100``);
-- **line endings only** (``git diff --ignore-cr-at-eol`` empty), in any text file;
-- **whitespace only** (``-w``) only where whitespace carries no meaning (``WHITESPACE_FREE``: JSON, the C family,
-  JavaScript/TypeScript, Dart, Java, Kotlin, Go, ...); never Python, YAML, Makefiles, Markdown or shell;
-- **Python** only with the same syntax tree, and never when a pragma (``# type: ignore``, ``# noqa``,
-  ``# pragma: ...``) or the encoding line changed: the reviewer sees those.
-
-``mechanical_reason`` is asked by the bot (against the head commit) and again by the review's evidence (against the
-staged copy) for every path a context key claims: what the check does not confirm stays in the diff.
-"""
+"""Whether a file's change is purely mechanical, so a review may leave it out of the diff it shows; the rules are strict
+because this hides code from the reviewer."""
 
 from __future__ import annotations
 
@@ -28,7 +17,6 @@ _PRAGMA = re.compile(r"#\s*(?:type:\s*ignore|noqa|pragma\b)|^#.*coding[:=]", re.
 
 
 def same_python_tree(before: str, after: str) -> bool:
-    """The same syntax tree and the same pragma and encoding lines. Pure."""
     def pragmas(text: str) -> list[str]:
         return [line.strip() for line in text.splitlines() if _PRAGMA.search(line)]
 
@@ -41,8 +29,6 @@ def same_python_tree(before: str, after: str) -> bool:
 
 
 async def mechanical_reason(root: str | Path, base: str, path: str, *, old: str = "", head: str = "") -> str:
-    """Why the change of ``path`` (renamed from ``old``) between ``base`` and ``head`` (a commit; ``''``: the staged
-    copy) is mechanical; ``''`` when it is not, or when it cannot be shown."""
     target = ["--cached"] if not head else [head]
     if old:
         code, out, _err = await safe_git.git(root, *safe_git.DIFF, "--name-status", "-M100%", base, *target, "--",
@@ -68,9 +54,6 @@ async def mechanical_reason(root: str | Path, base: str, path: str, *, old: str 
 
 
 async def verified_mechanical(run: Any, root: Path, base: str) -> list[tuple[str, str]]:
-    """The paths a step claims as mechanical (``review_summarized_paths``, the PR review bot's triage) that the
-    platform confirms here itself (``review.mechanical``: trust, but verify); a renamed file's old
-    path too. What the check does not confirm stays in the diff; what is left out is kept on the run (audit)."""
     claimed = [dict(item) for item in dict(run.context or {}).get("review_summarized_paths") or []
                if isinstance(item, dict) and item.get("path")]
     left_out: list[tuple[str, str]] = []

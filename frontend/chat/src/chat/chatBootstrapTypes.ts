@@ -1,4 +1,3 @@
-// Types of the chat bootstrap state hook: load options and the setters it drives.
 import type { Dispatch, SetStateAction } from "react";
 
 import type { ChatState } from "../types";
@@ -6,11 +5,7 @@ import type { ChatState } from "../types";
 export type LoadOptions = {
   preserveTrace?: boolean;
   silent?: boolean;
-  /**
-   * A refresh of the chat on screen while its turn runs or right after it (the session stream): reads only that
-   * session's view, so the reply is drawn without the whole bootstrap. When the view shows the turn has ended, the
-   * full bootstrap follows silently in the background for the chat list (preview, order, a new chat's row).
-   */
+  // Reads only that session's view, so the reply is drawn without the whole bootstrap.
   sessionOnly?: boolean;
 };
 

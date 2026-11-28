@@ -1,25 +1,4 @@
-"""The Jira issue of a chat's phased start: part of the same one confirmation (``phased_start``).
-
-The rule: one confirmation per request with its scope, and everything in that scope then runs
-without asking again. A request such as "create an Epic in Jira project X and have the specification
-written" puts the Epic in Jira, where spec-writing then creates its stories
-(``teamwork.stories``: a Jira epic gets Jira stories).
-
-- :func:`jira_scope`: the card's "+ Jira <project>: Epic '<title>'" — for a new item, when the request names a Jira
-  project, or when the Workspace is connected to Jira (one Jira intake with one project) and the workflow writes to
-  Jira (a ``jira.*`` action, or ``work.create_stories``, which writes the stories under a Jira epic).
-- :func:`create_jira_issue`: after Allow, the issue is created through the chat's own ``create_jira_ticket`` path:
-  the confirmed card becomes the request's write plan (``chat_write_plan``: tool, fields, project scope), so the
-  approval gate admits exactly this write without a second card; the issue type is normalised like every chat plan
-  write. A chat that may not write through its connections gets an error, never a second card.
-- :func:`jira_work_item`: the Work item is linked to the new issue the way the Jira sync stores it (source key, the
-  intake's source instance), never twice: when the sync inserted the key meanwhile, that row is the item, read
-  through :func:`chat_workspace_item`: a row of another Workspace answers exactly like a missing one (404).
-- :func:`read_jira_issue`: an existing issue the request names by key that the Workspace's work items do
-  not hold yet, read through the chat's own ``get_jira_ticket`` (a read: free, no confirmation). Without
-  it an epic that lives only in Jira gets a card for a *new* Epic titled with the prompt, and Start creates a
-  duplicate.
-"""
+"""The Jira issue of a chat's phased start: part of the same one confirmation (``phased_start``)."""
 
 from __future__ import annotations
 
@@ -66,14 +45,12 @@ def _project_keys(config: WorkItemSyncConfig) -> set[str]:
 
 
 async def workspace_jira_project(db: AsyncSession, project_id: str | None) -> str | None:
-    """The Workspace's one Jira project (its Jira intakes name exactly one), else ``None``."""
     keys = set().union(*(_project_keys(config) for config in await _jira_intakes(db, project_id)))
     return next(iter(keys)) if len(keys) == 1 else None
 
 
 async def jira_scope(db: AsyncSession, *, project_id: str | None, named_project: str | None,
                      definition: dict[str, Any], item: dict[str, Any]) -> dict[str, Any] | None:
-    """The Jira issue the card creates with the item, or ``None`` (see the module docstring)."""
     if item["mode"] != "new":
         return None
     source = "request" if named_project else "workspace"
@@ -94,7 +71,6 @@ def _fields(jira: dict[str, Any], description: str) -> dict[str, Any]:
 
 
 def _confirm_as_plan(session: AgentSession, fields: dict[str, Any], *, owner_id: str, approval_id: str | None) -> None:
-    """The confirmed card is the request's write plan for exactly this write (``chat_write_plan``)."""
     from ..run_capability.chat_write_plan import PLAN_METADATA_KEY, current_request, merged_plan, new_plan_id
 
     metadata = dict(session.metadata_ or {})
@@ -108,7 +84,6 @@ def _confirm_as_plan(session: AgentSession, fields: dict[str, Any], *, owner_id:
 
 
 async def _chat_context(db: AsyncSession, session: AgentSession, owner_id: str) -> Any:
-    """The chat turn's own tool context: its recorded class decides whether it may write through connections."""
     from ...tools.context import ToolContext
     from ..project import get_project_config
     from ..run_capability.declared import capability_from_run_profile
@@ -121,10 +96,6 @@ async def _chat_context(db: AsyncSession, session: AgentSession, owner_id: str) 
 
 async def create_jira_issue(db: AsyncSession, *, session: AgentSession, owner_id: str, jira: dict[str, Any],
                             description: str, approval_id: str | None, user_message_id: str) -> dict[str, Any]:
-    """``{"key", "id"}`` of the created issue, or ``{"error": ...}``; commits the plan and its outcome.
-
-    The held request is the request in flight again while its confirmed write runs (the plan is bound to it); the
-    start's own answer ends that turn afterwards (``phased_start._post``)."""
     from ...tools import registry
     from ..run_capability.chat_writes import chat_connector_writes_enabled
     from ..session.turn_approval_state import CURRENT_TURN_USER_MESSAGE_KEY
@@ -153,7 +124,6 @@ async def create_jira_issue(db: AsyncSession, *, session: AgentSession, owner_id
 
 async def jira_work_item(db: AsyncSession, *, user: User, project_id: str, item: dict[str, Any],
                          jira: dict[str, Any]) -> WorkItem:
-    """The Work item of the new issue, stored like the Jira sync does; the synced row when the sync was faster."""
     from fastapi import HTTPException
     from sqlalchemy.exc import IntegrityError
 
@@ -187,8 +157,6 @@ async def jira_work_item(db: AsyncSession, *, user: User, project_id: str, item:
 
 async def chat_workspace_item(db: AsyncSession, user: User, project_id: str, item: WorkItem | None
                               ) -> WorkItem | None:
-    """``item`` when it is the chat Workspace's and ``user`` may access it (``secure_work.access``), else ``None``:
-    an item of another Workspace is used exactly like a missing one."""
     from ..secure_work.access import work_item_in_scope, work_scope_project_ids
 
     if item is None or not project_id or item.project_id != project_id:
@@ -197,9 +165,6 @@ async def chat_workspace_item(db: AsyncSession, user: User, project_id: str, ite
 
 
 async def read_jira_issue(db: AsyncSession, *, session: AgentSession, key: str) -> dict[str, Any] | None:
-    """``{"key", "title", "description", "issue_type"}`` of the Jira issue ``key``, or ``None`` when it cannot be read.
-
-    A read failure (no Jira connection, a key that is no Jira issue such as ``UTF-8``) leaves the card as it was."""
     from ...tools import registry
     from ..workflow_runs.platform.dispatch import read_outcome
 

@@ -1,6 +1,4 @@
-"""A Claude Code session's transcript files on this Mac: which session id a terminal session writes under, its
-streams (the session and its subagents) inside the profile's ``projects`` folder, and their complete lines
-(``transcript_upload``)."""
+"""A Claude Code session's transcript files on this Mac: its session id, its streams and their complete lines."""
 
 from __future__ import annotations
 
@@ -18,9 +16,6 @@ _AGENT_STREAM = re.compile(r"^agent-[A-Za-z0-9_-]{1,70}$")
 
 
 def claude_session_for(session_key: str, claude_args: list[str] | tuple[str, ...]) -> str:
-    """The transcript id of a terminal session: the session key (the launcher passes it as ``--session-id``), the
-    id named by ``--resume``/``-r``/``--session-id``, or ``""`` when Claude Code picks it (``--continue``,
-    ``--fork-session``, ``--resume`` without an id): then nothing is uploaded for this session."""
     args = list(claude_args)
     if any(arg in ("-c", "--continue", "--fork-session", "--from-pr") or arg.startswith("--from-pr=")
            for arg in args):
@@ -34,8 +29,6 @@ def claude_session_for(session_key: str, claude_args: list[str] | tuple[str, ...
 
 
 def stream_files(config_dir: Path, claude_session_id: str) -> dict[str, Path]:
-    """The session's transcript (``main``) and its subagents' (``agent-<id>``), inside the profile's own ``projects``
-    folder only, never through a link that leads out."""
     if not _SESSION_ID.match(claude_session_id):
         return {}
     projects = (config_dir / "projects").resolve()
@@ -56,7 +49,6 @@ def stream_files(config_dir: Path, claude_session_id: str) -> dict[str, Path]:
 
 
 def read_complete_lines(path: Path, offset: int) -> tuple[list[bytes], int]:
-    """The complete lines after ``offset`` (a half-written last line waits) and the offset after them."""
     size = path.stat().st_size
     if size <= offset:
         return [], offset

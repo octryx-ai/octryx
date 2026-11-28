@@ -1,9 +1,5 @@
-"""The per-connection confirmation session behind ``workflow_select`` / ``workflow_confirm``.
-
-One confirmation covers one workflow for one connection: the launcher session key or, without
-one, the OAuth grant. The confirmation lives on an external shadow session of that scope, and its
-latest approval decides whether the workflow is selected, rejected or still needs confirming.
-"""
+"""The per-connection confirmation session behind ``workflow_select`` / ``workflow_confirm``. One confirmation covers
+one workflow for one connection."""
 
 from __future__ import annotations
 

@@ -1,15 +1,4 @@
-"""Retention of observability data.
-
-Entities beyond the generic ones of ``privacy.service``:
-
-- ``turn_trace_content``: run content (messages, context, tool trace, output) is reduced to metadata after the TTL;
-  the run itself (summary columns, usage) stays until the ``turn_traces`` policy deletes it;
-- ``connector_health_log``: connection check history;
-- ``device_job_events``: the event stream of device jobs.
-
-These entities use the shared retention policy settings, edited like every retention policy. The decision log keeps
-its own retention setting (``policy_engine.decision_log_retention_days``, default 365 days).
-"""
+"""Retention of observability data."""
 
 from __future__ import annotations
 
@@ -26,7 +15,6 @@ BATCH = 1000
 
 
 async def apply_observability_retention(db: AsyncSession, *, entity_type: str, cutoff: datetime) -> int | None:
-    """Rows affected for an observability entity; ``None`` when ``entity_type`` is not one of them."""
     if entity_type == "turn_trace_content":
         ids = (await db.execute(select(TurnTrace.id).where(
             TurnTrace.created_at < cutoff,

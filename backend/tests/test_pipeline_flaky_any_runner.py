@@ -7,7 +7,10 @@ import pytest
 
 from app.services.engineering_knowledge.stacks import rerun_specs
 from app.services.workflow_runs import pipeline, pipeline_report
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import COMMANDS, _at_pipeline
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 TEST = "test/features/brews/brews_performance_test.dart::1000 brews: scrolling frames build and lay out within 16 ms"
 RED = ("00:27 +362 -1: /x/coffee/test/features/brews/brews_performance_test.dart: 1000 brews: scrolling frames build "

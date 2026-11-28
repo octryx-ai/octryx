@@ -1,19 +1,4 @@
-"""The server side of the client handoff routine.
-
-The octryx-claude launcher (``/handoff``, ``octryx-claude handoff``, or by itself through ``handoff_now``) calls
-the agent gateway with the user's gateway login. No model is involved.
-
-- :func:`resolve_items`: ``key``, else ``all`` (every live claim of the user's agents in the Workspace), else the
-  session's work item, else the items the session's agent holds, else a new platform work item
-  ("Handoff from <user> <date>").
-- :func:`commit_handoff`: the next handoff version is the latest sections plus the git facts (``repo``
-  {url, branch, base_commit, wip_commit, bundle_id}, ``last_commits``, ``changed_files``, ``excluded_files``)
-  plus ``note`` in ``notes``; the server fills ``linked_sessions``. Only the user whose agent holds the item (or
-  anyone, when it is unclaimed) may hand it over. Then the takeover per the Workspace ``handoff`` policy: ``to_user``
-  addresses that person; otherwise the claim's automatic ``handoff_request`` (with the nudge), and under ``auto``
-  an **offer** to the agent with the most spare allowance (never an assignment). The claim records
-  that the holder handed over (``handed_off_at``), which satisfies auto condition 1 once an agent requests it.
-"""
+"""The server side of the client handoff routine."""
 
 from __future__ import annotations
 
@@ -31,7 +16,7 @@ from ..agent_gateway.identity import GatewayIdentity
 from ..project.service import get_project_access_details
 from .claim_values import KIND_GATEWAY_SESSION
 from .claims import live_claim
-from .handoffs import AUTHOR_AGENT, AUTHOR_HUMAN, latest_handoff, validate_sections, write_handoff
+from .handoffs import AUTHOR_AGENT, AUTHOR_HUMAN, SERVER_KEYS, latest_handoff, validate_sections, write_handoff
 from .messages import Author
 from .takeover_listing import takeover_views
 from .takeovers import request_takeover
@@ -132,7 +117,7 @@ async def commit_handoff(db: AsyncSession, identity: GatewayIdentity, payload: d
     if note is not None and (not isinstance(note, str) or len(note) > MAX_NOTE_CHARS):
         raise HTTPException(status_code=422, detail={"code": "handoff_invalid", "field": "note"})
     previous = await latest_handoff(db, item.id)
-    sections = {key: value for key, value in dict(previous.sections or {}).items() if key != "linked_sessions"} \
+    sections = {key: value for key, value in dict(previous.sections or {}).items() if key not in SERVER_KEYS} \
         if previous is not None else {}
     sections["repo"] = {name: repo[name] for name in ("url", "branch", "base_commit", "wip_commit", "bundle_id")
                         if repo.get(name) is not None}
@@ -157,7 +142,6 @@ async def commit_handoff(db: AsyncSession, identity: GatewayIdentity, payload: d
 
 
 async def _clear_requested(db: AsyncSession, session_key: str) -> None:
-    """The session handed over: an admin's pending "Hand over now" is done."""
     presence = (
         await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))
     ).scalar_one_or_none()
@@ -167,8 +151,6 @@ async def _clear_requested(db: AsyncSession, session_key: str) -> None:
 
 
 async def request_hand_over_now(db: AsyncSession, claim: WorkItemClaim) -> bool:
-    """Admin "Hand over now": the claim's handoff request, and the holder session's next hook gets
-    ``handoff_now``. ``False`` when the holder has no gateway session to ask."""
     from .automation import post_automatic_request
 
     item = await db.get(WorkItem, claim.work_item_id)

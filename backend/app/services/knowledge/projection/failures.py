@@ -1,9 +1,5 @@
-"""Map a projection dependency failure onto one fixed, persistable token (split from the projector).
-
-Every dependency error of a projection run — the Evidence index, the embedding space, the parser sandbox, the
-ledger — is reduced to one of ``ALL_PROJECTION_FAILURES`` before it touches the database, so no
-server body, record id, statement or file name can be persisted, logged, or returned.
-"""
+"""Map a projection dependency failure onto one fixed, persistable token. No server body, record id, statement or file
+name is persisted."""
 
 from __future__ import annotations
 
@@ -46,7 +42,6 @@ _PARSER_FAILURE_BY_STATE = {
 
 
 def failure_token(error: BaseException) -> str:
-    """Map a dependency failure onto one fixed, persistable failure token."""
     if isinstance(error, EmbeddingError):
         return _EMBEDDING_FAILURE_BY_STATE[error.state]
     if isinstance(error, ParserError):

@@ -1,18 +1,4 @@
-"""The three-layer alias admission every gateway dispatch goes through.
-
-Shared by the governed driver (``agent/providers/litellm_gateway.py``) and the
-inbound Anthropic Messages route (``services/model_gateway/inbound``), so both
-doors refuse exactly the same aliases for exactly the same reasons:
-
-1. the project must have granted the alias (checked first, so a project without
-   a grant learns nothing about the provider catalog);
-2. the provider alias catalog must admit it;
-3. the Workspace's server-owned data classification must be covered by the
-   alias' declared ``data_policy_class``.
-
-Every denial is a typed, fixed-message :class:`LiteLLMGatewayError` raised
-before any request payload exists, so a denial costs nothing.
-"""
+"""The three-layer alias admission every gateway dispatch goes through: project grant, catalog, data policy."""
 
 from __future__ import annotations
 
@@ -30,8 +16,6 @@ def admitted_alias_entry(
     alias: str,
     gateway_section: Mapping[str, Any],
 ) -> tuple[AliasEntry, DataPolicyDecision]:
-    """Return the admitted catalog entry and the permitted data-policy decision."""
-
     decision = project_admission.decide(alias)
     if not decision.allowed:
         raise LiteLLMGatewayError(GATEWAY_STATE_ALIAS_DENIED, denial_reason=decision.reason) from None

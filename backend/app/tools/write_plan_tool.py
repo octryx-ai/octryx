@@ -1,10 +1,4 @@
-"""``propose_write_plan``: the chat proposes every write of a request once; the person confirms once.
-
-The plan is an ordinary session approval whose change preview has kind ``write_plan``. Each write is previewed
-with everything a per-call card shows (tool, connection, the tool's own preview, every field), in one card.
-Confirming it activates the plan for the request (``approval/resolution_service`` →
-``chat_write_plan.activate_confirmed_plan``); the gate then admits the covered writes without asking.
-"""
+"""``propose_write_plan``: the chat proposes every write of a request once; the person confirms once."""
 
 from __future__ import annotations
 
@@ -47,7 +41,6 @@ _FIELD_NORMALIZERS = {"create_jira_ticket": normalize_issue_type_args}
 
 
 def _normalized(writes: list[dict[str, Any]]) -> list[dict[str, str]]:
-    """Canonicalise each write's fields in place; the writes whose fields contradict themselves, with the reason."""
     invalid = []
     for write in writes:
         normalize = _FIELD_NORMALIZERS.get(write["tool"])
@@ -74,8 +67,7 @@ def _invalid(writes: list[dict[str, Any]], context: ToolContext) -> list[dict[st
 
 
 async def _write_preview(write: dict[str, Any], index: int, connection: str, context: ToolContext) -> dict[str, Any]:
-    """One write as the per-call card showed it (tool, connector, connection, the tool's own preview, fields)."""
-    from ..services.tool_approval_previews import _chat_write_preview
+    from ..services.tool_approval.previews import _chat_write_preview
     from .definitions import get_tool_definition_metadata
 
     shown = await _chat_write_preview(write["tool"], write["fields"], context, {"details": []})
@@ -92,7 +84,6 @@ async def _write_preview(write: dict[str, Any], index: int, connection: str, con
 
 
 def _flat_details(request: str, writes: list[dict[str, Any]], scope: list[dict[str, Any]]) -> list[str]:
-    """The whole plan as lines, for an approval card that renders ``details`` only."""
     lines = [f"request: {request}"] if request else []
     for write in writes:
         via = f" via {write['connection']}" if write.get("connection") else ""
@@ -148,7 +139,7 @@ class ProposeWritePlanTool:
         if all(trusted_skips_plan(write["tool"]) for write in writes) and await trusted_for_chat(
                 context.db, context.user_id, workspace_id):
             return {"status": "not_needed", "message": "Your role is trusted: perform the writes directly."}
-        from ..services.tool_approval_previews import _connection_label
+        from ..services.tool_approval.previews import _connection_label
 
         connections = [_connection_label(write["tool"], write["fields"], context.project_config) for write in writes]
         plan = active_plan(metadata)
@@ -163,8 +154,7 @@ class ProposeWritePlanTool:
 
     @staticmethod
     def _route_refusal(writes: list[dict[str, Any]], context: ToolContext) -> dict[str, Any] | None:
-        """A write whose connection cannot serve its scope is answered now, never put into the plan."""
-        from ..services.tool_approval_previews import chat_write_route_refusal
+        from ..services.tool_approval.previews import chat_write_route_refusal
 
         for write in writes:
             if chat_connector_write_permitted(write["tool"], context):

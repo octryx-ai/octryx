@@ -1,10 +1,4 @@
-"""The plain Claude Code turn of a device job: its command line, environment and the stream-json events it maps.
-
-``claude -p <prompt> --model <m> --output-format json [--resume <session> | --session-id <key>]
---settings <session settings> --mcp-config <platform MCP> --strict-mcp-config --permission-mode <mode>
---append-system-prompt <run note> --no-chrome``: no ``--include-partial-messages`` (thinking omitted),
-background subagents allowed.
-"""
+"""The plain ``claude -p`` turn of a device job: its command line, environment and mapped stream-json events."""
 
 from __future__ import annotations
 
@@ -41,10 +35,7 @@ PLAIN_NOTE_BROWSER = PLAIN_NOTE.replace(
     "http://127.0.0.1:<your app's port>/ only (other addresses are refused); check at 1280 and 390 px wide.")
 
 def command(prepared: Any, *, resume: str | None) -> list[str]:
-    """The ``claude -p`` command line; the prompt goes in on stdin (:class:`PlainCliDriver`), never into argv.
-
-    The session's own app command line is in its story, so the story must not be in the process list: a subagent's
-    ``pkill -f "<app command>"`` would stop every ``claude -p`` whose argv carried it."""
+    # The prompt goes on stdin: a subagent's pkill -f on the story's app command would match every argv carrying it.
     mcp_config = str(prepared.mcp_path)
     note = PLAIN_NOTE
     browser_spec = prepared.extra.get("browser_mcp")
@@ -57,10 +48,8 @@ def command(prepared: Any, *, resume: str | None) -> list[str]:
     args = [prepared.cli_path, "-p", "--output-format", "json",
             "--settings", str(prepared.settings_path), "--mcp-config", mcp_config, "--strict-mcp-config",
             "--permission-mode", str(prepared.extra.get("permission_mode") or "default"),
-            # ``--output-format json`` exactly as plain ``claude -p``: measured ``stream-json --verbose`` makes
-            # Claude Code 2.1.318 ask for ``"thinking": {"display": "updates"}`` even with
-            # ``--thinking-display omitted``; only the
-            # json output sends ``"display": "omitted"``. The chat's live view reads the transcript instead.
+            # Only json output sends ``"thinking": {"display": "omitted"}``; stream-json asks for updates even with
+            # ``--thinking-display omitted``. The chat's live view reads the transcript instead.
             "--append-system-prompt", note, "--no-chrome"]
     if prepared.model:
         args += ["--model", prepared.model]
@@ -70,16 +59,11 @@ def command(prepared: Any, *, resume: str | None) -> list[str]:
         args += ["--effort", effort]
     return args
 
-# The launcher's model env switches Claude Code's pre-release features off for every session (``launch.model_env``).
-# Measured through a pass-through gateway: with it, Claude Code 2.1.318 sends 4 betas and neither
-# ``thinking.display: "omitted"`` nor ``context_management`` (clear_thinking); without it, 12 betas and both, as plain
-# ``claude -p`` against api.anthropic.com (a plain control built a story in 9:28). The seat proxy forwards
-# ``anthropic-beta`` and
-# the body unchanged to Anthropic, so a seat story session runs with Claude Code's own request shape.
+# The launcher's switch for pre-release features also drops ``thinking.display`` and ``context_management`` from
+# requests; without it a seat story session (forwarded unchanged) keeps Claude Code's own request shape.
 EXPERIMENTAL_OFF = "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"
 
 def own_request_shape(prepared: Any) -> None:
-    """Drop the switch from the session's settings ``env`` (which outranks the process env) for a seat session."""
     if prepared.profile != "seat":
         return
     with contextlib.suppress(OSError, ValueError):
@@ -94,8 +78,7 @@ SUBAGENT_ALIAS_ENV = ("ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_
                       "CLAUDE_CODE_SUBAGENT_MODEL")
 
 def pin_subagent_models(prepared: Any) -> None:
-    """Point the session settings' model aliases at the phase's model (``prepared.model``); the settings ``env``
-    outranks the process env, so it is changed there. No phase model: nothing changes."""
+    # The settings env outranks the process env, so the aliases are changed there.
     model = str(prepared.model or "")
     if not model:
         return
@@ -124,7 +107,6 @@ def environment(prepared: Any) -> dict[str, str]:
     return env
 
 def map_line(row: dict[str, Any]) -> list[dict[str, Any]]:
-    """One stream-json line → the job events the chat sees (the SDK driver's ``map_message`` for dicts)."""
     kind = row.get("type")
     if kind == "system":
         if row.get("subtype") == "init" and row.get("session_id"):

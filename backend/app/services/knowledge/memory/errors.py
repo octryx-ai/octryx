@@ -1,9 +1,4 @@
-"""Fixed refusals of the Memory lobe.
-
-Each refusal is one reason from a closed set, mapped to an explicit product state and a fixed
-message, so the tool and the HTTP surface say the same thing and no stored text, statement or
-dependency message is ever rendered.
-"""
+"""Fixed refusals of the Memory lobe. No stored text, statement or dependency message is ever rendered."""
 
 from __future__ import annotations
 

@@ -1,22 +1,4 @@
-"""Governed revision lifecycle: submit for review, four-eyes publish, retire.
-
-The kind-specific parts of a Model Policy revision are passed in as two callables:
-
-* ``recompute_digest`` - the digest of the *stored* content, recomputed now;
-* ``precheck`` - raises :class:`.errors.RegistryRefusalError` when the stored content
-  is not publishable (validator errors, unadmitted model aliases).
-
-State machine::
-
-    draft --submit--> in_review --publish (approved, four-eyes)--> published
-      |                  |                                            |
-      +------retire------+--------------------retire-----------------+--> retired
-
-Every transition re-derives what it needs instead of trusting stored verdicts:
-submit and publish both recompute the digest (``digest_changed`` on drift) and
-re-run the precheck. Publish additionally needs a governance approval bound to
-this revision *and* digest, decided by a user other than the requester.
-"""
+"""Governed revision lifecycle: submit for review, four-eyes publish, retire."""
 
 from __future__ import annotations
 
@@ -66,7 +48,6 @@ async def submit_revision(
     recompute_digest: DigestFn,
     precheck: Precheck,
 ) -> Any:
-    """``draft -> in_review``: open a pending governance approval for this digest in ``workspace_id``."""
     if revision.state != REVISION_STATE_DRAFT:
         raise RegistryRefusalError(REVISION_NOT_DRAFT, revision=revision.revision, state=revision.state)
     _require_digest_intact(revision, recompute_digest)
@@ -93,6 +74,7 @@ async def submit_revision(
         action=f"{kind}.submit",
         resource_type=kind,
         resource_id=parent_id,
+        project_id=workspace_id,
         details={"revision": revision.revision, "digest": revision.digest, "approval_id": approval.id},
     )
     return revision
@@ -111,10 +93,6 @@ async def publish_revision(
     precheck: Precheck,
     self_approve: bool = False,
 ) -> dict[str, Any]:
-    """``in_review -> published`` with a four-eyes governance approval; returns the gate.
-
-    ``self_approve`` is the single-step publish the platform approval rule may allow: the
-    requester approves their own pending review first (``self_approval_not_allowed`` otherwise)."""
     if revision.state != REVISION_STATE_IN_REVIEW:
         raise RegistryRefusalError(REVISION_NOT_IN_REVIEW, revision=revision.revision, state=revision.state)
     _require_digest_intact(revision, recompute_digest)
@@ -151,13 +129,15 @@ async def publish_revision(
         action=f"{kind}.publish",
         resource_type=kind,
         resource_id=parent_id,
+        project_id=workspace_id,
         details={"revision": revision.revision, "digest": revision.digest, "approval_gate": gate.as_dict()},
     )
     return gate.as_dict()
 
 
-async def retire_revision(db: AsyncSession, *, kind: str, parent_id: str, revision: Any, user: User) -> Any:
-    """Any non-retired state ``-> retired``; the only change a published revision allows."""
+async def retire_revision(
+    db: AsyncSession, *, kind: str, parent_id: str, workspace_id: str, revision: Any, user: User
+) -> Any:
     if revision.state == REVISION_STATE_RETIRED:
         raise RegistryRefusalError(REVISION_ALREADY_RETIRED, revision=revision.revision)
     previous = revision.state
@@ -173,6 +153,7 @@ async def retire_revision(db: AsyncSession, *, kind: str, parent_id: str, revisi
         action=f"{kind}.retire",
         resource_type=kind,
         resource_id=parent_id,
+        project_id=workspace_id,
         details={"revision": revision.revision, "digest": revision.digest, "previous_state": previous},
     )
     return revision

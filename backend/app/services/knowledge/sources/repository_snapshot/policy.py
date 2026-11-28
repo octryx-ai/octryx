@@ -1,14 +1,5 @@
-"""Whether a Workspace accepts local repository snapshots from its members' checkouts.
-
-The flag ``projects.config.knowledge_repository_policy.allow_local_snapshots`` is explicit and off
-by default. Only an explicit ``true`` read from the Workspace row itself enables it (never the merged
-turn configuration, which agent-writable entries feed). A Workspace admin or owner sets it, and the
-change is audited (``knowledge.repository_policy.update``) with its old and new booleans only.
-
-When it is on, any member of the Workspace may upload the tracked files at HEAD of a checkout as a
-``local_snapshot`` of a ``git_repository`` source. Every revision records its uploader, and the
-upload API refuses everything else as ``denied`` / ``local_snapshots_not_allowed``.
-"""
+"""Whether a Workspace accepts local repository snapshots from its members' checkouts. Off by default; only an explicit
+``true`` on the Workspace row enables it."""
 
 from __future__ import annotations
 
@@ -39,7 +30,6 @@ async def local_snapshots_allowed(db: AsyncSession, project_id: str) -> bool:
 
 
 async def set_local_snapshots_allowed(db: AsyncSession, project_id: str, *, allowed: bool, actor_id: str) -> None:
-    """Store the flag on the Workspace row and audit a change. Flushes; the caller commits."""
     project = await db.get(Project, project_id)
     if project is None:
         return

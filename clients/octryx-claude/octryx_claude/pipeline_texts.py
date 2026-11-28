@@ -58,13 +58,11 @@ _PLACEHOLDER = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def text(texts: dict[str, Any] | None, key: str, **values: object) -> str:
-    """``key`` from the contract's ``prompt_texts`` (else the fallback) with its placeholders filled."""
     body = str(dict(texts or {}).get(key) or FALLBACK_TEXTS[key])
     return _PLACEHOLDER.sub(lambda match: str(values.get(match.group(1), match.group(0))), body)
 
 
 def file_summary(account: dict[str, Any] | None, texts: dict[str, Any] | None = None) -> str:
-    """Why the repository's environment file ran nothing (missing, invalid, its setup failed); ``""`` when it ran."""
     if not account or account.get("state") == "ok":
         return ""
     file, folder = account.get("file"), account.get("app_folder")
@@ -79,8 +77,6 @@ def file_summary(account: dict[str, Any] | None, texts: dict[str, Any] | None = 
 
 
 def red_summary(results: list[dict[str, Any]]) -> str:
-    """What the session needs to fix a red pipeline, for its resume prompt: per red command the failed test ids and the
-    last lines of its output; ``""`` when every command is green."""
     parts = []
     for item in results:
         if item.get("exit_code") == 0:
@@ -97,10 +93,6 @@ def red_summary(results: list[dict[str, Any]]) -> str:
 
 
 def style_summary(body: Any) -> str:
-    """The platform's code style findings on this change from its answer to the report (``""`` without any).
-
-    A pipeline that is red only on the code style has no failed command to name, so the findings themselves go into
-    the agent's prompt."""
     phase = dict(dict(dict(body or {}).get("workflow_run") or {}).get("phase") or {})
     errors = [str(error) for error in dict(phase.get("pipeline_failure") or {}).get("code_style_errors") or []]
     return "\n".join(f"- {error}" for error in errors)

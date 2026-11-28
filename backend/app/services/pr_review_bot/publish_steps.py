@@ -16,9 +16,6 @@ from .run_facts import set_facts
 
 
 def with_caller_findings(review: dict[str, Any], found: list[dict[str, Any]]) -> dict[str, Any]:
-    """The reviewer's verdict with the caller check's findings: a call the change breaks is high whatever the model
-    said (a reviewer that sees only the diff can pass a change whose callers break). A reviewer
-    finding on the same file and line already says it."""
     if not found or not review.get("verdict"):
         return review
     seen = {(str(item.get("file")), item.get("line"))
@@ -32,7 +29,6 @@ def with_caller_findings(review: dict[str, Any], found: list[dict[str, Any]]) ->
 
 
 def filtered_review(review: dict[str, Any], facts: dict[str, Any], passed: Any) -> dict[str, Any]:
-    """The review without the findings ``@octryx ignore`` dropped, with one acceptance row per ticket criterion."""
     if facts.get("ignored"):
         from .ignore import without_ignored
 
@@ -50,8 +46,6 @@ def filtered_review(review: dict[str, Any], facts: dict[str, Any], passed: Any) 
 
 
 async def seat_reviewer(db: AsyncSession, run: WorkflowRun) -> str:
-    """Whose seat gave the review (the newest seat session of the run), as the footer names it; ``''`` on the
-    company route."""
     from sqlalchemy import select
 
     from ...models import WorkflowRunEvent
@@ -69,7 +63,6 @@ async def seat_reviewer(db: AsyncSession, run: WorkflowRun) -> str:
 async def post_facts(db: AsyncSession, run: WorkflowRun, review: dict[str, Any], facts: dict[str, Any], *,
                      passed: Any, commit: str, policy: Any, checked: Any, ci: Any, scan: dict[str, Any],
                      answered: list[Any]) -> dict[str, Any]:
-    """The facts ``render.build_post`` shows besides the review: footer, status policy, incremental pass."""
     from . import threads
 
     return {"status_policy": policy,
@@ -89,7 +82,6 @@ async def post_facts(db: AsyncSession, run: WorkflowRun, review: dict[str, Any],
 async def record_posted(db: AsyncSession, run: WorkflowRun, *, provider: str, review: dict[str, Any],
                         post: ReviewPost, outcome: ToolOutcome, passed: Any, commit: str, facts: dict[str, Any],
                         reviewer: list[Any], answered: list[Any]) -> None:
-    """A posted review: its metrics, what became of the earlier findings, and the open findings for the next pass."""
     from . import threads
 
     count_findings(provider, post.placed, str(run.repository or ""))

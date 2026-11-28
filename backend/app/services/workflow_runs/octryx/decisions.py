@@ -1,23 +1,4 @@
-"""Requester decisions of a workflow run answered from the terminal.
-
-What the run waits for is the workflow definition's node, and only the node decides who may answer:
-
-- **user confirmation** (test contract, ticket draft, reproduction, retry, advance, questions — and "go on" after a
-  watched state was met) and **user conversation** nodes are the requester's: the terminal may answer them;
-- a **paused** run (loop limit, budget, timeout) is continued with +k, re-planned or aborted by the requester (or the
-  Work item owner / an admin, as in the platform): the terminal may answer it too;
-- an **approval** node (four-eyes) and a held platform action's **tool approval** are another person's or the
-  platform card's: platform only, the terminal shows the link;
-- **watch**, **review** and **sub-workflow** waits are external state: nobody answers them, the agent least of all.
-
-:func:`pending_decision` describes the open decision with the payload and the payload hash the platform card decides
-on (a confirmation: exactly the waiting payload and its hash; a reply or a pause: the hash of the question or pause
-it answers). :func:`decide_in_terminal` refuses a node not answerable by the requester, an action the node does not
-offer and a payload that changed, then applies the decision through the platform's own service function
-(``actions.perform_action`` → ``hitl_decisions.decide`` / ``pause``; ``hitl.record_reply``), so it is recorded,
-audited and Workspace-scoped exactly like a decision in the run card. Whether the user really decided is the
-caller's proof (the PreToolUse-confirmed ticket, ``agent_gateway/decision_confirmation``).
-"""
+"""Requester decisions of a workflow run answered from the terminal."""
 
 from __future__ import annotations
 
@@ -76,7 +57,6 @@ async def _pause_decision(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
 
 
 async def pending_decision(db: AsyncSession, run: WorkflowRun, *, principal=None) -> dict[str, Any] | None:
-    """The run's open decision and who may take it; ``None`` while nothing waits for a person."""
     if run.status == STATUS_PAUSED:
         return await _pause_decision(db, run)
     if run.status != STATUS_WAITING:
@@ -97,7 +77,7 @@ async def pending_decision(db: AsyncSession, run: WorkflowRun, *, principal=None
         payload = dict(waiting.get("payload") or {})
         actions = list(CONFIRM_ACTIONS)
         if payload.get("missing") or payload.get("blockers"):
-            actions = actions[1:]  # nothing complete to confirm yet (as in the run card)
+            actions = actions[1:]
         return {"kind": KIND_CONFIRMATION, "in_terminal": True, "subject": waiting.get("subject") or "advance",
                 "payload": payload, "payload_hash": str(waiting.get("payload_hash") or ""), "actions": actions}
     if kind == WAITING_REPLY and node is not None and node.kind == NODE_CONVERSATION:
@@ -112,14 +92,13 @@ async def pending_decision(db: AsyncSession, run: WorkflowRun, *, principal=None
 
 
 def decision_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
-    """The typed decision inputs the permission prompt shows and the ticket binds (nothing else is read)."""
     bound: dict[str, Any] = {}
     if isinstance(arguments.get("k"), int) and not isinstance(arguments.get("k"), bool):
         bound["k"] = arguments["k"]
     if isinstance(arguments.get("reply"), str) and arguments["reply"].strip():
         bound["reply"] = arguments["reply"].strip()[:MAX_REPLY_CHARS]
     if isinstance(arguments.get("reason"), str) and arguments["reason"].strip():
-        bound["reason"] = " ".join(arguments["reason"].split())[:500]  # why an abort / stop stops the run
+        bound["reason"] = " ".join(arguments["reason"].split())[:500]
     criteria = arguments.get("human_verified_criteria")
     if isinstance(criteria, list):
         bound["human_verified_criteria"] = [str(item)[:200] for item in criteria[:50]]
@@ -131,9 +110,7 @@ def arguments_digest(arguments: dict[str, Any]) -> str:
 
 
 def ask_text(run: WorkflowRun, decision: dict[str, Any], *, action: str, arguments: dict[str, Any]) -> str | None:
-    """What Claude Code's permission prompt shows, in full: the payload hash first, then the run, the node, the
-    action, the typed inputs and the exact payload. ``None`` when it does not fit the prompt (:data:`ASK_TEXT_LIMIT`):
-    a decision is never taken on a partly shown payload or reply — it is decided in the platform then."""
+    # A decision is never taken on a partly shown payload; one that does not fit is decided in the platform.
     from ..hitl_actions import CONFIRMATION_LABELS
 
     labels = CONFIRMATION_LABELS.get(str(decision.get("subject") or ""), {})
@@ -149,7 +126,6 @@ def ask_text(run: WorkflowRun, decision: dict[str, Any], *, action: str, argumen
 
 
 def check_decision(decision: dict[str, Any] | None, *, action: str, hash_value: str) -> None:
-    """Refuse a node not answerable here, an action it does not offer, or a payload that changed."""
     if decision is None:
         raise WorkflowRunError("nothing_to_decide", "The run waits for no decision.", 409)
     if not decision.get("in_terminal"):
@@ -165,7 +141,6 @@ def check_decision(decision: dict[str, Any] | None, *, action: str, hash_value: 
 
 async def decide_in_terminal(db: AsyncSession, run: WorkflowRun, *, user: User, action: str, hash_value: str,
                              arguments: dict[str, Any]) -> WorkflowRun:
-    """Apply a confirmed terminal decision through the platform's own decision functions; raises on refusal."""
     from ..actions import perform_action
     from ..hitl import record_reply
 
@@ -185,7 +160,7 @@ async def decide_in_terminal(db: AsyncSession, run: WorkflowRun, *, user: User, 
             raise WorkflowRunError("reply_required", "A reply needs its text.", 422)
         session_id = await main_session_id(db, run)
         if session_id and user.id == run.requested_by:  # role decisions do not write another person's thread
-            db.add(Message(session_id=session_id, role="user", content=inputs["reply"]))
+            db.add(Message(session_id=session_id, role="user", content=inputs["reply"], author_user_id=user.id))
         await record_reply(db, run, inputs["reply"], user=user)
         record_event(db, run, EVENT_TERMINAL_DECISION, node_id=node_id, actor_id=user.id, detail=channel)
         return run

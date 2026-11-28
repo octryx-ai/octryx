@@ -1,16 +1,5 @@
-"""Which coding engine an octryx session runs on: Claude Code or OpenAI Codex CLI.
-
-Three levels, all on the server; the launcher only reads the result:
-
-- **platform**: the platform admin's default (``system_config`` key :data:`PLATFORM_CONFIG_KEY`); without one it is
-  :data:`ENGINE_CLAUDE_CODE`;
-- **Workspace**: ``agent_gateway_policy.engines`` = ``{"allowed": [...], "default": "..."}``. ``allowed`` says which
-  engines the Workspace's members may use (default: all of them, so Codex works without setup); ``default``
-  overrides the platform default for this Workspace;
-- **person**: a member's own choice (``user_agent_engines``), which counts only while the Workspace allows it.
-
-Kept free of database imports because ``agent_gateway/policy`` validates the Workspace section on every admin write.
-"""
+"""Which coding engine an octryx session runs on, by platform, Workspace and person: keys and validation.
+Free of database imports: ``policy`` validates the Workspace section on every admin write."""
 
 from __future__ import annotations
 
@@ -42,10 +31,6 @@ def engine_name(value: Any, path: str) -> str:
 
 
 def normalize_engine_section(value: Any, path: str) -> dict[str, Any]:
-    """The validated section for storage; raises ``EnginePolicyError``.
-
-    ``allowed`` must name at least one engine, each once; ``default`` (optional) must be one of them. A section
-    without ``default`` keeps the platform default for the Workspace."""
     if not isinstance(value, dict):
         raise EnginePolicyError("not_an_object", path)
     unknown = sorted(set(value) - _FIELDS)

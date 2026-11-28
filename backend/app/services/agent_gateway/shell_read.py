@@ -1,33 +1,13 @@
-"""A plain shell read as read evidence (both engines).
-
-Codex reads with the shell (``cat``, ``ls``, ``rg``); Claude Code often does too. A workflow phase that asks "the
-code was read" names the platform's read tools, so such a read counts as the matching platform read when all three
-hold (the other two are checked by ``read_evidence.native_read_use``):
-
-1. **this module**: the command is a plain read inside the session's bound repository root, parsed with the same
-   structural parser as the hard-deny list (``command_match``):
-   - only read commands: ``cat``/``head``/``tail``/``nl``/``wc``, ``sed -n 'N[,M]p'``, ``grep``/``rg``,
-     ``ls``/``tree``, ``find`` without actions (``-exec``, ``-delete``, ``-fprint`` ...); several of them joined by
-     ``|``, ``&&`` or ``;``;
-   - no redirection into a file, no variable or command substitution, no environment assignment or wrapper, no
-     ``cd``; a pipe only into another read command;
-   - every path argument (and the working directory when a command names none) lies inside the root;
-   - Codex's ``<shell> -lc '<script>'`` wrapper is unwrapped first;
-2. the launcher's PostToolUse hook reported the call as succeeded;
-3. the model gateway recorded the same call in the proxied conversation (``block_index``).
-
-Anything else is not read evidence: :func:`shell_read` returns ``None`` for a command that is not a plain read, and
-``in_root: False`` for a plain read that leaves the root.
-"""
+"""A plain shell read inside the bound repository root as read evidence (both engines)."""
 
 from __future__ import annotations
 
 import posixpath
 import re
 import shlex
-from typing import Any
 
 from .command_match import raw_command_segments, writes_by_redirection
+from .stored_types import ShellRead
 from .tool_check import candidate_paths
 
 READ_FILE = "read_workspace_file"
@@ -52,7 +32,6 @@ _PATTERN_FIRST = frozenset({"grep", "rg"})
 
 
 def unwrap(command: str) -> str:
-    """``/bin/zsh -lc 'cat x'`` (how Codex runs a command) -> ``cat x``; anything else unchanged."""
     try:
         words = shlex.split(command)
     except ValueError:
@@ -63,7 +42,6 @@ def unwrap(command: str) -> str:
 
 
 def _paths(name: str, args: list[str]) -> list[str] | None:
-    """The path arguments of one reader; ``None`` when the arguments make it more than a plain read."""
     if name == "find":
         if any(arg in _FIND_ACTIONS for arg in args):
             return None
@@ -97,8 +75,7 @@ def _paths(name: str, args: list[str]) -> list[str] | None:
     return positional
 
 
-def shell_read(command: str, cwd: str, root: str | None) -> dict[str, Any] | None:
-    """``{"read_tool", "in_root", "path"}`` for a plain shell read, else ``None``."""
+def shell_read(command: str, cwd: str, root: str | None) -> ShellRead | None:
     script = unwrap(str(command or ""))
     if "$" in script or "`" in script or writes_by_redirection(script) is not False:
         return None

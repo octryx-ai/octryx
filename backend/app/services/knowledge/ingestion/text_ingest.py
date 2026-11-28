@@ -1,44 +1,5 @@
-"""Workspace-authorized ingestion of one text-native source revision.
-
-Refusal order is part of the contract. Everything that can refuse the
-payload runs **before** any byte is written to object storage:
-
-1. the Workspace is already authorized by the caller (an ``AuthorizedWorkspace``
-   is the only accepted scope — this function cannot be called with a raw id);
-2. the source key and title are normalized and bounded;
-3. the media type must be text-native by *both* the declared type and a binary
-   sniff of the leading bytes;
-4. the payload is decoded as strict UTF-8 and split into spans.
-
-Only then is the object written, content-addressed and Workspace-partitioned, and
-only then is the ledger row plus its outbox entry committed. So an unsupported or
-undecodable upload leaves no object, no row, and no projection obligation behind.
-
-Nothing here spawns a subprocess or touches the host filesystem, and nothing is
-dispatched with ``asyncio.create_task``: the committed outbox entry *is* the
-handoff to the projector.
-
-Because the object is written before the revision commits, the reverse is also true: the
-operator-owned retention pass may already have decided to delete exactly this object.
-Two things guard that, and only the first of them is a guarantee:
-
-1. **The publication boundary.** The content address is derived *before* the write, and the
-   transaction-scoped advisory lock on ``(Workspace, object key)`` is taken before it too, so
-   the write and the commit of the reference are one critical section that a retention pass
-   in another process cannot interleave with
-   (``services/knowledge/object_publication_lock.py``). A pass that already holds the key
-   makes this ingestion wait inside the database, and then it writes the object again at the
-   same content address, so its reference is valid either way.
-2. **The hold.** A committed retention hold on the key is a fast, explicit refusal: this
-   ingestion answers the retryable ``unavailable`` state instead of waiting for an operator
-   pass to finish its settle window. The next attempt succeeds once the hold is gone.
-
-The cost of the first one is stated rather than hidden: the database transaction is open
-across the object write, so one PostgreSQL connection is held for the duration of an upload of
-at most ``MAX_UPLOAD_BYTES``, bounded by the object client's own connect/read timeouts. The
-alternative — taking the boundary after the write — leaves exactly the interleaving the boundary
-prevents, because the bytes would already be there when the pass measured them.
-"""
+"""Workspace-authorized ingestion of one text-native source revision. Everything that can refuse runs before any byte is
+written to object storage."""
 
 from __future__ import annotations
 
@@ -50,7 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..access.authorization import AuthorizedWorkspace
 from ..ledger.errors import EvidenceLedgerContractError, EvidencePayloadTooLargeError, InvalidEvidenceRequestError
-from ..ledger.revisions import RegisteredRevision, register_revision
+from ..ledger.revision_races import RegisteredRevision
+from ..ledger.revisions import register_revision
 from ..objects import MAX_OBJECT_BYTES, StoredObject
 from ..runtime import EvidenceRuntime
 from ..sources.scope import normalize_products, normalize_version
@@ -70,8 +32,6 @@ MAX_TEXT_BYTES = 8 * 1024 * 1024
 
 @dataclass(frozen=True, slots=True)
 class IngestedSource:
-    """What one ingestion produced; ``created`` is False for identical bytes."""
-
     source_id: str
     source_key: str
     revision_id: str
@@ -85,7 +45,6 @@ class IngestedSource:
 
 
 def check_ingest_payload(runtime: object, authorized: object, data: object, max_bytes: int) -> None:
-    """The refusals every ingestion makes first: an unscoped call, an empty payload, an oversized one."""
     if type(runtime) is not EvidenceRuntime or type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     if type(data) is not bytes or not data:
@@ -95,7 +54,6 @@ def check_ingest_payload(runtime: object, authorized: object, data: object, max_
 
 
 def ingested_source(revision: RegisteredRevision, stored: StoredObject, key: str, media_type: str) -> IngestedSource:
-    """What one ingestion reports for its registered revision and stored object."""
     return IngestedSource(
         source_id=revision.source_id,
         source_key=key,
@@ -125,7 +83,6 @@ async def ingest_text_source(
     products: object = None,
     version: object = None,
 ) -> IngestedSource:
-    """Ingest one text-native payload into an immutable Workspace revision."""
     check_ingest_payload(runtime, authorized, data, MAX_TEXT_BYTES)
 
     key = normalize_source_key(source_key)
@@ -141,6 +98,8 @@ async def ingest_text_source(
     outlined = has_outline(text, media_type)
     spans = derive_outlined_spans(text, media_type) if outlined else derive_spans(text)
 
+    # The transaction stays open across the object write, holding one database connection for the upload: taking the
+    # publication lock after the write would let a retention pass measure the bytes in between.
     stored = await publish_object(db, runtime=runtime, authorized=authorized, data=data)
 
     revision: RegisteredRevision = await register_revision(

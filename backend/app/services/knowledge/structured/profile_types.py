@@ -1,8 +1,4 @@
-"""The structured profile's value types and the constants its rows and checks share.
-
-They live apart from the loader so the field validators (:mod:`.profile_fields`) can build them
-without importing the loader that calls the validators.
-"""
+"""The structured profile's value types and the constants its rows and checks share."""
 
 from __future__ import annotations
 
@@ -22,7 +18,7 @@ FILE_FORMATS = frozenset({"ini", "properties", "yaml"})
 
 
 class StructuredProfileError(ValueError):
-    """The profile file is refused; the message names the rule, never content."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,7 +97,6 @@ class StructuredProfile:
 
 
 def fold(text: str) -> str:
-    """Header comparison form: letters and digits only, lower-case (``Post-greSQL`` -> ``postgresql``)."""
     return re.sub(r"[^0-9a-z]", "", text.casefold())
 
 

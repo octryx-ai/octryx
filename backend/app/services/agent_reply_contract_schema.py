@@ -1,7 +1,4 @@
-"""Validation and normalization of an agent's reply contract.
-
-The contract rules are described in :mod:`app.services.agent_reply_contract`.
-"""
+"""Validation and normalization of an agent's reply contract."""
 
 from __future__ import annotations
 
@@ -11,6 +8,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .agent_reply_contract_model import NamedSchema
+from .agent_reply_contract_types import ArrayField, PrimitiveField, ReplyContract, TextContract
 
 REPLY_CONTRACT_FIELD = "reply_contract"
 REPLY_CONTRACT_PAYLOAD_KEY = "replyContract"
@@ -33,7 +31,7 @@ _SCHEMA_NAME = "Reply"
 
 
 class ReplyContractError(ValueError):
-    """An invalid contract; the message is fixed plain English and never echoes the input."""
+    # The message is fixed and never echoes the input.
 
     code = REASON_CONTRACT_INVALID
 
@@ -41,7 +39,7 @@ class ReplyContractError(ValueError):
         super().__init__(message)
 
 
-def text_contract() -> dict[str, str]:
+def text_contract() -> TextContract:
     return {"kind": KIND_TEXT}
 
 
@@ -54,7 +52,7 @@ def _bounded_size(value: Any) -> None:
         raise ReplyContractError("The reply format exceeds its 16 KiB size limit.")
 
 
-def _field(spec: Any) -> dict[str, Any]:
+def _field(spec: Any) -> PrimitiveField | ArrayField:
     if not isinstance(spec, dict) or not isinstance(spec.get("type"), str):
         raise ReplyContractError("Each reply field needs a type.")
     kind = spec["type"]
@@ -70,8 +68,8 @@ def _field(spec: Any) -> dict[str, Any]:
     return {"type": "array", "items": {"type": items["type"]}}
 
 
-def normalize_reply_contract(value: Any) -> dict[str, Any]:
-    """The canonical contract for *value*, or :class:`ReplyContractError` (nothing is coerced)."""
+def normalize_reply_contract(value: Any) -> ReplyContract:
+    # Nothing is coerced.
     if not isinstance(value, dict):
         raise ReplyContractError()
     _bounded_size(value)
@@ -93,7 +91,7 @@ def normalize_reply_contract(value: Any) -> dict[str, Any]:
         raise ReplyContractError("Required fields are a list of declared field names.")
     if len(set(required)) != len(required) or set(required) - set(properties):
         raise ReplyContractError("Required fields must be declared once.")
-    canonical = {
+    canonical: ReplyContract = {
         "kind": KIND_JSON_OBJECT,
         "schema": {
             "type": "object",
@@ -106,7 +104,6 @@ def normalize_reply_contract(value: Any) -> dict[str, Any]:
 
 
 def _named_schema(contract: Mapping[str, Any]) -> NamedSchema:
-    """The IR model of a normalized contract; a contract the IR refuses is invalid too."""
     try:
         return NamedSchema.model_validate(contract["schema"])
     except ValueError as exc:

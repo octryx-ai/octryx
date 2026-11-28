@@ -135,10 +135,11 @@ async def panel_list_engineering_knowledge_graph_nodes(
     offset: int = 0,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    admin = await _require_admin_api(request, db)
     return JSONResponse(
         await list_engineering_knowledge_graph_nodes(
             db,
+            viewer_id=admin.id,
             query=query,
             node_type=node_type,
             status=status,

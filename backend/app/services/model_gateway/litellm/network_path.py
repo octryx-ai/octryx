@@ -1,19 +1,4 @@
-"""The least-privilege network path of the governed LiteLLM gateway client.
-
-An operator opening firewall or NetworkPolicy egress for this client should not
-have to read the adapter to learn what it needs. The path is derived from the
-already-validated endpoint, transport policy and probe contract, so the contract
-cannot drift from what the client actually does:
-
-- egress only: the client never listens, and nothing calls back into it;
-- one destination: the validated gateway host, or the governed proxy hop when one
-  is configured (the gateway then becomes a proxy ACL entry, not a firewall rule);
-- two request paths and two methods: ``GET`` on the pinned probe path and ``POST``
-  on ``/chat/completions``;
-- no redirects, so the destination set cannot grow at runtime;
-- no ambient environment trust, so the destination set cannot be changed by a
-  process variable.
-"""
+"""The least-privilege network path of the governed LiteLLM gateway client, derived from its validated config."""
 
 from __future__ import annotations
 

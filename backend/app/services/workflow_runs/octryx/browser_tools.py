@@ -1,26 +1,4 @@
-"""The browser of a run phase: the agent drives the app it builds, on this machine only.
-
-The implement session looks at the app it builds the way a user does, through
-Microsoft's Playwright MCP server (``@playwright/mcp``), which the launcher starts for that one session with a browser
-instance of its own (headless, in-memory profile, no extension, never the person's Chrome; ``octryx-claude``
-``browser_mcp``). Its tools (``mcp__playwright__browser_*``) are no file, shell or platform tool, so the capability
-decision refused them as unclassified. In a running phase they are allowed, with two rules:
-
-- every ``url`` the call names (also nested) is the app on loopback (``127.0.0.1``, ``localhost``, ``::1``) or a blank
-  page. The server's own ``--allowed-origins`` says the same, but its README says it "does not serve as a security
-  boundary"; this rule is the boundary;
-- ``browser_run_code_unsafe`` (arbitrary Playwright code in the server's Node process, which can open any page and read
-  any file the person can) is refused: navigate, resize, snapshot, screenshot, click and type cover a screen check.
-
-Allowed by default: with the Workspace's ``tool_defaults.browser: read_external`` (the default) the
-browser may also open public web pages to read them, logged as allowed by default. Private and internal addresses
-(RFC 1918, link-local and cloud metadata, carrier-grade NAT, IPv6 unique and link-local, ``.internal``, ``.local``,
-``.lan``, ``.corp``, ``.intranet``, ``.home.arpa``, single-label names), hosts with a ``prod`` label, other schemes
-and free Playwright code stay refused; ``loopback`` restores the rule above.
-
-The Claude-in-Chrome extension route (``claude --chrome`` in an agent Chrome profile) is dropped: it needed an
-extension installed in a profile by hand and could drive the person's own Chrome.
-"""
+"""The browser of a run phase: the agent drives the app it builds, on this machine only."""
 
 from __future__ import annotations
 
@@ -66,7 +44,6 @@ _LABEL_SPLIT = re.compile(r"[.-]")
 
 
 def public_url(url: str) -> bool:
-    """An http(s) URL of a public host: no private, internal, loopback or ``prod`` address."""
     try:
         parts = urlsplit(url.strip())
         host = (parts.hostname or "").lower().rstrip(".")
@@ -86,8 +63,6 @@ def public_url(url: str) -> bool:
 
 def browser_tool_decision(tool_name: str, tool_input: dict[str, Any],
                           defaults: dict[str, Any] | None = None) -> ToolDecision | None:
-    """``None`` (no objection) for a browser call that stays on loopback; with ``tool_defaults.browser:
-    read_external`` an allow by default for public pages; a denial otherwise."""
     if tool_name in REFUSED_BROWSER_TOOLS:
         return ToolDecision(DECISION_DENY, "denied", REASON_BROWSER_CODE, REASON_BROWSER_CODE.replace("_", "-"),
                             "In a workflow run the browser runs no free Playwright code; use browser_navigate, "

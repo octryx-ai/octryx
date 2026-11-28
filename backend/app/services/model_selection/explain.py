@@ -1,11 +1,4 @@
-"""Explain a turn (Runtime → Default & fallback → Explain a turn).
-
-A preview of the one resolver for a Workspace and a few turn facts: which model would answer, from which source, and
-what the fallback would change. It reads exactly what a turn reads (the catalog, the platform order,
-the fallback mode, the Workspace's allowlist, explicit default and data class) and decides with ``resolver`` and
-``gates``; it never dispatches anything.
-
-"""
+"""Explain a turn (Runtime → Default & fallback → Explain a turn)."""
 
 from __future__ import annotations
 
@@ -129,7 +122,6 @@ async def explain_turn(
 
 
 async def explain_options(db: AsyncSession) -> dict[str, Any]:
-    """The form's choices: active Workspaces with their data class, and the enabled catalog models."""
     projects = (
         await db.execute(select(Project.id, Project.name, Project.config).where(Project.is_active.is_(True))
                          .order_by(Project.name))

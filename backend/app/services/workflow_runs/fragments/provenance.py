@@ -1,19 +1,4 @@
-"""Where a compiled node came from: fragment provenance in the run graph, its events and its view.
-
-A composite version stores the compiled graph in ``definition_json`` and, once at creation, the authored source and
-the per-node provenance in ``runtime_settings["composition"]`` (``composition/v1``). The runtime needs
-no fragment awareness: this module only reads that block back.
-
-- ``graph_for_run`` fills :attr:`PhasedGraph.provenance` with :func:`version_provenance`;
-- the engine's ``node_entered`` event carries :func:`node_provenance` (``{key, version, checksum, ref}``) and
-  ``run_started`` carries :func:`run_composition` (``[{key, version, checksum}]``);
-- the run view's nodes carry :func:`reader_fragment`.
-
-Who sees what: the fragment key, its version number and the reference node id are shown to every run
-reader; the pinned version id and the checksum only to a platform admin (:func:`redact_event_detail` withholds the
-checksum from a run reader's events). A version without a composition block (a plain workflow that uses no
-fragment) has no provenance, and its events and views carry none.
-"""
+"""Where a compiled node came from: fragment provenance in the run graph, its events and its view."""
 
 from __future__ import annotations
 
@@ -36,7 +21,6 @@ def _composition(version: Any) -> dict[str, Any]:
 
 
 def _entry(raw: Any) -> dict[str, Any] | None:
-    """One provenance entry with the recorded fields; ``None`` for a malformed one (never a guess)."""
     if not isinstance(raw, dict) or not isinstance(raw.get("key"), str) or not raw["key"]:
         return None
     version = raw.get("version")
@@ -53,7 +37,6 @@ def _entry(raw: Any) -> dict[str, Any] | None:
 
 
 def version_provenance(version: Any) -> dict[str, dict[str, Any]]:
-    """Compiled node id -> ``{ref, key, version, version_id, checksum, node}`` of the version; ``{}`` without one."""
     raw = _composition(version).get("provenance")
     if not isinstance(raw, dict):
         return {}
@@ -61,10 +44,7 @@ def version_provenance(version: Any) -> dict[str, dict[str, Any]]:
 
 
 def node_provenance(graph: PhasedGraph, node_id: str) -> dict[str, Any] | None:
-    """The ``node_entered`` detail of a fragment-origin node (``{key, version, checksum, ref}``), else ``None``.
-
-    The pinned version id is never part of it: an event is read by every run reader.
-    """
+    # The pinned version id stays out: every run reader reads the event.
     entry = dict(getattr(graph, "provenance", None) or {}).get(node_id)
     if not isinstance(entry, dict):
         return None
@@ -72,7 +52,6 @@ def node_provenance(graph: PhasedGraph, node_id: str) -> dict[str, Any] | None:
 
 
 def run_composition(version: Any) -> list[dict[str, Any]]:
-    """The pins a run starts on (``[{key, version, checksum}]``, source order); ``[]`` for a plain version."""
     fragments = _composition(version).get("fragments")
     pins: list[dict[str, Any]] = []
     for item in fragments if isinstance(fragments, list) else []:
@@ -83,7 +62,6 @@ def run_composition(version: Any) -> list[dict[str, Any]]:
 
 
 def reader_fragment(entry: dict[str, Any] | None, *, admin: bool) -> dict[str, Any] | None:
-    """A run node's ``fragment``: ``{key, version, ref}`` for every reader, plus the pin for a platform admin."""
     if not isinstance(entry, dict):
         return None
     fields = PUBLIC_FIELDS + ADMIN_FIELDS if admin else PUBLIC_FIELDS
@@ -91,7 +69,6 @@ def reader_fragment(entry: dict[str, Any] | None, *, admin: bool) -> dict[str, A
 
 
 def redact_event_detail(kind: str, detail: dict[str, Any], *, admin: bool) -> dict[str, Any]:
-    """A run reader's copy of an event detail: the fragment checksum is an admin field."""
     if admin or not isinstance(detail, dict) or ("fragment" not in detail and "composition" not in detail):
         return detail
     redacted = dict(detail)
@@ -105,7 +82,6 @@ def redact_event_detail(kind: str, detail: dict[str, Any], *, admin: bool) -> di
 
 
 async def is_platform_admin(db: Any, user: Any) -> bool:
-    """A verified platform admin (cross-Workspace scope, the same test the run access uses); no user → ``False``."""
     if user is None or not getattr(user, "id", None):
         return False
     from ...secure_work.access import work_scope_project_ids

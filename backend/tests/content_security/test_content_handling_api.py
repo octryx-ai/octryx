@@ -1,12 +1,5 @@
-"""A Workspace's content handling through ``/api/v1/workspaces/{ws}/content-handling``.
-
-Members read the effective action per kind (shipped default marked), the five actions, the Workspace's governance
-alias and the governed aliases it may name, the fixed rules, where a reroute is unavailable and where it masks instead (the reply), and per enforcement point what
-the saved action and each choice does there (the gateway refuses mask/reroute); the Workspace's admins (and platform
-admins) change it, every change audited with its real transition (a concurrent edit that lost is 409); a member gets
-403, a caller who is no member and an unknown Workspace the same 404; ``reroute`` / ``mask_reroute`` need the
-Workspace's governance alias (``test_content_handling_governance_alias``); ``prompt_injection`` is fixed.
-"""
+"""A Workspace's content handling through ``/api/v1/workspaces/{ws}/content-handling``: what members read,
+who may change it, and the audited transitions."""
 
 from __future__ import annotations
 
@@ -16,20 +9,18 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, Project, UserProject, WorkspaceContentGovernance, WorkspaceContentHandling
+from app.models import AuditLog, UserProject, WorkspaceContentGovernance, WorkspaceContentHandling
 from app.services.content_security import handling_settings
 from app.services.content_security.handling_points import POINTS
 from app.services.content_security.handling_preview import reroute_masked_at, reroute_unavailable
+from tests.factories import make_project
 from tests.policy_engine_support import bearer, make_user
 
 ALIAS = "approved-model"
 
 
 async def _workspace(db) -> str:
-    project = Project(id=str(uuid.uuid4()), name=f"handling-{uuid.uuid4().hex[:6]}", is_active=True)
-    db.add(project)
-    await db.commit()
-    return project.id
+    return (await make_project(db, name=f"handling-{uuid.uuid4().hex[:6]}", commit=True)).id
 
 
 async def _member(db, workspace_id: str, role: str) -> str:
@@ -68,24 +59,28 @@ async def test_a_member_reads_the_shipped_defaults_and_cannot_change_them(client
         "secrets": "mask", "credential_assignment": "mask", "email": "mask", "internal_ip": "report",
         "iban": "none", "phone": "none"}
     assert all(item["is_default"] and item["action"] == item["default_action"] for item in kinds.values())
+    defaults = {kind: {path["surface"]: path["action"] for path in item["default_actions"]} for kind, item in kinds.items()}
+    assert defaults["email"] == {"platform": "mask", "gateway": "report"}, "a coding agent gets email recorded"
+    assert defaults["secrets"] == {"platform": "mask", "gateway": "mask"}
     # Per point what the fixed rules do there: an unfinished part is withheld from a platform model call but refuses
-    # the whole gateway request; on the gateway injection is refused in tool results only.
+    # the whole gateway request; a masked gateway request still carrying a mask kind is refused.
     fixed = {point["surface"]: {rule["rule"]: rule["action"] for rule in point["rules"]} for point in body["fixed"]}
     assert set(fixed) == {item.id for item in POINTS}
     assert fixed["model_call"] == {"unfinished": "withhold", "unreadable": "refuse", "prompt_injection": "refuse",
                                    "final_bytes": "refuse"}
-    assert fixed["gateway_messages"] == {"unfinished": "refuse", "unreadable": "refuse", "prompt_injection": "refuse"}
+    assert fixed["gateway_messages"] == {"unfinished": "refuse", "unreadable": "refuse", "prompt_injection": "refuse",
+                                         "final_bytes": "refuse"}
     assert fixed["commands"] == {"unfinished": "review", "prompt_injection": "none"}
-    # Every point that cannot reroute is listed, whatever the saved action; commands only for their kinds. The
-    # gateway points are platform calls only for it (``surface_defaults`` / ``surface_choices``).
-    assert {item["surface"] for item in kinds["email"]["reroute_unavailable"]} == {"model_call_direct"}
+    # Every point that cannot reroute is listed, whatever the saved action; commands only for their kinds.
+    assert {item["surface"] for item in kinds["email"]["reroute_unavailable"]} == {"model_call_direct", "codex_seat"}
     assert "commands" in {item["surface"] for item in kinds["secrets"]["reroute_unavailable"]}
     assert kinds["email"]["reroute_unavailable"] == reroute_unavailable("email")
     assert all(item["label"] for item in kinds["email"]["reroute_unavailable"])
     # The reply direction masks instead of refusing.
     assert [item["surface"] for item in kinds["email"]["reroute_masked_at"]] == ["model_output"]
     assert kinds["email"]["reroute_masked_at"] == reroute_masked_at("email")
-    assert {item.id for item in POINTS if item.reroute == "unavailable"} == {"model_call_direct", "commands"}
+    assert {item.id for item in POINTS if item.reroute == "unavailable"} == {"model_call_direct", "codex_seat",
+                                                                              "commands"}
 
     refused = await client.put(_url(workspace, "email"), headers=bearer(member), json={"action": "report"})
     assert refused.status_code == 403
@@ -175,24 +170,22 @@ async def test_the_effective_action_is_shown_per_enforcement_point(client, db) -
     owner = await _member(db, workspace, "owner")
     kinds = {item["kind"]: item for item in (await client.get(_url(workspace), headers=bearer(owner))).json()["kinds"]}
 
-    # Shipped: platform calls mask credentials while the coding-agent gateway refuses them.
     secrets = _points(kinds["secrets"])
     assert secrets["model_call"] == ("mask", "mask", None)
     for point in ("gateway_messages", "gateway_responses", "codex_seat"):
-        assert secrets[point] == ("refuse", "refuse", None)
+        assert secrets[point] == ("mask", "mask", None)
     assert secrets["commands"] == ("review", "review", None)
     assert set(_points(kinds["email"])) == {item.id for item in POINTS} - {"commands"}
-    assert _points(kinds["email"])["gateway_messages"] == ("none", "none", "platform_calls_only")
+    assert _points(kinds["email"])["gateway_messages"] == ("report", "report", None)  # email in code is real data
 
-    # Before saving: on the gateway email is platform calls only, and a credential mask / reroute stays refused.
     assert set(kinds["email"]["surface_choices"]) == {"refuse", "mask", "reroute", "mask_reroute", "report", "default"}
     for choice in ("refuse", "mask", "reroute", "mask_reroute", "report"):
         email_choice = {item["surface"]: item for item in kinds["email"]["surface_choices"][choice]}
-        secret_choice = {item["surface"]: item for item in kinds["secrets"]["surface_choices"][choice]}
-        for point in ("gateway_messages", "gateway_responses", "codex_seat"):
-            assert (email_choice[point]["action"], email_choice[point]["reason"]) == ("none", "platform_calls_only")
-            assert (secret_choice[point]["action"], secret_choice[point]["reason"]) == (
-                (choice, None) if choice in ("refuse", "report") else ("refuse", "platform_calls_only"))
+        for point in ("gateway_messages", "gateway_responses"):
+            assert (email_choice[point]["action"], email_choice[point]["reason"]) == (choice, None)
+        seat = email_choice["codex_seat"]
+        assert (seat["action"], seat["reason"]) == (("refuse", "content_route_unavailable")
+                                                    if choice in ("reroute", "mask_reroute") else (choice, None))
     reroute = {item["surface"]: item for item in kinds["email"]["surface_choices"]["reroute"]}
     assert (reroute["model_call"]["action"], reroute["model_output"]["action"]) == ("reroute", "mask")
     assert (reroute["model_call_direct"]["action"], reroute["model_call_direct"]["reason"]) == (
@@ -201,26 +194,21 @@ async def test_the_effective_action_is_shown_per_enforcement_point(client, db) -
     assert report["gateway_messages"] == report["model_call"] == "report"
     assert kinds["secrets"]["surface_choices"]["default"] == kinds["secrets"]["surface_defaults"]
 
-    # Saved: the Workspace's mask of email is a mask on platform calls, platform calls only on the gateway.
     saved = (await client.put(_url(workspace, "email"), headers=bearer(owner), json={"action": "mask"})).json()
     email = _points(saved)
     assert email["model_call"] == ("mask", "mask", None)
-    assert email["gateway_responses"] == ("mask", "none", "platform_calls_only")
-    # The actual dispositions: a tool result leaves the mask to the model entrance, Command safety reviews a mask and
-    # denies a refusal.
+    assert email["gateway_responses"] == ("mask", "mask", None)
     assert email["tool_results"] == ("mask", "none", "deferred_to_model_entrance")
     choices = kinds["secrets"]["surface_choices"]
     commands = {choice: next(item for item in choices[choice] if item["surface"] == "commands")
                 for choice in ("mask", "refuse", "report")}
     assert [(item["action"], item["reason"]) for item in commands.values()] == [
         ("review", "command_review"), ("deny", "command_denied"), ("report", None)]
-    # The gateway points neither mask nor reroute: they are listed in neither reroute list.
-    listed = {item["surface"] for item in saved["reroute_unavailable"] + saved["reroute_masked_at"]}
-    assert listed.isdisjoint({"gateway_messages", "gateway_responses", "codex_seat"})
+    listed = {item["surface"] for item in saved["reroute_unavailable"]}
+    assert "codex_seat" in listed and listed.isdisjoint({"gateway_messages", "gateway_responses"})
 
 
 async def _racing_reads(monkeypatch, count: int) -> None:
-    """Every edit reads the stored setting before any of them writes (the race the writer must survive)."""
     arrived, release = [], asyncio.Event()
     read = handling_settings.stored_row
 
@@ -277,7 +265,6 @@ async def test_concurrent_changes_of_one_kind_audit_only_real_transitions(client
     codes = sorted(answer.status_code for answer in answers)
     assert codes in ([200, 200], [200, 409]), [answer.text for answer in answers]
     transitions = [(item["old"], item["new"]) for item in await _audits(db)][1:]
-    # Each audited transition starts where the previous one ended: no edit claims an old value it did not replace.
     assert len(transitions) == codes.count(200)
     assert transitions[0][0] == "report"
     for (_old, new), (following_old, _new) in zip(transitions, transitions[1:]):

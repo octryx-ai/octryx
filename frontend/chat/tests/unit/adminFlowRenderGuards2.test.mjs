@@ -1,8 +1,8 @@
 // Run: node --import ./tests/unit/register-ts.mjs --test tests/unit/adminFlowRenderGuards2.test.mjs
 //
-// Render guards for the flow canvas, the Flow Builder editor, the phase steps and phased workflow editors and the admin
-// panel switch: each is rendered with representative props and its key structure is asserted, so splitting these
-// components into smaller parts keeps what they draw. React Flow is replaced by a light stand-in that renders its
+// Render guards for the phase steps and phased workflow editors and the admin panel switch: each is rendered with
+// representative props and its key structure is asserted, so splitting these components into smaller parts keeps what
+// they draw. React Flow is replaced by a light stand-in that renders its
 // props as data attributes.
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
@@ -141,8 +141,8 @@ const TABS = ["adminProblems", "adminConnections", "platformVersion", "platformD
   "identityAccess", "projects", "backupRestore", "policies", "researchPolicies", "providers",
   "modelCatalog", "modelsOverview", "modelOrder", "runtimePolicyLists", "runtimeExecution", "commandSafety", "contentSecurity",
   "classificationPolicy", "approvalRule", "cedarPolicies", "policyTestBench", "runtimeLimits",
-  "runtimeCompression", "knowledgeLibrary", "knowledgeSources", "knowledgeResearch", "knowledgeRelationships", "knowledgeGraph",
-  "corpIdentity", "scenarios", "connectors", "databases", "toolCatalog", "workspaceKnowledge", "knowledgePackages",
+  "knowledgeLibrary", "knowledgeSources", "knowledgeResearch", "knowledgeRelationships", "knowledgeGraph",
+  "corpIdentity", "connectors", "databases", "toolCatalog", "workspaceKnowledge", "knowledgePackages",
   "knowledgeBindings", "knowledgeChanges", "knowledgeHandbook", "knowledgeMemory", "knowledgeEpisodes", "knowledge", "agents",
   "effectiveSetup", "workflowList", "workflowChecks", "workflowDesigner", "promptCatalog",
   "instructions", "schedulers", "tasks", "webhooks", "channels", "mcp", "tts", "skills",
@@ -171,7 +171,7 @@ test("the admin panel switch renders the same page with the same props for every
   const base = {
     loadingTab: false, tabError: null, projects: [{ id: "ws-1", name: "Claims" }], readJson: async () => ({}), isAdmin: true,
     currentUserId: "u-1", brandingEnabled: true,
-    ...Object.fromEntries(["users", "projects", "providers", "runtimes", "scenarios", "connectors", "toolCatalog", "knowledge",
+    ...Object.fromEntries(["users", "projects", "providers", "runtimes", "connectors", "toolCatalog", "knowledge",
       "agents", "schedulers", "tasks", "webhooks", "channels", "mcp", "tts", "skills", "branding"].map((name) => [`${name}TabCtx`, ctx(name)])),
   };
   const lines = TABS.map((tab) => {
@@ -181,12 +181,12 @@ test("the admin panel switch renders the same page with the same props for every
     act(() => view.unmount());
     return line;
   });
-  assert.equal(lines.length, 77);
+  assert.equal(lines.length, 75);
   assert.ok(lines.every((line) => !line.endsWith(": null")), "every tab renders a page");
   assert.match(lines.find((line) => line.startsWith("classificationPolicy:")), /"name":"AdminClassificationPolicy","props":"\{\\"isAdmin\\":true\}"/);
   assert.match(lines.find((line) => line.startsWith("identityGroups:")), /\\"section\\":\\"groups\\"/);
   const digest = crypto.createHash("sha256").update(lines.join("\n")).digest("hex");
-  assert.equal(digest, "173145295194e04845b0390aafb424c5c8cdf6fb26f6c04c74fb1b25d169d2ee");
+  assert.equal(digest, "089e862e555d227f2fe399ac216f34fcee888c5a28a80725f329f0b888aef77a");
 
   const render = (props) => {
     let view;

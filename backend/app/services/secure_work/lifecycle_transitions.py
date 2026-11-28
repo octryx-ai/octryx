@@ -1,14 +1,4 @@
-"""Best-effort work-item lifecycle transitions at platform flow points.
-
-Governed coding runs move the work item (and via the workflow mapping the
-Jira ticket) along its lifecycle automatically: agent start -> development,
-pull-request delivery -> review. The transition uses the item's Workspace's
-default active workflow definition, else a global one - never another
-Workspace's. When none is in scope, the target state is unknown, the scope
-check refuses the workflow, or Jira rejects the mapped transition, the flow
-point continues and the outcome is logged and returned - lifecycle sync must
-never break a coding run or a delivery.
-"""
+"""Best-effort work-item lifecycle transitions at platform flow points."""
 
 from __future__ import annotations
 
@@ -36,11 +26,6 @@ _TERMINAL_STATES = frozenset({"done", "completed", "cancelled", "canceled", "rej
 async def default_workflow_for_item(
     db: AsyncSession, item: WorkItem
 ) -> WorkItemWorkflowDefinition | None:
-    """The item's Workspace's active workflow, else an active global one; never another Workspace's.
-
-    An item without a Workspace sees only global workflows. Within each group: ``is_default`` first, then
-    the most recently updated.
-    """
     in_scope = WorkItemWorkflowDefinition.project_id.is_(None)
     if item.project_id:
         in_scope = in_scope | (WorkItemWorkflowDefinition.project_id == item.project_id)
@@ -55,6 +40,7 @@ async def default_workflow_for_item(
     rows = (await db.execute(stmt)).scalars().all()
     project_scoped = [row for row in rows if row.project_id and row.project_id == item.project_id]
     global_rows = [row for row in rows if not row.project_id]
+    # Never another Workspace's workflow
     candidates = project_scoped or global_rows
     return candidates[0] if candidates else None
 
@@ -102,12 +88,7 @@ def _platform_item(item: WorkItem) -> bool:
 def _move_platform_item(
     db: AsyncSession, item: WorkItem, *, current_user: User, to_state: str, reason: str
 ) -> dict[str, Any]:
-    """A platform Work item without a write-back definition moves along the shared states (the board's columns).
-
-    It has no tracker to map, so the default vocabulary is its workflow. Otherwise a
-    story whose run ended done with its pull request open stays in Intake on the board, because no definition is in
-    scope and the platform item is skipped. A done or rejected item stays.
-    """
+    # A platform item has no tracker to map, so the default vocabulary is its workflow; a done or rejected item stays.
     previous = str(item.work_state or "").strip() or "intake"
     if previous in _TERMINAL_STATES:
         return _not_applied(item, status="skipped", reason="terminal_state", to_state=to_state)
@@ -134,13 +115,6 @@ async def auto_transition_work_item(
     to_state: str,
     reason: str,
 ) -> dict[str, Any]:
-    """Transition via the default workflow; returns the outcome (with log) instead of raising.
-
-    ``status`` is ``unchanged`` (already in ``to_state``), ``applied``, ``skipped`` (``reason``
-    ``no_workflow_in_scope``, ``unknown_state``, ``tracker_refused`` or ``terminal_state``) or ``refused``
-    (``reason`` ``workflow_project_mismatch``: the scope check refused the workflow). A platform Work item with no
-    definition in scope moves along the shared states (:func:`_move_platform_item`).
-    """
     if str(item.work_state or "").strip() == to_state:
         return _not_applied(item, status="unchanged", reason=None, to_state=to_state)
     workflow = await default_workflow_for_item(db, item)
@@ -164,6 +138,7 @@ async def auto_transition_work_item(
             bind_preview=False,
             check_access=False,
         )
+    # Lifecycle sync must never break a coding run or a delivery: the outcome is returned
     except HTTPException as exc:
         if _is_scope_refusal(exc):
             return _not_applied(item, status="refused", reason=CODE_PROJECT_MISMATCH, to_state=to_state,

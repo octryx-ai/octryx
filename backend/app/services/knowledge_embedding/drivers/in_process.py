@@ -1,10 +1,4 @@
-"""In-process embedding driver (fastembed / sentence-transformers).
-
-The on-prem option: a real embedding model runs inside the backend process, no
-external service required. fastembed (ONNX, CPU-friendly) is preferred;
-sentence-transformers is used if fastembed is absent. If neither is installed
-the driver fails loudly rather than degrading to hash vectors.
-"""
+"""In-process embedding driver (fastembed / sentence-transformers)."""
 
 from __future__ import annotations
 

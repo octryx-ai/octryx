@@ -1,8 +1,4 @@
-"""Bounds, output tails and the serialized view of a durable runtime process.
-
-Pure helpers without the live-process state, which :mod:`app.services.durable_process_runtime`
-owns.
-"""
+"""Bounds, output tails and the serialized view of a durable runtime process."""
 
 from __future__ import annotations
 

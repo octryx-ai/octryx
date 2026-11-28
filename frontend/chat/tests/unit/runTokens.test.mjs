@@ -62,7 +62,7 @@ const PROFILE = {
     phase("Reproduce", { system_and_tools: 1_000, tool_results: 3_000, history: 0, output: 0 }, { basis: "estimated" }),
     phase("Minimal fix", { system_and_tools: 1_000, tool_results: 1_000, history: 0, output: 0 }),
   ],
-  consumers: [{ tool: "mcp__oe__workflow_run_status", label: "workflow_run_status {}", count: 38, max_kb: 4,
+  consumers: [{ tool: "mcp__octryx__workflow_run_status", label: "workflow_run_status {}", count: 38, max_kb: 4,
     total_kb: 149, tokens: 228_228, estimated: true, at_least: true, phase: "Reproduce" }],
   hints: [{ rule: "contract_reread", text: "The run contract was read 38× (149 KB in all).", tokens: 228_228,
     phase: "", estimated: true }],

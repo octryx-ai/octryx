@@ -13,7 +13,6 @@ from .common import slugify
 async def _ingest_modules(
     db: AsyncSession, *, project_id: str | None, repository: str, modules: list[Any], repo_node: Any
 ) -> tuple[dict[str, Any], int, int]:
-    """``(module node by name and path, nodes, edges)`` for the snapshot's modules."""
     module_by_ref: dict[str, Any] = {}
     nodes = edges = 0
     for module in modules:

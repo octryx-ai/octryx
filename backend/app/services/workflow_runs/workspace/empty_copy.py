@@ -1,24 +1,4 @@
-"""Whether the platform knows a run's working copy holds no file at all (an empty repository).
-
-A phase that asks "the code was read" (a blocking ``tool_called`` over the read tools only,
-``workflow_checks.library.READ_TOOLS``) can never pass on a repository without files: there is nothing a read can
-succeed on. Otherwise an agent that answered correctly on a repository with commits but no file ("the repository is
-empty, the basis is the work item only", whose text the phase prompt carries) saw the run pause ``runtime_failed``
-after three refused Stops.
-
-The answer here is the platform's, never the agent's word:
-
-- **device** (:func:`device_copy_empty`): the run's base commit has Git's empty tree — the base is the empty tree
-  itself (``context.repository_empty``) or the server's working copy of the run (``context.local_path``, prepared
-  again through the provider's prepare tool when it is gone, e.g. after a restart) resolves the base to it —
-  **and** the launcher's Stop facts for this pass (``context.device_change``, launcher code, not the model) show
-  the device folder against that same base with an empty patch, untracked files included;
-- **server** (:func:`server_copy_empty`): the run's own working copy lists no file, tracked or untracked (ignored
-  files are no repository content).
-
-Anything unknown — no server copy, the device lacks the base, no facts for this pass, a truncated patch — is
-``False``: the check stays.
-"""
+"""Whether the platform knows a run's working copy holds no file at all (an empty repository)."""
 
 from __future__ import annotations
 
@@ -36,11 +16,6 @@ def _local_copy(run: WorkflowRun) -> Path | None:
 
 
 async def _restored_copy(db: Any, run: WorkflowRun) -> Path | None:
-    """The run's server working copy prepared again through its provider's prepare tool (its own connection), when
-    the one ``scm.create_branch`` made is gone.
-
-    Without it, after a deploy restart a run's copy was gone, so the
-    empty-repository rule never applied and "Run the phase again" paused again. Any failure: ``None`` (unknown)."""
     import logging
 
     from ..platform.repo_ref import TOOLS, parse_repository
@@ -65,20 +40,18 @@ async def _restored_copy(db: Any, run: WorkflowRun) -> Path | None:
 
 
 async def base_is_empty(run: WorkflowRun, db: Any = None) -> bool:
-    """The run's base commit has no file (Git's empty tree); without the server copy it is prepared again."""
     from ..platform.repo_ref import EMPTY_TREE
 
     base = str(dict(run.context or {}).get("base_sha") or "")
     if not base:
         return False
     if base == EMPTY_TREE:
-        return True  # a repository without any commit (``scm.REPOSITORY_EMPTY_KEY``)
+        return True
     local = _local_copy(run) or await _restored_copy(db, run)
     return local is not None and await safe_git.tree_of(local, base) == EMPTY_TREE
 
 
 def _unchanged_on_device(run: WorkflowRun) -> bool:
-    """The launcher's Stop facts of the current pass: the device folder equals the run's base."""
     context = dict(run.context or {})
     change = context.get("device_change")
     if not isinstance(change, Mapping):
@@ -103,18 +76,16 @@ async def server_copy_empty(run: WorkflowRun) -> bool:
 
 
 async def turn_workspace_empty(db: Any, *, request_analysis: dict[str, Any] | None) -> bool:
-    """A server phase turn of a run (chat on the platform): its working copy is the run's own."""
     from ..binding import run_marker
 
     marker = run_marker(request_analysis)
     if marker is None or marker.get("slice"):
-        return False  # chat outside a run, or a slice child in its own worktree
+        return False
     run = await db.get(WorkflowRun, str(marker["run_id"]))
     return run is not None and await server_copy_empty(run)
 
 
 def asks_for_reads(checks: Sequence[Any]) -> bool:
-    """Whether any check would use the answer (so no git runs for a phase without a read check)."""
     from ...workflow_checks.library import read_only_tool_check
 
     return any(isinstance(check, Mapping) and read_only_tool_check(check) for check in checks)

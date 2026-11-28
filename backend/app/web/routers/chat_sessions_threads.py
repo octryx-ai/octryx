@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.admin.admin_panel._chat import ChatContinueRequest
 from app.services.session.turn_tasks import effective_session_status as _effective_session_status
 
-from ...agent.runtime_defaults import DEFAULT_AGENT_MODE_KEY
-from ...db import async_session_factory, get_db
-from ...models import Task, User
+from ...db import get_db
+from ...models import User
+from ...services.devices.agent_runtime import chat_target_for, stop_session_jobs
+from ...services.devices.chat_turn import device_thread_target
 from ...services.session.analysis_export import build_session_analysis_export
 from ...services.session.lifecycle import archive_session_tree, restore_session_tree, set_session_pinned_state
 from ...services.session.markdown_export import build_session_markdown_export
@@ -21,30 +22,12 @@ from ...services.session.workspace import (
 )
 from .._helpers._chat_state_builder import _build_chat_state
 from .._helpers.api_guards import _require_admin_api, _require_api_user
+from .._helpers.chat_device_turn import device_chat_turn
 from .._helpers.chat_session_thread_lookup import get_owned_chat_session
-from .._helpers.chat_turn_ack_state import _build_chat_turn_ack_state
-from .._helpers.chat_turn_start import _start_chat_turn
 from .._helpers.serialization import _resolve_root_session
 from .chat_session_workspace import router as chat_session_workspace_router
 
 router = APIRouter()
-
-
-def _continue_runtime_settings(payload: ChatContinueRequest, session) -> tuple[str, str, bool]:
-    """Runtime target and thinking level for a continue: the request's when given, else the session's own."""
-    explicit_runtime_target_id = payload.runtime_target_id is not None and bool(str(payload.runtime_target_id).strip())
-    explicit_thinking_level = payload.thinking_level is not None and bool(str(payload.thinking_level).strip())
-    runtime_target_id = (
-        str(payload.runtime_target_id or "").strip()
-        if explicit_runtime_target_id
-        else str((session.metadata_ or {}).get("runtime_target_id") or "")
-    )
-    thinking_level = (
-        str(payload.thinking_level or "").strip()
-        if explicit_thinking_level
-        else str((session.metadata_ or {}).get("thinking_level") or "light")
-    )
-    return runtime_target_id, thinking_level, explicit_thinking_level
 
 
 @router.post("/chat/api/sessions/{session_id}/continue")
@@ -69,50 +52,18 @@ async def chat_continue_session_api(
     if not prompt:
         prompt = "Continue from the previous failure and keep working in this same thread. Do not restart from scratch."
 
-    request_session_factory = getattr(request.app.state, "async_session_factory", async_session_factory)
-    runtime_target_id, thinking_level, explicit_thinking_level = _continue_runtime_settings(payload, session)
-    agent_id = await _resolve_continue_agent_id(db, session)
-    continued_session = await _start_chat_turn(
-        db=db,
-        user=user,
-        session_factory=request_session_factory,
-        prompt=prompt,
-        session_id=session.id,
-        project_id=session.project_id or "",
-        runtime_target_id=runtime_target_id,
-        agent_id=agent_id,
-        # A continue keeps the session's mode.
-        agent_type=str(session.agent_type or DEFAULT_AGENT_MODE_KEY),
-        project_id_explicit=True,
-        runtime_target_id_explicit=bool(runtime_target_id),
-        thinking_level_explicit=explicit_thinking_level,
-        thinking_level=thinking_level or "light",
-    )
-    state = await _build_chat_turn_ack_state(
-        request,
-        db,
-        user=user,
-        session=continued_session,
-        runtime_target_id=runtime_target_id,
-        thinking_level=thinking_level or "light",
-        agent_id=agent_id,
-        agent_type=continued_session.agent_type or DEFAULT_AGENT_MODE_KEY,
-    )
-    return JSONResponse(state)
+    target = device_thread_target(session) or await chat_target_for(db, session.id)
+    return await device_chat_turn(request, db, user=user, prompt=prompt, target=target, session_id=session.id,
+                                  project_id=session.project_id, thinking_level=payload.thinking_level)
 
 
-async def _resolve_continue_agent_id(db: AsyncSession, session) -> str:
-    metadata = session.metadata_ or {}
-    agent_id = str(metadata.get("agent_definition_id") or "").strip()
-    if agent_id:
-        return agent_id
-    task_id = str(metadata.get("task_id") or "").strip()
-    if not task_id:
-        return ""
-    task = await db.get(Task, task_id)
-    if task is None or not isinstance(task.config, dict):
-        return ""
-    return str(task.config.get("agent_definition_id") or "").strip()
+@router.post("/chat/api/sessions/{session_id}/compact")
+async def chat_compact_session_api(session_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    from .._helpers.chat_device_turn import device_chat_compact
+
+    user = await _require_api_user(request, db)
+    session = await get_owned_chat_session(db, session_id=session_id, user_id=user.id)
+    return await device_chat_compact(request, db, user=user, session=session)
 
 
 @router.post("/chat/api/sessions/{session_id}/stop")
@@ -124,6 +75,9 @@ async def chat_stop_session_api(
     user = await _require_api_user(request, db)
     session = await get_owned_chat_session(db, session_id=session_id, user_id=user.id)
     if session.status != "running":
+        # A thread on a device or server runner is never ``running`` here: its turn is the device job's.
+        if await stop_session_jobs(db, session_id=session.id, actor_id=user.id):
+            await db.commit()
         state = await _build_chat_state(request, db, user=user, session_id=session.id)
         return JSONResponse(state)
 

@@ -1,35 +1,5 @@
-"""The closed configuration of a ``git_repository`` connector.
-
-One connector model, two fetch modes, both producing the same revisions, spans and links:
-
-- ``remote_git`` (configured here): the connector fetches the host's archive at a commit. It needs
-  a known host (``git_hosts.py``) and ``ref``: a full 40-character commit sha, or a branch or tag
-  name that each listing pass resolves to a sha once; a pass never mixes two commits.
-- ``local_snapshot``: a launcher uploads the tracked files of a checkout (the upload API owns those
-  connectors). This module refuses to configure one.
-
-Scope keys: ``fetch_mode``, ``remote`` (the normalized, credential-free repository URL),
-``web_base`` (``https://<host>/<owner>/<repo>`` on a known host), ``ref``, optional root-anchored
-``include_globs``/``exclude_globs`` (``git_paths.py``), ``max_files`` (more files after the globs is
-the explicit run failure ``repository_too_large``, never a silently truncated repository) and
-``max_file_bytes`` (a larger file is ``skipped_too_large`` and never read).
-
-``head_commit`` and ``head_dirty`` are **run state** in the same JSON, not configuration: the commit
-of the last completed listing pass (``head_dirty`` is always false for ``remote_git``). Configuring a
-connector carries them over and they never count as a scope change (``RUN_STATE_KEYS``). There is no
-credential field: a public repository is fetched anonymously; a repository read through a connection (Bitbucket
-Cloud, or a Bitbucket Server/Data Center repository) is read with the source's linked connection.
-
-A Data Center repository additionally stores ``host`` (``bitbucket_datacenter``) and ``host_base`` (the
-connection's URL at save, ``https://<host>[/<context path>]``); its ``remote`` is the repository's web URL
-``<host_base>/projects/<KEY>/repos/<slug>``. A run whose linked connection no longer points at ``host_base`` is
-refused, so the credential only ever goes to the host the source was saved for.
-
-``access_mode`` (``read_only`` | ``read_write``, sources linked to a connection only) is what agents may do on the
-repository through the connection in this Workspace (``services/knowledge/sources/repository_access.py``). It is
-neither run state nor content configuration: changing it never restarts a listing pass. Values are refused, never
-cleaned up.
-"""
+"""The closed configuration of a ``git_repository`` connector. Two fetch modes produce the same revisions; a pass never
+mixes two commits."""
 
 from __future__ import annotations
 
@@ -97,7 +67,6 @@ def validate_access_mode(raw: object) -> str:
 
 
 def repository_location(repository_url: object, *, datacenter_base: str | None = None) -> RepositoryLocation:
-    """A known host's repository, or (with ``datacenter_base``) a repository of that Data Center instance."""
     if datacenter_base is not None:
         return parse_datacenter_repository(repository_url, datacenter_base)
     return parse_repository_url(repository_url, known_host_only=True)
@@ -115,8 +84,6 @@ def validate_git_scope(
     datacenter_base: str | None = None,
     access_mode: object = None,
 ) -> dict[str, object]:
-    """The closed scope; ``datacenter_base`` (a linked Data Center connection's URL) admits that instance's
-    repositories; ``access_mode`` is set only for a source linked to a connection (else ``None``: not stored)."""
     mode = FETCH_REMOTE_GIT if fetch_mode is None else fetch_mode
     if mode != FETCH_REMOTE_GIT:
         # A local snapshot connector is created by its upload, never configured here.
@@ -141,31 +108,25 @@ def validate_git_scope(
 
 
 def configuration_of(scope: dict) -> dict:
-    """The scope without its run state and access mode: what a configuration change is compared on."""
     return {key: value for key, value in scope.items() if key not in _NOT_CONTENT_KEYS}
 
 
 def carry_run_state(stored: dict, configured: dict) -> dict:
-    """``configured`` with the stored run state kept (re-configuring never forgets the last commit)."""
     return {**configured, **{key: stored[key] for key in RUN_STATE_KEYS if key in stored}}
 
 
 @dataclass(frozen=True, slots=True)
 class GitScope:
-    """A stored, validated ``remote_git`` scope as the connector reads it."""
-
     location: RepositoryLocation
     ref: str
     limits: SnapshotLimits
 
     @property
     def pinned_commit(self) -> str | None:
-        """The configured commit when ``ref`` is one; ``None`` for a branch or tag name."""
         return self.ref if SHA.fullmatch(self.ref) else None
 
     @classmethod
     def load(cls, scope: dict) -> GitScope:
-        """Re-validates the stored scope; a stored value that no longer validates is refused."""
         host_kind = scope.get(HOST_KIND)
         if host_kind not in (None, HOST_BITBUCKET_DATACENTER):
             raise InvalidEvidenceRequestError()

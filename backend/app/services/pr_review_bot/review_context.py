@@ -1,11 +1,4 @@
-"""Everything the bot gives its reviewer besides the diff (stage E), gathered in ``pr_review.prepare``:
-
-- the pull request's ticket and its acceptance criteria (``ticket_context``);
-- the specification sections and linked Confluence pages (``spec_context``);
-- the code graph's callers of the changed symbols and the authoring run's confirmed criteria (``graph_context``).
-
-Each adds fenced context sections to the run and returns its facts for the summary's footer.
-"""
+"""Everything the bot gives its reviewer besides the diff, gathered in ``pr_review.prepare``."""
 
 from __future__ import annotations
 
@@ -32,8 +25,6 @@ async def gather(db: AsyncSession, run: WorkflowRun, facts: dict[str, Any], root
 
 
 async def _triage(db: AsyncSession, run: WorkflowRun, root: str, base: str, head: str) -> dict[str, Any]:
-    """How to read the change (``triage``, F1): the reviewer's guide, the mechanical files left out of its diff,
-    the size brake's note."""
     from ..workflow_runs.octryx.code_limits import phase_style
     from .settings import repository_record, settings_of
     from .triage import MECHANICAL, classify, reading_section, size_note

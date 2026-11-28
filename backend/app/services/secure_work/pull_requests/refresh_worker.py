@@ -1,8 +1,5 @@
-"""The periodic pull request refresh: every tick one bounded pass over the due rows (``refresh.sweep_pull_requests``).
-
-A tick runs every minute so a refresh a workflow watch requested lands quickly; an open PR is due once per
-``refresh.REFRESH_INTERVAL`` (15 minutes), so the minute tick does not multiply host calls.
-"""
+"""The periodic pull request refresh: one bounded pass over the due rows per tick. The tick runs every minute; an open
+PR is due only once per ``REFRESH_INTERVAL``, so host calls do not multiply."""
 
 from __future__ import annotations
 

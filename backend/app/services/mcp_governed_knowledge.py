@@ -1,27 +1,5 @@
-"""Governed Knowledge evidence and Memory tools for external CLIs on the Knowledge MCP.
-
-Claude Code, Codex and OpenCode sessions share the same brain as the chat: the governed evidence
-tools (``knowledge_search``, ``knowledge_read``, ``knowledge_changes``), the live release status
-(``jira_release_status``) and the Memory lobe (``memory_recall``, ``memory_remember``). They run the
-**same tool classes** as the chat, so the fixed failure states, the ``kind: memory`` /
-``not_source_evidence`` rendering and the secret refusal are identical.
-
-The scope is server-owned, as in the chat. No MCP tool schema here has a ``project_id``: the OAuth
-grant determines the user, and the Workspace is
-
-1. the grant's one bound Workspace, or
-2. the Workspace the MCP connection names in the ``X-Octryx-Workspace`` header — a transport
-   setting of the client configuration, never a tool argument the model fills — which must lie inside
-   the grant's binding when the grant has one;
-
-and otherwise the explicit state ``needs_configuration``. The tool then authorizes that Workspace
-for the user exactly like a chat run (``authorize_tool_workspace``), so an unknown or foreign
-Workspace is ``not_found``.
-
-``memory_remember`` records ``human_stated`` / ``observed`` items whose provenance is the grant's MCP
-auto session (``services/mcp_auto_session``) and the MCP request id. Memory text is never written to
-the audit log or to the activity row: forgetting a memory must leave no copy behind.
-"""
+"""Governed Knowledge evidence and Memory tools for external CLIs on the Knowledge MCP. They run the same governed chain
+as the chat's tools."""
 
 from __future__ import annotations
 
@@ -97,7 +75,7 @@ FAILURES: dict[str, dict[str, str]] = {
 
 @dataclass(frozen=True, slots=True)
 class McpCaller:
-    """Who calls, from the verified OAuth token and the connection; never from tool arguments."""
+    # From the verified OAuth token and the connection, never from tool arguments.
 
     user_id: str
     grant_id: str | None
@@ -115,7 +93,7 @@ class McpCaller:
     tool_use_id: str | None = None
     # A platform chat running the client's handler (chat and client parity): transport ``chat`` and the
     # chat's own session, which follows runs like a launcher session does. Only the chat tools build such a caller;
-    # the person confirmed the call in the chat (``tool_approval_gate``) before any write handler runs.
+    # the person confirmed the call in the chat (``tool_approval.gate``) before any write handler runs.
     chat_session_id: str | None = None
 
 
@@ -133,7 +111,6 @@ def failure(reason: str) -> dict[str, str]:
 
 
 def resolve_mcp_workspace(caller: McpCaller) -> str | dict[str, str]:
-    """The one Workspace this MCP connection is scoped to, or a fixed failure."""
     bound = tuple(dict.fromkeys(item for item in caller.bound_project_ids if item))
     requested = str(caller.workspace_header or "").strip()
     if requested:
@@ -152,7 +129,7 @@ async def _project_policy_allows(db: AsyncSession, workspace_id: str, tool_name:
 
 
 def _recorded_arguments(tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """What the activity row keeps: memory arguments are named, never copied."""
+    # Memory arguments are named, never copied.
     if tool_name in MEMORY_MCP_TOOLS:
         return {"argument_names": sorted(str(key) for key in arguments)}
     return arguments
@@ -164,7 +141,6 @@ McpExecute = Callable[[User, str, str], Awaitable[dict[str, Any]]]
 async def run_governed_mcp_tool(
     db: AsyncSession, *, caller: McpCaller, tool_name: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """Run one governed tool for an MCP caller; the caller commits."""
     if tool_name in CALLER_BOUND_MCP_TOOLS:
         factory, required_scope = CALLER_BOUND_MCP_TOOLS[tool_name]
         tool = factory(caller)
@@ -186,6 +162,9 @@ async def run_governed_mcp_tool(
             run_capability=worker_tool_context_state("mcp_governed_knowledge"),
         )
         result = await execute_with_capability_check(tool, dict(arguments), context)
+        from .devices.device_turn_results import keep_turn_diagram
+
+        await keep_turn_diagram(db, caller=caller, user=user, workspace=workspace, tool_name=tool_name, result=result)
         return await mcp_result_checked(tool_name, result, workspace)  # content check
 
     return await run_mcp_tool_chain(db, caller=caller, tool_name=tool_name, arguments=arguments,
@@ -194,13 +173,9 @@ async def run_governed_mcp_tool(
 
 async def run_mcp_tool_chain(
     db: AsyncSession, *, caller: McpCaller, tool_name: str, arguments: dict[str, Any], required_scope: str,
-    execute: McpExecute,
+    execute: McpExecute, workspace_optional: bool = False,
 ) -> dict[str, Any]:
-    """The chain every governed MCP tool passes: scope, active user, rate limit, connection Workspace, the grant's
-    auto session, then ``execute(user, workspace, session_id)``, then the audit row (a refusal as its fixed state).
-
-    Shared so a tool with its own dispatch (``mcp_rest_tools``: the chat's registry path for ``rest__`` calls) keeps
-    exactly the same chain."""
+    # Shared, so a tool with its own dispatch keeps exactly the same chain.
     if required_scope not in caller.scopes:
         return failure("scope_required")
     user = await db.get(User, caller.user_id)
@@ -216,6 +191,8 @@ async def run_mcp_tool_chain(
         tool_name=tool_name,
         arguments=_recorded_arguments(tool_name, arguments),
     )
+    if isinstance(workspace, dict) and workspace_optional:
+        workspace = ""  # a person-scoped tool runs on the person's own data without a connection Workspace
     result: dict[str, Any] = workspace if isinstance(workspace, dict) else await execute(user, workspace, session_id)
     await audit_mcp_knowledge_tool_call(
         db,

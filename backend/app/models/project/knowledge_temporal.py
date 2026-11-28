@@ -1,25 +1,15 @@
-"""PostgreSQL provenance of the Workspace knowledge graph.
-
-The graph's entities and facts live in ``kg_node``/``kg_edge`` and stay rebuildable. What makes a
-graph fact citable lives here: every extraction episode is exactly one evidence span of one source
-revision, and ``KnowledgeGraphEpisode`` records which. A fact names the episodes it was
-extracted from, so it resolves through this table to its span, revision, source and origin link;
-a fact whose episodes are not here is not served.
-
-``KnowledgeGraphWorkspace`` records in which embedding space the Workspace graph's vectors were
-written, because vectors are compared within one space only: a graph built in one space is not
-searched with another.
-"""
+"""Provenance of the Workspace knowledge graph: the evidence span each extraction episode came from."""
 
 from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class KnowledgeGraphEpisode(Base):
+class KnowledgeGraphEpisode(WorkspaceBound, Base):
     __tablename__ = "knowledge_graph_episodes"
     __table_args__ = (
         Index("ix_knowledge_graph_episodes_workspace", "project_id"),
@@ -38,7 +28,7 @@ class KnowledgeGraphEpisode(Base):
     extracted_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeGraphWorkspace(Base):
+class KnowledgeGraphWorkspace(WorkspaceBound, Base):
     __tablename__ = "knowledge_graph_workspaces"
 
     project_id = Column(String(36), ForeignKey("projects.id"), primary_key=True)

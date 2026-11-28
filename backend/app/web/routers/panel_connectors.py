@@ -27,7 +27,6 @@ from ...services.secure_work.servicenow.known_values import known_values
 from ...services.secure_work.servicenow.source import IntakeSourceError, connector_config, source_error
 from .._helpers.api_guards import _require_admin_api
 from .._helpers.panel_serializers import _serialize_connector
-from .panel_scenarios import router as panel_scenarios_router
 
 router = APIRouter()
 
@@ -57,8 +56,8 @@ async def panel_create_database_connector(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await database_tool_service.create_database_connector(
             db,
@@ -74,8 +73,8 @@ async def panel_update_database_connector(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await database_tool_service.update_database_connector(
             db, connector_id=connector_id, payload=payload.model_dump(exclude_none=True)
@@ -122,8 +121,8 @@ async def panel_create_database_tool(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await query_tool_admin.create_database_query_tool(
             db,
@@ -139,8 +138,8 @@ async def panel_update_database_tool(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await query_tool_admin.update_database_query_tool(
             db,
@@ -158,7 +157,7 @@ async def panel_delete_database_tool(tool_id: str, request: Request, db: AsyncSe
 
 @router.get("/chat/api/panel/modes")
 async def panel_list_run_modes(request: Request, db: AsyncSession = Depends(get_db)):
-    """The shipped run modes, read only (A4): Actions and webhooks label their runs with one."""
+    """The shipped run modes, read only: Actions and webhooks label their runs with one."""
     await _require_admin_api(request, db)
     return JSONResponse([serialize_agent_mode(mode) for mode in list_agent_modes()])
 
@@ -237,8 +236,8 @@ async def panel_create_github_connector_repository(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await github_connector_service.create_github_connector_repository(
             db,
@@ -260,4 +259,3 @@ async def panel_delete_connector(
     )
 
 
-router.include_router(panel_scenarios_router)

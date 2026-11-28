@@ -31,7 +31,6 @@ def _aws_credential_kwargs(config: dict[str, Any]) -> dict[str, str]:
 
 
 def _get_boto_session(context: ToolContext) -> boto3.Session:
-    """Create a boto3 session respecting connector config and IRSA env vars."""
     region = (
         _string(context.project_config.get("aws_region"))
         or os.environ.get("AWS_REGION")
@@ -48,7 +47,6 @@ def _get_boto_session(context: ToolContext) -> boto3.Session:
 
 
 async def _assume_role_if_needed(context: ToolContext, session: boto3.Session) -> boto3.Session:
-    """If aws_role_arn is configured, assume that role and return a new session."""
     role_arn = _string(context.project_config.get("aws_role_arn"))
     if not role_arn:
         return session
@@ -71,7 +69,6 @@ async def _assume_role_if_needed(context: ToolContext, session: boto3.Session) -
 
 
 async def _aws_env(context: ToolContext) -> dict[str, str]:
-    """Return the AWS environment (region, credentials) for tools that run the AWS CLI in a subprocess."""
     env: dict[str, str] = {}
     region = _string(context.project_config.get("aws_region")) or os.environ.get("AWS_REGION", "")
     if region:
@@ -144,12 +141,10 @@ def _cli_to_method(subcommand: str) -> str:
 
 
 def _pascal_key(option: str) -> str:
-    """``--metric-name`` becomes boto3's ``MetricName``."""
     return "".join(part.capitalize() for part in option[2:].split("-"))
 
 
 def _kv_pairs(value: str) -> dict[str, str]:
-    """``Name=DBInstanceIdentifier,Value=mydb`` becomes ``{"Name": ..., "Value": ...}``."""
     pairs: dict[str, str] = {}
     for part in value.split(","):
         if "=" in part:
@@ -159,7 +154,6 @@ def _kv_pairs(value: str) -> dict[str, str]:
 
 
 def _store_option(params: dict[str, Any], pascal_key: str, args: list[str], index: int) -> int:
-    """Store the value(s) starting at ``args[index]``; returns the index of the last value consumed."""
     value = args[index]
     if "=" in value and "," in value:
         if pascal_key in ("Dimensions", "GroupBy"):
@@ -188,13 +182,6 @@ def _store_option(params: dict[str, Any], pascal_key: str, args: list[str], inde
 
 
 def _parse_cli_args(args: list[str]) -> tuple[str, dict[str, Any]]:
-    """Parse CLI-style arguments into (operation, kwargs) for boto3.
-
-    Handles patterns like:
-      ["list-clusters"]
-      ["describe-instances"]
-      ["get-metric-statistics", "--namespace", "AWS/RDS", "--metric-name", "CPUUtilization", ...]
-    """
     if not args:
         raise ValueError("No command arguments provided")
 
@@ -216,10 +203,6 @@ def _parse_cli_args(args: list[str]) -> tuple[str, dict[str, Any]]:
 
 
 async def _aws_json(context: ToolContext, service: str, command: list[str]) -> Any:
-    """Execute an AWS API call using boto3 instead of the CLI.
-
-    Translates CLI-style commands to boto3 method calls.
-    """
     if not _aws_allowed(context, service):
         raise ValueError(f"AWS service '{service}' is not allowed")
 
@@ -263,7 +246,6 @@ async def _aws_json(context: ToolContext, service: str, command: list[str]) -> A
 
 
 def _sanitize_datetimes(obj: Any) -> Any:
-    """Recursively convert datetime objects to ISO format strings for JSON safety."""
     from datetime import date as _date
     from datetime import datetime as _dt
 

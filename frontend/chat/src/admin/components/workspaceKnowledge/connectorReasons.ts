@@ -1,17 +1,12 @@
-// Source Sync connector refusals: the request error, the not-released connection view and every reason in words.
 import { RELEASE_CODE_TEXT } from "./jiraReleasesContract";
 import { PAGE_TREE_REASON_TEXT } from "./confluencePageTree";
 import { restReasonText } from "./rest/restSourceRefusals";
 
-// A fixed-reason 409 ("refused"), a field-attributed 400 (a refused `releases` value: `field` is its path, such as
-// releases.products[1]), or any other failure with the server's detail text.
 export class ConnectorRequestError extends Error {
   readonly reason: string | null;
   readonly field: string | null;
-  // The HTTP status (0 when unknown), so a form can word a refusal that has no fixed reason.
   readonly status: number;
-  // A connection the Workspace was not released names itself: its id for a platform admin, else only the name
-  // of a platform connection (visibility goes downward only).
+  // Visibility goes downward only: a Workspace admin sees a platform connection's name, not its id.
   readonly connectionId: string | null;
   readonly connectionName: string | null;
 
@@ -28,12 +23,9 @@ export class ConnectorRequestError extends Error {
 
 export const NOT_GRANTED = "source_connection_not_granted";
 
-/** Where an admin releases a connection to a Workspace: the connection in Admin › Connections. */
 export const connectionAdminHref = (connectionId: string) =>
   `/chat?area=admin&tab=adminConnections&connection=${encodeURIComponent(connectionId)}`;
 
-/** A refused source whose connection is not released to the Workspace, in words, with the link when the server
- * names the connection's id (platform admins only). null for any other error. */
 export function notGrantedView(error: unknown): { text: string; href: string | null } | null {
   if (!(error instanceof ConnectorRequestError) || error.reason !== NOT_GRANTED) return null;
   const which = error.connectionName ? `The connection “${error.connectionName}”` : "This connection";
@@ -44,8 +36,7 @@ export function notGrantedView(error: unknown): { text: string; href: string | n
   return { text: `${which} is not released to this Workspace. A platform admin must release the connection for this Workspace.`, href: null };
 }
 
-// Plain-English text for every fixed reason the connectors record (contract.py) and for the evidence states a
-// failed ingestion reports (ledger/errors.py). Unknown reasons fall back to the code itself.
+// Unknown reasons fall back to the code itself.
 const REASON_TEXT: Record<string, string> = {
   restricted_acl: "withheld: restricted in the source system",
   acl_unresolved: "failed: who may read it could not be determined",
@@ -56,27 +47,21 @@ const REASON_TEXT: Record<string, string> = {
   source_unavailable: "the source system is unavailable",
   source_contract_violation: "the source system answered in an unexpected format",
   listing_stalled: "the source listing did not advance",
-  // Git repositories through a named connection.
   connection_not_available: "the connection is not available to this Workspace",
-  // One rule for every source type; a connection the Workspace was not released is refused (403).
   source_connection_not_granted:
     "this connection is not released to this Workspace: a platform admin releases it in Admin › Connections (open the connection, tick this Workspace under Workspaces)",
   connection_disabled: "the connection is disabled",
   connection_use_disabled: "using this connection is switched off",
   repository_not_on_connection_host: "the repository is not on the connection's host",
-  // An unlinked repository several connections can read; the author picks one in the source's settings.
   connection_choice_required: "several connections can read this repository: choose one in the source's settings (Edit › Read through connection)",
-  // A repository's own Git token (Bitbucket Data Center HTTP access token).
   git_token_invalid: "Bitbucket rejected the Git access token (unknown, expired or revoked)",
   git_token_wrong_repository: "the Git access token does not reach this repository: create it on this repository or its project",
   git_token_not_supported: "a Git access token applies only to a Bitbucket Data Center repository added from a connection",
-  // The Workspace's own connection is chosen but its URL, auth mode or credential is missing.
   own_connection_incomplete:
     "this Workspace's own connection is incomplete: set its URL, auth mode and credential (Workspace settings → Connectors), or use the global connection",
   connection_not_configured:
     "no active connection: configure the Workspace's Confluence, Jira or ServiceNow connector (URL and credential) first",
   parser_not_configured: "the document parser sandbox is not configured, so pages cannot be ingested",
-  // Named connections.
   connection_not_configured_for_scope:
     "no connection serves this space, project or table: bind it to a named connection or allow it on the default connection",
   scope_spans_connections:
@@ -101,7 +86,6 @@ const REASON_TEXT: Record<string, string> = {
   denied: "access denied",
   not_found: "not found",
   repository_too_large: "repository exceeds the configured file or size limits",
-  // Not a failure: a completed run of a repository without any commit.
   repository_empty: "empty repository — ready for a first commit; there is nothing to sync yet",
   snapshot_upload_required: "files arrive with a launcher upload",
   path_too_long: "skipped: the file path is too long",

@@ -1,12 +1,4 @@
-"""Redacted, bounded session digest for ``/sessions/finalize``.
-
-Reuses the platform's existing session-ingest code instead of a second redactor:
-``backend/scripts/ingest_claude_session.build_digest`` distills the Claude Code
-transcript (user asks + assistant text) and
-``backend/scripts/mcp_session_ingest_common.cap_digest`` redacts secrets and caps the
-size. Both live in the same repository as this kit; the installed package carries
-copies of the two files in ``_platform_scripts`` (the platform adds them when it builds the wheel).
-"""
+"""Redacted, bounded session digest for ``/sessions/finalize``."""
 
 from __future__ import annotations
 
@@ -29,7 +21,6 @@ def _load():
 
 
 def transcript_inside(transcript_path: str, claude_config_dir: Path) -> Path | None:
-    """The transcript path when it is a regular file inside the octryx config dir."""
     if not transcript_path:
         return None
     try:

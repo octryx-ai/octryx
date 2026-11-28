@@ -1,8 +1,4 @@
-"""MCP Plugin for Octryx.
-
-This plugin is the runtime transport boundary. The database-backed registry owns
-durable server configuration.
-"""
+"""MCP Plugin for Octryx."""
 
 import logging
 from typing import Any

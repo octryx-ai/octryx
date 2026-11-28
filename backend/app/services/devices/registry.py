@@ -1,12 +1,4 @@
-"""Device registration, rename, revoke, pause and folder narrowing.
-
-Owner rules are hard invariants here, not policy: only the owner registers, renames, narrows, pauses or
-revokes a device through the user routes; a platform admin can only revoke (with a reason) through the admin
-route. The platform can never widen a device's folders or profiles: those come from the device itself
-(``report_device_state`` on the channel ``hello``) and the platform may only remove folders.
-
-Every change writes an ``AuditLog`` row (``device.*``) and flushes; the caller commits.
-"""
+"""Device registration, rename, revoke, pause and folder narrowing."""
 
 from __future__ import annotations
 
@@ -41,6 +33,7 @@ from .registry_values import (
     normalize_parallel_jobs,
     normalize_profiles,
 )
+from .seat_engines import note_engines
 
 AUDIT_REGISTERED = "device.registered"
 AUDIT_RENAMED = "device.renamed"
@@ -78,8 +71,6 @@ async def _name_taken(db: AsyncSession, owner_user_id: str, name: str, *, except
 
 
 async def _retire_expired_namesake(db: AsyncSession, owner_user_id: str, name: str) -> None:
-    """``device enable`` after the device login validity ended: the expired registration of the same name makes
-    room for the new one (revoked, audited), so the person is never locked out of their own device name."""
     rows = (
         await db.execute(
             select(UserDevice).where(
@@ -103,7 +94,6 @@ async def _retire_expired_namesake(db: AsyncSession, owner_user_id: str, name: s
 async def register_device(
     db: AsyncSession, *, owner_user_id: str, client_id: str, login_scopes: Iterable[str], body: Mapping[str, Any]
 ) -> Registration:
-    """A new device of ``owner_user_id`` and its device credential. Raises ``DeviceRegistryError``."""
     name = normalize_name(body.get("name"))
     os_name = _short_text(body.get("os"), OS_VALUES)
     if os_name is None:
@@ -142,7 +132,6 @@ async def register_device(
 
 
 async def owned_device(db: AsyncSession, *, owner_user_id: str, device_id: str) -> UserDevice:
-    """The caller's own device; another user's device is the same ``device_not_found`` as a missing one."""
     device = await db.get(UserDevice, device_id) if device_id else None
     if device is None or device.owner_user_id != owner_user_id:
         raise DeviceRegistryError(REASON_DEVICE_NOT_FOUND)
@@ -167,7 +156,6 @@ async def rename_device(db: AsyncSession, device: UserDevice, *, name: Any, acto
 
 
 async def narrow_folders(db: AsyncSession, device: UserDevice, *, folders: Any, actor_id: str) -> list[str]:
-    """The platform may only remove folders; a folder not already allowed is ``device_folders_platform_cannot_add``."""
     _require_active(device)
     requested = normalize_folders(folders)
     current = list(device.folders or [])
@@ -195,7 +183,6 @@ async def set_paused(db: AsyncSession, devices: Iterable[UserDevice], *, paused:
 
 
 async def revoke_device(db: AsyncSession, device: UserDevice, *, actor_id: str, reason: str = "") -> bool:
-    """Revoke the device and its credential at once; ``False`` when it already was revoked."""
     if device.status == DEVICE_STATUS_REVOKED:
         return False
     device.status = DEVICE_STATUS_REVOKED
@@ -210,10 +197,6 @@ async def revoke_device(db: AsyncSession, device: UserDevice, *, actor_id: str, 
 
 
 async def report_device_state(db: AsyncSession, device: UserDevice, report: Mapping[str, Any]) -> None:
-    """The device's own report (channel ``hello``): its folders, profiles, parallel limit and versions.
-
-    Invalid values keep the stored ones; the device is the only source that may widen its folders.
-    """
     for key, normalize, attribute in (
         ("folders", normalize_folders, "folders"),
         ("profiles_available", normalize_profiles, "profiles"),
@@ -230,6 +213,7 @@ async def report_device_state(db: AsyncSession, device: UserDevice, report: Mapp
     service_kind = _short_text(report.get("service_kind"), SERVICE_KINDS)
     if service_kind:
         device.service_kind = service_kind
+    note_engines(device, report)
     device.last_seen_at = utc_now()
     await db.flush()
 

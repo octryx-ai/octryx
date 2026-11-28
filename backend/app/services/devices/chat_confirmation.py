@@ -1,25 +1,4 @@
-"""The owner's chat approval as the change confirmation of a device job.
-
-A governed Claude Code session is read-only until a change workflow is confirmed (``agent_gateway/capability``).
-For a job the owner started from the chat on their **own** device, the Workspace setting
-``device_runs.chat_approvals_confirm_changes`` (default on) makes the owner's approval in that chat the
-confirmation instead:
-
-- only for a launcher session authenticated with a **device grant** (the device service's own credential, bound
-  to one registered device of the same user) that runs an active job of that device, owner and Workspace whose
-  folder contains the hook's ``cwd``;
-- only where the capability rule would deny with ``capability_read_only``; destructive commands, the Workspace's
-  tool rules, Cedar and self-protection still deny first, and pushing or opening a pull request still needs a
-  deliver workflow;
-- a file change must stay inside the job's folder;
-- the answer is ``ask``, so Claude Code asks through the device's permission prompt, which is the chat approval
-  card (Allow once / Allow edits for this job / Deny). A file change under an earlier "Allow edits for this job"
-  of the same job is allowed.
-
-Every write approved this way is audited (``device.job.change_confirmed``: job, tool, approver = the owner). With
-the setting off the capability rule's denial stands (a confirmed change workflow, through the workflow tools the
-device grant may call).
-"""
+"""The owner's chat approval as the change confirmation of a device job."""
 
 from __future__ import annotations
 
@@ -52,7 +31,6 @@ _ASK_MESSAGE = ("This would change files or state. On your own device, your appr
 
 
 def tool_preview(tool: str, tool_input: dict[str, Any]) -> str:
-    """The same preview the device sends with its approval request (``device_sdk.input_preview``)."""
     if tool == "Bash" and isinstance(tool_input.get("command"), str):
         text = tool_input["command"]
     elif isinstance(tool_input.get("file_path"), str):
@@ -72,12 +50,21 @@ def _delivers(command: str) -> bool:
                for prefix in DELIVER_COMMAND_PREFIXES)
 
 
+async def _pool_runner_grant(db: AsyncSession, grant: OAuthGrant) -> bool:
+    from ...models.security.device import UserDevice
+    from .runner_pool import is_pool_runner
+
+    device = await db.get(UserDevice, grant.device_id)
+    return device is not None and device.owner_user_id == grant.user_id and await is_pool_runner(db, device)
+
+
 async def device_job_for_hook(db: AsyncSession, *, session: Session, grant_id: str | None,
                               hook_input: dict[str, Any]) -> DeviceJob | None:
-    """The owner's active device job behind this launcher session, or ``None`` (not a device-grant session)."""
     grant = await db.get(OAuthGrant, grant_id) if grant_id else None
-    if grant is None or not grant.device_id or grant.revoked_at is not None or grant.user_id != session.user_id:
+    if grant is None or not grant.device_id or grant.revoked_at is not None:
         return None
+    if grant.user_id != session.user_id and not await _pool_runner_grant(db, grant):
+        return None  # a server runner's grant runs the person's turn; any other grant only its own user's
     cwd = str(hook_input.get("cwd") or "")
     if not cwd.startswith("/"):
         return None
@@ -95,7 +82,7 @@ async def device_job_for_hook(db: AsyncSession, *, session: Session, grant_id: s
 
 def _audit(db: AsyncSession, job: DeviceJob, action: str, details: dict[str, Any]) -> None:
     db.add(AuditLog(user_id=job.owner_user_id, session_id=job.session_id, action=action, resource_type="device_job",
-                    resource_id=job.id, details={"device_id": job.device_id, **details}))
+                    resource_id=job.id, project_id=job.workspace_id, details={"device_id": job.device_id, **details}))
 
 
 async def _job_edits_approval(db: AsyncSession, job: DeviceJob) -> DeviceJobApproval | None:
@@ -106,7 +93,6 @@ async def _job_edits_approval(db: AsyncSession, job: DeviceJob) -> DeviceJobAppr
 
 async def chat_confirmed_change(db: AsyncSession, *, session: Session, grant_id: str | None,
                                 hook_input: dict[str, Any], denial: ToolDecision) -> dict[str, Any] | None:
-    """The answer replacing a ``capability_read_only`` denial on the owner's own device, else ``None``. Flushes."""
     if denial.reason != CAPABILITY_READ_ONLY_REASON:
         return None
     tool = str(hook_input.get("tool_name") or "")
@@ -144,7 +130,6 @@ async def chat_confirmed_change(db: AsyncSession, *, session: Session, grant_id:
 
 
 async def audit_confirmed_write(db: AsyncSession, job: DeviceJob, approval: DeviceJobApproval, decision: str) -> None:
-    """An allowing decision on an approval this rule asked for becomes ``device.job.change_confirmed``. Flushes."""
     if approval.tool not in WRITE_TOOLS or approval.status not in ("allowed", "allowed_job_edits"):
         return
     asked = (await db.execute(select(AuditLog.details).where(

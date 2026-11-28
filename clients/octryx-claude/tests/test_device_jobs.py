@@ -1,6 +1,3 @@
-"""The device job manager and SDK driver: local re-checks on every offer, nothing but the prompt and its
-target taken from the platform, approvals that deny on timeout, stop, and parallel turns. Fakes only."""
-
 from __future__ import annotations
 
 import asyncio
@@ -39,8 +36,6 @@ async def test_an_offer_runs_as_a_session_and_ignores_everything_but_prompt_and_
 
 @pytest.mark.asyncio
 async def test_a_turn_an_earlier_process_saw_but_never_ran_is_handed_back(state, tmp_path):
-    """A service restarted between the offer and its acceptance finds the turn in its seen list: it hands the turn
-    back (``device_restarted``) instead of ignoring the redelivery, and the platform offers it once more."""
     from octryx_claude.device_jobs import SEEN_FILE
 
     write_private_json(state.ensure().root / SEEN_FILE, {"turns": ["t-lost"]})
@@ -134,3 +129,25 @@ async def test_stop_and_pause_interrupt_running_turns(state, tmp_path):
     await manager2.handle("pause", {})
     await _settle(manager2)
     assert channel2.of("turn_finished")[0]["status"] == "paused"
+
+
+@pytest.mark.asyncio
+async def test_a_stop_while_the_session_is_prepared_starts_no_work(state, tmp_path):
+    import threading
+
+    started, release = threading.Event(), threading.Event()
+
+    class SlowPrepare(Prepare):
+        def __call__(self, state, **kwargs):
+            started.set()
+            release.wait(5)
+            return super().__call__(state, **kwargs)
+
+    driver = FakeDriver()
+    manager, channel, repo = _manager(state, tmp_path, driver=driver, prepare=SlowPrepare())
+    await manager.handle("job_offer", _offer(repo))
+    await asyncio.to_thread(started.wait, 5)
+    await manager.handle("cancel", {"job_id": "dj_1", "turn_id": "t1"})
+    release.set()
+    await _settle(manager)
+    assert driver.calls == [] and channel.of("turn_finished")[0]["status"] == "stopped"

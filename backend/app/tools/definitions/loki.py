@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 def get_loki_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for loki tools."""
     return {
         "query_loki": {
             "type": "function",

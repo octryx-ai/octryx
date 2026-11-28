@@ -26,12 +26,7 @@ def _same_origin(left: str, right: str) -> bool:
 def canonical_page_url(
     base_url: str, page_id: object, *, webui: object = None, response_base: object = None
 ) -> str | None:
-    """The openable link of one page: ``_links.base`` + ``_links.webui``, else the ``viewpage.action`` form.
-
-    ``response_base`` is used only on the configured origin, so a response can never point a link
-    at another host. ``None`` without a numeric page id or a valid base URL. A malformed
-    ``_links.base`` or ``webui`` never fails: the id link is used instead.
-    """
+    # ``response_base`` is used only on the configured origin, so a response can never point a link at another host.
     identifier = str(page_id or "").strip()
     base = str(base_url or "").strip().rstrip("/")
     try:
@@ -55,7 +50,6 @@ def canonical_page_url(
 
 
 def _parse_token(token: str | None) -> tuple[int, int | str]:
-    """``(space index, offset)`` for an offset token, ``(space index, link)`` for a ``_links.next`` token."""
     if token is None:
         return 0, 0
     head, _, rest = token.partition(":")
@@ -77,18 +71,12 @@ def _parse_token(token: str | None) -> tuple[int, int | str]:
 
 
 def _with_limit(link: str, limit: int) -> str:
-    """The source's next link with the runner's page size; everything else (the cursor) unchanged."""
     route, _, query = link.partition("?")
     pairs = [(key, value) for key, value in parse_qsl(query, keep_blank_values=True) if key != "limit"]
     return f"{route}?{urlencode([*pairs, ('limit', str(limit))])}"
 
 
 def _principals(read: object) -> tuple[str, ...] | None:
-    """The users and groups a read restriction admits; ``()`` for none, ``None`` for an unknown shape.
-
-    A user label names the account key it was reported with (``user:username=jdoe``), so the ACL
-    expansion can look the same account up again.
-    """
     if not isinstance(read, dict) or not isinstance(read.get("restrictions"), dict):
         return None
     restrictions = read["restrictions"]

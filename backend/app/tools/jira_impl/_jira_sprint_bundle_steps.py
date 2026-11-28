@@ -12,7 +12,6 @@ def _is_scrum(board: dict[str, Any]) -> bool:
 
 
 def pick_scrum_board(boards: list[dict[str, Any]], *, board_name: str, project_key: str) -> dict[str, Any] | None:
-    """The named board, else the project's sprint scrum board, else its scrum board, else any scrum board."""
     board_name_lower = board_name.casefold()
     if board_name_lower:
         for board in boards:
@@ -45,7 +44,6 @@ def _asked_for_issue_types(release_bundle_params: dict[str, Any]) -> bool:
 async def create_release_with_issue_type_retry(
     release_bundle_params: dict[str, Any], context: ToolContext
 ) -> dict[str, Any]:
-    """Create the release bundle; a 400 with explicit issue types is retried once with the project default."""
     from ._jira_release_bundle import CreateJiraReleaseBundle
 
     release_result = await CreateJiraReleaseBundle().execute(release_bundle_params, context)
@@ -69,7 +67,6 @@ async def create_release_with_issue_type_retry(
 
 
 def sprint_ticket_ids(release_result: dict[str, Any], params: dict) -> list[str]:
-    """Created, updated and explicitly named tickets, each once, in that order."""
     ticket_ids = [
         str(item.get("ticket_id") or "").strip()
         for item in (release_result.get("created_tickets") or [])

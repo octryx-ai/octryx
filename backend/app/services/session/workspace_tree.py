@@ -56,16 +56,6 @@ def workspace_entry_for_path(workspace_root: Path, path: Path) -> dict[str, Any]
     }
 
 
-def serialize_workspace_tree(workspace_root: Path) -> list[dict[str, Any]]:
-    root = workspace_root.resolve()
-    if not root.exists():
-        return []
-    entries: list[dict[str, Any]] = []
-    for path in sorted(root.rglob("*"), key=lambda candidate: _workspace_sort_key(root, candidate)):
-        entries.append(workspace_entry_for_path(root, path))
-    return entries
-
-
 def serialize_workspace_children(workspace_root: Path, target: Path) -> list[dict[str, Any]]:
     root = workspace_root.resolve()
     if not root.exists():

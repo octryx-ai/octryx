@@ -1,9 +1,4 @@
-"""Explicit phased-workflow Action admission before any session exists.
-
-NULL never implies this binding. The existing Action execution and webhook service-principal
-path remain responsible for the turn; this validates that local queue dispatch cannot degrade
-into an ordinary prompt or device run after the stored Action changes.
-"""
+"""Explicit phased-workflow Action admission before any session exists."""
 from __future__ import annotations
 
 from typing import Any
@@ -28,7 +23,6 @@ MESSAGES = {
 
 class WorkflowDispatchBindingError(ActionAdmissionError):
     def as_metadata(self) -> dict[str, str]:
-        """The fixed code and message; a missing Workspace is typed like every run start's refusal."""
         typed = {"state": STATE_NEEDS_CONFIGURATION, "reason": WORKSPACE_REQUIRED} if self.code == WORKSPACE_REQUIRED \
             else {}
         return {"code": self.code, "message": MESSAGES[self.code], **typed}
@@ -39,7 +33,6 @@ def _refuse(code: str) -> None:
 
 
 async def require_workflow_bound_state(db: Any, task: Any, *, has_steps: bool) -> None:
-    """Check the explicit binding's complete effective state without creating anything."""
     from ...models import Project, User
     from ...services.workflow_runs.access import require_start_scope
     from ...services.workflow_runs.engine import published_phased_flow

@@ -1,10 +1,5 @@
-"""In-process embeddings from a pinned, offline model artifact (``fastembed`` / ONNX).
-
-No text leaves the process and nothing is downloaded: the model loads from
-``<model_root>/<space key>/`` only, with ``local_files_only``, and every file must match the
-SHA-256 pinned in the catalog before the first use. A missing or altered artifact is
-``needs_configuration``, never a silent fetch from the network.
-"""
+"""In-process embeddings from a pinned, offline model artifact (``fastembed`` / ONNX). Nothing is downloaded: a missing
+or altered artifact is ``needs_configuration``."""
 
 from __future__ import annotations
 
@@ -31,7 +26,6 @@ def _file_sha256(path: Path) -> str:
 
 
 def verify_artifact(space: EmbeddingSpace, model_root: Path) -> Path:
-    """The artifact directory of ``space`` once every pinned file matches; else ``needs_configuration``."""
     directory = model_root / space.key
     if not directory.is_dir():
         raise EmbeddingError(EmbeddingState.NEEDS_CONFIGURATION, "model_artifact_missing")
@@ -43,8 +37,6 @@ def verify_artifact(space: EmbeddingSpace, model_root: Path) -> Path:
 
 
 class LocalEmbedder:
-    """``Embedder`` for a local space; the model is loaded once, on first use."""
-
     def __init__(self, space: EmbeddingSpace, *, model_root: Path) -> None:
         if space.provider is not EmbeddingProvider.LOCAL:
             raise EmbeddingError(EmbeddingState.CONTRACT_VIOLATION, "provider")

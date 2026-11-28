@@ -1,19 +1,5 @@
-"""Display one revision's original as sanitized HTML and plain text (source original view).
-
-Authorization is exactly the original route's: :func:`ledger.original.read_original` decides the
-Workspace predicate, the per-source ACL, the tombstone state and the digest check, and every one of
-its refusals passes through unchanged. This module only turns verified bytes into something a
-browser may render inline:
-
-- ``text/html`` (Confluence pages, uploaded HTML): allowlist-rebuilt HTML plus its plain text
-  (``display/html_view.py``);
-- text-native types (plain text, Markdown, AsciiDoc, CSV, JSON, XML): the text itself, never markup;
-- PDF and Office originals, and bytes that are not UTF-8: :class:`OriginalNotDisplayableError`
-  (download them through the original route instead).
-
-An original above :data:`MAX_VIEW_BYTES` is answered with ``state: "too_large"`` and no content,
-never a silently truncated document.
-"""
+"""Display one revision's original as sanitized HTML and plain text. Authorization is exactly the original route's; its
+refusals pass through unchanged."""
 
 from __future__ import annotations
 
@@ -42,8 +28,6 @@ STATE_TOO_LARGE = "too_large"
 
 @dataclass(frozen=True, slots=True)
 class DisplayText:
-    """The displayable form of one original: plain text always, sanitized HTML for HTML originals."""
-
     text: str
     html: str | None
 
@@ -71,7 +55,6 @@ def _decoded(data: bytes) -> str:
 
 
 def display_text(original: OriginalContent) -> DisplayText:
-    """Plain text (and sanitized HTML for an HTML original) of verified original bytes."""
     if not is_displayable(original.media_type):
         raise OriginalNotDisplayableError()
     decoded = _decoded(original.data)
@@ -82,7 +65,6 @@ def display_text(original: OriginalContent) -> DisplayText:
 
 
 async def revision_origin(db: AsyncSession, authorized: AuthorizedWorkspace, revision_id: str) -> RevisionOrigin:
-    """Where the revision came from and when it changed there, when the source said so."""
     row = (
         await db.execute(
             select(KnowledgeSourceRevisionOrigin.source_url, KnowledgeSourceRevisionOrigin.source_changed_at).where(
@@ -108,7 +90,6 @@ async def read_original_view(
     source_id: str,
     revision_id: str,
 ) -> dict:
-    """The display payload of one revision's original; refusals are the original route's."""
     original = await read_original(
         db, runtime=runtime, authorized=authorized, source_id=source_id, revision_id=revision_id
     )

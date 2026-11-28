@@ -23,7 +23,6 @@ logger = logging.getLogger("octryx_claude.device")
 
 class ChannelWaits:
     async def _revoke_signal(self, backoff: float, stop: asyncio.Event) -> float:
-        """Persist ``revoked`` only when the platform confirms it; answers the next backoff."""
         verdict = await asyncio.to_thread(self.confirm_revoked)
         if verdict == VERDICT_REVOKED:
             self._mark_revoked()
@@ -49,8 +48,6 @@ class ChannelWaits:
         logger.warning("device revoked by the platform; idle until `octryx-claude device enable`")
 
     async def _revoked(self, stop: asyncio.Event) -> None:
-        """A persisted ``revoked``: ask the platform (at once on start, then periodically); only its own
-        ``device_revoked`` keeps the device revoked. Idles between checks, waking early on ``device enable``."""
         if self.recheck_revoked is None:
             await self._idle("revoked", stop)
             return
@@ -85,8 +82,7 @@ class ChannelWaits:
                        verdict)
 
     async def _idle(self, reason: str, stop: asyncio.Event, *, retry_after: float | None = None) -> None:
-        """No retry storm: wait until the device or its credential file changes (or the service stops, or
-        ``retry_after`` seconds passed; ``needs_login`` retries hourly)."""
+        # No retry storm: wait for a change of the device or its credential file, or retry_after.
         if self.idle_reason != reason:
             logger.warning("device channel idle: %s", reason)
         self.idle_reason = reason

@@ -1,7 +1,5 @@
 import { useAdminNavigation } from "../../adminNavigation";
 
-// The first source of a Workspace: a source reads through a connection to its system, so the
-// add panel says in one line where that connection is made.
 export function KnowledgeFirstSource() {
   const { openAdminTab } = useAdminNavigation();
   return (

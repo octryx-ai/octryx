@@ -17,6 +17,9 @@ from app.services.workflow_runs.platform import dispatch as dispatch_module
 from app.services.workflow_runs.platform.dispatch import ToolOutcome, read_outcome
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_workflow_fixtures import admin_user, join_workspace, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _definition(action: str, params: dict | None = None) -> dict:
@@ -37,8 +40,6 @@ def _definition(action: str, params: dict | None = None) -> dict:
 
 
 class FakeTools:
-    """The governed tool dispatch, scripted: every call is recorded with its arguments."""
-
     def __init__(self, monkeypatch, answers: dict[str, list[dict]]):
         self.calls: list[tuple[str, dict, str]] = []
         self.answers = answers
@@ -69,7 +70,7 @@ async def _item(db, *, project_id: str | None = None, source_type: str = "jira")
 async def _run(db, definition: dict, **start) -> WorkflowRun:
     admin = await admin_user(db)
     if start.get("project_id"):
-        await join_workspace(db, admin, start["project_id"])  # the requester, a member like a real one
+        await join_workspace(db, admin, start["project_id"])
     else:
         start["project_id"] = await run_workspace(db, admin, start.get("work_item_id"))
     key = await publish_phased(db, definition)
@@ -96,10 +97,9 @@ async def test_jira_issue_comment_and_a_follow_up_issue_recorded_once(db, monkey
                                                           {"ticket_id": "PAY-8", "status": "created"}]})
     item = await _item(db)
     run = await _run(db, _definition("jira.create_issue", {"issue_type": "Bug"}))
-    assert run.ticket_key is None and run.outcome == "blocked"  # no Work item, no project: an explicit failure
+    assert run.ticket_key is None and run.outcome == "blocked"
     existing = await _run(db, _definition("jira.create_issue", {"issue_type": "Bug"}), work_item_id=item.id)
-    assert (existing.outcome, existing.ticket_key, tools.calls) == ("done", item.source_key, [])  # never twice
-    # A "platform" item never goes to Jira; an item without a ticket yet is a "manual" one.
+    assert (existing.outcome, existing.ticket_key, tools.calls) == ("done", item.source_key, [])
     unticketed = await _item(db, source_type="manual")
     run = await _run(db, _definition("jira.create_issue", {"issue_type": "Bug"}), work_item_id=unticketed.id)
     assert (run.outcome, run.ticket_key, tools.calls[-1][1]["project_key"], tools.calls[-1][2]) == (
@@ -123,7 +123,6 @@ async def test_a_jira_status_moves_only_through_the_write_back_mapping(db, monke
     run = await _run(db, _definition("jira.transition", {"work_state": "review"}), work_item_id=item.id)
     assert (run.outcome, item.work_state) == ("done", "review")
     unknown = await _run(db, _definition("jira.transition", {"work_state": "no_such_state"}), work_item_id=item.id)
-    # No write-back maps this state, so Jira is left untouched: a visible skip and the run continues.
     assert (unknown.outcome, unknown.context["actions"]["act"]["result"]) == ("done", "succeeded")
     skipped = await jira.transition(db, unknown, {"work_state": "no_such_state"})
     assert (skipped.ok, skipped.result["status"], skipped.result["work_state"]) == (True, "skipped", "no_such_state")
@@ -171,7 +170,6 @@ async def test_branch_push_and_pr_with_the_requester_as_reviewer_on_every_scm(db
                   {"id": "7", "source_node_id": "pr", "target_node_id": "ko", "when": "failed"}],
     }
     run = await _run(db, definition, work_item_id=item.id, project_id=project.id, repository=f"{provider}:{path}")
-    # An unlinked requester never blocks the pull request: opened without them, mentioned, recorded.
     assert run.outcome == "delivered", run.context
     unlinked = next(call for call in tools.calls if call[0] == pr_tool)[1]
     assert unlinked["reviewers"] == ["lead-dev"] and "requester" not in unlinked
@@ -211,7 +209,7 @@ async def test_a_tool_approval_makes_the_step_wait_and_the_grant_runs_it(db, mon
         "approve_tool", "reject_tool"]
     from app.services.workflow_runs.records import main_session_id
 
-    approval.session_id = await main_session_id(db, run)  # a chat tool approval of the run's session
+    approval.session_id = await main_session_id(db, run)
     await decide_pending_approval(db, approval_id=approval.id, resolved_by=admin.id, status="approved")
     assert (run.status, run.outcome) == ("completed", "done")
     assert tools.tools() == ["add_jira_comment", "add_jira_comment"]
@@ -219,7 +217,6 @@ async def test_a_tool_approval_makes_the_step_wait_and_the_grant_runs_it(db, mon
 
 @pytest.mark.asyncio
 async def test_a_run_comment_carries_the_ai_marker_but_the_work_items_own_text_does_not(db, monkeypatch):
-    """EU AI Act Art. 50(2): the platform's jira.comment marks AI text with the model of the run's main session."""
     from app.models import Message
     from app.services.workflow_runs.records import main_session_id
 
@@ -229,10 +226,13 @@ async def test_a_run_comment_carries_the_ai_marker_but_the_work_items_own_text_d
     db.add(Message(session_id=await main_session_id(db, run), role="assistant", content="x", model="claude-haiku-5-5"))
     await db.flush()
 
+    admin = await admin_user(db)
     await jira.comment(db, run, {"text_from": "findings"})
-    assert tools.calls[-1][1]["body"].endswith(f"\n\n— Written by AI (octryx · claude-haiku-5-5) in run {item.source_key}.")
+    assert tools.calls[-1][1]["body"].endswith(
+        f"\n\n— Written by an agent (octryx · claude-haiku-5-5, run {item.source_key}) — responsible: "
+        f"{admin.display_name}.")
     await jira.comment(db, run, {"text_from": "work_item"})
-    assert "Written by AI" not in tools.calls[-1][1]["body"]
+    assert "Written by an agent" not in tools.calls[-1][1]["body"]
 
 
 def test_jenkins_test_reports_become_per_test_results():
@@ -244,7 +244,7 @@ def test_jenkins_test_reports_become_per_test_results():
     from app.services.workflow_checks.test_ids import Resolver
     from app.services.workflow_runs.test_resolution import resolve_entry
 
-    parsed = ci.jenkins_tests(report)  # className + name: keyed canonically once the run knows the file
+    parsed = ci.jenkins_tests(report)
     assert parsed.results == {} and len(parsed.unresolved) == 3
     entry = resolve_entry({"results": {}, **parsed.fields()}, Resolver(["tests/test_totals.py"]))
     assert {test_id: value["outcome"] for test_id, value in entry["results"].items()} == {

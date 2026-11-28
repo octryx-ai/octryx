@@ -1,19 +1,4 @@
-"""The sandbox network a Workspace allows its governed Claude Code sessions.
-
-``agent_gateway_policy.sandbox.allowed_domains`` is the list of domains that Bash inside Claude
-Code's OS sandbox may reach, for builds and package registries (``pypi.org``,
-``*.npmjs.org``). It is Workspace data, edited by an admin or owner and validated here. It is not
-a code default: the baseline is an empty list, which means Claude Code asks the user per domain.
-
-The client policy hands the list to the launcher, which writes it into the sandbox settings
-(``network.allowedDomains``). The platform host itself is never allowed: the launcher keeps it in
-``deniedDomains``, and a Workspace entry naming it is refused here when the platform's public
-origin is known.
-
-An entry is a host name in lower case, optionally with one leading ``*.`` wildcard. It has no
-scheme, port, path or credentials, and is at most 253 characters. At most :data:`MAX_DOMAINS`
-entries are allowed.
-"""
+"""The sandbox network a Workspace allows its governed sessions (``agent_gateway_policy.sandbox``)."""
 
 from __future__ import annotations
 
@@ -43,7 +28,6 @@ def _platform_host() -> str | None:
 
 
 def normalize_sandbox(value: Any, path: str) -> dict[str, Any]:
-    """The validated ``sandbox`` section; raises :class:`SandboxPolicyError` with a fixed reason."""
     if not isinstance(value, dict):
         raise SandboxPolicyError("not_an_object", path)
     unknown = set(value) - SANDBOX_KEYS
@@ -66,7 +50,6 @@ def normalize_sandbox(value: Any, path: str) -> dict[str, Any]:
 
 
 async def workspace_sandbox_domains(db: Any, project_id: str) -> tuple[str, ...] | None:
-    """The Workspace's allowed sandbox domains; ``None`` when its stored policy no longer validates."""
     from .policy import load_workspace_policy
 
     loaded = await load_workspace_policy(db, project_id)
@@ -74,22 +57,16 @@ async def workspace_sandbox_domains(db: Any, project_id: str) -> tuple[str, ...]
 
 
 async def set_workspace_sandbox_domains(db: Any, *, project_id: str, domains: Any, actor_user_id: str) -> None:
-    """Store the allowed domains through the one project-config write path (validated, audited).
-
-    A Workspace still on the baseline policy keeps the baseline rules: the stored policy starts from
-    a copy of the baseline, so setting domains never drops the code-defined deny rules.
-    """
-    import copy
-
+    # The stored policy on top of the baseline, so setting domains never drops the code-defined deny rules.
     from sqlalchemy import select
 
     from ...models import Project
     from ..admin.project.admin_project_config_service import merge_project_config
-    from .policy_keys import AGENT_GATEWAY_POLICY_CONFIG_KEY, BASELINE_POLICY
+    from .policy_keys import AGENT_GATEWAY_POLICY_CONFIG_KEY, over_baseline
 
     config = (await db.execute(select(Project.config).where(Project.id == project_id))).scalar_one_or_none()
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY) if isinstance(config, dict) else None
-    base = dict(stored) if isinstance(stored, dict) and stored else copy.deepcopy(BASELINE_POLICY)
+    base = over_baseline(stored)
     base["sandbox"] = {"allowed_domains": domains}
     await merge_project_config(
         db, project_id=project_id, patch={AGENT_GATEWAY_POLICY_CONFIG_KEY: base}, actor_user_id=actor_user_id

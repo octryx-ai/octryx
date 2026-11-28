@@ -1,11 +1,4 @@
-"""The pet's "Connect iPhone…": opens a terminal window running ``octryx-claude mobile pair``.
-
-The pairing is confirmed in that terminal (the phone's number), so it always runs where a person answers:
-
-- macOS: a ``connect-iphone.command`` file in the state directory, opened with ``open`` (Terminal runs it; no
-  automation permission is needed);
-- native Windows: a new console window running ``octryx-claude.cmd mobile pair`` (it forwards to WSL).
-"""
+"""The pet's "Connect iPhone…": a terminal window running ``octryx-claude mobile pair``."""
 
 from __future__ import annotations
 
@@ -30,7 +23,6 @@ def command_file(root: Path, shim: Path) -> Path:
 
 def open_pairing(root: Path, *, spawn: Callable[..., object] = subprocess.Popen, platform: str | None = None,
                  shim: Path | None = None) -> Sequence[str]:
-    """Start the pairing terminal; returns the command it ran (for the tests)."""
     platform = platform or sys.platform
     if platform == "darwin":
         if shim is None:

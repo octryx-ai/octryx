@@ -1,5 +1,3 @@
-"""A run turn starts lean, a chat turn keeps its settings, and subagent phases get a full session."""
-
 from __future__ import annotations
 
 import types
@@ -18,9 +16,6 @@ PLATFORM_TEXTS = {"system_prompt": RUN_PROMPT, "story_prompt": STORY_PROMPT, "pl
 
 
 def test_a_workflow_run_turn_starts_lean_and_a_chat_turn_does_not():
-    """A run turn's base context must stay under 10k tokens. No user/project settings (plugins,
-    skills, CLAUDE.md), the lean built-in tools, no slash commands, a short system prompt; hooks still come from
-    settings."""
     from octryx_claude.device_turn_kind import LEAN_TOOLS
 
     captured = {}
@@ -41,8 +36,6 @@ def test_a_workflow_run_turn_starts_lean_and_a_chat_turn_does_not():
 
 
 def test_a_lean_chat_turn_keeps_the_repository_settings_and_a_neutral_prompt():
-    """A governed chat turn on Gemma carried 123 tools of the user's plugins; lean, it keeps the six tools
-    and the repository's own settings (CLAUDE.md), with a prompt that names no workflow run."""
     from octryx_claude.device_turn_kind import LEAN_CHAT_PROMPT, LEAN_TOOLS
 
     captured = {}
@@ -57,10 +50,6 @@ def test_a_lean_chat_turn_keeps_the_repository_settings_and_a_neutral_prompt():
 
 
 def test_a_run_turn_whose_phase_opted_in_to_subagents_is_a_full_claude_code_story_session():
-    """story-delivery: a phase node with ``"subagents": true`` runs the whole story in one Claude Code
-    session with its full tool set (no ``--tools``: Agent and TodoWrite included) and Claude Code's own system prompt
-    with the run paragraph appended, which names the Agent tool (defect 6: the lean prompt named only six tools and
-    Haiku never delegated). Every other run turn keeps the six tools and the lean prompt; a chat turn never gets it."""
     from octryx_claude.device_turn_kind import INTERACTIVE_TOOLS, LEAN_CHAT_PROMPT, LEAN_TOOLS
 
     captured = {}
@@ -118,7 +107,6 @@ def test_a_run_turn_whose_phase_opted_in_to_subagents_is_a_full_claude_code_stor
 
 
 def test_a_run_turn_without_the_platforms_prompt_text_does_not_start():
-    """The run turn's prompt texts are the platform's catalog texts (``run.device.*``); the launcher has no copy."""
     from octryx_claude.device_sdk import DriverStartError
 
     fake_sdk = types.SimpleNamespace(ClaudeAgentOptions=lambda **kwargs: kwargs, HookMatcher=lambda **kwargs: kwargs)
@@ -149,8 +137,6 @@ async def test_the_offers_subagents_flag_reaches_the_turn_and_defaults_off(state
 
 @pytest.mark.asyncio
 async def test_the_offers_tools_prompt_texts_window_and_web_reach_the_turn(state, tmp_path):
-    """The platform sends a run turn's built-in tools, prompt texts, context cap and web decision (``job_offer``);
-    each reaches the session the turn starts with."""
     seen = []
 
     class Recording(FakeDriver):
@@ -160,9 +146,11 @@ async def test_the_offers_tools_prompt_texts_window_and_web_reach_the_turn(state
 
     manager, _channel, repo = _manager(state, tmp_path, driver=Recording())
     await manager.handle("job_offer", _offer(repo, workflow_run_id="run-1", builtin_tools=["Read", "Bash"],
-                                             compact_window=150_000, web=True, **PLATFORM_TEXTS))
+                                             compact_window=150_000, model_context_window=200_000, web=True,
+                                             **PLATFORM_TEXTS))
     await _settle(manager)
     extra = seen[0]
     assert extra["builtin_tools"] == ["Read", "Bash"] and extra["compact_window"] == 150_000
+    assert extra["model_context_window"] == 200_000
     assert {key: extra[key] for key in PLATFORM_TEXTS} == PLATFORM_TEXTS
     assert extra["web"] is True and "research" not in extra

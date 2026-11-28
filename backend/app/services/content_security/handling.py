@@ -1,35 +1,4 @@
-"""The one resolution point of sensitive-content handling: per content kind, which action applies where.
-
-**Kinds** (:data:`KINDS`): one per shipped built-in detector except ``prompt_injection`` (fixed, below).
-**Actions** a Workspace admin chooses (:data:`ACTIONS`): ``refuse``, ``mask``, ``reroute`` (to the Workspace's
-governance alias), ``mask_reroute``, ``report`` (the text goes on unchanged; the finding is recorded as an
-informational decision).
-``none`` (not acted on) and ``review`` (Command safety asks a person) exist only as shipped defaults.
-
-**Precedence**, the same at every enforcement point: the Workspace's setting for the kind
-(``workspace_content_handling``), else the shipped default of the point's surface (:data:`SHIPPED_DEFAULTS`).
-
-**Governance alias**: one governed model alias per Workspace (``workspace_content_governance``), the only target of
-every ``reroute`` / ``mask_reroute`` kind (:attr:`HandlingPlan.governance_alias`); a kind may only be set to reroute
-while it is set (``handling_settings``).
-
-**Scope**: a point resolves its plan for a Workspace id or for an explicit :class:`PlatformScope` (no Workspace by
-design, with one of :data:`PLATFORM_SCOPE_REASONS`; the shipped defaults apply). A point with neither is refused
-(:class:`ContentHandlingScopeMissingError`, ``content_handling_scope_missing``): an unset scope is never read as the
-shipped defaults. Surfaces:
-
-- ``platform`` — model calls through a provider driver (chat, tasks, governed runs) and tool results: credentials
-  masked, email masked, internal IPs reported;
-- ``gateway`` — a whole request of an external coding agent (``content_routing.gateway``): only credentials
-  (:data:`GATEWAY_KINDS`): ``secrets`` refused by default (``platform:secrets-never-leave``), ``credential_assignment``
-  reported by default; a Workspace may set ``refuse`` or ``report`` for either (:data:`GATEWAY_ACTIONS`). Every other
-  kind, and ``mask``, ``reroute`` and ``mask_reroute``, apply to platform calls only: on the gateway such a setting
-  leaves the kind at its default (``platform_calls_only``);
-- ``commands`` — Command safety's ``command_guardrail``: credentials and internal IPs sent for review.
-
-What each configured action does at each enforcement point (:data:`POINT_MODEL_CALL` …), and what the fixed rules do
-there, is the point table of ``content_security.handling_points``.
-"""
+"""The one resolution point of sensitive-content handling: per content kind, which action applies where."""
 
 from __future__ import annotations
 
@@ -48,6 +17,7 @@ from ..content_detection.vocabulary import (
     DETECTOR_PHONE,
     DETECTOR_SECRETS,
 )
+from .record_types import HandlingRecord
 
 ACTION_REFUSE = "refuse"
 ACTION_MASK = "mask"
@@ -99,13 +69,14 @@ KINDS: tuple[ContentKind, ...] = (
 )
 KIND_IDS: frozenset[str] = frozenset(item.kind for item in KINDS)
 COMMAND_KINDS: frozenset[str] = frozenset(item.kind for item in KINDS if item.commands)
-#: The kinds the gateway of external coding agents acts on (accidental credential leakage).
-GATEWAY_KINDS: frozenset[str] = frozenset({DETECTOR_SECRETS, DETECTOR_CREDENTIAL_ASSIGNMENT})
 
+#: The platform's own model calls and the external coding agents' gateway share one setting. Their defaults differ
+#: only in email: in code it is real data (git authors, package metadata, fixtures), so a coding agent gets it as is.
+_MODEL_DEFAULTS: Mapping[str, str] = {DETECTOR_SECRETS: ACTION_MASK, DETECTOR_CREDENTIAL_ASSIGNMENT: ACTION_MASK,
+                                      DETECTOR_EMAIL: ACTION_MASK, DETECTOR_INTERNAL_IP: ACTION_REPORT}
 SHIPPED_DEFAULTS: Mapping[str, Mapping[str, str]] = {
-    SURFACE_PLATFORM: {DETECTOR_SECRETS: ACTION_MASK, DETECTOR_CREDENTIAL_ASSIGNMENT: ACTION_MASK,
-                       DETECTOR_EMAIL: ACTION_MASK, DETECTOR_INTERNAL_IP: ACTION_REPORT},
-    SURFACE_GATEWAY: {DETECTOR_SECRETS: ACTION_REFUSE, DETECTOR_CREDENTIAL_ASSIGNMENT: ACTION_REPORT},
+    SURFACE_PLATFORM: _MODEL_DEFAULTS,
+    SURFACE_GATEWAY: {**_MODEL_DEFAULTS, DETECTOR_EMAIL: ACTION_REPORT},
     SURFACE_COMMANDS: {kind: ACTION_REVIEW for kind in COMMAND_KINDS},
 }
 #: The shipped policy id of a default (what records and notices name); a Workspace setting gets its own id.
@@ -114,15 +85,11 @@ _SHIPPED_POLICY: Mapping[tuple[str, str], str] = {
     (DETECTOR_CREDENTIAL_ASSIGNMENT, ACTION_MASK): "platform:credentials-masked",
     (DETECTOR_EMAIL, ACTION_MASK): "platform:email-masked",
     (DETECTOR_INTERNAL_IP, ACTION_REPORT): "platform:internal-ip-reported",
-    (DETECTOR_SECRETS, ACTION_REFUSE): POLICY_SECRETS_NEVER_LEAVE,
-    (DETECTOR_CREDENTIAL_ASSIGNMENT, ACTION_REPORT): "platform:credential-assignments-reported",
+    (DETECTOR_EMAIL, ACTION_REPORT): "platform:email-reported",
     **{(kind, ACTION_REVIEW): "platform:credentials-masked" for kind in (DETECTOR_SECRETS,
                                                                        DETECTOR_CREDENTIAL_ASSIGNMENT)},
     (DETECTOR_INTERNAL_IP, ACTION_REVIEW): "platform:internal-ip-reported",
 }
-#: The configurable actions an external coding agent's gateway acts on (forward unchanged or refuse); mask, reroute
-#: and mask_reroute apply to the platform's own model calls only.
-GATEWAY_ACTIONS: frozenset[str] = frozenset({ACTION_REFUSE, ACTION_REPORT})
 
 #: The enforcement points (their table: ``handling_points.POINTS``).
 POINT_MODEL_CALL = "model_call"
@@ -151,9 +118,6 @@ class KindHandling:
 
 @dataclass(frozen=True, slots=True)
 class HandlingPlan:
-    """The frozen per-call plan of one surface: the action of every kind and the Workspace's governance alias (the
-    one target of every ``reroute`` / ``mask_reroute`` kind; ``None``: the Workspace has none)."""
-
     surface: str
     items: tuple[KindHandling, ...]
     governance_alias: str | None
@@ -169,11 +133,9 @@ class HandlingPlan:
 
     @property
     def acting(self) -> frozenset[str]:
-        """The kinds acted on (examined): every kind whose action is not ``none``."""
         return frozenset(item.kind for item in self.items if item.action != ACTION_NONE)
 
     def policies(self, detected: Iterable[str], *actions: str) -> tuple[str, ...]:
-        """The policy ids of the ``detected`` kinds whose action is one of ``actions`` (in kind order, once)."""
         found = set(detected)
         ids: list[str] = []
         for item in self.items:
@@ -181,13 +143,11 @@ class HandlingPlan:
                 ids.append(item.policy_id)
         return tuple(ids)
 
-    def record(self, detected: Iterable[str]) -> dict[str, object] | None:
-        """What a decision record carries (its ``obligation``): the action applied per detected kind, ``report``
-        ones informational; ``None`` when the plan acted on none of them."""
+    def record(self, detected: Iterable[str]) -> HandlingRecord | None:
         found = {item.kind for item in self.items if item.kind in set(detected) and item.action != ACTION_NONE}
         return self.record_of(found) if found else None
 
-    def record_of(self, kinds: Iterable[str]) -> dict[str, object]:
+    def record_of(self, kinds: Iterable[str]) -> HandlingRecord:
         found = [item for item in self.items if item.kind in set(kinds)]
         return {"kind": RECORD_KIND, "surface": self.surface,
                 "applied": {item.kind: item.action for item in found},
@@ -199,16 +159,10 @@ Settings = Mapping[str, str]
 
 
 def _applies(surface: str, info: ContentKind, action: str) -> bool:
-    """Whether a Workspace's ``action`` for ``info`` applies on ``surface`` (the gateway: :data:`GATEWAY_KINDS` with
-    :data:`GATEWAY_ACTIONS` only; Command safety: its kinds only)."""
-    if surface == SURFACE_GATEWAY:
-        return info.kind in GATEWAY_KINDS and action in GATEWAY_ACTIONS
     return surface != SURFACE_COMMANDS or info.commands
 
 
 def plan_for(settings: Settings, surface: str, governance_alias: str | None = None) -> HandlingPlan:
-    """The plan of ``surface`` from a Workspace's ``settings`` (kind → action) over the shipped defaults, with its
-    ``governance_alias``; a setting that does not apply on the surface leaves the kind at its default there."""
     defaults = SHIPPED_DEFAULTS[surface]
     items = []
     for info in KINDS:
@@ -224,12 +178,11 @@ def shipped_plan(surface: str) -> HandlingPlan:
 
 
 class ContentHandlingUnavailableError(RuntimeError):
-    """The Workspace's settings could not be read: the call is refused, never decided on assumed defaults."""
+    pass
 
 
 class ContentHandlingScopeMissingError(RuntimeError):
-    """A plan was asked for neither a Workspace nor an explicit :class:`PlatformScope`: refused, never decided on
-    assumed defaults."""
+    pass
 
 
 #: Why a point has no Workspace by design: a chat session (or its turn's tool context) without one, a stored record
@@ -244,8 +197,6 @@ PLATFORM_SCOPE_REASONS = frozenset({PLATFORM_SESSION_WITHOUT_WORKSPACE, PLATFORM
 
 @dataclass(frozen=True, slots=True)
 class PlatformScope:
-    """A point with no Workspace by design (``reason``: one of :data:`PLATFORM_SCOPE_REASONS`): shipped defaults."""
-
     reason: str
 
     def __post_init__(self) -> None:
@@ -257,7 +208,6 @@ HandlingScope = str | PlatformScope
 
 
 async def workspace_settings(db: AsyncSession, workspace_id: str | None) -> dict[str, str]:
-    """The Workspace's stored action per kind (kind → action)."""
     if not workspace_id:
         return {}
     rows = (await db.execute(select(WorkspaceContentHandling).where(
@@ -266,7 +216,6 @@ async def workspace_settings(db: AsyncSession, workspace_id: str | None) -> dict
 
 
 async def governance_alias(db: AsyncSession, workspace_id: str | None) -> str | None:
-    """The Workspace's governance alias (``None``: none set)."""
     if not workspace_id:
         return None
     return (await db.execute(select(WorkspaceContentGovernance.governance_alias).where(
@@ -274,15 +223,10 @@ async def governance_alias(db: AsyncSession, workspace_id: str | None) -> str | 
 
 
 async def content_handling(db: AsyncSession, workspace_id: str | None, surface: str) -> HandlingPlan:
-    """The plan of ``surface`` for ``workspace_id`` (shipped defaults and no governance alias without a Workspace)."""
     return plan_for(await workspace_settings(db, workspace_id), surface, await governance_alias(db, workspace_id))
 
 
 async def content_handling_isolated(scope: HandlingScope, surface: str) -> HandlingPlan:
-    """:func:`content_handling` in its own session, for a point without one (the provider wrapper, tool results):
-    the Workspace's plan, or the shipped defaults for an explicit :class:`PlatformScope`. A scope that is
-    neither raises :class:`ContentHandlingScopeMissingError`; a failed read raises
-    :class:`ContentHandlingUnavailableError`."""
     if isinstance(scope, PlatformScope):
         return shipped_plan(surface)
     if not isinstance(scope, str) or not scope.strip():
@@ -308,8 +252,6 @@ __all__ = [
     "ACTION_REROUTE",
     "ACTION_REVIEW",
     "COMMAND_KINDS",
-    "GATEWAY_ACTIONS",
-    "GATEWAY_KINDS",
     "KINDS",
     "KIND_IDS",
     "MASKING",

@@ -1,9 +1,5 @@
-"""Validated Workspace identity for Knowledge retrieval.
-
-A Workspace is the only accepted retrieval scope. It is identified by one
-immutable UUID; null, empty, wildcard, nil, or non-canonical values are
-rejected so no caller can widen visibility to instance-global data.
-"""
+"""Validated Workspace identity for Knowledge retrieval. Null, wildcard, nil or non-canonical values are rejected, so no
+caller can widen visibility."""
 
 from __future__ import annotations
 
@@ -21,8 +17,6 @@ _RESERVED = frozenset({uuid.UUID(int=0), uuid.UUID(int=(1 << 128) - 1)})
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceId:
-    """Canonical, immutable Workspace UUID. Construct with :meth:`parse`."""
-
     value: uuid.UUID
 
     def __post_init__(self) -> None:
@@ -38,11 +32,7 @@ class WorkspaceId:
 
     @classmethod
     def parse(cls, raw: object) -> WorkspaceId:
-        """Validate untrusted input into a Workspace identity (fail closed).
-
-        An existing :class:`WorkspaceId` is revalidated into a fresh instance,
-        so a subclass or a later in-place mutation never carries over.
-        """
+        # Revalidated into a fresh instance, so a subclass or a later mutation never carries over.
         if isinstance(raw, WorkspaceId):
             if type(raw) is not WorkspaceId:
                 raise InvalidWorkspaceError()
@@ -61,7 +51,6 @@ class WorkspaceId:
 
     @property
     def canonical(self) -> str:
-        """Lower-case hyphenated form used as the external identifier."""
         return str(self.value)
 
     def __str__(self) -> str:

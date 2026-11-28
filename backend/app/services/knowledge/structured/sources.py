@@ -1,9 +1,4 @@
-"""Which revisions a layer reads, and their spans.
-
-Only a source's **current** revision is read (``knowledge_source_heads.current_revision_id`` in
-state ``projected``), the same rule every Knowledge read follows; the rest of the graph of a
-superseded or removed revision is retired by the build.
-"""
+"""Which revisions a layer reads, and their spans. Only a source's current revision is read."""
 
 from __future__ import annotations
 
@@ -45,7 +40,6 @@ async def current_revisions(
     source_key_prefixes: tuple[str, ...] = (),
     revision_ids: tuple[str, ...] = (),
 ) -> list[Candidate]:
-    """Current revisions that match **any** of the given selectors, in source-key order."""
     selectors = []
     if media_types:
         selectors.append(KnowledgeSourceRevision.media_type.in_(media_types))

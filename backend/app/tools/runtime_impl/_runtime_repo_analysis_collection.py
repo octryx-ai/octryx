@@ -50,7 +50,6 @@ def _discover_modules(repo_path: Path) -> list[dict[str, Any]]:
 def _write_group_readmes(
     repo_path: Path, workspace_root: Path, modules: list[dict[str, Any]], top_level_directories: list[Path]
 ) -> list[str]:
-    """Write the root README and one README per top-level directory; the written paths."""
     written_files: list[str] = []
     top_level_names = [directory.name for directory in top_level_directories]
     root_readme = repo_path / "README.md"

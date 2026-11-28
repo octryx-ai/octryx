@@ -1,17 +1,4 @@
-"""A pipeline command the environment could not run pauses the run ``environment_not_ready`` (no fix round).
-
-Example (class S): the declared system test ``python3 system_test/run_system_test.py`` failed in 0.1 s
-on ``ModuleNotFoundError: No module named 'playwright'``. The pipeline called that a red change and sent the fix
-phase four rounds back, the size class rose S → M → L, and the run paused only at the loop limit. Nothing the agent
-can write installs a module into the device's interpreter.
-
-A red command is the environment's failure when it printed no test result, no collection error, and either exited
-with one of the stack data's ``environment_errors.exit_codes`` (126/127) or printed one of its patterns (general:
-command not found; per stack: Python's ``No module named``, Node's ``Cannot find module``). A pattern that names the
-missing ``module`` is the change's own when the change touches a file or folder of that name (an import the agent
-broke). Then the run pauses at the pipeline step with the command, its output and what to do; **Retry** re-enters the
-step (``pause._resume`` kind ``restart``), no loop counter moves.
-"""
+"""A pipeline command the environment could not run pauses the run ``environment_not_ready`` (no fix round)."""
 
 from __future__ import annotations
 
@@ -40,7 +27,6 @@ def _changed_names(run: WorkflowRun) -> set[str] | None:
 
 
 def _tests_or_collection(text: str, stacks: dict[str, Any]) -> bool:
-    """The output shows a test run (a runner's summary) or a test file that failed to load: the agent's to fix."""
     from ..engineering_knowledge.stacks import collection_errors
     from ..workflow_checks.test_command_outcome import _COLLECTION, _SUMMARIES
 
@@ -48,7 +34,6 @@ def _tests_or_collection(text: str, stacks: dict[str, Any]) -> bool:
 
 
 def failure_of(item: dict[str, Any], stacks: dict[str, Any], changed: set[str] | None) -> dict[str, Any] | None:
-    """The environment failure of one red pipeline command (``pipeline._results`` item), else ``None``."""
     from ..engineering_knowledge.stacks import environment_errors
 
     text = str(item.get("output_tail") or "")
@@ -70,7 +55,6 @@ def failure_of(item: dict[str, Any], stacks: dict[str, Any], changed: set[str] |
 
 async def environment_failure(db: AsyncSession, run: WorkflowRun,
                               red: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The first red command the environment could not run, with the stacks of the run's Workspace."""
     from ..engineering_knowledge.stacks import for_project
 
     if not red:

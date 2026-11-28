@@ -1,6 +1,5 @@
-"""A refused call names the kind of secret on the run's timeline, never its value (attempt 4, story-ocx-81: the refusal
-named nothing, so a false alarm could not be told from a real secret). The kinds come from the request's one
-scan of the whole body (``gateway.scan_request``): the timeline note never scans the request again."""
+"""A refused call names the kind of secret on the run's timeline, never its value;
+the kinds come from the request's one scan, so the timeline note never scans again."""
 
 from __future__ import annotations
 
@@ -8,17 +7,19 @@ import pytest
 
 from app.services.content_detection import examination
 from app.services.content_detection.examination import RequestBudget
-from app.services.content_routing.gateway import scan_request
-from app.services.content_routing.gateway_plan import InboundPlan
+from app.services.content_security.enforcement_inbound import InboundPlan
+from app.services.content_security.format_request_body import examine_request_body
 from app.services.model_gateway.inbound.refusals import REASON_SECRET_DETECTED, refusal
 from app.services.model_gateway.inbound.secret_refusal_note import EVENT, note_secret_refusal
 from app.services.policy_engine.runtime import PolicyRuntime, set_policy_runtime
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 TOKEN = "ghp_" + "a1B2" * 9  # a made-up shape
 
 
 def _body(text: str) -> dict:
-    """The forwarded body: the secret in a re-sent tool result counts like one in the newest turn."""
     return {"model": "m", "messages": [
         {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1",
                                       "content": [{"type": "text", "text": text}]}]},
@@ -27,7 +28,7 @@ def _body(text: str) -> dict:
 
 def _found(text: str) -> tuple[dict[str, str], ...]:
     set_policy_runtime(PolicyRuntime())
-    return scan_request(_body(text), "ws-1", RequestBudget()).secret_kinds()
+    return examine_request_body(_body(text), "ws-1", RequestBudget()).secret_kinds()
 
 
 def test_the_kind_never_the_value():
@@ -47,7 +48,7 @@ def test_the_whole_body_is_scanned_once(monkeypatch):
 
     monkeypatch.setattr(examination, "scan", counted)
     assert _found(f"cloned with {TOKEN} today")
-    assert calls == [1, 1, 1], "the whole body, its one tool result, the newest turn: one scan each"
+    assert calls == [1], "one scan of the whole body answers for its tool result, the newest turn and its own text"
 
 
 def _plan(reason: str) -> InboundPlan:

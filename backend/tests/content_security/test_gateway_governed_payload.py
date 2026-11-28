@@ -1,10 +1,4 @@
-"""The governed gateway sends exactly the payload its content check read (C12D-02).
-
-A governed call's payload — the client's body with ``model`` replaced by the alias' model group and, on the Responses
-route, the effective output cap — is built before the scan; the bytes the upstream receives are the serialization of
-that very object. Asserted on the captured upstream for governed Messages, Responses, count-tokens and a company
-model chosen in a Claude Code seat session.
-"""
+"""The governed gateway sends exactly the payload its content check read."""
 
 from __future__ import annotations
 
@@ -15,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from app.services.content_routing import gateway_plan
+from app.services.content_security import enforcement_inbound
 from tests.content_security.gateway_route_support import ANTHROPIC_ROUTE, open_anthropic, open_responses
 from tests.model_gateway.conftest import ALIAS, MODEL_GROUP
 from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture
@@ -32,15 +26,14 @@ from tests.model_gateway.test_inbound_model_picker_seat import (  # noqa: F401 -
 
 @pytest.fixture
 def checked(monkeypatch) -> list[dict[str, Any]]:
-    """Every payload the gateway's content check read, as it read it."""
     seen: list[dict[str, Any]] = []
-    real = gateway_plan.scan_request
+    real = enforcement_inbound.examine_request_body
 
-    def spy(body, workspace_id, budget):
+    def spy(body, workspace_id, budget, *rest):
         seen.append(copy.deepcopy(dict(body)))
-        return real(body, workspace_id, budget)
+        return real(body, workspace_id, budget, *rest)
 
-    monkeypatch.setattr(gateway_plan, "scan_request", spy)
+    monkeypatch.setattr(enforcement_inbound, "examine_request_body", spy)
     return seen
 
 

@@ -24,8 +24,6 @@ from .device_work_state import (
 
 
 def queue_op(run: WorkflowRun, op: str, key: str, *, sync: bool = False) -> None:
-    """Queue ``op`` for ``key`` once (an op already queued or sent is not queued again). ``sync``: a ``branch`` op
-    that merges the main folder's HEAD into the item's existing branch (its retry after a merge conflict)."""
     state = _state(run)
     entry = {"op": op, "key": key, "branch": item_branch(run, key), **({"sync": True} if sync else {})}
     sent = list(dict(state.get("sent") or {}).get("ops") or [])
@@ -35,7 +33,6 @@ def queue_op(run: WorkflowRun, op: str, key: str, *, sync: bool = False) -> None
 
 
 def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """The run contract's ``work_git``: the batch sent to the main thread and not reported yet."""
     sent = dict(_state(run).get("sent") or {})
     if not sent.get("ops"):
         return None
@@ -43,7 +40,6 @@ def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 async def flush(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """Send the queued ops with a main-thread turn when none is outstanding and the main thread is free."""
     from app.services.devices.job_state import ACTIVE_STATUSES
 
     from ...devices.chat_turn import DeviceTurnStarted, start_device_turn
@@ -72,7 +68,6 @@ async def flush(db: AsyncSession, run: WorkflowRun) -> str | None:
 
 
 def _record_change(run: WorkflowRun, change: Any, entry: Any) -> None:
-    """The main folder against the run's base after a merge: the run's ``device_change`` (review, push)."""
     from ..octryx.facts import MAX_PATCH
 
     if not isinstance(change, dict):
@@ -89,8 +84,6 @@ def _record_change(run: WorkflowRun, change: Any, entry: Any) -> None:
 
 
 async def work_git_reported(db: AsyncSession, run: WorkflowRun, report: dict[str, Any]) -> str:
-    """The launcher's report of a sent batch: branched items can start, merges reach the scheduler. ``recorded`` or
-    ``stale`` (another batch, already reported)."""
     from .item_results import merge_reported
     from .scheduler import advance
 
@@ -126,9 +119,7 @@ async def work_git_reported(db: AsyncSession, run: WorkflowRun, report: dict[str
         elif result.get("op") == "merge":
             merged = outcome == "merged"
             if merged or outcome == "conflict":
-                # A conflicted item is branched again before its retry, with the story's work merged in: otherwise
-                # it resumed its stale worktree with no branch
-                # op and conflicted again until the loop limit.
+                # A conflicted item is branched again with the story's work merged in, or it conflicts again.
                 branched.pop(key, None)
             if outcome == "conflict":
                 resync.add(key)

@@ -47,7 +47,6 @@ from app.tools.mcp_resource_bridge import (
     ListMcpServerResourcesTool,
     ReadMcpServerResourceTool,
 )
-from app.tools.orchestration import CompleteOrchestratorTool, StartOrchestratorTool
 from app.tools.presentation import CreatePresentationTool
 from app.tools.runtime_impl._runtime_bash_web import BatchTool
 from app.tools.runtime_impl._runtime_web_search_tools import CodeSearchTool
@@ -128,6 +127,4 @@ TOOL_CLASSES_AUX = [
     # One confirmation per chat request
     ProposeWritePlanTool,
     # Orchestration
-    StartOrchestratorTool,
-    CompleteOrchestratorTool,
 ]

@@ -17,6 +17,21 @@ images:
     repository: pgvector/pgvector
     tag: "pg16"
     digest: ""
+  # Required with runners.enabled: the runner image you built and pushed (docker/runner/Dockerfile).
+  runner:
+    repository: ""
+    tag: "latest"
+    digest: ""
+    pullPolicy: IfNotPresent
+  runnerGateway:
+    repository: nginx
+    tag: "1.27-alpine"
+    digest: "sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
+  litellm:
+    repository: ghcr.io/berriai/litellm
+    tag: "v1.82.0-stable"
+    digest: "sha256:7acd2fdca2ab3b39024baff171fc7c743d63d9ff04ff6f9f01cf574f25f3a963"
+    pullPolicy: IfNotPresent
   parser:
     repository: quay.io/docling-project/docling-serve-cpu
     tag: "v1.35.0"
@@ -30,6 +45,9 @@ host: ""
 ingress:
   enabled: true
   className: ""
+  # The largest request body the ingress forwards (ingress-nginx), so an oversized upload never reaches the API. The
+  # API's own ceiling is max_multipart_request_bytes (512 MiB and the envelope by default).
+  maxBodySize: "513m"
   annotations: {}
   # TLS secret for <host>; empty means the ingress controller's default certificate.
   tlsSecretName: ""
@@ -45,6 +63,8 @@ trustedProxyIps: ""
 #   LLM_API_KEY                         with model.provider anthropic or openai
 #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   Bedrock without IRSA (optional)
 #   OCTRYX_KNOWLEDGE_PARSER_API_KEY    with parser.enabled=true
+#   LITELLM_MASTER_KEY, LITELLM_SALT_KEY   always (the bundled LiteLLM; the master key starts with "sk-")
+#   LITELLM_DATABASE_URL                with database.internal=false (postgresql://... of LiteLLM's own database)
 existingSecret: ""
 
 database:
@@ -89,9 +109,29 @@ parser:
   enabled: false
   version: "1.35.0"
 
+# Server runners: Codex sessions in pods of their own (docker/runner/README.md), reaching the platform only through
+# their gateway. Needs RUNNER_JOIN_SECRET in existingSecret (any long random value; the api and the runners share it).
+runners:
+  enabled: false
+  replicas: 1
+  # The RuntimeClass the runner pods run on; empty: the cluster's default. gVisor is the hardened option (README.md,
+  # "Server runners"): the class must exist, Kubernetes starts no runner pod without it, and the api takes no runner
+  # that runs on another runtime.
+  runtimeClassName: ""
+  storage: {tmp: 2Gi, workspace: 4Gi, state: 1Gi}
+  networkPolicy:
+    enabled: true
+    # Where the cluster DNS runs: the runners look up their gateway by name.
+    dns:
+      namespaceLabels: {kubernetes.io/metadata.name: kube-system}
+      podLabels: {k8s-app: kube-dns}
+
 resources:
   api: {requests: {cpu: 250m, memory: 1Gi}, limits: {cpu: "4", memory: 4Gi}}
+  runner: {requests: {cpu: 500m, memory: 1Gi}, limits: {cpu: "2", memory: 4Gi}}
+  runnerGateway: {requests: {cpu: 20m, memory: 32Mi}, limits: {cpu: 500m, memory: 128Mi}}
   parser: {requests: {cpu: 100m, memory: 1Gi}, limits: {cpu: "2", memory: 4Gi}}
+  litellm: {requests: {cpu: 100m, memory: 512Mi}, limits: {cpu: "2", memory: 2Gi}}
   postgres: {requests: {cpu: 50m, memory: 256Mi}, limits: {cpu: "1", memory: 1Gi}}
 
 # Additional non-secret API environment, NAME: value.

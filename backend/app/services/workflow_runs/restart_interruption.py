@@ -1,15 +1,4 @@
-"""A workflow run whose server turn a restart interrupted pauses instead of staying ``running`` (runtime R1, D).
-
-The ownership sweep (``runtime_ownership.interrupted_turns``) settles a ``running`` chat session whose process
-died as ``interrupted_by_restart``. If that session is the main thread of a phased run that is still ``running``,
-nothing would ever drive the run again: the phase's turn is gone, and a server run only advances with its next
-turn. The run therefore pauses ``runtime_failed`` with the code ``interrupted_by_restart``; Continue runs the phase
-again (a new pass, no loop iteration consumed), Abort ends it. An Action-started run is re-driven by its Action on
-Continue like any other failed Action turn (``automation.redrive_action_turn``).
-
-Only ``running`` runs on the Server are paused: a waiting or paused run already tells its requester what it needs,
-and a device thread's turn runs on the device, which reports it again after reconnecting.
-"""
+"""A workflow run whose server turn a restart interrupted pauses instead of staying ``running``."""
 
 from __future__ import annotations
 
@@ -36,7 +25,6 @@ def _runs_on_device(session: Session) -> bool:
 
 
 async def pause_runs_of_interrupted_sessions(db: AsyncSession, sessions: Iterable[Session]) -> list[str]:
-    """Pause the running Server runs whose main thread is one of ``sessions``; returns the paused run ids."""
     threads = {session.id: session for session in sessions if not _runs_on_device(session)}
     if not threads:
         return []

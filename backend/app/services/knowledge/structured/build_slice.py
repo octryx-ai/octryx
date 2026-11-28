@@ -1,23 +1,4 @@
-"""One bounded slice of a claimed structured build.
-
-Per layer the slice plans once (:func:`_plan`): it selects the current revisions, retires what the
-ledger holds for revisions that are no longer selected (or were extracted under another profile)
-and partial revisions that are no longer selected, and extracts the revisions the ledger does not
-hold yet, committing after each one. A runner that runs a build slice after slice passes a
-:class:`SliceCache`, so the plan (selection and ledger) is made once per claim, not once per slice;
-the cache follows what the slices extract. A slice without a cache (the projection worker's one
-slice per tick) plans afresh.
-
-The budget is checked before every revision and, while a revision is written, after every insert
-batch (``store.write_revision``): a large revision that runs past the deadline stops *partial*
-and the next slice resumes it. It stops at ``max_revisions`` revisions or its ``budget_seconds``;
-the next slice continues where the ledger says. Every revision write renews the lease fenced on
-this worker, in the write's transaction; a slice whose build another worker claimed rolls the write
-back and returns :data:`RESULT_LOST`. When every layer is
-extracted, the linkage phase (``build_linkage.py``) runs inside the same deadline. When a request
-added layers to the build after its linkage started (a manual takeover, ``build.py``), the linkage
-restarts, so it covers every requested layer.
-"""
+"""One bounded slice of a claimed structured build."""
 
 from __future__ import annotations
 
@@ -56,8 +37,6 @@ from .workspace_profile import workspace_profile
 
 @dataclass
 class LayerPlan:
-    """What a layer still has to extract: the selection, and the ledger as the slices advance it."""
-
     candidates: list[Candidate]
     done: set[str]
     partial: set[str]
@@ -65,8 +44,6 @@ class LayerPlan:
 
 @dataclass
 class SliceCache:
-    """The layer plans of one claimed build, kept by its runner across the slices of the claim."""
-
     build_id: str
     layers: dict[str, LayerPlan] = field(default_factory=dict)
     # The profile the plans were made under; another (a Workspace profile saved mid-claim) plans afresh.
@@ -123,8 +100,6 @@ async def _plan(context: BuildContext, spec: LayerSpec, layer: str, entry: dict)
 
 @dataclass
 class _SliceRun:
-    """The state one slice carries from layer to layer: what it writes with and how far it may go."""
-
     db: AsyncSession
     build: KnowledgeStructuredBuild
     worker_id: str
@@ -172,7 +147,6 @@ async def _save(run: _SliceRun, state: str) -> str:
 async def _extract_one(
     run: _SliceRun, spec: LayerSpec, layer: str, entry: dict, plan: LayerPlan, candidate: Candidate
 ) -> str | None:
-    """Extract and write one revision; ``None`` to go on, else :data:`_PAUSE` or :data:`RESULT_LOST`."""
     try:
         extractor, extraction = await spec.extract(run.context, candidate)
     except StructuredSourceError as error:
@@ -253,11 +227,6 @@ async def run_build_slice(
     lease_seconds: float = LEASE_SECONDS,
     cache: SliceCache | None = None,
 ) -> str:
-    """Run one bounded slice of a claimed build; returns the build's state afterwards.
-
-    :data:`RESULT_LOST` when another worker holds the build (it claimed it after this worker's lease
-    expired): nothing is written, and the caller stops working on the build.
-    """
     # The claim is a conditional UPDATE; never trust an identity-map copy from before it.
     build = await db.get(KnowledgeStructuredBuild, build_id, populate_existing=True)
     if build is None:

@@ -1,6 +1,5 @@
-"""Metrics are complete and never come from the database: a run-bound gateway session carries its
-run context, kept on binding and on each phase change, and the gateway's session resolution puts it into the
-request's attribution, from which the token metrics take their labels."""
+"""Metrics never come from the database: a run-bound gateway session carries its run context, and the gateway's
+session resolution puts it into the request's attribution, from which the token metrics take their labels."""
 
 from __future__ import annotations
 
@@ -10,7 +9,10 @@ from app.services.agent_gateway.identity import GatewayIdentity
 from app.services.agent_gateway.sessions import find_gateway_session
 from app.services.observability import attribution
 from app.services.workflow_runs.octryx.attribution import moved_to
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import _bound_run, _fix_definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -40,5 +42,5 @@ async def test_a_bound_session_carries_its_run_context_into_each_request(db):
     assert attribution.current() == {**labels, "phase": "green"}
 
     with attribution.scope(run="r", ticket="", role="review"):
-        assert attribution.current() == {"run": "r", "role": "review"}  # empty values left out
+        assert attribution.current() == {"run": "r", "role": "review"}
     assert attribution.current()["phase"] == "green"

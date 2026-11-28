@@ -1,16 +1,5 @@
-"""Recall: the memories of one Workspace a user may see, ranked lexically in PostgreSQL.
-
-Bounded by construction: the query is tokenized into at most ``MAX_TERMS`` terms (data, never
-syntax: ``%``, ``_`` and the escape character are escaped), the ranking is one SQL expression
-(the number of query terms an item contains), and at most ``MAX_RECALL_LIMIT`` rows come back. No
-corpus is scored in Python. An empty query returns the most recent memories, confirmed first.
-
-Only recallable items answer (``observed``/``confirmed``, unexpired, not erased). Superseded,
-contradicted, expired and forgotten items never do. Answer feedback (class ``answer_feedback``) is
-recalled only when the request names that class; a recall without classes never returns it. A
-separate memory graph per Workspace (``octryx_ws_<hex>_mem``) is the documented follow-up; this ledger
-stays its authority.
-"""
+"""Recall: the memories of one Workspace a user may see, ranked lexically in PostgreSQL. Query terms are data, never
+syntax; answer feedback needs its class named."""
 
 from __future__ import annotations
 
@@ -77,7 +66,6 @@ async def usernames(db: AsyncSession, user_ids: set[str]) -> dict[str, str]:
 async def recall(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, request: RecallRequest
 ) -> list[dict]:
-    """Recall entries for this user in this Workspace only; bound Workspaces share no memory."""
     item = KnowledgeMemoryItem
     matched = [
         case((item.text.ilike(f"%{_escape_like(term)}%", escape=_LIKE_ESCAPE), 1), else_=0) for term in request.terms

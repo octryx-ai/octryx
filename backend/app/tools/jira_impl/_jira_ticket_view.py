@@ -16,7 +16,6 @@ TICKET_FIELDS = (
 
 
 def _scoped_parent(parent: object, allowed: list[str] | None) -> object:
-    """A parent of another (not allowed) project becomes a key-less marker (r9 C-1c)."""
     if not allowed or not isinstance(parent, dict) or key_project(parent.get("key")) in allowed:
         return parent
     return {"external": True}

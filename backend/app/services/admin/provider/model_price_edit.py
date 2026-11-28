@@ -1,13 +1,4 @@
-"""Operator edits of a catalog model's prices (USD per million tokens).
-
-The admin model editor may set the input/output prices and the prompt-cache rate pair,
-but only while no governed cost source owns the model's price: the next catalog sync
-would overwrite a manual edit, so the edit is refused (409) instead.
-
-``None`` means "not priced"; ``0`` is a real price. Cost accounting uses the cache
-rates only when both are set (``services/budget/model_pricing``), so an edit that
-leaves exactly one of them set is refused (400) rather than silently ignored.
-"""
+"""Operator edits of a catalog model's prices (USD per million tokens)."""
 
 from __future__ import annotations
 
@@ -35,8 +26,6 @@ def normalize_optional_model_price(value: Any, *, field_name: str) -> float | No
 
 
 def apply_model_price_edit(model: Any, payload: dict[str, Any]) -> None:
-    """Apply the price fields present in ``payload``; validates before writing anything."""
-
     edited = [field for field in PRICE_FIELDS if field in payload]
     if not edited:
         return

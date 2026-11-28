@@ -1,6 +1,4 @@
-"""The agent runs the platform's style check the same way and in the same place (5a059ed7:
-ruff from the repository root wanted I001 that the agent's ruff in the app folder did not; f34f0640: `dart format`
-could not run inside the sandbox, printed only "Operation not permitted", and the agent read the silence as clean)."""
+"""The agent runs the platform's style check the same way and in the same place."""
 
 import json
 from pathlib import Path
@@ -63,7 +61,6 @@ class _RanError(Exception):
 
 
 def _wrapper_runs(command: str, home: Path, monkeypatch, contract: dict | None) -> bool:
-    """``run_wrapped`` on the hook's own wrapped form: ``True`` when it hands the command to the shell."""
     key = "00000000-0000-0000-0000-0000000000a5"
     if contract is not None:
         (home / "sessions" / key).mkdir(parents=True)
@@ -85,8 +82,6 @@ def _wrapper_runs(command: str, home: Path, monkeypatch, contract: dict | None) 
 
 
 def test_the_wrapper_runs_every_style_command_the_hook_wrapped(tmp_path: Path, monkeypatch):
-    """Style commands the hook wrapped (`ruff check`, `dart format`) pass the wrapper's check with the contract's
-    style tools."""
     for index, command in enumerate(("ruff check --select E,F,I,B tests/x.py", "ruff format --check tests/x.py",
                                      "dart format lib/a.dart test/a_test.dart")):
         assert _wrapper_runs(command, tmp_path / str(index), monkeypatch, CONTRACT), command

@@ -1,27 +1,4 @@
-"""The capability of a governed Claude Code session outside a workflow run, enforced on every PreToolUse.
-
-A session that is not bound to a workflow run is
-**read-only**, always. A run-bound session never reaches this module (``workflow_runs.octryx.hooks.run_pre_tool_use``
-decides with the phase's class, tools and path rules first). An approved ``workflow_confirmation:<key>`` raises
-nothing: changes happen only inside a B or C run (``workflow_select`` with a Work
-item starts or attaches one).
-
-:func:`effective_capability` records the class on the gateway session (``metadata.effective_capability``);
-:func:`capability_decision` enforces it with closed tool classes:
-
-- **read tools** (Read, Grep, Glob, WebFetch, Task, ...) and the platform's own MCP tools: allowed.
-  The platform MCP tools are governed server-side.
-- **file mutations** (Edit, Write, MultiEdit, NotebookEdit): denied, ``capability_read_only``.
-- **Bash**:
-  - every class: a destructive pattern of the exec policy is denied, ``destructive_command``;
-  - ``read_only``: every segment must pass the platform's read-only command rules
-    (``security_analyzer.builtins.read_only_command_finding``, the same rules a platform
-    diagnosis run uses), and the command must not redirect into a file. Anything else is
-    ``capability_read_only``.
-- **any other tool**: ``tool_not_classified`` (deny by default).
-
-Every denial carries the hint to start a workflow run for a Work item, so the user knows the next step.
-"""
+"""The capability classes of a governed session outside a workflow run, enforced on every PreToolUse."""
 
 from __future__ import annotations
 
@@ -108,8 +85,7 @@ def _within(path: str, root: str) -> bool:
 
 
 def _destructive(command: str, patterns: list[str]) -> bool:
-    """A destructive pattern in the command itself; the text a heredoc writes into a file is data, not a command
-    (``command_match.without_data_heredocs``)."""
+    # Text a heredoc writes into a file is data, not a command.
     text = without_data_heredocs(command)
     return any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns)
 
@@ -144,9 +120,6 @@ def _bash_read_only(command: str, config: dict[str, Any]) -> ToolDecision | None
 
 
 def unknown_tool_decision(tool_name: str, defaults: dict[str, Any] | None) -> ToolDecision:
-    """A tool no class names: allowed and logged by default (otherwise Codex's ``web.run`` and ``spawn_agent``
-    would be refused); the Workspace's ``tool_defaults.unknown_tools: deny`` refuses it, with the one-click fix
-    of allowing this one tool (``allowed_tools``)."""
     from .tool_check import allowed_by_default, setting_remedy  # noqa: PLC0415
 
     name = tool_name[:80] or "unknown"
@@ -166,9 +139,6 @@ def capability_decision(
     capability: EffectiveCapability, hook_input: dict[str, Any], exec_config: dict[str, Any],
     defaults: dict[str, Any] | None = None,
 ) -> ToolDecision | None:
-    """The denial of one PreToolUse under ``capability``; ``None`` means no objection. Pure. With the Workspace's
-    ``defaults`` (``device_runs.tool_defaults``), an unclassified tool follows them: an allow carrying
-    ``allowed_by_default``, or a denial with its remedy."""
     tool_name = str(hook_input.get("tool_name") or "")
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     cwd = str(hook_input.get("cwd") or "")

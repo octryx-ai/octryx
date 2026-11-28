@@ -1,11 +1,4 @@
-"""Content handling: a Workspace's chosen action per sensitive content kind and its governance alias
-(``content_security.handling``).
-
-- :class:`WorkspaceContentHandling` — one row per Workspace and kind, only where the Workspace admin chose an action;
-  no row means the shipped default of each enforcement surface.
-- :class:`WorkspaceContentGovernance` — at most one row per Workspace: the governed model alias every ``reroute`` /
-  ``mask_reroute`` kind of the Workspace is sent to (no row: no alias, and no kind may reroute).
-"""
+"""Content handling: a Workspace's action per sensitive content kind and its governance alias."""
 
 from __future__ import annotations
 
@@ -14,6 +7,7 @@ import uuid
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -21,7 +15,8 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class WorkspaceContentHandling(Base):
+class WorkspaceContentHandling(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workspace_content_handling"
     __table_args__ = (UniqueConstraint("workspace_id", "kind", name="uq_workspace_content_handling"),)
 
@@ -33,7 +28,8 @@ class WorkspaceContentHandling(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class WorkspaceContentGovernance(Base):
+class WorkspaceContentGovernance(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workspace_content_governance"
 
     workspace_id = Column(String(36), ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)

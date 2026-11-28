@@ -1,10 +1,5 @@
-"""The pet's one platform read: ``GET /api/v1/agent-gateway/pet`` with the gateway login and an ETag.
-
-:func:`fetch` never raises. Outcomes: ``ok`` (a new state), ``not_modified`` (304, keep the last one),
-``signed_out`` (no login or no usable token, 401), ``refused`` (another non-200 with the gateway's fixed codes) and
-``unreachable`` (transport failure, 5xx or an invalid answer). Response bodies of failed calls are never read.
-A 401 is retried once with a fresh token (the Windows bridge caches one; it may be stale).
-"""
+"""The pet's one platform read with an ETag; :func:`fetch` never raises and never reads failed bodies.
+A 401 is retried once with a fresh token because the Windows bridge may cache a stale one."""
 
 from __future__ import annotations
 
@@ -32,7 +27,6 @@ class FetchResult:
 
 
 def resolve(base: str, link: str | None) -> str | None:
-    """An item or panel link as an absolute http(s) URL on the platform (or the item's own http(s) URL)."""
     if not link or not base:
         return None
     url = urljoin(base + "/", link)

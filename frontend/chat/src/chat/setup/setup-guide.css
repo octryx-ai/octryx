@@ -47,9 +47,9 @@
   width: var(--ds-control-sm);
   height: var(--ds-control-sm);
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted-strong);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .setup-guide__step--done .setup-guide__mark {

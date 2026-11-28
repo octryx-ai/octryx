@@ -1,20 +1,4 @@
-"""ServiceNow Scripted REST endpoints instead of the Table API (``servicenow_api_style``).
-
-Some instances give the integration user no Table API read ACLs and expose read-only Scripted REST resources
-instead: ``GET <instance>/api/<namespace>/<api id>/<resource>`` per record kind, paged by ``sysparm_limit`` and
-``sysparm_offset``, answering ``{"result": {"<list key>": [...], "total", "limit", "offset", ...}}``. Every path
-is admin-entered; nothing here names a namespace, API id or resource.
-
-- ``servicenow_api_style``: ``table`` (default, the Table API) or ``scripted``.
-- ``servicenow_incidents_path`` / ``servicenow_changes_path`` (at least one for ``scripted``), optional
-  ``servicenow_journal_path``: a path that begins with ``/api/``, without scheme, host, ``..``, ``//``, query or
-  fragment (:func:`path_problem`).
-- ``servicenow_page_size``: 1..200, default 100.
-
-The list is the single list-valued key of ``result`` (``incidents``/``changes`` only break a tie, a list
-``result`` is read as is); records are normalised to the tool's shape with every other field passed through,
-and link to ``<instance>/nav_to.do?uri=<table>.do?sys_id=<sys_id>``. Failures are closed codes.
-"""
+"""ServiceNow Scripted REST endpoints instead of the Table API (``servicenow_api_style``)."""
 
 from __future__ import annotations
 
@@ -64,7 +48,7 @@ _PATH = re.compile(r"^/api/[A-Za-z0-9_.~/-]+$")
 
 
 class ScriptedEndpointError(Exception):
-    """A closed code with a fixed message; ``http_status`` for an error status. Never a body or a value."""
+    # Never a body or a value.
 
     def __init__(self, code: str, *, http_status: int | None = None) -> None:
         suffix = f" (HTTP {http_status})" if http_status is not None else ""
@@ -75,8 +59,6 @@ class ScriptedEndpointError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class ScriptedApi:
-    """The validated Scripted REST configuration of one connection."""
-
     paths: Mapping[str, str]  # table -> path, only the configured ones
     page_size: int = DEFAULT_PAGE_SIZE
     journal_path: str | None = None
@@ -94,12 +76,11 @@ def _text(config: Mapping[str, Any], key: str) -> str:
 
 
 def api_style(config: Mapping[str, Any]) -> str:
-    """The configured style; absent or blank is ``table``. An unknown value is returned as is (fail closed)."""
+    # An unknown value is returned as is (fail closed).
     return _text(config, API_STYLE_FIELD) or STYLE_TABLE
 
 
 def path_problem(value: object) -> str | None:
-    """Why ``value`` is not a Scripted REST path (a fixed message), or ``None``."""
     text = value if isinstance(value, str) else ""
     if not text or len(text) > MAX_PATH_CHARS or not _PATH.match(text) or ".." in text or "//" in text:
         return "must be a path that begins with /api/, without scheme, host, '..', query or fragment"
@@ -121,12 +102,11 @@ WORKNOTE_MODES = (WORKNOTE_OFF, WORKNOTE_SCRIPTED_POST, WORKNOTE_TABLE_API)
 
 
 def worknote_mode(config: Mapping[str, Any]) -> str:
-    """The work-note write-back mode; absent or blank is ``off``, an unknown value is returned as is."""
+    # An unknown value is returned as is.
     return _text(config, WORKNOTE_MODE_FIELD) or WORKNOTE_OFF
 
 
 def worknote_problems(config: Mapping[str, Any]) -> list[str]:
-    """Save-time refusals of the work-note fields: a closed mode; ``scripted_post`` needs a valid path."""
     mode = worknote_mode(config)
     if mode not in WORKNOTE_MODES:
         return [f"{WORKNOTE_MODE_FIELD} must be one of: {', '.join(WORKNOTE_MODES)}"]
@@ -139,7 +119,7 @@ def worknote_problems(config: Mapping[str, Any]) -> list[str]:
 
 
 def config_problems(config: Mapping[str, Any]) -> list[str]:
-    """Save-time refusals of the API style fields (names and fixed text only)."""
+    # Names and fixed text only.
     style = api_style(config)
     if style not in API_STYLES:
         return [f"{API_STYLE_FIELD} must be one of: {', '.join(API_STYLES)}", *worknote_problems(config)]
@@ -158,7 +138,6 @@ def config_problems(config: Mapping[str, Any]) -> list[str]:
 
 
 def scripted_api(config: Mapping[str, Any]) -> ScriptedApi | None:
-    """The validated Scripted REST configuration, or ``None`` for the Table API. Raises on an invalid one."""
     if api_style(config) == STYLE_TABLE:
         return None
     if config_problems(config):
@@ -180,7 +159,6 @@ def _count(value: object) -> int | None:
 
 
 def parse_page(payload: object, table: str) -> ScriptedPage:
-    """The records and ``total`` of one answer; the list is the single list-valued key of ``result``."""
     if payload in (None, "", {}, []):
         raise ScriptedEndpointError(CODE_EMPTY_ANSWER)
     result = payload.get("result") if isinstance(payload, dict) else None
@@ -216,7 +194,6 @@ def record_link(base_url: str, table: str, sys_id: object) -> str | None:
 
 
 def normalize_record(record: Mapping[str, Any], table: str, base_url: str) -> dict[str, Any]:
-    """The tool's record shape (summary fields first, display values), every other field passed through."""
     normalized = {key: _display(record.get(key)) for key in SUMMARY_FIELDS}
     normalized.update({key: _display(value) for key, value in record.items() if key not in normalized})
     normalized["table"] = table

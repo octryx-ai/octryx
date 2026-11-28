@@ -1,27 +1,5 @@
-"""One bounded run of a ``parse_revision`` obligation.
-
-A sandboxed revision is registered without spans. Its parse is asynchronous in the Docling
-sandbox, so the obligation is advanced over several short runs, never one long one:
-
-1. **Submit.** The first run reads the original from object storage (digest-verified), submits it,
-   and records the sandbox task (``knowledge_parse_tasks``). The obligation then waits.
-2. **Poll.** Later runs ask the sandbox where the task is. Waiting is not a failed attempt. A task
-   still running after the configured wait (:func:`max_parse_wait`), that the sandbox no longer
-   knows, or that the sandbox refused, is a failure with a fixed token and follows the bounded retry.
-   ``docling-serve`` cannot cancel a task, so a timed-out task is *kept*: the retry polls the same
-   task (and writes its result once it finishes) instead of submitting a second full parse of the
-   same revision. Only a lost or failed task is forgotten and submitted afresh.
-3. **Write.** The run that finds the task done maps the document to located spans and adds, in the
-   caller's transaction, the spans, their locators, the revision's span count, and the projection
-   obligation. The caller's ``mark_applied`` commits all of it together, or nothing on a lost lease.
-
-The parser identity the revision was registered with must be the one configured now; a different
-parser is a contract failure, so a revision's spans always come from the parser it names.
-
-A PDF registered with an undecided OCR setting (``ocr_choice.py``) first runs the cheap
-text-layer probe through the same submit/poll cycle; its result completes the revision's parser
-version (``.do_ocr=false`` or ``.do_ocr=true``) and the full parse is submitted with that setting.
-"""
+"""One bounded run of a ``parse_revision`` obligation: submit, poll, write. A timed-out task is kept and polled again,
+never submitted twice."""
 
 from __future__ import annotations
 
@@ -60,11 +38,7 @@ MAX_PARSE_WAIT_BOUNDS = (5, 240)
 
 
 def max_parse_wait(environ: Mapping[str, str] = os.environ) -> timedelta:
-    """How long one sandbox task may run (``OCTRYX_KNOWLEDGE_MAX_PARSE_WAIT_MINUTES``, 5–240, default 45).
-
-    A ~950-page manual takes 55–75 minutes in the local sandbox, so the wait is the operator's choice;
-    a value that is not a whole number in bounds is ``needs_configuration``, never a silent default.
-    """
+    # A value out of bounds is ``needs_configuration``, never a silent default.
     raw = (environ.get(MAX_PARSE_WAIT_ENV) or "").strip()
     if not raw:
         return timedelta(minutes=DEFAULT_MAX_PARSE_WAIT_MINUTES)
@@ -146,7 +120,6 @@ async def parse_revision_step(
     claim: ClaimedProjection,
     hold_lease: Callable[[], Awaitable[bool]],
 ) -> int | None:
-    """Advance one parse. Returns the span count once written, ``None`` while it waits."""
     parser = runtime.parser
     if parser is None:
         raise ParserError(ParserState.NEEDS_CONFIGURATION, runtime.parser_unavailable_reason)
@@ -193,7 +166,6 @@ async def parse_revision_step(
 
 
 async def _write_spans(db: AsyncSession, claim: ClaimedProjection, revision, located) -> None:
-    """The spans, the revision's span count and the projection obligation; the parse task is done."""
     _add_spans(db, claim, revision, located)
     await db.execute(
         update(KnowledgeSourceRevision)
@@ -209,7 +181,6 @@ async def _write_spans(db: AsyncSession, claim: ClaimedProjection, revision, loc
 
 
 async def _decide_ocr(db: AsyncSession, claim: ClaimedProjection, parser_version: str, probe: dict) -> None:
-    """Complete the revision's parser identity with the probe's OCR decision; the probe task is done."""
     await db.execute(
         update(KnowledgeSourceRevision)
         .where(KnowledgeSourceRevision.id == claim.revision_id, KnowledgeSourceRevision.project_id == claim.project_id)

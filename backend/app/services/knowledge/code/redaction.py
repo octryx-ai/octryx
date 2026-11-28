@@ -1,27 +1,5 @@
-"""Line-preserving secret redaction of repository files before they become evidence.
-
-Both fetch modes of a ``git_repository`` source (the host archive and a launcher's local snapshot)
-pass every file through this one step, so the same commit yields the same revisions either way.
-
-Redaction never adds or removes a line: a line range cited against the redacted text is the same
-range in the repository. Replaced are, within their line:
-
-- credentials in connection strings (``scheme://user:pass@host`` for any scheme, the JDBC
-  ``jdbc:oracle:thin:user/pass@host`` form), keeping the scheme and host;
-- ``Authorization: Bearer|Basic <token>`` values and bare ``Bearer <token>``;
-- vendor tokens by their prefix (``ghp_``, ``github_pat_``, ``glpat-``, ``xoxb-``, ``sk-`` ...) at a
-  realistic length, and AWS access key ids;
-- every line inside a private-key block, including its BEGIN and END lines.
-
-In source code, generic ``password=`` assignments are deliberately not redacted: they name a
-variable whose name is the fact a reader asks about. In a **configuration file** (``path`` given and
-``is_config_path``: ``.ini``, ``.properties``, ``.yaml``, ``.env`` ... and the structured profile's
-configuration globs) the *value* of every setting the shared policy names secret
-(``redaction_policy.is_secret_setting_key``: ``KeystorePass``, ``Pwd``, ``Passwort``, ``api-key``)
-is replaced and the key kept, together with its continuation lines (an INI ``+`` line, a trailing
-backslash, an indented YAML block scalar). The redaction count per file is reported; the text that
-was replaced never is.
-"""
+"""Line-preserving secret redaction of repository files before they become evidence. A redaction never adds or removes a
+line, and replaced text is never reported."""
 
 from __future__ import annotations
 
@@ -63,7 +41,6 @@ class RedactedFile:
 
 
 def is_config_path(path: str | None) -> bool:
-    """Whether ``path`` is a configuration file whose secret-named settings lose their values."""
     if not path:
         return False
     name = PurePosixPath(str(path)).name.lower()
@@ -89,7 +66,6 @@ def _indent(line: str) -> int:
 
 
 def _redact_config_settings(lines: list[str]) -> int:
-    """Replace the values of secret-named settings (and their continuation lines) in place."""
     redactions = 0
     continues = False  # the previous line was a redacted value; a ``+`` line continues it
     backslash = False  # ... and that line ended with a backslash, so the next line continues it
@@ -125,10 +101,7 @@ def _redact_config_settings(lines: list[str]) -> int:
 
 
 def redact_repository_text(text: str, path: str | None = None) -> RedactedFile:
-    """``text`` with its secrets replaced line by line; the number of lines never changes.
-
-    ``path`` (repository-relative) turns on the configuration-file setting rule (module docstring).
-    """
+    # Line by line, so the line count never changes and cited line ranges stay valid.
     lines = text.split("\n")
     redactions = 0
     in_key = False

@@ -1,10 +1,4 @@
-"""The ``knowledge_request`` family: answer from the governed Workspace evidence only.
-
-A Knowledge request answers from the governed evidence ledger: its passages carry citations that
-resolve to one source revision and, where the source has one, a link a person can open. An empty
-search is answered as "nothing documented". The phased ``jira-intake-triage`` workflow's triage
-phase selects this family by its inline contract.
-"""
+"""The ``knowledge_request`` family: answer from the governed Workspace evidence only."""
 
 from __future__ import annotations
 
@@ -48,11 +42,6 @@ def match_knowledge_request(
     project_id: str | None = None,
     capability_type: str | None = None,
 ) -> bool:
-    """Match ONLY on the explicit workflow contract, never on prompt text.
-
-    Whether a selected workflow may run in this run is the run capability rule
-    (``services/run_capability``), not this guard.
-    """
     del user_message, route_reason, project_id, capability_type
     workflow = (
         (request_analysis or {}).get("workflow_contract")
@@ -63,7 +52,6 @@ def match_knowledge_request(
 
 
 def resolve_knowledge_query_style(configured_contract: dict[str, Any] | None) -> WorkflowVariant:
-    """The configured answer style; never read from the prompt."""
     configured = configured_contract if isinstance(configured_contract, dict) else {}
     style = str(configured.get("knowledge_query_style") or "").strip().lower()
     if not style:
@@ -105,12 +93,6 @@ def plan_knowledge_request(
     covered_evidence_axes: set[str] | None,
     allowed_tool_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """A Knowledge request answers from the governed Workspace evidence only.
-
-    One cited evidence search per turn, then the answer — or an explicit "nothing documented"
-    when the search returned no passage. A turn whose tool surface does not carry the governed
-    tool plans nothing; the surface is governed by the workflow definition, not widened here.
-    """
     del covered_evidence_axes
     query = _knowledge_query_from_message(
         workflow_contract.get("knowledge_query")

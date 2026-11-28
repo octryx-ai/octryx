@@ -1,18 +1,5 @@
-"""Contract: the internal pull request record, its refresh and the reviewer recommendation stay in the Workspace the
-run or coding session resolved.
-
-- the record requires that Workspace on its Work Item (another Workspace's item answers like a missing one), takes it
-  as its ``scope_key`` and accepts only the item's own change unit;
-- a record of another Workspace with the same identity is never read or touched; the identity is derived once when
-  the pull request is opened (host of its URL + full repository path + number), stored on the run and on the record,
-  so two hosts or two owners of a same-named repository are separate records; the refresh reads only through a
-  connection on the recorded host;
-- the refresh a run requests marks only its own record; the worker reads only records whose ``scope_key`` is their
-  item's Workspace (an older record whose values disagree is never read) and ignores a unit of another item;
-- the reviewer recommendation reads the item and its repository records only within that Workspace;
-- a coding session whose Workspace changed while its metadata still names an item of the earlier one neither records
-  a pull request nor recommends reviewers for that item.
-"""
+"""Contract: the internal pull request record, its refresh and the reviewer recommendation stay in the
+Workspace the run or coding session resolved."""
 
 from __future__ import annotations
 
@@ -25,14 +12,12 @@ from sqlalchemy import select
 
 from app.models import (
     Project,
-    Session,
     User,
     WorkItem,
     WorkItemChangeUnit,
     WorkPullRequest,
     WorkRepositoryProfile,
 )
-from app.services.secure_work.coding import coding_pr_delivery
 from app.services.secure_work.pull_requests import host_target, refresh
 from app.services.secure_work.pull_requests.host_target import PullRequestHostError, resolve_target
 from app.services.secure_work.pull_requests.pull_requests import detect_mismatches, find_record, sync_pull_request
@@ -86,9 +71,6 @@ def _run(item: WorkItem, project_id: str | None = None) -> SimpleNamespace:
                                          "identity": IDENTITY})
 
 
-# --- the record ----------------------------------------------------------------------------------------------------
-
-
 async def test_the_record_requires_the_resolved_workspace_on_its_item(db):
     own, foreign = await _item(db), await _item(db)
     for workspace_id in (own.project_id, None):
@@ -126,8 +108,6 @@ async def test_a_change_unit_of_another_item_is_refused(db):
     assert (refused.value.status_code, refused.value.detail) == (404, "Change Unit not found for this Work Item")
     assert await _rows(db) == []
 
-
-# --- identity ------------------------------------------------------------------------------------------------------
 
 OPENED = [  # (provider, the URL the provider answered with, the run's repository path)
     ("github", "https://github.com/acme/runtime/pull/7", "acme/runtime"),
@@ -172,20 +152,6 @@ async def test_two_hosts_and_two_owners_of_a_same_named_repository_stay_distinct
         await db.commit()
 
 
-async def test_a_coding_session_records_the_host_of_the_pull_request_url(db):
-    item = await _item(db)
-    admin = await _admin(db)
-    session = Session(user_id=admin.id, project_id=item.project_id, agent_type="coding", status="active",
-                      metadata_={"secure_work_execution": {"work_item_id": item.id}})
-    db.add(session)
-    await db.commit()
-    for host in ("scm-a.example.test", "scm-b.example.test"):
-        recorded = await coding_pr_delivery.record_bitbucket_pull_request_delivery(
-            db, session_id=session.id, user_id=admin.id,
-            tool_params={"project_key": "OCX", "repo_slug": "runtime", "provider_instance": "default"},
-            tool_result={"id": 7, "links": f"https://{host}/projects/OCX/repos/runtime/pull-requests/7"})
-        assert recorded["status"] == "recorded"
-    assert sorted(row.provider_instance for row in await _rows(db)) == ["scm-a.example.test", "scm-b.example.test"]
 
 
 async def test_the_refresh_reads_only_through_a_connection_on_the_recorded_host(db, monkeypatch):
@@ -207,9 +173,6 @@ async def test_the_refresh_reads_only_through_a_connection_on_the_recorded_host(
     outcome = await refresh.refresh_pull_request(db, elsewhere, source="periodic")
     assert (outcome["ok"], outcome["error_code"], elsewhere.refresh_error_code) == (False, "host_mismatch",
                                                                                      "host_mismatch")
-
-
-# --- refresh -------------------------------------------------------------------------------------------------------
 
 
 async def test_a_run_requests_the_refresh_of_its_exact_record_only(db):
@@ -269,9 +232,6 @@ async def test_every_reader_and_the_writer_share_the_item_workspace_predicate(db
     assert await find_record(db, scope_key=foreign.project_id, identity=identity) is None
 
 
-# --- reviewer recommendation ---------------------------------------------------------------------------------------
-
-
 async def test_the_recommendation_reads_only_within_the_resolved_workspace(db):
     own, foreign = await _item(db), await _item(db)
     admin = await _admin(db)
@@ -293,21 +253,3 @@ async def test_the_recommendation_reads_only_within_the_resolved_workspace(db):
     assert "own.reviewer" in names and not names & {"foreign.reviewer", "Foreign team"}
 
 
-# --- coding session ------------------------------------------------------------------------------------------------
-
-
-async def test_a_session_now_in_another_workspace_never_uses_the_earlier_item(db):
-    earlier, current = await _item(db), await _item(db)
-    admin = await _admin(db)
-    session = Session(user_id=admin.id, project_id=current.project_id, agent_type="coding", status="active",
-                      metadata_={"secure_work_execution": {"work_item_id": earlier.id}})
-    db.add(session)
-    await db.commit()
-    contract = await coding_pr_delivery.reviewer_contract_for_bitbucket_pr_tool(
-        db, session_id=session.id, project_key="OCX", repo_slug="runtime", from_branch="b", explicit_reviewers=None)
-    assert (contract["source"], contract["missing_setup"]) == ("unavailable", ["work_item_session_link"])
-    recorded = await coding_pr_delivery.record_bitbucket_pull_request_delivery(
-        db, session_id=session.id, user_id=admin.id, tool_params={"project_key": "OCX", "repo_slug": "runtime"},
-        tool_result={"id": 77, "links": "https://scm.example.test/pr/77"})
-    assert recorded == {"status": "not_recorded", "reason": "no_work_item"}
-    assert await _rows(db) == []

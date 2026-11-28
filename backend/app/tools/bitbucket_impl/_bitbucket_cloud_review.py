@@ -1,10 +1,4 @@
-"""Bitbucket Cloud operations of the PR review bot (REST 2.0), in the shapes the review tools return.
-
-- **heads**: ``pullrequests?state=OPEN`` page by page (``page`` until the answer has no ``next``);
-- **summary**: the pull request's comment carrying the marker is edited (``PUT comments/<id>``), else one is created;
-- **inline**: ``POST comments`` with ``inline: {path, to}`` (the new side's line);
-- **status**: ``POST commit/<sha>/statuses/build`` with key ``octryx-review``; Cloud requires a ``url``.
-"""
+"""Bitbucket Cloud operations of the PR review bot (REST 2.0), in the shapes the review tools return."""
 
 from __future__ import annotations
 
@@ -74,7 +68,6 @@ async def conversation_comment(context: ToolContext, workspace: str, slug: str, 
 
 async def inline(context: ToolContext, workspace: str, slug: str, pr_id: str,
                  comments: list[dict[str, Any]]) -> list[Any]:
-    """The id of each posted comment, in order (a later pass answers in its thread)."""
     path = f"{repo_path(workspace, slug)}/pullrequests/{_ref(pr_id)}/comments"
     ids = []
     for comment in comments:

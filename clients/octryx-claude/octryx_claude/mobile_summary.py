@@ -1,11 +1,4 @@
-"""What the Stop hook tells the person's phone about this session.
-
-From the transcript in the session's own config dir: the title (the first prompt's first line) and the last
-answer, both redacted with the session digest's own redaction (``mcp_session_ingest_common.redact``) and capped.
-Best effort: anything unreadable or unexpected gives no summary, never an error. It runs in the Stop hook ahead of
-the verification call, so no failure here may ever reach the hook (a broken transcript or config
-must not end in "stopping without verification").
-"""
+"""What the Stop hook tells the person's phone about this session; best effort, never an error."""
 
 from __future__ import annotations
 
@@ -42,7 +35,6 @@ def _texts(content: Any) -> list[str]:
 
 
 def read_summary(transcript: Path) -> dict[str, str]:
-    """``{"title", "last_text"}`` from a Claude Code transcript (JSON lines), each only when found."""
     size = transcript.stat().st_size
     with transcript.open("rb") as handle:
         head = handle.read(min(size, 256 * 1024))
@@ -79,7 +71,6 @@ def _entry(raw: bytes) -> dict[str, Any]:
 
 
 def stop_summary(state: LocalState, hook_input: dict[str, Any]) -> dict[str, str]:
-    """The summary for the Stop hook's body (``mobile``), or ``{}``; never raises."""
     try:
         transcript_path = str(hook_input.get("transcript_path") or "")
         transcript = next(

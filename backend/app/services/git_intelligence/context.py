@@ -133,7 +133,6 @@ async def git_pr_context_impl(
 def _history_knowledge(
     summary: dict[str, Any], extract_types: list[str]
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
-    """Decisions, known bugs and API contract changes read from a change summary's commits."""
     decisions = []
     known_bugs = []
     api_contracts = []

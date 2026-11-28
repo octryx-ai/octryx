@@ -1,28 +1,4 @@
-"""Reading the open ServiceNow records of an intake through the Workspace's ServiceNow connection.
-
-The connection is the Workspace's ``servicenow`` tool entry (over the global one, its credential unit never
-mixed, as the Jira intake resolves Jira), and its credential and endpoint style are its own:
-
-- **Table API** (``servicenow_api_style`` ``table``): ``GET /api/now/table/<table>`` with display values,
-  ``sysparm_query`` = the intake's encoded query (default ``active=true``) ``^ORDERBYDESCnumber`` — newest
-  first, so a bounded listing keeps the recent records — paged by ``sysparm_offset``. At most ``max_items``
-  records per table; one more is read to know whether the listing is complete.
-- **Scripted REST** (``scripted``): the configured path of the table. The endpoint's order is its own (often
-  oldest first) and it cannot filter, so the whole listing is paged (up to :data:`MAX_SCANNED` records per
-  table) and split client-side: closed records (``excluded_states``) never count against ``max_items``, and of
-  the open ones the newest ``max_items`` (by number) are kept. Open records are never lost to closed ones; a
-  listing with more open records than ``max_items``, or cut by the scan bound, is incomplete.
-
-Records are normalised (``servicenow_scripted.normalize_record``) with their ``nav_to`` link. The client never
-follows a redirect; failures are closed codes, never a body.
-
-**Record limit.** The effective limit (:func:`effective_limit`) is the connector's
-``servicenow_assignment_groups``/``servicenow_services`` (``servicenow_filter_mode``), each list narrowed by the
-intake's ``assignment_groups``/``services``; an override outside the connector's limit is refused
-(``servicenow_assignment_groups_not_allowed``, for either list), never widened. With a limit, the Table API query
-gets its condition and display values *and* values are read so every record is re-checked; a Scripted REST
-listing is filtered client-side while paging.
-"""
+"""Reading the open ServiceNow records of an intake through the Workspace's ServiceNow connection."""
 
 from __future__ import annotations
 
@@ -35,9 +11,9 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...oidc_client_credentials import OidcTokenError
+from ...connector_auth.oidc_client_credentials import OidcTokenError
+from ...connector_auth.servicenow import ServiceNowAuth, resolve_servicenow_auth
 from ...outbound_egress import CONNECTION_SERVICENOW, egress_transport
-from ...servicenow_auth import ServiceNowAuth, resolve_servicenow_auth
 from ...servicenow_record_limit import FIELDS, RecordLimit, RecordLimitError, narrowed, record_in_limit
 from ...servicenow_record_query import with_clause
 from ...servicenow_scripted import (
@@ -82,12 +58,11 @@ class IntakeSourceError(Exception):
 
 
 async def connector_config(db: AsyncSession, project_id: str | None) -> dict[str, Any]:
-    """The Workspace's default ``servicenow`` entry (its own unit, else the global one)."""
     return await default_connection_config(db, project_id, "servicenow")
 
 
 def effective_limit(config: Mapping[str, Any], intake: Mapping[str, Any]) -> RecordLimit | None:
-    """The connector's limit narrowed by the intake's lists; raises :class:`IntakeSourceError` if it would widen."""
+    # The intake may only narrow the connector's limit, never widen it.
     try:
         return narrowed(config, {spec.intake_field: list(intake.get(spec.intake_field) or []) for spec in FIELDS})
     except RecordLimitError as error:
@@ -98,8 +73,6 @@ async def table_records(
     client: httpx.AsyncClient, base_url: str, table: str, query: str | None, limit: int, headers: dict[str, str],
     scope: RecordLimit | None = None, fields: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Up to ``limit`` records of ``table`` inside ``scope``, newest first (``ORDERBYDESCnumber``); every field
-    unless ``fields`` names them."""
     records: list[dict[str, Any]] = []
     offset = 0
     while len(records) < limit:
@@ -125,9 +98,6 @@ async def table_records(
 
 @dataclass(frozen=True, slots=True)
 class Endpoint:
-    """The Workspace's ServiceNow endpoint: base URL, request headers, credential and the Scripted REST paths
-    (``None`` on the Table API)."""
-
     base_url: str
     headers: dict[str, str]
     credential: ServiceNowAuth
@@ -135,7 +105,6 @@ class Endpoint:
 
 
 def endpoint(config: Mapping[str, Any]) -> Endpoint:
-    """The configured endpoint; raises :class:`IntakeSourceError` (``servicenow_connection_not_configured``)."""
     base_url = str(config.get("servicenow_url") or "").strip().rstrip("/")
     credential = resolve_servicenow_auth(config)
     if not base_url or credential is None:
@@ -150,8 +119,7 @@ def endpoint(config: Mapping[str, Any]) -> Endpoint:
 
 @asynccontextmanager
 async def reading(target: Endpoint) -> AsyncIterator[httpx.AsyncClient]:
-    """A client for ``target`` (egress-bound, no redirects); endpoint and token failures become closed
-    :class:`IntakeSourceError` codes."""
+    # Egress-bound, no redirects.
     try:
         async with httpx.AsyncClient(
             timeout=30, follow_redirects=False, transport=egress_transport(CONNECTION_SERVICENOW),
@@ -165,7 +133,6 @@ async def reading(target: Endpoint) -> AsyncIterator[httpx.AsyncClient]:
 
 
 async def list_open_records(config: Mapping[str, Any], intake: Mapping[str, Any]) -> Listing:
-    """The records of every configured table, normalised; raises :class:`IntakeSourceError`."""
     target = endpoint(config)
     base_url, api = target.base_url, target.api
     scope = effective_limit(config, intake)
@@ -197,8 +164,7 @@ async def list_open_records(config: Mapping[str, Any], intake: Mapping[str, Any]
 
 def _open_first(records: list[dict[str, Any]], intake: Mapping[str, Any], limit: int,
                 ) -> tuple[list[dict[str, Any]], bool]:
-    """The newest ``limit`` open records (by number, descending) followed by every closed one, and whether no
-    open record was cut. Closed records never count against ``limit``: they only close existing items."""
+    # Closed records never count against ``limit``: they only close existing items.
     open_records = [record for record in records if not is_closed(record.get("state"), intake)]
     closed = [record for record in records if is_closed(record.get("state"), intake)]
     newest = sorted(open_records, key=lambda record: str(record.get("number") or ""), reverse=True)
@@ -206,8 +172,6 @@ def _open_first(records: list[dict[str, Any]], intake: Mapping[str, Any], limit:
 
 
 def with_ref_ids(record: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The record plus the ``sys_id`` of its group and service when the answer carries them (``display_value=all``
-    or an object): ``assignment_group_sys_id``, ``service_sys_id``."""
     extra = {}
     for key, field in (("assignment_group_sys_id", "assignment_group"), ("service_sys_id", "business_service"),
                        ("service_sys_id", "service")):

@@ -1,20 +1,5 @@
-"""OCR only where a PDF needs it .
-
-OCR on a born-digital PDF only costs time: on a ~950-page vendor manual it is a large share of an
-hour-long parse. Whether a PDF has a text layer is decided **in the sandbox**, never by reading PDF
-bytes in the API process: the first parse run submits a cheap probe (OCR and table structure off,
-pages 1–:data:`PROBE_PAGES`), and the probe's DoclingDocument says which sampled pages carry text.
-
-- A sampled page with content (text or a picture) counts; a blank page does not.
-- When at least :data:`TEXT_LAYER_SHARE` of those pages carry text, the full parse runs with
-  ``do_ocr=false``; otherwise (a scanned PDF, or no usable sample) OCR stays on.
-
-The decision is part of the parser identity on the revision. A PDF is registered as
-``<version>.do_ocr=auto``; the probe completes it to ``.do_ocr=false`` or ``.do_ocr=true`` before the
-full parse is submitted, so no span ever exists under an undecided identity and the recorded
-identity always says how the spans were made. A revision whose identity names the plain version
-means OCR on.
-"""
+"""OCR only where a PDF needs it. The text-layer decision is made in the sandbox, never by reading PDF bytes in the API
+process."""
 
 from __future__ import annotations
 
@@ -35,7 +20,6 @@ class OcrSetting(StrEnum):
 
 
 def registered_version(parser_version: str, media_type: str) -> str:
-    """The parser version a new revision is registered with: a PDF's OCR is still to be decided."""
     return f"{parser_version}.{OcrSetting.AUTO}" if media_type == PDF_MEDIA_TYPE else parser_version
 
 
@@ -44,7 +28,6 @@ def decided_version(parser_version: str, ocr: bool) -> str:
 
 
 def ocr_setting(revision_version: str, parser_version: str) -> OcrSetting | None:
-    """How a revision is to be parsed by the configured parser, or ``None`` when it names another parser."""
     if revision_version == parser_version:
         return OcrSetting.ON  # a revision registered without a choice (not a PDF): the parser's own default
     for setting in OcrSetting:
@@ -62,7 +45,6 @@ def _page_numbers(item: Mapping[str, Any]) -> set[int]:
 
 
 def text_layer_share(probe: Mapping[str, Any]) -> float:
-    """Share of the probe's pages with content whose text layer carries text (0.0 without a sample)."""
     chars: dict[int, int] = {}
     content: set[int] = set()
     for item in probe.get("texts") or ():

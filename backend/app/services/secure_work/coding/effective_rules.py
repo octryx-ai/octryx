@@ -1,20 +1,4 @@
-"""Coding → Effective rules: everything that limits the coding agent in
-one Workspace, read only, each entry naming the one place it is edited.
-
-- **Denied actions** — the published Cedar policies (Settings → Governance → Policies) that forbid ``write_path``,
-  ``read_path`` or ``run_command`` and apply to the Workspace (scoped to it, or to every Workspace); the Workspace's
-  generated tool rules (the baseline row);
-- **Needs approval** — the Workspace's tool approval policy (Settings → Security → Tool & approval policies);
-- **Who approves** — the platform approval rule (Settings → Governance → Approval rule);
-- **Checks on every change** — the Delivery pipeline's checks.
-
-Each tool rule also carries its parts (``kind``, ``command``, ``argument``, ``glob``, ``tools``) and its ``origin``
-(``baseline``: one of the code-defined rules, also when a stored Workspace policy keeps a copy of it; ``workspace``:
-added in the Workspace's settings), so the page can say it in words and where it comes from.
-One rule is listed once: identical tool rules collapse into one entry (``ids`` names them all), and
-the published Cedar policy generated from a listed tool rule (``workspace:<id>:tool-rule:<rule id>``) is not a second
-entry: the tool rule names it in ``published_version``.
-"""
+"""Coding → Effective rules: what limits the coding agent in one Workspace, each entry naming where it is edited."""
 
 from __future__ import annotations
 
@@ -94,7 +78,6 @@ def _tool_rule_entries(rules: Any, source: str) -> list[dict[str, Any]]:
 def _merge_generated(
     denied: list[dict[str, Any]], tool_rules: list[dict[str, Any]], project_id: str
 ) -> list[dict[str, Any]]:
-    """The published policies without those generated from a listed tool rule; that tool rule names the version."""
     by_id = {rule_id: entry for entry in tool_rules for rule_id in entry["ids"]}
     prefix = f"workspace:{project_id}:tool-rule:"
     kept = []

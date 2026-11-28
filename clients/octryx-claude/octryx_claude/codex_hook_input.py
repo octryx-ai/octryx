@@ -1,15 +1,5 @@
 """Codex hook input in the shapes the launcher's hooks and the platform know (standard library only: the fast hook
-imports it before the launcher).
-
-Codex calls the same hooks as Claude Code with Claude-compatible JSON (``codex_driver``). Two things differ:
-
-- **file edits** are one ``apply_patch`` call whose ``tool_input.command`` is the patch text, possibly touching
-  several files. :func:`split_apply_patch` turns it into one ``Write`` (a new file) or ``Edit`` (a change, a move or a
-  deletion) per path, each with an absolute ``file_path``. The PreToolUse decision allows the patch only when every
-  part is allowed; the evidence records every part;
-- **no ``ask``**: Codex's hooks know allow and deny only, and an ``ask`` would let the call run. In a Codex session
-  (:data:`ENGINE_ENV` = ``codex``) an ``ask`` becomes a deny that says why (:func:`without_ask`).
-"""
+imports it before the launcher)."""
 
 from __future__ import annotations
 
@@ -36,7 +26,6 @@ def in_codex(environ: Any = None) -> bool:
 
 
 def patch_paths(patch: str) -> list[tuple[str, str]]:
-    """``(tool, path)`` per file the patch touches, in order, each once."""
     seen: set[str] = set()
     found: list[tuple[str, str]] = []
     for line in str(patch or "").splitlines():
@@ -57,9 +46,8 @@ def platform_tool_name(name: str) -> str:
     return f"mcp__{PLATFORM_MCP_SERVER}__{name[len(prefix):]}" if name.startswith(prefix) else name
 
 
+# Codex patches in the shell for a model it offers no ``apply_patch`` tool.
 def shell_patch(command: str) -> str:
-    """The patch of ``apply_patch <<'EOF' ... EOF`` run in the shell (how Codex patches files for a model it does not
-    know and offers no ``apply_patch`` tool), possibly inside ``<shell> -lc '...'``; ``""`` for anything else."""
     text = str(command or "")
     start = text.find("*** Begin Patch")
     end = text.find("*** End Patch")
@@ -77,7 +65,6 @@ PATCH_FORMAT = ("Write files with apply_patch in the shell, exactly this form (o
 
 
 def _first_word(command: str) -> str:
-    """The command's first word, inside Codex's ``<shell> -lc '<script>'`` wrapper too."""
     import shlex  # noqa: PLC0415
 
     try:
@@ -92,7 +79,6 @@ def _first_word(command: str) -> str:
 
 
 def unreadable_patch(hook_input: dict[str, Any]) -> bool:
-    """An ``apply_patch`` call (the tool, or ``apply_patch`` run in the shell) that names no file it changes."""
     given = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     if hook_input.get("tool_name") == APPLY_PATCH:
         return not patch_paths(str(given.get("command") or ""))
@@ -102,9 +88,8 @@ def unreadable_patch(hook_input: dict[str, Any]) -> bool:
     return False
 
 
+# Decided as a Read: a denial after every screenshot would cost a model round each time.
 def _as_read(hook_input: dict[str, Any]) -> dict[str, Any]:
-    """Codex's ``view_image`` reads one file: the platform decides it as ``Read`` of that path, never as an
-    unclassified tool (a denial after every screenshot would waste a model round each time)."""
     given = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     path = str(given.get("path") or "")
     cwd = str(hook_input.get("cwd") or "")
@@ -113,9 +98,6 @@ def _as_read(hook_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def split_apply_patch(hook_input: dict[str, Any]) -> list[dict[str, Any]]:
-    """One hook input per file of an ``apply_patch`` call; the platform's MCP tools under the platform's server
-    name; any other call unchanged. A patch without a file it names (unreadable) stays one ``apply_patch`` call,
-    which no local rule allows."""
     if hook_input.get("tool_name") == VIEW_IMAGE:
         return [_as_read(hook_input)]
     if hook_input.get("tool_name") == "Bash":
@@ -140,14 +122,33 @@ def is_deny(output: dict[str, Any] | None) -> bool:
     return isinstance(specific, dict) and specific.get("permissionDecision") == "deny"
 
 
+# Codex hooks know only allow and deny; an ``ask`` would let the call run.
 def without_ask(output: dict[str, Any] | None) -> dict[str, Any] | None:
-    """In a Codex session, an ``ask`` decision is a deny (Codex would run the call)."""
     specific = (output or {}).get("hookSpecificOutput") if isinstance(output, dict) else None
     if not isinstance(specific, dict) or specific.get("permissionDecision") != "ask":
         return output
     reason = str(specific.get("permissionDecisionReason") or "").strip()
     return {**output, "hookSpecificOutput": {**specific, "permissionDecision": "deny",
                                              "permissionDecisionReason": f"{ASK_DENIED} {reason}".strip()[:600]}}
+
+
+def guarded(environ: Any = None) -> bool:
+    from .codex_hook_guard import GUARDED_ENV  # noqa: PLC0415
+
+    return str((os.environ if environ is None else environ).get(GUARDED_ENV) or "") == "1"
+
+
+ALLOW = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}
+
+
+def decided(output: dict[str, Any] | None) -> dict[str, Any]:
+    # The hook guard (``codex_hook_guard``) lets a call run only on an explicit allow.
+    specific = (output or {}).get("hookSpecificOutput") if isinstance(output, dict) else None
+    if isinstance(specific, dict) and specific.get("permissionDecision") in ("allow", "deny"):
+        return output  # type: ignore[return-value]
+    merged = {"hookEventName": "PreToolUse", **(specific if isinstance(specific, dict) else {}),
+              "permissionDecision": "allow"}
+    return {**(output or {}), "hookSpecificOutput": merged}
 
 
 __all__ = [
@@ -158,6 +159,9 @@ __all__ = [
     "CODEX",
     "CODEX_MCP_SERVER",
     "ENGINE_ENV",
+    "ALLOW",
+    "decided",
+    "guarded",
     "in_codex",
     "is_deny",
     "patch_paths",

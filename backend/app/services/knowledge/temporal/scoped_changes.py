@@ -1,11 +1,4 @@
-"""``knowledge_changes`` over a Knowledge scope.
-
-A product's change facts are read from exactly one Workspace, never merged across graphs, so a
-fact is never counted twice and every citation resolves in the Workspace that extracted it. The
-Workspace is the first in scope order that has extracted facts for the product: the reader's own,
-then its bound sources whose binding covers the product. When none has, the answer is the reader's
-own state (``no_sources`` or ``not_extracted``), so "nothing extracted" is never hidden.
-"""
+"""``knowledge_changes`` over a Knowledge scope. Facts come from exactly one Workspace, never merged across graphs."""
 
 from __future__ import annotations
 
@@ -23,7 +16,6 @@ from .errors import GraphStoreError
 async def scoped_changes(
     db: AsyncSession, *, runtime: EvidenceRuntime, scope: KnowledgeScope, product: object, **options
 ) -> tuple[str, ChangesResult]:
-    """``(workspace_id, result)`` for the first Workspace in scope that answers with facts."""
     requested = tuple(normalize_products(product)) if product else ()
     targets = [scope.primary, *(s.authorized for s in scope.sources if s.products_for(requested) is not None)]
     own: ChangesResult | Exception | None = None

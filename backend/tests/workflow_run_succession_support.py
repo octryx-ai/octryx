@@ -18,8 +18,6 @@ REPOSITORY = "github:acme/payments"
 
 
 class Tools:
-    """The governed tool dispatch, scripted per tool; ``answers[tool]`` is a queue (the last answer repeats)."""
-
     def __init__(self, monkeypatch, answers: dict[str, list[dict]]):
         self.calls: list[tuple[str, dict]] = []
         self.answers = answers
@@ -44,7 +42,6 @@ def _git(cwd: Path, *args: str) -> str:
 
 
 def _origin(tmp_path: Path) -> tuple[Path, Path]:
-    """A bare origin with ``main`` and a clone of it (the prepared working copy)."""
     origin, seed, work = tmp_path / "origin.git", tmp_path / "seed", tmp_path / "work"
     _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
     _git(tmp_path, "clone", "-q", str(origin), str(seed))
@@ -68,7 +65,6 @@ def _remote_branch(seed: Path, work: Path, name: str, *, foreign_commit: bool = 
 
 
 def _definition(*actions: tuple[str, str, dict]) -> dict:
-    """start → actions in order → a conversation that waits; every failure → the action_failed pause → blocked."""
     nodes = [{"id": "start", "type": "start"}]
     edges = []
     previous = "start"

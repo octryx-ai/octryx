@@ -1,14 +1,7 @@
-// How Knowledge → Relationships presents one extracted fact. The cited statement is the headline,
-// because it is what the source says. The graph's subject/object entity names are only shown where the
-// relation really relates two things; for a change that concerns one subject (removed, deprecated,
-// introduced, default changed) the extractor still attaches some target entity (often a version or the
-// document title), and showing it as "→ object" would contradict the statement.
-//
-// Relation types: backend/app/services/knowledge/temporal/profiles/change_records.json.
+// For a one-subject change the extractor still attaches some target entity, so "→ object" would contradict the statement.
 
 import type { ChangeFact, ChangesResult } from "../../admin/components/workspaceKnowledge/workspaceKnowledgeTypes";
 
-// The object is part of the meaning: new name, successor, new location, required baseline.
 export const BINARY_RELATIONS: ReadonlySet<string> = new Set(["RENAMED", "REPLACED_BY", "MOVED_TO", "REQUIRES"]);
 
 const RELATION_LABELS: Record<string, string> = {
@@ -38,7 +31,6 @@ export type PresentedFact = {
   headline: string;
   subject: string;
   relation: string;
-  // Null for a relation about the subject alone, and for an untyped relation.
   object: string | null;
   typed: boolean;
 };
@@ -56,13 +48,12 @@ export function presentFact(fact: Pick<ChangeFact, "fact" | "relation" | "subjec
   };
 }
 
-// The next limit for "Show more", or null when the last page was short or the maximum is reached.
 export function nextRelationshipLimit(limit: number, returned: number): number | null {
   if (returned < limit || limit >= MAX_RELATIONSHIPS) return null;
   return Math.min(limit + RELATIONSHIP_PAGE, MAX_RELATIONSHIPS);
 }
 
-// Truthful count line. Without a query the kind counts cover the whole range; with one they count the page.
+// Without a query the kind counts cover the whole range; with one they count the page.
 export function relationshipCountText(
   result: Pick<ChangesResult, "facts" | "kind_counts">, hasQuery: boolean, upToVersion: string,
 ): string {

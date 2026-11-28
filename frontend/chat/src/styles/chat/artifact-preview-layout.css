@@ -20,10 +20,10 @@
   border: 1px solid var(--border-strong);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.5rem 0.75rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
@@ -72,7 +72,7 @@
 .artifact-preview__office-toolbar-title {
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .artifact-preview__office-toolbar-description {

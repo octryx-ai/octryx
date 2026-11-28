@@ -61,8 +61,7 @@ async def run_jira_work_item_sync(
     payload: dict[str, Any],
     dry_run: bool,
 ) -> dict[str, Any]:
-    """One sync run (incremental, one at a time per configuration, ``sync_window``). A preview
-    (dry run) and issues supplied in the request read everything and take no lease."""
+    # One run at a time per configuration; previews and request-supplied issue lists bypass the lease and window.
     from ..sync_window import acquire_sync_lease, sync_window
 
     if dry_run or isinstance(payload.get("issues"), list):
@@ -92,7 +91,7 @@ async def run_jira_work_item_sync(
 
 
 async def _release_lease_isolated(config_id: str) -> None:
-    """Free the run lease in a session of its own: a failed run's rollback must not keep it (it would expire)."""
+    # A session of its own: a failed run's rollback must not keep the lease (it would expire).
     from ....db import core as db_core
     from ..sync_window import release_sync_lease
 
@@ -230,7 +229,6 @@ def _select_issues(
     limit: int | None,
     incremental: bool,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, set[str], set[str]]:
-    """Returns the allowed issues, the filtered (and limited) issues, the fall-out mode, seen keys and left keys."""
     from ..sync_window import MODE_INCREMENTAL
 
     raw_issues = [issue for issue in source["issues"] if issue_allowed(issue, allowed)]

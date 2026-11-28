@@ -35,6 +35,8 @@ export const EMERGENCY_STOP = "emergency_stop";
 
 const PAUSE_LABELS: Record<string, string> = {
   loop_limit: "A loop reached its limit",
+  checks_failed: "The checks stayed red",
+  needs_approval: "A change needs your approval",
   budget_limit: "The run budget is used up",
   no_reply: "No reply in time",
   watch_timeout: "The watched state did not arrive in time",
@@ -55,6 +57,8 @@ const PAUSE_LABELS: Record<string, string> = {
   emergency_stop: "Stopped by emergency stop",
   // A detected loop pauses the run itself; Continue resumes it.
   loop_detected: "Loop detected · paused automatically",
+  // The step needs a person's own subscription seat, which no server runner holds.
+  seat_required: "Needs a person's seat",
 };
 
 // runtime_failed covers very different causes; its code names the one that happened (a loop
@@ -73,6 +77,7 @@ const PAUSE_CODE_LABELS: Array<[string, string]> = [
   ["phase_not_finished", "The phase ended without finishing its work"],
   ["phase_stalled", "The phase made no progress"],
   ["fixture_problem", "Test fixture: the phase ended without finishing it"],
+  ["no_seat_device_online", "Needs a person's seat · no device with one online"],
 ];
 
 type PauseFacts = { code?: string | null; loop_kind?: string | null } | null | undefined;

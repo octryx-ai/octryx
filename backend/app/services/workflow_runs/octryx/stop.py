@@ -1,33 +1,4 @@
-"""Stop / SubagentStop of a run-bound octryx-claude session: submit the evidence, the server decides.
-
-The launcher's Stop hook asks the server (``POST sessions/verification``). For a session bound to a workflow run,
-the run's current phase decides instead of the Workspace test gate:
-
-1. the run is claimed; the launcher's facts (confirmed test digests, the change) are recorded (``facts``);
-2. the evidence is the session's own recorded tool calls since the phase was entered — the gateway records every
-   tool call the model made, so the device's word is not needed: platform MCP tools by name, a Bash test command
-   (the Workspace's ``test_command_prefixes``) as ``run_test_suite`` with its result only when its runner executed
-   tests (``test_command_outcome``; a runner that could not start pauses the run ``environment_not_ready`` through
-   ``binding.record_phase_turn``, no loop consumed), edits as changes, Claude
-   Code's own reads (Read, Grep, Glob, LS) as the platform read tools when the server recorded them inside the
-   bound repository (``agent_gateway/read_evidence``); a phase that checks citations gets the counts of the
-   observed answer against the platform's sources (``citations``);
-3. the phase's checks are evaluated (before a CI pipeline step, ``pipeline_after`` in the phase contract, the checks
-   of how the agent ran its tests are advisory: :data:`TEST_CHECK_TYPES`, the declared suite, the system tests and
-   the task proofs — the pipeline judges them) and the result is reported to the run like a chat phase turn
-   (``binding.record_phase_turn`` with this pass's marker): **only the server advances** — a passed phase goes on
-   to its gate, a failed gate loops back within *n*, at *n* the run pauses;
-4. the answer: ``blocked`` with the phase's missing checks while the phase is not done (the launcher's block cap
-   applies; the run simply stays in the phase), else ``passed``; a paused or waiting run lets the session end and
-   says why (the decision is the platform's). Every answer carries the refreshed contract.
-
-**SubagentStop** reports one child: the phase's checks over the tool calls that sub-agent made (attributed by
-Claude Code's ``agent_id`` at PostToolUse), recorded per child on the run (``context.octryx_children``); it blocks the
-child while its checks fail and never advances the run — only the main session's Stop does. In a phase that opted in
-to sub-agents (``config.subagents: true``, ``octryx.subagents``) the child is recorded but never blocked: the main
-session hands it a part (find the callers, write one module), not the phase, and the main Stop still judges the phase
-over every tool call of the session, the children's included.
-"""
+"""Stop / SubagentStop of a run-bound octryx-claude session: submit the evidence, the server decides."""
 
 from __future__ import annotations
 
@@ -68,7 +39,6 @@ async def run_stop(
     db: AsyncSession, *, session: Session, hook_input: dict[str, Any], tool_calls: Sequence[ToolCall],
     test_prefixes: tuple[tuple[str, ...], ...],
 ) -> dict[str, Any] | None:
-    """The Stop answer of a run-bound session, or ``None`` when the session follows no run."""
     from ..graph import graph_for_run
 
     run = await active_run_for_session(db, session.id)
@@ -85,11 +55,11 @@ async def run_stop(
     from ..teamwork.item_sessions import item_phase_node, session_item
     from .subagents import node_allows_subagents
 
-    delegates = node_allows_subagents(node)  # the run's own node decides, as for the job offer
+    delegates = node_allows_subagents(node)
 
-    item = session_item(run, session)  # running at the parallel node (an idle item's session returned above)
+    item = session_item(run, session)
     if item is not None:
-        node = item_phase_node(run, node, item)  # a teamwork item's Stop is judged by its own phase
+        node = item_phase_node(run, node, item)
     if str(hook_input.get("hook_event_name") or "") == "SubagentStop":
         return await _child_stop(db, run, node, hook_input, tool_calls, test_prefixes, principal=principal,
                                  session=session, delegates=delegates)
@@ -111,7 +81,7 @@ async def run_stop(
     failed = failed_blocking(results)
     from .. import uncertain
 
-    uncertain.note_results(db, run, results, source="stop")  # passed although unsure: a note, no block
+    uncertain.note_results(db, run, results, source="stop")
     if item is None and not failed:
         _record_knowledge_usage(db, run, tool_calls)
     await _report_turn(db, run, session, node, item, evidence, results, answer, facts=facts, failed=failed,
@@ -121,7 +91,6 @@ async def run_stop(
 
 
 def _not_at_phase(run: WorkflowRun, contract: dict[str, Any]) -> dict[str, Any] | None:
-    """The answer for a session whose Stop ends no phase pass: an idle item, a coordinator wake, no running phase."""
     if contract.get("item_idle"):
         # A teamwork item's session never answers for the run's phase: its item no longer runs, it ends here.
         return {"state": "not_applicable", "reason": REASON_ITEM_NOT_RUNNING, "detail": contract_summary(contract),
@@ -139,7 +108,6 @@ def _not_at_phase(run: WorkflowRun, contract: dict[str, Any]) -> dict[str, Any] 
 async def _phase_checks(db: AsyncSession, run: WorkflowRun, session: Session, node: Any, contract: dict[str, Any],
                         hook_input: dict[str, Any], tool_calls: Sequence[ToolCall],
                         test_prefixes: tuple[tuple[str, ...], ...], *, item: Any) -> tuple[TurnEvidence, list, bool]:
-    """The phase's evidence and checks: ``(evidence, checks, a pipeline step follows the phase)``."""
     from .system_tests import system_command
 
     evidence = phase_evidence(tool_calls, since=_since(run), test_prefixes=test_prefixes,
@@ -170,7 +138,6 @@ async def _phase_checks(db: AsyncSession, run: WorkflowRun, session: Session, no
 async def _report_turn(db: AsyncSession, run: WorkflowRun, session: Session, node: Any, item: Any,
                        evidence: TurnEvidence, results: list[Any], answer: Any, *, facts: dict[str, Any],
                        failed: list[Any], piped: bool) -> None:
-    """Report the phase turn to the run like a chat phase turn (only the server advances)."""
     from ...workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
     from ..binding import record_phase_turn
     from ..states import RUN_RESOLUTION_KEY
@@ -191,16 +158,13 @@ async def _report_turn(db: AsyncSession, run: WorkflowRun, session: Session, nod
         await record_phase_turn(db, request_analysis={ROUTING_RESOLUTION_KEY: {RUN_RESOLUTION_KEY: marker}},
                                 session_id=session.id, state="failed" if failed else "passed", results=results,
                                 evidence=reported)
-    # Else an item's Stop with failing checks: no end of the item — the answer blocks and its agent goes on (live
-    # example: core-domain was marked failed at its first Stop, attempts 1, while its job kept
-    # working; with the other item failed the node went back to the plan under it). The item ends when a Stop
-    # passes, when it stalls (``_item_stalled``) or when its turn really ends (``device_items.job_ended``).
+    # Otherwise an item's Stop with failing checks blocks and its agent goes on: the item ends when a Stop passes, when
+    # it stalls or when its turn really ends.
 
 
 async def _stop_answer(db: AsyncSession, run: WorkflowRun, session: Session, node: Any, item: Any,
                        tool_calls: Sequence[ToolCall], hook_input: dict[str, Any], checks: list[Any],
                        failed: list[Any], *, principal: Any) -> dict[str, Any]:
-    """The answer to the Stop hook with the refreshed contract: ended, blocked with what is missing, or passed."""
     contract = await run_contract(db, run, principal=principal, session=session)
     if contract.get("item_idle") and failed:
         # The item ended on this report (its environment could not run the tests): the session ends.
@@ -231,15 +195,13 @@ async def _stop_answer(db: AsyncSession, run: WorkflowRun, session: Session, nod
 async def _blocked(db: AsyncSession, run: WorkflowRun, session: Session, node: Any, item: Any,
                    tool_calls: Sequence[ToolCall], checks: list[Any], failed: list[Any], contract: dict[str, Any], *,
                    principal: Any) -> dict[str, Any]:
-    """The phase is not done: block with each failed check and what to do, unless the pass stalled (paused)."""
     from ...observability.agent_metrics import on_commit
     from ...observability.run_quality_metrics import stop_not_done
     from .check_remedies import missing as with_remedies
 
-    # Each failed check with what to do about it (``check_remedies``, run.remedy.<type>).
     missing = with_remedies(failed, checks, contract)
     workflow, refused = str(run.workflow_key or ""), list(failed)
-    on_commit(db, lambda: stop_not_done(workflow, refused))  # "not done" by check type (counted at the commit)
+    on_commit(db, lambda: stop_not_done(workflow, refused))
     since = _since(run)
     attempts = sum(1 for row in tool_calls if since is None or row.created_at is None or row.created_at >= since)
     attempts += await _answers_since(db, session.id, since)
@@ -251,7 +213,7 @@ async def _blocked(db: AsyncSession, run: WorkflowRun, session: Session, node: A
                 "workflow_run": contract}
     from .gate_failure import stop_line
 
-    back = stop_line(run, node.id)  # why the run is back here, first
+    back = stop_line(run, node.id)
     return {"state": "blocked", "reason": REASON_PHASE_NOT_DONE, "workflow_run": contract,
             "detail": f"{back + ' ' if back else ''}" + run_text(
                 "block.phase_not_done", phase=node.title, detail=missing, run_state=contract_summary(contract))}

@@ -1,7 +1,4 @@
-"""The fixed vocabulary of remote device sessions: audience, scopes, limits, states and reason codes.
-
-Every refusal is ``(state, reason)`` with a code from this module; free text never reaches a client.
-"""
+"""The fixed vocabulary of remote device sessions: audience, scopes, limits, states and reason codes."""
 
 from __future__ import annotations
 
@@ -10,10 +7,11 @@ from datetime import timedelta
 # The device channel's OAuth audience and scope.
 DEVICE_AUDIENCE = "octryx-device"
 SCOPE_DEVICE_CONNECT = "device:connect"
-# What a device job may do besides connecting: call models through the gateway, read knowledge over MCP, and the
-# governed change-workflow tools (``workflow_catalog``/``workflow_contract``/``workflow_select`` need
-# ``workflow:read``, ``workflow_confirm`` needs ``workflow:execute``), exactly the launcher login's scopes for them.
-DEVICE_JOB_SCOPES = frozenset({"model:invoke", "knowledge:read", "workflow:read", "workflow:execute"})
+# What a device job may do besides connecting: call models through the gateway, the session's MCP tools (reads, and
+# writes that each wait for a person's approval in Octryx) and the governed change-workflow tools, exactly the launcher
+# login's scopes for them.
+DEVICE_JOB_SCOPES = frozenset({"model:invoke", "knowledge:read", "knowledge:write", "workflow:read",
+                               "workflow:execute", "sessions:read", "tasks:read", "read"})
 
 # No web-session requirement; 30 days idle (each refresh rotates and extends), 90 days absolute.
 DEVICE_GRANT_IDLE_TIMEOUT = timedelta(days=30)

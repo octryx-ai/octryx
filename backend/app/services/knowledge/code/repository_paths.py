@@ -19,7 +19,6 @@ def path_digest(path: str) -> str:
 
 
 def validate_repository_path(path: object) -> str:
-    """A repository-relative POSIX path: no absolute path, no ``..``, no empty or control segment."""
     if type(path) is not str or not path or len(path) > MAX_PATH_CHARS:
         raise EvidenceLedgerContractError()
     if path.startswith("/") or "\\" in path or any(ord(ch) < 32 or ord(ch) == 127 for ch in path):

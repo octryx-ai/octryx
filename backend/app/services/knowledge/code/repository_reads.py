@@ -15,8 +15,6 @@ from .scan import MAX_ELEMENTS, CodeElement
 
 @dataclass(frozen=True, slots=True)
 class RepositoryCodeIndex:
-    """The code elements of one repository source at ``head_commit``; ``truncated`` when bounded."""
-
     connector_id: str
     head_commit: str
     file_count: int
@@ -27,7 +25,6 @@ class RepositoryCodeIndex:
 async def indexed_blob(
     db: AsyncSession, *, connector_id: str, path: str, blob_sha: str
 ) -> KnowledgeCodeFileBlob | None:
-    """The recorded blob ``blob_sha`` of ``path`` (current or superseded), or ``None``."""
     return (
         await db.execute(
             select(KnowledgeCodeFileBlob).where(
@@ -40,7 +37,6 @@ async def indexed_blob(
 
 
 async def indexed_blobs(db: AsyncSession, *, connector_id: str, paths: Iterable[str]) -> dict[str, str]:
-    """``{path: blob_sha}`` of the given paths that are already indexed (for an incremental diff)."""
     by_digest = {path_digest(path): path for path in paths}
     if not by_digest:
         return {}
@@ -58,7 +54,6 @@ async def indexed_blobs(db: AsyncSession, *, connector_id: str, paths: Iterable[
 
 
 async def load_repository_index(db: AsyncSession, *, connector_id: str, head_commit: str) -> RepositoryCodeIndex:
-    """The elements of every file seen at ``head_commit``, bounded by ``scan.MAX_ELEMENTS``."""
     head_commit = _sha1(head_commit)
     rows = (
         await db.execute(

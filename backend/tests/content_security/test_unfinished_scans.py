@@ -1,16 +1,5 @@
-"""Every scan that decides what is sent or released treats an unfinished scan explicitly (fail closed).
-
-``ScanReport.unfinished`` (readable text not fully examined: size or time budget, candidate limit) is told apart
-from unreadable media; each consumer gives it a disposition instead of reading "no finding" as clean:
-
-- masking (``body_masking.MaskRun``: Workspace mask obligations in governed chat and tool results)
-  withholds the text;
-- every content decision refuses it (``content_scan_unfinished``), whatever the built-in check or Cedar says;
-- a tool result deeper than the scan reads is withheld from the masked result and marks the scan incomplete;
-- command safety sends the command for review;
-- a platform chat message part of an unknown shape is scanned as its JSON text, never skipped (the gateway reads
-  every body as its JSON text).
-"""
+"""Every scan that decides what is sent or released treats an unfinished scan explicitly (fail closed), never as
+"no finding"."""
 
 from __future__ import annotations
 
@@ -20,12 +9,14 @@ from app.services.content_detection.examination import RequestBudget, examine, e
 from app.services.content_detection.masking import WITHHELD_TEXT
 from app.services.content_detection.scanner import DetectorSet, Segment
 from app.services.content_detection.vocabulary import SOURCE_PROMPT
-from app.services.content_routing.body_masking import MaskRun, mask_chat_messages
 from app.services.content_routing.decision import REASON_SCAN_UNFINISHED
-from app.services.content_routing.gateway import fixed_refusal, scan_request
+from app.services.content_routing.gateway import fixed_refusal
 from app.services.content_routing.gateway_outcome import GatewayOutcome
 from app.services.content_routing.segments import chat_segments
 from app.services.content_routing.tool_results import MAX_DEPTH, _masked, _segments
+from app.services.content_security.format_chat_messages import mask_chat_messages
+from app.services.content_security.format_request_body import examine_request_body
+from app.services.content_security.transport import mask_run
 from app.services.security_analyzer.content_command import content_command_analyzer
 
 EMAIL = "jane.doe@example.org"
@@ -45,7 +36,7 @@ def test_an_unfinished_text_is_told_apart_from_unreadable_media():
 
 def test_masking_withholds_a_text_it_cannot_finish():
     detectors = DetectorSet(builtin=frozenset({"email"}))
-    run = MaskRun(detectors, frozenset({"email"}), None)
+    run = mask_run(detectors, frozenset({"email"}), None)
 
     assert run.text(EMAILS) == WITHHELD_TEXT and run.withheld == 1
     assert run.text(f"Mail {EMAIL}.") == "Mail [EMAIL #1]."
@@ -54,9 +45,9 @@ def test_masking_withholds_a_text_it_cannot_finish():
 
 
 def test_the_gateway_decision_refuses_an_unfinished_scan_and_passes_media():
-    assignments = " ".join(f"password=Value{index}x" for index in range(5200))  # a gateway kind, past its limit
-    unfinished = scan_request({"messages": [{"role": "user", "content": assignments}]}, "ws-1", RequestBudget())
-    media = scan_request({"messages": [{"role": "user", "content": [
+    assignments = " ".join(f"password=Value{index}x" for index in range(5200))
+    unfinished = examine_request_body({"messages": [{"role": "user", "content": assignments}]}, "ws-1", RequestBudget())
+    media = examine_request_body({"messages": [{"role": "user", "content": [
         {"type": "image", "source": {"type": "base64", "data": "AAAA"}}]}]}, "ws-1", RequestBudget())
 
     assert not unfinished.finished and media.finished

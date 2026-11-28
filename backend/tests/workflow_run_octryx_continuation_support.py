@@ -67,7 +67,6 @@ TWO_PHASES = {
 
 
 async def _reenter(db, run, node_id: str, *, runtime_step: bool = False):
-    """The engine enters ``node_id`` again (a revision, a product owner's answer, a red pipeline, the next phase)."""
     from app.services.workflow_runs.graph import graph_for_run
     from app.services.workflow_runs.octryx.continuation import phase_entered, runtime_step_entered
 

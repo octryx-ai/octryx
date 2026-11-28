@@ -1,9 +1,4 @@
-"""Unattended epic pages stay on the Confluence instance and connection their grant recorded.
-
-Every page call of ``documentation/auto_page_write`` carries ``expected_instance`` and ``expected_connection`` (the
-tools refuse anything else before a request, ``test_confluence_instance_guard``), and a Workspace whose Confluence
-moved to another instance after the grant writes nothing.
-"""
+"""Unattended epic pages stay on the Confluence instance and connection their grant recorded."""
 
 from __future__ import annotations
 

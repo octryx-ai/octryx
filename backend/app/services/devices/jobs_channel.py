@@ -1,16 +1,4 @@
-"""The device channel's job layer: deliver turns, stops and decisions; store and publish device events.
-
-- ``tick`` (every second per connected device; the database is the bus): pending turns go out as
-  ``job_offer``, pending stops as ``cancel``, owner decisions as ``approval_decision``; approvals past their
-  ``expires_at`` expire (the device denies them on its own clock as well).
-- ``welcome_streams``: after a reconnect everything that was sent but not confirmed is sent again (the device
-  de-duplicates by turn and approval id), and the device learns the last stored ``seq`` per open job.
-- ``stream_event``: every job message is stored once per ``seq`` and applied (``jobs.apply_event``); the chat
-  gets ``device_job_event`` on the session stream.
-- tool jobs (``tool_jobs``): the tick sends the pending ones this device may run; their answers come unsequenced.
-- ``disconnected``: open jobs start the offline grace (``jobs.mark_lost_jobs``).
-- every ``STALL_CHECK_SECONDS`` the tick also ends the device's stalled turns (``job_recovery``) and tells the chat.
-"""
+"""The device channel's job layer: deliver turns, stops and decisions; store and publish device events."""
 
 from __future__ import annotations
 
@@ -36,6 +24,7 @@ from .live_device import deliver_pending, handle_device_message
 from .live_values import LIVE_MESSAGE_TYPES
 from .local_sessions import MESSAGE_TYPE as LOCAL_SESSIONS_MESSAGE
 from .local_sessions import apply_report as apply_local_report
+from .runner_queue import claim_waiting
 from .tool_jobs import MESSAGE_TYPES as TOOL_JOB_MESSAGE_TYPES
 from .tool_jobs import apply_message as apply_tool_job
 from .tool_jobs import deliver as deliver_tool_jobs
@@ -52,8 +41,6 @@ JOB_MESSAGE_TYPES = frozenset({"job_accepted", "job_rejected", "job_event", "app
 
 
 async def _with_remedy(db: AsyncSession, body: dict[str, Any]) -> dict[str, Any]:
-    """A ``tool_result`` of a call the platform refused carries the refusal's one-click fix (``remedy``; the
-    chat shows it at the tool step), found by the call's ``tool_use_id`` in the refusal's row."""
     tool_use_id = str(body.get("tool_use_id") or "")[:64]
     if body.get("kind") != "tool_result" or body.get("is_error") is not True or not tool_use_id:
         return body
@@ -69,12 +56,9 @@ async def _with_remedy(db: AsyncSession, body: dict[str, Any]) -> dict[str, Any]
 
 
 async def _thread_run(db, job) -> dict[str, Any]:
-    """The active workflow run the job's chat thread follows, carried in the offer, and whether the phase the
-    turn works lets it start Claude Code's own sub-agents (``octryx.subagents``) and a browser of its own
-    (``octryx.browser``, also on for the phases the Workspace lists), and decide its tool calls on the device
-    (``octryx.local_decisions``), each opt-in per node."""
     from ...models import Session
     from ..workflow_runs.octryx.browser import phase_allows_browser
+    from ..workflow_runs.octryx.context_pack import context_pack_request
     from ..workflow_runs.octryx.local_decisions import local_decisions_offer
     from ..workflow_runs.octryx.research import research_min_sources
     from ..workflow_runs.octryx.subagents import node_allows_subagents, turn_phase
@@ -101,11 +85,23 @@ async def _thread_run(db, job) -> dict[str, Any]:
             "subagents": node_allows_subagents(phase), "browser": await phase_allows_browser(db, run, phase),
             "local_decisions": await local_decisions_offer(db, run, phase, job.owner_user_id),
             "web": defaults["web_tools"] == "all" or (defaults["web_tools"] == "research_only" and research),
-            "browser_external": defaults["browser"] == "read_external"}
+            "browser_external": defaults["browser"] == "read_external",
+            "context_pack": await context_pack_request(db, run, phase, job.session_id)}
+
+
+async def _context_window(db, job) -> int:
+    # The turn model's context window, for engines that do not know a gateway alias (the chat's context meter).
+    from ...models import LLMModel
+
+    model = job.turn_model or job.model
+    if not model:
+        return 0
+    length = (await db.execute(select(LLMModel.context_length).where(LLMModel.model_id == model)
+                               .limit(1))).scalar_one_or_none()
+    return int(length or 0)
 
 
 async def _tool_defaults(db, workspace_id: str | None) -> dict[str, Any]:
-    """The Workspace's ``device_runs.tool_defaults``, every key filled (allow by default)."""
     from ..agent_gateway.policy import load_workspace_policy
     from .device_runs_keys import device_runs_section, tool_defaults
 
@@ -114,8 +110,6 @@ async def _tool_defaults(db, workspace_id: str | None) -> dict[str, Any]:
     return tool_defaults(device_runs_section(raw))
 
 async def job_limits(db: AsyncSession, job: DeviceJob) -> dict[str, Any]:
-    """The Workspace's device-run limits for this job (``device_runs`` policy), and the platform's local model licence
-    switch (``agent_gateway.local_models``): the launcher loads a restricted local model only when it is off."""
     from ..agent_gateway.local_models import permissive_only
     from .workspace_policy import workspace_device_limits
 
@@ -189,8 +183,6 @@ class DeviceJobHandlers(ChannelHandlers):
         return RESULT_STORED
 
     async def message(self, db: AsyncSession, connection: DeviceChannelConnection, message: dict[str, Any]) -> None:
-        """Unsequenced device messages: ``local_sessions``, the Claude Code sessions outside octryx, and the
-        live sessions of Octryx Mobile (``services/devices/live``)."""
         message_type = str(message.get("type") or "")
         if message_type in TOOL_JOB_MESSAGE_TYPES:  # a tool job's answer (``tool_jobs``)
             body = message.get("body") if isinstance(message.get("body"), dict) else {}
@@ -212,7 +204,6 @@ class DeviceJobHandlers(ChannelHandlers):
             await handle_device_message(db, device, message_type, body)
 
     async def _resume_runs(self, db: AsyncSession, connection: DeviceChannelConnection) -> None:
-        """Runs waiting for this device continue: at once on a new connection, then every check interval."""
         from ..workflow_runs.runtime_target.device_wait import resume_for_device
 
         now = self.clock()
@@ -236,6 +227,7 @@ class DeviceJobHandlers(ChannelHandlers):
     async def tick(self, db: AsyncSession, connection: DeviceChannelConnection) -> None:
         await self._stalled(db, connection.device_id)  # first, so its cancel goes out on this tick
         await self._resume_runs(db, connection)  # a resumed run's turn is offered on this tick
+        await claim_waiting(db, await db.get(UserDevice, connection.device_id))  # chat turns waiting for a runner
         jobs = list((await db.execute(
             select(DeviceJob).where(DeviceJob.device_id == connection.device_id,
                                     (DeviceJob.turn_state == "pending") | (DeviceJob.stop_state == "pending"))
@@ -243,12 +235,15 @@ class DeviceJobHandlers(ChannelHandlers):
         for job in jobs:
             if job.turn_state == "pending" and job.status in ACTIVE_STATUSES:
                 from ..workflow_runs.teamwork.slots import slot_free
+                from .engine_state import offer_session_state
                 from .job_engine import job_engine
 
                 await connection.send("job_offer", offer_body(job, limits=await job_limits(db, job),
                                                               **await _thread_run(db, job),
                                                               slot_exempt=await slot_free(db, job.session_id),
-                                                              engine=await job_engine(db, job)))
+                                                              engine=await job_engine(db, job),
+                                                              context_window=await _context_window(db, job),
+                                                              session_state=await offer_session_state(db, job)))
                 job.turn_state = "sent"
             if job.stop_state == "pending":
                 await connection.send("cancel", {"job_id": job.id, "turn_id": job.turn_id})

@@ -7,12 +7,7 @@ import { readJson } from "../utils/adminPanelHelpers";
 
 const PREVIEW_URL = "/admin/chat/api/panel/schedulers/preview";
 
-/**
- * Next-run preview for the exact expression in the form.
- *
- * Debounced; every reply is tagged with the expression it answers, and a reply for an
- * older request is dropped, so a slow answer can never stand in for the current input.
- */
+// Replies are tagged with their expression, so a slow answer never stands in for the current input.
 export function useSchedulerPreview(
   expression: string,
   enabled: boolean,

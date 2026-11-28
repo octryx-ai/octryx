@@ -1,11 +1,4 @@
-"""OAuth 2.1 authorization-server models (platform as token issuer).
-
-External agent clients (e.g. Claude Code acting as an MCP client) register
-here, obtain user consent, and receive tokens. Grants are bound to the
-platform login session (refresh-token rotation chain) so that platform
-logout or session expiry forces the external client back through the
-authorization flow.
-"""
+"""OAuth 2.1 authorization-server models (the platform as token issuer)."""
 
 from __future__ import annotations
 

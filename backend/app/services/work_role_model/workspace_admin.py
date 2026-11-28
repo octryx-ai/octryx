@@ -1,9 +1,4 @@
-"""A Workspace's roles page: the switch, the assignments and who would lose access.
-
-everything sits behind the per-Workspace switch "role-based tools", OFF by default; a Workspace without
-work-role assignments would lock its members out when it is turned on. So the page lists the members without a
-role next to the switch; turning it on is the admin's decision, never refused for that reason.
-"""
+"""A Workspace's roles page: the switch, the assignments and who would lose access."""
 from __future__ import annotations
 
 from typing import Any
@@ -198,7 +193,6 @@ async def set_assignment_active(db: AsyncSession, user: User, workspace_id: str,
 
 
 async def effective_view(db: AsyncSession, user: User, workspace_id: str, user_id: str | None) -> dict[str, Any]:
-    """``/me`` (``user_id`` None) for every member; another person's preview for admins only."""
     from ..access_control import get_project_role_for_user
 
     await _project(db, workspace_id)

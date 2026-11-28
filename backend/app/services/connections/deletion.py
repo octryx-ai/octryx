@@ -1,8 +1,4 @@
-"""``DELETE /api/v1/admin/connections/{id}``: only without active uses (``409 connection_in_use`` with the list).
-
-The connection's secrets are released (``secret/release.py``), its Workspace rows and deviations go with it, and the
-audit keeps its name, type and Workspaces (never a secret).
-"""
+"""``DELETE /api/v1/admin/connections/{id}``: only without active uses (``409 connection_in_use`` with the list)."""
 
 from __future__ import annotations
 

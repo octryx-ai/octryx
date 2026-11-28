@@ -15,14 +15,12 @@ from .states import ACTIVE_STATUSES
 
 
 async def new_bound_session(db: AsyncSession, run: WorkflowRun, user: User) -> Session:
-    """A new chat session bound to the run: the run continues there (resume in a new session)."""
     session = await new_chat_session(db, user, run.project_id)
     await bind_session(db, run, session, actor_id=user.id)
     return session
 
 
 async def _name_thread(db: AsyncSession, run: WorkflowRun, metadata: dict[str, Any]) -> None:
-    """The run's main thread is listed as "<work item key> <work item title>" (the run title without an item)."""
     from ..session.session_title import apply_run_title
 
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
@@ -32,7 +30,6 @@ async def _name_thread(db: AsyncSession, run: WorkflowRun, metadata: dict[str, A
 
 
 async def _refuse_foreign_binding(db: AsyncSession, run: WorkflowRun, session: Session) -> None:
-    """A session follows one active run; only a parent and its child hand it over to each other."""
     other = await active_run_for_session(db, session.id)
     if other is None or other.id == run.id or run.parent_run_id == other.id or other.parent_run_id == run.id:
         return
@@ -52,7 +49,6 @@ async def _active_descendant(db: AsyncSession, run: WorkflowRun) -> WorkflowRun:
 
 
 async def run_for_session(db: AsyncSession, session_id: str) -> WorkflowRun | None:
-    """The run of the session's latest binding, active or finished (the chat banner shows both)."""
     return (await db.execute(
         select(WorkflowRun)
         .join(WorkflowRunSession, WorkflowRunSession.run_id == WorkflowRun.id)

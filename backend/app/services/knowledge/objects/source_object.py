@@ -1,9 +1,4 @@
-"""Storage-neutral reference to an S3-compatible source object.
-
-The reference names *what* was read (bucket, key, optional version and content
-digest), never *how* to reach it: endpoint, region, credentials, and presigned
-URLs stay inside the object-store adapter.
-"""
+"""Storage-neutral reference to an S3-compatible source object. It names what was read, never how to reach it."""
 
 from __future__ import annotations
 
@@ -24,7 +19,6 @@ _SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
 
 
 def is_valid_bucket_name(bucket: object) -> bool:
-    """S3 bucket-name rules. Public: the object-store configuration shares them."""
     if type(bucket) is not str:
         return False
     return (
@@ -52,8 +46,6 @@ def _is_valid_key(key: str) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class SourceObjectRef:
-    """Immutable pointer to one object revision in S3-compatible storage."""
-
     bucket: str
     key: str
     version_id: str | None = None

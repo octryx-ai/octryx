@@ -1,16 +1,13 @@
-"""A chat that follows no workflow run says so plainly, with the Workspace's recent runs.
-
-Asked "What's the status of my current workflow run?" by a member of more than one Workspace, in a chat that sits
-in one of them where no run was started, ``workflow_run_status`` must not answer "No Workspace is set for this MCP
-connection" (``needs_configuration``), which makes a model tell the person to reconfigure OAuth instead of
-answering "no run in this chat".
-"""
+"""A chat that follows no workflow run says so plainly, with the Workspace's recent runs."""
 
 from __future__ import annotations
 
 import pytest
 
 from app.tools.context import ToolContext
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CHAT_STATE = {"class": "read_only", "enforced": True, "source": "chat_default", "escalation_decision": None,
               "chat_connector_writes": True}
@@ -64,6 +61,5 @@ async def test_t17_the_latest_run_of_the_workspace_is_named_so_the_chat_can_summ
     assert status["state"] == "ok" and status["workflow_run"] is None
     [recent] = status["recent_runs"]
     assert (recent["run_id"], recent["workflow_key"], recent["status"]) == (run.id, key, run.status)
-    # The listed run is readable by its id from this chat.
     read = await execute_tool("workflow_run_status", {"run_id": run.id}, context)
     assert read["state"] == "ok" and read["workflow_run"]["run"]["id"] == run.id

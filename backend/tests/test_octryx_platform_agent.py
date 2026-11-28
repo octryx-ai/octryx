@@ -1,6 +1,5 @@
 """The octryx contract carries the phase's agent; outside a run the session is the read-only
-Assistant; the governed gateway honours the phase agent's coding preference.
-"""
+Assistant; the governed gateway honours the phase agent's coding preference."""
 
 from __future__ import annotations
 
@@ -18,8 +17,9 @@ from app.services.workflow_runs.octryx.contract import run_contract
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased, run_workspace
 from tests.platform_agent_publish_support import draft_edit, publish_edit
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 def _with_agent(agent: str) -> dict:
@@ -49,7 +49,6 @@ async def test_the_contract_carries_the_phase_agent_and_its_instructions(db):
     engineer = await _row(db, "engineer")
     assert (agent["key"], agent["name"], agent["version"]) == ("engineer", "Engineer", 1)
     assert agent["instructions"] == engineer.system_prompt and agent["digest"].startswith("sha256:")
-    # A live edit (a draft) changes nothing a run sees; a four-eyes published revision does.
     await draft_edit(db, engineer, instructions=engineer.system_prompt + "\nDraft rule.")
     unchanged = await run_contract(db, run)
     assert unchanged["phase"]["agent"] == agent
@@ -80,11 +79,10 @@ async def test_outside_a_run_the_session_is_the_read_only_assistant(db):
 
 
 async def test_the_governed_gateway_never_refuses_a_model_for_a_kind_of_work(db):
-    """No model is released per kind of work; every admitted model may do a coding phase."""
     run, session = await _run(db, "engineer")
     assert await phase_agent_model_refusal(db, session.id, ["claude-3-5-haiku-20241022"]) is None
     assert await phase_agent_model_refusal(db, session.id, ["gemma-4-31b"]) is None
     assert await phase_agent_model_refusal(db, session.id, ["claude-sonnet-4-5"]) is None
-    _general_run, general_session = await _run(db, "assistant")  # the Assistant prefers a general runtime
+    _general_run, general_session = await _run(db, "assistant")
     assert await phase_agent_model_refusal(db, general_session.id, ["claude-3-5-haiku-20241022"]) is None
     assert await phase_agent_model_refusal(db, "no-session", ["claude-3-5-haiku-20241022"]) is None

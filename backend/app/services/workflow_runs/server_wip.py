@@ -1,20 +1,4 @@
-"""The Server pushes a device run's work in progress (``octryx-wip/<run id>``) from the change the device reported.
-
-Why: when the launcher pushed the WIP with the person's own git sign-in (osxkeychain), every device turn could log
-``wip_failed …
-push_refused`` once that sign-in no longer had a
-Bitbucket entry ("Authentication failed"). Repository tokens never go to a device (least privilege), so the
-Server builds the WIP commit itself from ``context.device_change`` (the patch against
-the run's base, which it already holds for review and push) and pushes it with the Workspace's connection
-(``origin_auth.origin_git_env``, the credential the Bitbucket tools and the server prepare use).
-
-The server working copy is never touched: the commit is built in a temporary index (``read-tree`` of the base,
-``apply --cached``), only objects and the private ref ``refs/octryx-wip/<run>`` are written. Each WIP commit has the
-previous remote WIP as its parent, so every push is a fast-forward, never forced, and only to ``octryx-wip/<run>`` (the
-name is generated here). Handover and restore (``server_prepare.restore_run_wip``) therefore work without any
-personal sign-in on the Mac. A device push that worked stays as it is; a device push that failed is a fallback and
-never an error event.
-"""
+"""The Server pushes a device run's work in progress (``octryx-wip/<run id>``) from the change the device reported."""
 
 from __future__ import annotations
 
@@ -44,7 +28,6 @@ async def _out(root: Path, *args: str, env: dict[str, str] | None = None, stdin:
 
 async def build_and_push(root: Path, run_id: str, base: str, patch: str,
                          git_env: dict[str, str] | None) -> dict[str, Any]:
-    """``{state: pushed|unchanged|failed, branch, sha?, reason?}`` for ``base`` + ``patch``; never raises."""
     branch = wip_branch(run_id)
     local = f"refs/{branch}"
     if not _SHA.match(base) or not patch.strip():
@@ -80,7 +63,6 @@ async def build_and_push(root: Path, run_id: str, base: str, patch: str,
 
 
 async def push_from_device_change(db: AsyncSession, run: WorkflowRun) -> dict[str, Any] | None:
-    """The run's WIP pushed by the Server from ``context.device_change``; ``None`` when there is nothing to push."""
     from .workspace.origin_auth import origin_git_env
 
     context = dict(run.context or {})

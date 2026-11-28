@@ -36,13 +36,11 @@ def section_item(view, citation, props: dict) -> dict[str, Any]:
 
 
 def parameter_cite(edge, nodes) -> tuple | None:
-    """The parameter's citation among the edge's (setting, variants, parameter, placeholder definitions)."""
     target = nodes[edge.target_id]
     return target.cite if target.cite in cites_of(edge.citations) else cites_of(edge.citations)[-1]
 
 
 def wanted_citations(found: Findings, nodes: dict, group_items: list, unused_items: list) -> list:
-    """Every citation the cut lists show, in the order the report asks for them."""
     undocumented, unknown, hints, section_hints = found.undocumented, found.unknown, found.hints, found.section_hints
     listed = (*undocumented, *unknown, *found.deviations, *found.placeholders)
     wanted = [c for e in listed for c in cites_of(e.citations)]
@@ -87,8 +85,6 @@ def _setting_lists(result: dict, found: Findings, nodes: dict, citations: dict, 
 def fill_lists(
     result: dict, found: Findings, nodes: dict, citations: dict, group_items: list, unused_items: list
 ) -> None:
-    """Write the served lists into ``result``; ``found`` holds the lists already cut to the limit."""
-
     def cited(view) -> dict | None:
         return citations.get(view.cite) if view.cite else None
 

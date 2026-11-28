@@ -8,7 +8,7 @@
 .databases-page__section {
   margin: 0.5rem 0 0;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 

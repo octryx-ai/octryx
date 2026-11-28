@@ -1,17 +1,4 @@
-"""First-start admin setup: no built-in admin password.
-
-Without ``ADMIN_DEFAULT_PASSWORD`` the seed creates the ``admin`` account with a password
-nobody knows and ``auth_source = "setup_pending"``. While that state holds, the server logs a
-setup code at every start, and ``/chat/setup`` turns the account into a normal local admin
-for whoever presents the code (name, e-mail, password). Afterwards the code is useless and
-the setup route answers 409.
-
-The code is derived, not stored: HMAC-SHA256 over the admin row id, keyed with the
-deployment's JWT secret. It is stable across restarts and API workers, differs per install,
-and is only knowable to someone who can read the server log or the deployment secret.
-``ADMIN_DEFAULT_PASSWORD`` stays as the unattended path (CI, automated installs): when it is
-set, the account is created ready to use and no code exists.
-"""
+"""First-start admin setup: no built-in admin password."""
 
 from __future__ import annotations
 
@@ -41,11 +28,11 @@ _CODE_CONTEXT = b"octryx-first-admin-setup-v1:"
 
 
 class FirstAdminSetupClosedError(Exception):
-    """The admin account is already set up; the setup route is closed."""
+    pass
 
 
 class FirstAdminSetupRejectedError(ValueError):
-    """The request was refused (wrong code or invalid input); the message is user-facing."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -55,7 +42,6 @@ class SeedCredential:
 
 
 def seed_credential() -> SeedCredential:
-    """The admin account's credential at creation: the configured password, else setup pending."""
     configured = get_settings().admin_default_password
     if configured:
         return SeedCredential(hash_password(configured), AUTH_SOURCE_LOCAL)
@@ -82,11 +68,6 @@ async def pending_admin(db: AsyncSession) -> User | None:
 
 
 def log_setup_code(admin_user: User) -> None:
-    """Called by the seed at every start while the admin account is not set up.
-
-    The code goes to stderr as one plain line, so `docker compose logs api | grep setup` finds it
-    whatever the log formatter does; the structured log only says where to look.
-    """
     origin = (get_settings().platform_public_origin or "").rstrip("/")
     sys.stderr.write(
         f"[setup] No administrator yet. Open {origin}{SETUP_PATH} and enter the setup code "
@@ -99,7 +80,6 @@ def log_setup_code(admin_user: User) -> None:
 async def complete_first_admin(
     db: AsyncSession, *, code: str, display_name: str, email: str, password: str
 ) -> User:
-    """Turn the pending admin account into a normal local admin. Flushes; the caller commits."""
     user = await pending_admin(db)
     if user is None:
         raise FirstAdminSetupClosedError()

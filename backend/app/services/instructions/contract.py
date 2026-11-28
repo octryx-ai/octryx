@@ -1,10 +1,4 @@
-"""The closed contract of Instructions: layers, their order and budgets, digests, token estimates.
-
-Order the agent reads (fixed and visible): System prompt texts → agent instructions → Workspace
-instructions (global and Workspace scope) → workflow instructions (bound to the selected workflow) →
-skills on demand. Each layer has a token budget; going over it is a conflict finding at publish time,
-never a silent truncation at run time.
-"""
+"""The closed contract of Instructions: layers, their order and budgets, digests, token estimates."""
 
 from __future__ import annotations
 

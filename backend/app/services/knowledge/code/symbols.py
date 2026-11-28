@@ -1,18 +1,4 @@
-"""Symbol line ranges of a source file, for code-aware chunking.
-
-A symbol is a named declaration with its 1-based, inclusive line range and the names of the
-symbols around it (``("Owner", "addPet")``). Two parsers exist, both deterministic and in-process:
-
-- **Java** through tree-sitter (``tree-sitter-java``, a pinned dependency): classes, interfaces,
-  enums, records and annotation types are containers; methods and constructors are members. A
-  member's range starts at its Javadoc or comment block when one ends on the line right above it.
-- **Python** through ``ast``: classes are containers; functions are members, starting at their
-  first decorator.
-
-Every other language has no symbol parser and answers ``()``; so does a Python file that does not
-parse. The chunker then uses bounded line windows for the whole file (``chunking.py``), which is
-its documented strategy for those files, not a hidden fallback.
-"""
+"""Symbol line ranges of a source file, for code-aware chunking."""
 
 from __future__ import annotations
 
@@ -52,7 +38,6 @@ def _name(node: Node, source: bytes) -> str:
 
 
 def _leading_comment_start(node: Node) -> int:
-    """The first line of the comment block directly above ``node`` (0-based), else the node's own."""
     start = node.start_point[0]
     sibling = node.prev_sibling
     while sibling is not None and sibling.type in _JAVA_COMMENTS and sibling.end_point[0] >= start - 1:

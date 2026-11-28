@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import OperationalError
 
-import app.agent.core.execution_support as execution_support_module
+import app.agent.runtime.execution_support as execution_support_module
 from app.models import LLMModel, LLMProvider
 from app.services.budget import compute_usage_event_cost_attribution
 from app.services.request_context import reset_current_request_id, set_current_request_id

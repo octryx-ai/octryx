@@ -1,17 +1,4 @@
-"""Builder model ↔ Cedar, deterministic both ways.
-
-:func:`render` writes a :class:`builder_model.PolicyModel` as one ``forbid`` statement through ``cedar_text.policy``:
-annotations ``@id``, ``@name``, ``@description``, ``@template``, ``@builder("1")``; the principal scope for a
-single user/role/group; ``when`` the AND of the used blocks in a fixed order (values of one block OR-joined);
-``unless`` the OR of the exceptions. A content policy adds its route condition and content group last, its
-route / approved-model exception first and its obligation annotations after ``@builder`` (``builder_content``).
-The same model always gives byte-identical text.
-
-``builder_parse.parse`` reads a statement back **only** when it is exactly what :func:`render` produces: it maps the EST
-(``cedarpy.policies_to_json_str``) onto the blocks, renders the model again and accepts it only when the text is
-identical. Anything else — another shape, OR across steps, a hand edit, a reformat — is ``None`` and the policy is
-"Hand-written" (edited in the Cedar editor, never silently re-generated).
-"""
+"""Builder model ↔ Cedar, deterministic both ways."""
 
 from __future__ import annotations
 
@@ -26,7 +13,6 @@ ENTITY_OF_MODE = {"users": "User", "roles": "Role", "groups": "Group"}
 
 
 def _rank(level: str) -> int:
-    """The level's stored rank (gapped, never shifted by an added level)."""
     rank = classification_rank(level)
     if rank is None:
         raise KeyError(level)
@@ -113,7 +99,6 @@ def _unless(model: PolicyModel) -> list[str]:
 
 
 def render(model: PolicyModel) -> str:
-    """The policy's Cedar statement (no trailing newline)."""
     kind = ENTITY_OF_MODE.get(model.who.mode)
     single = kind and len(model.who.items) == 1
     principal = f"principal in {entity(kind, model.who.items[0])}" if single else "principal"

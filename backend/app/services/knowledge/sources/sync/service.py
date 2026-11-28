@@ -1,13 +1,4 @@
-"""Configure, list and run the Source Sync connectors of one Workspace.
-
-The route layer calls this module, ``service_describe`` and ``service_run``. A run that cannot
-start because something is missing is recorded as a ``needs_configuration`` run with its fixed
-reason (no connection, a scope outside the connection's allowlist, no parser sandbox for HTML),
-so the last-run report always says why.
-
-Enabling a schedule makes the configuring author its owner: scheduled runs act on their behalf
-and are re-authorized each time (``scheduler.py``). The first scheduled run is due at once.
-"""
+"""Configure, list and run the Source Sync connectors of one Workspace."""
 
 from __future__ import annotations
 
@@ -57,10 +48,7 @@ async def configure_connector(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, config: ConnectorConfig, actor_id: str,
     git_token: str | None = None,
 ) -> KnowledgeSourceConnector:
-    """Create or replace one connector's configuration; the scope must fit the Workspace connection.
-
-    ``git_token``: a Data Center repository's own Git token, checked against exactly that repository before anything
-    is saved and stored encrypted with the configuration (``repository_git_token.py``)."""
+    # The Git token is checked against exactly that repository before anything is saved.
     if type(authorized) is not AuthorizedWorkspace or not authorized.may_author:
         raise EvidenceLedgerContractError()
     if await project_is_inactive(db, authorized.project_id):
@@ -97,7 +85,6 @@ async def _link_repository(
     db: AsyncSession, authorized: AuthorizedWorkspace, config: ConnectorConfig,
     existing: KnowledgeSourceConnector | None,
 ) -> tuple[ConnectorConfig, str | None, str | None]:
-    """The configuration with a repository's connection bound, the link to check the scope with, the auto link."""
     link = auto_linked = None
     if (config.kind == CONNECTOR_KIND_GIT_REPOSITORY and not config.connection_id
             and (existing is None or not existing.connection_id)):
@@ -131,7 +118,6 @@ def _connector_row(
 
 
 def _apply_config(row: KnowledgeSourceConnector, config: ConnectorConfig, actor_id: str) -> dict:
-    """Store ``config`` on ``row``; the scope it stored."""
     if row.kind == CONNECTOR_KIND_GIT_REPOSITORY and config.connection_id:
         row.connection_id = config.connection_id
     scope = dict(config.scope)
@@ -165,6 +151,7 @@ def _configure_audit(
         action=CONFIGURE_AUDIT_ACTION,
         resource_type="knowledge_source_connector",
         resource_id=row.id,
+        project_id=row.project_id,
         details={
             "workspace_id": authorized.project_id,
             "connector_key": config.connector_key,
@@ -184,10 +171,6 @@ async def set_access_mode(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, row: KnowledgeSourceConnector, access_mode: object,
     actor_id: str,
 ) -> KnowledgeSourceConnector:
-    """Change what agents may do on a repository read through its connection (``read_only`` | ``read_write``).
-
-    Only a ``git_repository`` source linked to a connection has an access mode; any other source is refused
-    (``scope_not_allowed``). It is no content configuration: the listing pass goes on unchanged."""
     if type(authorized) is not AuthorizedWorkspace or not authorized.may_author:
         raise EvidenceLedgerContractError()
     mode = validate_access_mode(access_mode)
@@ -202,6 +185,7 @@ async def set_access_mode(
             action=ACCESS_MODE_AUDIT_ACTION,
             resource_type="knowledge_source_connector",
             resource_id=row.id,
+            project_id=row.project_id,
             details={"workspace_id": authorized.project_id, "connector_key": row.connector_key,
                      "connection_id": row.connection_id, "before": before, "after": mode},
         )

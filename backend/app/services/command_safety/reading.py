@@ -22,8 +22,6 @@ def _lists(config: Mapping[str, Any]) -> dict[str, list[str]]:
 
 
 def _origins(exec_config: Mapping[str, Any]) -> dict[str, dict[str, list[str]]]:
-    """Per allow list: the platform's current defaults and the defaults an admin removed (the rest of the list was
-    added by an admin), so the page tells them apart."""
     fields = {key: field for field, key in LIST_FIELDS.items()}
     return {fields[key]: {"defaults": list(DEFAULT_EXEC_POLICY_CONFIG[key]),
                           "removed_defaults": [str(item) for item in exec_config.get(removed_key(key)) or []]}
@@ -70,7 +68,6 @@ def _bundle(config: Any) -> dict[str, Any]:
 
 
 async def workspace_settings(db: AsyncSession, project: Project) -> dict[str, Any]:
-    """``{mode, settings, differences}``: the Workspace's effective gate and what differs from the platform."""
     platform = await platform_settings(db)
     bundle = _bundle(project.config)
     row = await _override_row(db, project.id)

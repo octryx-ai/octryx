@@ -1,6 +1,5 @@
-"""Controls audit: every block explains itself. A denial of the run's tool policy and a pause
-come from the prompt catalog ("<what>. <why>. Next: <step>."), never from a string in the code; this guard keeps it
-so."""
+"""Every block explains itself: a tool-policy denial and a pause come from the prompt catalog
+("<what>. <why>. Next: <step>."), never from a string in the code."""
 
 from __future__ import annotations
 
@@ -13,6 +12,9 @@ import pytest
 from app.services.prompt_catalog import seed_prompt_set
 from app.services.prompt_catalog.seeds.run import SPECS
 from app.services.workflow_runs.protected_paths import _MESSAGES
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 APP = Path(__file__).resolve().parents[1] / "app" / "services" / "workflow_runs" / "octryx"
 # A Workspace admin writes the role's command rule text itself (Workspace › Roles): its own words are the reason.
@@ -49,8 +51,6 @@ def test_every_protected_path_kind_reads_with_a_next_step():
 
 
 def test_a_confirmed_test_says_who_bound_it():
-    """In class S nobody confirms the reproduction test, the run binds its own; "a person confirmed" appears only
-    when a person did."""
     from app.services.workflow_runs.protected_paths import KIND_CONFIRMED_TEST, protected_message
     from app.services.workflow_runs.test_runs import confirm_tests, confirmed_by
 
@@ -61,10 +61,10 @@ def test_a_confirmed_test_says_who_bound_it():
     prompts = seed_prompt_set()
     assert all("Next:" in prompts.render("run.block.protected", detail=text) for text in (person, own))
     run = SimpleNamespace(context={})
-    assert confirmed_by(run) == "person"  # before any confirmation
+    assert confirmed_by(run) == "person"
     confirm_tests(run, ["tests/test_pricing.py::test_vat"], by="run")
     assert confirmed_by(run) == "run"
-    confirm_tests(run, ["tests/test_pricing.py::test_vat"])  # a person confirmed the contract later
+    confirm_tests(run, ["tests/test_pricing.py::test_vat"])
     assert confirmed_by(run) == "person"
 
 
@@ -90,8 +90,6 @@ async def test_a_pause_without_its_own_text_gets_the_catalogs(db, reason, detail
 
 
 def test_every_pause_reason_has_its_own_catalog_text_for_people():
-    """The attention overview, the inbox and the timeline read why a run paused and what to do next from the
-    catalog, for every reason (not a few texts and "a limit was reached" for the rest)."""
     from app.services.prompt_catalog.registry import prompt_key_registry
     from app.services.workflow_runs.limits import pause_message
     from app.services.workflow_runs.states import PAUSE_REASONS

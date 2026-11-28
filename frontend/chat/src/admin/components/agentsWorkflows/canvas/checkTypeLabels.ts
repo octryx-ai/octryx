@@ -21,7 +21,6 @@ const CHECK_TYPE_LABELS: Record<string, string> = {
   slices_merged: "Every slice is merged",
   definition_of_ready: "Definition of Ready complete",
   specification_ready: "Specification ready",
-  lint_passed: "Lint passed",
   ci_findings_addressed: "CI findings addressed",
   evidence_families: "Every evidence family answered",
   judge: "Judge (advisory)",

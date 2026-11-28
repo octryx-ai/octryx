@@ -21,12 +21,9 @@ from tests.agent_board.auto_takeover_support import (  # noqa: F401
 )
 from tests.agent_board.support import seed_presence
 
-# --- automatic requester selection -------------------------------------------------------------------------
-
 
 @pytest.mark.asyncio
 async def test_the_server_offers_and_never_assigns(db, board):  # noqa: F811
-    """No takeover and no claim move until the offered agent itself asks."""
     from app.services.agent_board.session_hints import session_handoff_hints
 
     await _auto_ready(db, board, holder_pct=10.0)
@@ -44,7 +41,6 @@ async def test_the_server_offers_and_never_assigns(db, board):  # noqa: F811
     assert claim.offer_agent_hash == request.to_agent_hash == session_key_hash(board.ben_key)
     assert hints["handoff_offers"] == ["BRD-6"] and anna_hints["handoff_offers"] == []
     assert [entry["kind"] for entry in hints["handoff_nudges"]] == ["offer"]
-    # Only the offered agent's own request leads to the (auto-confirmed) takeover.
     asked = await _request(db, board)
     assert asked["status"] == "confirmed" and asked["decided_by"] == {"kind": "system"}
 
@@ -62,7 +58,7 @@ async def test_no_pick_without_a_qualifying_agent(db, board, others):  # noqa: F
     await record_allowance(db, board.anna_key, Allowance(10.0, None, 95.0, None, None))
     assert (await db.execute(select(WorkItemTakeover))).scalars().all() == []
     requests = (await db.execute(select(AgentBoardMessage).where(AgentBoardMessage.author_type == "system"))).scalars()
-    assert len(requests.all()) == 1  # the normal automatic request and nudge remain
+    assert len(requests.all()) == 1
 
 
 @pytest.mark.asyncio
@@ -76,7 +72,6 @@ async def test_auto_mode_uses_its_own_threshold_for_automatic_requests(db, board
 
 @pytest.mark.asyncio
 async def test_the_holder_is_never_picked_as_its_own_requester(db, board):  # noqa: F811
-    """A low threshold can leave the holder itself with "spare" allowance: it is still never a candidate."""
     await _auto_ready(db, board, holder_pct=10.0, policy={**AUTO, "auto_threshold_pct": 30, "require_spare_pct": 50})
     ben = await _presence(db, board.ben_key)
     ben.stopped_at = utc_now()
@@ -89,18 +84,17 @@ async def test_the_holder_is_never_picked_as_its_own_requester(db, board):  # no
 
 @pytest.mark.asyncio
 async def test_the_most_spare_allowance_wins_and_a_tie_goes_to_the_latest_heartbeat(db, board):  # noqa: F811
-    """Freeze 3c replaces 3b's "exactly one": several qualify, the one with the most spare is picked."""
     await _auto_ready(db, board, holder_pct=10.0)
     ben = await _presence(db, board.ben_key)
-    ben.profile, ben.seven_day_pct, ben.five_hour_pct = "seat", 30.0, 5.0  # used: the larger window, 30
+    ben.profile, ben.seven_day_pct, ben.five_hour_pct = "seat", 30.0, 5.0
     owner_key = await seed_presence(db, board.owner, board.ws)
     owner = await _presence(db, owner_key)
-    owner.profile, owner.seven_day_pct, owner.five_hour_pct = "seat", 10.0, 60.0  # used 60: the five hours count
+    owner.profile, owner.seven_day_pct, owner.five_hour_pct = "seat", 10.0, 60.0
     await db.commit()
     await record_allowance(db, board.anna_key, Allowance(10.0, None, 95.0, None, None))
     claim = await db.get(WorkItemClaim, board.claim["claim_id"])
     await db.refresh(claim)
-    assert claim.offer_agent_hash == session_key_hash(board.ben_key)  # offered, not assigned
+    assert claim.offer_agent_hash == session_key_hash(board.ben_key)
     assert (await db.execute(select(WorkItemTakeover))).scalars().all() == []
 
 
@@ -138,7 +132,7 @@ async def test_an_offer_moves_on_after_the_timeout_unless_the_agent_asked(db, bo
     assert (await hints(owner_key))["handoff_offers"] == []
     claim.offer_at = utc_now() - timedelta(minutes=11)
     await db.flush()
-    assert (await hints(owner_key))["handoff_offers"] == ["BRD-6"]  # Ben did not ask in time: the next one
+    assert (await hints(owner_key))["handoff_offers"] == ["BRD-6"]
     assert (await hints(board.ben_key))["handoff_offers"] == []
     assert claim.offer_history == [session_key_hash(board.ben_key), session_key_hash(owner_key)]
 
@@ -155,10 +149,10 @@ async def test_an_offer_the_agent_took_up_does_not_move(db, board):  # noqa: F81
     claim = await db.get(WorkItemClaim, board.claim["claim_id"])
     offered = claim.offer_agent_hash
     assert offered == session_key_hash(board.ben_key)
-    await _set_policy(db, board, {**AUTO, "mode": "confirm"})  # Ben's request now waits for a person
+    await _set_policy(db, board, {**AUTO, "mode": "confirm"})
     asked = await _request(db, board)
     assert asked["status"] == "pending"
     claim.offer_at = utc_now() - timedelta(minutes=30)
     await db.flush()
     await session_handoff_hints(db, session_key=board.ben_key, agent_hash=offered, project_id=board.ws)
-    assert claim.offer_agent_hash == offered  # the offered agent asked: the offer stays
+    assert claim.offer_agent_hash == offered

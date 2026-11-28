@@ -1,22 +1,4 @@
-"""A run on a seat at its usage limit: the company model of the same class, and back to the seat after the reset.
-
-The rules (a run must neither get stuck nor flap when a person's subscription is used up):
-
-- **same class**: while the seat (Claude Code or Codex on the person's own login) is at its limit, the run's turns run
-  on the governed profile with an admitted company alias of the *same class* as the seat model the turn would have
-  used (sonnet → a sonnet-class alias, sol → a sol-class Codex alias), never a bigger one. When the Workspace admits
-  none, the run pauses (:data:`REASON_NO_SAME_CLASS`) with the seat model and the reset in the pause. A turn whose
-  seat model is unknown (the device's default) keeps the governed profile's own choice;
-- **back to the seat**: the switch is remembered in ``run.context[`` :data:`FALLBACK_KEY` ``]`` with the reset; the
-  first turn after it runs on the seat again (event :data:`EVENT_SEAT_RETURNED`). A reset the account did not name
-  is the report plus ``seat_quota.UNKNOWN_RESET``: the seat is tried again then, and falls back again if it is still
-  at its limit;
-- **visible and budgeted**: the switch (``runtime_profile_governed``), the company model chosen
-  (:data:`EVENT_FALLBACK_MODEL`) and the return are run events (the board's run view and the phone's watch view read
-  them, ``attention.event_text``); :func:`fallback_view` is the run view's "on company fallback until <reset>". The
-  company calls run on the same run-bound thread, so the gateway meters them against the run's budget like any other
-  call (``model_gateway.inbound.run_limits`` → ``model_guard.guard_model_call``).
-"""
+"""A run on a seat at its usage limit: the company model of the same class, and back to the seat after the reset."""
 
 from __future__ import annotations
 
@@ -38,7 +20,6 @@ _CODEX_CLASSES = ("luna", "terra", "sol", "astra")
 
 
 def model_class(model: str) -> str | None:
-    """A model's class word (``sonnet``, ``sol`` …), Codex's only for a Codex model; ``None`` when unknown."""
     name = str(model or "").lower()
     if codex_tier(name) is not None or "gpt-" in name:
         return next((word for word in _CODEX_CLASSES if word in name), None)
@@ -52,7 +33,6 @@ def _codex(model: str) -> bool:
 
 
 def alias_class(entry: Any) -> str | None:
-    """A company alias's class from its name, display name, model group or served model ids (first that names one)."""
     names = [str(getattr(entry, key, "") or "") for key in ("alias", "display_name", "model_group")]
     names += sorted(str(item) for item in getattr(entry, "served_model_ids", ()) or ())
     codex = any(_codex(name) for name in names)
@@ -64,7 +44,6 @@ def alias_class(entry: Any) -> str | None:
 
 
 def same_class_alias(entries: Any, seat_model: str) -> str | None:
-    """The first admitted alias of ``seat_model``'s class (and family: a Codex seat never gets a Claude alias)."""
     wanted = model_class(seat_model)
     if wanted is None:
         return None
@@ -77,7 +56,6 @@ def same_class_alias(entries: Any, seat_model: str) -> str | None:
 
 
 async def admitted_company_aliases(db: AsyncSession, *, user_id: str, workspace_id: str, device_id: str) -> tuple:
-    """The company aliases the governed profile of this device job admits (``devices.device_models``)."""
     from ...devices.contract import DEVICE_POLICY_CLIENT
     from ...model_gateway.inbound.admission import admitted_tool_aliases
     from ...policy_engine.request_principal import policy_principal_scope
@@ -93,14 +71,12 @@ def fallback_state(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 def remember_fallback(run: WorkflowRun, *, until: datetime, reset_known: bool, engine: str, reason: str) -> None:
-    """The run went to the company models because its seat is at its limit until ``until`` (naive UTC)."""
     run.context = {**dict(run.context or {}), FALLBACK_KEY: {
         "until": until.replace(tzinfo=UTC).isoformat(), "reset_known": reset_known, "engine": engine,
         "reason": reason, "since": utc_now().isoformat()}}
 
 
 def note_fallback_model(run: WorkflowRun, seat_model: str, company_model: str) -> bool:
-    """Remember the company model a seat model runs on; ``True`` the first time this pair is used."""
     state = fallback_state(run)
     if state is None:
         return False
@@ -138,7 +114,6 @@ def clear_fallback(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 def fallback_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """The run view's "on company fallback until <reset>" (``None`` while the run is on its seat or never was)."""
     from ..runtime_target.target import stored_target
 
     state = fallback_state(run)

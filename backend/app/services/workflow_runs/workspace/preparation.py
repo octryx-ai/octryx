@@ -1,25 +1,4 @@
-"""``workspace.prepare``: the run's working folder is on its branch and can run the repository's tests.
-
-A platform action of the definition (the law; visible in the canvas), placed before the first agent phase. It
-prepares the folder of the runtime the run's agent works in:
-
-- **server** (the run's chat runs on the platform): now, in the server working copy (``server_prepare``); the route is
-  ``succeeded`` or ``failed``;
-- **device** (the run's chat thread runs on a device) and **terminal** (an octryx-claude session is attached): the node
-  records the requirement (``context.workspace_preparation``: the branch and the runtime environment, for this pass)
-  and the run waits at it; the run contract carries it (``preparation``), the launcher prepares its own folder before
-  the agent starts and reports (``POST sessions/workspace-preparation``) → :func:`record_report` routes the node. A
-  device thread gets the turn by itself (``octryx.continuation``).
-
-The report decides (the server never takes the device's "ready" for it: every probe must have passed): on the branch
-and every probe passing → ``succeeded``; foreign uncommitted changes → ``failed`` with ``workspace_dirty``; the branch
-unavailable → ``transient``; the environment not ready → ``environment_not_ready`` (with the exact reason and, without a
-declaration, the CI-derived proposal). All three are recoverable: the definition's ``failed`` exit pauses the run with
-that reason, and **retry** is a new pass through this node (``action_failures``).
-
-A report for another pass, or once the run went on, still counts for the launcher's folder: not ready while the run is
-at a phase pauses the run ``environment_not_ready`` (``readiness``), so no turn runs in an unprepared folder.
-"""
+"""``workspace.prepare``: the run's working folder is on its branch and can run the repository's tests."""
 
 from __future__ import annotations
 
@@ -58,8 +37,6 @@ def _set(run: WorkflowRun, value: dict[str, Any]) -> None:
 
 
 async def runtime_of(db: AsyncSession, run: WorkflowRun) -> str:
-    """The run's runtime target (chosen at start or switched by the run action); a run without one: its thread's
-    device target, an attached terminal, else the server."""
     from ..octryx.continuation_marker import _device_target
     from ..runtime_target.target import stored_target
 
@@ -75,8 +52,7 @@ async def runtime_of(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 async def requirement(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
-    """What the runtime prepares: the run's branch (and the commit the platform knows it at), the repository the
-    folder must be, and the repository's environment as a runtime runs it."""
+    from ...agent_gateway.git_upload import git_path, working_copy
     from .spec import environment_for_run, expected_repository, runtime_environment
 
     context = dict(run.context or {})
@@ -84,14 +60,13 @@ async def requirement(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
     repository = await expected_repository(db, run)
     if repository is not None and (remote := await _server_remote(context)):
         repository = {**repository, "remote_url": remote}
+    # A launcher without git credentials (a server runner) reads the branch through the platform's working copy.
+    gateway = git_path(run.id) if repository is not None and working_copy(run)[0] is not None else None
     return {"branch": run.branch or "", "head": head[:64] or None, "repository": repository,
-            "environment": runtime_environment(await environment_for_run(db, run))}
+            "environment": runtime_environment(await environment_for_run(db, run)), "git_gateway": gateway}
 
 
 async def _server_remote(context: dict[str, Any]) -> str:
-    """The origin of the platform's working copy without user info: a new device folder for a repository the device
-    cannot clone is set up with it (``git init``, origin, the branch from ``branch-bundle``). Otherwise a
-    device without git credentials for bitbucket.org was left with an empty folder."""
     from pathlib import Path
     from urllib.parse import urlsplit, urlunsplit
 
@@ -110,7 +85,6 @@ async def _server_remote(context: dict[str, Any]) -> str:
 
 
 def decide(report: dict[str, Any]) -> ToolOutcome:
-    """The node's outcome from a preparation report (a launcher's or the server's)."""
     branch = dict(report.get("branch") or {})
     environment = dict(report.get("environment") or {})
     facts = {"branch": branch, "environment": environment, "root": report.get("root"), "runtime": report.get("runtime")}
@@ -150,7 +124,6 @@ def _with_proposal(outcome: ToolOutcome, spec: dict[str, Any]) -> ToolOutcome:
 
 
 async def prepare_workspace(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> tuple[ToolOutcome, str]:
-    """The node's ``(outcome, route)``; route ``WAIT`` while a device or terminal prepares its own folder."""
     from ..platform_actions import WAIT
 
     if not run.branch:
@@ -188,7 +161,6 @@ async def prepare_workspace(db: AsyncSession, run: WorkflowRun, node: PhasedNode
 
 
 async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, Any], *, session_id: str) -> str:
-    """A launcher's report for its folder; the readiness state it established (``ready`` / ``not_ready``)."""
     from ..graph import NODE_PHASE, graph_for_run
     from ..states import STATUS_RUNNING
 
@@ -213,7 +185,7 @@ async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, An
     from .contract_pin import from_preparation
     from .run_app import remember_apps
 
-    await from_preparation(db, run, report)  # the run's environment file, pinned at its first valid account
+    await from_preparation(db, run, report)
     await remember_apps(db, run, report)
     settled = pending or in_place or current.get("state") != STATE_PENDING
     _set(run, {**current, "state": state if settled else STATE_PENDING,
@@ -231,7 +203,6 @@ async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, An
 
 
 async def _foreign_repository(db: AsyncSession, run: WorkflowRun, report: dict[str, Any]) -> ToolOutcome | None:
-    """A launcher's folder whose git remote is not the run's repository never counts as prepared."""
     from ...agent_gateway.repository_root import REASON_NOT_RUN_REPOSITORY, run_repository_refusal
     from ...knowledge.sources.repository_snapshot.remote import RemoteRefusedError, parse_remote
 
@@ -254,7 +225,6 @@ async def _foreign_repository(db: AsyncSession, run: WorkflowRun, report: dict[s
 
 
 async def _route(db: AsyncSession, run: WorkflowRun, outcome: ToolOutcome) -> None:
-    """Route the waiting node as ``run_platform_action`` would have (ledger, failure record, event)."""
     from ..action_failures import record_failure
     from ..engine import resolve_current_node
     from ..engine_context import _set_context
@@ -284,8 +254,6 @@ def _bounded(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """The ``preparation`` part of the run contract: what the launcher prepares, for which pass (with the pinned
-    environment file, ``contract_pin``, which the launcher uses instead of the working tree's)."""
     from .contract_pin import view as pin_view
 
     current = preparation(run)
@@ -294,7 +262,7 @@ def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
     spec = dict(current.get("spec") or {})
     return {"state": current.get("state"), "runtime": current.get("runtime"), "node_id": current.get("node_id"),
             "entry": current.get("entry"), "branch": spec.get("branch"), "head": spec.get("head"),
-            "repository": spec.get("repository"),
+            "repository": spec.get("repository"), "git_gateway": spec.get("git_gateway"),
             "environment": _with_pin(file_commands(spec.get("environment"), dict(current.get("report") or {}), run),
                                      run),
             **({"reset_to_wip": reset} if (reset := _pending_reset(run)) else {}),
@@ -302,8 +270,6 @@ def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 def _with_pin(environment: Any, run: WorkflowRun) -> Any:
-    """The environment-file environment with the run's pinned file (``contract_pin``) for the launcher's setup and
-    facts."""
     from .contract_pin import view
 
     pinned = view(run)
@@ -319,9 +285,6 @@ def _pending_reset(run: WorkflowRun) -> str:
 
 
 def file_commands(environment: Any, report: dict[str, Any], run: Any = None) -> Any:
-    """An ``environment_file`` environment with the test, lint and system test commands the device read from the
-    repository's file, validated like a declared environment (refused commands drop all of them). Otherwise
-   the spec of such an environment names no command, so the fix phase refused `flutter test`."""
     from .spec import SOURCE_ENVIRONMENT_FILE, validate_environment
 
     if not isinstance(environment, dict) or environment.get("source") != SOURCE_ENVIRONMENT_FILE:

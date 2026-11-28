@@ -1,9 +1,5 @@
-"""The platform's pet state (contract ``pet_v1``, ``backend/tests/fixtures/agent_gateway/pet_v1.json``).
-
-:func:`parse` never raises: a field of the wrong type falls back to its empty value, an unknown ``state`` is kept as
-``unknown`` (shown like ``resting``), titles are cut to 80 characters, and a link is kept only when it is a
-root-relative path or an http(s) URL.
-"""
+"""The platform's pet state (contract ``pet_v1``); :func:`parse` never raises.
+Wrong types fall back to empty values; links are kept only as root-relative paths or http(s) URLs."""
 
 from __future__ import annotations
 

@@ -1,29 +1,4 @@
-"""The closed contract of a workflow proposal: catalog, prompt, and strict answer validation.
-
-The model receives the published workflow definitions (key, name, description, capability) and
-the message, and must answer exactly::
-
-    {"workflow_key": "<one of the catalog keys>" | null,
-     "confidence": "low" | "medium" | "high",
-     "requested": true | false,
-     "reason": "<short>"}
-
-``requested`` says whether the user's own words ask for the workflow's outcome; it is optional
-(a weak model may drop it) and reads ``false`` when missing, so an unasked proposal never holds
-the turn. Validation is otherwise strict and never guesses: a key outside the catalog is
-``unknown_key`` (no proposal), a missing or unknown field or an out-of-vocabulary confidence is
-``invalid_answer``.
-
-The message reaches the model split into the user's instruction and the content quoted or pasted
-inside it (``split_instruction``). Otherwise "Create ONE platform
-work item ... and this description verbatim: <a description that mentions writing a
-specification>" is proposed "spec-writing" with high confidence because of the payload, and the
-turn is held. The classifier judges the instruction; quoted content follows after a marker,
-shortened, as context only. This shortening applies to the classifier prompt alone: the turn
-itself always gets the full message.
-There is no keyword list, regex matching or scoring of the message here; the only decision
-input is the model's structured answer against the closed catalog.
-"""
+"""The closed contract of a workflow proposal: catalog, prompt, and strict answer validation."""
 
 from __future__ import annotations
 
@@ -78,7 +53,6 @@ def _bounded(value: Any, limit: int) -> str:
 
 
 async def build_proposal_catalog(db: AsyncSession, *, project_id: str | None) -> list[dict[str, str]]:
-    """Published definitions only, one entry per key, deterministically ordered and bounded."""
     catalog: list[dict[str, str]] = []
     seen: set[str] = set()
     for definition in await list_published_workflow_definitions(db, project_id=project_id):
@@ -101,7 +75,6 @@ async def build_proposal_catalog(db: AsyncSession, *, project_id: str | None) ->
 
 
 def _pasted_block_start(text: str) -> int | None:
-    """Offset of a long block pasted after a line that ends with ":" (no keyword list)."""
     offset = 0
     for line in text.splitlines(keepends=True):
         offset += len(line)
@@ -111,11 +84,6 @@ def _pasted_block_start(text: str) -> int | None:
 
 
 def split_instruction(message: str) -> tuple[str, list[str]]:
-    """The user's instruction, with long quoted or pasted parts replaced by ``[quoted text N]``.
-
-    Structural only: fenced blocks, long quoted strings, and a long block after a line that ends
-    with ":". The decision stays with the model; this only keeps a payload from posing as the ask.
-    """
     quoted: list[str] = []
 
     def _take(part: str) -> str:
@@ -150,8 +118,6 @@ def build_proposal_prompt(catalog: list[dict[str, str]], message: str) -> tuple[
 
 @dataclass(frozen=True, slots=True)
 class ProposalAnswer:
-    """A validated answer; ``outcome`` is ``None`` for a valid catalog key."""
-
     outcome: str | None
     workflow_key: str | None = None
     confidence: str | None = None
@@ -165,7 +131,6 @@ def _clean_reason(value: Any) -> str | None:
 
 
 def validate_proposal_answer(answer: Any, catalog_keys: set[str]) -> ProposalAnswer:
-    """Strictly validate the model's structured answer against the closed catalog."""
     if not isinstance(answer, dict) or not _ANSWER_FIELDS <= set(answer) <= _ANSWER_FIELDS | _OPTIONAL_ANSWER_FIELDS:
         return ProposalAnswer(ANSWER_INVALID)
     requested = answer.get("requested", False)

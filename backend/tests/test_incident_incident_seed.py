@@ -1,10 +1,4 @@
-"""Workflow E (``incident-analysis``) reads the alert and judges evidence families.
-
-Contract: the evidence phase and its gate judge ``evidence_families`` for the mapped target and window, and both
-evidence-reading phases offer ``get_run_alert`` and the ServiceNow reads. End to end on the
-seeded E: a phase turn whose only metrics source is unavailable pauses ``evidence_unresolved`` (no loop step); a
-targeted ``ok`` passes the evidence phase and its gate on the recorded family records.
-"""
+"""Workflow E (``incident-analysis``) reads the alert and judges evidence families."""
 
 from __future__ import annotations
 
@@ -16,6 +10,9 @@ from app.services.workflow_checks.evidence_families import OK, UNAVAILABLE, evid
 from app.services.workflow_runs.graph_validation import validate_phased_definition
 from app.services.workflow_runs.seeding import phased_seeds
 from app.tools.definitions import get_tool_definition_metadata
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 KEY = "incident-analysis"
 # The alert and ServiceNow reads both evidence-reading phases offer (list_jenkins_builds is service-only and hidden).
@@ -60,9 +57,6 @@ def test_the_new_tools_are_read_only_so_the_read_only_workflow_may_offer_them():
         assert (metadata.risk, metadata.mutates_state) == ("read", False), name
     assert get_tool_definition_metadata("list_jenkins_builds").connector == "jenkins"
     assert get_tool_definition_metadata("get_run_alert").connector is None
-
-
-# --- the seeded E end to end ----------------------------------------------------------------------------------------
 
 
 def _metrics(status: str, reason: str = "") -> dict:

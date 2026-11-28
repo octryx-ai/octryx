@@ -1,23 +1,4 @@
-"""What a running Claude Code session is doing, for the person's phone (the phone showed nothing
-until the session sent an answer). Phase A: read-only, from the session's own transcript.
-
-For every session the live list shows (:mod:`live_sessions`), the service reads new lines of its transcript
-(``<profile config dir>/projects/<folder>/<session id>.jsonl``) and turns them into short progress events:
-
-- ``text``: what Claude writes between its steps (the narration), at most :data:`MAX_TEXT` characters;
-- ``tool``: a tool call, its name and a one-line preview of its input (the same preview the app shows for Mac turns);
-- ``result``: whether that call worked; for commands one line of output (redacted), for tools that read files or the
-  web, for commands that print a file (``cat``, ``head``, ``sed -n`` …, :data:`PRINTS_FILE`) and for commands that
-  print a secret (secret stores, cluster secrets, password managers, tokens: :data:`SECRET_COMMANDS`), nothing at all:
-  neither a file's contents nor a secret's raw value leave the Mac this way;
-- ``prompt``: what the person or another session asked, at most :data:`MAX_PROMPT` characters;
-- ``compact``: the session was compacted.
-
-What never goes: thinking, file contents, tool output beyond one line, anything from outside the profile's own
-``projects`` folder. Every text passes the same secret filter as the session lessons (:func:`session_lessons.redact`).
-The first look at a session reads only its tail (:data:`FIRST_LOOK_BYTES`), then only what is new; at most
-:data:`MAX_EVENTS` events per session per round. ``octryx-claude device live progress off`` stops it.
-"""
+"""What a running Claude Code session is doing, for the person's phone, read from its own transcript."""
 
 from __future__ import annotations
 
@@ -66,7 +47,6 @@ SECRET_COMMANDS = re.compile(
 
 
 def _quiet(name: str, tool_input: dict[str, Any]) -> bool:
-    """Whether the call's output may hold a file's contents or a secret (then the phone gets none of it)."""
     if name in SILENT_RESULTS:
         return True
     command = str(tool_input.get("command") or "")
@@ -78,8 +58,6 @@ def enabled(state: LocalState) -> bool:
 
 
 def transcript_path(state: LocalState, session: dict[str, Any], *, home: Path | None = None) -> Path | None:
-    """The session's transcript inside its own profile's ``projects`` folder, else ``None`` (never a path elsewhere,
-    never through a link that leads out)."""
     session_id = str(session.get("session_id") or "")
     if not _SESSION_ID.match(session_id):
         return None
@@ -112,8 +90,6 @@ def _first_line(content: Any) -> str:
 
 
 def events_from(lines: list[str], tools: dict[str, bool]) -> list[dict[str, Any]]:
-    """Progress events from transcript lines (oldest first); ``tools`` maps open tool call ids to whether their output
-    stays quiet, across rounds."""
     events: list[dict[str, Any]] = []
     for line in lines:
         try:
@@ -145,7 +121,6 @@ def events_from(lines: list[str], tools: dict[str, bool]) -> list[dict[str, Any]
 
 
 def _user_events(content: Any, tools: dict[str, bool], at: str) -> list[dict[str, Any]]:
-    """A person's prompt, or the results of the tool calls in ``tools`` (which are closed)."""
     if isinstance(content, str):
         if content.strip() and not content.lstrip().startswith(("<", "Caveat:")):
             return [{"kind": "prompt", "from": "", "text": _clip(content, MAX_PROMPT), "at": at}]
@@ -169,7 +144,6 @@ def _user_events(content: Any, tools: dict[str, bool], at: str) -> list[dict[str
 
 
 def _assistant_events(content: Any, tools: dict[str, bool], at: str) -> list[dict[str, Any]]:
-    """The assistant's text and its tool calls (opened in ``tools``); thinking blocks never leave the Mac."""
     events: list[dict[str, Any]] = []
     for part in content if isinstance(content, list) else []:
         if not isinstance(part, dict):
@@ -189,15 +163,12 @@ def _assistant_events(content: Any, tools: dict[str, bool], at: str) -> list[dic
 
 
 class ProgressTail:
-    """Per session: where its transcript was read up to, and its open tool calls."""
-
     def __init__(self, state: LocalState, *, home: Path | None = None) -> None:
         self.state = state
         self.home = home
         self._seen: dict[str, dict[str, Any]] = {}  # peer -> {"path", "offset", "tools"}
 
     def collect(self, sessions: list[dict[str, Any]]) -> list[tuple[str, list[dict[str, Any]]]]:
-        """New progress events per listed session; never raises."""
         listed = {str(item.get("peer") or "") for item in sessions}
         for gone in set(self._seen) - listed:
             self._seen.pop(gone, None)

@@ -6,14 +6,14 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import JIRA
+from app.services.connector_auth.atlassian_modes import JIRA
 from app.services.outbound_egress import CONNECTION_JIRA, egress_transport
 
 from ....models import WorkItemSyncConfig
 from ....tools.jira_impl._jira_api_versions import api_versions, remember_api_version
 from ....tools.jira_impl._jira_cloud import is_jira_cloud, jira_search
 from ....tools.jira_impl._jira_errors import jql_error_message
-from ...atlassian_auth import auth_headers, request_auth
+from ...connector_auth.atlassian import auth_headers, request_auth
 from ..intake.connections import intake_connection_config
 from ..jira_values import object_value, optional_int, string_list
 
@@ -147,7 +147,6 @@ async def fetch_jira_issues_for_sync(
 
 
 def _jql_error_detail(jql: str, response: httpx.Response) -> str:
-    """Surface Jira's own JQL error messages instead of an opaque 400 (shared with the tools)."""
     return f"Invalid JQL '{jql}': {jql_error_message(response)}"
 
 
@@ -177,12 +176,10 @@ def _jira_search_fields(config: WorkItemSyncConfig) -> str:
 
 
 async def _resolve_jira_connector_config(db: AsyncSession, config: WorkItemSyncConfig) -> dict[str, Any] | None:
-    """The intake's connection (``connection_id``); ``None`` when its named connection is gone."""
     return await intake_connection_config(db, config, "jira")
 
 
 def _jira_auth_headers(config: dict[str, Any]) -> dict[str, str]:
-    """The ``Authorization`` header of the Jira auth mode; empty when not configured."""
     return auth_headers(JIRA, config)
 
 

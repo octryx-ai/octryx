@@ -1,22 +1,5 @@
-"""Knowledge retrieval facade: one validated request in, one bounded bundle out.
-
-The facade owns the product rules that must not depend on a store
-implementation: a store must be configured, every requested mode must be
-served (an unavailable index fails the whole request instead of degrading
-silently), and store output is re-validated against the request bounds.
-
-Nothing a caller or store hands over is trusted as-is. The facade takes an
-immutable, revalidated snapshot of the request before dispatch, gives every
-store call its own revalidated clone, and rebuilds every returned
-:class:`Evidence` (with its nested references) into fresh product objects
-before checking it against the snapshot. Only exact contract types pass, so a
-subclass cannot skip validation, and a store mutating its clone cannot alter
-the snapshot, widen the bounds, or change the bundle.
-
-The store boundary is closed: whatever a store raises or returns, only the
-fixed errors of this package leave the facade. Store exceptions, their
-messages, and their chains are never propagated.
-"""
+"""Knowledge retrieval facade: one validated request in, one bounded bundle out. An unavailable index fails the whole
+request; store output is re-validated."""
 
 from __future__ import annotations
 
@@ -52,7 +35,6 @@ _METHOD_NAMES = {
 
 
 def _store_methods(store: object) -> dict[RetrievalMode, _SearchMethod]:
-    """Resolve all three search methods, each an ``async def`` callable."""
     methods: dict[RetrievalMode, _SearchMethod] = {}
     for mode, name in _METHOD_NAMES.items():
         try:
@@ -66,18 +48,12 @@ def _store_methods(store: object) -> dict[RetrievalMode, _SearchMethod]:
 
 
 def _revalidated(value: object, contract: type[_Contract]) -> _Contract:
-    """Rebuild an exact contract instance through its validating constructor.
-
-    ``replace`` re-runs ``__post_init__`` on the current field values, so an
-    in-place mutation is revalidated and nested values are copied fresh.
-    """
     if type(value) is not contract:
         raise InvalidRetrievalRequestError()
     return replace(cast(_Contract, value))
 
 
 def _request_snapshot(request: object) -> RetrievalRequest:
-    """Revalidate the caller's request; failures keep only their fixed type."""
     failure: KnowledgeRetrievalError
     try:
         return _revalidated(request, RetrievalRequest)
@@ -124,11 +100,6 @@ async def _search(method: _SearchMethod, snapshot: RetrievalRequest, mode: Retri
 
 
 async def retrieve_bundle(store: KnowledgeQueryStore | None, request: RetrievalRequest) -> RetrievalBundle:
-    """Run every requested mode against ``store`` and return one bundle.
-
-    Raises an explicit :class:`~.errors.KnowledgeRetrievalError` subclass for
-    missing configuration, unavailable indexes, and store contract violations.
-    """
     snapshot = _request_snapshot(request)
     if store is None:
         raise KnowledgeStoreNotConfiguredError()

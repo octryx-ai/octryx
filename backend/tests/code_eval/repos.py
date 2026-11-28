@@ -1,15 +1,4 @@
-"""The pinned public repositories of the code-question eval, their ground truth, and the citation rule.
-
-- ``PinnedRepo``: a GitHub repository at one commit. ``tree()`` lists its files at that commit
-  (GitHub trees API) and ``raw(path)`` reads one file at that commit (raw.githubusercontent), so the
-  expected answers are verified against the repository itself, never against memory.
-- ``classify(url, repo, tree)``: a citation is ``pinned`` only as a GitHub blob URL of this
-  repository at the pinned commit naming a file that exists there (``#L12`` or ``#L12-L20`` line
-  anchors are recorded); any other link into the repository is ``unpinned``, a blob path that does
-  not exist is ``missing_path``, everything else is ``outside``.
-
-Nothing here prints file content.
-"""
+"""The pinned public repositories of the code-question eval, their ground truth, and the citation rule."""
 
 from __future__ import annotations
 
@@ -41,7 +30,6 @@ class PinnedRepo:
         return f"{self.url}/blob/{self.sha}/{path}"
 
     def tree(self) -> frozenset[str]:
-        """Every file path at the pinned commit; refuses a truncated listing."""
         api = f"https://api.github.com/repos/{self.slug}/git/trees/{self.sha}?recursive=1"
         request = urllib.request.Request(api, headers={"Accept": "application/vnd.github+json"})
         with urllib.request.urlopen(request, timeout=_TIMEOUT_SECONDS) as response:
@@ -59,7 +47,6 @@ class PinnedRepo:
 PETCLINIC = PinnedRepo(
     "spring-projects", "spring-petclinic", "b26f235250627a235a2974a22f2317dbef27338d", "spring-petclinic 3.5.6"
 )
-# A larger real Spring codebase (Gradle), last commit on master.
 REALWORLD = PinnedRepo(
     "gothinkster",
     "spring-boot-realworld-example-app",
@@ -83,7 +70,6 @@ class Citation:
 
 
 def links(text: str) -> list[str]:
-    """Every http(s) link in ``text``, in order, without duplicates and trailing punctuation."""
     found = (match.rstrip(".,;:") for match in _LINK.findall(text or ""))
     return list(dict.fromkeys(found))
 

@@ -1,35 +1,4 @@
-"""The answer evidence check, its closed decision and the trace record.
-
-Product rule: evidence is critical; every citation shows its source with a clickable URL.
-
-:func:`check_answer_evidence` compares a final answer with the evidence of its turn
-(``evidence.collect_turn_evidence``):
-
-- ``cited_count`` / ``uncited_count``: the answer's statement blocks (``answer_blocks``) with and
-  without a link to a URL from this turn's tool results (or an exact plain ``cite_as`` label);
-- ``invented_urls``: answer links that appear neither in this turn's tool results nor in the user's
-  own message.
-
-The closed decision recorded on the turn trace (``answer_evidence.evidence_guard``):
-
-- ``unsourced``: the turn's tool results carry no openable source, so the answer is not backed by
-  this turn's evidence. It is delivered unchanged; the marker says so (a greeting, pure reasoning,
-  or an answer from model knowledge).
-- ``passed``: evidence-bearing turn, every statement cited, no invented link.
-- ``reminded``: the reply failed the check and was suppressed with the one reminder.
-- ``refused``: the reply failed again after the reminder; the user gets the explicit refusal.
-- ``marked``: delivered with each uncited claim marked "no source" (see below).
-
-Proportionate: a strict guard withholds answers whose drafts are right and linked, because an introduction
-("Your branch naming rule is documented in ...") or a closing remark has no link of its own, or after a write was
-already done the person only sees "withheld". A factual answer must cite its sources, but not every sentence. So:
-
-- only a *claim* needs a citation: in an answer that links a source of this turn, its opening and closing paragraph
-  frame the cited content and are not claims (an answer that links nothing has no frame: every statement is a claim);
-- a turn that executed a write reports that action: its answer is delivered as it is;
-- a claim without a source is marked, invented links are marked, and the answer is delivered (``mark_answer``); the
-  whole answer is never withheld.
-"""
+"""The answer evidence check, its closed decision and the trace record."""
 
 from __future__ import annotations
 
@@ -86,8 +55,6 @@ def _cited(block: str, evidence: TurnEvidence) -> bool:
 
 
 def _claims(blocks: list[AnswerBlock], *, framed: bool) -> list[AnswerBlock]:
-    """The statement blocks that need a source: an answer that links a source is framed by its first and last
-    paragraph (an introduction, a closing offer), which are not claims of their own."""
     frame = {0, len(blocks) - 1} if framed and len(blocks) >= 2 else set()
     return [
         block
@@ -97,7 +64,6 @@ def _claims(blocks: list[AnswerBlock], *, framed: bool) -> list[AnswerBlock]:
 
 
 def check_answer_evidence(answer: str, evidence: TurnEvidence, *, user_message: str = "") -> AnswerEvidenceCheck:
-    """Compare ``answer`` with this turn's evidence; structural only, never the meaning of the text."""
     text = answer_text_outside_code(answer)
     blocks = answer_block_spans(answer)
     links_a_source = any(_cited(block.text, evidence) for block in blocks)
@@ -132,13 +98,6 @@ def _with_marker(line: str, marker: str) -> str:
 
 
 def mark_answer(answer: str, check: AnswerEvidenceCheck, evidence: TurnEvidence) -> str:
-    """The answer as delivered when it falls short: nothing removed, each shortfall marked in place.
-
-    - an answer that links some source: each uncited claim gets the "no source" marker;
-    - an answer that links nothing: one closing note with the sources this turn found, instead of a marker on every
-      paragraph;
-    - invented links: one closing note naming them.
-    """
     lines = str(answer or "").splitlines()
     notes: list[str] = []
     if check.uncited_count and check.links_a_source:
@@ -156,7 +115,6 @@ def mark_answer(answer: str, check: AnswerEvidenceCheck, evidence: TurnEvidence)
 
 
 def answer_evidence_record(state: str, check: AnswerEvidenceCheck, *, reminder_count: int) -> dict[str, Any]:
-    """The closed trace record: the decision and bounded counts, never answer text or URLs."""
     if state not in GUARD_STATES:
         raise ValueError("unknown evidence guard state")
     return {

@@ -1,6 +1,5 @@
-"""Git that talks to a remote never asks anyone: credentials come only from the platform's
-connection. An askpass the developer's shell passes down (e.g. VS Code's) is never called; one the connection sets
-explicitly still is. A local HTTP server answers 401, so git really wants credentials; nothing leaves this machine."""
+"""Git that talks to a remote never asks anyone: credentials come only from the platform's connection, and an
+inherited askpass is never called."""
 
 import os
 import stat
@@ -37,7 +36,6 @@ def remote():
 
 @pytest.fixture
 def askpass(tmp_path: Path):
-    """An askpass that records every call and answers, so a call would also let git go on."""
     log = tmp_path / "askpass.log"
     script = tmp_path / "askpass.sh"
     script.write_text(f'#!/bin/sh\necho "$1" >> "{log}"\necho x\n')

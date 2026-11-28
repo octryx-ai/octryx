@@ -1,8 +1,5 @@
-"""One placeholder vocabulary for branch naming rules: ``{type}``, ``{key}``, ``{slug}``.
-
-- unknown names in braces are not placeholders: their braces are dropped;
-- Work planning and workflow runs name the same branch from the same rule; the default is ``{type}/{key}-{slug}``.
-"""
+"""One placeholder vocabulary for branch naming rules: ``{type}``, ``{key}``, ``{slug}``; Work planning and workflow
+runs name the same branch from the same rule."""
 
 from __future__ import annotations
 
@@ -43,7 +40,6 @@ async def test_work_planning_and_workflow_runs_name_the_same_branch(db, rule):
 
 
 async def test_a_platform_work_item_names_the_branch_and_pull_request_with_its_own_key(db):
-    """A run on a platform Work item has no Jira ticket; its own key names the branch, commit and PR."""
     project = await make_project(db)
     item = WorkItem(source_type="platform", source_instance="octryx", source_key="OCX-24", title="Trip and member API",
                     project_id=project.id, work_state="intake")
@@ -55,10 +51,12 @@ async def test_a_platform_work_item_names_the_branch_and_pull_request_with_its_o
     assert await repo_ref.branch_name(db, run, repo_ref.parse_repository(run.repository), "feature") == (
         "feature/OCX-24-trip-and-member-api")
     jira_item = WorkItem(source_type="manual", source_instance="m", source_key="M-1", title="x")
-    assert repo_ref.work_key(run, jira_item) == ""  # only the platform's own keys stand in for a ticket
+    assert repo_ref.work_key(run, jira_item) == ""
 
 
 async def test_a_saved_rule_is_stored_as_written(db):
-    saved = await normalized_profile_payload(db, {"name": "payments", "branch_naming_rule": " {type}/{key} "})
+    user_id = str(uuid.uuid4())
+    saved = await normalized_profile_payload(db, user_id, {"name": "payments", "branch_naming_rule": " {type}/{key} "})
     assert saved["branch_naming_rule"] == "{type}/{key}"
-    assert (await normalized_profile_payload(db, {"name": "payments"}))["branch_naming_rule"] == DEFAULT_BRANCH_RULE
+    assert (await normalized_profile_payload(db, user_id, {"name": "payments"}))["branch_naming_rule"] == (
+        DEFAULT_BRANCH_RULE)

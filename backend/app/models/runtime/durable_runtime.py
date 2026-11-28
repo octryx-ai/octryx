@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -16,11 +17,7 @@ def uuid_pk() -> str:
 
 
 class DistributedLock(Base):
-    """DB-backed distributed lock replacing process-local asyncio.Lock dicts.
-
-    Stored in the main database (SQLite for dev, Postgres for EKS). Uses
-    owner_id + expires_at for safe lock release — only the owner can release.
-    """
+    """A database-backed distributed lock with an owner and an expiry."""
 
     __tablename__ = "distributed_locks"
     __table_args__ = (
@@ -45,12 +42,11 @@ class DistributedLock(Base):
     LOCK_KEY_ORCHESTRATOR = "orchestrator:{run_id}:lock"
 
 
-class ResumeCheckpoint(Base):
-    """Tracks attempts to resume a session from a ContextCheckpoint.
-
-    Enables recovery_policy enforcement (auto_retry | manual_resume | fail)
-    and prevents infinite retry loops by tracking attempt counts.
-    """
+class ResumeCheckpoint(WorkspaceBound, Base):
+    """Tracks attempts to resume a session from a ContextCheckpoint. The attempt count enforces ``recovery_policy`` and
+    prevents infinite retry loops."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
 
     __tablename__ = "resume_checkpoints"
     __table_args__ = (
@@ -73,7 +69,6 @@ class ResumeCheckpoint(Base):
     checkpoint = relationship("ContextCheckpoint")
 
 
-# Session recovery policies
 RECOVERY_POLICY_AUTO_RETRY = "auto_retry"
 RECOVERY_POLICY_MANUAL_RESUME = "manual_resume"
 RECOVERY_POLICY_FAIL = "fail"

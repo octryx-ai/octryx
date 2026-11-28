@@ -1,5 +1,5 @@
-// "Runs in phases": the third kind in the Workflows list, its address, and the
-// editor's reading of a phased graph (node lines, exits, bounded loops, publishability).
+// Workflows that run in phases: their address in the Workflows list, and the editor's reading of a phased graph (node
+// lines, exits, bounded loops, publishability).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -7,26 +7,25 @@ import {
   exitsOf, loopLine, nodeDetail, phaseGraphPath, publishable,
 } from "../../src/admin/components/agentsWorkflows/canvas/phasedWorkflowModel.ts";
 import {
-  filterListed, KIND_LABELS, listUrl, listedWorkflows, readOpenWorkflow,
+  filterListed, listUrl, listedWorkflows, readOpenWorkflow,
 } from "../../src/admin/components/agentsWorkflows/workflows/workflowListModel.ts";
 import { readWorkflowsOverview } from "../../src/admin/components/agentsWorkflows/workflows/workflowsModel.ts";
 
 const OVERVIEW = readWorkflowsOverview({
   workflows: [],
   flows: [
-    { flow_id: "f1", key: "graph", title: "Graph", node_count: 3, status: "draft", version: 1, execution_kind: "flow" },
+    { flow_id: "f1", key: "triage", title: "Triage", node_count: 3, status: "draft", version: 1, execution_kind: "phased" },
     { flow_id: "f2", key: "phased", title: "Phased", node_count: 4, status: "published", version: 2, execution_kind: "phased" },
   ],
 });
 
-test("a phased flow is listed as its own kind and opened by its own address", () => {
+test("every listed workflow is opened by its `phased` address", () => {
   const items = listedWorkflows(OVERVIEW);
-  assert.deepEqual(items.map((item) => [item.id, item.kind]), [["f1", "flow"], ["f2", "phased"]]);
-  assert.equal(KIND_LABELS.phased, "Runs in phases");
-  const all = { query: "", capability: "", scope: "all", kind: "phased" };
-  assert.deepEqual(filterListed(items, all).map((item) => item.id), ["f2"]);
-  assert.deepEqual(readOpenWorkflow("?phased=f2"), { kind: "phased", id: "f2" });
-  assert.equal(listUrl("https://x.test/admin?flow_id=f1", "canvas", { kind: "phased", id: "f2" }), "/admin?view=canvas&phased=f2");
+  assert.deepEqual(items.map((item) => item.id), ["f1", "f2"]);
+  assert.deepEqual(filterListed(items, { query: "phas", capability: "", scope: "all" }).map((item) => item.id), ["f2"]);
+  assert.equal(readOpenWorkflow("?phased=f2"), "f2");
+  assert.equal(readOpenWorkflow("?flow_id=f1"), null, "the retired flow builder address opens nothing");
+  assert.equal(listUrl("https://x.test/admin?phased=f1", "canvas", "f2"), "/admin?phased=f2&view=canvas");
 });
 
 const NODES = [

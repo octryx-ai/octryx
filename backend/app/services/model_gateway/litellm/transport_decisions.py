@@ -24,22 +24,17 @@ from .transport_codes import (
 
 @dataclass(frozen=True, slots=True)
 class TlsTrustPolicy:
-    """A validated trust store decision for one gateway endpoint."""
-
     mode: str
     ca_bundle_path: str
     certificate_count: int
     bundle_sha256: str
-    # ``plaintext_cluster_internal`` only: the operator's attestation of what
-    # protects the clear-text hop. Empty for every other mode.
+    # ``plaintext_cluster_internal`` only: the operator's attestation of what protects the clear-text hop.
     node_encryption: str = ""
     attestation_reference: str = ""
     attested_on: str = ""
 
     @property
     def plaintext(self) -> bool:
-        """True for either plaintext mode: there is no TLS leg and no trust store."""
-
         return self.mode in PLAINTEXT_TLS_MODES
 
     @property
@@ -47,32 +42,14 @@ class TlsTrustPolicy:
         return self.mode == TLS_MODE_PLAINTEXT_CLUSTER_INTERNAL
 
     def ssl_context(self) -> ssl.SSLContext | None:
-        """Return the explicit client SSL context, or ``None`` for a plaintext mode.
-
-        The context is constructed from scratch instead of via
-        ``ssl.create_default_context``/``load_default_certs``, because those load
-        OpenSSL's default verify paths and therefore honour ``SSL_CERT_FILE`` and
-        ``SSL_CERT_DIR``. Only the bundle this policy validated is trusted.
-
-        The trust store is loaded from the exact bytes that were validated, never
-        from a second read of the path: with two independent reads, whatever
-        replaced the bundle in between would become the trust store while the
-        recorded ``tls_ca_bundle_sha256`` still described the checked bytes, so the
-        evidence would attest a trust anchor that was never loaded. The
-        validated ``cadata`` is therefore cached under its own digest here, and a
-        cache miss re-reads *and* re-verifies the digest before loading anything.
-        """
-
         if self.plaintext:
             return None
         key = (self.ca_bundle_path, self.bundle_sha256)
         cached = _SSL_CONTEXTS.get(key)
         if cached is not None:
             return cached
-        # Reached only when the validated context is no longer cached (a fresh
-        # process, or a policy carried across one). The digest is the contract: if
-        # the file no longer hashes to it, the material this policy attests is
-        # gone and no trust store is built from what replaced it.
+        # Reached only when the context is no longer cached; the digest is the contract, so no trust store is built
+        # from material that no longer hashes to it.
         cadata, _count, digest, denial, _identity = _read_certificate_material(self.ca_bundle_path)
         if denial or digest != self.bundle_sha256:
             raise LiteLLMGatewayError(
@@ -111,14 +88,11 @@ class TlsTrustPolicy:
 
 @dataclass(frozen=True, slots=True)
 class GovernedProxy:
-    """A validated egress hop, or the explicit decision not to use one."""
-
     mode: str
     scheme: str = ""
     host: str = ""
     port: int | None = None
-    # How the proxy's own TLS leg is trusted (``proxy_trust``). Empty for the
-    # direct path, where there is no hop at all.
+    # How the proxy's own TLS leg is trusted (``proxy_trust``); empty on the direct path.
     tls_trust_source: str = ""
 
     @property
@@ -127,8 +101,6 @@ class GovernedProxy:
 
     @property
     def tls_leg(self) -> bool:
-        """True when reaching the proxy itself requires a verified TLS handshake."""
-
         return self.governed and self.scheme == "https"
 
     @property
@@ -162,26 +134,20 @@ class TransportPolicy:
 
         context = self.tls.ssl_context()
         if context is None and self.proxy.tls_leg:
-            # The structural backstop behind the admission rule in
-            # ``proxy_trust``: httpx would verify the proxy's certificate with
-            # this same argument, so handing it ``False`` would tunnel the virtual
-            # key through an unverified peer. A policy that reaches here was not
-            # built by ``resolve_transport_policy``.
+            # Backstop for ``proxy_trust``: httpx verifies the proxy with this argument, so ``False`` would tunnel the
+            # virtual key through an unverified peer.
             raise LiteLLMGatewayError(
                 GATEWAY_STATE_CONFIGURATION_INVALID,
                 denial_reason=PROXY_DENIAL_TLS_TRUST_NOT_CONFIGURED,
             ) from None
         if self.tls.cluster_internal and self.proxy.governed:
-            # Structural backstop for ``_resolve_proxy``: a cluster-internal
-            # plaintext hop is direct only.
+            # Backstop for ``_resolve_proxy``: a cluster-internal plaintext hop is direct only.
             raise LiteLLMGatewayError(
                 GATEWAY_STATE_CONFIGURATION_INVALID,
                 denial_reason=PROXY_DENIAL_CLUSTER_INTERNAL_REQUIRES_DIRECT,
             ) from None
         return {
-            # ``verify`` is an explicit context (or False for a plaintext ``http``
-            # endpoint — loopback or cluster-internal — where there is no TLS leg
-            # to verify at all; admitted only without a TLS proxy leg, see above).
+            # ``False`` only for a plaintext ``http`` endpoint: no TLS leg to verify, and no TLS proxy leg (see above).
             "verify": False if context is None else context,
             "proxy": self.proxy.url or None,
             # The environment gets no vote on trust store, proxy or credentials.
@@ -196,8 +162,7 @@ class TransportPolicy:
 class TransportPolicyResolution:
     policy: TransportPolicy | None
     denial_reason: str = ""
-    # Present only when a private bundle was read, so callers can report how many
-    # certificates were admitted without re-reading the file.
+    # Present only when a private bundle was read, so callers can report the count without re-reading the file.
     details: Mapping[str, Any] = field(default_factory=dict)
 
     @property

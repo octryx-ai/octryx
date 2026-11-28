@@ -116,6 +116,7 @@ async def upsert_budget_policy(
         action="admin.governance.budget_policy.saved",
         resource_type="budget_policy",
         resource_id=policy.id,
+        project_id=policy.project_id,
         before=before_audit,
         after=_budget_policy_audit_snapshot(policy),
         details={
@@ -129,7 +130,6 @@ async def upsert_budget_policy(
 
 
 def _validated_policy_fields(payload: dict[str, Any], policy: BudgetPolicy) -> dict[str, Any]:
-    """The payload's name, scope, reset period, raw limits and thresholds, refused in the documented order."""
     name = str(payload.get("name") or policy.name or "").strip()
     if not name:
         raise ValidationError("name is required", field="name")

@@ -1,8 +1,4 @@
-"""Session workspace object-storage contract.
-
-The coding runtime still executes against a local filesystem workspace. This
-module defines the durable mirror contract used by later sync/restore layers.
-"""
+"""Session workspace object-storage contract."""
 
 from __future__ import annotations
 

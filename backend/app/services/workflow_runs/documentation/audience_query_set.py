@@ -21,8 +21,6 @@ from .audience_contract import (
 
 
 class _Sections(HTMLParser):
-    """``[(heading, text)]`` of the ``<h2>`` sections of a confirmed storage body."""
-
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.sections: list[tuple[str, list[str]]] = []
@@ -113,7 +111,6 @@ class _Sections(HTMLParser):
 
 
 def normalized(text: object) -> str:
-    """The comparison form of a text: entities resolved, whitespace collapsed, lower case."""
     return " ".join(unescape(str(text or "")).split()).lower()
 
 
@@ -126,7 +123,6 @@ def _slug(text: str) -> str:
 
 
 def derive_query_set(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    """The content assertions of a confirmed publication card: every body section and every criterion id."""
     body = payload.get("body")
     if not isinstance(body, str) or not body.strip():
         raise AudienceProofError(CODE_BINDING, "the confirmed publication card carries no body",

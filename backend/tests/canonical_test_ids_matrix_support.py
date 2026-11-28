@@ -82,15 +82,12 @@ def _pytest(root: Path, *args: str, junit: bool = False) -> tuple[subprocess.Com
 
 
 def _chat_run(done: subprocess.CompletedProcess, root: Path | None, files=()) -> dict:
-    """What chat records: ``run_test_suite``'s output, resolved by the run (tree and/or hints)."""
     entry = run_from_tool("run_test_suite", {"stdout": done.stdout, "stderr": done.stderr,
                                                   "exit_code": done.returncode}, source="chat")
     return resolve_entry(entry, Resolver(files, root))
 
 
 def _device_run(done: subprocess.CompletedProcess, xml: str | None, *, files=(), report_files=()) -> dict:
-    """What the device records: the attached JUnit report first (with the launcher's files), else the excerpt; the
-    server never has the device's tree, only the run's hints."""
     params = {"test_report": {"format": "junit", "junit_xml": xml, "files": list(report_files)}} if xml else {}
     parsed, hints = bash_test_results(params, done.stdout)
     return resolve_entry(gateway_test_run(parsed, hints, green=done.returncode == 0), Resolver(files))

@@ -1,48 +1,4 @@
-"""Map a Chat turn's explicit facts onto Product Run moves.
-
-The Chat binding (``agent/engine/_engine_product_run.py``) asks this module which
-move a turn's gate decision, readiness block, or end implies. Every mapping is a
-closed table over explicit markers the runtime already writes; nothing here reads
-message content or guesses intent.
-
-Gate decision (from ``requested``):
-
-* allowed                                   -> ``admitted`` (gate facts recorded)
-* execution profile ``denied``              -> ``denied`` / ``gate_denied``
-* execution profile ``needs_approval``      -> ``needs_approval`` / ``gate_needs_approval``
-* execution profile ``needs_configuration`` -> ``needs_configuration`` / ``gate_needs_configuration``
-* execution profile ``needs_clarification`` -> ``needs_clarification`` / ``gate_needs_clarification``
-* workflow proposal ``needs_confirmation``   -> ``needs_approval`` / ``awaiting_workflow_confirmation``
-  (the held turn waits on the proposal's governed approval record)
-* missing profile (gate ``denied``)         -> ``denied`` / ``gate_missing_profile``
-* unknown profile status                    -> ``denied`` / ``gate_unknown_status``
-
-Readiness block (from ``admitted``): ``needs_configuration`` / ``runtime_not_ready``.
-
-Turn end (from ``running``), decided on the turn's final stamped trace and the
-session's own status, first match wins:
-
-1. the final trace carries the runtime's ``raw_output.error`` failure marker.
-   When the trace is the provider-dispatch failure record (trace provider
-   ``runtime-fallback``, written by the native loop and the harness recorder
-   alike) and the model gateway's admission refused every runtime target before
-   any request (typed attempt facts, ``admission_refusal_of_attempts``), the turn
-   is a governance outcome, not a provider error:
-   ``needs_configuration`` / ``model_alias_not_admitted`` for an alias the
-   project was not granted (an administrator can grant it), ``denied`` /
-   ``model_data_policy_denied`` when the Workspace's data classification is not
-   permitted for the alias (policy forbids it). Any other dispatch failure is
-   ``failed`` / ``provider_error``; a failure elsewhere ``failed`` / ``runtime_error``;
-2. the session is ``pending_approval`` (set by the approval request service):
-   ``waiting_approval`` / ``approval_pending``;
-3. the session is ``awaiting_subagents``: ``incomplete`` / ``delegated_outcome_unrecorded``;
-4. the final trace carries the loop's accepted-completion marker:
-   ``finished_unverified`` / ``runtime_finished``;
-5. anything else, including no stamped trace at all: ``incomplete`` /
-   ``completion_not_accepted``.
-
-``completed`` is never produced: it is reserved for a verification contract.
-"""
+"""Map a Chat turn's explicit facts onto Product Run moves."""
 
 from __future__ import annotations
 
@@ -53,6 +9,12 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.runtime.runtime_admission_contract import admission_refusal_of_attempts
+from app.agent.runtime.runtime_errors import (
+    RUNTIME_ERROR_ALIAS_DENIED,
+    RUNTIME_ERROR_CONTENT_POLICY_DENIED,
+    RUNTIME_ERROR_DATA_POLICY_DENIED,
+)
 from app.services.execution_profile_status import (
     EXECUTION_PROFILE_STATUS_DENIED,
     EXECUTION_PROFILE_STATUS_NEEDS_APPROVAL,
@@ -60,12 +22,6 @@ from app.services.execution_profile_status import (
     EXECUTION_PROFILE_STATUS_NEEDS_CONFIGURATION,
 )
 
-from ...agent.core.runtime.runtime_admission_contract import admission_refusal_of_attempts
-from ...agent.core.runtime.runtime_errors import (
-    RUNTIME_ERROR_ALIAS_DENIED,
-    RUNTIME_ERROR_CONTENT_POLICY_DENIED,
-    RUNTIME_ERROR_DATA_POLICY_DENIED,
-)
 from ...models import Session as ChatSession
 from ...models import TurnTrace
 from ...models.runtime.product_run import (
@@ -109,8 +65,6 @@ _EXECUTION_PROFILE_ID_MAX = 160
 
 @dataclass(frozen=True, slots=True)
 class RunMove:
-    """One state move of the turn's attempt."""
-
     to_state: str
     end_reason: str | None = None
     gate: GateFacts | None = None
@@ -118,8 +72,6 @@ class RunMove:
 
 @dataclass(frozen=True, slots=True)
 class FinalTraceFacts:
-    """The explicit markers of a turn's final stamped trace."""
-
     provider: str
     failed: bool
     finished: bool
@@ -161,7 +113,6 @@ def _profile_id(execution_profile: Any) -> str | None:
 
 
 def gate_move(gate: ExecutionGateDecision, execution_profile: Any) -> RunMove | None:
-    """The move the gate's decision implies, or ``None`` for a combination outside the table."""
     status = gate.status if gate.status in GATE_STATUSES else UNKNOWN_VALUE
     facts = GateFacts(
         status=status, decision_source=gate.decision_source, execution_profile_id=_profile_id(execution_profile)
@@ -175,7 +126,6 @@ def gate_move(gate: ExecutionGateDecision, execution_profile: Any) -> RunMove | 
 
 
 def turn_end_move(final_trace: FinalTraceFacts | None, session_status: str | None) -> RunMove:
-    """The terminal move of a turn whose loop returned normally (see the module table)."""
     if final_trace is not None and final_trace.failed:
         if final_trace.provider != PROVIDER_FAILURE_TRACE_PROVIDER:
             return RunMove(RUN_STATE_FAILED, "runtime_error")
@@ -191,7 +141,6 @@ def turn_end_move(final_trace: FinalTraceFacts | None, session_status: str | Non
 
 
 def admission_refusal_of_trace(provider: Any, raw_output: Any) -> str | None:
-    """The admission class that refused every target of a provider-dispatch failure record, or ``None``."""
     if str(provider or "") != PROVIDER_FAILURE_TRACE_PROVIDER or not isinstance(raw_output, dict):
         return None
     if not raw_output.get("error"):
@@ -219,7 +168,6 @@ async def load_turn_end_move(
     attempt_id: str,
     opened_at: datetime,
 ) -> RunMove:
-    """Read the turn's final trace (highest stamped sequence of this attempt) and the session status."""
     rows = await db.execute(
         select(TurnTrace.provider, TurnTrace.context_snapshot_json, TurnTrace.raw_output).where(
             TurnTrace.session_id == session_id,

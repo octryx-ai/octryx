@@ -1,11 +1,4 @@
-"""Loop rounds per size class (``size_classes.<class>.max_rounds``) and escalation along ``escalate_to``.
-
-Without classes, repro, fix, hands-on and review loops ran to their limits (31 loop iterations over 17 h)
-and every limit paused the run for a person. A class may give a loop fewer rounds than the edge allows (one number
-for every loop, or per loop edge id with "*" for the rest); when they are used up the run escalates to the class's
-``escalate_to`` and goes on by itself in the same session, or pauses as at an edge limit when the class names none.
-The workflow owner sets every number; the engine only compares.
-"""
+"""Loop rounds per size class (``size_classes.<class>.max_rounds``) and escalation along ``escalate_to``."""
 
 from __future__ import annotations
 
@@ -34,17 +27,11 @@ def _raised(run: WorkflowRun, edge_id: str) -> bool:
 
 
 def round_limit(run: WorkflowRun, edge_id: str, limit: int) -> int:
-    """The loop's limit for the run's class now: the class's rounds when fewer than the edge's own (until a person
-    gave the loop more rounds at its pause: then the counter's own limit)."""
     rounds = None if _raised(run, edge_id) else _class_rounds(run, edge_id)
     return min(limit, rounds) if rounds is not None else limit
 
 
 def escalate_at_limit(db: AsyncSession, run: WorkflowRun, edge_id: str, used: int, limit: int) -> int:
-    """The rounds already ``used`` that count after a class ran out of rounds on this loop and escalated.
-
-    The next class's own rounds start again (0); a class without rounds of its own counts the rounds used so far
-    against the edge's limit. A class without ``escalate_to`` leaves ``used`` as it is: the run pauses there."""
     if _raised(run, edge_id) or _class_rounds(run, edge_id) is None or used < round_limit(run, edge_id, limit):
         return used
     if not escalate(db, run, cause=f"loop_limit:{edge_id}"):

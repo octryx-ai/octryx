@@ -36,22 +36,6 @@ def _zoekt_index_dir(repository_id: str) -> Path:
     return path
 
 
-def _scip_index_dir(repository_id: str) -> Path:
-    path = _repository_storage_dir(repository_id) / "scip"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _scip_snapshot_dir(repository_id: str, language: str) -> Path:
-    path = _scip_index_dir(repository_id) / f"{language}-snapshot"
-    path.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _scip_native_index_path(repository_id: str, language: str) -> Path:
-    return _scip_index_dir(repository_id) / f"{language}-native-index.json"
-
-
 def _code_graph_artifact_dir(repository_id: str) -> Path:
     path = _repository_storage_dir(repository_id) / "code_graph"
     path.mkdir(parents=True, exist_ok=True)

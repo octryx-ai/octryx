@@ -1,13 +1,4 @@
-"""The octryx-claude installer scripts, filled for this platform.
-
-The templates live with the client (``clients/octryx-claude/installer``). Three placeholders are
-filled: the platform base URL (the same origin the OAuth issuer uses), an optional Workspace to
-preselect at login, and the operating system's own file names (``.DS_Store``, ``Thumbs.db``, ...) from the
-launcher's ``octryx_claude/os_junk.json``, so uninstall can remove a folder it created that holds only those.
-All three are validated against a quote-free character set before they go into the scripts, where they
-sit inside single-quoted string literals, so a request can never inject shell or PowerShell code.
-Nothing secret is ever filled in. Stdlib only (the installer tests import it without the app).
-"""
+"""The octryx-claude installer scripts, filled for this platform."""
 
 from __future__ import annotations
 
@@ -33,8 +24,6 @@ _OS_JUNK_NAME = re.compile(r"^[A-Za-z0-9._*-]{1,64}$")
 
 
 class InstallerRenderError(Exception):
-    """The script cannot be produced; ``code`` is fixed (``workspace_invalid``, ...)."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -49,7 +38,6 @@ def valid_workspace(value: str) -> bool:
 
 
 def os_junk_files(client_dir: Path | None = None) -> str:
-    """The operating system's own file names from ``os_junk.json``, space-separated, for the scripts."""
     path = (client_dir or default_client_dir()) / "octryx_claude" / "os_junk.json"
     try:
         names = json.loads(path.read_text(encoding="utf-8"))["files"]
@@ -93,7 +81,6 @@ def install_url(base_url: str, name: str, workspace: str = "") -> str:
 
 
 def install_commands(base_url: str, workspace: str = "") -> dict[str, str]:
-    """The copy-paste one-liners for macOS/Linux/WSL2 and Windows."""
     return {
         "macos": f"curl -fsSL '{install_url(base_url, INSTALL_SH, workspace)}' | bash",
         "windows": f"irm '{install_url(base_url, INSTALL_PS1, workspace)}' | iex",

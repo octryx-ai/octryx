@@ -1,8 +1,4 @@
-"""The value types the structured-graph writers hand back and take in.
-
-They live apart from the writers so the revision helpers and the linkage writers can share them
-without importing each other.
-"""
+"""The value types the structured-graph writers hand back and take in."""
 
 from __future__ import annotations
 
@@ -21,8 +17,6 @@ class WriteCounts:
 
 @dataclass(slots=True)
 class LinkEdge:
-    """A cross-source edge: endpoints by node id, cited by ``(revision_id, span_ordinal, line)`` triples."""
-
     edge_type: str
     source_id: str
     target_id: str

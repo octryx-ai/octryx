@@ -1,14 +1,4 @@
-"""Budgets, dispatch and relay of an admitted inbound call whose content was decided (``service``, steps 4 and 6).
-
-Also the path of a company model chosen in a seat session (``seat_company``) and of a seat request a content
-policy routes to a governed alias, so those calls are governed exactly like one on the governed route.
-
-The governed payload — the client's body with ``model`` replaced by the alias' model group (:func:`governed_payload`)
-— is built before the content scan, and the bytes the scan's plan carries (``gateway_plan.InboundPlan.payload``) are
-exactly what is sent. A budget refusal or an undelivered request is not a content refusal
-(``GatewayOutcome.stopped``); a request whose response headers arrived was sent (``GatewayOutcome.received``),
-and every answer returned carries the report notice.
-"""
+"""Budgets, dispatch and relay of an admitted inbound call whose content was decided."""
 
 from __future__ import annotations
 
@@ -29,7 +19,7 @@ from ...agent_gateway.daily_budget import check_daily_budget
 from ...agent_gateway.identity import GatewayIdentity
 from ...budget.unpriced_guard import REASON_UNPRICED_MODEL, UnpricedModelUnderCostCapError
 from ...content_routing.gateway_outcome import STAGE_BUDGET, STAGE_UPSTREAM, GatewayOutcome
-from ...content_routing.gateway_plan import HEADER_OBLIGATION
+from ...content_security.enforcement_inbound import HEADER_OBLIGATION
 from ..litellm.errors import GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION
 from .admission import InboundAdmission
 from .anthropic_stream import Observation, SseRelay
@@ -51,28 +41,21 @@ REASON_COUNT_TOKENS_INVALID = "count_tokens_response_invalid"
 
 
 def governed_payload(body: Mapping[str, Any], admitted: InboundAdmission) -> dict[str, Any]:
-    """The payload a governed Messages or count-tokens call sends (and the content decision reads): the client's
-    body with ``model`` replaced by the alias' model group."""
     return {**body, "model": admitted.entry.model_group}
 
 
 def upstream_refusal(outcome: GatewayOutcome, upstream: InboundRefusal) -> InboundRefusal:
-    """A failed upstream send: answered by the upstream (sent when its headers arrived), or not delivered
-    (stopped)."""
     if isinstance(upstream, UpstreamAnswer):
         return outcome.named(upstream)
     return outcome.stopped(upstream, STAGE_UPSTREAM)
 
 
+# Commits when it passes: the shadow session must be visible to the fresh session that records the call after the
+# response.
 async def budget_refusal(
     db: AsyncSession, *, identity: GatewayIdentity, session_id: str, body: Mapping[str, Any],
     admitted: InboundAdmission,
 ) -> InboundRefusal | None:
-    """Step 4 on an Anthropic-shaped body (``system``, ``messages``, ``max_tokens``); ``None``: within budget.
-
-    Commits when it passes: the shadow session must be visible to the fresh session that records the call after
-    the response (the request session may be closed by then).
-    """
     daily = await check_daily_budget(db, user_id=identity.user.id, workspace_id=identity.workspace_id)
     if not daily.allowed:
         return refusal(daily.state, daily.reason, http_status=403, hint=daily.hint())
@@ -95,6 +78,8 @@ async def budget_refusal(
     return None
 
 
+# Also the path of a company model chosen in a seat session, so that call is governed exactly like one on this route; a
+# reported kind's notice returns as x-octryx-obligation.
 async def dispatch_governed(
     db: AsyncSession,
     *,
@@ -106,15 +91,6 @@ async def dispatch_governed(
     admitted: InboundAdmission,
     outcome: GatewayOutcome,
 ) -> Response:
-    """Steps 4 and 6 for an admitted call whose content was decided (``content_plan``): budgets, dispatch of
-    ``payload`` (the plan's bytes of the scanned governed payload), relay and record; ``body``: the client's body
-    (budget estimate, transcript).
-
-    Also the path of a company model chosen in a seat session (``seat_company``), so that call is governed exactly
-    like one on this route.
-    ``outcome``: the request's one record (``gateway_outcome``); a reported kind's notice is returned as
-    ``x-octryx-obligation``.
-    """
     refused = await budget_refusal(db, identity=identity, session_id=session_id, body=body, admitted=admitted)
     if refused is not None:
         return render_refusal(outcome.stopped(refused, STAGE_BUDGET))
@@ -158,8 +134,6 @@ async def count_tokens_governed(
     db: AsyncSession, *, headers: Mapping[str, str], payload: bytes, admitted: InboundAdmission,
     outcome: GatewayOutcome,
 ) -> Response:
-    """Token counting of ``payload`` (the plan's bytes of the scanned governed payload); the report notice and the
-    record's id travel on every answer."""
     await db.commit()
     client = build_upstream_client(admitted.config)
     try:
@@ -192,7 +166,6 @@ async def count_tokens_governed(
 
 
 def with_notice(response: Response, outcome: GatewayOutcome) -> Response:
-    """``response`` with the request's report notice (``x-octryx-obligation``), if any."""
     notice = outcome.notice()
     if notice:
         response.headers[HEADER_OBLIGATION] = notice

@@ -1,11 +1,5 @@
-"""The governed model call that writes a session's episode summary at the end of a platform turn.
-
-It never gets a provider of its own: the Model Control Plane runtimes are resolved and admitted for
-the one Workspace of the turn under the registered dispatch owner ``knowledge_episode_summary``, and
-at most two of them are tried in priority order, ``memory``-tagged runtimes first. The answer must
-contain a JSON object. The bounded dispatch itself is the Memory capture's (``memory/capture_model``);
-no prompt, answer or provider message is logged.
-"""
+"""The governed model call that writes a session's episode summary at the end of a platform turn. No prompt, answer or
+provider message is logged."""
 
 from __future__ import annotations
 

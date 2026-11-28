@@ -1,8 +1,4 @@
-"""The effective coding engine for a person in a Workspace, and the three audited writes (``engine_keys``).
-
-``effective_engine``: the person's own choice when the Workspace allows it, else the Workspace's default, else the
-platform default, else the first allowed engine. Every write records an ``AuditLog`` row with before and after.
-"""
+"""The effective coding engine for a person in a Workspace, and the audited writes (``engine_keys``)."""
 
 from __future__ import annotations
 
@@ -56,7 +52,6 @@ async def platform_default(db: AsyncSession) -> str:
 
 
 def workspace_section(config: Any) -> dict[str, Any] | None:
-    """The Workspace's stored ``engines`` section, or ``None`` (none stored, or unreadable: the defaults apply)."""
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY) if isinstance(config, dict) else None
     section = stored.get(ENGINES_KEY) if isinstance(stored, dict) else None
     if section is None:
@@ -108,7 +103,6 @@ async def set_platform_default(db: AsyncSession, *, engine: Any, actor_id: str) 
 
 
 async def set_workspace_engines(db: AsyncSession, *, project: Project, value: Any, actor_id: str) -> dict[str, Any]:
-    """Store the validated section through the governed project-config path; raises ``EnginePolicyError``."""
     section = normalize_engine_section(value, f"{AGENT_GATEWAY_POLICY_CONFIG_KEY}.{ENGINES_KEY}")
     config = project.config if isinstance(project.config, dict) else {}
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY)
@@ -130,8 +124,7 @@ async def set_workspace_engines(db: AsyncSession, *, project: Project, value: An
 
 
 async def set_person_choice(db: AsyncSession, *, user_id: str, engine: Any, workspace_id: str | None = None) -> None:
-    """Store (or with ``None`` clear) the person's own choice. With ``workspace_id`` the choice must be allowed
-    there, so the setting the person sees is the one that applies; raises ``EnginePolicyError``."""
+    # With a Workspace the choice must be allowed there, so the setting the person sees is the one that applies.
     row = await db.get(UserAgentEngine, user_id)
     before = row.engine if row is not None else None
     if engine is None:

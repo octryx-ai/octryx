@@ -1,9 +1,4 @@
-"""An in-memory Git fetcher for the skill catalog tests: no network, deterministic commits.
-
-The fixture repositories follow the catalog design's worked examples in shape (paths, licences, the folder move, the
-marketplace entry, the community skill with a script); the texts are abbreviated test fixtures, not upstream
-copies.
-"""
+"""An in-memory Git fetcher for the skill catalog tests: no network, deterministic commits."""
 
 from __future__ import annotations
 

@@ -64,8 +64,6 @@ async def load_sync_base(
 
 @dataclass
 class SyncRun:
-    """Running totals of one sync: scanned repositories, fetch failures, candidates and created links."""
-
     db: AsyncSession
     project_id: str
     mode: str

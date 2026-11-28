@@ -1,11 +1,4 @@
-"""One canonical ``issue_type`` for ``create_jira_ticket``, whatever spelling the model used.
-
-Why: a model asked for an Epic with ``issuetype: "Epic"``
-(Jira's own REST field name). The tool only read ``issue_type``, so the plan card said "Task: Hello Kitchen", its
-"After" showed issue_type Task, and confirming would have created a Task instead of the requested Epic. So the aliases
-Jira and weak models use are read too, the type the person asked for wins over the default, and two different types in
-one call are refused instead of guessed.
-"""
+"""One canonical ``issue_type`` for ``create_jira_ticket``, whatever spelling the model used."""
 
 from __future__ import annotations
 
@@ -21,7 +14,6 @@ def _alias_value(value: Any) -> str:
 
 
 def normalize_issue_type_args(params: dict[str, Any] | None) -> tuple[dict[str, Any], str | None]:
-    """``(params with only issue_type, error)``; ``error`` names conflicting types, the params are then unchanged."""
     params = dict(params or {})
     named = {alias: _alias_value(params.get(alias)) for alias in ISSUE_TYPE_ALIASES if alias in params}
     distinct: dict[str, str] = {}

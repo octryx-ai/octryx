@@ -1,8 +1,4 @@
-"""S1 personal proof action: real JWT principal, blind Inbox, ledger retrieval and graph wake.
-
-All users/tokens/storage/database rows are isolated test fixtures. No real principal credential, provider,
-acceptance database or external account is used. The existing deterministic object/index adapters model the source.
-"""
+"""S1 personal proof action: real JWT principal, blind Inbox, ledger retrieval and graph wake."""
 from __future__ import annotations
 
 import json
@@ -15,12 +11,12 @@ from app.models import FlowDefinition, FlowDefinitionVersion
 from app.models.security.user import UserProject
 from app.services.auth import create_access_token
 from app.services.inbox.service import personal_inbox
-from app.services.knowledge.runtime import set_evidence_runtime
 from app.services.workflow_runs.documentation import audience_receipt as receipts
 from app.services.workflow_runs.documentation import preflight, publish_prove_state, s1_graph
 from app.time_utils import utc_now
 from tests.knowledge_evidence_runtime_support import build_runtime
 from tests.knowledge_evidence_seed_support import fetch_user
+from tests.knowledge_runtime_support import set_evidence_runtime
 from tests.phased_workflow_fixtures import publish_phased
 from tests.s1_receipt_flow_support import SOURCE_KEY, TITLE, bind_publication
 
@@ -45,7 +41,6 @@ def headers(user_id):
 async def ready(db, runtime_fixture, role="audience"):
     runtime, evidence_index = runtime_fixture
     bound = await bind_publication(db, runtime, evidence_index)
-    # This definition tests the actual audience action -> engine continuation, not the larger S1 acceptance goal.
     definition = {"execution_kind": "phased", "nodes": [
         {"id": "start", "type": "start"},
         {"id": "audience_proof", "type": "platform_action", "config": {

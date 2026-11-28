@@ -46,7 +46,7 @@
 }
 
 .ds-panel__heading { display: grid; gap: 0.25rem; min-width: 0; margin-right: auto; }
-.ds-panel__title { margin: 0; font-size: var(--ds-text-lg); font-weight: 600; color: var(--ds-text); overflow-wrap: anywhere; }
+.ds-panel__title { margin: 0; font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); color: var(--ds-text); overflow-wrap: anywhere; }
 .ds-panel__subtitle { margin: 0; color: var(--ds-muted); font-size: var(--ds-font-size-small); }
 .ds-panel__header-actions { display: flex; flex-shrink: 0; align-items: center; gap: 0.5rem; }
 

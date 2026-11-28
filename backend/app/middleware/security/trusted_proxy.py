@@ -1,15 +1,4 @@
-"""ASGI boundary that applies the validated trusted-proxy policy.
-
-Installed as the outermost application middleware so every downstream
-middleware, route, and policy sees one consistent client address and scheme.
-The resolved identity is recorded in the scope state first, which keeps the
-original transport peer and the trust decision available to peer-based policies
-(the local-debug auth-cookie exemption) after ``scope["client"]`` has been set
-to the effective client.
-
-Uvicorn's ``ProxyHeadersMiddleware`` is disabled on every launch path, so this
-is the only place where a forwarded header can influence the request.
-"""
+"""ASGI boundary that applies the validated trusted-proxy policy."""
 
 from __future__ import annotations
 

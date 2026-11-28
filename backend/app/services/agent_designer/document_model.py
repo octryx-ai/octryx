@@ -40,8 +40,6 @@ _ROUND_TRIP_CONFIG_KEYS = (
 
 @dataclass(frozen=True, slots=True)
 class DesignerIssue:
-    """One refusal reason: a stable code and the node ids it concerns."""
-
     code: str
     node_ids: tuple[str, ...] = ()
 
@@ -50,8 +48,6 @@ class DesignerIssue:
 
 
 class DesignerDocumentError(ValueError):
-    """The document cannot become an Agent Definition; ``issues`` says why."""
-
     def __init__(self, issues: list[DesignerIssue]) -> None:
         super().__init__("designer document refused")
         self.issues = issues
@@ -59,8 +55,6 @@ class DesignerDocumentError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class DesignerStep:
-    """A step as the designer defines it; ``step_id`` is the existing step, if any."""
-
     step_id: str
     name: str
     instructions: str

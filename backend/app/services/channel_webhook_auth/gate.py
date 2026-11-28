@@ -1,20 +1,4 @@
-"""The inbound channel webhook gate: deny by default, channel-specific authentication first.
-
-:func:`authenticate_channel_webhook` runs before the body is parsed and before any handler
-work. It picks the scheme by the channel's plugin type, never by what the request says:
-
-* ``msteams``: the Microsoft JWT (``microsoft_channel_token.py``) with the channel's
-  ``app_id`` as audience, then bound to the parsed body (serviceUrl, sender profile, channel
-  endorsement);
-* ``slack``: the request signature (``slack_signature.py``) with the channel's
-  ``signing_secret``;
-* every other channel type has no inbound webhook scheme (they poll) and is refused with
-  ``channel_webhook_auth_not_configured``.
-
-A missing header, or a missing ``app_id`` / ``signing_secret``, is a refusal, never a skip.
-The only way around authentication is the development exception
-(``channel_webhook_dev_policy``), re-checked here on every request and logged every time.
-"""
+"""The inbound channel webhook gate: deny by default, channel-specific authentication first."""
 
 from __future__ import annotations
 
@@ -93,10 +77,7 @@ async def _authenticate(plugin: Any, scheme: str, headers: Mapping[str, str], bo
 async def authenticate_channel_webhook(
     plugin: Any, *, channel_id: str, headers: Mapping[str, str], body: bytes
 ) -> AuthenticatedChannelWebhook:
-    """The authenticated payload; raise :class:`ChannelWebhookRefusedError` for anything else.
-
-    ``headers`` must be case-insensitive (Starlette ``Headers``) or lower-cased.
-    """
+    """The authenticated payload; raise :class:`ChannelWebhookRefusedError` for anything else."""
     plugin_id = str(getattr(plugin, "plugin_id", "") or "")
     if channel_webhook_dev_bypass_active(get_settings()):
         logger.warning(

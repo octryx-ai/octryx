@@ -1,4 +1,3 @@
-// LiteLLM gateway draft validation: host allowlist parsing and fixed validation codes.
 import { approvedCategoriesCodes } from "./litellmGatewayApprovedCategories";
 import {
   GATEWAY_COST_SOURCES,
@@ -14,7 +13,6 @@ import {
   type GatewayDraft,
 } from "./litellmGatewayTypes";
 
-/** Split the operator's allowlist text into bare hosts, in stable order. */
 export function parseHostAllowlist(raw: string): string[] {
   const seen = new Set<string>();
   for (const token of String(raw ?? "").split(/[\s,;]+/)) {
@@ -26,10 +24,7 @@ export function parseHostAllowlist(raw: string): string[] {
   return Array.from(seen).sort();
 }
 
-/**
- * True when the host is a bare host, matching the backend allowlist normalizer.
- * A scheme, port, path or wildcard would turn the allowlist into a matcher.
- */
+// A scheme, port, path or wildcard would turn the allowlist into a matcher.
 export function isBareAllowlistHost(host: string): boolean {
   const normalized = String(host ?? "")
     .trim()
@@ -81,9 +76,7 @@ export function aliasValidationCodes(alias: GatewayAliasDraft): string[] {
     if (input === null || output === null) {
       codes.push("alias_cost_pricing_invalid");
     } else if (input <= 0 || output <= 0) {
-      // Each required rate must be billable on its own, not just their sum: the
-      // backend refuses a zero rate at alias admission, so a draft that passed
-      // here on the sum alone would save a config whose alias never admits.
+      // The backend refuses a zero rate at alias admission, so each rate must be billable on its own.
       codes.push("alias_cost_pricing_not_billable");
     }
   } else if (!alias.cost.contractReference.trim()) {
@@ -93,10 +86,6 @@ export function aliasValidationCodes(alias: GatewayAliasDraft): string[] {
   return codes;
 }
 
-/**
- * Fixed validation codes for the whole draft, keyed for display. An empty map
- * means the draft is submittable; the backend still re-validates everything.
- */
 export function gatewayValidationCodes(draft: GatewayDraft): {
   form: string[];
   aliases: Array<{ index: number; codes: string[] }>;

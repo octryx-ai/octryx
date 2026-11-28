@@ -57,7 +57,7 @@
   margin: 0 0 0.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -66,7 +66,7 @@
   margin: 0;
   color: var(--highlight);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.02em;
 }
 
@@ -130,7 +130,7 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .settings-drawer__field input,
@@ -143,7 +143,7 @@
   color: var(--text);
   font: inherit;
   font-size: var(--ds-text-sm);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   outline: none;
 }
 
@@ -160,7 +160,7 @@
 .settings-drawer__help {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
 }
 
 [data-theme="light"] .settings-drawer {

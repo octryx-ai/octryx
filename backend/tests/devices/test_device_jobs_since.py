@@ -1,8 +1,4 @@
-"""A Mac chat asks only for the events it does not have yet.
-
-``known=job:seq,…`` makes those jobs answer only newer events (``partial``); every other job comes in full; a
-malformed part is ignored (that job comes in full); another person's jobs stay invisible either way.
-"""
+"""A Mac chat asks only for the events it does not have yet."""
 
 from __future__ import annotations
 

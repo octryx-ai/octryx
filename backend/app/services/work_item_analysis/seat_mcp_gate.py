@@ -1,19 +1,4 @@
-"""The platform MCP server's own gate and evidence ledger for a seat analysis session.
-
-The PreToolUse rule (``agent_gateway.analysis_tools``) runs on the client. This module is the server-side
-half, applied by every MCP dispatch of the platform's server (the native protocol through
-``mcp_seat_analysis_guard``, the REST tool endpoint in ``api/routes/mcp_knowledge``):
-
-- **Gate.** When the connection's launcher session key (``X-Octryx-Session``) names a session pinned
-  to a work item analysis (``seat_session.pin_session``), any tool outside ``seat_session.SESSION_TOOLS`` is
-  refused with ``analysis_tool_not_allowed`` before it runs. Nothing executes, nothing is recorded. The
-  session's owner does not matter here: a key that names an analysis session only ever narrows the tools.
-- **Evidence.** After one of the read tools (``seat_session.READ_TOOLS``) ran for the session's own user while
-  the session is active, the server records what it returned as a ``ToolCall`` row of the session with
-  ``parameters.source = "mcp_server"`` (bounded, redacted). ``seat_session.observed_tool_outputs`` reads only
-  these rows, so the citations of a submitted analysis are checked against tool runs the server itself
-  executed, never against ``tool_result`` blocks the client sent to the model gateway.
-"""
+"""The platform MCP server's own gate and evidence ledger for a seat analysis session."""
 
 from __future__ import annotations
 
@@ -42,15 +27,12 @@ ANALYSIS_TOOL_REFUSAL: dict[str, str] = {
 
 @dataclass(frozen=True, slots=True)
 class PinnedAnalysis:
-    """The analysis session a connection's session key names."""
-
     session_id: str
     user_id: str
     active: bool
 
 
 async def pinned_analysis(db: AsyncSession, session_key: str | None) -> PinnedAnalysis | None:
-    """The pinned analysis session of ``session_key``, or ``None`` (no key, unknown key, any other session)."""
     key = session_key.strip()[:_MAX_SESSION_KEY_CHARS] if isinstance(session_key, str) else ""
     if not key:
         return None
@@ -64,7 +46,6 @@ async def pinned_analysis(db: AsyncSession, session_key: str | None) -> PinnedAn
 
 
 def analysis_tool_refusal(pinned: PinnedAnalysis | None, tool_name: str) -> dict[str, str] | None:
-    """The closed refusal of a tool outside the analysis set of a pinned session; ``None`` otherwise."""
     if pinned is None or tool_name in SESSION_TOOLS:
         return None
     return dict(ANALYSIS_TOOL_REFUSAL)
@@ -73,7 +54,6 @@ def analysis_tool_refusal(pinned: PinnedAnalysis | None, tool_name: str) -> dict
 def record_server_evidence(
     db: AsyncSession, pinned: PinnedAnalysis | None, *, user_id: str, tool_name: str, text: str, is_error: bool
 ) -> bool:
-    """Record one read tool run the server executed for the pinned session's own user; ``True`` when recorded."""
     if pinned is None or not pinned.active or pinned.user_id != str(user_id) or tool_name not in READ_TOOLS:
         return False
     db.add(
@@ -90,7 +70,6 @@ def record_server_evidence(
 
 
 def result_is_error(result: Any) -> bool:
-    """A platform tool result is an error when it is not a mapping or carries ``error``."""
     return not isinstance(result, dict) or "error" in result
 
 

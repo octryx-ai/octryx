@@ -1,23 +1,4 @@
-"""The fields of a style profile and their validation. A level stores only what it sets; ``None`` keeps the parent's.
-
-- ``max_lines_per_file`` / ``tests_max_lines`` / ``max_function_lines``: line limits (0 = none);
-- ``max_line_length``: characters per line the change adds (0 = none; a line carrying ``octryx: allow-long-line``,
-  a URL or string that cannot be wrapped, is exempt; excluded files too);
-- ``exclude``: ``[{glob, reason}]`` files no limit applies to (generated code, translations, fixtures, ...);
-- ``test_globs``: which files are tests (they get ``tests_max_lines``);
-- ``comments``: ``public_api_doc``, ``no_commented_code``, ``todo_requires_ticket`` (bool), ``todo_pattern`` (regex
-  a TODO must match, e.g. ``TODO\\(([A-Z]+-\\d+)\\)``);
-- ``layout``: ``{roots, patterns}`` where code may live (per language);
-- ``naming``: ``{file, test_suffix}`` a file name regex and the test files' suffix (per language);
-- ``formatter`` / ``linter``: ``{command, repo_config_command, config_files, enabled}`` per language: the official
-  tool the platform runs itself (``{files}`` = the changed files of the language); ``repo_config_command`` when the
-  repository has its own configuration (one of ``config_files``), else ``command`` with the platform's defaults;
-- ``l10n``: the translations: ``{format, files, source_locale, key_pattern, max_keys_per_file,
-  hardcoded_text, enabled}``; ``format`` arb | i18next | gettext | properties | fluent, ``files`` patterns with
-  ``<lang>`` (and ``<namespace>``), ``hardcoded_text`` warning | error | off;
-- ``rules``: short free text for the agents, never checked;
-- ``languages``: ``{<language>: {the fields above, without languages}}``.
-"""
+"""The fields of a style profile and their validation; a level stores only what it sets, ``None`` keeps the parent's."""
 
 from __future__ import annotations
 
@@ -84,7 +65,6 @@ def _fields(value: dict[str, Any], path: str, *, language: bool) -> dict[str, An
 
 
 def normalize_profile(value: Any, path: str = "code_style") -> dict[str, Any]:
-    """The validated profile of one level (only the fields it sets); raises :class:`CodeStyleError`."""
     if value is None:
         return {}
     if not isinstance(value, dict) or set(value) - {*FIELDS, "languages", "technologies"}:

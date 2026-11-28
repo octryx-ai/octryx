@@ -1,12 +1,4 @@
-"""Key proof: B's composite source with SF-5 v1 compiles back to exactly today's B.
-
-SF-5 (publish & prove) is the bounded publication graph inside B: the 6 contiguous nodes ``reserve_publication`` …
-``outsider_proof`` and their 14 contiguous edges. As fragment v1 they are verbatim; the four exits become ports
-(``proven`` → ``acceptance_open``, ``failed`` → ``action_failed``, ``stopped`` → ``stopped``, the ``rework`` loop →
-``doc_final``) and the namespace is ``""`` so the ids stay. B's source replaces them by one ``publish_prove``
-reference (node index 23) and one edge marker (edge index 56). The compiler is order-preserving, so the compiled
-graph equals B list-for-list and its digest is ``engineering_graph.BASE_DIGEST``.
-"""
+"""B's composite source with SF-5 v1 compiles back to exactly today's B."""
 
 from __future__ import annotations
 
@@ -46,12 +38,10 @@ FRAGMENTS_SEED_PATH = SEEDS_PATH.parent / "phased_fragments.json"
 
 
 def b_definition() -> dict:
-    """B as the seeds compile it."""
     return copy.deepcopy(next(item for item in seed_definitions() if item["key"] == BASE_KEY)["definition"])
 
 
 def sf5_v1() -> dict:
-    """SF-5 v1: B's 6 publication nodes and their 14 edges verbatim, the four exits as ports."""
     b = b_definition()
     edges = []
     for edge in b["edges"]:
@@ -72,7 +62,6 @@ def sf5_checksum() -> str:
 
 
 def b_source(*, ports: dict[str, str] | None = None, version_id: str | None = None) -> dict:
-    """B as a composite source: one ``publish_prove`` reference at node 23, one edge marker at edge 56."""
     b = b_definition()
     config: dict = {"fragment_key": SF5_KEY, "fragment_checksum": sf5_checksum(), "namespace": "",
                     "ports": ports or {port: target for target, port in SF5_PORT_OF.items()}}
@@ -103,8 +92,8 @@ def test_b_composite_source_compiles_back_to_exactly_todays_b():
     assert source["edges"][56] == {FRAGMENT_EDGES_KEY: REF}
     assert fragment_refs(source)[0].index == 23
     composition = compile_composite(source, resolved_sf5())
-    assert composition.definition == b_definition()  # deep equality, list for list
-    assert json.dumps(composition.definition) == json.dumps(b_definition())  # even the key order
+    assert composition.definition == b_definition()
+    assert json.dumps(composition.definition) == json.dumps(b_definition())
     assert definition_digest(composition.definition) == BASE_DIGEST == composition.compiled_digest
     assert validate_phased_definition(composition.definition)["valid"]
 
@@ -134,7 +123,7 @@ def test_sf5_v1_is_a_valid_fragment_and_the_composed_b_report_is_valid():
     assert composed["composition"]["compiled_digest"] == BASE_DIGEST
     [fragment] = composed["composition"]["fragments"]
     assert (fragment["deploy"], fragment["approval"], fragment["phase_classes"]) == (False, False, [])
-    assert fragment["action_classes"]  # the publication actions' capability classes are listed
+    assert fragment["action_classes"]
 
 
 def test_the_seed_path_resolves_by_key_and_checksum_without_a_database():
@@ -153,10 +142,9 @@ def test_the_seed_path_resolves_by_key_and_checksum_without_a_database():
 
 
 def test_golden_seed_file_compiles_b_from_its_source():
-    """B's seed holds only ``definition_source``; it compiles to BASE_DIGEST with the shipped SF-5."""
     from tests.specification_engineering_graph_support import BASE_SEED_PATH
 
-    entry = json.loads(BASE_SEED_PATH.read_text(encoding="utf-8"))  # B, kept only as the engineering graph's base
+    entry = json.loads(BASE_SEED_PATH.read_text(encoding="utf-8"))
     assert entry["key"] == BASE_KEY and "definition" not in entry
     fragments = json.loads(Path(FRAGMENTS_SEED_PATH).read_text(encoding="utf-8"))
     assert next(item for item in fragments if item["key"] == SF5_KEY)["definition"] == sf5_v1()

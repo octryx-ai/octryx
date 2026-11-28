@@ -13,7 +13,7 @@ type Tab = "overview" | "detectors" | "models";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" }, { id: "detectors", label: "Detectors" }, { id: "models", label: "Approved models" },
 ];
-const LEGEND: [string, string][] = [["refuse", "Refuse"], ["mask", "Mask / reroute"], ["report", "Report only"], ["none", "Not scanned"]];
+const LEGEND: [string, string][] = [["refuse", "Refuse"], ["mask", "Mask / reroute"], ["report", "Allow (recorded)"], ["none", "Not scanned"]];
 
 // Settings → Security → "Content security": what is detected, what is decided, what happens —
 // the coverage per surface and category, the one detector library (edited here, stored in the policy set) and the

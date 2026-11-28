@@ -1,15 +1,4 @@
-"""Work item analyses: one governed analysis run of one Work Item version.
-
-A row is written before the model run starts (``running``) and settled once (``succeeded``, ``failed``,
-``needs_configuration`` or ``denied``). ``active_key`` (``<work item>:<item version>:<template>``) is set
-while a run is ``running`` or ``succeeded`` and cleared on any other outcome; its unique constraint makes
-"one analysis per item version" hold under a race too, while a failed run can be retried. The structured
-analysis (``analysis_json``) is data written by an agent; the rendered note lives on the Work Item.
-
-``runner`` says where the analysis ran: ``governed`` (the server's model run) or ``seat`` (the user's own seat
-session, submitted through ``work_item_analysis_submit``; platform cost 0). ``model`` is the model that wrote
-it, when known. ``error_detail`` is a short, sanitized cause of a failure (never a body or a secret).
-"""
+"""Work item analyses: one governed analysis run of one Work Item version."""
 
 from __future__ import annotations
 
@@ -18,10 +7,11 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class WorkItemAnalysis(Base):
+class WorkItemAnalysis(WorkspaceBound, Base):
     __tablename__ = "work_item_analysis"
     __table_args__ = (
         UniqueConstraint("active_key", name="uq_work_item_analysis_active_key"),

@@ -9,12 +9,9 @@ from sqlalchemy import select
 
 from app.models import Task, TaskQueueEntry
 from app.scheduler import TaskScheduler
-from tests.test_action_runtime_admission import _admin, _agent, _single_session
+from tests.scheduler.test_action_runtime_admission import _admin, _agent, _single_session
 
 BOUND = "agent_definition"
-
-
-# --- dispatch ---------------------------------------------------------------------------------------------
 
 
 async def _dispatch(scheduler) -> int:
@@ -38,13 +35,19 @@ def _scheduler(db, monkeypatch, *, slots=2):
     return scheduler, started
 
 
-async def _task(db, project, *, binding):
+async def _task(db, project, *, binding, worker_step: bool = False):
+    from app.models.project.task import TaskStep
+
     admin = await _admin(db)
     agent = await _agent(db, admin.id, project.id)
     task = Task(id=str(uuid.uuid4()), project_id=project.id, name="Nightly summary", task_type="agent_run",
                 agent_type="diagnosis", owner_id=admin.id, is_active=True,
                 config={"agent_definition_id": agent.id}, dispatch_binding=binding)
     db.add(task)
+    if worker_step:  # a step only a worker runs: the Action waits for one
+        await db.flush()
+        db.add(TaskStep(id=str(uuid.uuid4()), task_id=task.id, position=1, name="Fix", step_type="agent",
+                        is_enabled=True))
     await db.commit()
     return task
 
@@ -56,7 +59,6 @@ async def _entry(db, run_id) -> TaskQueueEntry:
 
 
 async def bound_action_fields(db, project_id: str) -> dict:
-    """The fields a panel create needs to bind a new Action to a fresh, runnable agent of the admin."""
     admin = await _admin(db)
     agent = await _agent(db, admin.id, project_id)
     await db.commit()

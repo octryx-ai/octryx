@@ -1,11 +1,4 @@
-"""Instructions: guidance the agent reads, bound explicitly.
-
-An instruction has a **scope** (``global``, ``workspace``, ``agent``) and a **binding**: always in its
-scope, or only when the workflow ``workflow_key`` is selected. There is no scoring and no keyword path:
-a turn gets exactly the published instructions whose scope and binding match it
-(``services/instructions/resolve.py``). Versions are append-only; publishing needs a four-eyes review and
-an accepted conflict check (``services/instructions/lifecycle.py``).
-"""
+"""Instructions: guidance the agent reads, bound explicitly by scope and workflow."""
 
 from __future__ import annotations
 
@@ -26,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 INSTRUCTION_SCOPE_GLOBAL = "global"
@@ -52,7 +46,9 @@ def _in(column: str, values: tuple[str, ...]) -> str:
     return f"{column} IN ({', '.join(repr(value) for value in values)})"
 
 
-class Instruction(Base):
+class Instruction(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_scope__ = ("scope_type", (INSTRUCTION_SCOPE_WORKSPACE,), "scope_id")
     __tablename__ = "instructions"
     __table_args__ = (
         UniqueConstraint("key", "scope_type", "scope_id", name="uq_instructions_key_scope"),

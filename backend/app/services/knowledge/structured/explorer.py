@@ -1,20 +1,4 @@
-"""The structured layers in the Workspace graph explorer: a bounded, cited window.
-
-Three ways in, all bounded (:data:`MAX_CANDIDATES` edges read, ``max_nodes`` shown):
-
-- **Overview** (no query, no focus): each requested layer's spine — manual documents and their
-  chapters plus compatibility edges, configuration files to components plus inconsistencies,
-  deployments/namespaces/clusters plus incident causes and assignment groups — with the layers
-  taking turns, so a small view still shows each of them — and, taking turns with them, the
-  best-connected nodes of every node type (``overview.domain_seeds``), so rules, merchants, teams,
-  models … show up and not only ``runs_in``/``configures``.
-- **Query**: nodes whose label contains the query (case-insensitive), with their edges.
-- **Focus**: one node's edges.
-
-Every edge is served only when every revision it cites is visible to the reader, with its
-citations resolved (page, section, file line); a node only when the reader can see a statement of
-it. Node descriptions use typed properties only; a redacted value stays ``[redacted]``.
-"""
+"""The structured layers in the Workspace graph explorer: a bounded, cited window."""
 
 from __future__ import annotations
 
@@ -105,7 +89,6 @@ async def structured_explorer(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, query: str, focus_node_id: str, max_nodes: int,
     layers: tuple[str, ...] = LAYERS,
 ) -> dict[str, Any]:
-    """``{state, nodes, edges, truncated}`` of the structured layers for this reader."""
     layers = tuple(layer for layer in layers if layer in LAYERS)
     if not layers:
         return {"state": "not_requested", "nodes": [], "edges": [], "truncated": False}

@@ -22,9 +22,6 @@ def _instructions_seed() -> str:
 
 async def serve_connection_instructions(db: AsyncSession, bound_project_ids: Any, *, user_id: str | None = None
                                         ) -> None:
-    """Bind this request's server instructions: the grant's single bound Workspace, else global.
-
-    A person without a work role in that Workspace (role-based tools on) reads why they have no tools first."""
     bound = [str(item) for item in (bound_project_ids or []) if item]
     workspace_id = bound[0] if len(bound) == 1 else None
     prompt_set = await resolve_prompt_set(db, workspace_id=workspace_id)

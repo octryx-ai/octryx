@@ -31,7 +31,6 @@ def _git(cwd: Path, *args: str) -> str:
 
 
 def _origin(tmp_path: Path, *, branch: bool = True) -> tuple[Path, Path, str]:
-    """A bare origin: ``main`` at the run's base (with the slugify tests), the run's branch created empty at it."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     origin, seed = tmp_path / "origin.git", tmp_path / "seed"
     _git(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
@@ -46,11 +45,10 @@ def _origin(tmp_path: Path, *, branch: bool = True) -> tuple[Path, Path, str]:
     return origin, seed, _git(seed, "rev-parse", "HEAD")
 
 
-REMOTE = "https://bitbucket.org/demo-team/test.git"  # the run's repository as the connector's clone names it
+REMOTE = "https://bitbucket.org/demo-team/test.git"
 
 
 def _provider_tool(monkeypatch, origin: Path, *, fail: str = "", during=None, remote: str = REMOTE) -> list[dict]:
-    """The provider's prepare tool, as it behaves: clone under the context's workspace, branch from the base."""
     calls: list[dict] = []
 
     async def execute(params, context):
@@ -62,16 +60,16 @@ def _provider_tool(monkeypatch, origin: Path, *, fail: str = "", during=None, re
         path = Path(context.workspace_root) / "var/repos/bitbucket" / params["project_key"] / params["repo_slug"]
         path.parent.mkdir(parents=True, exist_ok=True)
         _git(path.parent, "clone", "-q", "--branch", "main", str(origin), str(path))
-        _git(path, "checkout", "-q", "-B", params["branch_name"])  # the real tool branches from the base
+        _git(path, "checkout", "-q", "-B", params["branch_name"])
         _git(path, "remote", "set-url", "origin", remote)  # the connector's clone URL (no credential in it)
         return {"local_path": str(path), "base_branch": "main", "branch_name": params["branch_name"],
                 "remote_url": f"https://x-token-auth:{SECRET}@bitbucket.org/demo-team/test.git"}
 
-    async def project_config(project_id, db):  # the run's Workspace: Bitbucket active, the prepare tool allowed
+    async def project_config(project_id, db):
         return {"connectors": {"bitbucket": {"enabled": True}},
                 "tool_policy": {"allowlist": ["prepare_bitbucket_repository"]}}
 
-    async def hosts(db, run, provider, repo_args):  # the host of the run's named Bitbucket connection
+    async def hosts(db, run, provider, repo_args):
         return {"bitbucket.org"}
 
     monkeypatch.setattr(TOOL_REGISTRY["prepare_bitbucket_repository"], "execute", execute)
@@ -122,7 +120,6 @@ async def _resolution(db, run) -> dict:
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)
@@ -130,10 +127,6 @@ def _server_pipeline(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _git_stays_offline(monkeypatch):
-    """The runs name their repository by its real remote (``REMOTE``); the WIP fetch toward it is best effort and its
-    failure is what these tests go through. Git refuses every transport but ``file`` here, so that failure is
-    immediate: no network, no credential prompt from an inherited askpass (otherwise each such test can wait for
-    the 120 s git timeout while an editor's askpass asks for a password)."""
     monkeypatch.setenv("GIT_ALLOW_PROTOCOL", "file")
     for name in ("GIT_ASKPASS", "SSH_ASKPASS", "VSCODE_GIT_ASKPASS_MAIN", "VSCODE_GIT_IPC_HANDLE"):
         monkeypatch.delenv(name, raising=False)

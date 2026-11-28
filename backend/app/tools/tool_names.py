@@ -1,10 +1,4 @@
-"""Single source of truth for all tool name constants.
-
-Pattern from claude-code/src/constants/tools.ts:
-- Each name is a typed constant (StrEnum) — never compare raw strings.
-- Tool sets (READONLY_TOOLS, etc.) are built from these constants.
-- findToolByName() and dispatch logic use ToolName, never literals.
-"""
+"""Single source of truth for all tool name constants."""
 
 from __future__ import annotations
 
@@ -31,8 +25,6 @@ class ToolName(StrEnum):
     BOOTSTRAP_WORKSPACE_REPOSITORY = "bootstrap_workspace_repository"
     PREPARE_BITBUCKET_REPOSITORY = "prepare_bitbucket_repository"
     COMMIT_AND_PUSH_REPOSITORY_BRANCH = "commit_and_push_repository_branch"
-    SPAWN_SUB_AGENT = "spawn_sub_agent"
-    GET_CONTEXT_FROM_SUBTHREADS = "get_context_from_subthreads"
 
     # ── Code intelligence ────────────────────────────────────────────────────
     ANALYZE_WORKSPACE_REPOSITORY = "analyze_workspace_repository"
@@ -181,7 +173,6 @@ READONLY_TOOL_NAMES: frozenset[ToolName] = frozenset(
         ToolName.SEARCH_JIRA_USERS,
         ToolName.LIST_JIRA_PROJECTS,
         ToolName.LIST_JIRA_VERSIONS,
-        ToolName.GET_CONTEXT_FROM_SUBTHREADS,
     }
 )
 
@@ -243,8 +234,6 @@ CODING_CORE_TOOL_NAMES: tuple[ToolName, ...] = (
     ToolName.GET_VULNERABILITY_FIX_KNOWLEDGE,
     ToolName.GET_PIPELINE_FAILURE_PATTERNS,
     ToolName.GET_REVIEWER_EXPERTISE,
-    ToolName.SPAWN_SUB_AGENT,
-    ToolName.GET_CONTEXT_FROM_SUBTHREADS,
 )
 
 # Minimal tool set for general (non-coding) agent tasks.

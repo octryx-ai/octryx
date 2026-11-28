@@ -1,19 +1,4 @@
-"""Validation of hand-written (custom) Cedar policies.
-
-A custom policy set is accepted only when:
-
-- it parses and validates against the schema (every error is reported with its policy's ``@id``);
-- every policy is a static ``forbid``: custom policies narrow the baseline and never widen it, so the baseline
-  keeps the platform's guarantees and an enforced Cedar decision can only be stricter than the legacy one
-  ("Cedar ``forbid`` always wins");
-- content obligations (``@obligation``, ``@mask``, ``@mask_style``, ``@reroute_to``) follow
-  ``obligation_checks.obligation_issues``;
-- every policy carries a unique ``@id`` that matches :data:`ID_PATTERN` and does not use a generated namespace
-  (``platform:``, ``classification:``, ``workspace:``).
-
-The digest covers the schema version and the text, so the same text checked against another schema is another
-version; :func:`set_digest` adds the version's custom content detectors when it has any.
-"""
+"""Validation of hand-written (custom) Cedar policies."""
 
 from __future__ import annotations
 
@@ -62,7 +47,6 @@ def custom_digest(text: str) -> str:
 
 
 def set_digest(text: str, detectors: DetectorDefinitions | None = None) -> str:
-    """The version digest: the text's, plus the custom detectors' digest when the version has any."""
     if detectors is None or detectors.empty:
         return custom_digest(text)
     return text_digest(f"{SCHEMA_VERSION}\n{text}\n#content-detectors {detectors.digest()}")
@@ -74,7 +58,6 @@ def _positional(item: tuple[str, Any]) -> int:
 
 
 def check_custom_policies(text: Any) -> CustomPolicySet:
-    """The accepted set, or :class:`CustomPolicyError` with the issues."""
     source = text if isinstance(text, str) else ""
     if len(source) > MAX_POLICY_TEXT_CHARS:
         raise CustomPolicyError(ERROR_TOO_LARGE)

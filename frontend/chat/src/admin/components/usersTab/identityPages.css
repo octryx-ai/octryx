@@ -25,7 +25,7 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__form-field input,
@@ -38,7 +38,7 @@
   color: var(--text);
   font: inherit;
   font-size: var(--ds-text-sm);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   outline: none;
 }
 
@@ -55,7 +55,7 @@
 .admin-users__form-help {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   line-height: 1.4;
 }
 

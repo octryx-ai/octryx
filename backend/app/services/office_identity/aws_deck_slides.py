@@ -1,12 +1,4 @@
-"""The evidence-to-slide rules of the AWS deck planner.
-
-One function per section of the deck (key figures, diagram slides, themed
-resource slides, knowledge context; the title is in ``aws_deck_title``, the
-collection coverage in ``aws_deck_coverage``). Each returns a
-``SlideDraft``: a slide before a layout is chosen for it, with every bullet
-already paired to the snapshot field it came from and every gap already turned
-into an explicit marker. Ordering and layout choice live in ``aws_deck_plan``.
-"""
+"""The evidence-to-slide rules of the AWS deck planner."""
 
 from __future__ import annotations
 
@@ -40,7 +32,6 @@ DIAGRAM_SHAPES = ("diagram_full", "content_with_picture")
 def _add_scope_bullets(
     draft: SlideDraft, aws_snapshot: dict[str, Any], summary: dict[str, Any], scope: dict[str, Any]
 ) -> None:
-    """Regions, services with resources and the number of resource types."""
     regions = string_list(scope.get("regions")) or [text(aws_snapshot.get("region"))]
     regions = [region for region in regions if region]
     if regions:
@@ -141,14 +132,6 @@ def diagram_drafts(diagram_images: list[Any]) -> list[SlideDraft]:
 
 
 def theme_drafts(summary: dict[str, Any]) -> list[SlideDraft]:
-    """One slide per theme, written as statements rather than as a field dump.
-
-    ``subnet: 9`` names a snapshot key and a number and leaves the reader to do
-    the interpreting. ``9 subnets`` says the same thing in the reader's
-    words, and the slide title states how many resource kinds the theme
-    holds. Both use only what the snapshot states or the size of what it lists
-    (``aws_deck_labels.permitted_numbers``); no share, no sum, no adjective.
-    """
     node_counts = counts(summary.get("node_counts_by_type"))
     drafts: list[SlideDraft] = []
     for theme, entries in theme_buckets(node_counts):

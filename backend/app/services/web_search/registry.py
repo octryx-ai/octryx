@@ -1,19 +1,4 @@
-"""The trusted-source registry: which sources web search and research may use (search control plane).
-
-Admins own it. They add sources, trust or block what an agent proposed, and remove entries. An agent
-may only *propose*: a research run that finds an official entry point outside the registry records it
-as ``proposed`` with the page it verified, and nothing from it is ingested until an admin trusts it.
-
-Precedence is closed and fail-safe. For one URL:
-
-1. the platform blocklist (``blocklist.py``) blocks it;
-2. a matching ``blocked`` entry, platform or Workspace, blocks it;
-3. a matching ``trusted`` entry whose products are empty or include the product trusts it;
-4. a matching ``proposed`` entry marks it as awaiting a decision;
-5. otherwise it is unknown.
-
-A Workspace sees the platform's entries and its own; a block always wins over a trust.
-"""
+"""The trusted-source registry: which sources web search and research may use (search control plane)."""
 
 from __future__ import annotations
 
@@ -63,7 +48,6 @@ class SourcePolicy:
     entries: tuple[SourceEntry, ...]
 
     def state_of(self, url: str, product: str | None = None) -> str | None:
-        """``blocked``, ``trusted``, ``proposed`` or ``None`` for ``url`` (see the module docstring)."""
         if platform_blocklist().category_of(url):
             return URL_BLOCKED
         matching = [entry for entry in self.entries if pattern_matches(entry.pattern, url)]
@@ -81,7 +65,6 @@ class SourcePolicy:
         )
 
     def trusted_hosts(self, product: str | None = None) -> list[str]:
-        """The hosts to restrict a search provider to; path prefixes are enforced afterwards."""
         return sorted({pattern_host(pattern) for pattern in self.trusted_patterns(product)})
 
     def blocked_hosts(self) -> list[str]:
@@ -147,7 +130,6 @@ async def put_source(
     reason: object = "",
     user_id: str | None,
 ) -> WebTrustedSource:
-    """An admin's entry: creates it, or re-decides an existing one in the same scope."""
     if state not in SOURCE_STATES:
         raise InvalidSourcePatternError("invalid_state")
     canonical = normalize_pattern(pattern)
@@ -179,11 +161,6 @@ async def decide_source(db: AsyncSession, row: WebTrustedSource, *, state: str, 
 async def propose_sources(
     db: AsyncSession, *, project_id: str, proposals: list[tuple[str, str, str, str | None]]
 ) -> list[str]:
-    """Agent proposals ``(pattern, evidence_url, reason, product)``; returns the patterns recorded.
-
-    A proposal is recorded only when the registry does not decide the evidence URL yet, so an agent
-    can never re-open a source an admin trusted or blocked.
-    """
     policy = await load_policy(db, project_id=project_id)
     recorded: list[str] = []
     for raw_pattern, evidence_url, reason, product in proposals:

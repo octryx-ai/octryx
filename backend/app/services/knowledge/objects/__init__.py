@@ -1,23 +1,5 @@
-"""Immutable S3-compatible object boundary for Workspace Knowledge sources.
-
-Sole owner of the explicit object-store configuration, the content-addressed
-Workspace-partitioned key derivation, and the write-if-absent / verify-on-read
-operations. Internal only: nothing here is an agent tool, an MCP capability, or
-an API surface, and no credential, endpoint, bucket, key, or S3 error body
-crosses this package boundary.
-
-Two capabilities with two different owners and two different privilege sets:
-
-- :class:`KnowledgeObjectStore` — the immutable ingestion/retrieval path
-  (``PutObject`` + ``GetObject``), wired into ``EvidenceRuntime``;
-- :class:`KnowledgeObjectMaintenance` — the operator-owned reconciliation and retention
-  capability (``ListObjectsV2`` bounded to one Workspace prefix +
-  ``DeleteObject`` of one derived key), constructed only by
-  ``services/knowledge_retention`` and never by the runtime.
-
-There is no filesystem code path: an absent or invalid configuration is a typed
-state, never a host directory.
-"""
+"""Immutable S3-compatible object boundary for Workspace Knowledge sources. Internal only: no credential, endpoint,
+bucket, key or S3 error body leaves this package."""
 
 from .config import (
     ENV_BUCKET,
@@ -42,18 +24,14 @@ from .errors import (
     KnowledgeObjectUnauthorizedError,
     KnowledgeObjectUnavailableError,
 )
+from .inventory import MAX_INVENTORY_PAGE_KEYS, InventoryObject, InventoryPage
 from .keys import (
     content_digest_from_key,
     is_key_inside_workspace,
     workspace_object_key,
     workspace_object_prefix,
 )
-from .maintenance import (
-    MAX_INVENTORY_PAGE_KEYS,
-    InventoryObject,
-    InventoryPage,
-    KnowledgeObjectMaintenance,
-)
+from .maintenance import KnowledgeObjectMaintenance
 from .store import MAX_OBJECT_BYTES, KnowledgeObjectStore, StoredObject, content_digest
 
 __all__ = [

@@ -1,10 +1,5 @@
-"""AWS Bedrock embeddings (Titan Text v2, Cohere Embed Multilingual v3).
-
-The caller admits the Workspace first (``selection.admit_space``); this adapter only talks to the
-provider. Credentials come from the ambient AWS chain and never pass through here. Every failure is
-reduced to a fixed state and reason: provider messages, request bodies and identities are dropped.
-Usage is logged as counts only (texts, provider-reported input tokens), never content.
-"""
+"""AWS Bedrock embeddings (Titan Text v2, Cohere Embed Multilingual v3). The caller admits the Workspace first; failures
+keep no provider text, usage logs counts only."""
 
 from __future__ import annotations
 
@@ -33,7 +28,7 @@ _NOT_CONFIGURED_CODES = frozenset({"ResourceNotFoundException"})
 
 
 def provider_failure(error: Exception) -> EmbeddingError:
-    """Map a provider exception to a closed state; the exception text is never read."""
+    # The exception text is never read.
     code = ""
     response = getattr(error, "response", None)
     if isinstance(response, dict):
@@ -53,10 +48,6 @@ def provider_failure(error: Exception) -> EmbeddingError:
 
 
 def bedrock_runtime_hold(region: str | None) -> str | None:
-    """Why no ``bedrock-runtime`` client can be built here (``runtime_missing``, ``region_missing``), or ``None``.
-
-    The one availability check for building the client and for reporting it (Knowledge settings).
-    """
     if importlib.util.find_spec("boto3") is None or importlib.util.find_spec("botocore") is None:
         return "runtime_missing"
     if not region:
@@ -65,7 +56,6 @@ def bedrock_runtime_hold(region: str | None) -> str | None:
 
 
 def build_bedrock_client(region: str | None) -> Any:
-    """A ``bedrock-runtime`` client with bounded timeouts and standard retries."""
     hold = bedrock_runtime_hold(region)
     if hold is not None:
         raise EmbeddingError(EmbeddingState.NEEDS_CONFIGURATION, hold)
@@ -85,8 +75,6 @@ def build_bedrock_client(region: str | None) -> Any:
 
 
 class BedrockEmbedder:
-    """``Embedder`` for a Bedrock space. ``client`` is a ``bedrock-runtime`` client."""
-
     def __init__(self, space: EmbeddingSpace, *, client: Any) -> None:
         if space.provider is not EmbeddingProvider.BEDROCK:
             raise EmbeddingError(EmbeddingState.CONTRACT_VIOLATION, "provider")

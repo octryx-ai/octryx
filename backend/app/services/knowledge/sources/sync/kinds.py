@@ -1,18 +1,5 @@
-"""The registry of Source Sync connector kinds: one entry per kind instead of if/else chains.
-
-Why: separate closed lists (the build chain, the pinnable kinds, the scope check) drift apart, and a build chain
-ending in ``return JiraConnector(...)`` for *any* other kind silently reads a kind unknown to it as Jira. A kind is
-either registered here or refused
-(``connector_kind_unknown``), at save and at run.
-
-An entry says how to build the connector from its resolved connection and stored row (``build``), whether a named
-connection may pin it (``pinnable``), and, for a kind configured through the generic ``scope``/``mapping`` objects of
-the admin API (``custom_rest``), how to validate that configuration, resolve its own connection, check the scope
-against it and describe it for the admin answer. The built-in kinds keep their dedicated validation in ``config.py``.
-
-The ``custom_rest`` hooks import their modules when called: they reach into the REST executor and the Work intake's
-listing, which ``config.py`` and ``connections.py`` (both importing this registry) must not load at import time.
-"""
+"""The registry of Source Sync connector kinds: one entry per kind instead of if/else chains. An unregistered kind is
+refused, never read as another kind."""
 
 from __future__ import annotations
 
@@ -40,8 +27,6 @@ from .servicenow_scripted_source import ServiceNowScriptedConnector
 
 @dataclass(frozen=True)
 class BuildRequest:
-    """What a builder may use: the run's resolved connection and row, plus the session and actor of the run."""
-
     connection: Any
     row: Any
     transport: Any = None
@@ -146,7 +131,7 @@ KINDS: dict[str, ConnectorKind] = {
 
 
 def connector_kind(kind: object) -> ConnectorKind:
-    """The registered kind, or ``connector_kind_unknown`` (never another kind's connector)."""
+    # Never another kind's connector.
     entry = KINDS.get(kind) if isinstance(kind, str) else None
     if entry is None:
         raise ConnectorError(REASON_CONNECTOR_KIND_UNKNOWN)

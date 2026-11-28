@@ -13,8 +13,6 @@ from ._jira_helpers_api import _jira_fetch_project_versions
 
 @dataclass(frozen=True)
 class VersionRequest:
-    """The version as asked; ``start_date`` is the raw parameter (only a truthy one is sent)."""
-
     project_key: str
     name: str
     description: str
@@ -34,7 +32,6 @@ def _create_payload(request: VersionRequest) -> dict[str, Any]:
 
 
 def _update_payload(request: VersionRequest, existing: dict[str, Any]) -> dict[str, Any]:
-    """Only the asked values that differ from the existing version."""
     update_payload: dict[str, Any] = {}
     if request.description and str(existing.get("description") or "").strip() != request.description:
         update_payload["description"] = request.description

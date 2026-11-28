@@ -1,16 +1,5 @@
 """The story session of epic-delivery run exactly as plain Claude Code: ``claude -p``.
-
-The turn runs as ``claude -p`` does (its command line and environment: ``plain_session``), not as an Agent SDK
-session: streaming input with partial messages, background tasks off and extra MCP tools in the context made the
-same story several times slower and more expensive.
-
-- the platform's part is the session's settings file: its hooks decide every tool call on the device (the hard-deny
-  list, ``local_decisions``), its deny rules hold in bypass mode too;
-- the turn reports its session and its final answer; the live view reads the session's transcript.
-
-Approvals cannot be asked in ``-p`` mode: this driver runs only bypass turns of a plain story session, whose hooks
-decide alone.
-"""
+An Agent SDK session made the same story several times slower and more expensive."""
 
 from __future__ import annotations
 
@@ -20,6 +9,7 @@ import json
 import logging
 import os
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -45,18 +35,13 @@ MAX_STOP_CONTINUATIONS = 5  # as the Codex turn (``codex_driver``); the platform
 
 
 class PlainCliDriver:
-    """Runs one turn as ``claude -p``; ``interrupt``/``disconnect`` end the process."""
-
     def __init__(self) -> None:
         self._process: asyncio.subprocess.Process | None = None
         self._only_waiting: Path | None = None  # the transcript, when the launcher ended a process idle on a wakeup
 
     async def run_turn(self, prepared: Any, *, cwd: str, prompt: str, resume: str | None, fork: bool = False,
                        decide: Any = None, emit: Any) -> dict[str, Any]:
-        """One turn: ``claude -p`` until it ends, then the platform's judgement of its last Stop (``replay_stop``).
-        When the platform says "block", the same session goes on with the platform's reason, as an interactive
-        session does at its Stop and as the Codex turn does (``codex_driver``): the agent sees what the platform
-        found instead of ending the turn on its own "all green"."""
+        # On 'block' the same session goes on with the platform's reason instead of ending on its own 'all green'.
         result: dict[str, Any] = {}
         try:
             for _round in range(MAX_STOP_CONTINUATIONS + 1):
@@ -123,15 +108,12 @@ class PlainCliDriver:
 
     @staticmethod
     async def _heartbeat(emit: Any, session: str) -> None:
-        """The json output says nothing until the turn ends; the platform ends a turn that is silent for 10 minutes
-        (``job_recovery``) even while the session works. The session event, repeated, keeps the turn alive and names
-        the session it runs in."""
+        # The json output is silent until the turn ends, and the platform ends a turn silent for 10 minutes.
         while True:
             await emit({"kind": "session", "claude_session_id": session})
             await asyncio.sleep(HEARTBEAT_SECONDS)
 
     async def _end_when_only_waiting(self, prepared: Any, started: float) -> None:
-        """End the process once its session has stopped and only a pending wakeup keeps it alive (``turn_idle``)."""
         stop_file = deferred_stop_path(prepared)
         if stop_file is None:
             return
@@ -147,7 +129,6 @@ class PlainCliDriver:
 
     async def _finished_while_waiting(self, result: dict[str, Any], started: float, session: str,
                                       emit: Any) -> None:
-        """The turn's work was done at its Stop: a success, with the session's last answer as its result."""
         if not result.get("result_text") and self._only_waiting is not None:
             text = await asyncio.to_thread(turn_idle.last_text, self._only_waiting, started)
             if text:
@@ -181,52 +162,84 @@ class PlainCliDriver:
 
 
 def deferred_stop_path(prepared: Any) -> Path | None:
-    """Where the session's hook remembers its last Stop (``hooks._defer_stop``)."""
     from .hooks import DEFERRED_STOP_FILE  # noqa: PLC0415
 
     home = prepared.env.get("OCTRYX_CLAUDE_HOME") or ""
     return Path(home) / "sessions" / prepared.session_key / DEFERRED_STOP_FILE if home else None
 
 
-def replay_stop(prepared: Any, cwd: str) -> dict[str, Any] | None:
-    """The session's last deferred Stop (``hooks._defer_stop``), judged once the process ended: the launcher's own Stop
-    hook with that input, so the platform's verification, screenshots and run contract work as in any turn. Returns
-    the hook's answer (``{"decision": "block", "reason": ...}`` when the platform wants the agent to go on).
+def deferred_stop_input(prepared: Any) -> dict[str, Any] | None:
+    path = deferred_stop_path(prepared)
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path is not None else None
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
 
-    A replay the platform did not judge (no answer, a timeout, "verification gate unreachable" for a 401, 5xx or a
-    timeout, or a failed hook) runs once more after :data:`REPLAY_RETRY_SECONDS` with a fresh token, so an unjudged
-    replay does not pause the phase ``phase_not_finished``."""
+
+def discard_deferred_stop(prepared: Any) -> None:
+    path = deferred_stop_path(prepared)
+    if path is not None:
+        with contextlib.suppress(OSError):
+            path.unlink()
+
+
+def replay_stop(prepared: Any, cwd: str) -> dict[str, Any] | None:
+    return judged_stop(prepared, cwd)[0]
+
+
+def stop_verdict(prepared: Any) -> dict[str, Any]:
+    from .hooks import STOP_VERDICT_FILE  # noqa: PLC0415
+
+    path = deferred_stop_path(prepared)
+    try:
+        data = json.loads((path.parent / STOP_VERDICT_FILE).read_text(encoding="utf-8")) if path else None
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def discard_stop_verdict(prepared: Any) -> None:
+    from .hooks import STOP_VERDICT_FILE  # noqa: PLC0415
+
+    path = deferred_stop_path(prepared)
+    if path is not None:
+        with contextlib.suppress(OSError):
+            (path.parent / STOP_VERDICT_FILE).unlink()
+
+
+def judged_stop(prepared: Any, cwd: str, shim: str = "",
+                prefix: Sequence[str] = ()) -> tuple[dict[str, Any] | None, bool]:
     from .hooks import DEFER_STOP_ENV  # noqa: PLC0415
     from .tokens import FORCE_REFRESH_ENV  # noqa: PLC0415
 
     stop_file = deferred_stop_path(prepared)
     path = str(stop_file) if stop_file is not None else ""
     if not path or not os.path.isfile(path):
-        return None
-    shim = str(prepared.extra.get("hook_shim") or prepared.env.get("OCTRYX_TEST_RUN_SHIM") or "")
+        return None, False
+    shim = shim or str(prepared.extra.get("hook_shim") or prepared.env.get("OCTRYX_TEST_RUN_SHIM") or "")
     if not shim:
-        return None
-    env = {key: value for key, value in prepared.env.items() if key != DEFER_STOP_ENV}
+        return None, False
+    env = {**{key: value for key, value in prepared.env.items() if key != DEFER_STOP_ENV}, DEFER_STOP_ENV: "0"}
     # Claude Code gives its own hooks the project folder; this replay runs outside it. Without it the hook would take
     # the agent's last cwd (possibly a subfolder) as the repository root, the repository-relative changed files would
     # not resolve under it and no formatter would run at the Stop.
     env.setdefault("CLAUDE_PROJECT_DIR", cwd)
     with open(path, "rb") as handle:
         data = handle.read()
-    answer, judged = _run_stop_hook(shim, data, cwd, env)
+    command = [*prefix, shim, "hook", "stop"]
+    answer, judged = _run_stop_hook(command, data, cwd, env)
     if not judged:
         logger.info("stop replay: not judged (%s); once more with a fresh token", _describe(answer))
         time.sleep(REPLAY_RETRY_SECONDS)
-        answer, judged = _run_stop_hook(shim, data, cwd, {**env, FORCE_REFRESH_ENV: "1"})
+        answer, judged = _run_stop_hook(command, data, cwd, {**env, FORCE_REFRESH_ENV: "1"})
     logger.info("stop replay: %s", "judged" if judged else f"not judged ({_describe(answer)})")
     with contextlib.suppress(OSError):
         os.unlink(path)
-    return answer
+    return answer, judged
 
 
 def replay_session_end(prepared: Any, cwd: str) -> bool:
-    """The session's last deferred SessionEnd (``hooks.DEFER_SESSION_END_ENV``), run once the turn is over: the
-    launcher's own SessionEnd hook with that input (finalize, digest, lessons). ``True`` when one was replayed."""
     from .hooks import DEFER_STOP_ENV
     from .session_hooks import (
         DEFER_SESSION_END_ENV,
@@ -259,12 +272,12 @@ REPLAY_TIMEOUT_SECONDS = 120
 _NOT_JUDGED = ("Octryx verification gate unreachable", "Octryx stop hook failed")
 
 
-def _run_stop_hook(shim: str, data: bytes, cwd: str, env: dict[str, str]) -> tuple[dict[str, Any] | None, bool]:
-    """The Stop hook's answer and whether the platform judged the stop."""
+def _run_stop_hook(command: list[str], data: bytes, cwd: str,
+                   env: dict[str, str]) -> tuple[dict[str, Any] | None, bool]:
     import subprocess  # noqa: PLC0415
 
     try:
-        done = subprocess.run([shim, "hook", "stop"], input=data, cwd=cwd, env=env, capture_output=True,
+        done = subprocess.run(command, input=data, cwd=cwd, env=env, capture_output=True,
                               timeout=REPLAY_TIMEOUT_SECONDS, check=False)
     except (OSError, subprocess.SubprocessError):
         return None, False
@@ -286,7 +299,6 @@ def _describe(answer: dict[str, Any] | None) -> str:
 
 
 def runs_plain(prepared: Any) -> bool:
-    """A bypass turn of a plain story session (epic-delivery); any other turn keeps the SDK driver."""
     from .device_turn_kind import plain_session  # noqa: PLC0415
 
     return plain_session(prepared) and prepared.extra.get("permission_mode") == "bypassPermissions"

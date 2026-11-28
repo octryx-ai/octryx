@@ -1,14 +1,4 @@
-"""``device`` problems: devices that cannot serve the chat work sent to them.
-
-Source is ``device_jobs`` changed inside the window, grouped in SQL per device and Workspace
-(``device_jobs.workspace_id``), joined to ``user_devices``:
-
-- jobs still open (``offered``/``running``) on a revoked device, or on one not seen for 10 minutes: a problem
-  (``revoked`` / ``offline``; ``since`` is the device's ``revoked_at`` / ``last_seen_at``);
-- jobs that ended ``failed`` or ``device_lost``: needs attention (``jobs_failed``, ``count`` failed jobs).
-
-The fix is the owner's device page (only the owner drives a device; admins can revoke it there too).
-"""
+"""``device`` problems: devices that cannot serve the chat work sent to them."""
 
 from __future__ import annotations
 

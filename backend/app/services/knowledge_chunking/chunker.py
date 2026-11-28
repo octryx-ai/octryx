@@ -1,10 +1,4 @@
-"""Deterministic document chunking for the naive vector-RAG layer.
-
-Paragraph-aware, greedy packing to a token budget with a small overlap so a fact
-that straddles a boundary stays retrievable. Deterministic: the same text always
-produces the same chunks (so content-hash based incremental re-indexing is stable).
-Token counts are estimated as chars/4 (no model dependency at chunk time).
-"""
+"""Deterministic document chunking for the naive vector-RAG layer."""
 
 from __future__ import annotations
 
@@ -33,8 +27,6 @@ def _normalize(text: str) -> str:
 
 
 def _split_units(text: str, max_tokens: int) -> list[str]:
-    """Break text into units no larger than max_tokens: paragraphs, then
-    sentences, then fixed word windows for anything still too large."""
     units: list[str] = []
     for paragraph in _PARAGRAPH_SPLIT.split(text):
         paragraph = paragraph.strip()

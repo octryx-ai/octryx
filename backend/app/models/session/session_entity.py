@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, Float, ForeignKey, Index, Integer, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -10,7 +11,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class SessionEntity(Base):
+class SessionEntity(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "session_entities"
     __table_args__ = (
         Index("ix_session_entities_session_relevance", "session_id", "relevance_score"),

@@ -45,16 +45,13 @@ def _parse_time(value: str):
         return None
 
 
-#: The marker of a runtime step's turn: the phase its agent goes on with once the step succeeded.
 THEN_KEY = "then_phase"
 
 
-#: The marker of a pass a person restarted in a new chat: its turn starts a fresh session (no resume).
 FRESH_KEY = "fresh"
 
 
 def continuation_state(run: WorkflowRun) -> dict[str, Any] | None:
-    """The current pass's continuation for the run contract (a refused one names why; nothing retries it)."""
     marker = _marker(run)
     if not marker or (marker.get("node_id"), marker.get("entry")) != (
             run.current_node_id, dict(run.node_state or {}).get("entry")):

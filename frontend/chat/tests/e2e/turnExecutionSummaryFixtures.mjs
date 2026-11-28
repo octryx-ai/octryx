@@ -167,10 +167,9 @@ export const BACKEND_STATE_BY_REASON = {
 };
 
 // Profile decision sources used by the e2e fixtures; each one is produced by
-// a backend profile producer (asserted by the contract unit test).
+// the backend profile producer (asserted by the contract unit test).
 export const PROFILE_DECISION_SOURCES = {
   directChat: "direct_chat_safe",
-  workflowRequirements: "workflow_tool_requirements",
 };
 
 export const GATE_SOURCE_PROFILE = "execution_profile";

@@ -133,7 +133,7 @@
   height: 0.55rem;
   flex: 0 0 auto;
   margin-top: 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--status-idle) 85%, transparent);
 }
 

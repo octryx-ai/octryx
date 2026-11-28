@@ -34,7 +34,6 @@ from .receipt_store import _fresh_run, _hit_fact, _locked, _recheck, _transition
 
 async def _claimed_receipt(db: AsyncSession, *, current_user: User, workspace_id: str,
                            proof_request: dict[str, Any]) -> DocumentationAudienceReceipt:
-    """The caller's own open challenge, locked after its run and re-checked, or :class:`AudienceProofError`."""
     unknown = AudienceProofError(CODE_UNKNOWN, "no such audience challenge", status=404)
     challenge = str(proof_request.get("challenge_id") or "")
     receipt = (await db.execute(select(DocumentationAudienceReceipt).where(
@@ -67,7 +66,6 @@ async def _claimed_receipt(db: AsyncSession, *, current_user: User, workspace_id
 
 async def _run_queries(db: AsyncSession, receipt: DocumentationAudienceReceipt, *, current_user: User,
                        runtime: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """``(hits, assertion results)`` of the query set, searched with the caller's real Workspace authorization."""
     from ...knowledge.access.authorization import authorize_workspace
     from ...knowledge.ledger.errors import WorkspaceNotAccessibleError
     from ...knowledge.retrieval.evidence import LEXICAL_MODES, retrieve_workspace_evidence
@@ -100,7 +98,6 @@ async def _run_queries(db: AsyncSession, receipt: DocumentationAudienceReceipt, 
 
 async def record_audience_receipt(db: AsyncSession, *, current_user: User, workspace_id: str,
                                   proof_request: dict[str, Any], runtime: Any) -> dict[str, Any]:
-    """Run the challenge's query set as the authenticated caller and record the result (``issued -> recorded``)."""
     receipt = await _claimed_receipt(db, current_user=current_user, workspace_id=workspace_id,
                                      proof_request=proof_request)
     role = receipt.pass_key.rsplit("@", 1)[-1]

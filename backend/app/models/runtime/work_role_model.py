@@ -1,13 +1,4 @@
-"""Extensible work roles: functions with tool sets, roles, per-Workspace assignments.
-
-A **function** is something the platform lets a person do ("Decide as product owner"); it carries a tool set
-(``tools_json``: tool names and selectors, ``services/work_role_model/tool_sets``). A **role** is a name plus a set of
-functions. Roles are global (``project_id`` NULL) or scoped to one Workspace. A Workspace admin **assigns** a role to a
-person, a platform identity group, an SSO group or an SSO role claim. Everything stays inert until the Workspace switch
-``role_based_tools`` (``WorkspaceWorkRoleSettings``) is on; ``role:<key>`` Workflow deciders resolve through the
-assignments regardless of the switch. Roles grant execution authority on purpose. Edits are audited in
-``work_role_audit_events`` instead of a Rules publish.
-"""
+"""Extensible work roles: functions with tool sets, roles and per-Workspace assignments."""
 from __future__ import annotations
 
 import uuid
@@ -27,6 +18,7 @@ from sqlalchemy import (
 )
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 GLOBAL_SCOPE = "global"
@@ -39,7 +31,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class WorkRoleFunction(Base):
+class WorkRoleFunction(WorkspaceBound, Base):
     __tablename__ = "work_role_functions"
     __table_args__ = (
         UniqueConstraint("scope_key", "key", name="uq_work_role_functions_key"),
@@ -62,7 +54,7 @@ class WorkRoleFunction(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class WorkRole(Base):
+class WorkRole(WorkspaceBound, Base):
     __tablename__ = "work_roles"
     __table_args__ = (
         UniqueConstraint("scope_key", "key", name="uq_work_roles_key"),
@@ -95,7 +87,9 @@ class WorkRole(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class WorkRoleFunctionLink(Base):
+class WorkRoleFunctionLink(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"role_id": "work_roles"}
     __tablename__ = "work_role_function_links"
 
     role_id = Column(String(36), ForeignKey("work_roles.id", ondelete="CASCADE"), primary_key=True)
@@ -103,7 +97,7 @@ class WorkRoleFunctionLink(Base):
                          index=True)
 
 
-class WorkRoleAssignment(Base):
+class WorkRoleAssignment(WorkspaceBound, Base):
     __tablename__ = "work_role_assignments"
     __table_args__ = (
         CheckConstraint("subject_kind IN ('user','group','sso_group','sso_role')", name="ck_work_role_assign_kind"),
@@ -137,7 +131,7 @@ class WorkRoleAssignment(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class WorkspaceWorkRoleSettings(Base):
+class WorkspaceWorkRoleSettings(WorkspaceBound, Base):
     __tablename__ = "workspace_work_role_settings"
     __table_args__ = (CheckConstraint("version >= 1", name="ck_workspace_work_role_settings_version"),)
 
@@ -149,10 +143,9 @@ class WorkspaceWorkRoleSettings(Base):
     updated_at = Column(DateTime, nullable=True)
 
 
-class WorkRoleAuditEvent(Base):
-    """Every admin edit of functions, roles, assignments, the switch and the SSO mapping (who, when, before/after).
-
-    ``project_id`` is a plain column (no foreign key): the history outlives a deleted Workspace or role."""
+class WorkRoleAuditEvent(WorkspaceBound, Base):
+    """Every admin edit of functions, roles, assignments, the switch and the SSO mapping. ``project_id`` has no foreign
+    key: the history outlives a deleted Workspace or role."""
 
     __tablename__ = "work_role_audit_events"
     __table_args__ = (Index("ix_work_role_audit_project_created", "project_id", "created_at"),

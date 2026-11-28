@@ -30,7 +30,6 @@ _FILLER = {"tool", "no", "such", "the", "a", "an", "of", "for", "to", "and", "in
 
 
 def _tokens(text: str) -> set[str]:
-    """Lower-case word tokens with a plural ``s`` dropped and the read verbs folded into ``read``."""
     tokens = set()
     for token in re.findall(r"[a-z0-9]+", str(text or "").lower()):
         token = token[:-1] if len(token) > 3 and token.endswith("s") and not token.endswith("ss") else token
@@ -39,11 +38,6 @@ def _tokens(text: str) -> set[str]:
 
 
 def _closeness(terms: set[str], name: str, definition: dict, *, by_name: bool = False) -> int:
-    """How close a tool is to the query terms: subject words in the name count most, then the description.
-
-    0 means not close: a tool shares no subject word (only a verb, or nothing) with the query. For a guessed tool name
-    (``by_name``) a subject word must be in the tool's name: a description mention is too loose for a name.
-    """
     nouns = {term for term in terms if term not in _VERBS and term not in _FILLER and term != "read"}
     name_terms = _tokens(name)
     description = _tokens((definition.get("function") or {}).get("description") or "")
@@ -79,13 +73,7 @@ def _select_names(query: str) -> list[str] | None:
 
 def select_tool_names(query: str, catalog: dict[str, dict], core: Iterable[str] = CHAT_CORE_TOOLS,
                       direct: Iterable[str] = ()) -> list[str]:
-    """The deferred tools a ``tool_search`` query loads: ``select:`` names, else the best keyword matches.
-
-    A ``select:`` name that is not offered loads its closest offered tools instead. Otherwise a weak
-    model's ``select:get_jira_transitions`` gets "no offered tool matches, stop" while ``list_jira_transitions``
-    exists, and the model retries until the tool-call limit. A weak model guesses names; the closest real ones end
-    the guessing.
-    """
+    """The deferred tools a ``tool_search`` query loads: ``select:`` names, else the best keyword matches."""
     wanted = _select_names(query)
     if wanted is None:
         return closest_tool_names(query, catalog, limit=_KEYWORD_RESULTS)

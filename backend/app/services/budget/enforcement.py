@@ -26,7 +26,6 @@ from .unpriced_guard import enforce_priced_models_under_cap
 
 
 async def effective_agent_session_cost_limit(db: AsyncSession, *, project_id: str | None) -> Decimal:
-    """The per-session cost ceiling in USD: the project override, else the system value (0 = off)."""
     return (await agent_session_cost_limit(db, project_id=project_id)).value
 
 
@@ -159,7 +158,6 @@ async def enforce_budget_limits(
 async def _estimated_request_cost(
     db: AsyncSession, runtimes: list[dict[str, Any]], *, prompt_tokens: int, completion_tokens: int
 ) -> Decimal:
-    """The highest estimated cost over the candidate runtimes (zero without a priced runtime)."""
     runtime_costs = [
         await estimate_runtime_cost(
             db,
@@ -182,7 +180,6 @@ async def _enforce_policy(
     estimated_tokens: int,
     estimated_cost: Decimal,
 ) -> None:
-    """Record a warning or block alert per limit the projected usage reaches; a block refuses the call."""
     usage = await _load_usage_snapshot(db, policy=policy)
     req_limit, tok_limit, cost_limit = _get_limits_for_period(policy)
     checks = [

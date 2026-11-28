@@ -1,15 +1,4 @@
-"""Custom content detectors in the policy-set draft.
-
-``PUT …/policy-sets/{v}/detectors`` replaces the custom detectors and categories of the working draft with the
-same contract as a policy edit (``policy_edits``): ``If-Match`` with the digest of ``{v}`` as the client saw it,
-a new draft from the published version when none is open (its policies are kept), and the saved test cases run
-on save. A detector scoped to a Workspace must name an existing one, and a detector a policy still names cannot
-be removed. The audit row names the detector ids, categories and counts; patterns stay in the version, which only
-platform admins read.
-
-``detector_catalog`` is the Detectors tab: the built-in categories and detectors, the custom ones of the version,
-and per detector the policies of that version that use it.
-"""
+"""Custom content detectors in the policy-set draft."""
 
 from __future__ import annotations
 
@@ -46,7 +35,6 @@ async def _check_workspaces(db: AsyncSession, raw: Any) -> None:
 
 
 def _check_in_use(text: str, definitions: DetectorDefinitions) -> None:
-    """Refuse a save that drops a custom detector a policy of the base text still names."""
     defined = {item.id for item in definitions.detectors}
     missing = sorted((name, policies) for name, policies in _used_by(text).items()
                      if name.startswith(CUSTOM_PREFIX) and name not in defined)
@@ -60,7 +48,6 @@ def _check_in_use(text: str, definitions: DetectorDefinitions) -> None:
 async def put_detectors(
     db: AsyncSession, version: int, raw: Any, *, if_match: str | None, note: Any, actor_id: str
 ) -> PolicySetVersion:
-    """Save the definitions into the draft; ``DetectorSetError`` (422) or ``PolicyEditError``. Flushes."""
     definitions = check_detector_set(raw)
     await _check_workspaces(db, raw)
     draft, text, _previous = await edit_base(db, version, if_match)
@@ -76,7 +63,6 @@ async def put_detectors(
 
 
 def _used_by(text: str) -> dict[str, list[str]]:
-    """``{quoted string: [policy ids]}`` of every string literal (comma parts too) a policy of ``text`` mentions."""
     if not split_statements(text).statements:
         return {}
     used: dict[str, list[str]] = {}

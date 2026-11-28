@@ -1,8 +1,5 @@
-"""ServiceNow as a registered Work source (``intake/registry``): the setup, discovery and scheduling hooks.
-
-The behaviour is the one ``intake/setup.py``, ``intake/discovery.py`` and the scheduler had in their ServiceNow
-branches; only where it lives changed. One intake per Workspace stays ServiceNow's own rule.
-"""
+"""ServiceNow as a registered Work source (``intake/registry``): the setup, discovery and scheduling hooks. One intake
+per Workspace stays ServiceNow's own rule."""
 
 from __future__ import annotations
 
@@ -49,7 +46,6 @@ class ServiceNowIntakeSource:
     analyzes_after_sync = False
 
     def scope_key(self, item: WorkItem) -> str:
-        """The ServiceNow table of its record: the binding key of a named connection."""
         fields = dict((item.source_fields_json or {}).get(SOURCE_TYPE) or {})
         return str(fields.get("table") or item.issue_type or "")
 
@@ -83,8 +79,6 @@ class ServiceNowIntakeSource:
         return saved
 
     async def discover(self, db: AsyncSession, project_id: str, connection_id: str) -> dict[str, Any]:
-        """The tables, the default open-state filter and mapping, and the groups and services seen in recent
-        records inside the connection's limit (suggestions; the drawer works without them)."""
         config = await connection_config_of(db, project_id, SOURCE_TYPE, connection_id)
         suggestions: dict[str, Any] = {"assignment_groups": [], "services": []}
         reason = None

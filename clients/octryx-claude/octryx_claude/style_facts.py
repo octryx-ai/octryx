@@ -1,7 +1,4 @@
-"""What the platform's code style check needs from a changed file, counted on the device (the
-platform enforces the style itself, never on the agent's word): the file's lines at the run's base (a file that was
-already over the limit only warns unless it grows), its TODO lines and blocks of commented-out code. The server
-judges them against the resolved style (``code_style.check``); this module only counts."""
+"""What the platform's code style check needs from a changed file, counted on the device; the server judges."""
 
 from __future__ import annotations
 
@@ -31,14 +28,11 @@ def _prefix(name: str) -> str | None:
 
 
 def todos(name: str, text: str) -> list[list[Any]]:
-    """``[path, line, text]`` of each TODO / FIXME line."""
     return [[name, number, line.strip()[:MAX_TODO_CHARS]] for number, line in enumerate(text.splitlines(), 1)
             if _TODO.search(line)][:MAX_TODOS]
 
 
 def commented_code(name: str, text: str) -> list[list[Any]]:
-    """``[path, first line, length]`` of each run of at least :data:`MIN_BLOCK_LINES` comment lines that read like
-    code (rough on purpose: prose comments rarely end in ``;`` or call something)."""
     mark = _prefix(name)
     if mark is None:
         return []
@@ -58,7 +52,6 @@ def commented_code(name: str, text: str) -> list[list[Any]]:
 
 
 def base_texts(root: Path, base: str, names: list[str], *, timeout: float) -> dict[str, str]:
-    """The text of each of ``names`` at ``base`` (files the change modifies); a file new since ``base`` is absent."""
     out: dict[str, str] = {}
     for name in names:
         try:
@@ -72,7 +65,6 @@ def base_texts(root: Path, base: str, names: list[str], *, timeout: float) -> di
 
 
 def base_lines(root: Path, base: str, names: list[str], *, timeout: float) -> dict[str, int]:
-    """Lines of each of ``names`` at ``base`` (files the change modifies); a file new since ``base`` is absent."""
     return {name: len(text.splitlines()) for name, text in base_texts(root, base, names, timeout=timeout).items()}
 
 

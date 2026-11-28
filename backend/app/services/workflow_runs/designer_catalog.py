@@ -1,11 +1,4 @@
-"""What the workflow designer's side panel offers to choose from (designer D2b, ``DesignerCatalog``).
-
-``GET /api/v1/phased-workflows/catalog``: the agents a phase can run as (with their capability ceiling), the tools a
-phase may allow, the check types (a phase's "done when" and what a gate can judge), the published workflows a
-sub-workflow can run, the typed platform actions with their routes, the closed values of the person boxes and the
-work item fields a condition can compare. Every list comes from the backend vocabulary the validator
-(``graph.validate_phased_definition``) reads, so the panel never offers a value a draft could not publish with.
-"""
+"""What the workflow designer's side panel offers to choose from (``DesignerCatalog``)."""
 
 from __future__ import annotations
 
@@ -63,7 +56,6 @@ CHECK_LABELS: dict[str, str] = {
     "slices_merged": "Every slice is merged",
     "definition_of_ready": "Definition of Ready complete",
     "specification_ready": "Specification ready",
-    "lint_passed": "Lint passed",
     "ci_findings_addressed": "CI findings addressed",
     "evidence_families": "Every evidence family answered",
     "judge": "Judge (advisory)",
@@ -136,7 +128,6 @@ def _platform_actions() -> list[dict[str, Any]]:
 
 
 async def _workflows(db: AsyncSession) -> list[dict[str, str]]:
-    """The published, active phased workflows a sub-workflow box can run (one entry per key)."""
     rows = (await db.execute(
         select(FlowDefinition.key, FlowDefinition.name, FlowDefinitionVersion.definition_json)
         .join(FlowDefinitionVersion, FlowDefinitionVersion.id == FlowDefinition.current_version_id)
@@ -164,9 +155,7 @@ async def designer_catalog(db: AsyncSession, *, project_id: str | None = None) -
         "watchConditions": sorted(WATCH_CONDITIONS),
         "outcomes": sorted(OUTCOMES),
         "deciders": [*DECIDERS, *(f"role:{key}" for key in sorted(WORK_ROLE_KEYS))],
-        # What a field condition can compare (D2b2), with the values the Workspace's work items have.
         "workItemFields": await work_item_fields(db, project_id=project_id),
-        # Teamwork: the "Parallel work" box (fork/join) — its routes, the plan output it runs, the suggested roles.
         "parallelWork": parallel_work_catalog(),
     }
 

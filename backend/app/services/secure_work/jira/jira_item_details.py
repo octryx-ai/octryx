@@ -1,18 +1,4 @@
-"""What a Jira item shows besides its fields: people, comments, sprint/board, status mapping.
-
-Stored in the item's ``source_fields_json`` at sync (no migration) and exposed by
-:func:`work_item_detail_fields` beside the existing item fields:
-
-- **people:** ``assignee``/``reporter``/``watchers`` stay the ids filters match on (Cloud
-  ``accountId``, Server/DC ``name``); their Jira ``displayName`` is kept beside them
-  (``*_display``), ``null`` when Jira sent none.
-- **comments:** read-only, the last :data:`MAX_COMMENTS` of the issue, oldest first, each
-  ``{id, author, author_display, created, body, url}``; the body is plain text (Cloud ADF and DC wiki
-  text are both read as text, never HTML).
-- **sprint/board:** ``{id, name, state, goal}`` / ``{id, name}`` or ``null``, never a raw ``{}``.
-- **status mapping:** how ``work_state`` was chosen (``configured``, ``builtin``,
-  ``status_category``, ``unmapped``) and Jira's ``statusCategory.key``.
-"""
+"""What a Jira item shows besides its fields: people, comments, sprint/board, status mapping."""
 
 from __future__ import annotations
 
@@ -21,13 +7,14 @@ from typing import Any
 from ....time_utils import ensure_utc
 from ....tools.jira_impl._jira_cloud import readable_body
 from ..jira_values import blank_to_none, list_value, object_value, parse_datetime, user_value
+from .stored_types import StatusCategory, StoredJiraComment, StoredJiraDetails, StoredJiraPerson
 
 MAX_COMMENTS = 20
 MAX_COMMENT_CHARS = 4000
 STATUS_CATEGORIES = ("new", "indeterminate", "done")
 
 
-def _person(value: Any) -> dict[str, str | None] | None:
+def _person(value: Any) -> StoredJiraPerson | None:
     identifier = user_value(value)
     if identifier is None:
         return None
@@ -35,7 +22,7 @@ def _person(value: Any) -> dict[str, str | None] | None:
     return {"id": identifier, "display": display}
 
 
-def _watchers(value: Any) -> list[dict[str, str | None]]:
+def _watchers(value: Any) -> list[StoredJiraPerson]:
     raw = value.get("watchers") or value.get("items") or value.get("values") if isinstance(value, dict) else value
     return [person for item in list_value(raw) if (person := _person(item))]
 
@@ -45,18 +32,17 @@ def _utc_iso(value: Any) -> str | None:
     return ensure_utc(parsed).isoformat() if parsed else None
 
 
-def status_category(status: Any) -> str | None:
-    """Jira's ``statusCategory.key`` of a status object, when it is one of the three categories."""
+def status_category(status: Any) -> StatusCategory | None:
     category = object_value(object_value(status).get("statusCategory")).get("key")
     return category if category in STATUS_CATEGORIES else None
 
 
-def _comments(value: Any, browse_url: str | None) -> tuple[list[dict[str, Any]], int | None]:
+def _comments(value: Any, browse_url: str | None) -> tuple[list[StoredJiraComment], int | None]:
     container = object_value(value)
     raw = container.get("comments") if container else value
     entries = [entry for entry in list_value(raw) if isinstance(entry, dict)][-MAX_COMMENTS:]
     total = container.get("total") if isinstance(container.get("total"), int) else None
-    comments = []
+    comments: list[StoredJiraComment] = []
     for entry in entries:
         comment_id = blank_to_none(entry.get("id"))
         author = _person(entry.get("author"))
@@ -73,7 +59,6 @@ def _comments(value: Any, browse_url: str | None) -> tuple[list[dict[str, Any]],
 
 
 def bounded_raw(issue: dict[str, Any]) -> dict[str, Any]:
-    """The stored raw issue without its full comment container: comments live, bounded, in ``comments``."""
     # Links live, scoped to the allowlist, in ``linked_issues_json``, never in the raw copy; the
     # parent lives in ``parent_key`` (masked outside the allowlist), never with its summary here.
     dropped = {"comment", "issuelinks", "linked_issues", "parent"}
@@ -83,8 +68,7 @@ def bounded_raw(issue: dict[str, Any]) -> dict[str, Any]:
     return raw
 
 
-def jira_detail_fields(issue: dict[str, Any], fields: dict[str, Any], browse_url: str | None) -> dict[str, Any]:
-    """The detail part of ``source_fields_json`` for one issue."""
+def jira_detail_fields(issue: dict[str, Any], fields: dict[str, Any], browse_url: str | None) -> StoredJiraDetails:
     comments, total = _comments(issue.get("comment") or fields.get("comment"), browse_url)
     return {
         "people": {
@@ -112,7 +96,6 @@ def _board(value: Any) -> dict[str, Any] | None:
 
 
 def work_item_detail_fields(row: Any) -> dict[str, Any]:
-    """The additive item fields of the frontend contract."""
     source = object_value(row.source_fields_json)
     people = object_value(source.get("people"))
     displays = {person["id"]: person.get("display") for person in list_value(people.get("watchers"))

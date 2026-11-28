@@ -1,9 +1,4 @@
-"""The rules behind one project tool policy decision.
-
-``tool_access_policy.tool_project_policy_decision`` picks the branch that applies
-(visibility rules, read-only Workspace, high-risk tool without rules); this module
-holds the decision record and the rules of each branch.
-"""
+"""The rules behind one project tool policy decision."""
 
 from __future__ import annotations
 
@@ -64,14 +59,7 @@ def _tool_requires_explicit_allow(metadata: Any) -> bool:
 
 
 def _tool_policy_explicitly_allows(tool_name: str, tool_policy: dict[str, Any] | None) -> str | None:
-    """Explicit grant check for high-risk tools.
-
-    Exact-name membership only: ``high_risk_grants`` is the dedicated grant
-    list, and an exact ``allowlist`` name is an explicit allow as well.
-    Visibility patterns and the read-only shortcut deliberately do NOT count —
-    a broad ``allow_patterns: ["*"]`` must not silently unlock every
-    high-risk connector tool.
-    """
+    # Exact names only: a broad ``allow_patterns: ["*"]`` must not unlock every high-risk tool.
     normalized_name = str(tool_name or "").strip()
     policy = normalized_tool_policy(tool_policy)
     if normalized_name in set(policy["high_risk_grants"]):
@@ -113,7 +101,6 @@ def _visibility_denial(
     visibility_policy: dict[str, Any],
     requires_explicit_allow: bool,
 ) -> ToolProjectPolicyDecision | None:
-    """The visibility rule that refuses this tool, or ``None`` when the rules let it through."""
     if normalized_name in set(visibility_policy["denylist"]):
         return _decision(
             tool_name=normalized_name,
@@ -159,7 +146,6 @@ def _visibility_decision(
     visibility_policy: dict[str, Any],
     requires_explicit_allow: bool,
 ) -> ToolProjectPolicyDecision:
-    """The decision of a Workspace whose tool policy has visibility rules."""
     denial = _visibility_denial(normalized_name, metadata, visibility_policy, requires_explicit_allow)
     if denial is not None:
         return denial
@@ -191,7 +177,6 @@ def _read_only_decision(
     project_config: dict[str, Any] | None,
     requires_explicit_allow: bool,
 ) -> ToolProjectPolicyDecision:
-    """The decision of a Workspace limited to read-only tools."""
     policy = _project_tool_policy(project_config)
     explicit_allowlist = _normalize_string_set(policy.get("read_only_allowlist"))
     if explicit_allowlist:
@@ -235,7 +220,7 @@ def _explicit_allow_decision(
     metadata: Any,
     project_config: dict[str, Any] | None,
 ) -> ToolProjectPolicyDecision:
-    """A high-risk tool without visibility rules runs only on an explicit grant."""
+    # A high-risk tool without visibility rules runs only on an explicit grant.
     # A policy carrying only high_risk_grants has no visibility rules and
     # lands here — the grant must still count.
     explicit_match = _tool_policy_explicitly_allows(normalized_name, _project_tool_policy(project_config))

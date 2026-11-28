@@ -27,11 +27,8 @@ async def global_search(
     project_ids: list[str] | None = None,
     top_k: int = 8,
 ) -> dict[str, Any]:
-    """GraphRAG-style global answer: reduce the top-K community reports into a
-    synthesized answer for a whole-system question. One governed LLM call over
-    the pre-filtered reports (map-reduce collapses to a single reduce at team
-    scale). Raises through the caller when no runtime is available — the caller
-    decides the fallback."""
+    """GraphRAG-style global answer from the top-K community reports, in one governed LLM call. Without a runtime it
+    raises; the caller decides."""
     candidates = await search_communities(db, query=query, project_ids=project_ids, limit=top_k)
     if not candidates:
         return {"answer": "", "communities_used": [], "candidates": 0}

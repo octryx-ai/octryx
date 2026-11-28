@@ -28,7 +28,7 @@
 .schema-form__label {
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .schema-form__required {
@@ -127,7 +127,7 @@
   padding: 0 0.25rem;
   color: var(--highlight);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .schema-form__item {
@@ -173,7 +173,7 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-family: var(--font-mono);
@@ -183,7 +183,7 @@
 .schema-form__chip-remove {
   padding: 0 0.25rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: transparent;
   color: inherit;
   font-size: var(--ds-text-md);

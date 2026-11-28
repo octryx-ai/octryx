@@ -1,12 +1,4 @@
-"""Claude Code sessions outside octryx on the person's own Mac.
-
-- the device reports its connected profiles and their recent sessions; malformed entries are dropped, the report
-  replaces the device's list;
-- only the owner sees them (not another user, not an admin);
-- "take over": the owner's message becomes a device job turn in the owner's private Workspace, profile
-  ``local:<name>``, in the session's folder, resuming exactly that session; a second message continues the same
-  thread and job; an offline device, a foreign session or an empty message are refused.
-"""
+"""Claude Code sessions outside octryx on the person's own Mac."""
 
 from __future__ import annotations
 
@@ -27,7 +19,6 @@ SID = "0b4e2c9a-7f1d-4c3b-9a8e-112233445566"
 
 
 def _web(user) -> dict[str, str]:
-    """The person's browser or phone: the access cookie (no API key, no bearer token)."""
     return {"cookie": f"access_token={create_access_token(user.id)}"}
 
 
@@ -45,7 +36,7 @@ def test_a_report_keeps_only_well_formed_entries():
         {"profile": "team", "session_id": "not-a-uuid", "cwd": "/a"},
         {"profile": "other", "session_id": SID, "cwd": "/a"},
         {"profile": "team", "session_id": SID.replace("0b", "0c"), "cwd": "relative/path"},
-        {"profile": "team", "session_id": SID, "cwd": "/a"},  # duplicate
+        {"profile": "team", "session_id": SID, "cwd": "/a"},
         "nonsense",
     ]})
     assert profiles == ["team"] and [item["claude_session_id"] for item in sessions] == [SID]
@@ -63,7 +54,7 @@ async def test_the_report_replaces_the_list_and_only_the_owner_sees_it(client, d
     user, device = await _mac(db, f"lcs-owner-{uuid.uuid4().hex[:6]}")
     other = "1a2b3c4d-1111-2222-3333-444455556666"
     assert await apply_report(db, device, _report(more=[{"profile": "private", "session_id": other, "cwd": "/b"}])) == 2
-    assert await apply_report(db, device, _report()) == 1  # the second report no longer has it
+    assert await apply_report(db, device, _report()) == 1
     await db.commit()
     mine = await client.get("/api/v1/mobile/local-sessions", headers=_web(user))
     [item] = mine.json()["items"]
@@ -97,7 +88,6 @@ async def test_taking_over_runs_the_session_on_its_mac_in_the_private_workspace(
     assert (job.profile, job.folder, job.resume_claude_session_id) == ("local:team", "/Users/dev/projects", SID)
     assert job.workspace_id == private.id and job.device_id == device.id
 
-    # the job finishes its turn; the next message continues the same thread
     job.status, job.claude_session_id = "idle", SID
     await db.commit()
     again = await client.post(url, json={"message": "Und jetzt die Tests"}, headers=web)
@@ -125,10 +115,8 @@ async def test_nobody_else_can_take_over_a_session(client, db, auth_headers, mon
     assert (await db.execute(select(DeviceJob).where(DeviceJob.device_id == device_id))).scalars().all() == []
 
 
-
 @pytest.mark.asyncio
 async def test_only_the_persons_own_login_drives_the_mac_and_only_where_the_mac_allows_it(client, db, monkeypatch):
-    # no API key or bearer token; the kill switch; the Mac's --allow-takeover
     from app.services.api_key import create_api_key_for_user
     from app.services.devices.platform_switch import set_device_runs_platform_enabled
 

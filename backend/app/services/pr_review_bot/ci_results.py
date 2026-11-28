@@ -1,17 +1,4 @@
-"""The reviewed commit's CI results as findings (a red check is a finding).
-
-The bot never runs a repository's tests itself (a stranger's pull request would run on the server, concept §8); it
-reads what the repository's own CI reported for the commit it reviewed, when it posts:
-
-- GitHub: commit statuses and check runs (``get_github_commit_checks``);
-- GitLab: pipeline jobs and external commit statuses (``get_gitlab_commit_checks``);
-- Bitbucket Cloud and Server/Data Center: build statuses (``get_bitbucket_build_statuses``).
-
-The bot's own status (``octryx/review``, Bitbucket key and GitLab name ``octryx-review``) never counts. A failed
-check is a **high** finding ``CI<n>`` in the summary table with its link; a check still running is named in the footer
-(the incremental review of stage C reads it again). A CI that cannot be read is named in the footer too, never a
-failed review.
-"""
+"""The reviewed commit's CI results as findings (a red check is a finding)."""
 
 from __future__ import annotations
 
@@ -50,7 +37,6 @@ def _checks(provider: str, answer: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def short(text: str, limit: int = 160) -> str:
-    """``text`` within ``limit`` characters, cut at a word boundary with "…" (never in the middle of a word)."""
     text = " ".join(str(text or "").split())
     if len(text) <= limit:
         return text
@@ -59,7 +45,6 @@ def short(text: str, limit: int = 160) -> str:
 
 
 def ci_findings(provider: str, answer: dict[str, Any]) -> CiResult:
-    """The failed and running checks of one tool answer, the bot's own status left out. Pure."""
     result = CiResult(unread=short(str(answer.get("check_runs_unread") or "")))
     for check in _checks(provider, answer):
         name = str(check.get("name") or "")

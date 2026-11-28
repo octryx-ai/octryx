@@ -1,19 +1,12 @@
-// Additive Expand (backend): the server returns only what is new around an entity; the view keeps every
-// position it has and places the new entities around the expanded one. Pure functions only.
-
 import type { Placed } from "./kgLayout";
 import { nodeRadius } from "./kgLayout";
 
 /** The server's limit for `current_node_ids` (comma-separated). */
 export const MAX_CURRENT_IDS_CHARS = 12000;
-/** New entities one Expand asks for. */
 export const EXPAND_MAX_NODES = 30;
 
-/**
- * The ids the view already shows, as `current_node_ids`. Over the server's limit, the most important go first
- * (the order of `priority`, then the rest) and the tail is left out; the server then may return an entity the
- * view already has, which the merge ignores.
- */
+/** Over the server's limit `priority` ids go first; the server may then return an entity already shown,
+ * which the merge ignores. */
 export function currentIdsParam(all: string[], priority: string[] = [], limit = MAX_CURRENT_IDS_CHARS): string {
   const seen = new Set<string>();
   const ordered: string[] = [];
@@ -33,10 +26,6 @@ export function currentIdsParam(all: string[], priority: string[] = [], limit = 
 
 const GAP = 22;
 
-/**
- * Positions for new entities around the expanded one: on rings outside it, each slot far enough from every circle
- * already drawn (and from the other new ones) that nothing overlaps. Existing positions never move.
- */
 export function placeAround(
   centre: { x: number; y: number; r: number }, items: { id: string; node_type: string; degree: number }[],
   occupied: { x: number; y: number; r: number }[],
@@ -67,7 +56,6 @@ export function placeAround(
 
 export type Additions<N, E> = { nodes: N[]; edges: E[]; positions: Map<string, Placed> };
 
-/** The view's additions after one more Expand: entities and relationships it does not have yet, by id. */
 export function mergeAdditions<N extends { id: string }, E extends { id: string }>(
   base: { nodes: N[]; edges: E[] }, current: Additions<N, E>, incoming: { nodes: N[]; edges: E[] }, positions: Map<string, Placed>,
 ): Additions<N, E> {

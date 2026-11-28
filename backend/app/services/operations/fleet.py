@@ -1,14 +1,4 @@
-"""The devices, seats and the day's cost of Operations › Live.
-
-- devices: a platform admin sees every active device; anyone else the devices that ran a job in their Workspaces
-  in the last 24 hours. ``outdated`` compares the device's client with the version the platform serves now
-  (``/octryx-claude/version``), so a Mac that did not self-update shows up (the admin list
-  alone does not flag it).
-- seats: the newest presence row per person seen in the last 24 hours, with the 5-hour and 7-day allowance; a seat
-  near its limit stops runs on that person's device.
-- cost_24h_usd: the API cost of the last 24 hours in scope (``usage_events.cost``; a seat call costs 0), and
-  seat_api_equivalent_24h_usd beside it: what the seat calls would have cost through the API.
-"""
+"""The devices, seats and the day's cost of Operations › Live."""
 
 from __future__ import annotations
 
@@ -82,7 +72,7 @@ async def devices(db: AsyncSession, *, viewer_id: str, scope: Any, platform_wide
     ids = [device.id for device in rows]
     running = dict((await db.execute(
         select(DeviceJob.device_id, func.count()).where(DeviceJob.device_id.in_(ids),
-                                                        DeviceJob.status.in_(ACTIVE_STATUSES))
+                                                        DeviceJob.status.in_(ACTIVE_STATUSES), scope(workspace))
         .group_by(DeviceJob.device_id))).all())
     owners = {user.id: user for user in (await db.execute(
         select(User).where(User.id.in_({device.owner_user_id for device in rows})))).scalars()}
@@ -117,8 +107,6 @@ async def seats(db: AsyncSession, *, viewer_id: str, scope: Any, now: datetime) 
 
 
 async def cost_24h(db: AsyncSession, *, scope: Any, now: datetime) -> dict[str, float]:
-    """The last 24 hours' API cost and, apart from it, the seat calls' API equivalent. Every model call, a device's
-    included, is a ``usage_events`` row; a device job's own ``cost_usd`` would count the same calls again."""
     api, equivalent = (await db.execute(
         select(func.coalesce(func.sum(UsageEvent.cost), 0), func.coalesce(func.sum(UsageEvent.list_cost), 0))
         .join(Session, Session.id == UsageEvent.session_id)

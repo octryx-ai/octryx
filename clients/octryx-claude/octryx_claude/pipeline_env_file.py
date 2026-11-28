@@ -1,12 +1,4 @@
-"""A pipeline of the repository's environment file (``pipeline``).
-
-A pipeline that names ``environment_file``
-(``{file, app_folder}``) instead of commands reads that file in the run's folder (``environment_file``: the platform's
-validation rules), makes the app folder ready (its ``check``, else its ``setup``) and runs exactly its ``test`` and
-``system_test`` there, through the same :func:`run_command` as declared commands. A missing or invalid file, or a
-failed setup, runs nothing and is reported as such. The report's ``environment_file`` names the file, its SHA-256,
-its validated content and the commands; ``head`` is the commit the folder was on.
-"""
+"""A pipeline of the repository's environment file (``pipeline``)."""
 
 from __future__ import annotations
 
@@ -22,9 +14,6 @@ def _pointer(view: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def from_file(view: dict[str, Any], root: Path) -> tuple[dict[str, Any], dict[str, Any], Path]:
-    """``(view, account, folder)`` for a pipeline of the repository's environment file: the view with the file's
-    commands, path and browser (none when it is missing or invalid), the file's account for the report, and the app
-    folder the commands run in."""
     from . import environment_file  # noqa: PLC0415
 
     pointer = _pointer(view) or {}
@@ -48,8 +37,6 @@ def from_file(view: dict[str, Any], root: Path) -> tuple[dict[str, Any], dict[st
 
 
 def ready_folder(view: dict[str, Any], account: dict[str, Any], folder: Path) -> dict[str, Any]:
-    """The file's account after making the app folder ready (its ``check``, else its ``setup``): ``setup`` is the
-    log, ``state`` ``setup_failed`` when a setup command failed."""
     from . import environment_file  # noqa: PLC0415
 
     environment = account["environment"]
@@ -59,7 +46,6 @@ def ready_folder(view: dict[str, Any], account: dict[str, Any], folder: Path) ->
 
 
 def _repository_files(results: list[dict[str, Any]], app_folder: str) -> list[dict[str, Any]]:
-    """The JUnit report's test files relative to the repository (they were found from the app folder)."""
     if app_folder in ("", "."):
         return results
     for item in results:

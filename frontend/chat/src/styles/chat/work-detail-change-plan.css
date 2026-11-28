@@ -44,7 +44,7 @@
 .work-change-plan__status-row span,
 .work-change-plan__versions span {
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.25rem 0.5rem;
 }
 

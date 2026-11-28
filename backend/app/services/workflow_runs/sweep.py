@@ -1,16 +1,4 @@
-"""Waiting nodes have a reminder and a timeout.
-
-A run that waits for a reply, a confirmation or an external state gets one reminder after
-``reminder_hours`` (default 24, an event the run's history and the Inbox show) and pauses after
-``timeout_hours`` (defaults: reply and confirmation 72, watch 120) with ``no_reply`` / ``watch_timeout``: the
-requester then continues waiting, changes the plan or aborts. An approval's timeout is the platform's pending
-approval TTL (``approval/stale_expiry``); its expiry pauses the run (``approval_timeout``).
-
-Publish & prove adds two waiting kinds under the same policy (reminder after 24 h, pause after 72 h unless the node sets
-``reminder_hours`` / ``timeout_hours``): ``functional_acceptance`` (a page published with the acceptance pending)
-pauses ``acceptance_timeout``, ``audience_receipt`` (the audience principal did not run the check) pauses
-``audience_unproven``. Both pauses offer "continue waiting" and the declared exception.
-"""
+"""Waiting nodes have a reminder and a timeout."""
 
 from __future__ import annotations
 
@@ -59,7 +47,6 @@ def _hours(config: dict[str, Any], key: str, default: int) -> int:
 
 
 async def sweep_waiting_runs(db: AsyncSession, *, now: datetime | None = None) -> int:
-    """Remind once, then pause overdue waiting runs; returns how many paused."""
     from .handoff.lifecycle import sweep_handoffs
 
     await sweep_handoffs(db)
@@ -67,10 +54,10 @@ async def sweep_waiting_runs(db: AsyncSession, *, now: datetime | None = None) -
     await resume_after_seat_reset(db, now=now)
     from .device_silence import sweep_device_steps
 
-    await sweep_device_steps(db, now=now)  # a step waiting for a device that stopped answering
+    await sweep_device_steps(db, now=now)
     from .deferred_action import sweep_deferred_actions
 
-    await sweep_deferred_actions(db, now=now)  # a repository step whose start was lost or whose executor died
+    await sweep_deferred_actions(db, now=now)
     runs = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.status == STATUS_WAITING, WorkflowRun.waiting_kind.in_(tuple(DEFAULT_TIMEOUT_HOURS))
     ))).scalars().all()
@@ -104,10 +91,6 @@ EVENT_SEAT_RESET_RESUMED = "seat_reset_resumed"
 
 
 async def resume_after_seat_reset(db: AsyncSession, *, now: datetime) -> list[str]:
-    """Runs paused because the seat was at its limit with no same-class company model
-    (``seat_limited_no_same_class_fallback``) go on by themselves once the reset the account named has passed
-    (instead of a person resuming it by hand at the reset). An unnamed reset still waits for a
-    person. Returns the resumed run ids."""
     from .octryx.seat_fallback import REASON_NO_SAME_CLASS
     from .pause import _resume
     from .states import STATUS_PAUSED
@@ -132,7 +115,7 @@ async def resume_after_seat_reset(db: AsyncSession, *, now: datetime) -> list[st
             continue
         if run.status != STATUS_PAUSED or dict(dict(run.node_state or {}).get("pause") or {}) != pause:
             await db.commit()
-            continue  # a person decided it meanwhile
+            continue
         record_event(db, run, EVENT_SEAT_RESET_RESUMED, node_id=run.current_node_id,
                      detail={"reset_at": pause.get("reset_at"), "engine": pause.get("engine")})
         await _resume(db, run, dict(pause.get("resume") or {"kind": "restart", "node_id": run.current_node_id}),
@@ -148,7 +131,6 @@ async def _config(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
 
 
 async def _due(db: AsyncSession, run: WorkflowRun | None, now: datetime) -> str | None:
-    """``timeout`` | ``reminder`` | ``None`` for a waiting run at ``now``."""
     if run is None or run.status != STATUS_WAITING or run.waiting_kind not in DEFAULT_TIMEOUT_HOURS:
         return None
     waiting = dict(dict(run.node_state or {}).get("waiting") or {})
@@ -192,26 +174,19 @@ class WorkflowRunSweepWorker:
                     await sweep_waiting_runs(db)
             except Exception:
                 logger.exception("Workflow run sweep failed")
-            try:  # the coordination board's housekeeping rides on the same tick (presence retention)
+            try:
                 async with self._session_factory() as db:
                     await expire_presence(db)
             except Exception:
                 logger.exception("Agent presence expiry failed")
-            try:  # files fetched from a Mac live a day
+            try:
                 from ..devices.job_files import purge_expired  # noqa: PLC0415
 
                 async with self._session_factory() as db:
                     await purge_expired(db)
             except Exception:
                 logger.exception("Device file purge failed")
-            try:  # device-sent Codex seat calls whose report never came (``codex_seat_tickets``)
-                from ..model_gateway.inbound.codex_seat_tickets import sweep_unreported_tickets  # noqa: PLC0415
-
-                async with self._session_factory() as db:
-                    await sweep_unreported_tickets(db)
-            except Exception:
-                logger.exception("Codex seat ticket sweep failed")
-            try:  # full session transcripts live their Workspace's retention
+            try:
                 from ..session_transcripts.retention import purge_expired as purge_transcripts  # noqa: PLC0415
 
                 async with self._session_factory() as db:

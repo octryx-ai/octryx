@@ -1,9 +1,4 @@
-"""``list_confluence_page_updates``: recent Confluence changes, from the Source Sync ledger only.
-
-The Workspace is the run's (server-owned scope, ``_scope.authorized_workspace``) and every page passes
-the source-ACL re-check of the governed search. There is no fallback: a Workspace without a synced
-Confluence connector gets an explicit ``needs_configuration``.
-"""
+"""``list_confluence_page_updates``: recent Confluence changes, from the Source Sync ledger only."""
 
 from __future__ import annotations
 

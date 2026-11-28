@@ -1,12 +1,4 @@
-"""What the review bot remembers per repository between polls (stage D), in ``config_json["pr_review_bot_state"]``.
-
-- ``comment_cursor``: the time of the last comment poll (ISO 8601); the next poll reads from a little before it;
-- ``handled``: the ids of the last comments that carried a command (a comment is acted on once, from a webhook or a
-  poll);
-- ``paused``: the pull requests whose reviews ``@octryx pause`` stopped.
-
-The repository form never sends this key, so saving the repository keeps it (``code_intelligence.repository``).
-"""
+"""What the review bot remembers per repository between polls (stage D), in ``config_json["pr_review_bot_state"]``."""
 
 from __future__ import annotations
 
@@ -36,7 +28,6 @@ def set_paused(record: CodeRepository, pr_id: str, paused: bool) -> None:
 
 
 def first_time(record: CodeRepository, comment_id: str) -> bool:
-    """Whether the comment is acted on for the first time; it is remembered either way."""
     handled = [str(item) for item in state_of(record).get("handled") or []]
     if str(comment_id) in handled:
         return False

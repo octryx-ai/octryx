@@ -182,6 +182,5 @@ INCIDENT_MANAGEMENT_DEFINITIONS: dict[str, dict] = {
 
 
 def get_incident_management_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for incident_management tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(INCIDENT_MANAGEMENT_DEFINITIONS)

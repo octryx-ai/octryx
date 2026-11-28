@@ -30,8 +30,6 @@ def _json(payload: dict, status: int = 200) -> httpx.Response:
 
 
 class FakeJira:
-    """``GET /rest/api/2/search`` over an in-memory project; refuses every other method."""
-
     def __init__(self) -> None:
         self.issues: dict[str, dict] = {}
 
@@ -51,8 +49,6 @@ class FakeJira:
 
 
 class FakeConfluence:
-    """One space listing, page bodies, and read-restriction lookups for ancestors."""
-
     def __init__(self) -> None:
         self.pages: dict[str, dict] = {}
         self.broken_bodies: set[str] = set()
@@ -88,8 +84,6 @@ class FakeConfluence:
 
 
 class StubParser:
-    """Only the identity is needed: sandboxed revisions are registered, parsed later by the worker."""
-
     identity = ParserIdentity(name="docling-serve", version="1.35.0+p1", sandbox="no_network_uds")
 
 

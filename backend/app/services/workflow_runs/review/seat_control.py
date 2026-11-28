@@ -12,7 +12,6 @@ from .seat import ANSWER_KEY, GATEWAY_REVIEW_JOB_KEY, PURPOSE_KEY, REQUEST_KEY, 
 
 
 async def mark_review_session(db: AsyncSession, gateway_session: Session, job_id: str, user_id: str) -> bool:
-    """At registration: the gateway session of a review turn's job is a review session (no tools, the request)."""
     if not job_id:
         return False
     job = await db.get(DeviceJob, job_id)
@@ -40,7 +39,6 @@ async def _review_job(db: AsyncSession, gateway_session: Session, user_id: str) 
 
 
 async def review_request_for(db: AsyncSession, gateway_session: Session, user_id: str) -> dict[str, Any] | None:
-    """The pending request of the session's review turn (``None`` when there is none for its current turn)."""
     found = await _review_job(db, gateway_session, user_id)
     if found is None:
         return None
@@ -55,7 +53,6 @@ MAX_ANSWER_CHARS = 400_000
 
 
 async def store_review_answer(db: AsyncSession, gateway_session: Session, user_id: str, body: Any) -> str | None:
-    """Store the device's answer for the session's current review turn; a refusal reason, ``None`` when stored."""
     found = await _review_job(db, gateway_session, user_id)
     if found is None:
         return "review_request_not_found"

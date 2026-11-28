@@ -1,21 +1,4 @@
-"""Source Sync: connectors that keep a Workspace's Knowledge in step with a source system.
-
-A connector is configured per Workspace (a Confluence space set, a Jira project set, ServiceNow
-knowledge bases and record tables) and uses the
-Workspace's existing tool connection for its credentials; nothing secret is stored here. Three
-tables carry its state:
-
-- ``KnowledgeSourceConnector``: the configuration and the durable **cursor** (which listing pass,
-  and where inside it the next run resumes), plus a run lease so two runs never overlap.
-- ``KnowledgeSourceSyncItem``: one row per external item: the source it became, the content hash
-  and external version of what was ingested, and the pass it was last seen in. An ingested item not
-  seen in a completed pass is retired (tombstoned) in the ledger.
-- ``KnowledgeSourceSyncRun``: the report of one bounded run and its per-item outcomes (bounded).
-
-The content itself lives only in the evidence ledger, like any upload. A connector may also carry
-a schedule: off by default, run on behalf of the author who enabled it, and only when the
-Instance switch ``OCTRYX_ENABLE_KNOWLEDGE_SOURCE_SYNC_SCHEDULER`` is on.
-"""
+"""Source Sync: connectors that keep a Workspace's Knowledge in step with a source system."""
 
 from __future__ import annotations
 
@@ -24,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, false
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 CONNECTOR_KIND_CONFLUENCE = "confluence"
@@ -61,7 +45,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeSourceConnector(Base):
+class KnowledgeSourceConnector(WorkspaceBound, Base):
     __tablename__ = "knowledge_source_connectors"
     __table_args__ = (
         UniqueConstraint("project_id", "connector_key", name="uq_knowledge_source_connectors_key"),
@@ -97,7 +81,7 @@ class KnowledgeSourceConnector(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeSourceSyncItem(Base):
+class KnowledgeSourceSyncItem(WorkspaceBound, Base):
     __tablename__ = "knowledge_source_sync_items"
     __table_args__ = (
         UniqueConstraint("connector_id", "external_id", name="uq_knowledge_source_sync_items_external"),
@@ -123,7 +107,7 @@ class KnowledgeSourceSyncItem(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeSourceSyncRun(Base):
+class KnowledgeSourceSyncRun(WorkspaceBound, Base):
     __tablename__ = "knowledge_source_sync_runs"
     __table_args__ = (Index("ix_knowledge_source_sync_runs_connector", "connector_id", "started_at"),)
 

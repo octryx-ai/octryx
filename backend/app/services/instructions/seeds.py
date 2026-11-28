@@ -1,8 +1,4 @@
-"""The shipped instructions: currently none.
-
-A shipped instruction is bound to the workflow it serves; ``ensure_default_instructions`` creates a missing one
-as a published seed and never overwrites an admin edit.
-"""
+"""The shipped instructions: currently none."""
 
 from __future__ import annotations
 

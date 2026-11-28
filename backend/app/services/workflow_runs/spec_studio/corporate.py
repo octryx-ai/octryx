@@ -1,16 +1,4 @@
-"""The Corporate Identity as the Spec Studio's default direction.
-
-The source is the corporate identity brief of a CI profile (``corp_identity_service.get_corp_identity_brief``: the
-Office theme of the uploaded templates). It gives fonts (major / minor), neutrals (dk1, lt1, dk2, lt2), accents per
-medium, a logo and icons; it has no dark theme, no ok / warn / error, no radius. ``corporate_direction`` turns it
-into a Studio direction and marks every value with its source:
-
-- ``ci``: taken from the template as it is, never changed (a CI pair below AA stays and becomes an open point);
-- ``derived``: filled in where the template says nothing, adjusted until it meets AA.
-
-Mapping: lt1 → bg, lt2 → surface, dk1 → text, dk2 → muted, the first accent → accent; ok / warn / error take an
-accent of fitting hue when the template has one. The dark theme is derived from the same hues.
-"""
+"""The Corporate Identity as the Spec Studio's default direction."""
 
 from __future__ import annotations
 
@@ -38,13 +26,11 @@ def _hex(h: float, lightness: float, s: float) -> str:
 
 
 def _mix(a: str, b: str, share: float) -> str:
-    """``share`` of ``b`` in ``a``."""
     return "#" + "".join(f"{round(int(a[i:i + 2], 16) * (1 - share) + int(b[i:i + 2], 16) * share):02X}"
                          for i in (1, 3, 5))
 
 
 def until_aa(colour: str, background: str, *, lighter: bool) -> str:
-    """``colour`` made lighter or darker in steps, keeping its hue, until it meets AA on ``background``."""
     h, lightness, s = _hls(colour)
     candidate = colour
     while contrast(candidate, background) < AA and 0.0 < lightness < 1.0:
@@ -54,7 +40,6 @@ def until_aa(colour: str, background: str, *, lighter: bool) -> str:
 
 
 def accent_until_aa(colour: str, background: str, *, lighter: bool) -> str:
-    """A derived main-action colour: AA on ``background`` and AA for the button text drawn on it."""
     h, lightness, s = _hls(colour)
     candidate = until_aa(colour, background, lighter=lighter)
     lightness = _hls(candidate)[1]
@@ -112,7 +97,6 @@ def _light(brief: dict[str, Any], sources: dict[str, str]) -> dict[str, str]:
 
 
 def _dark(light: dict[str, str], sources: dict[str, str]) -> dict[str, str]:
-    """The dark theme from the light one's hues: deep page and card, light text, colours lightened until AA."""
     hue, _lightness, saturation = _hls(light["text"])
     bg = _hex(hue, 0.08, min(saturation, 0.25))
     surface = _hex(hue, 0.12, min(saturation, 0.25))
@@ -128,8 +112,6 @@ def _dark(light: dict[str, str], sources: dict[str, str]) -> dict[str, str]:
 
 
 def corporate_direction(brief: dict[str, Any]) -> dict[str, Any]:
-    """The Studio direction "Corporate: <profile>" with ``sources`` per value path (``light.accent``, ``radius``, …),
-    the CI logo and icons by slug."""
     sources: dict[str, str] = {}
     light = _light(brief, sources)
     dark = _dark(light, sources)

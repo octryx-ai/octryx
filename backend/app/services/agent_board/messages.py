@@ -1,19 +1,4 @@
-"""Writing to the board: posts, acknowledgements, decisions, redaction.
-
-- **Kinds:** :data:`KINDS`. Agents may post every kind except ``decision``; a decision is a person's answer
-  to a ``decision_request`` (:func:`decide`).
-- **Bounds:** body at most 8 KB (UTF-8); ``options`` only on a ``decision_request``, at most 10 entries of
-  1..200 characters; ``to_role`` is ``admins`` or absent; ``to_agent_hash`` is a 24-hex agent hash;
-  ``to_user_id`` must be a member of the Workspace; ``work_item_id`` and ``reply_to`` must belong to it.
-- **Secrets:** body, options and decision text go through the gateway's secret scan. A hit is a 422
-  ``secret_detected`` that never echoes the value, and nothing is stored.
-- **Decisions:** allowed for the addressed user, for a Workspace admin/owner when the request is addressed to
-  ``admins`` or to no one, and for platform admins. A second decision is 409 ``already_decided``: the partial
-  unique index ``uq_agent_board_one_decision`` makes that hold under a race too.
-- **Redaction** (admin/owner): body and options are blanked, the tombstone stays, an audit row records it.
-
-The input rules (bounds, secret scan) live in ``message_rules``.
-"""
+"""Writing to the board: posts, acknowledgements, decisions, redaction."""
 
 from __future__ import annotations
 
@@ -63,7 +48,6 @@ async def is_workspace_admin(db: AsyncSession, user_id: str, project_id: str) ->
 
 
 async def _require_addressee(db: AsyncSession, user_id: str, project_id: str) -> None:
-    """An addressed user has a role in the Workspace (platform admins count as admins everywhere)."""
     if await get_project_role_for_user(db, user_id, project_id) is None:
         raise _refuse("to_user_id is not a member of this Workspace")
 
@@ -76,7 +60,6 @@ async def post_message(
     arguments: dict[str, Any],
     allowed_kinds: frozenset[str] = AGENT_KINDS,
 ) -> AgentBoardMessage:
-    """Validate and store one message in ``project_id``; the caller authorized the author there. Flushes."""
     kind = arguments.get("kind")
     if kind not in allowed_kinds:
         raise _refuse(f"kind must be one of {sorted(allowed_kinds)}")
@@ -130,7 +113,6 @@ async def post_message(
 async def acknowledge(
     db: AsyncSession, *, message_ids: Any, project_ids: Sequence[str], kind: str, ref: str, user_id: str
 ) -> int:
-    """Acknowledge messages readable in ``project_ids``; unknown or foreign ids are ignored. Idempotent."""
     if not isinstance(message_ids, list) or not message_ids or len(message_ids) > MAX_ACK_IDS:
         raise _refuse(f"message_ids must be a list of 1 to {MAX_ACK_IDS} ids")
     wanted = sorted({str(value) for value in message_ids if isinstance(value, str) and value})
@@ -183,7 +165,6 @@ async def existing_decision(db: AsyncSession, request_id: str) -> AgentBoardMess
 async def decide(
     db: AsyncSession, *, request: AgentBoardMessage, user_id: str, option: Any, text: Any
 ) -> AgentBoardMessage:
-    """A person's ``decision`` on ``request``; the caller checked membership. Flushes."""
     if request.kind != KIND_DECISION_REQUEST or request.redacted_at is not None:
         raise _refuse({"code": CODE_NOT_A_DECISION_REQUEST}, 409)
     if not await may_decide(db, request, user_id):
@@ -222,8 +203,6 @@ async def decide(
 
 
 async def redact(db: AsyncSession, *, message: AgentBoardMessage, actor_user_id: str) -> AgentBoardMessage:
-    """Blank body and options, keep the tombstone. A redacted ``decision_request`` takes its decision's chosen
-    option and text with it: they would otherwise repeat the redacted content."""
     if message.redacted_at is None:
         message.body = ""
         message.options = []
@@ -241,6 +220,7 @@ async def redact(db: AsyncSession, *, message: AgentBoardMessage, actor_user_id:
                 action=REDACT_AUDIT_ACTION,
                 resource_type="agent_board_message",
                 resource_id=message.id,
+                project_id=message.project_id,
                 details=details,
             )
         )

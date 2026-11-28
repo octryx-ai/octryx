@@ -51,3 +51,13 @@ allowPrivilegeEscalation: false
 capabilities:
   drop: ["ALL"]
 {{- end -}}
+
+{{/* Egress to the cluster DNS only (runners.networkPolicy.dns). */}}
+{{- define "octryx.dnsEgress" -}}
+- to:
+    - namespaceSelector:
+        matchLabels: {{- toYaml .Values.runners.networkPolicy.dns.namespaceLabels | nindent 10 }}
+      podSelector:
+        matchLabels: {{- toYaml .Values.runners.networkPolicy.dns.podLabels | nindent 10 }}
+  ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+{{- end -}}

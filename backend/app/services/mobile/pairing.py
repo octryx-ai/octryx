@@ -1,18 +1,4 @@
-"""Pairing a phone with the QR code from the Mac.
-
-1. ``create_pairing``: the user's own octryx-claude login on the Mac asks for a pairing. The one-time code goes
-   into the QR code as the URL fragment (``/m/pair#c=…``), so it never reaches a server log.
-2. ``scan``: the phone (Safari after the camera, or the app) redeems the code once. It gets a scan secret (only
-   this phone can follow the pairing) and a two-digit number; the Mac shows the same number.
-3. ``confirm``: the person confirms the number in their signed-in browser on the Mac (the platform's web session,
-   same origin), never with the Mac's gateway token: a token that leaked to a tool or an agent can start a
-   pairing but never complete one. A code someone else photographed is useless without it.
-4. ``phone_status``: the scanning phone learns the decision; after a confirmation it receives the one-time claim,
-   exactly once.
-5. ``claim``: the Home Screen app redeems the claim on its first start and becomes a mobile device.
-
-Secrets are stored as SHA-256 hashes and compared in constant time; every step is audited.
-"""
+"""Pairing a phone with the QR code from the Mac."""
 
 from __future__ import annotations
 
@@ -77,14 +63,12 @@ def new_claim_code() -> str:
 
 
 def normalize_claim_code(text: object) -> str:
-    """``k7q4-xm9p`` → ``K7Q4XM9P``; O/I/L read as 0/1/1 (Crockford); anything else is ``""``."""
     raw = str(text or "").upper().replace("-", "").replace(" ", "")
     raw = raw.translate(str.maketrans({"O": "0", "I": "1", "L": "1"}))
     return raw if len(raw) == CLAIM_LENGTH and all(char in CLAIM_ALPHABET for char in raw) else ""
 
 
 def confirm_url(base_url: str, pairing_id: str) -> str:
-    """The page in the person's browser where they confirm the phone (the pairing id is no secret)."""
     return f"{base_url.rstrip('/')}{CONFIRM_PATH}?p={pairing_id}"
 
 
@@ -93,7 +77,6 @@ def pair_url(base_url: str, code: str) -> str:
 
 
 def phone_label(user_agent: str) -> str:
-    """A short, readable name for the phone from its user agent ("iPhone", "iPad", "Android phone", …)."""
     agent = str(user_agent or "")
     for needle, label in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android phone"), ("Mac", "Mac")):
         if needle in agent:
@@ -112,8 +95,6 @@ def _audit(db: AsyncSession, *, user_id: str, action: str, pairing: MobilePairin
 
 async def _advance(db: AsyncSession, pairing: MobilePairing, *, expected: str, claim_unset: bool = False,
                    **values: Any) -> bool:
-    """Move the pairing on only if it is still in ``expected`` (and, for the claim, none was handed out yet): one
-    conditional UPDATE, so two concurrent scans, confirmations or claims never both succeed."""
     statement = update(MobilePairing).where(MobilePairing.id == pairing.id, MobilePairing.state == expected)
     if claim_unset:
         statement = statement.where(MobilePairing.claim_hash.is_(None))
@@ -131,8 +112,6 @@ class Scan:
 
 
 async def create_pairing(db: AsyncSession, *, user_id: str, grant_id: str) -> tuple[MobilePairing, str] | str:
-    """A new pairing of ``user_id`` from the octryx-claude login ``grant_id`` and its one-time code (returned once),
-    or ``mobile_pairing_limit`` after too many in a short time. Flushes."""
     since = utc_now() - PAIRING_LIMIT_WINDOW
     recent = (await db.execute(select(func.count()).select_from(MobilePairing).where(
         MobilePairing.user_id == user_id, MobilePairing.created_at >= since))).scalar_one()
@@ -156,7 +135,6 @@ async def owned_pairing(db: AsyncSession, *, pairing_id: str, user_id: str) -> M
 
 
 async def scan(db: AsyncSession, *, code: str, user_agent: str) -> Scan | str:
-    """The phone redeems the code once; returns the scan secret (once) or a fixed reason. Flushes."""
     if not isinstance(code, str) or not 10 <= len(code) <= 64:
         return REASON_PAIRING_NOT_FOUND
     pairing = (
@@ -181,7 +159,6 @@ async def scan(db: AsyncSession, *, code: str, user_agent: str) -> Scan | str:
 
 
 def mac_view(pairing: MobilePairing) -> dict[str, Any]:
-    """What the Mac shows while it waits: the state, and after a scan the number and the phone."""
     state = pairing.state
     if state in (PAIRING_PENDING, PAIRING_SCANNED) and _expired(pairing.expires_at):
         state = "expired"
@@ -194,7 +171,6 @@ def mac_view(pairing: MobilePairing) -> dict[str, Any]:
 
 
 async def confirm(db: AsyncSession, *, pairing: MobilePairing, user_id: str, approve: bool) -> str:
-    """The Mac's decision on a scanned pairing; ``""`` or a fixed reason. Flushes."""
     if pairing.state == PAIRING_PENDING:
         return REASON_PAIRING_NOT_SCANNED
     if pairing.state != PAIRING_SCANNED:
@@ -212,7 +188,6 @@ async def confirm(db: AsyncSession, *, pairing: MobilePairing, user_id: str, app
 
 
 async def phone_status(db: AsyncSession, *, pairing_id: str, scan_secret: str) -> dict[str, Any] | str:
-    """The scanning phone's view; the claim is handed out once, right after the confirmation. Flushes."""
     pairing = await db.get(MobilePairing, pairing_id) if pairing_id else None
     if pairing is None or not isinstance(scan_secret, str) or not _matches(scan_secret, pairing.scan_secret_hash):
         return REASON_PAIRING_NOT_FOUND
@@ -232,7 +207,6 @@ async def phone_status(db: AsyncSession, *, pairing_id: str, scan_secret: str) -
 
 
 async def claim(db: AsyncSession, *, claim_token: str, name: str = "") -> tuple[MobileDevice, str] | str:
-    """The Home Screen app's first start: a new mobile device and its secret (returned once). Flushes."""
     code = normalize_claim_code(claim_token)
     if not code:
         return REASON_CLAIM_INVALID

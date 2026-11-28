@@ -1,12 +1,4 @@
-"""Deterministic extractor for ``code_graph_summary`` bronze records.
-
-Maps the compact module outline produced by the native code-graph index
-(files, defined symbols, resolved imports) into the knowledge graph as the
-code-internals skeleton: one ``module`` node per code file with a symbol
-summary in its description, ``part_of``/``imports`` edges, and a superseding
-``code_index`` claim on the repository node. Symbol-level detail (methods,
-fields, calls) intentionally stays in the code-graph tables.
-"""
+"""Deterministic extractor for ``code_graph_summary`` bronze records."""
 
 from __future__ import annotations
 

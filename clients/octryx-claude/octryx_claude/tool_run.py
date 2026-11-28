@@ -1,9 +1,5 @@
-"""Running one of the launcher's pinned tools on code a job fetched (the check proof and the review bot's
-scan): no shell, only a tool from ``tools_data`` this device has in its pinned version, in a folder inside the
-system's temporary directory, with a minimal environment (PATH, HOME = that folder, LANG): a tool that reads a
-stranger's code never sees the launcher's device token, seat or proxy keys. A missing tool or a timeout is a status,
-never an exception; output and the files the call writes are capped (``max_output``).
-"""
+"""Runs one of the launcher's pinned tools on fetched code: no shell, a temp folder, a minimal environment,
+so a tool reading a stranger's code never sees the launcher's tokens or keys."""
 
 from __future__ import annotations
 
@@ -33,8 +29,6 @@ def _capped(data: bytes, limit: int) -> tuple[str, bool]:
 
 def run_tool(tool_id: str, args: list[str], *, cwd: Path, timeout: float, max_output: int = MAX_OUTPUT,
              outputs: list[str] | None = None) -> dict[str, Any]:
-    """``{status: ok | missing | timeout | error, exit, stdout, stderr, truncated, files}``; ``files`` holds each of
-    ``outputs`` (paths relative to ``cwd``) the call wrote, as text within ``max_output`` or ``truncated``."""
     cwd = Path(cwd).resolve()
     if not cwd.is_relative_to(Path(tempfile.gettempdir()).resolve()) or not cwd.is_dir():
         return {"status": "error", "exit": None, "stdout": "", "stderr": "cwd is not a temporary folder",

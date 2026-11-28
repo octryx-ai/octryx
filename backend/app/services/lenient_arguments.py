@@ -1,13 +1,5 @@
 """Structured tool arguments a model sent as text (seen with Gemma 4 via Bedrock).
-
-Gemma's nested tool arguments can arrive as one string in its own object notation instead of JSON: keys without
-quotes, string values with escaped quotes, stray characters after the opening brace and free text after the
-structure — e.g. ``[{").command: \\".venv/bin/python -m pytest -v\\",id: \\"a\\",tests:[{id: \\"t\\"}]}] recap: …``.
-Pydantic then refuses the call ("Input should be a valid list") and the phase never submits.
-
-:func:`structured` turns such a string back into the list or object: plain JSON first, then the repaired
-notation. Anything it cannot read stays the string, so the tool's own validation still answers.
-"""
+Anything unreadable stays the string, so the tool's own validation still answers."""
 
 from __future__ import annotations
 
@@ -20,7 +12,6 @@ _LEADING_JUNK = re.compile(r'\{\s*"?[)\].,\s]*(?=[A-Za-z_][A-Za-z0-9_]*\s*:)')
 
 
 def _balanced(text: str) -> str | None:
-    """The first complete ``[...]`` or ``{...}`` of ``text`` (brackets inside strings ignored), else ``None``."""
     start = next((index for index, char in enumerate(text) if char in _OPENERS), None)
     if start is None:
         return None
@@ -47,7 +38,6 @@ def _balanced(text: str) -> str | None:
 
 
 def _quote_keys(text: str) -> str:
-    """Bare ``key:`` outside strings becomes ``"key":``."""
     out: list[str] = []
     index, in_string, escaped = 0, False, False
     while index < len(text):
@@ -92,10 +82,6 @@ def _repaired(text: str) -> Any:
 
 
 def structured(value: Any, *, name: str = "", kind: type = list) -> Any:
-    """``value`` as ``kind`` (list or dict) when it is that structure written as text; otherwise unchanged.
-
-    A dict that wraps the argument under its own ``name`` (the model put every argument into one) yields that part.
-    """
     if not isinstance(value, str):
         return value
     text = value.strip()
@@ -110,12 +96,7 @@ def structured(value: Any, *, name: str = "", kind: type = list) -> Any:
 
 
 def criteria_from_lines(lines: Any) -> list[dict[str, Any]]:
-    """Test contract criteria from flat lines ``id | text | command | test ids`` (Gemma-safe form).
-
-    Test ids are comma separated; ``(regression)`` after one marks it a regression test, else it is new. A command
-    ``manual: <reason>`` makes the criterion manual_only. A line with fewer than four parts stays as given so the
-    contract's own validation names what is missing.
-    """
+    # A line with fewer than four parts stays as given, so the contract's own validation names what is missing.
     criteria: list[dict[str, Any]] = []
     for line in structured(lines, name="criteria_lines") if isinstance(lines, str) else (lines or []):
         parts = [part.strip() for part in str(line).split("|")]

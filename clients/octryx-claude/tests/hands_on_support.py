@@ -1,5 +1,3 @@
-"""Shared helpers for the test_hands_on_* modules."""
-
 from __future__ import annotations
 
 import json
@@ -81,7 +79,6 @@ def _view() -> dict:
 
 
 def _why(body: dict, shots: Path) -> str:
-    """Each failed scenario in full (the gate cut the body; a red run shows its cause)."""
     failed = [{key: item.get(key) for key in ("id", "failed_step", "error", "invalid", "screenshots", "seconds")}
               for item in body.get("scenarios") or [] if not item.get("passed")]
     files = sorted(path.name for path in Path(shots).iterdir()) if shots and Path(shots).is_dir() else []

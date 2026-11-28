@@ -55,11 +55,6 @@ def selected_runtime_target_ids(workspace_execution_view: dict[str, Any] | None)
 
 
 def default_agent_binding(workspace_execution_view: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The enabled agent binding the Workspace names as its default agent, if any.
-
-    Only the explicit default (the admin's "Default agent" control, or a binding marked
-    default) counts; the first binding is never an implicit default.
-    """
     normalized_view = normalize_workspace_execution_view(workspace_execution_view)
     if normalized_view is None:
         return None

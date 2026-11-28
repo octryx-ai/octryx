@@ -1,30 +1,4 @@
-"""The Workspace's own Confluence/Jira connection: use the global one, or an own credential unit.
-
-A Workspace either uses the global connection (its entry sets no URL or credential field) or has its
-own connection: URL, auth mode, principals and secret refs, as one unit
-(``tool_config/connection_fields.py``). This module is the only writer of that unit for the admin
-panel; the access save (``admin_project_connector_access_service.py``) never touches it.
-
-- **Read** returns the non-secret fields and which secrets are stored, never a secret or a ref. The
-  global part says whether a global entry exists (``configured``) and whether it is enabled
-  (``active``); a disabled global entry is never used for a test. ``state`` is computed from the
-  stored entry, never from the last test: ``global``, ``own``, ``own_disabled`` (an own entry whose
-  connector access is off), or ``own_incomplete`` (an own unit without its URL, auth mode or credential,
-  e.g. an own secret left without its URL), with a fixed ``state_summary`` for the last two.
-- **Save own** validates the effective unit before any write (the auth-mode rules, a bare
-  ``*.atlassian.net`` Confluence URL refused, never rewritten). A kept secret never silently follows a
-  changed URL (``secret_rebind``, 409). A typed secret is stored for this Workspace; an empty one keeps
-  the stored one. A mode switch drops the previous mode's principal and secret ref, so the entry
-  holds one credential unit. ``is_active`` is never changed here.
-- **Save global** removes the whole unit, so the Workspace inherits the global connection again.
-- **Test** runs the connection test on the effective connection. A typed secret is used for that
-  test only and never stored. The same rebind rule as the save applies: a stored secret is
-  never sent to a target the test request changes unless it is re-entered or the rebind confirmed
-  (409 otherwise). Only a test of the saved connection is recorded as health (never the circuit
-  breaker).
-
-Every message names fields and fixed codes only; no value, secret or response body.
-"""
+"""The Workspace's own Confluence/Jira connection: use the global one, or an own credential unit."""
 
 from __future__ import annotations
 
@@ -34,7 +8,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import AtlassianAuthConfigError
+from app.services.connector_auth.atlassian_modes import AtlassianAuthConfigError
 
 from ....models import Project
 from ...connector_health import list_connector_health_rows, serialize_connector_health, upsert_connector_health
@@ -60,6 +34,7 @@ SOURCE_WORKSPACE = "workspace"
 CODE_SOURCE_INVALID = "connection_source_invalid"
 CODE_CONNECTION_INVALID = "connection_invalid"
 SAVE_AUDIT_ACTION = "admin.workspace_connection.saved"
+_CONNECTION_TEST = "connector.connection_test"
 STATE_OWN = "own"
 STATE_OWN_INCOMPLETE = "own_incomplete"
 STATE_OWN_DISABLED = "own_disabled"
@@ -75,10 +50,6 @@ def _source(tool: str, config: dict[str, Any]) -> str:
 
 
 def _state(tool: str, config: dict[str, Any], *, active: bool) -> str:
-    """``global``, ``own``, ``own_disabled`` or ``own_incomplete``, computed from the stored entry alone.
-
-    A disabled own entry is reported as disabled, whatever its unit holds: no run uses it either way.
-    """
     if not sets_connection_identity(tool, config):
         return SOURCE_GLOBAL
     if not active:
@@ -143,7 +114,6 @@ async def _refuse_unconfirmed_rebind(
     payload: dict[str, Any],
     actor_id: str | None,
 ) -> None:
-    """For save and test alike: a kept secret never silently follows a changed target (409)."""
     try:
         await enforce_secret_rebind(
             db,
@@ -210,6 +180,7 @@ async def save_workspace_connection(
         action=SAVE_AUDIT_ACTION,
         resource_type="workspace_connection",
         resource_id=f"{project_id}:{tool}",
+        project_id=project_id,
         before={"source": _source(tool, stored), "fields": sorted(_public(tool, stored))},
         after={"source": source, "fields": sorted(_public(tool, proposed))},
         # Field names only; the key avoids the audit redactor markers ("secret", "credential").
@@ -220,7 +191,6 @@ async def save_workspace_connection(
 
 
 async def _record_incomplete(db: AsyncSession, tool: str, project_id: str) -> None:
-    """The saved own connection cannot be used (fail closed): that is this Workspace's health."""
     await upsert_connector_health(
         db, connector_name=tool, project_id=project_id, status="error", response_time_ms=None,
         error=INCOMPLETE_SUMMARY, details=INCOMPLETE_SUMMARY,
@@ -237,13 +207,13 @@ async def test_workspace_connection(
     run_connection_test: RunConnectionTest,
     actor_id: str | None = None,
 ) -> dict[str, Any]:
-    """Test the effective connection; typed values are used for this test only and never stored."""
     tool = await _require(db, project_id, connector)
     body = payload if isinstance(payload, dict) else {}
     _entry, stored, global_config = await _configs(db, tool, project_id)
     current = _source(tool, stored)
     source = _requested_source(body) if "source" in body else current
-    resolved_global = await resolve_secret_refs(db, global_config, tool_name=tool, project_id=None)
+    resolved_global = await resolve_secret_refs(db, global_config, tool_name=tool, project_id=None,
+                                                purpose=_CONNECTION_TEST)
     if source == SOURCE_GLOBAL:
         connection_free = {key: value for key, value in stored.items() if key not in _connection_keys(tool)}
         effective = {**resolved_global, **connection_free}
@@ -264,7 +234,8 @@ async def test_workspace_connection(
             db, tool=tool, project_id=project_id, stored=stored, proposed=proposed, typed=typed,
             payload=body, actor_id=actor_id,
         )
-        resolved_own = await resolve_secret_refs(db, proposed, tool_name=tool, project_id=project_id)
+        resolved_own = await resolve_secret_refs(db, proposed, tool_name=tool, project_id=project_id,
+                                                  purpose=_CONNECTION_TEST)
         effective = {**global_config_for_scope(tool, resolved_global, proposed), **resolved_own, **typed}
         changed = bool(typed) or proposed != stored or current != SOURCE_WORKSPACE
     if changed:

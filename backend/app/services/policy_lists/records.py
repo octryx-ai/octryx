@@ -1,16 +1,4 @@
-"""Stored, versioned admin records of the governed policy lists (W22b).
-
-A policy list is product policy a customer may change: the seed lives in code, the live value
-is a ``system_config`` record an admin edits. No record means the seed is live (version
-``spec.seed_version``). Every write (an edit or a reset to the seed) stores the next version and
-appends an ``audit_log`` row (``policy_list.updated`` / ``policy_list.reset``), so a recorded
-key such as ``diagnosis.v3`` names exactly one content: versions only grow, a reset is a new
-version whose values equal the seed.
-
-Writes are validated by the list's own module before they reach :func:`write_policy_list`. A
-stored record is re-read structurally; one that cannot be read is an explicit
-``record_state="unreadable"`` (logged, shown in the admin view) and the seed stays live.
-"""
+"""Stored, versioned admin records of the governed policy lists (W22b)."""
 
 from __future__ import annotations
 
@@ -43,8 +31,6 @@ _HISTORY_LIMIT = 10
 
 @dataclass(frozen=True, slots=True)
 class PolicyListSpec:
-    """One governed list: its identity, its seed and the structural reader of stored values."""
-
     list_id: str
     config_key: str
     key_prefix: str
@@ -57,8 +43,6 @@ class PolicyListSpec:
 
 @dataclass(frozen=True, slots=True)
 class PolicyListState:
-    """The live value of one list and where it came from."""
-
     spec: PolicyListSpec
     version: int
     values: Any
@@ -98,7 +82,6 @@ def _seed_state(spec: PolicyListSpec, record_state: str) -> PolicyListState:
 
 
 def state_from_raw(spec: PolicyListSpec, raw: str | None) -> PolicyListState:
-    """The live state of ``spec`` from its stored record text (``None``: no record)."""
     if not raw:
         return _seed_state(spec, RECORD_ABSENT)
     try:
@@ -125,7 +108,6 @@ def state_from_raw(spec: PolicyListSpec, raw: str | None) -> PolicyListState:
 
 
 async def read_policy_list_states(db: AsyncSession, specs: Iterable[PolicyListSpec]) -> dict[str, PolicyListState]:
-    """The live state of every spec, read in one query."""
     by_key = {spec.config_key: spec for spec in specs}
     rows = (await db.execute(select(SystemConfig.key, SystemConfig.value).where(SystemConfig.key.in_(by_key)))).all()
     raw_by_key = {str(key): value for key, value in rows}
@@ -145,7 +127,6 @@ async def write_policy_list(
     reset: bool = False,
     expected_version: int | None = None,
 ) -> PolicyListState:
-    """Store ``values`` (already validated) as the next version and append the audit row."""
     current = await read_policy_list_state(db, spec)
     if expected_version is not None and expected_version != current.version:
         raise PolicyListError(
@@ -178,7 +159,6 @@ async def write_policy_list(
 
 
 async def policy_list_history(db: AsyncSession, list_id: str) -> list[dict[str, Any]]:
-    """The latest audited writes of one list, newest first (key, action, actor, time)."""
     rows = (
         await db.execute(
             select(AuditLog)

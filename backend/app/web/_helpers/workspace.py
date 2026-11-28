@@ -127,10 +127,7 @@ def _serialize_chat_message_page_bundle(
     for message_id, trace_id, provider, model in page_bundle.turn_trace_rows:
         if message_id:
             turn_trace_meta_by_message_id[str(message_id)] = {
-                "id": str(trace_id),
-                "provider": str(provider or ""),
-                "model": str(model or ""),
-            }
+                "id": str(trace_id), "provider": str(provider or ""), "model": str(model or "")}
 
     message_rows: list[dict] = []
     for message in page_bundle.messages:
@@ -162,9 +159,16 @@ def _serialize_chat_message_page_bundle(
                 "turnTraceId": (turn_trace_meta or {}).get("id") or None,
                 "feedback": _serialize_feedback(feedback_by_message_id.get(message.id), _serialize_timestamp),
                 "origin": message_origin(message),
+                "authorId": (author := _author(message, session)),
+                "authorName": page_bundle.authors.get(author or "") or None,
             }
         )
     return message_rows, page_bundle.has_more
+
+
+# A user message older than the recorded author (no author_user_id) is shown under the session's owner.
+def _author(message, session: AgentSession) -> str | None:
+    return (message.author_user_id or session.user_id) if message.role == "user" else None
 
 
 WORKFLOW_CONTINUATION_KEY = "workflow_continuation:"
@@ -174,9 +178,6 @@ PLATFORM_GIT_KEY = "teamwork:git:"
 
 
 def message_origin(message) -> str | None:
-    """``"workflow"`` for the message the platform sends to continue a workflow run (it is stored as the person's);
-    ``"platform"`` for the platform's own git turn of a team run (no agent, no person);
-    ``"device"`` for an answer a device job wrote (keyed ``device_job:``, ``devices.run_trace.device_answer_key``)."""
     key = getattr(message, "idempotency_key", None) or ""
     if message.role == "user" and key.startswith(WORKFLOW_CONTINUATION_KEY):
         return "workflow"

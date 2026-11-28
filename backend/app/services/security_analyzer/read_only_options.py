@@ -1,25 +1,4 @@
-"""The read commands a read-only path admits, as a CLOSED allowlist of their reading options.
-
-A read command is admitted by name (``exec_policy`` ``diagnosis_read_only_commands``), but several of
-them can also write a file, run a program or change state through an option (``sort -o``, ``sort
---compress-program``, ``uniq IN OUT``, ``find -delete``, ``rg --pre``, ``date -s``, ``sed 'w f'``). So
-every admitted command is parsed against its own table, the way getopt/getopt_long would, and only
-reading options pass:
-
-- short options: each character of a cluster must be in the table; a value-taking character takes the
-  rest of the word or the next word;
-- long options: the EXACT name must be in the table. GNU getopt_long also accepts any unambiguous
-  prefix (``--out`` for ``--output``); a prefix is never an exact entry, so it is refused, whatever
-  option it would abbreviate;
-- ``--`` ends the options: every later word is an operand, also one that starts with ``-``;
-- an option outside the table, a missing value, a value given to a flag that takes none, or an operand
-  the command would treat as an output or a setting is refused (fail closed).
-
-Commands with their own grammar are checked by it: ``find`` (a closed set of tests, operators and
-printing actions), ``sed`` (print-style scripts only), ``date`` (``+FORMAT`` is the only operand). An
-admitted command without a table here is refused by the command rules on read-only paths
-(:data:`BOUND_READ_COMMANDS`).
-"""
+"""The read commands a read-only path admits, as a CLOSED allowlist of their reading options."""
 
 from __future__ import annotations
 
@@ -53,7 +32,6 @@ class _Parsed:
 
 
 def _parse(table: OptionTable, args: Sequence[str]) -> _Parsed | None:
-    """The words split like getopt_long with ``table`` (permuting, ``--`` terminates); ``None`` refuses."""
     parsed = _Parsed()
     index = 0
     ended = False
@@ -250,11 +228,6 @@ def _sed(args: Sequence[str]) -> bool:
 
 
 def _sed_commands(script: str) -> list[str]:
-    """The commands of one sed script, split where sed itself splits them (``;`` and new lines); each must be a
-    print-style command on its own, so a split inside a regex or a replacement only ever refuses (fail closed).
-
-    Refusing ``sed -n '44,66p;217,251p' SPEC.md`` makes the model read a whole long specification instead (many
-    thousand tokens, in every session and again after each compaction)."""
     commands = [command for command in re.split(r"[;\n]", script) if command.strip()]
     return commands or [script]
 
@@ -291,7 +264,6 @@ BOUND_READ_COMMANDS: frozenset[str] = frozenset(_BINDINGS)
 
 
 def read_option_refusal(segment: Sequence[str]) -> str | None:
-    """``READ_OPTION_REFUSED`` when a bound read command uses anything outside its reading options."""
     if not segment:
         return None
     check = _BINDINGS.get(str(segment[0]))

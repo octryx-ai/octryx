@@ -40,8 +40,6 @@ ITEMS = {"api": {"id": "api", "title": "Search API", "role": "backend", "model":
 
 
 class Scheduler:
-    """The teamwork scheduler as a recorder."""
-
     def __init__(self) -> None:
         self.calls: list[tuple] = []
 
@@ -57,7 +55,6 @@ class Scheduler:
 
 @pytest.fixture
 def admitted(monkeypatch):
-    """The Workspace admits the items' models for the profile."""
     from app.services.devices import chat_turn
 
     async def check(db, **kwargs):
@@ -79,7 +76,6 @@ def scheduler(monkeypatch):
 
 
 async def _run(db, *, slots=4, **work_config):
-    """A device run at its parallel node (stood in by the phase ``work``) with a plan of two items."""
     project = await enable_device_runs(db)
     admin = await admin_user(db)
     device, _ = await device_with_grant(db, admin)

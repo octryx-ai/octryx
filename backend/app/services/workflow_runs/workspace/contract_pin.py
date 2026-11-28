@@ -1,19 +1,4 @@
-"""The run's environment file is its contract, pinned at preparation.
-
-Without the pin, a run's agent could rewrite ``environment.json`` itself (test and system_test bent, serve and browser
-removed) and the platform would judge it against the rewritten file. The file is the law of the run, so:
-
-- **pin**: the first valid account of the run's environment file (the launcher's preparation report, read at the
-  run's base) is kept in ``context.contract_pin`` (file, sha256, validated environment, commands). Every reader of the
-  contract takes the pin, never the working tree: the run contract's commands (Stop checks, the shell policy, the
-  agent's prompt), the device's pipeline and hands-on pass (``environment_pin`` in their views) and the launcher's
-  own facts (which commands run outside the sandbox);
-- **a change**: a later account with another hash is no contract. It is recorded once (``contract_change_ignored``)
-  and the pin stays; only a phase whose node allows it (``config.allow_contract_change: true``, e.g. an onboarding or
-  setup story) re-pins, recorded as ``contract_changed`` and flagged for the review (``context.contract_changes``);
-- **protection**: the tool policy refuses edits to the pinned file (best effort: a shell can still write it; the pin
-  is the guarantee).
-"""
+"""The run's environment file is its contract, pinned at preparation."""
 
 from __future__ import annotations
 
@@ -35,7 +20,6 @@ def pin(run: Any) -> dict[str, Any] | None:
 
 
 def view(run: Any) -> dict[str, Any] | None:
-    """What a device needs to run the pinned contract: the file, its hash and its validated content."""
     found = pin(run)
     return {key: found[key] for key in ("file", "sha256", "environment") if key in found} if found else None
 
@@ -53,7 +37,6 @@ def _account(report: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def from_preparation(db: Any, run: WorkflowRun, report: dict[str, Any]) -> None:
-    """Pin the first valid account; a later different one re-pins only where the current node allows it."""
     from ..records import record_event
     from .spec import validate_environment
 
@@ -78,6 +61,8 @@ async def from_preparation(db: Any, run: WorkflowRun, report: dict[str, Any]) ->
     if current["sha256"] == entry["sha256"] or current.get("file") != entry["file"]:
         return
     change = {"from": current["sha256"], "to": entry["sha256"], "file": entry["file"], "node_id": run.current_node_id}
+    # The pin keeps a working-tree edit from changing what the platform tests, even when the edit guard misses a
+    # write; so only a phase that explicitly permits a contract change may repin.
     if await _allowed_here(db, run):
         changes = list(dict(run.context or {}).get(CHANGES_KEY) or [])
         run.context = {**dict(run.context or {}), KEY: entry, CHANGES_KEY: [*changes, change][-20:]}
@@ -97,8 +82,6 @@ async def _allowed_here(db: Any, run: WorkflowRun) -> bool:
 
 
 def pin_server_read(run: Any, read: dict[str, Any]) -> None:
-    """A server run's first valid read of the file in its working copy becomes the pin (a device's comes from its
-    preparation report)."""
     if pin(run) is not None or read.get("state") != "ok" or not read.get("sha256") or not hasattr(run, "context"):
         return
     environment = dict(read.get("environment") or {})

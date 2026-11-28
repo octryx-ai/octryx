@@ -69,8 +69,6 @@ _RESUME_FLAGS = ("-c", "--continue", "-r", "--resume", "--from-pr", "--session-i
 
 
 class LaunchRefusedError(Exception):
-    """The session is not started. ``code`` is fixed; ``detail`` names a flag at most."""
-
     def __init__(self, code: str, detail: str = "") -> None:
         super().__init__(code)
         self.code = code

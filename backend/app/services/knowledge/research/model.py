@@ -1,11 +1,5 @@
-"""One governed JSON answer from the Model Control Plane, for Knowledge research (packages).
-
-The research of a knowledge package asks a model to plan search queries and to choose sources. It
-never gets a provider of its own: the control-plane runtimes are resolved, admitted for the one
-Workspace the package belongs to (``knowledge_research`` is a registered dispatch owner), and tried
-in priority order, ``research``-tagged runtimes first. The answer must contain a JSON object; the
-first complete one is taken. No prompt, answer or provider message is logged.
-"""
+"""One governed JSON answer from the Model Control Plane, for Knowledge research. No prompt, answer or provider message
+is logged."""
 
 from __future__ import annotations
 

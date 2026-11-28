@@ -1,11 +1,4 @@
-"""A sub-workflow node: the run starts another published workflow and routes on its outcome.
-
-The child run is linked to its parent (``parent_run_id``, ``parent_node_id``) and takes over the parent's
-chat session while it runs; when it ends the session returns to the parent and the parent continues on the
-child's outcome (a failed child counts as ``blocked``). Nesting is bounded (at most
-``MAX_SUB_WORKFLOW_DEPTH`` runs deep) and a workflow never starts itself again (A → A, A → B → A). The node's
-``handoff`` names recorded outputs the child receives (E hands its incident hypothesis to C's phases).
-"""
+"""A sub-workflow node: the run starts another published workflow and routes on its outcome."""
 
 from __future__ import annotations
 
@@ -28,7 +21,6 @@ MAX_SUB_WORKFLOW_DEPTH = 3
 
 
 async def _chain(db: AsyncSession, run: WorkflowRun) -> list[WorkflowRun]:
-    """The run and its ancestors (bounded: a longer chain is refused before it can exist)."""
     chain = [run]
     while chain[-1].parent_run_id and len(chain) <= MAX_SUB_WORKFLOW_DEPTH:
         parent = await db.get(WorkflowRun, chain[-1].parent_run_id)
@@ -85,7 +77,6 @@ async def start_sub_workflow(db: AsyncSession, run: WorkflowRun, node: PhasedNod
 
 
 async def _authored_child(db: AsyncSession, run: WorkflowRun, node: PhasedNode):
-    """The typed child: the current published version, or exactly the authored pinned version and checksum."""
     from ...models import FlowDefinition, FlowDefinitionVersion
     from .engine import published_phased_flow
     from .handoff.contract import canonical_hash
@@ -108,7 +99,6 @@ async def _authored_child(db: AsyncSession, run: WorkflowRun, node: PhasedNode):
 
 
 def _handoff(run: WorkflowRun, node: PhasedNode) -> dict:
-    """The recorded outputs the node hands to the child (``handoff``): its phases read them as inputs."""
     from .phase_outputs import HANDOFF_KEY, recorded_output
 
     kinds = [str(item) for item in node.config.get("handoff") or []] if isinstance(node.config.get("handoff"),

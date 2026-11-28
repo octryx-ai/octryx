@@ -42,10 +42,6 @@ from .panel_workspace_composition import router as panel_workspace_composition_r
 
 router = APIRouter()
 
-# ──────────────────────────────────────────────────────────
-# Project config (TTS/STT overrides)
-# ──────────────────────────────────────────────────────────
-
 @router.get("/chat/api/panel/projects/{project_id}/config")
 async def panel_get_project_config(
     project_id: str,

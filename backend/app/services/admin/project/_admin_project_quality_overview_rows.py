@@ -23,8 +23,6 @@ logger = logging.getLogger("app.services.admin.project.admin_project_quality_ove
 
 @dataclass
 class OverviewRows:
-    """Rows shared by every project of one overview, each grouped by its owner id."""
-
     trace_sync_tasks_by_project: dict[str, list[Task]] = field(default_factory=dict)
     schedulers_by_task_id: dict[str, list[Scheduler]] = field(default_factory=dict)
     trace_sync_runs_by_task_id: dict[str, list[TaskRun]] = field(default_factory=dict)
@@ -32,7 +30,6 @@ class OverviewRows:
 
 
 def _overview_error(section: str, exc: Exception) -> dict[str, str]:
-    """A partial overview names the section and the error class; the exception text is never returned."""
     return {"section": section, **error_facts("overview_section_failed", exc)}
 
 

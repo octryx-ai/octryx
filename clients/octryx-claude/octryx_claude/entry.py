@@ -1,14 +1,5 @@
 """Console entry point of the installed package (``octryx-claude`` in the venv).
-
-Two things happen before the command dispatch in ``cli``:
-
-- native Windows is refused explicitly: Claude Code's Bash sandbox does not exist there and every
-  governed session sets ``sandbox.failIfUnavailable``, so a session could never start. The Windows
-  installer runs octryx-claude inside WSL2, where the sandbox and the AF_UNIX hook signer work;
-- a person-facing launch (not a hook or helper Claude Code calls) of an installed copy updates itself when the
-  platform serves another client version and re-executes on it (``self_update``); with
-  ``OCTRYX_CLAUDE_AUTO_UPDATE=0`` it only prints the update notice (``update_check``).
-"""
+Native Windows is refused: Claude Code's Bash sandbox does not exist there, so no governed session could start."""
 
 from __future__ import annotations
 

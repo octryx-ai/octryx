@@ -1,7 +1,4 @@
-"""The independent reviewer's call on this device's seat is one tool-less model call.
-
-The platform cannot reach a person's subscription by itself, so a seat review runs here: the request comes from the
-platform, the call has no tools, no MCP server, no settings of the folder or history, and the answer goes back."""
+"""The independent reviewer's call on this device's seat is one tool-less model call."""
 
 from __future__ import annotations
 
@@ -94,7 +91,6 @@ def test_no_request_means_no_call(tmp_path, monkeypatch):
 
 
 def test_a_failed_codex_review_call_names_a_seat_limit_and_logs_codex_s_error(caplog):
-    """A failed Codex review call names a seat limit, and Codex's error is in the log."""
     import json
     import logging
 

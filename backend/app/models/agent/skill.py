@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -38,7 +39,9 @@ class Skill(Base):
     runs = relationship("SkillRun", back_populates="skill")
 
 
-class SkillRun(Base):
+class SkillRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "skill_runs"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -56,7 +59,8 @@ class SkillRun(Base):
     triggered_by_user = relationship("User")
 
 
-class SkillUsageEvent(Base):
+class SkillUsageEvent(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "skill_usage_events"
     __table_args__ = (
         Index("ix_skill_usage_events_skill_created", "skill_id", "created_at"),

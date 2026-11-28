@@ -1,16 +1,4 @@
-"""The Workspace policy for workflow proposals (``workflow_proposal_policy``).
-
-One admin-configurable field per Workspace (admin project config, audited write):
-
-- ``enabled`` (default on): only an explicit ``false`` turns proposals off, and off means a turn
-  without a ``workflow_key`` runs as a plain chat with no proposal model call.
-
-What is never configurable: a proposed workflow never starts by itself; it starts as a workflow
-run after the user's confirmation.
-
-The value is read from the project row itself, never from the merged turn configuration, so
-agent-writable knowledge cannot switch it.
-"""
+"""The Workspace policy for workflow proposals (``workflow_proposal_policy``)."""
 
 from __future__ import annotations
 
@@ -26,7 +14,7 @@ WORKFLOW_PROPOSAL_ENABLED_FIELD = "enabled"
 
 
 class WorkflowProposalPolicyError(ValueError):
-    """An out-of-vocabulary policy value; the admin config service maps it to a 400."""
+    pass
 
 
 def _section(config: Any) -> dict[str, Any]:
@@ -39,7 +27,6 @@ def workflow_proposals_enabled_in(config: Any) -> bool:
 
 
 async def workflow_proposals_enabled(db: AsyncSession, project_id: str | None) -> bool:
-    """The switch for one Workspace; a turn without a Workspace uses the default (on)."""
     if not project_id:
         return True
     config = (await db.execute(select(Project.config).where(Project.id == project_id))).scalar_one_or_none()
@@ -47,7 +34,6 @@ async def workflow_proposals_enabled(db: AsyncSession, project_id: str | None) -
 
 
 def normalize_workflow_proposal_policy(value: Any) -> dict[str, Any]:
-    """Validate the stored section; a ``None`` field is the platform default and is not stored."""
     section = dict(value) if isinstance(value, dict) else {}
     enabled = section.get(WORKFLOW_PROPOSAL_ENABLED_FIELD)
     if enabled is None:

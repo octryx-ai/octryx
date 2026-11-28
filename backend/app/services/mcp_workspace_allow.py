@@ -1,13 +1,5 @@
-"""Allow an MCP server in Workspaces: the first writer of ``mcp_policy``.
-
-A registered server is deny-by-default in every Workspace (``mcp_access_policy``). An admin allows it per Workspace,
-from the server (Runtime → MCP servers → "Allow in Workspaces") or from the Workspace (Connectors). The decision is
-stored in the Workspace's ``projects.config.mcp_policy`` — ``enabled_servers`` and, when only some tools are exposed,
-``selected_tools[server]`` — and audited. ``allow_all`` and ``disabled_servers`` are left as they are.
-
-The status pipeline per server: registered → connected → allowed in n Workspaces → tools visible to agents.
-A Workspace-owned registration can only be allowed in its own Workspace.
-"""
+"""Allow an MCP server in Workspaces: the first writer of ``mcp_policy``. A registered server is deny-by-default in
+every Workspace."""
 
 from __future__ import annotations
 
@@ -21,6 +13,7 @@ from ..models import McpServerRegistration, Project
 from .admin.governance.admin_config_audit_service import record_admin_config_audit
 from .mcp_access_policy import MCP_POLICY_CONFIG_KEY, mcp_server_access_decision, selected_mcp_tools
 from .mcp_server_registry_config import registration_is_connected
+from .project.private_workspace import foreign_private_filter
 
 AUDIT_ACTION = "admin.mcp.workspace_allow_changed"
 MAX_SELECTED_TOOLS = 200
@@ -42,7 +35,6 @@ def _names(value: Any) -> list[str]:
 
 
 def apply_server_allow(config: Any, server: str, *, allowed: bool, tools: list[str] | None) -> dict[str, Any]:
-    """The Workspace config with ``server`` allowed (``tools``: ``None`` = all tools) or not allowed. Pure."""
     config = dict(config) if isinstance(config, dict) else {}
     stored = config.get(MCP_POLICY_CONFIG_KEY)
     policy = dict(stored) if isinstance(stored, dict) else {}
@@ -83,8 +75,8 @@ async def _registration(db: AsyncSession, server_id: str) -> McpServerRegistrati
     return registration
 
 
-async def _workspaces(db: AsyncSession, registration: McpServerRegistration) -> list[Project]:
-    query = select(Project).where(Project.is_active.is_(True)).order_by(Project.name)
+async def _workspaces(db: AsyncSession, registration: McpServerRegistration, viewer_id: str) -> list[Project]:
+    query = select(Project).where(Project.is_active.is_(True), foreign_private_filter(viewer_id)).order_by(Project.name)
     if registration.owner_scope == "workspace":
         query = query.where(Project.id == registration.workspace_id)
     return list((await db.execute(query)).scalars().all())
@@ -101,7 +93,7 @@ def _allow_row(registration: McpServerRegistration, project: Project) -> dict[st
     }
 
 
-async def server_allow(db: AsyncSession, *, server_id: str, mcp_client_manager: Any) -> dict[str, Any]:
+async def server_allow(db: AsyncSession, *, server_id: str, viewer_id: str, mcp_client_manager: Any) -> dict[str, Any]:
     registration = await _registration(db, server_id)
     connected = await registration_is_connected(registration, mcp_client_manager=mcp_client_manager)
     tools = [tool.name for tool in mcp_client_manager.get_tools(registration.name)] if connected else []
@@ -110,18 +102,17 @@ async def server_allow(db: AsyncSession, *, server_id: str, mcp_client_manager: 
         "name": registration.name,
         "connected": connected,
         "tools": tools,
-        "workspaces": [_allow_row(registration, project) for project in await _workspaces(db, registration)],
+        "workspaces": [_allow_row(registration, project) for project in await _workspaces(db, registration, viewer_id)],
     }
 
 
 async def set_server_allow(
     db: AsyncSession, *, server_id: str, workspace_ids: Any, tools: Any, actor_id: str
 ) -> None:
-    """Allow the server in exactly ``workspace_ids`` (with ``tools`` or all tools); every other Workspace: not."""
     registration = await _registration(db, server_id)
     wanted = set(_names(workspace_ids))
     selected = _tools(tools)
-    projects = await _workspaces(db, registration)
+    projects = await _workspaces(db, registration, actor_id)
     known = {project.id for project in projects}
     if wanted - known:
         foreign = registration.owner_scope == "workspace"
@@ -134,7 +125,6 @@ async def set_server_allow(
 async def set_workspace_server(
     db: AsyncSession, *, workspace_id: str, server_id: str, allowed: bool, actor_id: str
 ) -> None:
-    """The Workspace → Connectors toggle: one server in one Workspace (a newly allowed server exposes all tools)."""
     registration = await _registration(db, server_id)
     project = await db.get(Project, workspace_id)
     if project is None:
@@ -158,7 +148,8 @@ async def _write(
         return
     record_admin_config_audit(
         db, actor_user_id=actor_id, action=AUDIT_ACTION, resource_type="workspace_mcp_policy",
-        resource_id=project.id, before=before, after=after, details={"server_id": registration.id},
+        resource_id=project.id, project_id=project.id, before=before, after=after,
+        details={"server_id": registration.id},
     )
 
 
@@ -168,10 +159,7 @@ async def is_own_registration(db: AsyncSession, *, server_id: str, workspace_id:
 
 
 async def workspace_servers(db: AsyncSession, *, workspace_id: str) -> list[dict[str, Any]]:
-    """The active servers a Workspace can allow (platform ones and its own) and whether it does.
-
-    Another Workspace's registrations and inactive ones are never listed (settings review finding 3).
-    """
+    # Another Workspace's registrations and inactive ones are never listed.
     project = await db.get(Project, workspace_id)
     if project is None:
         raise McpAllowError(ERROR_WORKSPACE_UNKNOWN, status=404)
@@ -194,12 +182,12 @@ async def workspace_servers(db: AsyncSession, *, workspace_id: str) -> list[dict
     ]
 
 
-async def allow_status(db: AsyncSession, *, mcp_client_manager: Any) -> list[dict[str, Any]]:
-    """The status pipeline for every active registration."""
+async def allow_status(db: AsyncSession, *, viewer_id: str, mcp_client_manager: Any) -> list[dict[str, Any]]:
     registrations = (
         await db.execute(select(McpServerRegistration).order_by(McpServerRegistration.name))
     ).scalars().all()
-    projects = list((await db.execute(select(Project).where(Project.is_active.is_(True)))).scalars().all())
+    projects = list((await db.execute(
+        select(Project).where(Project.is_active.is_(True), foreign_private_filter(viewer_id)))).scalars().all())
     rows = []
     for registration in registrations:
         scoped = [p for p in projects if registration.owner_scope != "workspace" or p.id == registration.workspace_id]

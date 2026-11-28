@@ -30,7 +30,7 @@
   place-items: center;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--accent) 44%, var(--brand-taupe-deep)),
@@ -39,7 +39,7 @@
   border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.04em;
   color: var(--brand-cream-strong);
 }
@@ -52,7 +52,7 @@
 
 .message-row__avatar-text {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.03em;
 }
 
@@ -60,7 +60,7 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
 }
 
 /* One column no wider than the row: with an implicit auto column a long unbreakable line in the
@@ -125,7 +125,7 @@
 .message-row__participant-title {
   color: var(--highlight);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.25;
   letter-spacing: -0.01em;
   word-break: break-word;
@@ -140,7 +140,7 @@
 .message-row__participant-support {
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   line-height: 1.2;
   word-break: break-word;
 }

@@ -1,30 +1,4 @@
-"""The connection of each scope item of a Source Sync connector (named connections).
-
-A connector's scope items are its Confluence spaces (whole or as page trees), Jira projects,
-ServiceNow tables or its Kubernetes cluster (bound by name, like the Kubernetes tools' ``cluster``).
-Without named connections for the connector every item uses the Workspace's
-connection (``connections.resolve_connection``), with today's reasons. With them,
-each item is resolved through the one resolver (``services/named_connections/resolver.py``):
-
-- an item a named connection binds is read with that connection, whose allowlist is its bound keys;
-- any other item is read with the default connection only if today's rules allow it there;
-- otherwise the run is refused as ``connection_not_configured_for_scope`` (no other account is tried).
-
-A Confluence connector over spaces of several connections reads each space with its own connection
-(``confluence_multi.py``). A Jira or ServiceNow connector reads with one connection, so its items
-must all resolve to the same one (``scope_spans_connections`` otherwise: configure one connector per
-connection).
-
-A connector may name its connection explicitly (``scope.connection_id``, a named connection's id or
-``default``): the resolution stays the same, and a scope item resolved to any other connection refuses
-the run as ``connection_pin_mismatch`` (e.g. after the pinned connection was deleted or a binding moved).
-A pin is checked at save as well (:func:`require_known_pin`): an id that is no connection of this connector
-the Workspace can use (its own or a global one serving it) is refused as ``connection_pin_unknown``.
-Only names, ids and scope keys are ever logged or reported, never a URL or credential.
-
-Connections are told apart by their id (``connection_ref``), never by name: a Workspace connection and a
-global connection may share a name, and each key must still be read with exactly its own account.
-"""
+"""The connection of each scope item of a Source Sync connector (named connections)."""
 
 from __future__ import annotations
 
@@ -66,20 +40,16 @@ NAMED_KINDS = (CONNECTOR_KIND_CONFLUENCE, CONNECTOR_KIND_JIRA, CONNECTOR_KIND_SE
 
 @dataclass(frozen=True, slots=True)
 class ScopeConnections:
-    """Each scope item's connection; ``named`` False is today's single connection."""
-
     connections: dict  # connection ref (named connection id, or "default") -> connection
     by_key: dict  # scope key (as configured) -> connection ref
     named: bool = False
     names: dict = field(default_factory=dict)  # connection ref -> connection name (for logs and reports)
 
     def described(self) -> dict[str, str]:
-        """``{scope key: "name (ref)"}`` for the log line: names, ids and keys only."""
         return {key: f"{self.names.get(ref, ref)} ({ref})" for key, ref in self.by_key.items()}
 
     @property
     def single(self):
-        """The one connection when every item uses it (always so without named connections), else ``None``."""
         names = set(self.by_key.values()) or set(self.connections)
         return self.connections[next(iter(names))] if len(names) == 1 else None
 
@@ -96,9 +66,6 @@ def scope_items(kind: str, scope: dict) -> tuple[str, ...]:
 
 async def resolve_scope_connections(db: AsyncSession, *, kind: str, project_id: str, scope: dict,
                                     connection_id: str | None = None) -> ScopeConnections:
-    """The connection of every scope item, or :class:`ConnectorError` with a fixed reason.
-
-    ``connection_id``: the source's linked connection (``linked_connection.py``); it pins the scope."""
     if connection_id and kind in NAMED_KINDS:
         scope = await linked_scope(db, kind=kind, project_id=project_id, scope=scope, connection_id=connection_id,
                                    items=scope_items(kind, scope))
@@ -123,7 +90,6 @@ async def resolve_scope_connections(db: AsyncSession, *, kind: str, project_id: 
 
 
 async def require_known_pin(db: AsyncSession, *, kind: str, project_id: str, scope: dict) -> None:
-    """At save: a pin names ``default`` or a connection of this connector the Workspace can use."""
     pin = scope.get("connection_id")
     if not pin or pin == DEFAULT_CONNECTION_NAME:
         return
@@ -174,7 +140,6 @@ async def _resolve(db: AsyncSession, *, kind: str, project_id: str, scope: dict)
 
 
 def _sub_scope(scope: dict, keys: set[str]) -> dict:
-    """The part of a Confluence scope whose spaces are ``keys``: its whole spaces and page trees there."""
     return {
         "spaces": [space for space in scope.get("spaces") or () if str(space) in keys],
         "page_trees": [tree for tree in scope.get("page_trees") or () if str(tree.get("space_key") or "") in keys],
@@ -182,7 +147,6 @@ def _sub_scope(scope: dict, keys: set[str]) -> dict:
 
 
 def scope_allowed(kind: str, scope: dict, scoped: ScopeConnections) -> bool:
-    """Every scope item inside the allowlist of the connection that serves it (``config.scope_within_connection``)."""
     single = scoped.single
     if single is not None:
         return scope_within_connection(kind, scope, single)

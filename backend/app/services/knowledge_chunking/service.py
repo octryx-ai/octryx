@@ -1,12 +1,4 @@
-"""Chunk indexing and retrieval — the naive vector-RAG layer (tier 1).
-
-- ``index_source_chunks`` derives chunks from a source's text, upserts them
-  incrementally (only changed chunks are re-embedded), and embeds new/changed
-  chunks with the governed embedding provider.
-- ``search_knowledge_chunks`` embeds the query with the same provider and ranks
-  chunks by cosine (dimension-safe) blended with a keyword signal.
-- ``reindex_knowledge_chunks`` backfills embeddings that are missing or stale.
-"""
+"""Chunk indexing and retrieval — the naive vector-RAG layer (tier 1)."""
 
 from __future__ import annotations
 
@@ -120,13 +112,7 @@ async def index_source_chunks(
     source_kind: str = "document",
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Incrementally (re)index a source's text into chunks.
-
-    Only chunks whose text changed are re-embedded; unchanged chunks keep their
-    embedding; chunks that no longer exist are deleted. Embedding failures are
-    surfaced (``embed_error``) but do not lose the chunk text — a later reindex
-    fills the vectors.
-    """
+    """Incrementally (re)index a source's text into chunks."""
     chunks = chunk_document(text)
     existing_rows = (
         (

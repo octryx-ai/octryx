@@ -31,9 +31,6 @@ QUESTION_TOOLS = frozenset({"AskUserQuestion"})
 
 class TurnServices:
     def _start_audit_upload(self, prepared: PreparedSession, offer: dict[str, Any]) -> asyncio.Task | None:
-        """A phase that decides its tool calls on this device (``local_decisions``): the policy goes next to the
-        session's state for its hooks, and the audit they spool goes to the platform every
-        :data:`AUDIT_UPLOAD_SECONDS` while the turn runs, never in a tool call's way."""
         offered = offer.get("local_decisions")
         if not isinstance(offered, dict) or not offer.get("workflow_run") or not getattr(prepared, "session_key", ""):
             return None
@@ -54,7 +51,6 @@ class TurnServices:
         return asyncio.create_task(upload())
 
     def _review_control(self, offer: dict[str, Any], prepared: PreparedSession) -> Callable[..., tuple[bool, Any]]:
-        """The control plane for a review call's session (``review_call``): its request and its answer."""
         from .platform import SessionContext, call_control_plane  # noqa: PLC0415
         from .state import CREDENTIAL_SET_DEVICE  # noqa: PLC0415
 
@@ -80,8 +76,6 @@ class TurnServices:
                               timeout=AUDIT_UPLOAD_TIMEOUT)
 
     def _suggest_route(self, offer: dict[str, Any], emit: Callable[[dict[str, Any]], Any]) -> None:
-        """The local decision model's suggestion for this turn, sent as a ``route`` event (measured before it is
-        used). Only when switched on on this Mac (``octryx-claude device router on``); it never changes the turn."""
         device = device_state.load_device(self.state)
         if not device.get("router"):
             return

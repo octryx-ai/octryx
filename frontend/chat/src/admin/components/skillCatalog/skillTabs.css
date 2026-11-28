@@ -6,4 +6,4 @@
 .skill-tabs__block{flex:0 0 auto;display:inline-flex;align-items:center;gap:0.25rem;font-size: var(--ds-text-2xs);color:var(--muted);cursor:pointer}
 .skill-tabs__block input{accent-color:var(--status-error)}
 .skill-tabs__blocked{text-decoration:line-through;color:var(--muted)}
-.skill-tabs__surface{margin:0.75rem 0 0.25rem;font-size: var(--ds-text-2xs);font-weight: 600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.skill-tabs__surface{margin:0.75rem 0 0.25rem;font-size: var(--ds-text-2xs);font-weight: var(--ds-weight-strong);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}

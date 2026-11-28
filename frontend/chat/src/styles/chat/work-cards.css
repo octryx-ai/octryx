@@ -1,13 +1,13 @@
 /* Shared Work + Coding page parts: inline links, notes, view toggles and
    tables that become label/value cards on a phone (≤760px). Tokens only. */
-.work-link{border:0;background:none;padding:0;color:var(--accent-strong);font-size:inherit;font-weight: 600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.work-link{border:0;background:none;padding:0;color:var(--accent-strong);font-size:inherit;font-weight: var(--ds-weight-strong);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .work-note{padding:0.5rem 0.75rem;border:1px solid color-mix(in srgb,var(--status-running) 22%,transparent);border-radius:var(--ds-radius-lg);background:color-mix(in srgb,var(--status-running) 7%,transparent);color:var(--status-running-ink);font-size: var(--ds-text-xs);line-height:1.5}
 .work-gap{padding:0.5rem 0.75rem;border:1px solid color-mix(in srgb,var(--status-attention) 24%,transparent);border-radius:var(--ds-radius-lg);background:color-mix(in srgb,var(--status-attention) 7%,transparent);color:var(--status-attention-ink);font-size: var(--ds-text-xs);line-height:1.5}
 .work-seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--ds-radius-md);overflow:hidden}
 .work-seg button{border:0;background:transparent;color:var(--muted-strong);padding:0.25rem .75rem;font-size: var(--ds-text-xs);cursor:pointer}
 .work-seg button+button{border-left:1px solid var(--border)}
-.work-seg button[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-strong);font-weight: 600}
-.work-count{display:inline-grid;place-items:center;min-width:1.15rem;height:1.15rem;padding:0 0.25rem;margin-left:0.25rem;border-radius:999px;background:var(--surface-overlay-hover);font-size: var(--ds-text-2xs);font-weight: 600}
+.work-seg button[aria-pressed="true"]{background:color-mix(in srgb,var(--accent) 12%,transparent);color:var(--accent-strong);font-weight: var(--ds-weight-strong)}
+.work-count{display:inline-grid;place-items:center;min-width:1.15rem;height:1.15rem;padding:0 0.25rem;margin-left:0.25rem;border-radius:var(--ds-radius-pill);background:var(--surface-overlay-hover);font-size: var(--ds-text-2xs);font-weight: var(--ds-weight-strong)}
 .work-mono{font-family:var(--font-mono);font-size: var(--ds-text-xs)}
 .work-sub{color:var(--muted);font-size: var(--ds-text-xs);margin-top:.12rem}
 @media (max-width:760px){
@@ -15,7 +15,7 @@
   .work-cards,.work-cards tbody,.work-cards tr,.work-cards td{display:block;width:100%}
   .work-cards tr{border-bottom:1px solid var(--border-soft);padding:0.25rem 0}
   .work-cards td{border:0!important;padding:.25rem 0.75rem!important;display:flex;justify-content:space-between;gap:0.75rem;text-align:right}
-  .work-cards td::before{content:attr(data-label);color:var(--muted);font-size: var(--ds-text-2xs);font-weight: 600;letter-spacing:.1em;text-transform:uppercase;text-align:left;flex:0 0 auto}
+  .work-cards td::before{content:attr(data-label);color:var(--muted);font-size: var(--ds-text-2xs);font-weight: var(--ds-weight-strong);letter-spacing:.1em;text-transform:uppercase;text-align:left;flex:0 0 auto}
   .work-cards td:first-child{text-align:left}
 }
 .work-items__toolbar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap}

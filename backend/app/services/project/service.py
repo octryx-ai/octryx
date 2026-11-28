@@ -304,10 +304,7 @@ async def get_project_access_details(user_id: str, db: AsyncSession) -> list[dic
 
 
 async def get_project_config(project_id: str | None, db: AsyncSession) -> dict:
-    """Resolve the project configuration: ``Project.config`` merged with the tool configs.
-
-    Environment values, ``alert_rules`` and ``repos`` live in ``Project.config`` itself.
-    """
+    """Resolve the project configuration: ``Project.config`` merged with the tool configs."""
     if not project_id:
         return await merge_tool_configs_into_project_config(db, None, {})
 

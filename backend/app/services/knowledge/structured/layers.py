@@ -1,16 +1,5 @@
-"""The layers a structured build knows: what each selects, extracts and links.
-
-A layer is three steps over a :class:`BuildContext`:
-
-- ``select``: the current revisions it reads (profile selectors, never title guessing);
-- ``extract``: one revision to an :class:`~.facts.Extraction` (rule-based, no model call);
-- ``link``: the cross-source edges it owns once every layer is extracted (may be ``None``); it is
-  given the slice ``deadline`` and its own previous ``partial`` result to resume
-  (``build_linkage.py``).
-
-The build runs layers in :data:`~.profile.LAYERS` order and links after all of them, so the
-configuration layer can link to the manual layer's parameters.
-"""
+"""The layers a structured build knows: what each selects, extracts and links. Selection uses profile selectors, never
+title guessing; extraction calls no model."""
 
 from __future__ import annotations
 

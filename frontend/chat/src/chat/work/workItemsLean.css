@@ -39,7 +39,7 @@
   cursor: pointer;
   color: var(--muted-strong);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-run-start__advanced[open] {

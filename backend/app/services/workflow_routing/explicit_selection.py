@@ -1,27 +1,13 @@
-"""Explicit workflow selection: a chat turn's ``workflow_key`` -> an explicit state.
-
-Rules:
-
-- The workflow catalog is exactly the published phased workflows (``run_admission.phased_catalog``).
-- A phased workflow never runs inside a chat turn: its key resolves to ``workflow_run_required``, and the turn
-  is held for its one start confirmation (``proposal.explicit_phased_selection_resolution``).
-- An archived or switched-off phased workflow is the typed denial ``workflow_archived``.
-- Any other key is the explicit error state ``unknown_key`` that the execution profile maps to
-  ``needs_clarification``; nothing is guessed.
-- A turn without a ``workflow_key`` gets the Workspace's workflow proposal (``proposal.py``).
-"""
+"""Explicit workflow selection: a chat turn's ``workflow_key`` -> an explicit state."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..project_activity import PROJECT_INACTIVE, project_is_inactive
 from ..run_admission.phased_catalog import published_phased_workflows
-
-if TYPE_CHECKING:
-    from .proposal_prefetch import PrecomputedWorkflowProposal
 
 EXPLICIT_WORKFLOW_SELECTION_SOURCE = "explicit_workflow_key"
 EXPLICIT_WORKFLOW_SELECTION_STATUS_UNKNOWN_KEY = "unknown_key"
@@ -33,11 +19,6 @@ async def list_published_workflow_definitions(
     project_id: str | None = None,
     include_hidden: bool = False,
 ) -> list[dict[str, Any]]:
-    """The workflow catalog: the published phased workflows.
-
-    ``include_hidden``: also test fixtures and workflows a pull request starts (the admin view only, never a
-    catalog a person or a model chooses from).
-    """
     return await published_phased_workflows(db, project_id=project_id, include_hidden=include_hidden)
 
 
@@ -66,7 +47,6 @@ def _unknown_workflow_key_resolution(workflow_key: str, available_keys: list[str
 
 
 def project_inactive_resolution(project_id: str, workflow_key: str = "") -> dict[str, Any]:
-    """Explicit refusal: the turn's project is deleted or archived, so nothing scoped to it is used."""
     return {
         **_unknown_workflow_key_resolution(workflow_key, []),
         "source": "project_scope",
@@ -84,8 +64,6 @@ async def resolve_explicit_workflow_selection(
     workflow_key: str,
     project_id: str | None = None,
 ) -> dict[str, Any]:
-    """Deterministically resolve ``workflow_key``: ``workflow_run_required``, ``workflow_archived`` or
-    ``unknown_key``; the same key always produces the same resolution."""
     from ..run_admission.archived_workflows import archived_workflow_resolution, is_archived_workflow_key
     from ..run_admission.phased_catalog import phased_key, workflow_run_required_resolution
 
@@ -105,7 +83,6 @@ async def resolve_explicit_workflow_selection(
 
 
 def explicit_mode_no_selection_resolution() -> dict[str, Any]:
-    """The unmatched resolution of a turn that runs without a workflow (plain chat)."""
     return {
         "source": "workflow_selection",
         "status": "unmatched",
@@ -129,21 +106,9 @@ async def resolve_workflow_selection_for_turn(
     workflow_key: str = "",
     user_message: str,
     project_id: str | None = None,
-    precomputed_proposal: PrecomputedWorkflowProposal | None = None,
     platform_workflow_service: str = "",
 ) -> dict[str, Any]:
-    """Single turn-level selection entry point.
-
-    Precedence: an inactive Workspace (``project_inactive``) > a platform service's own
-    workflow (``platform_selection``, closed set; no proposal call) > explicit
-    ``workflow_key`` (deterministic, never a proposal call) > explicit "no workflow"
-    (``WORKFLOW_KEY_NONE``) > the Workspace's workflow proposal (``proposal.py``).
-
-    ``precomputed_proposal`` is the proposal the web chat path resolved before its
-    process-global preparation lock (``proposal_prefetch.py``). When it is given, no
-    proposal model call is made here: a key mismatch is ``proposal_scope_changed``.
-    """
-    from .proposal import resolve_workflow_proposal_for_turn, user_selected_no_workflow_resolution
+    from .proposal import user_selected_no_workflow_resolution
     from .proposal_states import WORKFLOW_KEY_NONE
 
     clean_workflow_key = str(workflow_key or "").strip()
@@ -167,9 +132,7 @@ async def resolve_workflow_selection_for_turn(
             phased = await published_phased_flow(db, clean_workflow_key, project_id)
             return explicit_phased_selection_resolution(clean_workflow_key, phased[0].name if phased else None)
         return resolution
-    if precomputed_proposal is not None:
-        return precomputed_proposal.resolution_for_turn(user_message=user_message, project_id=project_id)
-    return await resolve_workflow_proposal_for_turn(db, user_message=user_message, project_id=project_id)
+    return explicit_mode_no_selection_resolution()
 
 
 __all__ = [

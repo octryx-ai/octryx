@@ -1,7 +1,6 @@
 """Task Scheduler – loads scheduled tasks from DB and runs them via APScheduler."""
 
 import asyncio
-import inspect
 import logging
 import uuid
 
@@ -62,9 +61,7 @@ class TaskScheduler(SchedulerQueueMixin):
         parent_session_id: str | None = None,
         run_as_user_id: str | None = None,
     ):
-        from ..agent.engine import run_agent
         from ..models import Session
-        from ..models.runtime.product_run import RUN_ORIGIN_SCHEDULED_TASK
         from ..services.run_capability.schedule_capability import schedule_session_capability_metadata
 
         # The task's declared class governs its agent runs; nothing declared runs read_only.
@@ -104,49 +101,9 @@ class TaskScheduler(SchedulerQueueMixin):
             if asyncio.iscoroutine(maybe_awaitable):
                 await maybe_awaitable
 
-        from .execution.workflow_phase_turn import prepare_action_phase, settle_action_phase
+        from ..services.devices.agent_runtime import run_task_on_pool
 
-        prepared = await prepare_action_phase(
-            db, task=task, session=session, user_id=run_user_id, prompt=prompt,
-            runtime_target_id=runtime_target_id, thinking_level=thinking_level,
-        )
-        if prepared is not None:
-            prompt = prepared.prompt
-            agent_definition = prepared.agent_definition
-            runtime_target_id = prepared.runtime_target_id
-            thinking_level = prepared.thinking_level
-
-        result_payload: dict = {"session_id": session.id}
-        run_agent_kwargs = {
-            "session_id": session.id,
-            "user_message": prompt,
-            "user_id": run_user_id,
-            "project_id": task.project_id,
-            "agent_type": prepared.agent_type if prepared is not None else (
-                (agent_definition.get("agentType") if agent_definition else task.agent_type) or task.agent_type
-            ),
-            "db": db,
-            "runtime_target_id": runtime_target_id,
-            "thinking_level": thinking_level,
-            "agent_definition": agent_definition,
-            # The scheduled turn is bound to a Product Run of its own (roadmap item 1).
-            "run_origin": RUN_ORIGIN_SCHEDULED_TASK,
-        }
-        if "max_iterations" in inspect.signature(run_agent).parameters:
-            run_agent_kwargs["max_iterations"] = max_iterations
-        try:
-            async for event in run_agent(**run_agent_kwargs):
-                if event.role == "assistant" and event.content:
-                    result_payload["response"] = event.content
-                elif event.role == "tool" and event.tool_results:
-                    result_payload.setdefault("tool_results", []).extend(tr["result"] for tr in event.tool_results)
-        except (Exception, asyncio.CancelledError):
-            if prepared is not None:
-                await settle_action_phase(db, session=session, prepared=prepared, failure_reason="error")
-            raise
-        if prepared is not None:
-            await settle_action_phase(db, session=session, prepared=prepared)
-        return session, result_payload
+        return session, await run_task_on_pool(db, task=task, session=session, prompt=prompt, user_id=run_user_id)
 
     async def _execute_task(
         self,

@@ -157,7 +157,7 @@ test("The handover form stacks its fields and its button always says Request han
   assert.equal(byTestId(view, "octryx-handover-send")[0].props.disabled, false);
   await act(async () => form.props.onSubmit({ preventDefault() {} }));
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
-  assert.deepEqual(posts, [["/api/v1/workflow-runs/run-1/handover-requests", { to_user_id: "u-anna", reason }]]);
+  assert.deepEqual(posts, [["/api/v1/session-handovers", { run_id: "run-1", to_user_id: "u-anna", reason }]]);
   await act(async () => view.unmount());
 });
 

@@ -1,9 +1,4 @@
-"""Turn gates as decision records (O2): the execution gate and the runtime-readiness gate.
-
-A gate that stops a turn writes its explicit ``gate_outcome`` marker into the turn's trace; the trace
-writer passes that marker here, so every stopped turn has exactly one decision record linked to its run. An
-admitted turn is counted (:func:`count_admitted_turn`).
-"""
+"""Turn gates as decision records (O2): the execution gate and the runtime-readiness gate."""
 
 from __future__ import annotations
 
@@ -20,7 +15,6 @@ from .recorder import (
     OUTCOME_NEEDS_APPROVAL,
     OUTCOME_NEEDS_CLARIFICATION,
     OUTCOME_NEEDS_CONFIGURATION,
-    count_allowed,
     record_gate_decision,
 )
 
@@ -58,6 +52,3 @@ async def record_gate_outcome(db: AsyncSession, *, session_id: str, run_key: str
     )
 
 
-def count_admitted_turn(project_ids: Any) -> None:
-    ids = list(project_ids or [])
-    count_allowed(gate=GATE_EXECUTION, action=TURN_ACTION, workspace_id=str(ids[0]) if ids else None)

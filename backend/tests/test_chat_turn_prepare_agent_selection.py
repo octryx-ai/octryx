@@ -12,7 +12,6 @@ from tests.turn_preparation_support import prepare_chat_turn
 
 
 async def _selected_agent(db, *, name: str) -> AgentDefinition:
-    """A live, owner-visible definition a chat turn can select explicitly."""
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
     agent = AgentDefinition(
         id=str(uuid.uuid4()),
@@ -149,7 +148,6 @@ async def test_prepare_chat_turn_does_not_reuse_change_agent_for_a_later_operati
     await db.commit()
 
     async def operations_phase(_db, _session, *, user_message):
-        # The session now follows a workflow run whose current phase is a read-only operations investigation.
         return {
             "source": "db",
             "status": "matched",
@@ -182,11 +180,6 @@ async def test_prepare_chat_turn_does_not_reuse_change_agent_for_a_later_operati
 
 @pytest.mark.asyncio
 async def test_prepare_chat_turn_records_the_agent_definition_resolution(db):
-    """Which agent-definition source ran is canonical session state.
-
-    Held only on the in-memory execution payload, a persisted session could not answer "did this turn run
-    published content?".
-    """
     from app.services.agent_definition_execution_states import RESOLUTION_METADATA_KEY, SOURCE_LIVE_DRAFT_ROW
 
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
@@ -212,7 +205,6 @@ async def test_prepare_chat_turn_records_the_agent_definition_resolution(db):
 
 @pytest.mark.asyncio
 async def test_prepare_chat_turn_refuses_an_unpublished_agent_in_published_mode(db):
-    """The request path answers the typed 409 instead of running the draft row."""
     from app.services.agent_definition_execution_states import (
         AGENT_DEFINITION_EXECUTION_MODE_KEY,
         EXECUTION_MODE_PUBLISHED,

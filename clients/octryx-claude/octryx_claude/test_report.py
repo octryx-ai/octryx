@@ -1,17 +1,5 @@
-"""The JUnit report of the repository's declared test command, attached to its PostToolUse (test-contract semantics).
-
-The run contract names the repository's environment as the run prepared it (``preparation.environment``: its ``test``
-command and whether a person declared it). When a Bash call runs exactly that command (the same words) and the
-command writes a JUnit report (``--junitxml=<path>`` / ``--junit-xml <path>``, inside the repository), the launcher
-notes the report file's state at PreToolUse and, at PostToolUse, attaches the report only when the file changed
-during the call (``workflow_run_facts.test_report``): a stale report of an earlier run never counts. The server
-prefers it over the command's printed output. Best effort and bounded; the launcher decides nothing.
-
-A JUnit ``classname`` names a module (``tests.test_x``), not a file; the server keys every result by the test file
-(``tests/test_x.py::test_y``). The launcher has the folder, so it attaches the test files the report's classnames
-can name and that exist (``files``, relative to where the command ran): the server resolves the ids with them and
-reports any id that stays ambiguous or unknown instead of guessing.
-"""
+"""The JUnit report of the repository's declared test command, attached to its PostToolUse.
+Only a report file that changed during the call counts, so a stale earlier report never does."""
 
 from __future__ import annotations
 
@@ -44,7 +32,6 @@ def _junit_target(words: list[str]) -> str | None:
 
 
 def declared_report(contract: dict[str, Any] | None, hook_input: dict[str, Any], root: Path) -> Path | None:
-    """The report file a Bash call of the declared test command writes, inside the repository, else ``None``."""
     environment = ((contract or {}).get("preparation") or {}).get("environment")
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     if hook_input.get("tool_name") != "Bash" or not isinstance(environment, dict) or environment.get(
@@ -64,8 +51,6 @@ def declared_report(contract: dict[str, Any] | None, hook_input: dict[str, Any],
 
 
 def hint_files(xml: str, base: Path, root: Path) -> list[str]:
-    """The test files the report's classnames (or, for a module that failed to collect, its name) can name: every
-    ``a/b.py`` for a prefix ``a.b`` that exists under ``base`` inside ``root``. Bounded; ambiguity is the server's."""
     real_root = Path(os.path.realpath(root))
     found: list[str] = []
     for case in _CASE.findall(xml):
@@ -93,7 +78,6 @@ def _stamp(path: Path) -> list[int] | None:
 
 def before(state: LocalState, session_key: str, contract: dict[str, Any] | None, hook_input: dict[str, Any],
            root: Path) -> None:
-    """PreToolUse: note the report file's state before the declared test command runs."""
     path = declared_report(contract, hook_input, root)
     tool_use_id = str(hook_input.get("tool_use_id") or "")
     if path is None or not tool_use_id:
@@ -106,8 +90,6 @@ def before(state: LocalState, session_key: str, contract: dict[str, Any] | None,
 
 def attach(state: LocalState, session_key: str, contract: dict[str, Any] | None, hook_input: dict[str, Any],
            root: Path) -> dict[str, Any] | None:
-    """PostToolUse: the report the call wrote (``{"format", "path", "junit_xml"}`` and the test ``files`` its
-    classnames name), when the file changed."""
     path = declared_report(contract, hook_input, root)
     tool_use_id = str(hook_input.get("tool_use_id") or "")
     file = state.session_dir(session_key) / STAMPS_FILE

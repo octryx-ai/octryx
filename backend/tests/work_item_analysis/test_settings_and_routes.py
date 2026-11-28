@@ -27,8 +27,6 @@ from tests.work_item_analysis.support import POLICY, Scripted, analysis, final, 
 SETTINGS = "/api/v1/secure-work/work-item-analysis-settings"
 ITEMS = "/api/v1/secure-work/work-items"
 
-# --- settings -----------------------------------------------------------------------------------------------------
-
 
 def test_defaults_are_off_with_a_one_dollar_cap():
     settings, source = settings_from_config({})
@@ -112,14 +110,11 @@ async def test_settings_rest_reads_for_members_and_writes_for_admins(client, db,
     assert bad.status_code == 422 and bad.json()["detail"]["errors"][0]["code"] == "out_of_range"
     saved = await client.put(path, json={"auto_analyze": {"servicenow_new_incidents": True, "jira_label": "octryx"},
                                          "ask_reporter": True}, headers=await _bearer(env.user.id))
-    assert saved.status_code == 200 and saved.json()["model_policy"] == f"{POLICY}@1"  # a partial PUT keeps the rest
+    assert saved.status_code == 200 and saved.json()["model_policy"] == f"{POLICY}@1"
     assert saved.json()["auto_analyze"] == {"servicenow_new_incidents": True, "jira_label": "octryx"}
     audit = (await db.execute(select(AuditLog).where(AuditLog.action == "work_item_analysis.settings_updated"))
              ).scalars().all()
     assert audit and audit[-1].details["after"]["ask_reporter"] is True
-
-
-# --- REST ---------------------------------------------------------------------------------------------------------
 
 
 async def _operator(db, user_id: str) -> None:
@@ -141,7 +136,7 @@ async def test_the_analyze_route_runs_for_operators_in_scope(client, db, monkeyp
         seen.append((item.id, user.id, mode))
         return {"id": "a1", "status": "succeeded"}
 
-    monkeypatch.setattr("app.api.routes.work_item_analysis.analyze_work_item", analyze)
+    monkeypatch.setattr("app.api.routes.workflows.work_item_analysis.analyze_work_item", analyze)
     path = f"{ITEMS}/{env.item.id}/analyze"
     assert (await client.post(path, json={}, headers=await _bearer(env.user.id))).status_code == 403
     await _operator(db, env.user.id)
@@ -149,7 +144,7 @@ async def test_the_analyze_route_runs_for_operators_in_scope(client, db, monkeyp
     assert started.status_code == 200 and seen == [(env.item.id, env.user.id, "manual")]
     other = await seed_env(db, monkeypatch)
     out_of_scope = await client.post(f"{ITEMS}/{other.item.id}/analyze", json={}, headers=await _bearer(env.user.id))
-    assert out_of_scope.status_code == 404 and len(seen) == 1  # another Workspace's item: the answer of a missing one
+    assert out_of_scope.status_code == 404 and len(seen) == 1
 
 
 @pytest.mark.asyncio
@@ -173,9 +168,6 @@ async def test_the_latest_analysis_and_the_history_are_readable(client, db, monk
     assert latest["id"] == done["id"] and latest["analysis"]["evidence"][0]["verified"] is True
     history = (await client.get(f"{ITEMS}/{env.item.id}/analyses", headers=headers)).json()["items"]
     assert [row["id"] for row in history] == [done["id"]]
-
-
-# --- MCP ----------------------------------------------------------------------------------------------------------
 
 
 async def _mcp(db, monkeypatch, user_id: str) -> FastMCP:
@@ -229,7 +221,6 @@ def test_cost_values_round_trip_as_decimals():
 
 @pytest.mark.asyncio
 async def test_a_proposal_not_sent_stays_proposed_and_can_be_sent_later(client, db, monkeypatch):
-    """Only a comment that reached Jira moves an automatic analysis's questions on."""
     from app.models import WorkItemAnalysis
 
     env = await seed_env(db, monkeypatch)
@@ -247,7 +238,7 @@ async def test_a_proposal_not_sent_stays_proposed_and_can_be_sent_later(client, 
     async def post(db, *, item, analysis, ask, person_id):
         return next(attempts)
 
-    monkeypatch.setattr("app.api.routes.work_item_analysis.post_proposed_questions", post)
+    monkeypatch.setattr("app.api.routes.workflows.work_item_analysis.post_proposed_questions", post)
     path = f"{ITEMS}/{env.item.id}/analyses/{row.id}/ask-reporter"
     headers = await _bearer(env.user.id)
     for expected in ("skipped", "failed"):

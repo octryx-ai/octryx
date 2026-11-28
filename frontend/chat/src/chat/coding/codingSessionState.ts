@@ -1,4 +1,3 @@
-// Coding session state, phase, tone, coding intent, evidence/blocker counts and next-step text.
 import type {
   CodingAgentChatSession,
   CodingApprovalEvidence,
@@ -22,7 +21,6 @@ const BLOCKED_STATES = new Set(["blocked", "failed", "error", "needs_clarificati
 const REPLAN_STATES = new Set(["needs_replan", "needs-replan", "replan_required"]);
 const HUMAN_REVIEW_STATES = new Set(["needs_human_review", "needs-human-review", "human_review_required"]);
 const TEST_STATES = new Set(["testing", "validating", "validation", "qa"]);
-// Source, state-event and execution states only. A Work Plan's own status is not one of them.
 const REVIEW_STATES = new Set(["review", "ready_for_review", "review_ready", "in_review"]);
 export function deriveCodingState({
   item,
@@ -39,8 +37,7 @@ export function deriveCodingState({
   latestState: WorkStateEvent | null;
   review: CodingReviewSummary;
 }): CodingSessionState {
-  // The plan's status is deliberately not part of these values: a plan in review, with open
-  // questions or rejected is planning, not delivery review, a blocked run or a cancelled item.
+  // Plan status is deliberately excluded: a plan in review is planning, not delivery review.
   const values = [
     latestState?.to_state,
     item.work_state,
@@ -65,8 +62,7 @@ export function deriveCodingState({
   if (hasFailedEvidence(item.source_fields) || values.some((value) => BLOCKED_STATES.has(value))) {
     return "blocked";
   }
-  // A current negative work review (backend verdict for the latest plan) ranks exactly here: after
-  // terminal, replan, human-review and execution-blocked states.
+  // Ranks after terminal, replan, human-review and execution-blocked states.
   if (values.includes("changes_requested") || review.status === "block") {
     return "changes_requested";
   }
@@ -150,7 +146,6 @@ export function codingRecordedEvidenceCount({
     (validation.results.recorded ?? 0) +
     (approvals.recorded ?? 0) +
     stateEvents.length +
-    // Only well-formed records in explicit lists; object keys or bare values are never records.
     recordCount(sourceFields?.pipeline_runs) +
     recordCount(sourceFields?.ci_runs) +
     recordCount(sourceFields?.execution_runs) +
@@ -204,7 +199,6 @@ export function nextActionForSession({
   pullRequests: string[];
   blockerCount: number;
 }): string {
-  // Blockers beyond the plan's own questions come first; the plan's questions are its next step.
   if (blockerCount - countValues(latestPlan?.open_questions) > 0) return "Resolve blockers or ask for clarification";
   const planAction = phase === "planning" ? planNextAction(latestPlan) : null;
   if (planAction) return planAction;
@@ -221,10 +215,6 @@ export function nextActionForSession({
   return "Inspect session evidence";
 }
 
-/**
- * What an ended (completed or cancelled) session left behind, in one line: its plan, its changes and its pull
- * requests, or that no change was made. Read from the records the session carries, never from intent.
- */
 export function sessionOutcome({
   state,
   latestPlan,

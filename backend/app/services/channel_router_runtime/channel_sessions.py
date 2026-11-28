@@ -7,8 +7,6 @@ logger = logging.getLogger("app.services.channel_router_runtime.service")
 
 
 class ChannelSessionsMixin:
-    """Session lookup and access checks of the channel router; the host class owns ``_session_cache``."""
-
     _session_cache: dict[str, str]
 
     async def _cached_active_session(self, db, channel_key: str, user_id: str) -> str | None:
@@ -149,7 +147,6 @@ class ChannelSessionsMixin:
         return False
 
     async def _check_role_access(self, db, plugin, user_id: str) -> bool:
-        """Return True if the user is denied access because no allowed role matched."""
         from sqlalchemy import select
 
         from ...models.security.user import Role, UserRole

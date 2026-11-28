@@ -1,11 +1,4 @@
-"""Shared helpers for external connector tools.
-
-Every HTTP helper sends through the pinned egress transport of a connection type
-(``services/outbound_egress``) and takes that type as a required ``connection`` keyword: there
-is no default rule. Each connector module binds its own type once (:func:`connection_http_json`
-and its siblings), so the tool applies the same rule as the connection test, Source Sync and the
-services of that connection.
-"""
+"""Shared helpers for external connector tools."""
 
 from __future__ import annotations
 
@@ -148,10 +141,6 @@ async def _http_json(
 
 
 def log_refusal(connection: str, method: str, url: str, response: httpx.Response) -> None:
-    """A provider's non-2xx answer, with its own error body (never the headers or the query string).
-
-    the log showed only "POST …/refs/branches 400 Bad Request"; why the provider
-    refused (the branch existed) was nowhere."""
     logger.warning("connector.http_refused", extra={
         "connection": connection, "method": method, "path": httpx.URL(url).path,
         "status_code": response.status_code, "body": response.text})
@@ -209,11 +198,6 @@ async def _http_text(
 
 
 def _connection_bound(helper_name: str, connection: str):
-    """The helper ``helper_name`` bound to one connection type, looked up at call time.
-
-    The lookup at call time lets a test replace this module's helper once for every connector bound to it;
-    ``egress_connection`` names the connection the binding is for.
-    """
     connection_rule(connection)  # an unclassified type fails at import, not at the first call
 
     async def _bound(method: str, url: str, **kwargs: Any) -> Any:

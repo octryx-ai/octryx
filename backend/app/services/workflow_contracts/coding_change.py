@@ -1,9 +1,4 @@
-"""The ``coding_change_tdd`` family: a workspace code change with a bounded TDD-style test loop.
-
-Selected by the secure-work coding execution (``workflow_routing/platform_selection``) and by
-the coding phases of a workflow run (a phase's inline contract names the family id). The
-contract never reads the prompt to pick anything; the request text only fills its topic.
-"""
+"""The ``coding_change_tdd`` family: a workspace code change with a bounded TDD-style test loop."""
 
 from __future__ import annotations
 
@@ -41,8 +36,6 @@ TDD_CYCLE_TOOLS = (
     "knowledge_code_impact",
     "knowledge_search",
     "knowledge_read",
-    "spawn_sub_agent",
-    "get_context_from_subthreads",
     # Delivery hand-off per the coding operating model:
     # verified changes leave the workspace as a branch,
     # pull request, and ticket update. All three stay
@@ -65,7 +58,6 @@ def match_coding_change_tdd(
     project_id: str | None,
     capability_type: str | None,
 ) -> bool:
-    """Match ONLY on the explicit selection, never on prompt text."""
     del user_message, route_reason, project_id, capability_type
     return _configured_workflow_id(request_analysis) == CODING_CHANGE_TDD_WORKFLOW_ID
 
@@ -101,7 +93,6 @@ def plan_coding_change_tdd(
     covered_evidence_axes: set[str] | None,
     allowed_tool_names: set[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """The model drives the TDD loop: nothing is forced."""
     del workflow_contract, turn_tool_history, covered_evidence_axes, allowed_tool_names
     return []
 

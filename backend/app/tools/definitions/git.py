@@ -221,6 +221,5 @@ _GIT_DEFINITIONS: dict[str, dict] = {
 
 
 def get_git_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for git tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(_GIT_DEFINITIONS)

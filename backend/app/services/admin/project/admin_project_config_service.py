@@ -1,8 +1,4 @@
-"""Admin-owned project config read and merge helpers.
-
-The key-owner registry and the per-key normalization live in the
-``_admin_project_config_*`` modules next to this one.
-"""
+"""Admin-owned project config read and merge helpers."""
 
 from __future__ import annotations
 
@@ -13,7 +9,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ....models import Project
-from ...prompt_governance import record_project_prompt_revisions
 from ...tool_config.connection_fields import refused_connection_keys
 from ..governance.admin_config_audit_service import record_admin_config_audit
 from ._admin_project_config_normalize import _normalize_project_config_value
@@ -43,20 +38,8 @@ async def apply_project_config_patch(
     project: Project,
     patch: dict[str, Any],
     actor_user_id: str,
-    change_source: str | None = None,
     replace_keys: frozenset[str] = frozenset(),
 ) -> dict[str, Any]:
-    """Merge a partial config into ``project.config`` without committing.
-
-    ``replace_keys``: top-level keys whose dict value replaces the stored one instead of being merged into it (a
-    section that must be able to drop a sub-key, e.g. a budget going back to inherit).
-
-    Only the top-level keys present in ``patch`` change; a dict value is merged one level
-    into the existing dict under the same key. Unrelated keys are always kept, and every
-    provided key passes the owner's normalization. This is the single write path for
-    project config, so no caller can replace the whole config by accident.
-    """
-
     previous_config = _project_config(project)
     current_config = dict(previous_config)
     normalized_patch = _normalize_patch_mapping(patch)
@@ -76,19 +59,11 @@ async def apply_project_config_patch(
         action="admin.project_config.updated",
         resource_type="project_config",
         resource_id=project.id,
+        project_id=project.id,
         before=previous_config,
         after=current_config,
         # The keys this write carried, also when a value is saved unchanged (an explicit admin decision).
         details={"project_id": project.id, "project_name": project.name, "patched_keys": sorted(normalized_patch)},
-    )
-    revision_kwargs = {"change_source": change_source} if change_source else {}
-    await record_project_prompt_revisions(
-        db,
-        project_id=project.id,
-        before_config=previous_config,
-        after_config=current_config,
-        created_by=actor_user_id,
-        **revision_kwargs,
     )
     return current_config
 
@@ -104,11 +79,6 @@ CODE_CONNECTION_KEY_REFUSED = "project_config_connection_key"
 
 
 def refuse_connection_keys(patch: dict[str, Any]) -> None:
-    """422 when a write would put a connector's target, credential or selector into ``Project.config``.
-
-    A connection lives in the Workspace's tool entry: ``Project.config`` is never read for
-    it. Field names only.
-    """
     refused = refused_connection_keys(patch)
     if refused:
         raise HTTPException(

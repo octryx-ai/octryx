@@ -1,20 +1,4 @@
-"""A plugin's UI in Octryx: files, token, settings, bridge.
-
-- **Files**: the UI bundle is kept at install (``plugin_ui_files``) and served under
-  ``/plugin-ui/{install_id}/{token}/{path}`` into a sandboxed iframe (``allow-scripts allow-forms``, never
-  ``allow-same-origin``). Every response carries a strict CSP (no network: ``connect-src 'none'``; only framed by
-  Octryx), ``Referrer-Policy: no-referrer`` and ``nosniff``.
-- **Token**: a sandboxed iframe has an opaque origin and sends no cookies, so the viewer's access travels in the
-  path. The plugin can read it, therefore it opens only GET on this one install's files: its own audience (never an
-  Octryx bearer), bound to install and viewer, valid one hour. Expired: 401 ``plugin_ui_token_expired``.
-- **Settings**: plain values on the install, secrets (``format: password`` or ``x-secret: true``) in the secret store;
-  reading a secret only says whether it is set.
-- **Bridge**: the plugin UI asks Octryx through the frame (postMessage), the frame calls ``bridge``. Only methods the
-  manifest declares (``contributes.ui.methods``) run, always **as the viewer**: an Octryx tool through the same
-  governed chain as chat (roles, connector policy, approvals: a write returns ``confirmation_required`` and the person
-  confirms in the Octryx frame), a tool of the plugin's own MCP server through the registry's governed MCP path,
-  ``settings.get`` without secrets. Every call is audited.
-"""
+"""A plugin's UI in Octryx: files, token, settings, bridge."""
 
 from __future__ import annotations
 
@@ -63,7 +47,6 @@ def issue_token(install_id: str, user_id: str) -> str:
 
 
 def read_token(token: str, install_id: str) -> str:
-    """The viewer's user id, or :class:`PluginUiError` (expired: 401 ``plugin_ui_token_expired``)."""
     try:
         claims = jwt.decode(token, get_settings().jwt_secret, algorithms=["HS256"], audience=TOKEN_AUDIENCE,
                             issuer=TOKEN_ISSUER)
@@ -77,7 +60,6 @@ def read_token(token: str, install_id: str) -> str:
 
 
 def masked_path(path: str) -> str:
-    """``/plugin-ui/<id>/<token>/x`` → ``/plugin-ui/<id>/***/x`` (access logs never keep the token)."""
     parts = path.split("/", 4)
     if len(parts) >= 4 and parts[1] == "plugin-ui":
         parts[3] = "***"
@@ -105,8 +87,7 @@ def ui_view(row: PluginInstall, user_id: str, *, base: str = "/plugin-ui") -> di
     }
 
 
-async def ui_file(db: AsyncSession, install_id: str, token: str, path: str) -> PluginUiFile:
-    read_token(token, install_id)
+async def ui_file(db: AsyncSession, install_id: str, path: str) -> PluginUiFile:
     row = await db.get(PluginInstall, install_id)
     if row is None or row.status != STATUS_ACTIVE:
         raise PluginUiError("plugin_not_found", "Not found.", 404)
@@ -160,7 +141,6 @@ def _checked(spec: dict[str, Any], key: str, value: Any) -> Any:
 
 async def save_settings(db: AsyncSession, row: PluginInstall, values: dict[str, Any], *, user_id: str
                         ) -> dict[str, Any]:
-    """Validate against the plugin's schema; a secret field left out keeps its stored value."""
     from ..secret.service import get_secret_entry, set_secret_value
 
     schema = _schema(row)
@@ -191,6 +171,7 @@ async def save_settings(db: AsyncSession, row: PluginInstall, values: dict[str, 
             raise PluginUiError("plugin_setting_required", f"'{key}' is required.", 422)
     row.settings_json = plain
     db.add(AuditLog(user_id=user_id, action=AUDIT_SETTINGS, resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": row.plugin_key, "changed": sorted(changed)}))  # never the values
     await db.flush()
     return await read_settings(db, row)
@@ -199,7 +180,6 @@ async def save_settings(db: AsyncSession, row: PluginInstall, values: dict[str, 
 # ---- bridge ------------------------------------------------------------------------------------------------------
 
 async def _session(db: AsyncSession, row: PluginInstall, user_id: str, workspace_id: str) -> str:
-    """The viewer's session for this plugin in this Workspace (approvals and their grants are keyed on it)."""
     sessions = (await db.execute(select(Session).where(
         Session.user_id == user_id, Session.project_id == workspace_id, Session.agent_type == SESSION_AGENT_TYPE,
         Session.status == "active"))).scalars().all()
@@ -213,7 +193,6 @@ async def _session(db: AsyncSession, row: PluginInstall, user_id: str, workspace
 
 
 async def _tool_context(db: AsyncSession, user_id: str, workspace_id: str, session_id: str):
-    """The viewer's chat context: read-only, a connector write only confirmed per call, like a chat turn."""
     from app.tools.capability_requirements import CAPABILITY_READ_ONLY
 
     from ...tools.context import ToolContext
@@ -248,7 +227,6 @@ CAPABILITY_SOURCE = "plugin_page"
 
 async def bridge(db: AsyncSession, row: PluginInstall, *, user_id: str, workspace_id: str, method: str,
                  params: dict[str, Any]) -> dict[str, Any]:
-    """Run one declared method as the viewer; ``{"result": …}`` or ``{"error": {code, message}}``. Flushes."""
     if row.status != STATUS_ACTIVE:
         raise PluginUiError("plugin_disabled", "The plugin is disabled.", 409)
     if method not in (ui_of(row).get("methods") or []):
@@ -269,6 +247,7 @@ async def bridge(db: AsyncSession, row: PluginInstall, *, user_id: str, workspac
         except Exception as error:  # noqa: BLE001 - a tool that raises is a refused call, never a 500 to the plugin
             outcome = {"error": {"code": "tool_failed", "message": f"{type(error).__name__}"}}
     db.add(AuditLog(user_id=user_id, action=AUDIT_BRIDGE, resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": row.plugin_key, "version": row.version, "method": method,
                              "workspace_id": workspace_id,
                              "outcome": outcome["error"]["code"] if "error" in outcome else "ok"}))

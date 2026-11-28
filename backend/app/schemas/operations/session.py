@@ -75,12 +75,6 @@ class SessionCollaboratorResponse(BaseModel):
     joined_at: str | None = None
 
 
-class SessionHandoverCreate(BaseModel):
-    to_user_id: str
-    reason: str | None = None
-    context_summary: str | None = None
-
-
 class SessionAccessGrant(BaseModel):
     user_id: str
     access_scope: str = "read"
@@ -94,22 +88,6 @@ class SessionAccessGrantResponse(BaseModel):
     access_scope: str
     granted_by: str | None = None
     expires_at: str | None = None
-
-
-class SessionHandoverRespond(BaseModel):
-    action: str
-
-
-class SessionHandoverResponse(BaseModel):
-    id: str
-    session_id: str
-    from_user_id: str
-    to_user_id: str
-    reason: str | None = None
-    context_summary: str | None = None
-    status: str
-    created_at: str | None = None
-    resolved_at: str | None = None
 
 
 class SessionStreamTokenResponse(BaseModel):

@@ -50,7 +50,6 @@ def _now() -> str:
 
 
 async def _capture_case(client: httpx.AsyncClient, case: Case, project_id: str, path: str, token: str):
-    """One search request of one case; a transport failure is recorded, never raised."""
     payload: dict[str, Any] = {"query_text": case.query, "limit": case.limit, "mode": case.mode}
     if case.products is not None:
         payload["products"] = list(case.products)
@@ -74,7 +73,6 @@ async def _capture_case(client: httpx.AsyncClient, case: Case, project_id: str, 
 
 
 async def capture(manifest: Manifest, *, base_url: str, token: str, transport: httpx.AsyncBaseTransport | None = None):
-    """Run every case once, sequentially, inside the frozen budget; return the capture document."""
     base = check_base_url(base_url)
     if not token or any(char.isspace() for char in token):
         raise RefusedTargetError(f"{TOKEN_ENV} must hold one bearer token")

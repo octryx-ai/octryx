@@ -1,55 +1,4 @@
-"""ASGI admission boundary for multipart request bytes.
-
-Installed directly inside the trusted-proxy boundary, therefore above every
-application middleware, every router and every form parser. That position is the
-whole point: FastAPI resolves a route's multipart body *before* it solves the
-route's dependencies, so Starlette's parser — and its ``SpooledTemporaryFile`` for
-any part over 1 MiB — runs while the request is still unauthenticated. The budget
-has to be applied by whoever hands the body to that parser.
-
-How the budget is applied:
-
-- A declared ``Content-Length`` over the limit is answered immediately. The
-  downstream application is never called and not one body byte is read.
-- Otherwise ``receive`` is wrapped. Raw ``http.request`` byte counts are added up
-  and the first message that would push the request past the limit is *not*
-  delivered: the wrapper raises instead, so no consumer can mistake a bounded
-  prefix for a complete body. The oversized chunk is dropped rather than parsed.
-- The wrapper never buffers. Messages below the budget are passed through
-  unchanged, so an accepted upload streams exactly as it does without this
-  middleware, and a 512 MiB upload still costs the middleware nothing but a
-  counter.
-
-The abort signal is a private exception raised inside ``receive``. It stops the
-parser at once, and it is caught here — *below* Starlette's
-``ServerErrorMiddleware``, which is why the caller sees the fixed 413 instead of a
-500. Any other exception is re-raised untouched. The signal subclasses ``OSError``
-on purpose: ``MultiPartParser.parse`` closes every ``SpooledTemporaryFile`` it had
-already created only for ``MultiPartException`` and ``OSError``
-(``starlette/formparsers.py`` in 1.3.1), so a dishonest streaming overrun must
-raise inside that tuple or the temporary file it caused is left open.
-
-Catching the signal is not enough on its own: FastAPI wraps form parsing in
-``except Exception -> HTTPException(400)``, so the application answers a request
-it was never allowed to read. (``MultiPartException`` would be converted even
-earlier, by Starlette's own ``Request._get_form``; ``OSError`` at least reaches
-FastAPI unchanged, which is the second reason for that base class.) Once the budget is exhausted the ``send`` wrapper
-therefore discards a response the application starts *afterwards*: the request was
-already refused, so that response can only be a derivative of the refusal. A
-response that had already started before the budget was hit is left alone — it
-cannot be replaced, and truncating it would be worse than finishing it.
-
-A request whose framing is ambiguous never gets that far: zero or one well-formed
-``Content-Length`` is admissible, and anything else (empty, signed, non-numeric,
-comma-joined, or a second occurrence) is answered with a fixed 400 without calling
-downstream and without reading a byte. Counting bytes for such a request would
-mean enforcing a budget against framing the next hop may read differently.
-
-What is never recorded: body bytes, form fields, file names, authorization or
-cookie headers, the client's own request path, and — for malformed framing — the
-rejected header value. A rejection logs the fixed state, the matched route policy
-identifier, the request method and the configured limit.
-"""
+"""ASGI admission boundary for multipart request bytes."""
 
 from __future__ import annotations
 
@@ -85,13 +34,6 @@ MALFORMED_FRAMING_DETAIL = "Request framing is invalid."
 
 
 def _fixed_body(detail: str, status: int) -> bytes:
-    """One fixed rejection body, in the shape of the platform's error contract.
-
-    Mirrors ``api.routes.error_contracts.build_error_payload``. Nothing from the
-    request appears in it: the limit is deliberately not disclosed, the rejected
-    header value is never echoed, and ``request_id`` is null because this boundary
-    runs outside the request-context middleware that mints one.
-    """
     return json.dumps(
         {"error": detail, "detail": detail, "status_code": status, "request_id": None}
     ).encode("utf-8")
@@ -102,24 +44,10 @@ _MALFORMED_FRAMING_BODY = _fixed_body(MALFORMED_FRAMING_DETAIL, MALFORMED_FRAMIN
 
 
 class _AdmissionAbortError(OSError):
-    """Internal signal that the byte budget was exhausted mid-stream.
-
-    ``OSError`` is load-bearing, not decoration. ``MultiPartParser.parse`` wraps
-    its read loop in ``except (MultiPartException, OSError)`` and closes every
-    ``SpooledTemporaryFile`` it had already created before re-raising
-    (``starlette/formparsers.py``, Starlette 1.3.1). An abort outside that tuple
-    would leave the temporary file of a dishonest streaming overrun open for the
-    garbage collector to notice. ``MultiPartException`` would also reach the
-    cleanup, but Starlette's ``Request._get_form`` converts it into
-    ``HTTPException(400)`` immediately; ``OSError`` survives to FastAPI's blanket
-    body-parse handler instead, and the response guard below keeps that derived
-    400 off the wire either way.
-    """
+    pass
 
 
 class _BudgetedBody:
-    """``receive`` wrapper that counts raw request bytes and stops at the limit."""
-
     def __init__(self, receive: Any, limit: int) -> None:
         self._receive = receive
         self._limit = limit
@@ -142,13 +70,6 @@ class _BudgetedBody:
 
 
 class _GuardedResponse:
-    """``send`` wrapper that records the response and drops refused answers.
-
-    ``started`` is only set for messages that were actually forwarded, so a
-    response the application begins after the budget was exhausted never counts as
-    started and is replaced by the fixed 413.
-    """
-
     def __init__(self, send: Any, body: _BudgetedBody) -> None:
         self._send = send
         self._body = body
@@ -163,12 +84,6 @@ class _GuardedResponse:
 
 
 async def _send_rejection(send: Any, status: int, body: bytes) -> None:
-    """Answer one rejected request and close the connection.
-
-    The connection is closed because the rest of the request body is never read:
-    leaving it unread on a keep-alive connection would desynchronize the next
-    request on the same socket.
-    """
     await send(
         {
             "type": "http.response.start",

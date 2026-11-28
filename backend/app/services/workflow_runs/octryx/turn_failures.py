@@ -23,11 +23,6 @@ CODE_SEAT_LIMIT = "device_turn_usage_limit"
 
 
 def failed_turn_explanation(failure: str, said: str, *, rejected: bool = False) -> tuple[str, str]:
-    """``(code, message)`` of a phase turn that failed on the device. A usage limit of the device's seat account
-    (e.g. "You've hit your weekly limit · resets Nov 13 …"), reported as such by the engine
-    (``seat_quota.is_limit_failure``: the launcher's code or the account's own answer, never words an agent wrote), is
-    named with the device's words and the remedy, instead of the bare ``device_turn_error``. A turn the device
-    refused (``rejected``) says so, and a refusal for an unreachable platform says what to check."""
     words = " ".join(str(said or "").split())[:240]
     if rejected:
         code = f"device_turn_{failure}"[:80]
@@ -48,14 +43,12 @@ def failed_turn_explanation(failure: str, said: str, *, rejected: bool = False) 
                   "Continue to run the phase again, or abort the run.")
 
 
-# "API Error: 503 no available server" during a platform deploy, the gateway's 5xx and timeouts must not pause the
-# run for a person: these pass by themselves.
+# A platform deploy's 503, the gateway's 5xx and timeouts pass by themselves and must not pause the run for a person.
 _TRANSIENT = re.compile(
     r"api[ _]error[:_\s]*5\d\d|no available server|overloaded|"
     r"timed?[ _-]?out|timeout|bad gateway|service unavailable|gateway timeout|connection (?:error|reset|refused)|"
     r"econnreset|econnrefused|socket hang up|"
-    # a launcher restart or a stalled turn paused the run for a person 5 times; the
-    # pass runs once more by itself and resumes its session (a second failure still pauses).
+    # A launcher restart or a stalled turn runs once more by itself and resumes its session; a second failure pauses.
     r"service_restarted|turn_stalled", re.IGNORECASE)
 ATTEMPT_RETRY = "retry"
 EVENT_TRANSIENT_RETRY = "device_turn_retry"
@@ -67,8 +60,7 @@ TRANSIENT_RETRY_AFTER_SECONDS = 20
 
 
 def is_transient_failure(failure: str, said: str) -> bool:
-    """A phase turn that failed on the model service or the gateway (5xx, overloaded, timeout, no available server),
-    not on the work itself; a usage limit is never transient (it has its own handling)."""
+    # A usage limit is never transient: it has its own handling.
     if failed_turn_explanation(failure, said)[0] == CODE_SEAT_LIMIT:
         return False
     return bool(_TRANSIENT.search(f"{failure or ''} {said or ''}"))
@@ -85,18 +77,11 @@ ATTEMPT_REOFFER = "reoffer"
 
 
 def is_transient_rejection(reason: str) -> bool:
-    """A turn the device refused before its agent started because the platform could not be reached (or answered
-    with a server error), not because of the device, the folder or a policy."""
     return bool(_TRANSIENT_REJECTION.search(str(reason or "")))
 
 
 async def _retry_after_transient_failure(db: AsyncSession, run: WorkflowRun, failure: str, said: str, *,
                                          rejected: bool = False) -> bool:
-    """The pass runs once more by itself after a short wait (``waiting_for_device``, resumed by the device's channel),
-    resuming its own session; a second failure pauses. ``False`` when this does not apply.
-
-    A refused turn (``rejected``) never started its agent: the same turn is offered again as it was (no "temporary
-    error" prompt), on a new job when the refused one ended."""
     from datetime import timedelta
 
     from ....time_utils import utc_now
@@ -123,10 +108,6 @@ async def _retry_after_transient_failure(db: AsyncSession, run: WorkflowRun, fai
 
 
 async def _wait_while_device_busy(db: AsyncSession, run: WorkflowRun, failure: str) -> bool:
-    """The device refused the turn because it is full: the run waits for it and the same turn is offered again
-    (``devices.busy_wait``), instead of pausing for a person (with many parallel runs on one
-    device, phase turns would otherwise pause on ``device_busy``). Past the limit the run pauses with
-    "device saturated for N min". ``False`` when the refusal is not ``device_busy``."""
     from datetime import timedelta
 
     from ....time_utils import utc_now
@@ -177,7 +158,7 @@ async def _pause_unfinished_phase_turn(db: AsyncSession, run: WorkflowRun, said:
     from .same_pass import continue_unfinished
 
     if await continue_unfinished(db, run, node_id):
-        return  # the same pass goes on with what is missing; no person needed
+        return
     from ..binding import failed_checks, failed_checks_text
 
     # The pause names the check that failed (not just "its checks did not pass").

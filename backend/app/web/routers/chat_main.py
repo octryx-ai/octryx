@@ -183,11 +183,7 @@ async def chat_workflows_api(
     include_hidden: bool = False,
     db: AsyncSession = Depends(get_db),
 ):
-    """Published workflows selectable via ChatSendRequest.workflow_key (the published phased workflows).
-
-    Test fixtures and workflows a pull request starts are left out; ``include_hidden=true`` lists them too, for
-    a global admin only (403 otherwise). Read-only.
-    """
+    """Published workflows selectable via ChatSendRequest.workflow_key (the published phased workflows)."""
     user = await _require_api_user(request, db)
     scope = project_id.strip() or None
     await require_project_access(db, user.id, scope)

@@ -1,8 +1,4 @@
-"""Exact typed specification authority for offers, receivers and child consumers.
-
-No copied child output, role, display URL or stored ACL metadata grants source access.
-The established parent/child/offer claims precede the producer's membership/source locks.
-"""
+"""Exact typed specification authority for offers, receivers and child consumers."""
 from __future__ import annotations
 
 import copy
@@ -29,7 +25,7 @@ def _declares_spec(row) -> bool:
 
 
 async def has_spec_handoff(db, child) -> bool:
-    """Detection only; a missing/malformed proof never selects a permissive fallback."""
+    # A missing or malformed proof never selects a permissive fallback.
     context = dict(child.context or {})
     if any(_claims_spec(context.get(key)) for key in ("handoff_approved_envelopes", "handoff")):
         return True
@@ -56,7 +52,6 @@ def _parent_id(proof) -> str:
 
 
 def require_spec_parent(row) -> None:
-    """Bind a typed proof to the durable offer parent before any preview or receiver evaluator."""
     if _declares_spec(row):
         proof = row.envelopes.get(KIND) if isinstance(row.envelopes, dict) else None
         if _parent_id(proof) != row.parent_run_id:
@@ -64,7 +59,6 @@ def require_spec_parent(row) -> None:
 
 
 async def validate_spec_envelopes(db, *, actor, scope, envelopes, parent=None):
-    """Return the immutable authorized parent snapshot, or None for historical non-spec handoffs."""
     if not isinstance(envelopes, dict):
         refuse("needs_configuration", "The typed artefact envelopes are unavailable")
     if KIND not in envelopes:
@@ -96,27 +90,19 @@ async def validate_spec_envelopes(db, *, actor, scope, envelopes, parent=None):
 
 
 async def validate_offering_spec(db, parent, *, scope, envelopes):
-    """The offering executor is the current durable parent requester, never a model-selected identity."""
+    # Never a model-selected identity.
     if KIND in envelopes:
         actor = await db.get(User, parent.requested_by, populate_existing=True)
         await validate_spec_envelopes(db, parent=parent, actor=actor, scope=scope, envelopes=envelopes)
 
 
 async def resolve_accepted_spec(db, child, *, principal) -> dict:
-    """Consume only this actual receiver's exact accepted parent specification; never local outputs.
-
-    Returns producer snapshot keys plus existing accepted_binding and current confirmation metadata.
-    Fixed WorkflowRunError reasons withhold all source content when any authority is unproved.
-    """
+    # Fixed error reasons withhold all source content when any authority is unproved.
     return await _accepted_snapshot(db, child, principal=principal, owner=True)
 
 
 async def resolve_viewer_spec(db, child, *, viewer) -> dict:
-    """The actual viewer's OWN current source authority over the child's accepted spec.
-
-    The accepted owner lifecycle and the exact durable proof are verified as for the receiver; the
-    source authority is then resolved for ``viewer`` alone. The owner's authority is never a grant.
-    """
+    # The owner's authority is never a grant to the viewer.
     return await _accepted_snapshot(db, child, principal=viewer,
                                     owner=getattr(viewer, "id", None) == child.requested_by)
 

@@ -1,19 +1,4 @@
-"""Bitbucket Cloud (bitbucket.org, REST API 2.0) behind the Bitbucket tools.
-
-A Bitbucket connection names where Bitbucket runs (``bitbucket_deployment``, see
-``named_connections/descriptors/scm.py``). For ``cloud``:
-
-- REST calls go to ``https://api.bitbucket.org/2.0`` with HTTP basic auth: the Atlassian account email
-  (``bitbucket_username``) and an Atlassian API token with Bitbucket scopes (``bitbucket_token``);
-- Git over HTTPS uses ``https://bitbucket.org/<workspace>/<repo>.git`` with the fixed user
-  ``x-bitbucket-api-token-auth`` and the same token (Atlassian's rule for API tokens);
-- a repository is ``<workspace>/<repo slug>`` (the tools' ``project_key`` / ``repo_slug``), always lower case.
-
-Every call goes through the pinned ``bitbucket`` egress transport without following redirects. A refused call is a
-:class:`CloudApiError` carrying the HTTP status and Bitbucket's own error message (bounded); never a header, URL
-or credential. The Server/Data Center paths of the tools stay as they are; a Cloud connection never reaches them
-(``_bitbucket_internal_network`` refuses a ``/rest/`` path on a Cloud connection).
-"""
+"""Bitbucket Cloud (bitbucket.org, REST API 2.0) behind the Bitbucket tools."""
 
 from __future__ import annotations
 
@@ -38,8 +23,6 @@ MAX_ERROR_CHARS = 300
 
 
 class CloudApiError(Exception):
-    """A refused or failed Bitbucket Cloud call: its HTTP status (0: no call) and a bounded, credential-free text."""
-
     def __init__(self, status: int, message: str) -> None:
         super().__init__(message)
         self.status = status
@@ -47,7 +30,6 @@ class CloudApiError(Exception):
 
 
 def cloud_failure(error: CloudApiError) -> dict[str, Any]:
-    """A tool's answer for a refused Bitbucket Cloud call: Bitbucket's own message and the HTTP status."""
     return {"error": error.message, "status_code": error.status, "deployment": DEPLOYMENT_CLOUD}
 
 
@@ -72,7 +54,6 @@ def web_url(workspace: str, slug: str) -> str:
 
 
 async def cloud_credentials(context: ToolContext) -> tuple[str, str]:
-    """``(account email, API token)`` of the connection; a password is never used for Bitbucket Cloud."""
     config = context.project_config or {}
     host = (urlsplit(str(config.get("bitbucket_url") or "").strip()).hostname or "").lower()
     if host not in CLOUD_HOSTS:  # also a project-default entry, which the named-connection check never sees
@@ -109,8 +90,6 @@ async def cloud_request(
     params: dict[str, Any] | None = None,
     payload: dict[str, Any] | None = None,
 ) -> Any:
-    """One REST 2.0 call on the connection's account; the JSON answer (``{}`` when empty). A write to a repository
-    the Workspace registered read-only raises ``RepositoryWriteRefusedError`` before any request."""
     from ._bitbucket_write_gate import require_rest_write_allowed
 
     await require_rest_write_allowed(context, method, path)

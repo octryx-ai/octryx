@@ -1,22 +1,5 @@
-"""The Workspace's Confluence, Jira or ServiceNow connection, read from its existing tool configuration.
-
-No credential is stored by Source Sync. The connection is the Workspace's built-in tool config for
-``confluence`` or ``jira`` (``BuiltInToolConfig``), exactly as the Confluence and Jira tools use
-it: the active project entry, over the global entry, with ``*_secret_ref`` fields resolved through
-the secret store (``services/secret``). The credential is one unit per connection: a Workspace
-entry that sets any credential or URL field inherits no global credential field
-(``tool_config/connection_fields.py``). Only that one tool's config is resolved, never every tool's.
-A Workspace without an active entry, a URL or a credential is ``connection_not_configured``; when the
-Workspace entry sets its own connection but that unit lacks its URL or credential, the run says so:
-``own_connection_incomplete``.
-ServiceNow reads the same resolved entry through ``servicenow_connection.py`` (bearer, OAuth or Basic).
-A ``git_repository`` reads public repositories without any credential: its connection is the
-credential-free :class:`PublicGitConnection`, and no tool configuration is read for it. A kind registered with a
-resolver of its own (``kinds.py``; ``custom_rest`` resolves its REST definition) is resolved by it.
-
-The resolved secret lives only in this frozen value, is excluded from ``repr``, and is turned into
-an ``Authorization`` header at the transport; it is never logged, returned or persisted.
-"""
+"""The Workspace's Confluence, Jira or ServiceNow connection, read from its existing tool configuration. Source Sync
+stores no credential."""
 
 from __future__ import annotations
 
@@ -25,8 +8,8 @@ from dataclasses import dataclass, field
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import SCHEME_BASIC
-from app.services.atlassian_auth_validation import confluence_cloud_url_problem
+from app.services.connector_auth.atlassian_modes import SCHEME_BASIC
+from app.services.connector_auth.atlassian_validation import confluence_cloud_url_problem
 from app.services.named_connections.workspace_routes import workspace_routes
 
 from .....models.project.knowledge_source_sync import (
@@ -36,11 +19,11 @@ from .....models.project.knowledge_source_sync import (
     CONNECTOR_KIND_KUBERNETES,
     CONNECTOR_KIND_SERVICENOW,
 )
-from ....atlassian_auth import AtlassianCredential, resolve_credential
 from ....confluence_pages.rules import PAGES_FIELD, PageRule, normalize_page_rules
+from ....connector_auth.atlassian import AtlassianCredential, resolve_credential
+from ....connector_auth.oidc_client_credentials import OidcClientCredentials
+from ....connector_auth.oidc_token_cache import OidcBearerAuth
 from ....named_connections.unbound_default import apply_default
-from ....oidc_client_credentials import OidcClientCredentials
-from ....oidc_token_cache import OidcBearerAuth
 from ....secret import resolve_secret_refs
 from ....tool_config import get_tool_config
 from ....tool_config.connection_fields import global_config_for_scope, sets_connection_identity
@@ -56,25 +39,13 @@ from .kubernetes_connection import KubernetesConnection, kubernetes_connection
 from .servicenow_connection import ServiceNowConnection, servicenow_connection
 
 # The URL key per connector kind; the credential follows the connector's auth mode
-# (``services/atlassian_auth.py``), exactly as the Confluence and Jira tools resolve it.
+# (``services/connector_auth/atlassian.py``), exactly as the Confluence and Jira tools resolve it.
 _URL_KEYS = {CONNECTOR_KIND_CONFLUENCE: "confluence_url", CONNECTOR_KIND_JIRA: "jira_url"}
+_SOURCE_SYNC = "knowledge.source_sync"
 
 
 @dataclass(frozen=True, slots=True)
 class SourceConnection:
-    """Base URL and credential of one source system, plus the tool's own scope allowlist.
-
-    ``scheme`` is ``basic`` (principal and secret), ``bearer`` (a personal access token, no
-    principal) or ``oidc`` (a client credentials grant, ``oidc`` set), as the connector's auth
-    mode resolves it.
-
-    ``allowed_scopes`` is ``None`` when the tool config places no restriction (Jira without
-    ``jira_allowed_projects``), else the enabled space or project keys, upper-cased.
-
-    ``page_rules`` (Confluence): the connection's page allowlist (``confluence_allowed_pages``), which narrows
-    the listed pages exactly as it narrows the Confluence tools (``services/confluence_pages/rules.py``).
-    """
-
     kind: str
     base_url: str
     principal: str = field(repr=False)
@@ -89,14 +60,11 @@ class SourceConnection:
         return {**credential.headers(), "Accept": "application/json"}
 
     def http_auth(self, transport: httpx.AsyncBaseTransport | None = None) -> httpx.Auth | None:
-        """The token auth of a client credentials connection (cached, retried once on a 401), else none."""
         return OidcBearerAuth(self.oidc, transport=transport) if self.oidc is not None else None
 
 
 @dataclass(frozen=True, slots=True)
 class PublicGitConnection:
-    """The connection of a public ``git_repository``: nothing to resolve and no credential."""
-
     kind: str = CONNECTOR_KIND_GIT_REPOSITORY
 
 
@@ -128,18 +96,19 @@ async def merged_tool_config(db: AsyncSession, kind: str, project_id: str) -> di
     merged: dict = {}
     global_entry = await get_tool_config(db, kind, None)
     if global_entry is not None and global_entry.is_active and global_entry.config:
-        global_config = await resolve_secret_refs(db, global_entry.config, tool_name=kind, project_id=None)
+        global_config = await resolve_secret_refs(db, global_entry.config, tool_name=kind, project_id=None,
+                                                  purpose=_SOURCE_SYNC)
         # The credential unit is never mixed across scopes (connection_fields.py).
         merged.update(global_config_for_scope(kind, global_config, project_entry.config))
     if project_entry.config:
-        merged.update(await resolve_secret_refs(db, project_entry.config, tool_name=kind, project_id=project_id))
+        merged.update(await resolve_secret_refs(db, project_entry.config, tool_name=kind, project_id=project_id,
+                                                   purpose=_SOURCE_SYNC))
     # The default connection (the one available connection that binds no key) replaces the entry's unit.
     default = (await workspace_routes(db, project_id, (kind,), secrets=False)).default_of(kind)
     return await apply_default(db, merged, default) if default is not None else merged
 
 
 async def _unusable_reason(db: AsyncSession, kind: str, project_id: str) -> str:
-    """Why a resolved connection has no URL or credential: an incomplete own unit, or nothing configured."""
     entry = await get_tool_config(db, kind, project_id)
     own = entry is not None and sets_connection_identity(kind, entry.config)
     return REASON_OWN_CONNECTION_INCOMPLETE if own else REASON_CONNECTION_NOT_CONFIGURED
@@ -148,9 +117,6 @@ async def _unusable_reason(db: AsyncSession, kind: str, project_id: str) -> str:
 async def resolve_connection(
     db: AsyncSession, *, kind: str, project_id: str, scope: dict | None = None
 ) -> SourceConnection | ServiceNowConnection | PublicGitConnection | KubernetesConnection:
-    """The Workspace's active connection for ``kind``, or ``connection_not_configured``.
-
-    A ``git_repository`` is public (no connection) unless its host is read through one (``git_bitbucket.py``)."""
     if kind == CONNECTOR_KIND_GIT_REPOSITORY:
         from app.services.knowledge.sources.sync.git_cloud import git_repository_connection
 
@@ -177,12 +143,7 @@ async def resolve_connection(
 def connection_from_config(
     kind: str, config: dict
 ) -> SourceConnection | ServiceNowConnection | KubernetesConnection | None:
-    """The connection one resolved config describes; ``None`` without a usable URL or credential.
-
-    Shared by the default entry and the named connections, so both follow the same rules.
-    A Kubernetes connection is the API path only (URL and token), never a kubeconfig or the pod's
-    own service account.
-    """
+    # Never a kubeconfig or the pod's own service account.
     if kind == CONNECTOR_KIND_KUBERNETES:
         return kubernetes_connection(config)
     if kind == CONNECTOR_KIND_SERVICENOW:

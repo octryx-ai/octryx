@@ -1,10 +1,4 @@
-""""You in Jira" for a Workspace's "My work": an explicit choice, never matched by email or name.
-
-The choice is the person's linked Jira account (``user_linked_accounts``, the one home assignee resolution already
-reads: ``resolution.account_identifiers``), so "My work" and work-item ownership agree. The platform follows the
-Workspace's Jira items: Atlassian Cloud (account id) for sites on ``atlassian.net``, else Jira Server (username).
-Choosing is only possible for an account that is an assignee of the Workspace's Jira items.
-"""
+""""You in Jira" for a Workspace's "My work": an explicit choice, never matched by email or name."""
 
 from __future__ import annotations
 

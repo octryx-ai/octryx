@@ -1,19 +1,4 @@
-"""How an inbound call proves it knows the webhook's secret, and that it is not a replay.
-
-Default (timestamped), constant-time and on bytes:
-
-* ``X-Webhook-Timestamp: <unix seconds>`` and ``X-Webhook-Signature: sha256=<hex>`` = HMAC-SHA256 of
-  ``"<timestamp>.<raw body>"`` with the secret; the timestamp must be within 5 minutes of now.
-
-Only on a webhook explicitly set to ``accept_untimestamped`` (tools that cannot sign a timestamp):
-
-* ``X-Webhook-Signature`` (or ``X-Hub-Signature-256``) = HMAC-SHA256 of the raw body;
-* ``Authorization: Bearer <secret>`` (Alertmanager ``authorization.credentials``, Grafana);
-* ``X-Webhook-Secret: <secret>`` (or GitLab's ``X-Gitlab-Token: <secret>``).
-
-Every accepted call yields a delivery key (the sender's delivery id when it sends one, else a hash of
-timestamp + body); the trigger refuses a key it has already seen (``rejected_replay``).
-"""
+"""How an inbound call proves it knows the webhook's secret, and that it is not a replay."""
 
 from __future__ import annotations
 

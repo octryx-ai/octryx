@@ -38,7 +38,7 @@ def test_a_new_list_starts_open_and_keeps_known_statuses():
     assert _statuses(fresh) == [OPEN, OPEN]
     earlier = [{**ITEMS[0], "status": VERIFIED}, {**ITEMS[1], "proof": "tests/other.py::test_x", "status": DONE}]
     again = seed(ITEMS, earlier, "r2")
-    assert _statuses(again) == [VERIFIED, OPEN]  # T2's proof changed: a new task
+    assert _statuses(again) == [VERIFIED, OPEN]
 
 
 def test_a_build_moves_tasks_by_their_proof_and_the_gates():
@@ -48,7 +48,7 @@ def test_a_build_moves_tasks_by_their_proof_and_the_gates():
     assert _statuses(after_build(items, half, passed=True, run_id="r1")) == [DONE, OPEN]
     full = _change(("tests/a.py", "test_search"), ("tests/system/b.py", "test_cards"))
     assert _statuses(after_build(items, full, passed=True, run_id="r1")) == [DONE, DONE]
-    assert after_build(items, {"truncated": True}, passed=True, run_id="r1") == items  # cannot judge
+    assert after_build(items, {"truncated": True}, passed=True, run_id="r1") == items
 
 
 def test_the_review_sends_named_tasks_back_and_verifies_the_rest():
@@ -56,7 +56,6 @@ def test_the_review_sends_named_tasks_back_and_verifies_the_rest():
                                                         ("tests/system/b.py", "test_cards")), passed=True, run_id="r1")
     reviewed = after_review(done, "changes", [{"severity": "high", "fix": "T2: no image area on the cards"}], "r1")
     assert _statuses(reviewed) == [DONE, CHANGES] and reviewed[1]["note"].startswith("T2:")
-    # a failed pass keeps the review's verdict; a passed one carries the fix
     assert _statuses(after_build(reviewed, _change(("tests/a.py", "test_search"), ("tests/system/b.py", "test_cards")),
                                  passed=False, run_id="r1")) == [IN_PROGRESS, CHANGES]
     fixed = after_build(reviewed, _change(("tests/a.py", "test_search"), ("tests/system/b.py", "test_cards")),
@@ -75,7 +74,6 @@ def test_the_card_shows_each_task_with_its_status():
 
 
 def test_an_extended_existing_proof_test_counts():
-    """The proof test comes from an earlier story and this story only extends its body."""
     from app.services.workflow_runs.task_list import missing_proofs
 
     patch = ("diff --git a/tests/system/test_shell.py b/tests/system/test_shell.py\n"
@@ -89,7 +87,6 @@ def test_an_extended_existing_proof_test_counts():
 
 
 def test_an_unchanged_existing_proof_test_that_passed_counts():
-    """T7's proof is an earlier story's test, unchanged and green in the newest run."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.task_list import missing_proofs, passed_tests
@@ -106,8 +103,6 @@ def test_an_unchanged_existing_proof_test_that_passed_counts():
 
 
 def test_an_extended_test_whose_def_is_a_context_line_counts():
-    """The hunk begins two lines above the def, so git's header names the import line and the def is an unchanged
-    context line inside the hunk."""
     from app.services.workflow_runs.task_list import missing_proofs
 
     patch = ("diff --git a/tests/m/test_p.py b/tests/m/test_p.py\n--- a/tests/m/test_p.py\n+++ b/tests/m/test_p.py\n"
@@ -118,17 +113,15 @@ def test_an_extended_test_whose_def_is_a_context_line_counts():
 
 
 def test_the_pipeline_proves_a_task_by_its_test_passing_there_not_by_the_diff():
-    """Existing or extended proof tests are not always recognisable in the diff, so the pipeline's own run is the
-    proof. Proven + green is done; proven but red stays in progress; not proven opens."""
     from app.services.workflow_runs.task_list import proof_outcome, unproven
 
     results = {"tests/a.py::TestSearch::test_search": {"outcome": "passed"},
                "tests/system/b.py::test_cards[de]": {"outcome": "passed"},
                "tests/system/b.py::test_cards[en]": {"outcome": "failed"},
                "tests/c.py": {"outcome": "error", "scope": "collection"}}
-    assert proof_outcome("tests/a.py::test_search", results) == "passed"  # inside a class, unchanged in the diff
-    assert proof_outcome("tests/system/b.py::test_cards", results) == "failed"  # every parameter must pass
-    assert proof_outcome("tests/c.py::test_x", results) == "error"  # the file did not collect
+    assert proof_outcome("tests/a.py::test_search", results) == "passed"
+    assert proof_outcome("tests/system/b.py::test_cards", results) == "failed"
+    assert proof_outcome("tests/c.py::test_x", results) == "error"
     assert proof_outcome("tests/d.py::test_y", results) == "not run"
     assert unproven(ITEMS, results) == ["T2 (tests/system/b.py::test_cards: failed)"]
     items = [{**ITEMS[0], "status": OPEN}, {**ITEMS[1], "status": DONE}]

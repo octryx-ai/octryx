@@ -1,14 +1,4 @@
-"""PR review bot on GitLab, through the same flow as GitHub and Bitbucket (merge requests, API v4).
-
-- a ``Merge Request Hook`` that opens, reopens, pushes to or readies a merge request is one event (draft and fork
-  named); any other action is none; a ``Note Hook`` on a merge request is a comment whose thread is its discussion;
-- a pushed merge request is checked out read-only, marked ``pending``, reviewed and answered on GitLab: the summary,
-  the inline comment with GitLab's one-click ``suggestion:-N+0`` block, the CI read for the reviewed commit and the
-  status, all through the GitLab tools with the merge request's ``mr_iid``;
-- the hourly sync starts only the ready heads of a project (a draft and a fork wait);
-- ``@octryx`` commands from the poll: the commenter's GitLab access decides, the answer mentions ``@username``, and
-  a command in a diff discussion is answered in that discussion.
-"""
+"""PR review bot on GitLab, through the same flow as GitHub and Bitbucket (merge requests, API v4)."""
 
 from __future__ import annotations
 
@@ -36,8 +26,11 @@ from tests.agent_definition_revision_fixtures import make_project
 from tests.knowledge_evidence_seed_support import seed_member
 from tests.phased_workflow_fixtures import admin_user
 from tests.pr_review_bot_flow_support import FIXTURES, REVIEW, _origin
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 HOOK = {"X-Gitlab-Event": "Merge Request Hook", "X-Gitlab-Token": "fake-test-token"}
 NOTE_HOOK = {"X-Gitlab-Event": "Note Hook"}
@@ -58,7 +51,6 @@ async def _workspace(db, trigger: str = "both") -> tuple[str, CodeRepository, We
     owner = await admin_user(db)
     record = CodeRepository(project_id=project.id, name="acme/pay", provider="gitlab", repo_root="/tmp/none",
                             config_json={})
-    # The review as a required check (``gate``): these flows assert the failing status; ``inform`` is the default.
     store_settings(record, BotSettings(trigger, status_policy="gate"))
     hook = Webhook(name="MRs", project_id=project.id, owner_id=owner.id, source_type="scm_pull_request",
                    is_active=True)
@@ -75,11 +67,9 @@ def test_merge_request_hooks_and_note_hooks_read_like_every_other_platform():
     assert pull_request_event(_hook(action="open", oldrev=None), HOOK).pr_id == "42"
     assert pull_request_event(_hook(source_project_id=99), HOOK).fork is True
     assert pull_request_event(_hook(draft=True), HOOK).draft is True
-    # An update without new commits (a title, a label, an approval) and a close start nothing ...
     assert pull_request_event(_hook(oldrev=None), HOOK) is None
     assert pull_request_event(_hook(action="close"), HOOK) is None
     assert pull_request_event(_hook(), {"X-Gitlab-Event": "Push Hook"}) is None
-    # ... a draft made ready does.
     ready = _hook(oldrev=None)
     ready["changes"]["draft"] = {"previous": True, "current": False}
     assert pull_request_event(ready, HOOK).pr_id == "42"
@@ -88,7 +78,7 @@ def test_merge_request_hooks_and_note_hooks_read_like_every_other_platform():
     event = comment_event(note, NOTE_HOOK)
     assert (event.repository, event.pr_id, event.comment_id, event.author, event.body) == (
         "gitlab:acme/pay", "42", "501", "dev-anna", "@octryx explain why")
-    assert (event.inline, event.thread_root) == (True, THREAD)  # answered in its discussion
+    assert (event.inline, event.thread_root) == (True, THREAD)
     overview = json.loads(json.dumps(note))
     overview["object_attributes"].update(type=None, position=None)
     assert (comment_event(overview, NOTE_HOOK).inline, comment_event(overview, NOTE_HOOK).thread_root) == (
@@ -114,7 +104,7 @@ def test_gitlab_suggestions_name_the_lines_they_replace_and_context_lines_keep_t
     assert "```suggestion:-2+0\n    items = list(items)" in ranged.body and ranged.to_dict()["start_line"] == 11
     assert (context.line_type, context.to_dict()["old_line"]) == (CONTEXT, 11)
     github = build_post(review, files, provider="github", facts={"sha": SHA})
-    assert "old_line" not in github.comments[1].to_dict()  # only GitLab anchors on both sides
+    assert "old_line" not in github.comments[1].to_dict()
 
 
 async def test_a_pushed_merge_request_is_reviewed_and_answered_on_gitlab(db, monkeypatch, tmp_path):
@@ -177,7 +167,7 @@ async def test_the_hourly_sync_starts_only_the_ready_heads_of_a_project(db, monk
         return run
 
     assert await bot_sync.sync_repository(db, record, start=start) == {"started": 1, "skipped": 2}
-    assert started == [("gitlab:acme/pay", "feature/PAY-1-totals", "dev-anna")]  # the draft and the fork wait
+    assert started == [("gitlab:acme/pay", "feature/PAY-1-totals", "dev-anna")]
 
 
 @pytest.fixture
@@ -209,7 +199,7 @@ async def test_commands_on_gitlab_read_the_members_access_mention_and_answer_in_
     db.add_all([UserLinkedAccount(user_id=owner.id, platform="gitlab", username="dev-anna"),
                 UserLinkedAccount(user_id=member, platform="gitlab", username="dev-ben")])
     await db.flush()
-    assert await comment_poll.poll_comments(db, record, owner.id) == {}  # the first poll sets the cursor only
+    assert await comment_poll.poll_comments(db, record, owner.id) == {}
 
     def note(ident, author, body, **more):
         return {"id": ident, "pr": "42", "author": author, "author_id": "", "body": body,
@@ -225,5 +215,5 @@ async def test_commands_on_gitlab_read_the_members_access_mention_and_answer_in_
     assert (tool, paused["project"], paused["mr_iid"], paused["commit"]) == (
         "post_gitlab_merge_request_review", "acme/pay", "42", SHA)
     assert paused["comment"].startswith("⏸️ Octryx paused") and "(by @dev-anna)" in paused["comment"]
-    assert refused["thread_answers"][0]["comment_id"] == THREAD  # answered in the discussion it was written in
+    assert refused["thread_answers"][0]["comment_id"] == THREAD
     assert "write access" in refused["thread_answers"][0]["reply"]

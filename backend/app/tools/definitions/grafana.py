@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 def get_grafana_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for grafana tools."""
     return {
         "read_grafana_alert": {
             "type": "function",

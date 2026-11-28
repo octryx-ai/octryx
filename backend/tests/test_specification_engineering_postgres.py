@@ -1,11 +1,5 @@
-"""Real PostgreSQL: a spec-origin decision holds the origin's and the owner's authority until it commits.
-
-The final ``require_node_decider`` of a ``decider: spec_origin`` node derives the PM from the accepted durable
-handoff after the accepted owner's lifecycle and source authority, under the Run, membership and source locks. A
-concurrent revocation of the PM's or the engineer's Workspace membership must wait for that decision transaction,
-and the next attempt must be refused (never a requester fallback). Needs ``OCTRYX_TEST_POSTGRES_URL`` (a
-disposable PostgreSQL server); the database is built by ``alembic upgrade head`` and dropped afterwards.
-"""
+"""Real PostgreSQL: a spec-origin decision holds the origin's and the owner's authority until it commits,
+so a concurrent membership revocation waits. Needs ``OCTRYX_TEST_POSTGRES_URL``."""
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +15,10 @@ from app.services.workflow_runs.decider import require_node_decider
 from app.services.workflow_runs.records import WorkflowRunError
 from tests.alembic_model_parity_support import migrated_database, requires_postgres
 from tests.knowledge_retention_postgres_support import UNGRANTED_ROW_WAIT, until
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_engineering_support import engineering_child_case, enter_node
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _scenario(url: str, revoked: str) -> None:

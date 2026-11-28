@@ -1,18 +1,4 @@
-"""Loop limits, run budgets and the paused state.
-
-Every loop edge carries its maximum *n* on the workflow version. A run fixes its effective limits when it starts
-(``run.limits``, ``loop_counters``):
-
-- loop *n* = min(the Work item's override or the edge's default, the **platform ceiling**). The ceiling is the
-  system config ``workflow_run_loop_ceiling`` (default 10); only a platform admin changes it.
-- the run **budget** (``tokens``, ``cost_usd``, ``active_seconds``, ``tool_calls``) comes from the phased
-  definition's ``budget``, overridden per key by the Work item; its ceiling is three times the workflow's
-  budget, and a Work item override is clamped to it. A key only the Work item sets has no ceiling, so
-  only an admin continues a run past it.
-
-Reaching a loop limit or a budget pauses the run (:func:`pause_run`) with the reason and what it would have done
-next (``resume``); it never stops or continues silently. ``pause.py`` decides how a paused run goes on.
-"""
+"""Loop limits, run budgets and the paused state."""
 
 from __future__ import annotations
 
@@ -27,7 +13,7 @@ from ...time_utils import ensure_utc, utc_now
 from ..system_config.values import get_system_config_value, set_system_config_value
 from .graph import PhasedEdge, PhasedGraph
 from .records import record_event
-from .states import EVENT_PAUSED, PAUSE_BUDGET_LIMIT, PAUSE_LOOP_LIMIT, STATUS_PAUSED
+from .states import EVENT_PAUSED, PAUSE_BUDGET_LIMIT, ROUND_LIMIT_REASONS, STATUS_PAUSED
 
 LOOP_CEILING_CONFIG_KEY = "workflow_run_loop_ceiling"
 DEFAULT_LOOP_CEILING = 10
@@ -59,9 +45,8 @@ async def set_loop_ceiling(db: AsyncSession, value: int, *, user_id: str) -> int
     if not 1 <= value <= MAX_LOOP_CEILING:
         raise ValueError(f"The loop ceiling must be between 1 and {MAX_LOOP_CEILING}.")
     await set_system_config_value(
-        db, key=LOOP_CEILING_CONFIG_KEY, value=str(value), updated_by=user_id,
-        description="The highest iteration limit any workflow run loop may have.", record_prompt_revision=False,
-    )
+        db, key=LOOP_CEILING_CONFIG_KEY, value=str(value),
+        description="The highest iteration limit any workflow run loop may have.", )
     return value
 
 
@@ -71,7 +56,6 @@ def budget_values(raw: Any) -> dict[str, float]:
 
 
 def validate_run_limits(raw: Any) -> dict[str, Any]:
-    """A Work item's run limits: ``loop_limit`` (int ≥ 1) and ``budget`` (positive numbers per key)."""
     if not isinstance(raw, dict):
         raise ValueError("run limits must be an object")
     unknown = set(raw) - {"loop_limit", "budget"}
@@ -98,13 +82,7 @@ MAX_PARENT_HOPS = 3
 
 
 async def inherited_budget(db: AsyncSession, item: WorkItem | None) -> dict[str, float]:
-    """The budget keys a Work item takes from its parent (``parent_key``, else ``epic_key``) where it sets none.
-
-    The stories are made by the spec's split after the epic's budget was set; without this their runs would run
-    on the default budget instead of the epic's. A key the item sets itself always wins; the nearest
-    ancestor that sets a key gives it (at most three hops, same source, same Workspace: a parent of another Workspace
-    answers like a missing one).
-    """
+    # Stories are created after the epic's budget was set; without inheritance they would run on the default budget.
     inherited: dict[str, float] = {}
     seen: set[str] = set()
     current = item
@@ -128,9 +106,7 @@ async def inherited_budget(db: AsyncSession, item: WorkItem | None) -> dict[str,
 
 
 def patch_run_limits(current: Any, body: dict[str, Any]) -> dict[str, Any]:
-    """A limits PUT as a patch: keys the body leaves out stay, an explicit ``null`` removes one (also per budget
-    key). The result is validated like a full set (a client sending only ``budget`` must not erase
-    the loop limit)."""
+    # A client sending only the budget must not erase the loop limit.
     merged = dict(current or {})
     if "loop_limit" in body:
         if body["loop_limit"] is None:
@@ -156,7 +132,6 @@ def patch_run_limits(current: Any, body: dict[str, Any]) -> dict[str, Any]:
 
 
 async def initial_limits(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, *, item: WorkItem | None) -> None:
-    """Fix the run's effective loop limits and budget from the version, the Work item and the ceiling."""
     ceiling = await loop_ceiling(db)
     item_limits = dict(getattr(item, "run_limits", None) or {}) if item is not None else {}
     override = _positive_int(item_limits.get("loop_limit"))
@@ -184,7 +159,6 @@ def effective_loop_limit(run: WorkflowRun, edge: PhasedEdge) -> int:
 
 
 async def refresh_budget_usage(db: AsyncSession, run: WorkflowRun, *, tool_calls: int = 0) -> list[str]:
-    """Update the run's usage after a phase turn; the budget keys it has used up."""
     sessions = select(WorkflowRunSession.session_id).where(WorkflowRunSession.run_id == run.id)
     tokens, cost = (await db.execute(
         select(func.coalesce(func.sum(UsageEvent.tokens_in + UsageEvent.tokens_out), 0),
@@ -213,20 +187,18 @@ def _parse(value: Any):
 
 
 def pause_message(run: WorkflowRun | None, reason: str, detail: dict[str, Any] | None) -> str:
-    """What a person reads of a pause: its own message, else the catalog's (attention, inbox, timeline)."""
     detail = dict(detail or {})
     return str(detail.get("message") or "").strip() or pause_text(run, reason, detail)
 
 
 def pause_text(run: WorkflowRun | None, reason: str, detail: dict[str, Any]) -> str:
-    """The catalog's text of a pause that brought none (``run.pause.<reason>``, else ``run.pause.default``)."""
     from ..prompt_catalog.registry import prompt_key_registry
     from .run_texts import run_text
 
-    if reason == PAUSE_LOOP_LIMIT:
+    if reason in ROUND_LIMIT_REASONS:
         edge = str(detail.get("edge_id") or "")
         counter = dict(dict(getattr(run, "loop_counters", None) or {}).get(edge) or {})
-        return run_text("pause.loop_limit", loop=str(counter.get("title") or edge or "a loop"),
+        return run_text(f"pause.{reason}", loop=str(counter.get("title") or edge or "a loop"),
                         used=str(detail.get("used") or counter.get("used") or "?"),
                         limit=str(detail.get("limit") or counter.get("limit") or "?"))
     if reason == PAUSE_BUDGET_LIMIT:
@@ -237,19 +209,17 @@ def pause_text(run: WorkflowRun | None, reason: str, detail: dict[str, Any]) -> 
 async def pause_run(
     db: AsyncSession, run: WorkflowRun, *, reason: str, actor_id: str | None, detail: dict[str, Any]
 ) -> None:
-    """Pause the run: nothing runs until a person decides how it goes on. The pause names who caused it
-    (``pause_causes``: ``cause``, ``cause_rule``)."""
     from .pause_causes import cause_of, split_reason
 
     reason = split_reason(reason, detail)  # a ``runtime_failed`` pause is stored as its class (``detail.code`` stays)
     from .uncertain import controls_in_pass
 
     if (unsure := controls_in_pass(run)) and "uncertain_checks" not in detail:
-        detail = {**detail, "uncertain_checks": unsure}  # a check of ours was unsure in this pass (pause_causes)
+        detail = {**detail, "uncertain_checks": unsure}
     cause, rule = cause_of(reason, detail)
     detail = {**detail, "cause": cause, "cause_rule": rule}
     if not str(detail.get("message") or "").strip():
-        detail["message"] = pause_text(run, reason, detail)  # every pause explains itself
+        detail["message"] = pause_text(run, reason, detail)
     run.status, run.pause_reason, run.waiting_kind = STATUS_PAUSED, reason, None
     run.node_state = {**dict(run.node_state or {}), "pause": {"reason": reason, **detail}}
     record_event(db, run, EVENT_PAUSED, node_id=run.current_node_id, actor_id=actor_id,

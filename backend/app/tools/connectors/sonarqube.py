@@ -34,7 +34,6 @@ def _sonarqube_allowed_projects(context: ToolContext) -> list[str]:
 
 
 def with_dashboard_source(result: dict[str, Any], base: str, project_key: str) -> dict[str, Any]:
-    """The project's dashboard on the configured SonarQube: ``{base}/dashboard?id={project}``."""
     url = item_url(base, "dashboard", query=urlencode({"id": project_key})) if project_key else None
     return with_source(result, title=f"SonarQube {project_key}", url=url)
 

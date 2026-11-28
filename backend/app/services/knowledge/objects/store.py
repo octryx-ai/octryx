@@ -1,52 +1,5 @@
-"""Immutable, Workspace-partitioned S3-compatible object boundary.
-
-The only write is *write-if-absent* at a content-addressed key, and the only
-read *verifies the digest* before returning bytes. There is no overwrite, no
-delete, no list, no presign, and no filesystem path anywhere in this module, so
-a misconfigured deployment cannot degrade into writing Workspace bytes onto the
-host.
-
-This class stays closed beside the operator-owned inventory and deletion
-capability: ``maintenance.KnowledgeObjectMaintenance`` is a **separate** class with its
-own client, is never part of ``EvidenceRuntime``, and nothing in the ingestion, retrieval,
-runtime or tool path can reach it. So the identity the API process holds still needs only
-``PutObject`` and ``GetObject``.
-
-**Exactly two S3 actions.** ``PutObject`` and ``GetObject``, and nothing else.
-Write-if-absent is the ``IfNoneMatch: "*"`` precondition on the write itself, not a
-``HeadObject`` probe followed by a write: the probe was a second required privilege
-and a second round trip for an answer the write already gives, and its
-race window meant two writers could both see "absent". A refused precondition
-(412) *is* the "already present" answer. A server that ignores ``IfNoneMatch``
-re-writes byte-identical content at the same content address, which is harmless but
-unproven against a real endpoint: activating this boundary against a real
-S3-compatible server is a separate gate, and the 412 path is one of the three things
-that gate has to observe.
-
-Every response body is closed. ``GetObject`` hands back a streaming body that holds
-a pooled connection until it is released, so the read closes it in a ``finally``
-even when the digest check is about to refuse the bytes.
-
-Isolation: every key is derived from the validated :class:`WorkspaceId`, and a
-read first checks that the persisted key lies inside the caller's own partition.
-A key belonging to another Workspace answers ``not_found`` like an absent object,
-so no probe can confirm that another Workspace holds the same document.
-
-The configured bucket is the only bucket this boundary ever addresses. The bucket a
-ledger row recorded is provenance, not an address: every read uses the configured
-bucket at the partition-checked key and verifies the digest, whatever bucket the
-revision recorded.
-
-Credentials never appear here: boto3 resolves them from its default chain, and
-no credential, endpoint, bucket, key, or S3 error body is copied into an error,
-a log record, or a return value. Transport failures are mapped to fixed states
-and re-raised outside the ``except`` block, so no botocore exception (which
-references the signed request) is chained as ``__cause__`` or ``__context__``.
-
-The S3 client is synchronous; calls run in a worker thread and are bounded by
-botocore's own connect/read timeouts rather than by ``asyncio.timeout``, because
-a cancelled ``to_thread`` would leak the thread rather than the request.
-"""
+"""Immutable, Workspace-partitioned S3-compatible object boundary. Only write-if-absent and a digest-verified read; a
+foreign key answers ``not_found``."""
 
 from __future__ import annotations
 
@@ -111,12 +64,7 @@ def content_digest(data: bytes) -> str:
 
 
 async def _closed(body: Any) -> None:
-    """Release a streaming response body, whatever the read did.
-
-    A failure to close is not the caller's problem and must not replace the state
-    the read already decided, so it is swallowed on purpose and nothing from it is
-    retained — the connection is dropped by the pool either way.
-    """
+    # Swallowed on purpose: a close failure must not replace the state the read already decided.
     close = getattr(body, "close", None)
     if close is None:
         return
@@ -141,14 +89,7 @@ class KnowledgeObjectStore:
         return f"KnowledgeObjectStore(bucket={self._config.bucket!r})"
 
     def planned_key(self, workspace: WorkspaceId, data: bytes) -> str:
-        """The key :meth:`put_if_absent` would address, derived without a request.
-
-        The ingestion boundary needs the key *before* the write, because publishing a
-        reference to an object must be serialized against an operator deletion of exactly
-        that object, and that boundary is taken before the first byte is written (
-        ``services/knowledge/object_publication_lock.py``). Pure derivation: no client is
-        built, nothing reaches the wire, and the answer is the same value the write uses.
-        """
+        """The key :meth:`put_if_absent` would address, derived without a request."""
         workspace = self._validated_workspace(workspace)
         if type(data) is not bytes or not data:
             raise KnowledgeObjectContractError(_PUT)
@@ -189,7 +130,7 @@ class KnowledgeObjectStore:
         if not is_key_inside_workspace(ref.key, self._config.prefix, workspace):
             raise KnowledgeObjectOutsidePartitionError(_GET)
         if ref.bucket != self._config.bucket:
-            # Diagnostic only: reads always use the configured bucket (module docstring).
+            # Diagnostic only: reads always use the configured bucket.
             logger.info("Knowledge object recorded under another bucket: workspace=%s", workspace.canonical)
 
         data = await self._get_bounded(ref.key)

@@ -1,21 +1,5 @@
-"""Which places in a checkout a version change applies to, each with its cited fact.
-
-The join goes from the code to the facts, never the other way round. Nothing is guessed from
-prose: a code element is affected when a change fact **names it exactly**. The rules per kind:
-
-- **import**: the fact names the fully qualified class, the class's CamelCase simple name, the
-  annotation it is (``@JsonComponent``), or a package prefix of it (``javax.annotation`` hits
-  ``javax.annotation.PostConstruct``);
-- **annotation**: the fact names ``@Name``, or ``Name`` when that is a multi-word CamelCase name;
-- **property**: the fact names the key, or a wildcard prefix of it (``spring.jackson.parser.*``);
-- **dependency**: the fact names the artifact id;
-- **baseline**: the fact states ``requires Java N``, and a Maven Java level property
-  (``java.version``, ``maven.compiler.release``/``source``/``target``) is below N.
-
-Facts come from ``knowledge_changes`` for the version range, so every impact item carries the
-citation, section and link of the span the change was extracted from, plus the commit the checkout
-was on.
-"""
+"""Which places in a checkout a version change applies to, each with its cited fact. An element is affected only when a
+change fact names it exactly."""
 
 from __future__ import annotations
 
@@ -51,7 +35,6 @@ class ImpactItem:
 
 
 def _tokens(text: str) -> tuple[set[str], set[str]]:
-    """Exact tokens of a fact, and the prefixes it names with a wildcard (``a.b.*`` -> ``a.b.``)."""
     exact: set[str] = set()
     prefixes: set[str] = set()
     for raw in _TOKEN.findall(text):
@@ -102,7 +85,6 @@ def _below_baseline(element: CodeElement, required: int) -> bool:
 
 
 def join_impact(facts: tuple[ChangeFact, ...], elements: tuple[CodeElement, ...]) -> tuple[ImpactItem, ...]:
-    """Impact items in fact order; a fact without a matching code element is not an item."""
     by_kind: dict[str, list[CodeElement]] = defaultdict(list)
     for element in elements:
         by_kind[element.kind].append(element)

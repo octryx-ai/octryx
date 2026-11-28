@@ -1,11 +1,11 @@
-// Agents & workflows → Workflows: the workflows that run as a flow or in phases, with class,
-// scope and use. Pure parsing; the page renders it.
+// Agents & workflows → Workflows: the workflows that run in phases, with class, scope and use. Pure parsing; the
+// page renders it.
 export const WORKFLOWS_OVERVIEW_PATH = "/api/v1/phased-workflows/overview";
 
 // When a listed workflow last changed (its latest version) and who saved that version; null when unknown.
 export type LastChange = { updatedAt: string | null; updatedBy: string | null };
 
-// A workflow that runs as a flow (the flow engine runs its graph node by node), as the same list shows it.
+// One workflow, as the list shows it.
 export type FlowWorkflowRow = {
   flowId: string;
   key: string;
@@ -17,8 +17,6 @@ export type FlowWorkflowRow = {
   testFlow: boolean;
   // Switched on (new runs can start it); an optional shipped workflow starts off. A row without `is_active`: on.
   isActive: boolean;
-  // "Runs in phases" (a phased graph) or a flow graph.
-  executionKind: "flow" | "phased";
   scope: string;
   projectId: string | null;
   used: number;
@@ -47,7 +45,6 @@ export function readFlowWorkflowRow(raw: unknown): FlowWorkflowRow {
     nodeCount: Number(row.node_count) || 0,
     testFlow: row.test_flow === true,
     isActive: row.is_active !== false,
-    executionKind: row.execution_kind === "phased" ? "phased" : "flow",
     scope: text(row.scope) || "Global",
     projectId: text(row.project_id) || null,
     used: Number(row.used) || 0,
@@ -92,7 +89,6 @@ export type CheckResultRow = {
 };
 
 const RUNTIME_LABELS: Record<string, string> = {
-  chat: "Platform chat",
   octryx_claude: "octryx-claude",
   replay: "Replay",
   canvas: "Canvas",

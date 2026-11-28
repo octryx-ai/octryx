@@ -113,9 +113,9 @@
 .coding-task-chat__meta span {
   padding: 0.25rem 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }

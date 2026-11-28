@@ -24,14 +24,11 @@ from .postgres_extraction_model import (
 
 
 class _Graph:
-    """The writes of one batch inside one Workspace's product group."""
-
     def __init__(self, db: AsyncSession, project_id: str, group: str, embedding: EmbeddingRuntime, vectors: bool):
         self.db, self.project_id, self.group, self.embedding, self.vectors = db, project_id, group, embedding, vectors
         self._resolved: dict[str, str] = {}
 
     async def entities(self, names: list[str], result: BatchResult) -> dict[str, str]:
-        """``normalized name -> node uuid`` for every name, creating the ones that are new."""
         pending: dict[str, str] = {}
         for name in names:
             key = normalized_name(name)
@@ -68,7 +65,6 @@ class _Graph:
         ).first()
 
     async def _similar(self, vector: list[float]):
-        """The nearest existing entity whose name embedding is close enough to count as the same one."""
         return (
             await self.db.execute(
                 text(

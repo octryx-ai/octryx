@@ -81,9 +81,6 @@ def test_the_pipeline_reruns_failed_tests_once_and_names_the_flaky_ones(tmp_path
 
 
 def test_a_story_session_gets_a_pinned_isolated_browser_installed_once_in_the_launchers_folder(tmp_path, monkeypatch):
-    """A browser MCP server with its OWN isolated browser per session, no extension, installed in user
-    space (no global install), so a turn starts it offline; loopback origins only, headless. the
-    profile is a folder of this session under the session folder, downloads are off, the platform's port is blocked."""
     from octryx_claude import browser_mcp
 
     monkeypatch.setattr(browser, "cache_root", lambda: tmp_path / "cache")
@@ -171,3 +168,37 @@ def test_a_device_run_from_a_checkout_gives_its_sessions_its_own_hooks(tmp_path,
     checkout.parent.mkdir(parents=True)
     checkout.write_text("#!/bin/sh\n")
     assert device_job_run.session_shim(str(own / "python")) == checkout
+
+
+def test_a_server_runner_uses_the_browser_its_image_carries_and_opens_its_folders_to_the_agent(tmp_path, monkeypatch):
+    import stat
+
+    from octryx_claude import browser_mcp, state
+
+    prebuilt = tmp_path / "image" / "browser-mcp"
+    monkeypatch.setenv(browser_mcp.PREBUILT_ENV, str(prebuilt))
+    monkeypatch.setenv(state.SHARED_STATE_ENV, "1")
+    installs: list = []
+    node = tmp_path / "bin" / "node"
+    node.parent.mkdir()
+    node.write_text("")
+    (node.parent / "npm").write_text("")
+    assert browser_mcp.ensure_installed(tmp_path / "state", node=str(node), run=installs.append) is None
+    assert installs == []  # no internet on a runner: never an install at run time
+
+    package = prebuilt / "node_modules" / "@playwright" / "mcp"
+    package.mkdir(parents=True)
+    (package / "package.json").write_text(json.dumps({"version": browser_mcp.VERSION}))
+    (package / "cli.js").write_text("")
+    (prebuilt / "browsers" / "chromium-1").mkdir(parents=True)
+    cli = browser_mcp.ensure_installed(tmp_path / "state", node=str(node))
+    assert cli == package / "cli.js"
+    key = "00000000-0000-4000-8000-0000000000b2"
+    spec = browser_mcp.server_spec(tmp_path / "state", key, node=str(node), chrome=False)
+    args = spec["args"]
+    assert spec["env"] == {"PLAYWRIGHT_BROWSERS_PATH": str(prebuilt / "browsers")}
+    session = tmp_path / "state" / "sessions" / key
+    out, profile = Path(args[args.index("--output-dir") + 1]), Path(args[args.index("--user-data-dir") + 1])
+    assert out == session / "browser-output"  # wiped with the session's state when the runner changes hands
+    assert stat.S_IMODE(out.stat().st_mode) == stat.S_IMODE(profile.stat().st_mode) == 0o2770
+    assert stat.S_IMODE(Path(args[args.index("--config") + 1]).stat().st_mode) == 0o640

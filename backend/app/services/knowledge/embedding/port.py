@@ -1,9 +1,4 @@
-"""The ``Embedder`` port: bounded input, validated vectors, fixed failure states.
-
-Every adapter returns exactly one vector per input, of the space's dimension, made of finite
-floats. Anything else is a contract violation, never a partially usable answer. Failures carry a
-closed state and a fixed reason token; no provider message, request or credential text is kept.
-"""
+"""The ``Embedder`` port: bounded input, validated vectors, fixed failure states."""
 
 from __future__ import annotations
 
@@ -31,8 +26,6 @@ class EmbeddingState(StrEnum):
 
 
 class EmbeddingError(Exception):
-    """A closed embedding failure. ``reason`` is a fixed lower-case token."""
-
     def __init__(self, state: EmbeddingState, reason: str) -> None:
         super().__init__(f"{state.value}:{reason}")
         self.state = state
@@ -47,14 +40,11 @@ class Embedder(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class EmbeddingRuntime:
-    """The Instance's embedding space and the adapter that serves it."""
-
     space: EmbeddingSpace
     embedder: Embedder
 
 
 def checked_inputs(space: EmbeddingSpace, texts: object, purpose: object) -> list[str]:
-    """The texts to embed, prefixed for the space; refuses anything unbounded or untyped."""
     if type(purpose) is not EmbeddingPurpose:
         raise EmbeddingError(EmbeddingState.CONTRACT_VIOLATION, "purpose")
     if type(texts) is not list or not 0 < len(texts) <= MAX_BATCH_TEXTS:
@@ -71,7 +61,6 @@ def checked_inputs(space: EmbeddingSpace, texts: object, purpose: object) -> lis
 
 
 def checked_vectors(space: EmbeddingSpace, vectors: object, expected: int) -> list[list[float]]:
-    """Exactly ``expected`` vectors of the space's dimension, as plain finite floats."""
     if type(vectors) is not list or len(vectors) != expected:
         raise EmbeddingError(EmbeddingState.CONTRACT_VIOLATION, "vector_count")
     checked: list[list[float]] = []

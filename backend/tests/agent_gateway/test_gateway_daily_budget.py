@@ -1,11 +1,5 @@
-"""``GET /api/v1/agent-gateway/daily-budget``: the launcher's status block reads the user's own budget and allowance.
-
-- the launcher's login (gateway token, no session) reads a member Workspace inside its binding; a foreign or
-  unbound Workspace is 403 ``workspace_not_authorized``, no token 401;
-- the budget is ``daily_budget.check_daily_budget``: the user's gateway spend of the UTC day (never another
-  user's) against the Workspace limit, with the explicit states ``allowed``, ``denied`` and ``needs_configuration``;
-- ``seat_allowance`` is the user's own latest seat utilization, never another user's or a governed row.
-"""
+"""``GET /api/v1/agent-gateway/daily-budget``: the launcher reads only its own user's budget and seat allowance,
+inside the token's Workspace binding."""
 
 from __future__ import annotations
 
@@ -77,13 +71,17 @@ async def test_the_launcher_reads_its_own_daily_budget_and_seat_allowance(client
     exhausted = (await client.get(PATH, params={"workspace_id": workspace_id}, headers=headers)).json()
     assert (exhausted["state"], exhausted["reason"], exhausted["limit_usd"]) == (
         "denied", "gateway_daily_budget_exhausted", 3.0)
-    for config, reason in (({"tool_rules": []}, "gateway_budget_not_configured"),
-                           ({"session_budget": {"per_user_daily_usd": "x"}}, "gateway_policy_invalid")):
-        (await db.get(Project, workspace_id)).config = {"agent_gateway_policy": config}
-        await db.commit()
-        missing = (await client.get(PATH, params={"workspace_id": workspace_id}, headers=headers)).json()
-        assert (missing["state"], missing["reason"], missing["limit_usd"], missing["spent_usd"]) == (
-            "needs_configuration", reason, None, None)
+    # A Workspace policy without its own budget has the platform's.
+    (await db.get(Project, workspace_id)).config = {"agent_gateway_policy": {"tool_rules": []}}
+    await db.commit()
+    inherited = (await client.get(PATH, params={"workspace_id": workspace_id}, headers=headers)).json()
+    assert (inherited["state"], inherited["reason"], inherited["limit_usd"]) == ("allowed", None, 200.0)
+    (await db.get(Project, workspace_id)).config = {"agent_gateway_policy": {"session_budget": {
+        "per_user_daily_usd": "x"}}}
+    await db.commit()
+    invalid = (await client.get(PATH, params={"workspace_id": workspace_id}, headers=headers)).json()
+    assert (invalid["state"], invalid["reason"], invalid["limit_usd"], invalid["spent_usd"]) == (
+        "needs_configuration", "gateway_policy_invalid", None, None)
 
     other_view = (await client.get(PATH, params={"workspace_id": workspace_id}, headers=await _token(db, other))).json()
     assert other_view["seat_allowance"]["five_hour_pct"] == 77.0

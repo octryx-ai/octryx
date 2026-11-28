@@ -1,8 +1,4 @@
-"""The Office engine's operations: what the tools, previews and generated scripts call.
-
-Every operation returns the JSON envelope the Office tools always returned — ``{"success": true, "data": …}`` —
-or a closed failure ``{"error": "<code> <fact>", "error_code": "<code>"}``. Mutations write atomically.
-"""
+"""The Office engine's operations: what the tools, previews and generated scripts call."""
 
 from __future__ import annotations
 
@@ -68,8 +64,6 @@ def _ok(data: Any, message: str = "") -> dict[str, Any]:
 
 
 class Opened:
-    """One loaded document; ``save`` writes it back (with the workbook's sparklines carried over)."""
-
     def __init__(self, path: str | Path) -> None:
         self.path = existing_file(path)
         self.kind = document_kind(self.path)
@@ -108,7 +102,6 @@ def create(path: str | Path, doc_type: str = "") -> dict[str, Any]:
 
 @_closed
 def merge(template: str | Path, output: str | Path, data: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Copy ``template`` to ``output`` (a template type becomes its document type) and fill placeholders."""
     source = existing_file(template)
     kind = document_kind(source)
     if document_kind(output) != kind:
@@ -252,7 +245,6 @@ def remove(path: str | Path, element_path: str) -> dict[str, Any]:
 
 @_closed
 def validate(path: str | Path) -> dict[str, Any]:
-    """The package opens with its library (else ``office_document_unreadable``) and has no ``error`` issue."""
     opened = Opened(path)
     found = issue_checks.document_issues(opened.kind, opened.document)
     errors = [item for item in found if item["severity"] == "error"]

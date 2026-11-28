@@ -1,4 +1,4 @@
-"""Codex CLI's JSON events mapped to the platform's turn events, its token usage and its rate limits."""
+"""Codex app-server notifications mapped to the platform's turn events, token usage, limit codes and rate limits."""
 
 from __future__ import annotations
 
@@ -7,19 +7,22 @@ from pathlib import Path
 from typing import Any
 
 from .device_sdk_events import _clip, input_preview
+from .seat_status import codex_limit_code
 
 # The ChatGPT seat's windows as Codex records them in the thread's rollout (``event_msg`` ``token_count``
 # ``rate_limits``, ``limit_id: codex``): ``used_percent``, ``window_minutes``, ``resets_at`` (epoch seconds) for the
-# 5-hour (primary) and weekly (secondary) window. ``codex exec --json`` does not print them, so a seat limit's reset
-# is read from the rollout.
+# 5-hour (primary) and weekly (secondary) window, read from the rollout after the turn.
 RATE_LIMIT_ID = "codex"
 
 MAX_ROLLOUT_TAIL = 4 * 1024 * 1024
 
 _WINDOW_KEYS = ("used_percent", "window_minutes", "resets_at")
+_LIMIT_KINDS = {"usageLimitExceeded": "usage_limit", "rateLimitExceeded": "rate_limit"}
+_HTTP_KINDS = ("httpConnectionFailed", "responseStreamConnectionFailed")
+# The platform keeps the decision's own record; the chat shows only that the call was refused.
+DENIED = "Octryx policy denied this tool call."
 
 def rollout_rate_limits(threads: Path, thread_id: str) -> dict[str, Any] | None:
-    """``{primary, secondary}`` of the thread's newest recorded seat windows, ``None`` when none is recorded."""
     if not thread_id or "/" in thread_id or not threads.is_dir():
         return None
     files = sorted(threads.glob(f"*/*/*/rollout-*-{thread_id}.jsonl"), key=lambda item: item.stat().st_mtime)
@@ -47,56 +50,79 @@ def rollout_rate_limits(threads: Path, thread_id: str) -> dict[str, Any] | None:
             return windows
     return None
 
-def usage_of(raw: Any) -> dict[str, int]:
-    """Codex's per-turn usage in the Anthropic keys the platform records (input without the cached part)."""
-    usage = raw if isinstance(raw, dict) else {}
-    cached = int(usage.get("cached_input_tokens") or 0)
-    return {"input_tokens": max(int(usage.get("input_tokens") or 0) - cached, 0),
+def usage_of(last: Any) -> dict[str, int]:
+    usage = last if isinstance(last, dict) else {}
+    cached = int(usage.get("cachedInputTokens") or 0)
+    return {"input_tokens": max(int(usage.get("inputTokens") or 0) - cached, 0),
             "cache_read_input_tokens": cached,
-            "cache_creation_input_tokens": int(usage.get("cache_write_input_tokens") or 0),
-            "output_tokens": int(usage.get("output_tokens") or 0)}
+            "cache_creation_input_tokens": int(usage.get("cacheWriteInputTokens") or 0),
+            "output_tokens": int(usage.get("outputTokens") or 0)}
+
+
+def context_of(token_usage: Any) -> dict[str, Any] | None:
+    # How full the thread's context is after the last model call: its tokens against the model's window.
+    usage = token_usage if isinstance(token_usage, dict) else {}
+    last = usage.get("last") if isinstance(usage.get("last"), dict) else {}
+    window = int(usage.get("modelContextWindow") or 0)
+    used = int(last.get("totalTokens") or 0)
+    return {"kind": "context", "used": used, "window": window} if window > 0 and used > 0 else None
+
+
+def limit_code(error: Any) -> str:
+    error = error if isinstance(error, dict) else {}
+    info = error.get("codexErrorInfo")
+    if isinstance(info, str) and info in _LIMIT_KINDS:
+        return _LIMIT_KINDS[info]
+    if isinstance(info, dict) and any((info.get(kind) or {}).get("httpStatusCode") == 429 for kind in _HTTP_KINDS):
+        return "rate_limit"
+    return codex_limit_code({"type": "error", "error": {"message": str(error.get("message") or "")}})
+
 
 def _patch_preview(changes: Any) -> str:
     items = changes if isinstance(changes, list) else []
-    shown = (f"{item.get('kind', '?')} {item.get('path', '')}" for item in items if isinstance(item, dict))
+    shown = (f"{(item.get('kind') or {}).get('type', '?')} {item.get('path', '')}"
+             for item in items if isinstance(item, dict) and isinstance(item.get("kind") or {}, dict))
     return ", ".join(shown)[:500]
 
-def map_line(row: dict[str, Any]) -> list[dict[str, Any]]:
-    """One ``codex exec --json`` line → the job events the chat sees."""
-    kind = row.get("type")
-    if kind == "thread.started" and row.get("thread_id"):
-        return [{"kind": "session", "claude_session_id": str(row["thread_id"])}]
-    if kind in ("turn.failed", "error"):
-        error = row.get("error") if isinstance(row.get("error"), dict) else {}
-        return [{"kind": "error", "message": _clip(str(error.get("message") or row.get("message") or ""), 2000)}]
-    item = row.get("item") if isinstance(row.get("item"), dict) else None
-    if item is None:
-        return []
-    item_type, item_id = item.get("type"), str(item.get("id") or "")
-    if kind == "item.completed" and item_type == "agent_message" and item.get("text"):
-        return [{"kind": "text", "text": _clip(item["text"], 16000)}]
-    if item_type == "command_execution":
-        if kind == "item.started":
-            command_text = str(item.get("command") or "")
+
+def map_item(method: str, item: dict[str, Any]) -> list[dict[str, Any]]:
+    kind, item_id = item.get("type"), str(item.get("id") or "")
+    started, completed = method == "item/started", method == "item/completed"
+    if kind == "agentMessage" and completed and item.get("text"):
+        return [{"kind": "text", "text": _clip(str(item["text"]), 16000)}]
+    if kind == "commandExecution":
+        if started:
             return [{"kind": "tool_use", "tool": "Bash", "tool_use_id": item_id,
-                     "input_preview": input_preview("Bash", {"command": command_text})}]
-        if kind == "item.completed":
-            failed = item.get("status") in ("failed", "declined") or int(item.get("exit_code") or 0) != 0
+                     "input_preview": input_preview("Bash", {"command": str(item.get("command") or "")})}]
+        if completed:
+            failed = item.get("status") in ("failed", "declined") or int(item.get("exitCode") or 0) != 0
             return [{"kind": "tool_result", "tool_use_id": item_id, "is_error": failed,
-                     "output": _clip(item.get("aggregated_output", ""))}]
-    if item_type == "file_change" and kind == "item.completed":
+                     "output": _clip(str(item.get("aggregatedOutput") or ""))}]
+    if kind == "fileChange" and completed:
         return [{"kind": "tool_use", "tool": "apply_patch", "tool_use_id": item_id,
                  "input_preview": _patch_preview(item.get("changes"))},
-                {"kind": "tool_result", "tool_use_id": item_id, "is_error": item.get("status") == "failed",
+                {"kind": "tool_result", "tool_use_id": item_id, "is_error": item.get("status") != "completed",
                  "output": ""}]
-    if item_type == "mcp_tool_call":
+    if kind == "mcpToolCall":
         tool = f"mcp__{item.get('server', '')}__{item.get('tool', '')}"
-        if kind == "item.started":
+        if started:
             arguments = item.get("arguments") if isinstance(item.get("arguments"), dict) else {}
             return [{"kind": "tool_use", "tool": tool, "tool_use_id": item_id,
                      "input_preview": input_preview(tool, arguments)}]
-        if kind == "item.completed":
-            return [{"kind": "tool_result", "tool_use_id": item_id, "is_error": item.get("status") == "failed",
-                     "output": _clip(json.dumps(item.get("result"), ensure_ascii=False)
-                                     if item.get("result") is not None else "")}]
+        if completed:
+            output = item.get("result") if item.get("result") is not None else item.get("error")
+            return [{"kind": "tool_result", "tool_use_id": item_id, "is_error": item.get("status") != "completed",
+                     "output": _clip(json.dumps(output, ensure_ascii=False) if output is not None else "")}]
     return []
+
+
+def map_hook(run: dict[str, Any]) -> list[dict[str, Any]]:
+    # Codex reports no item for a call its PreToolUse hook blocked; without this the chat would not show it.
+    if run.get("eventName") != "preToolUse" or run.get("status") != "blocked":
+        return []
+    run_id = f"hook-{run.get('id', '')}"
+    return [{"kind": "tool_use", "tool": "PreToolUse", "tool_use_id": run_id, "input_preview": "denied by policy"},
+            {"kind": "tool_result", "tool_use_id": run_id, "is_error": True, "output": DENIED}]
+
+
+__all__ = ["context_of", "limit_code", "map_hook", "map_item", "rollout_rate_limits", "usage_of"]

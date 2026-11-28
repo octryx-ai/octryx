@@ -1,24 +1,4 @@
-"""Built-in tool descriptions as prompt catalog keys, seeded by the code tool definitions.
-
-Every built-in tool (``tools/definitions.get_all_definitions()``) contributes:
-
-* ``tool.<name>.description`` — the function description (high risk: it instructs the model);
-* ``tool.<name>.param.<path>`` — each parameter description, ``<path>`` the dotted property
-  path; an array's item properties are under ``_item`` (``tool.x.param.rows._item.name``).
-  Descriptions inside ``oneOf`` / ``anyOf`` / ``allOf`` branches stay with the definition.
-
-The definitions module is the seed: no literal is copied here, and the specs are built
-lazily (the definitions import this package, so building them at import would cycle). The
-keys are literal (served verbatim; descriptions contain JSON examples with braces).
-
-Dynamic tools are not part of the catalog because they already carry their own editable
-description: database query tools (``database_tool_*``, the database connector registry),
-flow capability tools (``run_flow_*``, from ``Flow.description``), plugin tools and remote
-MCP tools (``mcp__*``, from their server).
-
-The catalog keys are not written into the database by the seed step: the code definition
-is the last precedence level, so a key has rows only once an admin drafts a version.
-"""
+"""Built-in tool descriptions as prompt catalog keys, seeded by the code tool definitions."""
 
 from __future__ import annotations
 
@@ -42,7 +22,6 @@ def tool_param_key(tool_name: str, path: tuple[str, ...]) -> str:
 def iter_param_descriptions(
     schema: Mapping[str, Any] | None, path: tuple[str, ...] = ()
 ) -> Iterator[tuple[tuple[str, ...], dict[str, Any]]]:
-    """Every (path, property schema) with a string description, depth first, in schema order."""
     if not isinstance(schema, Mapping):
         return
     properties = schema.get("properties")

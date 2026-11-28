@@ -1,13 +1,4 @@
-"""The runs of Operations › Live: every active run with its place, cost, items, jobs and activity problems.
-
-One monitoring view for all agents shows where each piece of work is. Before this, the answer was
-spread over ``workflow_runs`` (status, node), ``context.work`` (items), ``sessions``/``device_jobs`` (where, cost)
-and ``workflow_run_events`` (activity), and only readable one run and one Workspace at a time.
-
-Cost of a run (``operations/costs.run_cost_split``): ``cost_usd`` is the API cost of the ``usage_events`` of its
-sessions; ``seat_api_equivalent_usd`` beside it is what its seat calls would have cost through the API,
-never added to the cost.
-"""
+"""The runs of Operations › Live: every active run with its place, cost, items, jobs and activity problems."""
 
 from __future__ import annotations
 
@@ -45,8 +36,6 @@ def problem_ref(problem: Problem) -> dict[str, Any]:
 
 
 def workflow_title(title: str | None, key: str | None) -> str | None:
-    """The run title without its ticket key: runs are titled "Ticket delivery · <key>", and the page shows the key
-    from ``work_item`` already (it would appear twice)."""
     if not title or not key:
         return title
     parts = [part for part in title.split(" · ") if part.strip() != key]
@@ -54,11 +43,6 @@ def workflow_title(title: str | None, key: str | None) -> str | None:
 
 
 def state_of(run: WorkflowRun, problems: list[Problem]) -> str:
-    """``looping`` > ``problem`` > ``silent`` > ``needs_you`` > ``stopped`` > ``working`` (the most urgent wins).
-
-    ``stopped``: paused by a deliberate emergency stop. An admin chose it, so it is not a problem (otherwise
-    the problem count would rise by every stopped run); Continue resumes it.
-    """
     codes = {item.reason_code for item in problems}
     if codes & _LOOP_CODES:
         return "looping"
@@ -89,8 +73,6 @@ async def _node_titles(db: AsyncSession, runs: list[WorkflowRun]) -> dict[str, s
 
 
 class _RunFacts:
-    """Everything the run rows need, read with one query per table for all runs together."""
-
     def __init__(self) -> None:
         self.last_event: dict[str, datetime] = {}
         self.sessions: dict[str, list[tuple[str, str]]] = defaultdict(list)

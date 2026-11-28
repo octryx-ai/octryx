@@ -1,16 +1,4 @@
-"""``handoff_now``: tell a session's launcher to hand its work over by itself.
-
-A session crosses the trigger when its use reaches the Workspace's ``handoff.auto_trigger_pct`` (default 99):
-
-- a **seat** session: its five-hour or seven-day use (or ``limit_reached``);
-- a **governed** session: the user's daily budget spend (``daily_budget.check_daily_budget``).
-
-The first hook answer at or above the trigger records the crossing (``agent_presence.handoff_crossing_at``) and
-every answer while it lasts carries ``{"handoff_now": true, "handoff_crossing": <that time>}``; the launcher runs
-the handoff once per crossing id. An admin's "Hand over now" (``handoff_requested_at``) answers the same way with
-its own id until the session's next handoff clears it. Below the trigger nothing is added, so existing answers
-stay unchanged. Falling below the trigger clears the crossing, so the next rise is a new one.
-"""
+"""``handoff_now``: tell a session's launcher to hand its work over by itself."""
 
 from __future__ import annotations
 
@@ -45,7 +33,6 @@ async def _crossed(db: AsyncSession, presence: AgentPresence, trigger: float) ->
 
 
 async def handoff_now(db: AsyncSession, *, session_key: str) -> dict[str, Any]:
-    """The hook answer fields for this session; records or clears the crossing. Flushes."""
     presence = (
         await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))
     ).scalar_one_or_none()
@@ -69,7 +56,6 @@ async def handoff_now(db: AsyncSession, *, session_key: str) -> dict[str, Any]:
 
 
 async def safe_handoff_now(db: AsyncSession, *, session_key: str) -> dict[str, Any]:
-    """:func:`handoff_now` in a savepoint; a failure is logged and never fails or denies a hook call."""
     try:
         async with db.begin_nested():
             return await handoff_now(db, session_key=session_key)

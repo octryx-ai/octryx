@@ -1,10 +1,4 @@
-"""The contract a phase turn follows: the phase's inline definition plus the run facts.
-
-The agent of a phase (in chat, a sub-agent child or an octryx-claude session) reads its pass (iteration), the
-findings carried back by a failed gate, the independent reviewer's findings, the slices still to (re)delegate, the
-recorded artefacts it consumes (``inputs``: its declared inputs and a parent run's hand-over) and the output it must
-submit (``output`` with its tool, ``phase_outputs``); a phase with path rules never offers shell tools.
-"""
+"""The contract a phase turn follows: the phase's inline definition plus the run facts."""
 
 from __future__ import annotations
 
@@ -15,7 +9,6 @@ from ..workflow_checks.library import FAILED as CHECK_FAILED
 from .graph import PhasedNode
 from .phase_marker import RUN_PHASE_CONTRACT_KEY
 
-# Attempt 4: agents spent the phase on these warnings and ended without running the tests.
 WARNINGS_RULE = ("code_style_warnings never block and are not this phase's task: fix one only in lines you change "
                  "anyway. The phase is done when its checks pass (the tests after your last change first).")
 ITEM_ITERATION_KEY = "item_iteration"
@@ -29,7 +22,6 @@ def _context(run: WorkflowRun) -> dict[str, Any]:
 
 
 def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
-    """The phase's inline definition with the run facts the agent needs (iteration, carried findings)."""
     config = dict(node.config)
     # A teamwork item's synthetic phase names its own pass (``item_definition.item_node``): on its first pass it is new
     # work, never a rework of the story's earlier change.
@@ -40,7 +32,7 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
     findings = [
         str(item.get("description") or item.get("type") or "")
         for item in (dict(carried.get("result") or {}).get("results") or [])
-        if isinstance(item, dict) and item.get("outcome") == CHECK_FAILED  # not applicable is no finding
+        if isinstance(item, dict) and item.get("outcome") == CHECK_FAILED
     ]
     contract[RUN_PHASE_CONTRACT_KEY] = {
         "title": node.title,
@@ -60,7 +52,6 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
 
     results = list(declared_result_values(node.config))
     if results:
-        # The agent ends by recording one of the phase's results; the phase is done only then.
         contract[RUN_PHASE_CONTRACT_KEY]["result"] = {"tool": RESULT_TOOL, "values": results}
         contract["checks"] = [*(contract.get("checks") or []), {
             "type": "tool_called", "params": {"tools": [RESULT_TOOL]}, "blocking": True,
@@ -71,12 +62,7 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
     reviewed = [item for item in (dict(carried.get("result") or {}).get("results") or [])
                 if isinstance(item, dict) and item.get("type") in {"review_passed", "artefact_review_passed"}
                 and item.get("outcome") == CHECK_FAILED]
-    if dict(_context(run).get("slices") or {}):
-        from .slices.results import slice_findings
-
-        contract[RUN_PHASE_CONTRACT_KEY]["slices"] = slice_findings(run)  # what to re-delegate
     if reviewed:
-        # The independent reviewer's findings, one per line (file:line [severity] fix).
         from .review.verdict import verdict_from_record
 
         record = _context(run).get("review")
@@ -95,13 +81,9 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
     # Stop would ask it for the builders' proof tests.
     tasks = [] if sets_task_list(config) else for_roles(run_task_list(run), phase_roles(config))
     if item_tasks is not None:
-        # A teamwork item builds its own task only. Otherwise every item of
-        # the plan had the role "backend", the item's Stop asked for the store and render items' proof tests,
-        # blocked three times, the turn ended "without finishing it" although units had recorded done with its
-        # five proofs green, and the run went back to the plan.
+        # A teamwork item builds its own task only, else its Stop asks for the other items' proof tests.
         tasks = [dict(task) for task in item_tasks if isinstance(task, dict)]
     if tasks and str(contract.get("capability_class") or "") in ("change", "deliver"):
-        # the readiness check's task list is the agreed work of the building phase.
         contract[RUN_PHASE_CONTRACT_KEY]["task_list"] = tasks
         contract[RUN_PHASE_CONTRACT_KEY]["task_list_rule"] = BUILD_RULE
     if str(contract.get("capability_class") or "") in ("change", "deliver") and _context(run).get(
@@ -115,25 +97,22 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
             contract[RUN_PHASE_CONTRACT_KEY]["pipeline_failure"] = red
         from .hands_on.step import failure_for_agent as hands_on_failure
 
-        if red := hands_on_failure(run):  # the built app used like a person would
+        if red := hands_on_failure(run):
             contract[RUN_PHASE_CONTRACT_KEY]["hands_on_failure"] = red
         from .evidence_pause import rerun_hint
 
-        if hint := rerun_hint(run, str(getattr(run, "current_node_id", None) or "")):  # concurrent run
+        if hint := rerun_hint(run, str(getattr(run, "current_node_id", None) or "")):
             contract[RUN_PHASE_CONTRACT_KEY]["test_evidence_hint"] = hint
         from .size_class.steps import agent_facts
 
-        if size := agent_facts(run):  # the workflow's note for the run's size class (size_classes.agent_note)
+        if size := agent_facts(run):
             contract[RUN_PHASE_CONTRACT_KEY]["size_class"] = size
-    if bug := _context(run).get("bug_report"):  # the bug flow: the report's fields and what it misses
+    if bug := _context(run).get("bug_report"):
         contract[RUN_PHASE_CONTRACT_KEY]["bug_report"] = bug
     answers = [dict(item) for item in _context(run).get("po_answers") or []
                if isinstance(item, dict) and not item.get("replaced_by")]
     if answers and item_iteration != 1:
-        # Without this, first-pass items got the epic-story auto-accept as
-        # product_owner_answers and the story's change as previous_change ("do not read whole files"), and the role
-        # text read that as "a reopened item": fresh items were told they were reworks and did not orient.
-        # Ticket delivery: the product owner's answers to the review are decisions; the agent applies them.
+        # A first-pass item is new work: the story's auto-accept answers and earlier change would read as a rework.
         contract[RUN_PHASE_CONTRACT_KEY]["product_owner_answers"] = [str(item.get("text") or "") for item in answers]
         if not reviewed:
             from .review.verdict import verdict_from_record
@@ -142,8 +121,7 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
             if verdict is not None:
                 contract[RUN_PHASE_CONTRACT_KEY]["review_findings"] = [item.render() for item in verdict.findings]
                 contract[RUN_PHASE_CONTRACT_KEY]["review_assumptions"] = list(verdict.assumptions)
-        # The pass's own change, else the one the engine kept when this pass started (``engine``: a new pass clears
-        # ``device_change``; live the follow-up pass got no previous_change at all).
+        # The pass's own change, else the one the engine kept when this pass started (a new pass clears device_change).
         patch = str(dict(_context(run).get("device_change") or {}).get("patch") or "") or str(
             dict(_context(run).get("previous_device_change") or {}).get("patch") or "")
         if patch.strip():
@@ -160,8 +138,7 @@ def phase_definition(run: WorkflowRun, node: PhasedNode) -> dict[str, Any]:
     return config
 
 
-# Token costs: every follow-up pass re-oriented from scratch (globs, the whole spec and every file
-# read again) and kept all of it in the context of each later call. The pass gets its own change instead.
+# A follow-up pass gets its own change instead of re-orienting from scratch.
 MAX_PREVIOUS_PATCH = 12_000
 PREVIOUS_CHANGE_NOTE = (
     "The working folder still holds this change from your earlier pass (the patch is against the run's base). Do not "
@@ -171,7 +148,6 @@ PREVIOUS_CHANGE_NOTE = (
 
 
 def previous_change(patch: str) -> dict:
-    """The change a follow-up pass starts from: its files, and the patch itself while it is small enough."""
     import re
 
     files = list(dict.fromkeys(re.findall(r"^diff --git a/(\S+) b/", patch, flags=re.MULTILINE)))

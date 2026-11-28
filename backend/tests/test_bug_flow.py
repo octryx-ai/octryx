@@ -24,12 +24,9 @@ def test_the_bug_seed_runs_from_the_report_to_fixed_in():
     assert validate_phased_definition(definition)["errors"] == []
     graph = parse_phased_definition(definition)
     routes = {(edge["source_node_id"], edge.get("when")): edge["target_node_id"] for edge in definition["edges"]}
-    # A complete report needs no person; a missing field is one question round.
     assert routes[("start", None)] == "intake_check"
     assert routes[("intake_check", "succeeded")] == "ticket" and routes[("intake_check", "incomplete")] == "intake"
     assert routes[("answers", "confirmed")] == routes[("answers", "changed")] == "ticket"
-    # Reproduced on the unchanged app before any fix; a person only without a scenario.
-    # The reproduction's tests also run on the base commit before any fix (red_on_base).
     assert graph.nodes["repro_check"].config == {"action": "hands_on.run", "mode": "reproduce", "red_on_base": True}
     assert routes[("reproduce", None)] == "repro_check"
     assert routes[("repro_check", "succeeded")] == "reproduces" and routes[("repro_check", "skipped")] == "confirm_repro"
@@ -38,11 +35,9 @@ def test_the_bug_seed_runs_from_the_report_to_fixed_in():
     assert routes[("not_reproducible", "succeeded")] == "cannot_reproduce"
     setup_loop = next(edge for edge in definition["edges"] if edge["id"] == "loop-repro-setup")
     assert (setup_loop["kind"], setup_loop["max_iterations"]) == ("loop", 2)
-    # Fix, pipeline, hands-on (with the kept scenario), a review that names the root cause.
     assert routes[("green", "passed")] == "pipeline" and routes[("pipeline", "succeeded")] == "hands_on"
     assert routes[("hands_on", "succeeded")] == "independent_review" and routes[("hands_on", "failed")] == "fix"
     assert graph.nodes["independent_review"].config["root_cause"] is True
-    # The reporter is told twice.
     assert routes[("pr", "succeeded")] == "report_fix" and routes[("report_fix", "succeeded")] == "in_review"
     assert routes[("merged", "pr.merged")] == "report_released" and routes[("report_released", "succeeded")] == "done"
     assert "tests/hands_on/bugs/<work item key>.json" in graph.nodes["reproduce"].config["workflow_contract"][
@@ -74,10 +69,7 @@ def test_reproduced_needs_the_symptom_a_setup_failure_is_never_cannot_reproduce(
     assert verdict({"state": "no_scenarios"})[0] == "no_scenarios"
 
 
-
 def test_only_a_red_symptom_step_reproduces_a_bug():
-    """A scenario that fails at "'M1' is not shown" while it still adds its grinder does not count as reproduced.
-    Only the symptom step (marked, else the last expect) reproduces."""
     def report(item):
         return {"state": "ran", "scenarios": [{"id": "OCX-72#1", "passed": False, **item}]}
 

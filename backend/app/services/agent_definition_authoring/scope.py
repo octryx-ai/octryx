@@ -23,8 +23,6 @@ OUTCOME_UNCHANGED = "unchanged"
 
 @dataclass(slots=True)
 class _TouchedDefinitions:
-    """Definition ids the enclosed writer touched, and which it deleted."""
-
     written: set[str] = field(default_factory=set)
     deleted: set[str] = field(default_factory=set)
     #: Workspace (project) id per definition, captured in ``before_flush`` while the
@@ -40,15 +38,6 @@ _COMMIT_GUARD_ATTR = "_agent_definition_governed_commit_guard"
 
 @dataclass(slots=True)
 class _CommitGuard:
-    """Turns a writer-internal ``commit()`` into a flush for the scope's duration.
-
-    The guard is what makes the governed write atomic: the writer's own
-    ``commit()`` does not end the transaction, so the live row cannot be
-    persisted before the boundary has validated it, appended the immutable
-    revision, and written the audit entry. The request is remembered so the
-    outermost scope can honour it once finalization is in the same transaction.
-    """
-
     session: AsyncSession
     depth: int = 0
     commit_requested: bool = False
@@ -59,7 +48,6 @@ class _CommitGuard:
 
 
 def _acquire_commit_guard(db: AsyncSession) -> tuple[_CommitGuard, bool]:
-    """Install (or join) the session's commit guard; True when this scope owns it."""
     guard = getattr(db, _COMMIT_GUARD_ATTR, None)
     outermost = guard is None
     if guard is None:
@@ -73,7 +61,6 @@ def _acquire_commit_guard(db: AsyncSession) -> tuple[_CommitGuard, bool]:
 
 
 def _release_commit_guard(db: AsyncSession, guard: _CommitGuard) -> None:
-    """Restore ``commit()`` once the outermost scope is done with it."""
     guard.depth -= 1
     if guard.depth > 0:
         return
@@ -115,7 +102,6 @@ class GovernedWriteScope:
 
 
 def _collect_touched(session: Any, touched: _TouchedDefinitions) -> None:
-    """Record every aggregate row in this flush, keyed by definition id."""
     for instance in session.deleted:
         if isinstance(instance, AgentDefinition):
             touched.written.add(str(instance.id))

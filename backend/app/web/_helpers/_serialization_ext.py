@@ -205,13 +205,7 @@ def _serialize_exec_policy_config(config: ExecPolicyConfig) -> dict:
 def _format_message_runtime_label(provider: str | None, model: str | None) -> str:
     provider_value = (provider or "").strip()
     model_value = (model or "").strip()
-    provider_display_map = {
-        "openrouter": "OpenRouter",
-        "bedrock": "Bedrock",
-        "copilot": "Copilot",
-        "orchestrator": "Orchestrator",
-    }
-    provider_display = provider_display_map.get(provider_value.lower(), provider_value)
+    provider_display = "Orchestrator" if provider_value.lower() == "orchestrator" else provider_value
     if provider_value and model_value:
         return f"{provider_display} / {model_value}"
     if model_value:

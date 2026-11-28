@@ -1,7 +1,4 @@
-// Editing one connection: the draft the detail panel edits and the partial PUT built from it. The contract:
-// only sent keys change; arrays (status_map, transitions, scope.*) are replaced
-// as a whole; secrets go only when one was typed and are never read back. Write-back is not the connection's (it
-// belongs to the Workspace's work item workflow, 422 write_back_on_workflow): it is shown, never sent.
+// Write-back belongs to the Workspace's work item workflow (422 write_back_on_workflow), so it is never sent.
 import type { AvailableIn, ConnectionDetail, ToolLevel } from "./connectionsModel";
 import { formatBoundKeys, parseBoundKeys } from "./boundScopes";
 import { splitValues, type AccessField, type Binding } from "./connectionTypes";
@@ -11,7 +8,6 @@ export type Pair = { source: string; ours: string };
 export type ConnectionDraft = {
   name: string; access: Record<string, string>; secrets: Record<string, string>;
   availableIn: AvailableIn; workspaceIds: string[];
-  // The keys this connection serves as typed ("SHOP, DOCS"); sent as bound_scopes when they change.
   boundScopes: string;
   knowledgeEnabled: boolean; knowledgeSchedule: string; knowledgeCron: string; knowledgeScopeKey: string; knowledgeScope: string;
   ticketsEnabled: boolean; ticketsSchedule: string; ticketsCron: string; ticketsFilter: string; statusMap: Pair[];
@@ -48,7 +44,6 @@ const clean = (rows: Pair[]) => rows.map((row) => ({ source: row.source.trim(), 
 const samePairs = (left: Pair[], right: Pair[]) => JSON.stringify(clean(left)) === JSON.stringify(clean(right));
 const sameSet = (left: string[], right: string[]) => left.length === right.length && left.every((id) => right.includes(id));
 
-/** A schedule change: the preset, and with "custom" its cron (sent again whenever custom is chosen or edited). */
 function scheduleChanges(target: Rec, schedule: string, cron: string, nextSchedule: string, nextCron: string) {
   if (nextSchedule !== schedule) target.schedule = nextSchedule;
   if (nextSchedule === "custom" && (nextSchedule !== schedule || nextCron.trim() !== cron.trim())) {
@@ -57,8 +52,6 @@ function scheduleChanges(target: Rec, schedule: string, cron: string, nextSchedu
   }
 }
 
-/** An access field's text as the server takes it: bool fields as true/false, list fields as an array, int fields as a
- * number (anything else as typed, so the server names the field). */
 export function accessValueOf(field: AccessField | undefined, text: string): unknown {
   if (field?.kind === "bool") return text === "true";
   if (field?.kind === "list") return splitValues(text);
@@ -66,11 +59,6 @@ export function accessValueOf(field: AccessField | undefined, text: string): unk
   return text.trim();
 }
 
-/**
- * The partial PUT body: only what changed. `scope` is the connection's current Knowledge scope (other keys kept);
- * `fields` are the type's access fields (for bool and list values); `binding` the type's keys (bound_scopes is sent
- * only for a type that binds keys, as the whole list in the binding's case).
- */
 export function changesOf(before: ConnectionDraft, after: ConnectionDraft, scope: unknown = null, fields: AccessField[] = [],
   binding: Binding | null = null): Rec {
   const body: Rec = {};
@@ -95,7 +83,7 @@ export function changesOf(before: ConnectionDraft, after: ConnectionDraft, scope
   if (after.knowledgeEnabled !== before.knowledgeEnabled) knowledge.enabled = after.knowledgeEnabled;
   scheduleChanges(knowledge, before.knowledgeSchedule, before.knowledgeCron, after.knowledgeSchedule, after.knowledgeCron);
   if (after.knowledgeScopeKey && after.knowledgeScope !== before.knowledgeScope) {
-    // The whole scope object goes: the edited list replaces its key, keys this page does not edit stay.
+    // The whole scope object replaces the stored one, so keys this page does not edit are copied in.
     knowledge.scope = { ...(rec(scope) ?? {}), [after.knowledgeScopeKey]: splitValues(after.knowledgeScope) };
   }
   if (Object.keys(knowledge).length) uses.knowledge = knowledge;
@@ -126,7 +114,6 @@ const DEFAULT_MESSAGES: Record<string, string> = {
   platform_admin_required: "Only platform admins may change this.",
 };
 
-/** Field errors of a refused save, keyed by the request path ("access.base_url", "uses.knowledge.scope"). */
 export function fieldErrorsOf(payload: unknown): { field: string; message: string; code: string } {
   const detail = rec(rec(payload)?.detail);
   const code = str(detail?.code);
@@ -137,11 +124,8 @@ export function fieldErrorsOf(payload: unknown): { field: string; message: strin
   return { field, message: str(detail?.message) || (typeof rec(payload)?.detail === "string" ? str(rec(payload)?.detail) : fallback), code };
 }
 
-// ---- access and mapping pieces shared by the forms ---------------------------------------------------------
-
 export type AccessValue = { values: Record<string, string>; secrets: Record<string, string> };
 
-/** The access body of a new connection: every filled field in the server's form, typed secrets as given. */
 export function accessBodyOf(fields: AccessField[], value: AccessValue): Rec {
   const body: Rec = {};
   for (const [key, text] of Object.entries(value.values)) {
@@ -151,7 +135,6 @@ export function accessBodyOf(fields: AccessField[], value: AccessValue): Rec {
   return body;
 }
 
-/** The required access fields still empty (a secret field counts only while that secret is not stored). */
 export function missingAccess(fields: AccessField[], value: AccessValue, stored: Record<string, boolean> = {}): AccessField[] {
   return fields.filter((field) => field.required && field.kind !== "bool" && (field.secret
     ? !stored[field.key] && !(value.secrets[field.key] ?? "").trim()

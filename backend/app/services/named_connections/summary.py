@@ -1,9 +1,4 @@
-"""The connections a Workspace's calls can run on, by id, for policy authors.
-
-The policy summary (``data_classification/workspace_policy_summary.py``) lists them so an admin can write a
-Cedar policy over ``context.connections`` (e.g. a connection only read via the governed client). Only ids,
-names, scopes and bound keys; never a config value or a secret.
-"""
+"""The connections a Workspace's calls can run on, by id, for policy authors."""
 
 from __future__ import annotations
 
@@ -16,7 +11,6 @@ from .workspace_routes import workspace_routes
 
 
 async def workspace_connection_summary(db: AsyncSession, project_id: str) -> dict[str, list[dict[str, Any]]]:
-    """``{connector: [connection ...]}`` for each connector with named connections the Workspace can use."""
     routes = await workspace_routes(db, project_id, secrets=False)
     summary: dict[str, list[dict[str, Any]]] = {}
     for connection in routes.connections:

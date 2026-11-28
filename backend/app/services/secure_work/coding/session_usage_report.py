@@ -1,11 +1,5 @@
-"""Agent-run usage block for governed coding delivery comments.
-
-Management reads the ticket, not the platform dashboards: when a governed
-coding session posts its delivery comment, the platform appends the run's
-LLM usage (requests, tokens, cost when priced, active window, models)
-aggregated from ``usage_events``. The block is appended server-side at the
-ticket-tool boundary so the model can neither omit nor fabricate it.
-"""
+"""Agent-run usage block for governed coding delivery comments. Appended server-side at the ticket-tool boundary, so the
+model can neither omit nor fabricate it."""
 
 from __future__ import annotations
 
@@ -24,7 +18,6 @@ USAGE_BLOCK_HEADER = "Octryx agent run metrics"
 
 
 async def build_agent_usage_block(db: AsyncSession, session_id: str) -> str:
-    """Format the session's aggregated LLM usage as a ticket-comment block."""
     events = (
         (
             await db.execute(
@@ -68,12 +61,7 @@ async def append_agent_usage_block_for_governed_session(
     session_id: str | None,
     body: str,
 ) -> str:
-    """Append the usage block when the session is a governed coding run.
-
-    No-op for non-governed sessions, sessions without usage, or bodies that
-    already carry the block (idempotent across delivery retries). Failures
-    never block the delivery comment itself.
-    """
+    # Idempotent across delivery retries; failures never block the delivery comment itself.
     if db is None or not session_id or USAGE_BLOCK_HEADER in body:
         return body
     try:

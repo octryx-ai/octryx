@@ -13,7 +13,6 @@ from .state import LocalState
 
 
 def _licence_refusal(args: argparse.Namespace, state: LocalState, device: dict, spec: Any) -> int | None:
-    """A restricted licence: the notice first, then only the person's explicit acceptance; ``None`` goes on."""
     if spec.permissive or device.get("router_licence_accepted") == spec.license["id"]:
         return None
     print(f"{spec.name} is under {spec.license['id']}: {spec.license['note']}\n  {spec.license['url']}\n"
@@ -26,7 +25,6 @@ def _licence_refusal(args: argparse.Namespace, state: LocalState, device: dict, 
 
 
 def _download(models_dir: Path, spec: Any) -> int | None:
-    """The pinned model, downloaded and checked when it is not there yet; ``None`` goes on."""
     from .local_model import download_model, model_path  # noqa: PLC0415
 
     if model_path(models_dir, spec=spec) is not None:
@@ -63,7 +61,6 @@ def _ask_model(models_dir: Path, spec: Any, prompt: str) -> dict | None:
 
 
 def run_router(args: argparse.Namespace, state: LocalState) -> int:
-    """The local decision model (it suggests, the turn keeps the person's choice)."""
     from .local_model import MODELS, chosen_model, find_llama_server  # noqa: PLC0415
 
     device = device_state.load_device(state)

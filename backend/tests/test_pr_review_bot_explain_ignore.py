@@ -1,16 +1,12 @@
-"""PR review bot: ``@octryx explain`` and ``@octryx ignore``.
-
-- ``ignore [reason]`` in a finding's thread closes the finding on its pull request (thread answered and resolved,
-  the status turns success when it was the last blocking one), keeps it ignored for later passes and proposes a
-  team rule; a Workspace admin accepts it into the repository's code style rules (or rejects it), audited;
-- ``explain [question]`` starts its own read-only run that asks the governed reviewer model and answers in the
-  thread; nothing is changed.
-"""
+"""PR review bot: ``@octryx ignore`` closes a finding and proposes a team rule; ``@octryx explain`` answers
+in the thread from its own read-only run."""
 
 from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+
+import pytest
 
 from app.models import Project, UserLinkedAccount, WorkflowRun
 from app.services.code_style.store import repository_profile
@@ -22,8 +18,11 @@ from app.services.pr_review_bot.rule_proposals import proposals
 from app.services.pr_review_bot.starter import TRIGGER_WEBHOOK, start_review
 from app.services.workflow_runs.review.runner import run_due_reviews
 from tests.pr_review_bot_flow_support import HEADERS, _origin, _payload, _tools, _workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_pr_review_bot_commands import _comment
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 ONE = {"verdict": "changes", "summary": "Rounds wrongly.", "findings": [
     {"severity": "high", "file": "totals.py", "line": 3, "fix": "Use half-away-from-zero rounding."}]}
@@ -84,7 +83,7 @@ async def test_ignore_in_a_findings_thread_closes_it_turns_the_status_and_propos
     proposal = proposals(project)[0]
     assert proposal["rule"] == ("Do not report in totals.py: Use half-away-from-zero rounding. (reason: rounding is "
                                 "set by the bank)")
-    from app.api.routes import pr_review_bot as routes
+    from app.api.routes.workflows import pr_review_bot as routes
 
     roles = {owner.id: "admin", "dev": "member"}
 
@@ -173,8 +172,6 @@ async def test_explain_in_a_thread_starts_its_run_in_the_background_with_the_thr
 
 
 def test_explain_runs_on_the_reviews_seats_unless_a_route_is_named():
-    """A Workspace that admits no company model must still answer explain (not ``review_model_not_admitted``) when
-    the review itself ran on a seat."""
     from app.services.pr_review_bot.explain import _on_seats
     from app.services.workflow_runs.review.choice import ReviewChoice
 
@@ -210,7 +207,6 @@ async def test_the_explain_seat_is_the_commenters_not_the_authors(db):
 
 
 def test_an_accepted_repository_rule_adds_to_the_central_rules_and_never_replaces_them():
-    """The central code style must hold; a repository only adds rules."""
     from app.services.code_style.brief import reviewer_checklist
     from app.services.code_style.resolve import effective, flat
 

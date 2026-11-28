@@ -1,12 +1,4 @@
-"""The audit row of every custom REST call (like ``DatabaseQueryToolRun``).
-
-Who (user, session, Workspace), what (definition, operation, connection), as whom (``identity`` ``technical``: the
-connection's account, not the person), within which scope (role, injected parameter names and values, result
-filter, body fields), how many records were dropped as out of scope, what admitted a write (``approval_id`` or the
-chat's ``write_plan_id``), and the outcome (status, HTTP status, duration). Arguments
-are kept through the database tool's audit sanitizer (secret-looking keys and values redacted, bounded); a secret,
-an auth header and a response body are never stored.
-"""
+"""The audit row of every custom REST call (like ``DatabaseQueryToolRun``)."""
 
 from __future__ import annotations
 
@@ -30,7 +22,6 @@ async def start_run(
     db: AsyncSession, *, definition: Any, operation: Any, tool_name: str, context: Any, workspace_id: str | None,
     arguments: dict[str, Any], admitted_by: dict[str, Any] | None = None,
 ) -> RestApiCallRun:
-    """``admitted_by``: the approval or chat write plan the central gate admitted this call with (a write)."""
     admitted = admitted_by or {}
     run = RestApiCallRun(
         definition_id=definition.id,

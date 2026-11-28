@@ -1,8 +1,4 @@
-"""Word documents (python-docx): element paths, descriptors (``word_descriptors``), edits (``word_props``).
-
-Paths: ``/body``, ``/body/p[n]``, ``/body/tbl[n]``, ``/body/tbl[n]/tr[r]/tc[c]`` (and ``…/tc[c]/p[n]``),
-``/body/p[n]/r[k]``, ``/body/sdt[n]`` (content controls, document order).
-"""
+"""Word documents (python-docx): element paths, descriptors (``word_descriptors``), edits (``word_props``)."""
 
 from __future__ import annotations
 
@@ -131,7 +127,6 @@ def describe(node: Node, depth: int) -> dict[str, Any]:
 
 
 def iter_descriptors(document: Any) -> list[dict[str, Any]]:
-    """Every addressable element, flat, for selectors."""
     found: list[dict[str, Any]] = []
     for kind, path, block in body_blocks(document):
         if kind == "paragraph":
@@ -216,7 +211,6 @@ def remove(node: Node) -> None:
 
 
 def _place(element: Any, container: Any, index: int | None) -> None:
-    """Move a freshly appended block to 1-based ``index`` among the container's paragraphs and tables."""
     if not index:
         return
     blocks = [
@@ -227,7 +221,6 @@ def _place(element: Any, container: Any, index: int | None) -> None:
 
 
 def add(document: Any, parent: Node, element_type: str, props: dict[str, Any], index: int | None) -> str:
-    """Add an element; returns the new element's path."""
     from . import word_blocks
 
     kind = element_type.strip().lower()

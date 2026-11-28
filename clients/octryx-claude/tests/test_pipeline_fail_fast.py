@@ -1,8 +1,3 @@
-"""Fail fast: the system test (minutes per pass) starts only when every command before it is green.
-
-e2e flutter-story ran its 165-191 s system test in three red passes, twice after a red unit test. Real shell commands;
-the system test writes a marker, so a test can tell whether it started."""
-
 from octryx_claude import pipeline, pipeline_commands
 
 SYSTEM = "touch system-test-started && echo system ok"

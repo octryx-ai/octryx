@@ -132,7 +132,6 @@ def _session_budget(value: Any) -> dict[str, Any]:
 
 
 def _delegated(normalize: Callable[[Any, str], Any], value: Any, path: str, error_type: type[Exception]) -> Any:
-    """A section validated by its own module; its error becomes this policy's error with the same reason and path."""
     try:
         return normalize(value, path)
     except error_type as error:
@@ -168,8 +167,6 @@ _LATER_SECTIONS = (
 
 
 def normalize_agent_gateway_policy(value: Any) -> dict[str, Any]:
-    """The validated, normalized policy for storage; raises ``AgentGatewayPolicyError``."""
-
     if value is None:
         return {}
     policy = _only_keys(value, _TOP_LEVEL_KEYS, AGENT_GATEWAY_POLICY_CONFIG_KEY)

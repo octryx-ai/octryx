@@ -7,10 +7,10 @@ from typing import Any
 import httpx
 import pytest
 
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
-from app.agent.core.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, classify_runtime_error
 from app.agent.providers import get_provider
 from app.agent.providers.litellm_gateway import LiteLLMGatewayClient
+from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
+from app.agent.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, classify_runtime_error
 from app.services.control_plane_service import build_provider_client_kwargs
 from app.services.model_gateway.litellm import (
     PROJECT_ADMISSION_KWARG,
@@ -36,12 +36,11 @@ from tests.model_gateway.conftest import (
     workspace_classification,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
 def test_unverifiable_project_context_denies_every_gateway_target() -> None:
-    # No server-owned project id: the policy cannot be evaluated at all.
     without_project = apply_model_policy_to_runtimes(
         [gateway_runtime()],
         project_config=granted_project_config(),
@@ -66,13 +65,10 @@ def test_admitted_gateway_runtime_carries_the_verified_admission() -> None:
     assert isinstance(admission, ProjectModelAdmission)
     assert admission.verified is True and admission.project_id == PROJECT_ID
     assert admission.decide(ALIAS).allowed is True
-    # Non-gateway runtimes keep their exact previous shape.
     assert PROJECT_ADMISSION_KWARG not in runtimes[1]
 
 
 def test_gateway_dispatch_boundaries_require_a_project_admission(gateway) -> None:
-    """Neither the driver nor the factory serves a caller without a project."""
-
     with pytest.raises(LiteLLMGatewayError) as driver_denial:
         LiteLLMGatewayClient(
             endpoint_url=BASE_URL,
@@ -118,13 +114,6 @@ async def test_provider_factory_passes_the_verified_admission_to_the_driver() ->
 
 
 async def test_worker_path_client_kwargs_cannot_dispatch_through_the_gateway(gateway, build_gateway_client) -> None:
-    """Provider-scoped kwargs (model sync, knowledge/worker/tool paths) deny dispatch.
-
-    ``build_provider_client_kwargs`` knows a provider row, not a project, so it
-    attaches the unverified admission: the catalog stays readable while every
-    chat dispatch is refused with zero requests.
-    """
-
     kwargs = build_provider_client_kwargs(gateway_provider())
     assert kwargs[PROJECT_ADMISSION_KWARG] is UNVERIFIED_PROJECT_ADMISSION
 
@@ -162,13 +151,6 @@ def test_non_injected_client_refuses_environment_trust_and_redirects(
     build_gateway_client,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The real (non-test) transport path must not read proxy/TLS env variables.
-
-    With httpx's default ``trust_env=True`` an ambient HTTPS_PROXY mounts a proxy
-    transport, and the ``Authorization: Bearer <virtual key>`` header would be
-    sent to whatever host that variable names.
-    """
-
     monkeypatch.setenv("HTTPS_PROXY", "http://proxy.attacker.test:8080")
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.attacker.test:8080")
     monkeypatch.setenv("ALL_PROXY", "http://proxy.attacker.test:8080")
@@ -177,7 +159,6 @@ def test_non_injected_client_refuses_environment_trust_and_redirects(
 
     assert transport_client.trust_env is False
     assert transport_client.follow_redirects is False
-    # No env-derived proxy transport was mounted for this client.
     assert transport_client._mounts == {}
 
 

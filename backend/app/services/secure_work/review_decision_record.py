@@ -1,20 +1,4 @@
-"""Explicit Coding review decisions: validation and the server-owned decision record.
-
-A review decision is a ``review_decision`` review event whose request carries an explicit
-``decision`` (``approved``, ``changes_requested`` or ``rejected``) together with the exact plan the
-reviewer looked at (``change_plan_id`` and ``expected_plan_version``) and, for a Change Unit, the
-exact unit state they looked at (``expected_change_unit_marker``, the displayed ``updated_at``).
-The producer checks, before anything is written, that this plan is still the latest plan of the
-same Work Item and that the subject is that exact state of an active Change Unit of that item (or
-the whole item when it has no active units). The unit row is re-read with a row lock while the
-decision is recorded, so a concurrent unit write cannot slip between the check and the insert; a
-later unit write changes the marker and makes the decision stale.
-
-The validated result is stored as a versioned record under a reserved metadata key that callers can
-never set: the key is removed from every caller's metadata, decision or not. The gate trusts only
-this record. Review feedback without a ``decision`` is accepted but never carries the record, so
-its prose, free status or metadata can never approve.
-"""
+"""Explicit Coding review decisions: validation and the server-owned decision record."""
 
 from __future__ import annotations
 
@@ -40,18 +24,17 @@ MARKER_LIMIT = 64
 
 
 def without_reserved_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    """Caller metadata with the server-owned decision key removed (forgery is never stored)."""
+    # The decision record is server-owned: a caller can never store a forged one
     return {key: value for key, value in metadata.items() if key != DECISION_RECORD_KEY}
 
 
 def unit_update_marker(unit: WorkItemChangeUnit) -> str:
-    """The unit's ``updated_at`` exactly as the API serializes it (the marker the UI displays and
-    sends back); it changes whenever the unit row changes, so an older reviewed state goes stale."""
+    # Exactly as the API serializes it: the UI sends it back, so an older reviewed state goes stale.
     return iso(unit.updated_at) or ""
 
 
 def actor_label(user: User) -> str:
-    """A bounded, human-readable reviewer label recorded with the decision (never the raw id)."""
+    # Never the raw id.
     label = (user.display_name or user.username or user.email or "Reviewer").strip() or "Reviewer"
     return label[:ACTOR_LABEL_LIMIT]
 
@@ -74,12 +57,6 @@ async def validated_decision_record(
     current_user: User,
     payload: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """The decision record for an explicit decision request, or None for feedback without a decision.
-
-    Raises before any write: 422 for an unknown decision or a malformed reference, 404 for a plan
-    or unit that is not this item's, 409 when the plan the reviewer saw is no longer the latest or
-    the unit is no longer active.
-    """
     if "decision" not in payload:
         return None
     decision = payload.get("decision")

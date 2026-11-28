@@ -8,8 +8,9 @@ from sqlalchemy import select
 from app.models import Session as ChatSession
 from app.models import WorkItem
 from tests.chat_phased_workflow_start_support import _answer, _items, _record, _send, _workspace, fakes  # noqa: F401
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.workflow_proposals
+pytestmark = [pytest.mark.workflow_proposals, pytest.mark.usefixtures("scripted_pool")]
 
 
 def test_the_phone_answers_a_held_workflow_proposal_but_reaches_no_other_chat_or_workflow_write():
@@ -28,8 +29,6 @@ def test_the_phone_answers_a_held_workflow_proposal_but_reaches_no_other_chat_or
 @pytest.mark.asyncio
 @pytest.mark.committed_db
 async def test_a_run_whose_first_step_commits_starts_and_answers(client, db, auth_headers, fakes):  # noqa: F811
-    """A run started inside a savepoint would be closed by the branch tool's connection-health commit: the Allow
-    would answer 500 and the run hang at ``branch``."""
     state = fakes("spec-writing")
     state["commit_inside"] = True
     project_id = await _workspace(db)
@@ -59,7 +58,6 @@ async def test_a_refused_start_leaves_no_chat_session_without_its_run(client, db
 
 
 def test_the_retry_hint_is_added_once_also_to_an_error_kept_before_the_hint():
-    """Octryx naming: ``started.error`` carries the assistant message's retry words, never twice."""
     from app.services.workflow_routing.phased_start_run import _retry_hint
 
     assert _retry_hint("No repository.") == "No repository. Press Start again to retry."
@@ -69,8 +67,6 @@ def test_the_retry_hint_is_added_once_also_to_an_error_kept_before_the_hint():
 @pytest.mark.asyncio
 @pytest.mark.committed_db
 async def test_a_card_model_needs_a_device_location(client, db, auth_headers, fakes):  # noqa: F811
-    """The chat start card carries the model for a device run; on the Server it is
-    refused before anything starts."""
     state = fakes("spec-writing")
     project_id = await _workspace(db)
     session_id = await _send(client, auth_headers, project_id=project_id)
@@ -106,7 +102,6 @@ async def test_the_cards_model_goes_into_a_device_target(monkeypatch):
 @pytest.mark.committed_db
 async def test_the_cards_budget_lands_on_the_new_epic_before_its_run_and_its_stories_inherit_it(
         client, db, auth_headers, fakes):  # noqa: F811
-    """A new epic gets an item to set the budget on before the start."""
     from app.services.workflow_runs.limits import inherited_budget
 
     state = fakes("spec-writing")

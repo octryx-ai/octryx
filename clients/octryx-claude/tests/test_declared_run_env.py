@@ -1,7 +1,3 @@
-"""An agent's wrapped run of a declared command sees what the pipeline's run of it sees: the launcher's interpreter
-first on ``PATH`` (a declared ``python3 system_test/run_system_test.py`` must not find ``/usr/bin/python3``, which has
-no Playwright)."""
-
 from __future__ import annotations
 
 import json
@@ -27,7 +23,6 @@ def _app(tmp_path: Path, environment: dict) -> Path:
 
 @pytest.fixture
 def system_python_first(tmp_path_factory, monkeypatch):
-    """The device's ``PATH`` with a ``python3`` before the launcher's (as ``/usr/bin/python3`` on macOS)."""
     folder = tmp_path_factory.mktemp("system-bin")
     fake = folder / "python3"
     fake.write_text("#!/bin/sh\necho SYSTEM-PYTHON-WITHOUT-PLAYWRIGHT\n")

@@ -7,6 +7,8 @@ from ...models.integration.channel_config import ChannelConfig
 from ...models.json_text import safe_json_dict
 from ...models.project.project import Project
 from ...schemas.comms.channel_config import ChannelConfigResponse
+from ..secret.release import release_unreferenced_secrets
+from .credentials import secret_refs, store_channel_secrets, stored_config
 from .service_user import deactivate_channel_service_user, ensure_channel_service_user
 
 
@@ -51,21 +53,6 @@ class ChannelConfigService:
         return await db.get(ChannelConfig, channel_id)
 
     @staticmethod
-    async def get_enabled_by_plugin_id(db: AsyncSession, plugin_id: str) -> list[ChannelConfigResponse]:
-        result = await db.execute(
-            select(ChannelConfig)
-            .where(ChannelConfig.plugin_id == plugin_id, ChannelConfig.enabled)
-            .order_by(ChannelConfig.id.asc())
-        )
-        configs = result.scalars().all()
-        project_ids = {cfg.project_id for cfg in configs if cfg.project_id}
-        project_names: dict[str, str] = {}
-        if project_ids:
-            rows = await db.execute(select(Project.id, Project.name).where(Project.id.in_(project_ids)))
-            project_names = {project_id: name for project_id, name in rows.all()}
-        return [ChannelConfigService._to_response(cfg, project_names.get(cfg.project_id or "")) for cfg in configs]
-
-    @staticmethod
     async def create(
         db: AsyncSession,
         *,
@@ -80,10 +67,11 @@ class ChannelConfigService:
             name=name.strip() or plugin_id,
             project_id=project_id or None,
             enabled=enabled,
-            config=json.dumps(config),
+            config="{}",
         )
         db.add(new_config)
         await db.flush()
+        new_config.config = json.dumps(await store_channel_secrets(db, new_config, config, {}))
         # Channel setup provisions the channel's own low-privilege service user.
         await ensure_channel_service_user(db, new_config)
         await db.commit()
@@ -113,8 +101,10 @@ class ChannelConfigService:
             existing.project_id = project_id or None
         if enabled is not None:
             existing.enabled = enabled
-        if config is not None:
-            existing.config = json.dumps(config)
+        if config is not None or project_id is not None:
+            stored = stored_config(existing.config)
+            existing.config = json.dumps(await store_channel_secrets(
+                db, existing, stored if config is None else config, stored))
         await ensure_channel_service_user(db, existing)
         await db.commit()
         await db.refresh(existing)
@@ -130,6 +120,9 @@ class ChannelConfigService:
         if config is None:
             return False
         await deactivate_channel_service_user(db, config.id)
+        owned = secret_refs(stored_config(config.config)).values()
         await db.delete(config)
+        await db.flush()
+        await release_unreferenced_secrets(db, owned)
         await db.commit()
         return True

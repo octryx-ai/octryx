@@ -1,7 +1,4 @@
-// Links into the Policies page from elsewhere: the connector cards, the named
-// connections and Agents → Governance → Policy open the list filtered by a Workspace, a connector or a connection.
-// The filter travels as URL parameters (the admin navigation keeps them); the Policies page reads them once and
-// removes them, so a later visit starts unfiltered.
+// The Policies page reads the URL filter once and removes it, so a later visit starts unfiltered.
 
 import type { AdminTab } from "../../types/adminPanelTypes.governance";
 
@@ -32,7 +29,6 @@ export function clearPolicyFilter(env: UrlEnv | null = browser()): void {
   env.history.replaceState(null, "", url.toString());
 }
 
-/** Open Settings → Governance → Policies filtered by `filter`. */
 export function openPolicies(openTab: (tab: AdminTab) => void, filter: PolicyFilter, env: UrlEnv | null = browser()): void {
   writePolicyFilter(filter, env);
   openTab("cedarPolicies");

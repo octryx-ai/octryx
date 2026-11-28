@@ -1,33 +1,5 @@
 """Read one commit of a Bitbucket Server/Data Center repository with ``git`` over HTTPS and a connection's credential.
-
-A Data Center repository has no anonymous archive URL: the ``git_repository`` connector reads it the way the
-Bitbucket tools clone, with the source's linked connection (``git_bitbucket.py``):
-
-1. the clone URL (``<base>/scm/<key>/<slug>.git``, never carrying a credential) passes the egress rule of the
-   ``bitbucket`` connection type first (``public_only`` plus the admin's on-prem allowlist); a refusal is
-   ``egress_refused`` and Git never starts;
-2. the credential reaches Git through its environment only (``services/git_http_auth.py``): a Bearer token
-   (``bearer_pat``, or the access token of the OpenID Connect client credentials grant) as
-   ``http.<origin>/.extraHeader`` via ``GIT_CONFIG_*``; a username and password through an askpass script that
-   reads them from the environment. Never in argv, the remote URL or a file; credential helpers are cleared and Git
-   never prompts;
-3. ``git fetch --depth 1`` of the ref (or of the pass's commit) into a temporary bare repository, without
-   following redirects and over HTTPS only; ``git archive`` of that commit is the snapshot (``git_snapshot.py``).
-
-Every failure is a fixed reason (``source_unauthorized``, ``source_not_found``, ``source_unavailable``,
-``repository_too_large``): Git's output is never logged or reported. An ``oidc`` token refused with a 401 is renewed
-and the fetch retried once, as the HTTP clients do (``OidcBearerAuth``).
-
-**An empty repository is no failure**. A Data Center repository without a commit has no branch and
-no default branch, so the fetch of its ref answers "couldn't find remote ref". Only then, with the same credential,
-``git ls-remote`` asks the server what it has: a reachable repository that advertises **no ref at all** (no head, no
-tag) is ``repository_empty`` (:class:`RepositoryEmptyError`); a missing repository fails ``ls-remote`` itself, and a
-repository with refs but not the configured one stays ``source_not_found``.
-
-A repository with its own Git token (``git_token``; Data Center answers 500 on ``/scm/`` for the
-OpenID Connect token; ``knowledge/sources/repository_git_token.py``) gets that token as the Bearer header instead of
-the connection's sign-in, and nothing is renewed or retried with another credential.
-"""
+The clone URL never carries the credential."""
 
 from __future__ import annotations
 
@@ -42,12 +14,12 @@ from dataclasses import dataclass, field
 
 import httpx
 
-from app.services.atlassian_auth_modes import SCHEME_BASIC
+from app.services.connector_auth.atlassian_modes import SCHEME_BASIC
 
-from ....atlassian_auth import AtlassianCredential
+from ....connector_auth.atlassian import AtlassianCredential
+from ....connector_auth.oidc_client_credentials import OidcTokenError
+from ....connector_auth.oidc_token_cache import access_token, invalidate
 from ....git_http_auth import basic_askpass_env, bearer_header_env
-from ....oidc_client_credentials import OidcTokenError
-from ....oidc_token_cache import access_token, invalidate
 from ....outbound_egress import CONNECTION_BITBUCKET, connection_rule
 from ....outbound_egress.target_check import check_connection_target
 from ....outbound_url_policy import OutboundURLPolicyError
@@ -81,7 +53,6 @@ EgressCheck = Callable[[str], Awaitable[None]]
 
 
 async def run_git(argv: list[str], env: Mapping[str, str], timeout: float, max_stdout: int) -> tuple[int, bytes, bytes]:
-    """Run ``argv`` with ``env``; stdout is bounded (``-2`` when it passed ``max_stdout``), a timeout is ``-1``."""
     process = await asyncio.create_subprocess_exec(
         *argv, env=dict(env), stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -111,7 +82,6 @@ async def run_git(argv: list[str], env: Mapping[str, str], timeout: float, max_s
 
 
 async def bitbucket_egress_check(url: str) -> None:
-    """The ``bitbucket`` connection type's egress rule for ``url``; raises ``egress_refused``."""
     try:
         await check_connection_target(url, connection_rule(CONNECTION_BITBUCKET))
     except OutboundURLPolicyError:
@@ -119,14 +89,11 @@ async def bitbucket_egress_check(url: str) -> None:
 
 
 class RepositoryEmptyError(ConnectorError):
-    """The repository exists and answers, but advertises no ref: nothing to read yet (no failure, module doc)."""
-
     def __init__(self) -> None:
         super().__init__(REASON_REPOSITORY_EMPTY)
 
 
 def advertises_no_ref(ls_remote_stdout: bytes) -> bool:
-    """True when ``git ls-remote``'s output names no ref (an all-zero id, a capabilities placeholder, is none)."""
     for line in ls_remote_stdout.decode("ascii", "replace").splitlines():
         match = _REF_LINE.match(line)
         if match and match[1].strip("0"):
@@ -145,8 +112,6 @@ def _reason(stderr: bytes) -> str:
 
 @dataclass(slots=True)
 class GitCloneReader:
-    """Snapshots of one Data Center repository with exactly ``credential`` (see the module doc)."""
-
     credential: AtlassianCredential = field(repr=False)
     git_token: str | None = field(default=None, repr=False)  # the repository's own token, used instead
     egress_check: EgressCheck | None = None  # default: the ``bitbucket`` egress rule
@@ -174,7 +139,6 @@ class GitCloneReader:
         return bearer_header_env(clone_url, token, base)
 
     async def snapshot(self, clone_url: str, *, ref: str, commit: str | None, max_bytes: int) -> tuple[str, bytes]:
-        """``(commit, gzip tarball of its tree)``: ``ref``'s tip, or ``commit`` when the pass already fixed one."""
         await (self.egress_check or bitbucket_egress_check)(clone_url)
         workdir = tempfile.mkdtemp(prefix="octryx-git-sync-")
         try:
@@ -218,7 +182,6 @@ class GitCloneReader:
         return sha, await asyncio.to_thread(gzip.compress, out, 1)
 
     async def _empty(self, env: Mapping[str, str], clone_url: str) -> bool:
-        """The repository answered ``ls-remote`` (it exists, the credential reads it) and advertises no ref."""
         code, out, _ = await self._git(env, "ls-remote", clone_url, max_stdout=_MAX_LS_REMOTE_BYTES)
         return code == 0 and advertises_no_ref(out)
 

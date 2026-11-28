@@ -1,17 +1,4 @@
-"""Where the workflow designer draws each node of a workflow that runs in phases.
-
-The positions are UI metadata only: ``definition_json["layout"]["positions"]`` maps a node id to its box's top-left
-``{"x", "y"}`` on the canvas. Nothing that runs, validates or routes a phased workflow reads them
-(``graph.parse_phased_definition`` ignores unknown top-level keys, and a composite's compiler copies them through).
-The server is tolerant: a malformed block, an unknown node id or a non-finite number is dropped, never refused, so a
-stale layout can never block a save or a run.
-
-``definition_json["layout"]["groups"]`` (designer D2b) are the boxes a person grouped by hand: ``[{"id", "label",
-"members": [node ids]}]``, display only. They are cleaned the same way: unknown or repeated members are dropped (a box
-belongs to one group), and so is a group left without members. An empty list is kept: the person dissolved every group
-(no list at all means the designer draws its own groups). ``definition_json["layout"]["direction"]`` is the
-direction the designer draws in (``tb`` top to bottom, ``lr`` left to right); any other value is dropped.
-"""
+"""Where the workflow designer draws each node of a workflow that runs in phases."""
 
 from __future__ import annotations
 
@@ -39,7 +26,6 @@ def _coordinate(value: Any) -> float | None:
 
 
 def clean_positions(raw: Any, node_ids: set[str] | frozenset[str]) -> dict[str, dict[str, float]]:
-    """The valid positions of known nodes, in node-id order; everything else is dropped."""
     if not isinstance(raw, dict):
         return {}
     positions: dict[str, dict[str, float]] = {}
@@ -54,13 +40,11 @@ def clean_positions(raw: Any, node_ids: set[str] | frozenset[str]) -> dict[str, 
 
 
 def layout_positions(definition: dict[str, Any], node_ids: set[str] | frozenset[str]) -> dict[str, dict[str, float]]:
-    """The stored positions of a definition, cleaned against its nodes."""
     block = definition.get(LAYOUT_KEY)
     return clean_positions(block.get(POSITIONS_KEY) if isinstance(block, dict) else None, node_ids)
 
 
 def clean_groups(raw: Any, node_ids: set[str] | frozenset[str]) -> list[dict[str, Any]] | None:
-    """The hand-made groups of known nodes; ``None`` when there is no list (the designer draws its own groups)."""
     if not isinstance(raw, list):
         return None
     groups: list[dict[str, Any]] = []
@@ -87,15 +71,12 @@ def clean_groups(raw: Any, node_ids: set[str] | frozenset[str]) -> list[dict[str
 
 
 def layout_groups(definition: dict[str, Any], node_ids: set[str] | frozenset[str]) -> list[dict[str, Any]] | None:
-    """The stored hand-made groups of a definition, cleaned against its nodes."""
     block = definition.get(LAYOUT_KEY)
     return clean_groups(block.get(GROUPS_KEY) if isinstance(block, dict) else None, node_ids)
 
 
 def with_layout(definition: dict[str, Any], positions: dict[str, dict[str, float]],
                 groups: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """A copy of the definition carrying exactly these positions; its groups stay unless ``groups`` replaces them
-    (no ``layout`` block when there is nothing in it)."""
     edited = dict(definition)
     block = dict(edited.get(LAYOUT_KEY) or {}) if isinstance(edited.get(LAYOUT_KEY), dict) else {}
     block.pop(POSITIONS_KEY, None)
@@ -111,7 +92,6 @@ def with_layout(definition: dict[str, Any], positions: dict[str, dict[str, float
 
 
 def with_clean_layout(definition: dict[str, Any], node_ids: set[str] | frozenset[str]) -> dict[str, Any]:
-    """A copy of the definition whose layout keeps only valid positions and groups of its own nodes."""
     block = definition.get(LAYOUT_KEY)
     if not isinstance(block, dict):
         edited = dict(definition)

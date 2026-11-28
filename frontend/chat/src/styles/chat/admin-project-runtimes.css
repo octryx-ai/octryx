@@ -228,7 +228,7 @@
   margin-right: 0.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }

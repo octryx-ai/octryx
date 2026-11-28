@@ -1,9 +1,3 @@
-"""The seam to the platform: the client parses the same examples the backend produces (``pet_v1.json``).
-
-``backend/tests/agent_gateway/test_gateway_pet.py`` checks that the platform's view of each case equals its
-example; this test checks that the pet reads every example to the state, items and badge the concept asks for.
-"""
-
 from __future__ import annotations
 
 import json

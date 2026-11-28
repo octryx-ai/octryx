@@ -1,17 +1,4 @@
-"""An agent's ``tools_deny`` at dispatch, on every path.
-
-The published platform agent's ``tools_deny`` narrows what runs, never only what the model sees:
-
-- **chat / server turns**: the registry's governed checks refuse a denied tool before any I/O
-  (:func:`agent_tools_deny_refusal`, next to the No-tools gate), whatever the turn's allowlist is;
-- **device (octryx-claude)**: the run contract's phase tools carry the effective deny (phase ∪ agent); the
-  platform's MCP tools (``tools/call`` and its HTTP mirror) refuse a denied tool for a run-bound session
-  (:func:`run_session_mcp_refusal`), and the PreToolUse hook refuses Claude Code's **native** equivalents of a
-  denied tool (:func:`native_tool_denied`).
-
-Native equivalents are an explicit table (:data:`NATIVE_EQUIVALENTS`), never a name heuristic: a platform tool
-without an entry has no native counterpart that is denied with it.
-"""
+"""An agent's ``tools_deny`` at dispatch, on every path. It narrows what runs, never only what the model sees."""
 
 from __future__ import annotations
 
@@ -40,12 +27,10 @@ NATIVE_EQUIVALENTS: dict[str, frozenset[str]] = {
 
 
 def denied_tools(agent_definition: dict[str, Any] | None) -> frozenset[str]:
-    """The agent payload's ``toolsDeny`` (the published revision's)."""
     return frozenset(str(item) for item in (agent_definition or {}).get("toolsDeny") or [] if str(item).strip())
 
 
 def native_tool_denied(tool_name: str, denied: Iterable[str]) -> str | None:
-    """The denied platform tool a native Claude Code tool stands for, or ``None``."""
     return next((tool for tool in sorted(set(denied)) if tool_name in NATIVE_EQUIVALENTS.get(tool, ())), None)
 
 
@@ -56,7 +41,6 @@ def _refusal(tool_name: str, *, denied_as: str | None = None) -> dict[str, Any]:
 
 
 def agent_tools_deny_refusal(tool_name: str, context: Any) -> dict[str, Any] | None:
-    """The registry gate: a typed ``denied_by_policy`` result for a denied tool, else ``None``."""
     if tool_name not in denied_tools(getattr(context, "agent_definition", None)):
         return None
     from ..tools.results import annotate_tool_result_payload
@@ -66,7 +50,6 @@ def agent_tools_deny_refusal(tool_name: str, context: Any) -> dict[str, Any] | N
 
 
 async def run_session_denied_tools(db: AsyncSession, session_key: str | None) -> frozenset[str]:
-    """The effective phase deny of the run a launcher session key follows (empty: no run, no phase)."""
     from ..models import AgentPresence, Session
     from .workflow_runs.octryx.contract import run_contract, session_principal
     from .workflow_runs.records import active_run_for_session
@@ -84,7 +67,6 @@ async def run_session_denied_tools(db: AsyncSession, session_key: str | None) ->
 
 async def run_session_mcp_refusal(db: AsyncSession, session_key: str | None, tool_name: str
                                   ) -> dict[str, Any] | None:
-    """The refusal of a platform MCP tool the run-bound session's phase denies, else ``None`` (nothing ran)."""
     if tool_name not in await run_session_denied_tools(db, session_key):
         return None
     return _refusal(tool_name)

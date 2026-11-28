@@ -1,17 +1,4 @@
-"""A chat turn in a session bound to an active run is governed by the run.
-
-Turn start (:func:`run_turn_resolution`): the run, not the composer, selects the workflow. A run whose
-current node is a phase yields that phase's routing resolution (``source=db``, ``status=matched``,
-``selection_source=workflow_run``) from the phase's inline definition. Every downstream consumer — the family
-builder, the execution profile and gate (capability class), the tool surface (tool policy), the turn-end checks —
-then works unchanged. A run that
-waits or is paused yields a ``held`` resolution: the execution profile holds the turn with the run's state
-(nothing runs while a run waits).
-
-Turn end (:func:`record_phase_turn`): the turn's check result (``_loop_workflow_checks``) is reported to the
-run; only the run decides whether its phase is done. A turn whose newest test command could not start its runner
-pauses the run ``environment_not_ready`` instead (``workspace.readiness``): nothing is reported, no loop consumed.
-"""
+"""A chat turn in a session bound to an active run is governed by the run."""
 
 from __future__ import annotations
 
@@ -35,7 +22,6 @@ CHECKS_PASSED = "passed"
 
 
 def phase_resolution(*, run: WorkflowRun, node_id: str, definition: dict[str, Any]) -> dict[str, Any]:
-    """The routing resolution of one phase: its inline definition."""
     contract = dict(definition.get("workflow_contract") or {})
     return {
         "source": "db",
@@ -52,14 +38,12 @@ def phase_resolution(*, run: WorkflowRun, node_id: str, definition: dict[str, An
         "workflow_contract": contract,
         "tool_policy": dict(definition.get("tool_policy") or {}),
         "safety_constraints": dict(definition.get("safety_constraints") or {}),
-        # ``entry`` tells this pass through the node from a re-entered one (a loop, a changed plan).
         RUN_RESOLUTION_KEY: {"run_id": run.id, "node_id": node_id, "kind": run.workflow_kind,
                              "entry": dict(run.node_state or {}).get("entry")},
     }
 
 
 def held_resolution(run: WorkflowRun, *, profile_status: str, reason: str) -> dict[str, Any]:
-    """A turn the run holds: the profile answers ``profile_status`` with the run's reason."""
     return {
         "source": RUN_SELECTION_SOURCE,
         "status": STATUS_HELD,
@@ -82,12 +66,10 @@ def held_resolution(run: WorkflowRun, *, profile_status: str, reason: str) -> di
 async def run_turn_resolution(
     db: AsyncSession, session: Session | None, *, user_message: str
 ) -> dict[str, Any] | None:
-    """The bound run's resolution for this turn, or ``None`` when the session follows no active run."""
     run = await active_run_for_session(db, session.id if session is not None else None)
     if run is None:
         return None
     from .phase_turns import phased_turn_resolution
-    from .slices.results import slice_key_of
     from .teamwork import item_key_of
 
     if item_key_of(session):
@@ -95,12 +77,8 @@ async def run_turn_resolution(
 
         # A parallel_work item works under its own synthetic phase; its turn reports to its item, not the node.
         return await item_turn_resolution(db, run, session)
-    resolution = await phased_turn_resolution(db, run, user_message=user_message,
-                                              user=await db.get(User, session.user_id))
-    if slice_key_of(session) and isinstance(resolution.get(RUN_RESOLUTION_KEY), dict):
-        # A slice's child works under the phase's contract; its turn reports to its slice, not the phase.
-        resolution[RUN_RESOLUTION_KEY] = {**resolution[RUN_RESOLUTION_KEY], "slice": slice_key_of(session)}
-    return resolution
+    return await phased_turn_resolution(db, run, user_message=user_message,
+                                        user=await db.get(User, session.user_id))
 
 
 def run_marker(request_analysis: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -114,12 +92,8 @@ def run_marker(request_analysis: dict[str, Any] | None) -> dict[str, Any] | None
 def ignore_stale_result(
     db: AsyncSession, run: WorkflowRun, *, node_id: str, entry: Any = None, session_id: str | None = None
 ) -> None:
-    """Record that a phase result for another node or pass was ignored (idempotent: nothing else changes).
-
-    A phase result can arrive twice (the launcher replays its
-    Stop hook after a reconnect, or a retried HTTP call); applied to whatever node the run is at by then, the
-    decision card would resolve with no value and the run would fail ("Node 'decisions' has no exit for 'None'").
-    """
+    # A phase result can arrive twice (a replayed Stop hook, a retried call); applied to the current node it would
+    # resolve the decision card with no value.
     record_event(db, run, EVENT_DUPLICATE_RESULT_IGNORED, node_id=node_id, detail={
         "current_node_id": run.current_node_id, "status": run.status, "entry": entry,
         "current_entry": dict(run.node_state or {}).get("entry"), "session_id": session_id})
@@ -129,8 +103,6 @@ CHECK_DETAIL_CHARS = 1500
 
 
 def failed_checks(results: list[Any]) -> list[dict[str, str]]:
-    """The blocking checks of a phase turn that did not pass, as ``type``/``description``/``detail``. A failed turn
-    and its pause always name the check that failed, never only "its checks did not pass"."""
     found = []
     for item in results or []:
         data = item.as_dict() if hasattr(item, "as_dict") else dict(item) if isinstance(item, dict) else {}
@@ -141,7 +113,6 @@ def failed_checks(results: list[Any]) -> list[dict[str, str]]:
 
 
 def failed_checks_text(failed: list[dict[str, str]]) -> str:
-    """``failed_checks`` in one sentence for a pause or a continuation."""
     if not failed:
         return "no blocking check is recorded as failed for this turn"
     return "; ".join(f"{item['description'] or item['type']}: {item['detail']}" if item["detail"]
@@ -157,7 +128,6 @@ async def record_phase_turn(
     results: list[Any],
     evidence: Any,
 ) -> None:
-    """Report a governed turn's check result to its run; the run decides whether the phase is done."""
     marker = run_marker(request_analysis)
     if marker is None:
         return
@@ -199,12 +169,6 @@ async def record_phase_turn(
 
         # The platform could not judge the turn's test evidence: its problem, not the phase's — no result, no loop.
         await pause_unresolved(db, run, unresolved, node_id=node_id)
-        return
-    if marker.get("slice"):
-        from .slices.results import record_child_turn
-
-        await record_child_turn(db, run, key=str(marker["slice"]), session_id=session_id, state=state,
-                                results=results, evidence=evidence)
         return
     from .review.artefact_evidence import record_provenance
 

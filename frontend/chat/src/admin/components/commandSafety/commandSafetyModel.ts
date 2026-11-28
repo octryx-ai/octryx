@@ -1,6 +1,3 @@
-// Settings → Security → Command safety. Pure: reads the
-// `/api/v1/admin/command-safety` answer and builds the one save payload (backend services/command_safety/settings.py).
-
 export type Check = { key: string; label: string; description: string; outcomes: string[]; enabled: boolean };
 export type LlmRisk = { timeout_seconds: number; review_threshold: number; deny_threshold: number; review_model: string };
 export type Lists = { always_deny_patterns: string[]; commands: string[]; git: string[]; kubectl: string[]; operators: string[] };

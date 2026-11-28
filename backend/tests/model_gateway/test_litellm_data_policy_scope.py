@@ -10,15 +10,13 @@ from app.services.model_gateway.dispatch_admission import admit_runtimes_for_dis
 from app.services.model_gateway.litellm import LiteLLMGatewayError
 from tests.model_gateway.conftest import ALIAS, MESSAGES, gateway_config, gateway_runtime, verified_admission
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
 async def test_an_auxiliary_dispatch_owner_carries_the_database_classification(
     db, gateway, build_gateway_client
 ) -> None:
-    """The owner boundary replaces a caller-forged admission from the row."""
-
     project = Project(
         id="project-auxiliary-data-policy",
         name="auxiliary-data-policy-project",
@@ -85,15 +83,9 @@ async def test_a_multi_workspace_scope_carries_its_strictest_classification(db, 
     assert gateway.requests == []
 
 
-# ---------------------------------------------------------------------------
-# The admin write surface owns the closed vocabulary
-# ---------------------------------------------------------------------------
-
-
 async def test_the_admin_surface_persists_and_validates_the_classification(db) -> None:
     from fastapi import HTTPException
 
-    from app.services.admin.project._admin_project_config_owners import list_project_config_key_owners
     from app.services.admin.project.admin_project_config_service import merge_project_config
 
     project = Project(id="project-admin-write", name="admin-write-project", config={})
@@ -118,18 +110,11 @@ async def test_the_admin_surface_persists_and_validates_the_classification(db) -
     assert excinfo.value.status_code == 400
     assert "data_policy.classification" in str(excinfo.value.detail)
 
-    # The rejected write left the governed value untouched.
     resolved = await resolve_workspace_data_classification(db, project_id=project.id)
     assert resolved.classification == "confidential"
 
-    owners = {owner["key"]: owner for owner in list_project_config_key_owners()}
-    assert owners["data_policy"]["policy_sensitive"] is True
-    assert owners["data_policy"]["owner"] == "model_gateway/data_policy"
-
 
 def test_the_gateway_config_cannot_carry_the_workspace_classification() -> None:
-    """The alias catalog declares an allowance, never the workspace's own class."""
-
     section = gateway_config()["litellm_gateway"]
 
     assert "classification" not in section

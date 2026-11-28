@@ -1,10 +1,4 @@
-"""Schema of ``list_confluence_page_updates``: the Confluence changes feed of the Source Sync ledger.
-
-No scope property: the Workspace is the run's. The bounds mirror
-``services/knowledge/sources/sync/confluence_updates`` (a definition module imports no service).
-Merged into ``get_knowledge_evidence_definitions``; a read of the Workspace's own Knowledge ledger,
-so it is a built-in read tool, not a Confluence connector call.
-"""
+"""Schema of ``list_confluence_page_updates``: the Confluence changes feed of the Source Sync ledger."""
 
 from __future__ import annotations
 

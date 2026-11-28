@@ -1,9 +1,5 @@
 """The documentation phase's systems for an acceptance run: a writable Confluence Cloud stub, the Workspace's
-documentation settings and Confluence connection, and its Knowledge source that syncs the documentation space.
-
-Everything runs through the product's own code: the governed Confluence tools (named-connection routing by space,
-egress replaced by the stub's transport), the Source Sync's ``run_connector`` against the same stub, the ledger.
-"""
+documentation settings and Confluence connection, and its Knowledge source that syncs the documentation space."""
 
 from __future__ import annotations
 
@@ -40,7 +36,6 @@ def stub_transport(stub) -> httpx.MockTransport:
 
 
 async def documentation_systems(db, project: Project, monkeypatch, *, requester: User):
-    """The stub (``writable``, the parent page ``900``) wired behind the Workspace's Confluence and Knowledge."""
     import app.tools._confluence_access as confluence_access
     from app.services.workflow_runs.documentation import knowledge
 

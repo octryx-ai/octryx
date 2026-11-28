@@ -1,6 +1,5 @@
-"""A failed git step names its class and git's last line without secrets; a transient one is tried again; the
-platform's own disk is the environment's; the askpass script is one file per provider (a bare "git clone failed",
-"git push failed" or "git pull failed" says nothing more)."""
+"""A failed git step names its class and git's last line without secrets; a transient one is retried; the platform's
+own disk is the environment's; the askpass script is one file per provider."""
 
 from __future__ import annotations
 
@@ -31,7 +30,7 @@ def test_each_failure_names_its_class(stderr, kind):
     assert classify(stderr) == kind
     failure = git_failure("git clone failed", 128, stderr)
     assert failure["error_class"] == kind and failure["error"].startswith("git clone failed: ")
-    assert failure["error_code"] == "git_clone_failed" and failure["git_said"]  # the code stays
+    assert failure["error_code"] == "git_clone_failed" and failure["git_said"]
 
 
 def test_git_s_last_line_never_carries_a_credential():
@@ -40,7 +39,7 @@ def test_git_s_last_line_never_carries_a_credential():
     assert TOKEN not in said and "x-access-token" not in said and "***@github.com" in said
     assert TOKEN not in last_line(f"remote: invalid token {TOKEN}")
     assert last_line("fatal: could not open /srv/internal/x6-secret-path/x") == "fatal: could not open <path>"
-    assert git_failure("git fetch failed", 1, "")["error"] == "git fetch failed"  # nothing known:
+    assert git_failure("git fetch failed", 1, "")["error"] == "git fetch failed"
 
 
 def test_the_platforms_full_disk_pauses_with_the_environment_as_cause():

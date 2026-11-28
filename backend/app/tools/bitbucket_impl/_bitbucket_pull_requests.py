@@ -7,7 +7,6 @@ from fastapi import HTTPException
 
 from app.tools.context import ToolContext
 
-from ...services.ai_marking import marking_facts, with_marker
 from ...services.project_resource_policy import require_project_repository_operation
 from ...services.request_analysis import effective_limit_from_request_analysis
 from ...services.source_control import SourceControlOperation
@@ -284,7 +283,6 @@ class CreateBitbucketPullRequest:
             reviewer_names, requester=str(params.get("requester") or "").strip(),
             author=str(context.project_config.get("bitbucket_username") or "").strip(), description=description,
             mention=f"@{str(params.get('requester') or '').strip()}")
-        description = with_marker(description, await marking_facts(context))
 
         payload: dict[str, Any] = {
             "title": title,
@@ -435,13 +433,12 @@ class UpdateBitbucketPullRequest:
 async def _create_cloud_pull_request(
     context: ToolContext, params: dict, project_key: str, repo_slug: str, title: str, from_branch: str
 ) -> dict[str, Any]:
-    """Bitbucket Cloud: reviewers are Atlassian account ids, named explicitly (the workflow resolves the requester)."""
     reviewers = [str(item or "").strip() for item in params.get("reviewers") or [] if str(item or "").strip()]
     try:
         result = await cloud_ops.create_pr(
             context, project_key, repo_slug, title=title, description=str(params.get("description") or "").strip(),
             from_branch=from_branch, to_branch=str(params.get("to_branch") or "").strip(), reviewers=reviewers,
-            requester=str(params.get("requester") or "").strip(), marking=await marking_facts(context))
+            requester=str(params.get("requester") or "").strip())
     except CloudApiError as error:
         return cloud_failure(error)
     if result.get("error"):

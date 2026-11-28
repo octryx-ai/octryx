@@ -1,9 +1,4 @@
-"""octryx run UX, step 1: a session started for a Work item follows its active run from launch, else gets a proposal.
-
-The launch attaches under the attach rule (requester, Work item owner, admin) and carries the contract for the banner;
-without an active run the first prompt gets the chat's proposal: a phased workflow is only proposed (never started),
-once per session; a session without a Work item is untouched.
-"""
+"""octryx run UX, step 1: a session started for a Work item follows its active run from launch, else gets a proposal."""
 
 from __future__ import annotations
 
@@ -18,7 +13,10 @@ from app.services.workflow_runs.octryx import launch
 from app.services.workflow_runs.records import active_run_for_session, new_chat_session, start_run
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member, seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import _fix_definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _gateway(db, user, workspace_id: str, work_item_key: str = ""):
@@ -77,7 +75,6 @@ async def test_launch_attaches_to_the_items_active_run_only_for_a_person_who_may
     assert unknown["workflow_run_attach"]["reason"] == "work_item_unknown"
     assert await launch.launch_answer(db, session=other, user=member, workspace_id=workspace_id,
                                       work_item_key="") == {}
-    # Every later prompt of the bound session carries the current contract.
     assert (await launch.prompt_answer(db, session=gateway, workspace_id=workspace_id, work_item_key="PAY-7",
                                        prompt="go on"))["workflow_run"]["run"]["id"] == run.id
 
@@ -97,7 +94,7 @@ async def test_a_phased_proposal_is_only_proposed_never_started_and_asked_once(d
     proposal = first["workflow_proposal"]
     assert (proposal["state"], proposal["phased"]) == ("proposed", True)
     assert proposal["next"] == {"tool": "workflow_select", "arguments": {"workflow_key": key, "work_item": "PAY-8"}}
-    assert "PAY-8" in asked[0] and "fix the rounding" in asked[0]  # the Work item and the prompt
+    assert "PAY-8" in asked[0] and "fix the rounding" in asked[0]
     assert await active_run_for_session(db, gateway.id) is None
     assert await launch.prompt_answer(db, session=gateway, workspace_id=workspace_id, work_item_key="PAY-8",
                                       prompt="again") == {}
@@ -132,9 +129,8 @@ async def test_a_launch_never_takes_the_run_from_another_session_and_analyze_get
     refused = await launch.launch_answer(db, session=second, user=admin, workspace_id=workspace_id,
                                          work_item_key="PAY-10")
     assert refused["workflow_run_attach"]["reason"] == "run_followed_elsewhere" and "workflow_run" not in refused
-    assert (await active_run_for_session(db, working.id)).id == run.id  # still working, mid-turn
+    assert (await active_run_for_session(db, working.id)).id == run.id
     assert await active_run_for_session(db, second.id) is None
-    # Taking over stays an explicit choice (workflow_select(run_id) → attach).
     from app.services.workflow_runs.octryx.attach import attach
 
     await attach(db, gateway_session=second, user=admin, workspace_id=workspace_id, run=run)
@@ -150,7 +146,6 @@ async def test_a_launch_never_takes_the_run_from_another_session_and_analyze_get
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

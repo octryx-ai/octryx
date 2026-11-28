@@ -1,36 +1,31 @@
-// Stop and continue handlers of a chat session: the coordinator path when it applies, else the session endpoint.
-// A failed coordinator status request is shown to the user; it never switches to the session endpoint.
+// Stop and continue handlers of a chat session. Stop takes the coordinator path when it applies, else the session
+// endpoint; a failed coordinator status request is shown to the user and never switches to the session endpoint.
 import type { ChatState } from "../types";
 import type { CoordinatorStateContract } from "../chatCoordinatorTypes";
 import { buildChatSearch } from "./appHelpers";
 import { readJson } from "./chatApiClient";
 import {
   applySessionCoordinatorStop,
-  applySessionCoordinatorContinue,
   describeCoordinatorStopBlockedState,
-  describeCoordinatorContinueBlockedState,
   loadSessionCoordinatorStatus,
   shouldUseCoordinatorStop,
-  shouldUseCoordinatorContinue,
 } from "./sessionCoordinatorClient";
 import type { UseSessionActionsArgs } from "./useSessionActions.types";
 
-// Applies a coordinator stop or continue and reloads the coordinator's root session.
-async function runCoordinatorControl(
+// Applies a coordinator stop and reloads the coordinator's root session.
+async function stopThroughCoordinator(
   { setSending, setError, loadState }: UseSessionActionsArgs,
   sessionId: string,
-  apply: typeof applySessionCoordinatorStop,
-  fallback: string,
 ) {
   setSending(true);
   try {
-    const controlResponse = await apply(sessionId);
+    const controlResponse = await applySessionCoordinatorStop(sessionId);
     const search = buildChatSearch({
       sessionId: controlResponse.contract.root_session_id || sessionId,
     });
     await loadState(search, { preserveTrace: true });
   } catch (controlError) {
-    setError(controlError instanceof Error ? controlError.message : fallback);
+    setError(controlError instanceof Error ? controlError.message : "Failed to stop coordinator session");
   } finally {
     setSending(false);
   }
@@ -134,8 +129,7 @@ async function stopSession(args: UseSessionActionsArgs) {
       setError(describeCoordinatorStopBlockedState(coordinatorContract));
       return;
     }
-    await runCoordinatorControl(args, selectedSession.id, applySessionCoordinatorStop,
-      "Failed to stop coordinator session");
+    await stopThroughCoordinator(args, selectedSession.id);
     return;
   }
   await stopThroughSession(args, selectedSession.id);
@@ -151,19 +145,6 @@ async function continueSession(args: UseSessionActionsArgs) {
     return;
   }
   setError(null);
-  const coordinatorContract = await loadCoordinatorContract(args, selectedSession.id);
-  if (!coordinatorContract) {
-    return;
-  }
-  if (shouldUseCoordinatorContinue(coordinatorContract)) {
-    if (!coordinatorContract.can_continue) {
-      setError(describeCoordinatorContinueBlockedState(coordinatorContract));
-      return;
-    }
-    await runCoordinatorControl(args, selectedSession.id, applySessionCoordinatorContinue,
-      "Failed to continue coordinator session");
-    return;
-  }
   await continueThroughSession(args, selectedSession.id);
 }
 

@@ -11,6 +11,7 @@ import pytest
 from app.models import DeviceJob
 from app.services.devices.job_events import apply_event
 from app.services.workflow_runs.teamwork import device_work_state
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.teamwork_device_support import _gateway_session, _hub, admitted  # noqa: F401 - fixtures
 from tests.teamwork_rehearsal_support import (  # noqa: F401
     _DEVICE_RUN,
@@ -28,7 +29,7 @@ from tests.teamwork_rehearsal_support import (  # noqa: F401
 )
 from tests.test_team_delivery import actions  # noqa: F401 - ``actions`` is a fixture
 
-pytestmark = pytest.mark.usefixtures("admitted", "_hub", "agent_checks_pass")
+pytestmark = [pytest.mark.usefixtures("admitted", "_hub", "agent_checks_pass"), pytest.mark.usefixtures("scripted_pool")]
 
 
 def _tracked(folder: Path) -> set[str]:
@@ -38,12 +39,6 @@ def _tracked(folder: Path) -> set[str]:
 @_DEVICE_RUN
 @pytest.mark.asyncio
 async def test_merged_items_survive_the_coordinators_turns_the_work_plan_commits_and_the_pipeline(db, tmp_path):
-    """A main-thread job must not prepare the folder by checking out the coordinator's last WIP tree over it when that
-    tree was taken before the items merged: the merged files would leave the working tree, the work-plan commits
-    would commit their deletion, the next items would branch without ``src/`` and report blocked, and the pipeline
-    would find no tests until the loop limit. The real launcher code end to end: prepare (WIP restore) before each
-    main-thread job, the WIP pushed after each coordinator turn, the work-plan commits, the item worktrees, a replan
-    for a blocked item."""
     _launcher()  # the launcher's package on the path
     from octryx_claude.run_wip import push_run_wip
 
@@ -110,10 +105,6 @@ async def test_merged_items_survive_the_coordinators_turns_the_work_plan_commits
 @_DEVICE_RUN
 @pytest.mark.asyncio
 async def test_an_items_stop_judges_only_its_own_proofs_when_items_share_a_role(db, tmp_path):
-    """Units, store and render are all "backend" items. Units records done with its five proofs green; its Stop must
-    not ask for the store and render proof tests ("Task list: no proof test in the change for store (...), render
-    (...)"), else it blocks, the launcher stops anyway, the item fails "the item's turn ended without finishing it"
-    and the run goes back to the plan."""
     from app.services.workflow_runs.octryx.attach import bind_device_session
     from app.services.workflow_runs.octryx.contract import run_contract
     from app.services.workflow_runs.octryx.facts import FACTS_KEY

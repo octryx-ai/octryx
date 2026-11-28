@@ -1,14 +1,4 @@
-"""Probe evidence for LiteLLM gateway model groups.
-
-A capability is advertised (and permitted) only when the catalog probe proved
-it. A gateway catalog that carries no capability information proves nothing:
-the capability stays unknown and a request that needs it is refused rather than
-attempted optimistically.
-
-Evidence is cached per endpoint for a bounded TTL so a tool-enabled turn does
-not pay a probe round trip every time. The cache is explicit, inspectable, and
-resettable — it is a capability-evidence cache, never a fallback.
-"""
+"""Probe evidence for LiteLLM gateway model groups: a capability is permitted only when the probe proved it."""
 
 from __future__ import annotations
 
@@ -77,8 +67,6 @@ def _model_group_evidence(entry: Mapping[str, Any], *, model_group_field: str) -
 
 
 def parse_probe_evidence(payload: Any, *, model_group_field: str, observed_at: float) -> ProbeEvidence | None:
-    """Parse a pinned ``openai_model_list`` catalog payload into probe evidence."""
-
     if not isinstance(payload, Mapping):
         return None
     entries = payload.get("data")
@@ -94,6 +82,8 @@ def parse_probe_evidence(payload: Any, *, model_group_field: str, observed_at: f
     return ProbeEvidence(observed_at=observed_at, model_groups=model_groups)
 
 
+# A capability the probe did not prove stays unknown and its request is refused; the cache saves a probe round trip per
+# turn and is never a fallback.
 class ProbeEvidenceCache:
     """Bounded per-endpoint cache of catalog probe evidence."""
 

@@ -1,10 +1,4 @@
-"""Quality gate for a composed Word document — the docx mirror of the slide gate.
-
-It measures the document plan and reports every violation it finds; it never
-corrects one silently. The checks encode the same contract the deck follows:
-headings form a real hierarchy, no section is a heading with nothing under it,
-every claim states a source, and the missing 20% stays visible as open points.
-"""
+"""Quality gate for a composed Word document — the docx mirror of the slide gate."""
 
 from __future__ import annotations
 
@@ -36,8 +30,6 @@ def _is_marker(block: dict[str, Any]) -> bool:
 
 
 class _SectionTracker:
-    """Which heading opened the current section and whether content followed it."""
-
     def __init__(self, findings: list[dict[str, Any]]) -> None:
         self.findings = findings
         self.prev_heading_level = 0

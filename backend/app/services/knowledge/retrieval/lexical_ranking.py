@@ -1,21 +1,4 @@
-"""Ordering the bounded lexical candidates: BM25 over the analysed tokens, weighted by tier-1 evidence.
-
-The index publishes no relevance (``lexical_recall``), so the product orders the deduplicated union
-of the plan's bounded fetches. The order is BM25 (``k1 = 1.2``, ``b = 0.75``) over the analysed
-tokens of ``lexical_terms`` (folded words, identifier words, singular forms), with each term's
-inverse document frequency estimated from what the plan saw:
-
-- a term whose tier-1 fetches filled their cap, or that got no fetch (past the fetch budget), is
-  common or unknown and weighs the least, ``ln 2``;
-- otherwise its document frequency ``df`` is the larger of the records its fetches returned and the
-  candidates its analysed forms match (the fetch counts index tokens; ranking also matches a plural
-  or an identifier word, and ``df`` must count what ranking matches), and it weighs
-  ``ln(1 + cap / df)``.
-
-Length normalization keeps a long span (a message bundle, a SQL schema) from outranking a short
-one only because it names more words. Ties break on the number of distinct terms, then on the
-evidence key, so the order is total and deterministic. The score is internal and never published.
-"""
+"""Ordering the bounded lexical candidates: BM25 over the analysed tokens, weighted by tier-1 evidence."""
 
 from __future__ import annotations
 
@@ -32,14 +15,11 @@ LEAST_WEIGHT = math.log(2.0)
 
 @dataclass(frozen=True, slots=True)
 class TermFetchEvidence:
-    """What tier 1 saw of one folded term: how many records its fetches returned, and if any filled its cap."""
-
     records: int
     saturated: bool
 
 
 def fetch_evidence(serves: Sequence[str], matched: Sequence[frozenset[str]], cap: int) -> dict[str, TermFetchEvidence]:
-    """Per folded term, from the tier-1 fetches that serve it (``LexicalFetch.serves``)."""
     keys: dict[str, set[str]] = {}
     full: dict[str, bool] = {}
     for term, found in zip(serves, matched, strict=True):
@@ -63,12 +43,7 @@ def rank_candidates(
     evidence: Mapping[str, TermFetchEvidence] | None = None,
     cap: int = 64,
 ) -> tuple[tuple[str, str], ...]:
-    """Order the deduplicated union: BM25 first, then distinct terms, then the evidence key.
-
-    A candidate is only ever ordered, never dropped: the server returned it, so it matched, and a
-    zero-score candidate (possible when only a folded spelling differs) still sorts by its key
-    rather than disappearing. Without ``evidence`` every term weighs the same.
-    """
+    # A candidate is only ordered, never dropped: the server returned it, so it matched.
     analysed = [term if isinstance(term, QueryTerm) else QueryTerm(term, word_forms(term)) for term in terms if term]
     bodies = {key: candidate_token_counts(body) for key, body in candidates.items()}
     pool_df = {

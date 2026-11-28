@@ -35,7 +35,7 @@
    uppercase label ("SEPARATE SEVERAL WITH COMMAS."). */
 .connections__field > .connections__fact,
 .connections__field > .connections__field-error {
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   text-transform: none;
   letter-spacing: normal;
 }

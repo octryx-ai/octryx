@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -63,7 +64,8 @@ class ResearchPolicyProfileVersion(Base):
     )
 
 
-class WorkspaceResearchPolicyAssignment(Base):
+class WorkspaceResearchPolicyAssignment(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workspace_research_policy_assignments"
     __table_args__ = (
         UniqueConstraint("workspace_id", name="uq_workspace_research_policy_assignments_workspace_id"),

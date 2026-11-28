@@ -10,14 +10,12 @@ from ...models import User
 from .cookie_principal import principal_id_from_request, require_active_page_principal
 
 __all__ = [
-    "COPILOT_DEVICE_FLOW_STATE",
     "THINKING_LEVELS",
     "_get_user_from_cookie",
     "_require_user",
     "validate_browser_origin_headers",
 ]
 
-COPILOT_DEVICE_FLOW_STATE: dict[str, dict] = {}
 THINKING_LEVELS = ["off", "light", "deep"]
 
 
@@ -50,17 +48,8 @@ def validate_browser_origin_headers(request: Request, *, require_headers: bool =
 
 
 def _get_user_from_cookie(request: Request) -> str | None:
-    """Extract user_id from JWT cookie or bearer token or return None.
-
-    The decision itself belongs to :mod:`app.web._helpers.cookie_principal`.
-    """
     return principal_id_from_request(request)
 
 
 async def _require_user(request: Request, db: AsyncSession) -> User:
-    """Active current user from the cookie, or a redirect to the login page.
-
-    Thin alias for the authoritative page guard: a deactivated account is
-    not resolved here, so no page route can attribute work to one.
-    """
     return await require_active_page_principal(request, db)

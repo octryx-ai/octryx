@@ -1,24 +1,5 @@
-"""The one import boundary of Graphiti in the product.
-
-Every Graphiti symbol the product uses is imported here and re-exported, so no module can import
-``graphiti_core`` before the environment below is set (an import sorter would otherwise move a
-direct third-party import ahead of this module).
-
-Graphiti sends anonymous usage telemetry to PostHog **by default** (``GRAPHITI_TELEMETRY_ENABLED``
-defaults to true in 0.30.2). The platform sends nothing about a Workspace anywhere it was not told
-to, so this module switches telemetry off before ``graphiti_core`` is imported and refuses to
-continue if Graphiti still reports it enabled. Every product module imports Graphiti through here.
-
-Graphiti's own loggers log at DEBUG with entity names and facts; they are held at WARNING so no
-Workspace content reaches the log stream through them.
-
-Graphiti also calls ``dotenv.load_dotenv()`` at import time (``graphiti_core/graphiti.py``,
-``driver/driver.py``, ``helpers.py``). That walks up from the installed package to the first
-``.env`` it finds and copies every key into ``os.environ`` of the whole process, where it can override the
-process ``DATABASE_URL`` that ``alembic/env.py`` prefers. The product reads configuration only through its
-settings, so ``.env`` loading is disabled while Graphiti is imported and the ``PYTHON_DOTENV_DISABLED`` state is
-restored afterwards.
-"""
+"""The one import boundary of Graphiti in the product. Nothing imports ``graphiti_core`` before telemetry is switched
+off here."""
 
 from __future__ import annotations
 

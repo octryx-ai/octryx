@@ -1,8 +1,4 @@
-"""Build the execution payload of a resolved Agent Definition, live or published.
-
-Split out of :mod:`app.services.agent_definition_execution`, which decides the mode
-and calls in here once the live row has passed lookup and admission.
-"""
+"""Build the execution payload of a resolved Agent Definition, live or published."""
 
 from __future__ import annotations
 
@@ -93,13 +89,7 @@ async def resolve_published(
 async def _group_label(
     db: AsyncSession, *, definition: AgentDefinition, header: dict[str, Any]
 ) -> str:
-    """Resolve the group label for a published snapshot.
-
-    ``groupName`` is a display label, not authored content, so it comes from the
-    live row when the snapshot's group is still the current one and from an
-    explicit lookup otherwise. An unknown group yields an empty label rather than
-    a guess.
-    """
+    # An unknown group yields an empty label rather than a guess.
     snapshot_group_id = str(header.get("group_id") or "").strip()
     if not snapshot_group_id:
         return ""
@@ -113,16 +103,7 @@ async def _group_label(
 
 
 async def _finish_payload(db: AsyncSession, payload: dict[str, Any], resolution: AgentDefinitionResolution) -> None:
-    """Attach the execution prompt and the resolution provenance to the payload.
-
-    The four provenance keys are additive: no other key changes meaning, and a
-    consumer that ignores them sees the plain execution contract. They exist so a turn
-    trace records *which* source produced the executed instructions.
-
-    The execution prompt is built here, before any turn, from the prompt catalog at the
-    agent's Workspace (Workspace > global > seed); the versions it
-    used are recorded on the payload (``prompt_templates``).
-    """
+    # The provenance keys are additive: no other key changes meaning.
     prompt_set = await resolve_prompt_set(
         db,
         workspace_id=str(payload.get("projectId") or "").strip() or None,

@@ -1,17 +1,4 @@
-"""How a paused run goes on: the requester (or an admin) decides.
-
-- **Continue with +k**: a loop at its limit gets *k* more iterations, bounded by the platform ceiling (only a
-  platform admin raises the ceiling); a used-up budget grows by *k* times the workflow's budget, bounded by the
-  budget ceiling unless an admin decides. The run then does what the pause interrupted.
-- **Change plan**: back to the workflow's plan phase (``plan_node`` on the definition, else its first phase);
-  the counters of the loops from there on restart. A run changes its plan at most the loop ceiling's number of
-  times (``plan_changes``); beyond it only an admin decides, so *n* keeps bounding the run.
-- **Abort**: the run ends ``stopped`` with the reason the person gave (``context.stop``: reason, who, when, where;
-  shown on the run card and the Work item's run list); its Work item moves to ``blocked`` through the write-back
-  mapping with that reason (best effort, as every platform lifecycle transition).
-
-Every decision is a ``WorkflowRunDecision`` with the hash of what it decided on, and an event.
-"""
+"""How a paused run goes on: the requester (or an admin) decides."""
 
 from __future__ import annotations
 
@@ -33,7 +20,7 @@ from .states import (
     EVENT_STOPPED,
     OUTCOME_STOPPED,
     PAUSE_BUDGET_LIMIT,
-    PAUSE_LOOP_LIMIT,
+    ROUND_LIMIT_REASONS,
     STATUS_PAUSED,
     STATUS_RUNNING,
     STATUS_STOPPED,
@@ -68,18 +55,14 @@ def _pause(run: WorkflowRun) -> dict[str, Any]:
 
 
 def loop_headroom(run: WorkflowRun, ceiling: int) -> int:
-    """How many more iterations the paused loop may get within the ceiling."""
     pause = dict(dict(run.node_state or {}).get("pause") or {})
     counter = dict(dict(run.loop_counters or {}).get(str(pause.get("edge_id") or "")) or {})
     return max(ceiling - int(counter.get("limit") or 0), 0)
 
 
-# Every way a pause can go on (``detail.resume.kind``). A kind outside this set is refused, never a silent "running":
-# otherwise a continue on an action_failed pause (``retry_action``) set the run
-# running at the pause node and nothing ever entered the failed step again (tests/test_workflow_run_resume_kinds.py
-# checks every pause source in the code against this set).
+# Every way a pause can go on; a kind outside this set is refused, never a silent "running" that nothing continues.
 RESUME_RETRY_ACTION = "retry_action"
-RESUME_KINDS = frozenset({"edge", "phase_passed", "restart", "stay", "rerun", "approval", "waiting",
+RESUME_KINDS = frozenset({"edge", "phase_passed", "restart", "stay", "continue", "rerun", "approval", "waiting",
                           RESUME_RETRY_ACTION})
 
 
@@ -98,20 +81,15 @@ async def _resume(db: AsyncSession, run: WorkflowRun, resume: dict[str, Any], *,
     elif kind == RESUME_RETRY_ACTION:
         from .engine import restart_at
 
-        # The failed platform step runs again (the same as the pause card's "Retry the step").
         await restart_at(db, run, str(resume.get("node_id") or run.current_node_id or ""), actor_id=actor_id)
     elif kind in ("restart", "stay"):
         from .engine import restart_at
 
-        # A new pass through the node (the environment was fixed): no loop iteration is consumed. ``stay`` (a
-        # phase paused at its budget before it passed) too: the budget stopped the phase's sessions, so only a new
-        # turn goes on (otherwise runs continued after budget_limit stood "running" in a
-        # device phase for over an hour and no turn ever started).
+        # A new pass through the node, no loop iteration consumed; a phase paused at its budget needs a new turn too.
         await restart_at(db, run, str(resume.get("node_id") or run.current_node_id or ""), actor_id=actor_id)
     elif kind == "continue":
         from .octryx.same_pass import continue_pass
 
-        # The same pass goes on in its session, the work kept.
         await continue_pass(db, run, str(resume.get("node_id") or run.current_node_id or ""), actor_id=actor_id)
     elif kind == "rerun":
         from .engine import rerun_current_node
@@ -124,7 +102,7 @@ async def _resume(db: AsyncSession, run: WorkflowRun, resume: dict[str, Any], *,
         node = (await graph_for_run(db, run)).nodes.get(run.current_node_id or "")
         run.status, run.waiting_kind = STATUS_WAITING, "awaiting_approval"
         if node is not None:
-            await prepare_decision(db, run, node, actor_id=actor_id)  # a new approval request
+            await prepare_decision(db, run, node, actor_id=actor_id)
     elif kind == "waiting":
         run.status, run.waiting_kind = STATUS_WAITING, str(resume.get("waiting_kind") or "")
         state = dict(run.node_state or {})
@@ -138,12 +116,12 @@ async def continue_run(db: AsyncSession, run: WorkflowRun, *, user: User, k: int
     if str(dict(pause.get("resume") or {}).get("kind") or "") == RESUME_RETRY_ACTION:
         from .action_failures import ACTION_RETRY, decide
 
-        await decide(db, run, user=user, action=ACTION_RETRY, body={})  # its budget, its decision, its restart
+        await decide(db, run, user=user, action=ACTION_RETRY, body={})
         await _mark_action_redrive(db, run)
         return
     if type(k) is not int or k < 1:
         raise WorkflowRunError("invalid_k", "Continue needs a whole number of at least 1.", 422)
-    if run.pause_reason == PAUSE_LOOP_LIMIT:
+    if run.pause_reason in ROUND_LIMIT_REASONS:
         ceiling = await loop_ceiling(db)
         headroom = loop_headroom(run, ceiling)
         if k > headroom:
@@ -160,7 +138,7 @@ async def continue_run(db: AsyncSession, run: WorkflowRun, *, user: User, k: int
         counter[RAISED_KEY] = True  # a person's rounds: a size class's own rounds no longer bind this loop
         counters[edge_id] = counter
         run.loop_counters = counters
-        record_decision(db, run, kind="pause", subject=PAUSE_LOOP_LIMIT, action="continue",
+        record_decision(db, run, kind="pause", subject=run.pause_reason, action="continue",
                         payload={"edge_id": edge_id, "k": k, "limit": counter["limit"]}, user_id=user.id)
     elif run.pause_reason == PAUSE_BUDGET_LIMIT:
         if k > MAX_BUDGET_FACTOR:
@@ -191,7 +169,6 @@ async def continue_run(db: AsyncSession, run: WorkflowRun, *, user: User, k: int
 
 
 async def _mark_action_redrive(db: AsyncSession, run: WorkflowRun) -> None:
-    """An Action-started run's next phase turn is the Action's: marked here, queued after the commit."""
     from .automation import is_action_started, mark_redrive
 
     if run.status == STATUS_RUNNING and await is_action_started(db, run):
@@ -226,7 +203,7 @@ async def change_plan(db: AsyncSession, run: WorkflowRun, *, user: User, is_admi
     from .wip_reset import EVENT_REQUESTED, request_reset
 
     phases = [node.id for node in graph.ordered_nodes() if node.kind == NODE_PHASE]
-    if reset := request_reset(run, plan, phases):  # the work as the plan node last left it (``wip_reset``)
+    if reset := request_reset(run, plan, phases):
         record_event(db, run, EVENT_REQUESTED, node_id=plan, actor_id=user.id, detail={"sha": reset})
     record_decision(db, run, kind="pause", subject=str(run.pause_reason or ""), action="change_plan",
                     payload={"plan_node": plan, "plan_changes": changes + 1}, user_id=user.id)
@@ -238,7 +215,6 @@ MAX_STOP_REASON = 500
 
 
 def stop_reason(raw: Any) -> str:
-    """The reason a person stops a run: required, one bounded text."""
     reason = " ".join(str(raw or "").split())
     if not reason:
         raise WorkflowRunError("stop_reason_required", "Say why the run stops; the reason is recorded.", 422)
@@ -246,7 +222,6 @@ def stop_reason(raw: Any) -> str:
 
 
 def record_stop(run: WorkflowRun, *, reason: str, user_id: str | None, via: str) -> None:
-    """``context.stop``: why and by whom the run stopped, where it stood (run card, Work item)."""
     run.context = {**dict(run.context or {}), "stop": {
         "reason": reason, "by": user_id, "at": utc_now().isoformat(), "via": via, "node_id": run.current_node_id,
         "was": str(run.pause_reason or run.waiting_kind or run.status)}}
@@ -285,25 +260,22 @@ async def abort_run(db: AsyncSession, run: WorkflowRun, *, user: User, reason: s
 
 
 async def _stop_device_turn(db: AsyncSession, run: WorkflowRun, *, actor_id: str) -> None:
-    """An aborted run's device turn stops too (otherwise the job kept running after the abort)."""
-    from app.services.devices.job_state import ACTIVE_STATUSES as JOB_ACTIVE_STATUSES
+    from app.services.devices.job_state import BUSY_STATUSES
 
     from ..devices.jobs import request_stop, thread_job
     from .records import main_session_id
 
     thread_id = await main_session_id(db, run)
     job = await thread_job(db, thread_id) if thread_id else None
-    if job is not None and job.status in JOB_ACTIVE_STATUSES:
+    if job is not None and job.status in BUSY_STATUSES:
         await request_stop(db, job, actor_id=actor_id)
     from .teamwork.item_stop import stop_jobs
 
-    await stop_jobs(db, run, actor_id=actor_id)  # teamwork's item turns and git work
+    await stop_jobs(db, run, actor_id=actor_id)
 
 
 def _delivered(run: WorkflowRun) -> bool:
-    """The run's work is delivered: its pull request is open and the run only watches it (merge, CI). Aborting that
-    watch must not turn the item red (a test suite that stops its finished runs would otherwise mark every
-    finished item ``blocked``); the item stays where the pull request put it (review)."""
+    # Aborting the watch of a delivered run must not turn its item red.
     from .states import WAITING_WATCH
 
     pull_request = dict(run.pull_request or {})

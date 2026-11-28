@@ -16,7 +16,7 @@ const REACHABLE = [
   "users", "identityRoles", "identityGroups", "identityProviders", "identityAccess",
   "projects", "backupRestore", "branding", "corpIdentity", "usage",
   "providers", "mcp", "tts", "policies", "researchPolicies", "connectors", "channels", "webhooks",
-  "agents", "promptCatalog", "workspaceKnowledge", "knowledge", "toolCatalog", "skills", "scenarios",
+  "agents", "promptCatalog", "workspaceKnowledge", "knowledge", "toolCatalog", "skills",
   "schedulers", "tasks",
 ];
 

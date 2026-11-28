@@ -1,20 +1,4 @@
-"""What a ``git_repository`` run adds to the generic Source Sync run.
-
-- Only ``remote_git`` connectors run here: a ``local_snapshot`` connector has nothing to fetch, its
-  files arrive with an upload, so a run of it is refused with ``snapshot_upload_required``.
-- The run report gets ``repository``: the configured ``ref`` and the ``commit`` this run listed (null
-  when the run failed before resolving one).
-- A **completed** pass records its commit as the connector's run state (``head_commit``, with
-  ``head_dirty`` false): the commit every file the connector now serves was listed at, which code
-  impact reads. A stopped pass records nothing, so ``head_commit`` never names a half-synced commit.
-- The same completion moves the repository file index to that commit (``code/repository_index``):
-  every item of the commit is marked seen (unchanged files were not re-ingested, so their rows only
-  move commits), and the rows of paths the commit no longer lists are deleted. Their ledger sources
-  were already retired by the runner's reconcile, which owns tombstones.
-- A completed pass over a repository **without any commit** (``repository_empty``) records
-  ``repository.empty`` in the report and no commit: ``head_commit`` is cleared and the file index emptied (a
-  repository that lost every branch serves nothing any more; the runner already retired its sources).
-"""
+"""What a ``git_repository`` run adds to the generic Source Sync run."""
 
 from __future__ import annotations
 
@@ -32,6 +16,7 @@ from .git_clone import GitCloneReader
 from .git_config import FETCH_REMOTE_GIT, HEAD_COMMIT, HEAD_DIRTY, GitScope
 from .git_repository import GitRepositoryConnector
 from .runner import SyncRefusedError
+from .stored_types import RepositoryRunFacts
 
 _NO_COMMIT = "0" * 40  # Git's null object id: no indexed file was ever seen at it
 
@@ -39,7 +24,6 @@ _NO_COMMIT = "0" * 40  # Git's null object id: no indexed file was ever seen at 
 def git_connector(
     row: KnowledgeSourceConnector, *, transport=None, connection=None, clone_reader=None
 ) -> GitRepositoryConnector:
-    """``clone_reader``: tests only (a Git runner without network); else built from the connection's credential."""
     scope = dict(row.scope or {})
     if scope.get("fetch_mode") != FETCH_REMOTE_GIT:
         raise SyncRefusedError(REASON_SNAPSHOT_UPLOAD_REQUIRED)
@@ -63,7 +47,7 @@ async def record_git_run(
 ) -> None:
     row = await db.get(KnowledgeSourceConnector, connector_id)
     scope = dict(row.scope or {})
-    repository = {"ref": scope.get("ref"), "commit": connector.commit}
+    repository: RepositoryRunFacts = {"ref": scope.get("ref"), "commit": connector.commit}
     empty = bool(getattr(connector, "repository_empty", False))
     if empty:
         repository["empty"] = True

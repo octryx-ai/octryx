@@ -1,16 +1,5 @@
-"""The app's draw.io diagrams, judged from the device's facts (the delivery workflows keep architecture,
-navigation and data-flow diagrams of the app they build, as ``.drawio`` with an exported PNG in the README).
-
-The launcher reports at the end of a changing phase (``octryx-claude`` ``diagram_facts``), for every diagram in the
-style's folder: whether it is valid draw.io XML, the PNG it exported (``drawio -x -f png --scale 2``) or why not,
-whether the README or a docs page references the PNG, and the box labels it did not find in the code.
-
-- invalid XML: an error (the agent fixes it before the phase ends);
-- no PNG because the draw.io CLI is missing: a warning with how to install it; ``missing_tool: error`` makes it red;
-  the ``.drawio`` is committed either way;
-- a PNG older than its diagram, a failed export, a PNG nothing references: warnings;
-- labels not found in the code: warnings, and the reviewer's notes (a box must name a real module or screen).
-"""
+"""The app's draw.io diagrams, judged from the device's facts (the delivery workflows keep architecture, navigation and
+data-flow diagrams of the app they build, as ``.drawio`` with an exported PNG in the README)."""
 
 from __future__ import annotations
 
@@ -63,7 +52,6 @@ def diagram_findings(style: dict[str, Any] | None, facts: Any) -> list[Finding]:
 
 
 def reviewer_notes(facts: Any) -> list[str]:
-    """What the reviewer checks: the boxes the device found no code name for."""
     if not isinstance(facts, dict):
         return []
     return [f"{item.get('path')}: {', '.join(str(label) for label in item.get('unmatched')[:MAX_LABELS])}"

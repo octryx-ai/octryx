@@ -1,26 +1,5 @@
-"""Workflow run decisions through Claude Code's own permission prompt.
-
-The requester may answer a user confirmation, a user conversation or a paused run of the run their session follows
-from the terminal (``workflow_runs/octryx/decisions``). The agent can never answer for them, in any permission mode:
-
-1. The agent calls the MCP tool ``workflow_decide(run_id, action, payload_hash, …)``. Claude Code runs the PreToolUse
-   hook, which sends ``POST sessions/tool-check`` with a **decision proof**: the launcher's hook-key HMAC (verb
-   ``decide``, bound to session key, tool_use id, run id, nonce and time; ``hook_key.verify_decision_proof``).
-2. :func:`ask_for_decision` verifies the proof, refuses a reused nonce, and checks the decision itself before the
-   user is asked: the session's own run, the user's right to act on it, a node the requester may answer, an action
-   it offers and the current payload hash. Only then it issues a **one-time ticket** (sha256 on a ``ToolCall`` of the
-   gateway session, bound to run, action, payload hash, the typed inputs' digest and the tool_use id) and answers
-   ``ask`` with the exact payload as the prompt's text, payload hash first. A decision whose full text (payload,
-   reply, criteria) does not fit the prompt is refused (``decide_in_platform`` with the link): never a decision on a
-   partly shown payload. Nonce and ticket are looked up among all of the session's decision rows. The hook
-   prints ``permissionDecision: "ask"``, so Claude Code shows the user its permission prompt (the launcher disables
-   bypass mode; an "ask" is never auto-allowed).
-3. Only when the user accepts does the MCP call run, carrying the ticket. :func:`redeem_decision_ticket` accepts it
-   only for exactly that run, action, payload hash, inputs and tool_use id on the caller's own gateway session, still
-   pending and unexpired, and consumes it. Without a redeemed ticket the MCP tool decides nothing.
-
-A Bash process with a gateway token has no hook key, never sees a ticket, and cannot replay a nonce or a ticket.
-"""
+"""Workflow run decisions through Claude Code's own permission prompt, with the same hook-key proof and
+one-time ticket as ``confirmation``."""
 
 from __future__ import annotations
 
@@ -39,8 +18,8 @@ from .confirmation import (
     STATE_NEEDS_CONFIRMATION,
     TICKET_TTL_SECONDS,
     TOOL_CALL_STATUS_CONFIRMATION_ASKED,
-    TOOL_CALL_STATUS_CONFIRMATION_CONSUMED,
     _ticket_hash,
+    consume_ticket,
 )
 from .contract import TOOL_CALL_SOURCE_HOOK
 from .hook_key import ConfirmationProof, verify_decision_proof
@@ -62,7 +41,7 @@ def _deny(reason: str, message: str | None = None) -> dict[str, Any]:
 
 
 async def _hook_rows(db: AsyncSession, session_id: str, field: str, value: str) -> list[ToolCall]:
-    """The session's decision rows whose ``field`` is ``value``: a lookup, not a window of recent rows."""
+    # A lookup by field, not a window of recent rows.
     rows = await db.execute(
         select(ToolCall).where(ToolCall.session_id == session_id, ToolCall.tool_name == WORKFLOW_DECIDE_HOOK_TOOL,
                                ToolCall.parameters[field].as_string() == value)
@@ -73,7 +52,6 @@ async def _hook_rows(db: AsyncSession, session_id: str, field: str, value: str) 
 async def ask_for_decision(
     db: AsyncSession, *, session: Session, session_key: str, hook_input: dict[str, Any]
 ) -> dict[str, Any]:
-    """The PreToolUse answer for ``workflow_decide``: ``ask`` with a one-time ticket and the exact payload, or deny."""
     from ..workflow_runs.access import run_access
     from ..workflow_runs.octryx.contract import run_contract
     from ..workflow_runs.octryx.decisions import arguments_digest, ask_text, check_decision, pending_decision
@@ -120,7 +98,7 @@ async def redeem_decision_ticket(
     db: AsyncSession, *, session: Session, run_id: str, action: str, payload_hash: str, arguments_digest: str,
     ticket: object, tool_use_id: object,
 ) -> bool:
-    """Consume the pending ticket for exactly this decision and tool_use id; ``False`` otherwise."""
+    # Single use, and only for exactly this decision and tool_use id.
     if type(ticket) is not str or not 0 < len(ticket) <= 128 or type(tool_use_id) is not str or not tool_use_id:
         return False
     digest = _ticket_hash(ticket)
@@ -134,17 +112,14 @@ async def redeem_decision_ticket(
         if (row.status != TOOL_CALL_STATUS_CONFIRMATION_ASKED or str(parameters.get("expires_at") or "") <= now
                 or any(parameters.get(name) != value for name, value in expected.items())):
             return False
-        row.status = TOOL_CALL_STATUS_CONFIRMATION_CONSUMED
-        await db.flush()
-        return True
+        return await consume_ticket(db, row)
     return False
 
 
 async def device_decision_preview(db: AsyncSession, *, owner_user_id: str, tool: str, preview: str) -> str | None:
-    """The full ask text for a device job's approval of ``workflow_decide`` (the device only sees the tool input):
-    the newest pending ask of the owner's sessions for that run, action and payload hash; ``None`` otherwise."""
     import json
 
+    # The device only sees the tool input; its approval shows the full ask text.
     if tool != WORKFLOW_DECIDE_HOOK_TOOL:
         return None
     try:

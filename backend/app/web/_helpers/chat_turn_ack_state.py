@@ -16,6 +16,7 @@ from ...services.session.agent_selection_sources import (
 )
 from ...services.session.chat_agent_guidance import CHAT_AGENT_GUIDANCE_KEY, project_chat_agent_guidance
 from ...services.session.run_state import get_session_run_completion_reason, get_session_run_status
+from ...services.session.session_title import TITLE_SOURCE_KEY
 from ...services.session.workspace import resolve_session_workspace_root
 from ...services.standing_approvals.permission import can_grant_standing_approval
 from ...services.workflow_routing.proposal_decision import workflow_proposal_view
@@ -37,7 +38,6 @@ async def _ack_runtime_selection(
     metadata: dict,
     runtime_target_id: str,
 ) -> tuple[str, list[dict], str]:
-    """The thread's runtime target id, the runtime options the composer offers and the selected runtime's label."""
     from app.services.runtime_options import list_chat_runtime_options
 
     workspace_execution_view = (
@@ -95,6 +95,7 @@ def _ack_selected_session(
         "id": session.id,
         "threadNumber": 0,
         "title": _session_title(session, first_user_message),
+        "titleSource": str((session.metadata_ or {}).get(TITLE_SOURCE_KEY) or "") or None,
         "status": _effective_session_status(session),
         "runStatus": get_session_run_status(session),
         "runCompletionReason": get_session_run_completion_reason(session),
@@ -137,7 +138,6 @@ def _ack_composer_state(
     selected_agent_name: str,
     agent_type: str,
 ) -> dict:
-    """The acknowledgement's selected project, runtime, thinking level and agent."""
     resolved_runtime_target_id, runtime_options, selected_runtime_label = runtime
     return {
         "selectedProject": ({"id": selected_project.id, "name": selected_project.name} if selected_project else None),
@@ -156,7 +156,6 @@ def _ack_composer_state(
 
 
 def _selected_agent_name(agent_guidance: dict, selected_agent_id: str) -> str:
-    """The last turn's agent name, only when that agent is the selected one."""
     latest_turn_agent = agent_guidance["lastTurnAgent"] or {}
     return (latest_turn_agent.get("name") or "") if latest_turn_agent.get("id") == selected_agent_id else ""
 
@@ -180,7 +179,6 @@ def _ack_head(user: User, user_roles: list[str], serialized_projects: list[dict]
 
 
 def _ack_empty_panels() -> dict:
-    """Panels an acknowledgement leaves empty; the client loads them with the next full state."""
     return {
         "traceEvents": [],
         "traceEventCount": 0,
@@ -190,7 +188,7 @@ def _ack_empty_panels() -> dict:
         "newThread": False,
         "settingsUrl": "/admin/settings",
         "toolsUrl": "/admin/tools",
-        "controlPlaneUrl": "/admin/control-plane",
+        "controlPlaneUrl": "/chat?area=admin&tab=providers",
         "dashboardUrl": "/chat",
     }
 

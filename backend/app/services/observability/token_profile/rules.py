@@ -1,10 +1,4 @@
-"""Savings hints: the catalog's rules (``token_rules.json``) evaluated against the facts of each scope (pure).
-
-A rule names its ``scope`` (``facts.SCOPES``), an optional ``match`` (a fact's value must be one of the listed ones)
-and ``when`` (each fact compared with ``>=``, ``>``, ``<=``, ``<`` or ``==``); its ``text`` is filled with the
-facts. A hint carries the tokens it is about (the fact ``tokens_from`` names, ``tokens`` by default; a phase has
-none, its hints come last), so the largest saving is listed first.
-"""
+"""Savings hints: the catalog's rules (``token_rules.json``) evaluated against the facts of each scope (pure)."""
 
 from __future__ import annotations
 
@@ -38,7 +32,6 @@ def _shown(fact: dict[str, Any]) -> dict[str, str]:
 
 
 def hints(pairs: list[Any], rules: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Every rule that holds for a fact, largest saving first."""
     found: list[dict[str, Any]] = []
     facts = {scope: build(pairs) for scope, build in SCOPES.items()}
     for rule in catalog_rules() if rules is None else rules:

@@ -34,7 +34,6 @@ def _enforce_docker_for_interactive_python(
     project_config: dict[str, Any] | None,
     db: Any | None,
 ) -> dict[str, Any]:
-    """Force Docker provider for interactive Python to prevent host-code injection."""
     config = dict(project_config or {})
     config.setdefault("execution_runtime_provider", _INTERACTIVE_PYTHON_REQUIRED_PROVIDER)
     config.setdefault("execution_runtime_sandbox_mode", _INTERACTIVE_PYTHON_REQUIRED_SANDBOX_MODE)

@@ -1,19 +1,4 @@
-"""kubectl argv for the Kubernetes tools, and the one decision on read-only kubectl commands.
-
-Every tool passes its kubectl arguments with the subcommand first (``["get", "pods", ...]``); the
-connector-chosen kubeconfig, context and namespace travel as options that this module places in the
-global option prefix. For the tools, an empty argument list, a leading flag or a command that is not
-read-only is refused before anything runs (deny by default).
-
-:func:`kubectl_is_read_only` decides for every path that runs kubectl without a person's approval
-(the Kubernetes tools, ``run_kubectl``, the read-only command rule of the execution policy, the
-data-classification write check, the agent gateway). It parses the argv like kubectl's own flag
-parser (``kubernetes_kubectl_flags``): flags anywhere, values consumed by the flags that take them,
-packed short flags per character; anything unknown or ambiguous is not read-only. The resolved leaf
-must be a read, and no connection-override flag may appear: an agent's arguments never replace the
-connector-chosen target, credentials, TLS settings or identity. A cluster change needs its own
-governed tool with an approval; none of these paths runs one.
-"""
+"""kubectl argv for the Kubernetes tools, and the one decision on read-only kubectl commands."""
 
 from __future__ import annotations
 
@@ -50,13 +35,6 @@ _BARE_LEAVES = frozenset({"cluster-info"})
 
 
 def kubectl_is_read_only(args: Sequence[str], *, context_selectable: bool = False) -> bool:
-    """Whether ``args`` (no binary) only reads the cluster the connector configured.
-
-    ``context_selectable`` is the agent gateway's rule: an external client names one of the contexts in
-    its own kubeconfig with ``--context``, which the gateway policy requires (``kubectl-requires-context``).
-    It is NOT a bound target: no allowed-context list exists yet, so any context in the client's
-    kubeconfig passes (open scope boundary).
-    """
     if not args:
         return False
     parsed = parse_kubectl_args(args)
@@ -73,18 +51,15 @@ def kubectl_is_read_only(args: Sequence[str], *, context_selectable: bool = Fals
 
 
 def _inline_output(value: str) -> bool:
-    """An output format whose template (if any) is inline: never one that reads a local file."""
     return value.split("=", 1)[0] in INLINE_OUTPUT_FORMATS
 
 
 def kubectl_subcommand(args: Sequence[str]) -> str:
-    """The first command word as kubectl resolves it (``""`` when ambiguous or absent)."""
     parsed = parse_kubectl_args(args)
     return parsed.path[0] if parsed is not None and parsed.path else ""
 
 
 def kubectl_subcommand_refusal(args: Sequence[str]) -> str | None:
-    """For the Kubernetes tools: ``None`` when ``args`` starts with its subcommand and is read-only."""
     if not args:
         return KUBECTL_SUBCOMMAND_MISSING
     if str(args[0]).startswith("-") or not kubectl_is_read_only(args):
@@ -95,7 +70,6 @@ def kubectl_subcommand_refusal(args: Sequence[str]) -> str | None:
 
 
 def _typed_words(positionals: Sequence[str]) -> list[str]:
-    """The words that name a resource type: the first positional and every ``type/name``."""
     return [positionals[0], *[word for word in positionals[1:] if "/" in word]] if positionals else []
 
 
@@ -107,8 +81,6 @@ def _names_kind(word: str, kinds: frozenset[str]) -> bool:
 
 
 def kubectl_secret_read_refusal(args: Sequence[str]) -> str | None:
-    """Why ``args`` would show Secret contents or ConfigMap data, else ``None``: ``get``/``describe`` of Secrets in
-    any form, ``describe`` of ConfigMaps, and ``get`` of ConfigMaps with a data-printing output format."""
     parsed = parse_kubectl_args(args)
     if parsed is None:
         return KUBECTL_ARGS_AMBIGUOUS
@@ -127,7 +99,6 @@ def kubectl_secret_read_refusal(args: Sequence[str]) -> str | None:
 
 
 def _names_secrets(word: str) -> bool:
-    """``secret``, ``secrets``, ``Secret.v1``, ``pods,secrets`` or ``secret/name``: the word names the Secret type."""
     for part in str(word).split(","):
         kind = part.split("/", 1)[0].split(".", 1)[0].strip().lower()
         if kind in _SECRET_RESOURCES:
@@ -136,11 +107,6 @@ def _names_secrets(word: str) -> bool:
 
 
 def kubectl_scope_refusal(args: Sequence[str], *, namespace: str | None) -> str | None:
-    """Under an alert scope (``namespace`` set): why ``args`` leaves the target's namespace, else ``None``.
-
-    Refused: ``-A``/``--all-namespaces`` (any value), a ``-n``/``--namespace`` other than the scope's, and reading
-    the Secret resource with ``get``/``describe``. Without a scope nothing changes here (the read-only rule stays).
-    """
     if not namespace:
         return None
     parsed = parse_kubectl_args(args)
@@ -165,7 +131,6 @@ def kubectl_command(
     kube_context: str | None = None,
     namespace: str | None = None,
 ) -> list[str]:
-    """``binary [--kubeconfig K] [--context C] [-n NS] <args>``; the caller has checked ``args`` already."""
     command = [binary]
     if kubeconfig:
         command.extend(["--kubeconfig", kubeconfig])

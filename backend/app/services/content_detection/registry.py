@@ -1,9 +1,4 @@
-"""The detector set a scan runs for a Workspace.
-
-The built-in detectors always run; the custom detectors come from the policy-set version (published for live
-decisions, the open draft for the draft shadow and the preview) and run only inside their scope (every
-Workspace, or the one they name). Compiled programs are cached per definition.
-"""
+"""The detector set a scan runs for a Workspace."""
 
 from __future__ import annotations
 
@@ -28,7 +23,7 @@ def detector_set_for(definitions: DetectorDefinitions, workspace_id: str | None)
 
 
 def combined_definitions(*sets: DetectorDefinitions) -> DetectorDefinitions:
-    """The union of several versions' definitions (published + draft): the first one wins on a shared id."""
+    # The first set wins on a shared id: the published version before the draft.
     detectors: dict[str, CustomDetectorDefinition] = {}
     categories = {}
     for item in sets:

@@ -1,26 +1,5 @@
-"""The run's own Work item, read-only, for a run-bound octryx-claude session without ``work:manage``.
-
-The Work tool family (``mcp_work_access``) runs under ``work:manage``. A device job's grant never holds it
-(``devices/contract.DEVICE_JOB_SCOPES``), yet the phases that read "the Work item" (B Clarify, A Understand) offer
-``work_item_context`` and count it as evidence. Least privilege: the workflow run is the authority to read its own
-Work item, and nothing else:
-
-- the scope ``workflow:read`` (the scope of the run contract itself);
-- the connection's launcher session (``X-Octryx-Session``) follows an active run of the connection's
-  Workspace;
-- the user may still see that run (``run_access``);
-- the requested item is the run's Work item (its id, its key or the run's ticket key; empty means the run's); any
-  other item is refused.
-
-The answer is the item's context without other sessions' conversation digests (a ``work:manage`` handover
-feature). A grant with ``work:manage`` keeps the normal path.
-
-Writes the run itself asks for (spec writing: the spec agent creates the tickets as Work items):
-``work_item_create`` and ``work_item_note`` with the scope ``workflow:execute``, only while the run's *current phase*
-lists the tool in its ``tool_policy`` allowlist (the workflow definition is the authority, not the device). A ticket
-is created in the run's Workspace only (an open item with the same title comes back instead of a twin); a note goes
-on the run's own Work item only. No other Work tool is reachable this way.
-"""
+"""The run's own Work item, read-only, for a run-bound octryx-claude session without ``work:manage``. Least privilege:
+only the run's own item."""
 
 from __future__ import annotations
 
@@ -46,7 +25,6 @@ REFUSED_DETAIL = ("OAuth grant lacks required scope: work:manage (without it, on
 
 
 def run_bound_work_tool(tool_name: str, scopes: tuple[str, ...]) -> bool:
-    """Whether a grant without ``work:manage`` may try the run-bound read of ``tool_name``."""
     if tool_name in RUN_BOUND_WRITE_TOOLS:
         return RUN_WORK_WRITE_SCOPE in scopes
     return tool_name in RUN_BOUND_WORK_TOOLS and RUN_WORK_ITEM_SCOPE in scopes
@@ -54,7 +32,7 @@ def run_bound_work_tool(tool_name: str, scopes: tuple[str, ...]) -> bool:
 
 async def run_work_item(db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str,
                         requested: Any) -> WorkItem:
-    """The run's Work item when the caller's session follows the run and asks for exactly it; 403 otherwise."""
+    # Only the run's own item, from a session following the run; 403 otherwise.
     return (await _run_and_item(db, caller=caller, user=user, workspace_id=workspace_id, requested=requested))[1]
 
 
@@ -86,7 +64,6 @@ async def _run_and_item(db: AsyncSession, *, caller: McpCaller, user: User, work
 
 async def _write(db: AsyncSession, run: Any, item: WorkItem, user: User, tool_name: str,
                  arguments: dict[str, Any]) -> dict[str, Any]:
-    """A ticket in the run's Workspace, or a note on the run's own Work item."""
     from .secure_work.platform_items import add_work_item_note, create_platform_work_item
 
     if tool_name == "work_item_note":
@@ -109,7 +86,6 @@ async def _write(db: AsyncSession, run: Any, item: WorkItem, user: User, tool_na
 
 
 async def call_run_bound_work_tool(caller: McpCaller, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """One run-bound Work read over MCP: active user, rate limit, the run's item, activity and audit rows."""
     from .secure_work.platform_item_context import build_work_item_context
 
     workspace = resolve_mcp_workspace(caller)

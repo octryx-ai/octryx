@@ -1,8 +1,5 @@
-"""The selected-session part of a chat payload, shared by the bootstrap and the selected-session view.
-
-Both payloads build these keys through this one function, so a chat switch through the view returns
-exactly the fields the full bootstrap would have returned for the same thread.
-"""
+"""The selected-session part of a chat payload, shared by the bootstrap and the selected-session view. One builder, so a
+switch through the view returns exactly the bootstrap's fields."""
 
 from __future__ import annotations
 
@@ -16,6 +13,7 @@ from ...models import Project, User
 from ...models import Session as AgentSession
 from ...services.session.chat_agent_guidance import CHAT_AGENT_GUIDANCE_KEY, project_chat_agent_guidance
 from ...services.standing_approvals.permission import can_grant_standing_approval
+from ...services.workflow_runs.pr_links import session_pull_requests
 from ._chat_runtime_selection import ChatRuntimeSelection
 from ._chat_selected_session_contract import build_selected_chat_session_contract
 from ._chat_state_selected_session import SelectedChatSessionState, _load_selected_chat_session_state
@@ -48,6 +46,7 @@ SELECTED_VIEW_KEYS = (
     "selectedThreadStats",
     "selectedThreadContext",
     "selectedApprovals",
+    "selectedSessionPullRequests",
     "selectedWorkspace",
     CHAT_AGENT_GUIDANCE_KEY,
 )
@@ -81,10 +80,8 @@ async def build_selected_view_fields(
             chat_message_page_size=chat_message_page_size,
         )
         if selected_session
-        else SelectedChatSessionState(
-            status="", stop_reason=None, task_error="", task_run_id="", task_status="", run_status="",
-            run_completion_reason="",
-        )
+        else SelectedChatSessionState(status="", stop_reason=None, task_error="", task_run_id="", task_status="",
+                                      run_status="", run_completion_reason="")
     )
     selection_state = build_chat_selection_state(
         selected_session_metadata=(selected_session.metadata_ or {}) if selected_session else None,
@@ -138,6 +135,7 @@ async def build_selected_view_fields(
         "selectedThreadStats": _serialize_thread_stats(state.thread_stats),
         "selectedThreadContext": _serialize_thread_context(state.thread_context),
         "selectedApprovals": state.approvals,
+        "selectedSessionPullRequests": await session_pull_requests(db, selected_session.id) if selected_session else [],
         "selectedWorkspace": None,
         CHAT_AGENT_GUIDANCE_KEY: await project_chat_agent_guidance(
             db, user_id=user.id, session=selected_session, requested_agent_id=requested_agent_id

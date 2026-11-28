@@ -18,7 +18,7 @@ const selection = { order: [model("a"), model("b")], fallback: "next", models: [
 test("Default & fallback edits the platform order and the task models and saves each", async () => {
   const saved = [], opened = [];
   const { AdminDefaultAndFallback } = loadStubbed("admin/components/modelSelection/AdminDefaultAndFallback.tsx", ["/LoadingState",
-    "/SegmentedTabs", "/EngineCards", "/LocalModelsCard", "/SeatTrafficCard", "./ExplainTurn"], {}, {
+    "/SegmentedTabs", "/EngineCards", "/LocalModelsCard", "./ExplainTurn"], {}, {
     "./modelSelectionApi": { loadSelection: async () => selection, saveOrder: async (...args) => { saved.push(["order", ...args]); return selection; },
       saveTasks: async (tasks) => { saved.push(["tasks", tasks]); throw new Error("no"); } },
     "/adminNavigation": { useAdminNavigation: () => ({ openAdminTab: (tab) => opened.push(tab) }) } });

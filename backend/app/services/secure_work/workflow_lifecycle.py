@@ -1,13 +1,4 @@
-"""Updating and deactivating Secure Work workflow definitions, with validated mappings.
-
-A workflow (also the standard flow the UI creates) can be edited and switched off and on again; it
-is never deleted, so its state events keep naming it. Every write is audited (names and keys only).
-
-A mapping is validated, never silently trimmed: a mapping key that is not one of the workflow's
-states is refused with 422 ``workflow_state_unknown`` (the message names the keys, ``states`` lists
-the valid ones). That holds at create, at update, and when an update removes a state a stored
-mapping still writes something for. A transition to an unknown state is the same coded 422.
-"""
+"""Updating and deactivating Secure Work workflow definitions, with validated mappings."""
 
 from __future__ import annotations
 
@@ -49,7 +40,6 @@ def _writes_something(mapping: Any) -> bool:
 
 
 def validate_mapping_keys(raw: Any, states: list[dict[str, str]], *, only_effective: bool = False) -> None:
-    """Refuse mapping keys outside ``states``; ``only_effective`` ignores empty stored entries."""
     known = {state["key"] for state in states}
     unknown = sorted(
         _key(key) for key, entry in object_value(raw).items()
@@ -63,11 +53,7 @@ _STATUS_MAPPING_KEY = "status_state_mapping"
 
 
 async def validate_intake_status_targets(db: AsyncSession, config: Any) -> None:
-    """422 ``workflow_state_unknown`` for an intake mapping a Jira status onto an unknown state (L-d).
-
-    Known are the shared vocabulary and the states of the active workflows of the intake's Workspace
-    and the global ones. Checked at create and update, so an intake stored earlier keeps running.
-    """
+    # Checked at create and update only, so an intake stored earlier keeps running.
     from sqlalchemy import select
 
     from .workflow_mapping import DEFAULT_WORKFLOW_STATES, normalize_workflow_states
@@ -94,7 +80,6 @@ async def validate_intake_status_targets(db: AsyncSession, config: Any) -> None:
 
 
 def transition_refusal(preview: dict[str, Any], states: list[dict[str, str]]) -> dict[str, Any]:
-    """The 422 detail of a refused transition: coded for an unknown state, else the preview's error."""
     to_state = str(preview.get("to_state") or "")
     if to_state and to_state not in {state["key"] for state in states}:
         return {
@@ -107,14 +92,12 @@ def transition_refusal(preview: dict[str, Any], states: list[dict[str, str]]) ->
 
 def _audit(db: AsyncSession, user: User, row: WorkItemWorkflowDefinition, action: str, details: dict) -> None:
     db.add(AuditLog(user_id=user.id, action=action, resource_type="work_item_workflow", resource_id=row.id,
+                    project_id=row.project_id,
                     details={"workflow_name": row.name, **details}))
 
 
 def require_current_version(row: WorkItemWorkflowDefinition, expected: object) -> None:
-    """409 ``workflow_stale`` when the change was made against an older version of the workflow (r8).
-
-    ``expected`` is the ``updated_at`` the client loaded (any ISO form); without one there is no check.
-    """
+    # Without ``expected`` there is no check.
     if expected in (None, ""):
         return
     if parse_datetime(expected) != row.updated_at:
@@ -136,7 +119,7 @@ async def update_workflow_definition(
     )
 
     row = await get_workflow_definition(db, workflow_id)
-    await require_workflow_access(db, current_user, row, change=True)  # C-4
+    await require_workflow_access(db, current_user, row, change=True)
     require_current_version(row, payload.get("updated_at"))
     changed = sorted(key for key in _EDITABLE if key in payload)
     if "name" in payload:
@@ -176,7 +159,7 @@ async def set_workflow_active(
     from .workflow_mapping import get_workflow_definition
 
     row = await get_workflow_definition(db, workflow_id)
-    await require_workflow_access(db, current_user, row, change=True)  # C-4
+    await require_workflow_access(db, current_user, row, change=True)
     require_current_version(row, expected_updated_at)
     row.is_active = active
     row.updated_by = current_user.id

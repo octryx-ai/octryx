@@ -95,8 +95,6 @@ export type AdminRuntimeSettings = {
     label: string;
     description: string;
   }>;
-  default_completion_tokens: number;
-  extended_completion_tokens: number;
   approx_chars_per_token: number;
   trace_max_string: number;
   trace_max_list_items: number;
@@ -115,11 +113,6 @@ export type AdminRuntimeSettings = {
     project_session_cost_limit_usd: number | null;
     project_request_cost_limit_usd: number | null;
   };
-  llm_cache_ttl_seconds: number;
-  llm_cache_tools_ttl_seconds: number;
-  llm_tool_planner_trace_call_enabled: boolean;
-  llm_tool_planner_max_tokens: number;
-  llm_tool_planner_timeout_seconds: number;
 };
 
 export type AdminCorpIdentityColor = {
@@ -201,8 +194,7 @@ export type RuntimePanelSection =
   | "routing"
   | "execution"
   | "limits"
-  | "fallback"
-  | "compression";
+  | "fallback";
 
 export const RUNTIME_PANEL_SECTIONS: Array<{
   id: RuntimePanelSection;
@@ -245,33 +237,4 @@ export const RUNTIME_PANEL_SECTIONS: Array<{
     description:
       "Decide explicitly what happens when the first runtime in the chain is exhausted.",
   },
-  {
-    id: "compression",
-    label: "Compression",
-    description:
-      "Compress large connector results before they are sent back into a model.",
-  },
 ];
-
-export type AdminToolResultCompressor = {
-  id: string;
-  tool_name: string;
-  strategy: string;
-  config: Record<string, unknown>;
-  is_active: boolean;
-  created_at: string | null;
-  updated_at: string | null;
-};
-
-export type AdminToolResultCompressionLog = {
-  id: string;
-  session_id: string;
-  tool_name: string;
-  compressor_id: string | null;
-  strategy: string;
-  original_tokens: number;
-  compressed_tokens: number;
-  compression_ratio: number;
-  request_id: string | null;
-  created_at: string | null;
-};

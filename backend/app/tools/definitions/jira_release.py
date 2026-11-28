@@ -1,10 +1,4 @@
-"""Schema of the live Jira release status tool.
-
-No scope property: the Workspace comes from the run's server-side ``ToolContext``, and the Jira
-project from the Workspace connector's explicit product mapping. Merged into
-``get_jira_definitions``, so it is a ``jira`` connector tool: visible only where the Workspace
-activates Jira, with read risk (it is not in the mutating set) and audited as a connector call.
-"""
+"""Schema of the live Jira release status tool."""
 
 from __future__ import annotations
 

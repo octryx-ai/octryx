@@ -13,7 +13,6 @@ from sqlalchemy.orm import selectinload
 from ...models import FlowDefinition, FlowDefinitionVersion, User
 from ...time_utils import utc_now
 from ..access_control import require_existing_workspace
-from ..flow_orchestration.flow_agent_reference import with_agent_reference_errors
 from ..flow_v2_validation_support import _scan_secret_values
 from ..workflow_runs.fragments.store import (
     COMPOSITION_KEY,
@@ -38,10 +37,11 @@ async def compose_or_refuse(
         raise HTTPException(status_code=422, detail={"valid": False, "errors": errors, "warnings": []}) from None
 
 
-async def _new_flow_identity(db: AsyncSession, payload: dict[str, Any]) -> tuple[str | None, str, str, Any]:
-    """The project, key, name and definition of a new flow, refused when invalid or already taken."""
+async def _new_flow_identity(
+    db: AsyncSession, user_id: str, payload: dict[str, Any]
+) -> tuple[str | None, str, str, Any]:
     project_id = str(payload.get("project_id") or "").strip() or None
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, user_id, project_id)
     key = str(payload.get("key") or "").strip()
     name = str(payload.get("name") or "").strip()
     definition_payload = payload.get("definition") or {}
@@ -72,7 +72,7 @@ def _refuse_invalid_draft(definition: dict[str, Any], validation_report: dict[st
 
 
 async def create_flow_definition(db: AsyncSession, *, current_user: User, payload: dict[str, Any]) -> dict[str, Any]:
-    project_id, key, name, definition_payload = await _new_flow_identity(db, payload)
+    project_id, key, name, definition_payload = await _new_flow_identity(db, current_user.id, payload)
     runtime_settings = dict(payload.get("runtime_settings") or {})
     # A composite source is compiled against its pinned fragments; the compiled graph is what is stored.
     definition, composition = await compose_or_refuse(
@@ -81,9 +81,7 @@ async def create_flow_definition(db: AsyncSession, *, current_user: User, payloa
     )
     if composition is not None:
         runtime_settings[COMPOSITION_KEY] = composition
-    validation_report = await with_agent_reference_errors(
-        db, definition, validate_flow_definition(definition), user_id=current_user.id, project_id=project_id
-    )
+    validation_report = validate_flow_definition(definition)
     validation_report = report_with_composition(validation_report, composition)
     _refuse_invalid_draft(definition, validation_report)
     now = utc_now()

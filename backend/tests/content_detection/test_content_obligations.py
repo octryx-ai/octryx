@@ -1,9 +1,5 @@
-"""Custom-policy obligations at the gateway of external coding agents: never applied there (owner decision).
-
-A deciding policy that asks to mask or reroute refuses the request (``content_handling_gateway_refused``) on the seat
-and on the governed route: nothing is masked, nothing is routed, nothing reaches any upstream. A plain block keeps
-``content_policy_denied``; shadow sends unchanged.
-"""
+"""Custom-policy obligations at the gateway of external coding agents: applied there, as on platform calls (a reroute
+leaves the seat for the company route; a mask masks, then decides again)."""
 
 from __future__ import annotations
 
@@ -14,7 +10,7 @@ import httpx
 import pytest
 from sqlalchemy import select
 
-from app.models import ContentConversationState, PolicyDecisionLog
+from app.models import PolicyDecisionLog
 from app.services.model_gateway.inbound import upstream as inbound_upstream
 from app.services.policy_engine.decision_log import flush_decision_log
 from tests.agent_gateway.seat_presence_support import (
@@ -27,7 +23,6 @@ from tests.content_detection.content_obligations_support import (
     EMAIL,
     ROUTE_GOVERNED,
     ROUTED,
-    ROUTED_ID,
     _governed_alias,
 )
 from tests.model_gateway.inbound_gateway_support import STREAM
@@ -35,11 +30,10 @@ from tests.model_gateway.test_inbound_anthropic_gateway import _request_body
 from tests.policy_engine_support import use_custom_policies
 
 HOOK_EXECUTED = "/api/v1/agent-gateway/sessions/tool-executed"
-#: The gateway examines credentials and credential assignments only (C12F-08): its policy tests name an assignment.
+#: The gateway examines credentials and credential assignments only: its policy tests name an assignment.
 ASSIGNMENT = "password=Hunter2024x"
 GATEWAY_TEXT = f"login {ASSIGNMENT} declined"
 GATEWAY_ROUTED = ROUTED.replace('containsAny(["email", "phone"])', 'contains("credential_assignment")')
-
 
 
 class FakeLiteLLM:
@@ -86,17 +80,14 @@ async def _seat(client, db, *, approved=("pii",), grant=True):
 
 @pytest.mark.committed_db  # the seat call records in its own session (see test_seat_presence)
 @pytest.mark.asyncio
-async def test_a_seat_request_a_routing_policy_denies_is_refused_never_routed(client, db, anthropic, litellm):
+async def test_a_seat_request_a_routing_policy_denies_goes_to_the_policys_alias(client, db, anthropic, litellm):
     _workspace, gateway, credential = await _seat(client, db)
     use_custom_policies(GATEWAY_ROUTED, mode="enforce")
     response = await client.post(SEAT, json=_seat_body(GATEWAY_TEXT), headers=_seat_headers(gateway, credential))
-    assert response.status_code == 403
-    assert response.headers["x-octryx-gateway-reason"] == "content_handling_gateway_refused"
-    message = response.json()["error"]["message"]
-    assert ROUTED_ID in message and "Hunter2024x" not in message
-    assert anthropic.requests == [] and litellm.requests == [], "never the seat, never the governed alias"
-    assert [row for row in await _records(db) if row.outcome in ("remedied", "would_remedy")] == []
-    assert (await db.execute(select(ContentConversationState))).scalars().all() == []
+    assert response.status_code == 200, response.text
+    assert anthropic.requests == [], "never the person's subscription"
+    (sent,) = litellm.bodies()
+    assert "Hunter2024x" not in json.dumps(sent), "masked on the way (the Workspace's default)"
 
 
 @pytest.mark.committed_db  # the seat call records in its own session (see test_seat_presence)
@@ -106,17 +97,20 @@ async def test_shadow_sends_unchanged(client, db, anthropic, litellm):
     use_custom_policies(ROUTED, mode="shadow")
     response = await client.post(SEAT, json=_seat_body(f"mail {EMAIL}"), headers=_seat_headers(gateway, credential))
     assert response.status_code == 200 and len(anthropic.requests) == 1 and litellm.requests == []
-    assert EMAIL in anthropic.requests[0].content.decode()
+    assert EMAIL in anthropic.requests[0].content.decode(), "unchanged: the gateway's default sends email as is"
     assert [row for row in await _records(db) if row.outcome == "would_remedy"] == []
 
 
 @pytest.mark.asyncio
-async def test_a_governed_mask_obligation_refuses_and_a_plain_block_keeps_its_reason(client, db, gateway_setup):
+async def test_a_governed_mask_obligation_masks_and_a_plain_block_keeps_its_reason(client, db, gateway_setup):
     fake, build = gateway_setup
     headers = await build()
     use_custom_policies(GATEWAY_ROUTED, mode="enforce")
     masked = await client.post(ROUTE_GOVERNED, json=_request_body(newest_text=GATEWAY_TEXT), headers=headers)
-    assert masked.headers["x-octryx-gateway-reason"] == "content_handling_gateway_refused"
+    assert masked.status_code == 200, masked.text
+    (sent,) = fake.requests
+    assert "Hunter2024x" not in sent.content.decode()
+    fake.requests.clear()
     block = ('@id("no-mail")\nforbid (principal, action == Action::"call_model", resource)\n'
              'when { context.content.detected.contains("credential_assignment") };')
     use_custom_policies(GATEWAY_ROUTED + "\n" + block, mode="enforce")

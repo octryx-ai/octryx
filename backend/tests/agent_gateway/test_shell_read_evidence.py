@@ -1,9 +1,4 @@
-"""A plain shell read counts as read evidence (Claude Code and Codex).
-
-Only when all three hold: a plain read command inside the bound repository (same parser as the hard-deny list), the
-hook reported it as succeeded, and the gateway transcript holds the same call. Negative cases: redirection into a
-file, a pipe into a writer, paths outside the repository, substitutions, writers, a call the transcript never saw.
-"""
+"""A plain shell read counts as read evidence (Claude Code and Codex)."""
 
 from __future__ import annotations
 
@@ -27,7 +22,7 @@ from tests.workflow_run_runtime_evidence_support import ROOT, _device_session, _
     ("ls -la", "list_workspace_directory", "."),
     ("find src -name '*.py'", "glob_workspace_files", "src"),
     ("cat README.md && ls tests", "read_workspace_file", "README.md"),
-    ("ls -la src && cat README.md", "read_workspace_file", "README.md"),  # the strongest read counts
+    ("ls -la src && cat README.md", "read_workspace_file", "README.md"),
     ("find . -name '*.py' && rg -n wrap src", "grep_workspace", "src"),
 ])
 def test_plain_reads_inside_the_repository(command, tool, path):
@@ -36,18 +31,18 @@ def test_plain_reads_inside_the_repository(command, tool, path):
 
 
 @pytest.mark.parametrize("command", [
-    "cat x > y",                       # redirection into a file
+    "cat x > y",
     "cat x >> y",
-    "cat x | tee y",                   # a pipe into a writer
-    "sed -i 's/a/b/' x",               # an in-place edit
-    "sed -n '1p;w out' x",             # a sed script that writes
-    "find . -delete",                  # a find action
+    "cat x | tee y",
+    "sed -i 's/a/b/' x",
+    "sed -n '1p;w out' x",
+    "find . -delete",
     r"find . -exec rm {} \;",
-    "cat $(echo x)",                   # substitution
-    "cat $HOME/x",                     # a variable
+    "cat $(echo x)",
+    "cat $HOME/x",
     "cd src && cat app.py",            # cd changes what the paths mean
-    "FOO=1 cat x",                     # an environment assignment
-    "env cat x",                       # a wrapper
+    "FOO=1 cat x",
+    "env cat x",
     "python -c 'print(open(\"x\").read())'",
     "pytest -q",
     "cat 'unbalanced",
@@ -67,7 +62,7 @@ def test_the_hook_target_of_a_shell_read():
     target = read_target(session, {"tool_name": "Bash", "tool_input": {"command": "cat src/app.py"}, "cwd": ROOT})
     assert target == {"tool": "Bash", "read_tool": "read_workspace_file", "in_root": True, "path": "src/app.py"}
     assert read_target(Session(metadata_={}), {"tool_name": "Bash", "tool_input": {"command": "cat a.py"},
-                                               "cwd": ROOT})["in_root"] is False  # no bound root
+                                               "cwd": ROOT})["in_root"] is False
 
 
 @pytest.mark.asyncio

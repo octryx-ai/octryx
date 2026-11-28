@@ -1,8 +1,4 @@
-"""The capability a governed session gets outside a workflow run: its working root, permission mode and class.
-
-:func:`effective_capability` records the class on the gateway session (``metadata.effective_capability``);
-``capability.py`` enforces it on every PreToolUse.
-"""
+"""The capability a governed session gets outside a workflow run: its working root, permission mode and class."""
 
 from __future__ import annotations
 
@@ -60,15 +56,12 @@ def _mode(hook_input: dict[str, Any] | None) -> str:
 
 
 def _home_of(hook_input: dict[str, Any] | None) -> str:
-    """The person's home folder, from Claude Code's transcript path (``<home>/.claude*/projects/...``)."""
     path = str((hook_input or {}).get("transcript_path") or "")
     marker = path.find("/.claude")
     return posixpath.normpath(path[:marker]) if marker > 0 else ""
 
 
 def project_folder(cwd: str, hook_input: dict[str, Any] | None = None) -> str | None:
-    """``cwd`` when it can be a session's working root: a folder below the home folder (or any project folder),
-    never the home folder itself, a volume, temp or a system folder."""
     if not cwd.startswith("/"):
         return None
     folder = posixpath.normpath(cwd)
@@ -89,8 +82,6 @@ def project_folder(cwd: str, hook_input: dict[str, Any] | None = None) -> str | 
 
 
 def _session_root(session: Session, hook_input: dict[str, Any] | None) -> str | None:
-    """The folder the session works in: its bound repository, else the folder of its first checked tool call when
-    that is a project folder (never home, a volume, temp or a system folder)."""
     bound = _bound_root(session)
     if bound is not None:
         return bound
@@ -104,15 +95,6 @@ def _session_root(session: Session, hook_input: dict[str, Any] | None) -> str | 
 async def effective_capability(db: AsyncSession, *, session: Session, session_key: str,
                                hook_input: dict[str, Any] | None = None,
                                free_sessions: str = "follow_permission_mode") -> EffectiveCapability:
-    """Outside a workflow run:
-
-    - the session follows the person's Claude Code permission mode: ``plan`` reads only; every other mode (default,
-      acceptEdits, bypassPermissions) may change and deliver inside the session's own folder
-      (:func:`_session_root`);
-    - a strict Workspace keeps such sessions read-only (``agent_gateway_policy.free_sessions = "read_only"``);
-    - the platform's deny rules still apply in every mode: the destructive patterns of the execution policy, the
-      Workspace's tool rules (no push to main, no force push, ...), the credential store, the analysis sessions.
-    """
     mode = _mode(hook_input)
     root = _session_root(session, hook_input)
     if free_sessions == "read_only" or mode == "plan" or root is None:

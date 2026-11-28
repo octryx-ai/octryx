@@ -4,9 +4,13 @@ kind: Ingress
 metadata:
   name: {{ include "octryx.fullname" . }}
   labels: {{- include "octryx.labels" . | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
-  annotations: {{- toYaml . | nindent 4 }}
-  {{- end }}
+  annotations:
+    {{- with .Values.ingress.maxBodySize }}
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- with .Values.ingress.className }}
   ingressClassName: {{ . }}

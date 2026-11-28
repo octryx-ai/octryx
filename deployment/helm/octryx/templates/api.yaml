@@ -43,7 +43,11 @@ spec:
         - name: migrate
           image: {{ include "octryx.image" .Values.images.api }}
           imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          {{- if .Values.database.internal }}
+          command: ["sh", "-c", "python -m app.services.model_gateway.bundled_litellm && python -m alembic upgrade head"]
+          {{- else }}
           command: ["python", "-m", "alembic", "upgrade", "head"]
+          {{- end }}
           securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
             runAsUser: 10001
             runAsGroup: 10001
@@ -70,6 +74,9 @@ spec:
             {{- with .Values.model.endpointUrl }}
             - {name: LLM_ENDPOINT_URL, value: {{ . | quote }}}
             {{- end }}
+            # The bundled LiteLLM sidecar on the pod's loopback; the api mints its own virtual key with the master key.
+            - {name: OCTRYX_BUNDLED_LITELLM_URL, value: "http://127.0.0.1:4000"}
+            - {name: OCTRYX_BUNDLED_LITELLM_MASTER_KEY_FILE, value: /run/octryx-litellm/master_key}
             # Knowledge: evidence index in PostgreSQL; originals in the S3-compatible object store.
             - {name: HF_HUB_OFFLINE, value: "1"}
             {{- with .Values.objectStore.endpoint }}
@@ -81,6 +88,10 @@ spec:
             - {name: OCTRYX_KNOWLEDGE_PARSER_SOCKET, value: /run/octryx-parser/docling.sock}
             - {name: OCTRYX_KNOWLEDGE_PARSER_VERSION, value: {{ .Values.parser.version | quote }}}
             {{- end }}
+            {{- if .Values.runners.enabled }}
+            # The container runtime every server runner must report (runners.runtimeClassName).
+            - {name: RUNNER_RUNTIME, value: {{ .Values.runners.runtimeClassName | quote }}}
+            {{- end }}
             {{- range $name, $value := .Values.extraEnv }}
             - {name: {{ $name }}, value: {{ $value | quote }}}
             {{- end }}
@@ -89,6 +100,7 @@ spec:
             - {name: app-data, mountPath: /app/data}
             - {name: uploads, mountPath: /app/uploads}
             - {name: tmp, mountPath: /tmp}
+            - {name: litellm-master-key, mountPath: /run/octryx-litellm, readOnly: true}
             {{- if .Values.parser.enabled }}
             - {name: parser-socket, mountPath: /run/octryx-parser}
             {{- end }}
@@ -117,6 +129,43 @@ spec:
             failureThreshold: 5
           resources: {{- toYaml .Values.resources.api | nindent 12 }}
           volumeMounts: *apiMounts
+        # The model gateway every model call goes through, on the pod's loopback only: no Service, no port, so
+        # neither a runner nor anything outside the pod reaches it. No UI, no message, spend or error logging.
+        - name: litellm
+          image: {{ include "octryx.image" .Values.images.litellm }}
+          imagePullPolicy: {{ .Values.images.litellm.pullPolicy }}
+          command: ["litellm", "--config", "/etc/litellm/config.yaml", "--host", "127.0.0.1", "--port", "4000"]
+          # Root without any capability: LiteLLM writes its Prisma migrations into its own package folder at start.
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+            runAsUser: 0
+            runAsNonRoot: false
+          env:
+            - name: LITELLM_MASTER_KEY
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: LITELLM_MASTER_KEY}}
+            - name: LITELLM_SALT_KEY
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: LITELLM_SALT_KEY}}
+            {{- if .Values.database.internal }}
+            - name: POSTGRES_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: POSTGRES_PASSWORD}}
+            - {name: DATABASE_URL, value: "postgresql://octryx:$(POSTGRES_PASSWORD)@{{ $fullname }}-postgres:5432/litellm"}
+            {{- else }}
+            - name: DATABASE_URL
+              valueFrom: {secretKeyRef: {name: {{ $secret }}, key: LITELLM_DATABASE_URL}}
+            {{- end }}
+            - {name: STORE_MODEL_IN_DB, value: "True"}
+            - {name: DISABLE_ADMIN_UI, value: "True"}
+            - {name: LITELLM_TELEMETRY, value: "False"}
+            - {name: HOME, value: /tmp}
+          readinessProbe:
+            # An exec probe: the kubelet's own HTTP probe cannot reach the pod's loopback.
+            exec:
+              command: ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=4)"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources: {{- toYaml .Values.resources.litellm | nindent 12 }}
+          volumeMounts:
+            - {name: litellm-config, mountPath: /etc/litellm, readOnly: true}
+            - {name: litellm-tmp, mountPath: /tmp}
         {{- if .Values.parser.enabled }}
         # Docling as a sidecar on a Unix socket: PDF, HTML and Office uploads. Without it those answer
         # needs_configuration; Markdown and plain text are ingested anyway.
@@ -151,6 +200,14 @@ spec:
           {{- end }}
         {{- end }}
         - {name: tmp, emptyDir: {}}
+        - {name: litellm-tmp, emptyDir: {}}
+        - name: litellm-config
+          configMap: {name: {{ $fullname }}-litellm}
+        - name: litellm-master-key
+          secret:
+            secretName: {{ $secret }}
+            items: [{key: LITELLM_MASTER_KEY, path: master_key}]
+            defaultMode: 0440  # the api reads it through the pod's fsGroup
         {{- if .Values.parser.enabled }}
         - {name: parser-socket, emptyDir: {}}
         {{- end }}

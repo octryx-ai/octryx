@@ -1,16 +1,4 @@
-"""Linkage inputs: variant families and placeholder values of configured settings.
-
-- **Families.** A profile variant file (``app.ini-test``) is judged together with its base file
-  (``app.ini``): the settings with the same repository, base path, section, key and occurrence
-  (the n-th time the key appears in its section) form one family. Its *lead* is the base file's
-  setting (or, without one, the first variant's); every finding is stated once, on the lead, and
-  lists the variants. A file without a base counterpart leads its own families.
-- **Placeholders.** A value holding the profile placeholder (``${Dec_ThreadCount}``) is resolved
-  from the placeholder sources of the same repository and component (profile
-  ``placeholder_sources``: key=value files such as ``*_config.properties``), recursively up to
-  :data:`MAX_DEPTH`. A name no source defines, a redacted definition or a cycle leaves the value
-  *unresolved*: it is never compared with a default or with another component's value.
-"""
+"""Linkage inputs: variant families and placeholder values of configured settings."""
 
 from __future__ import annotations
 
@@ -27,8 +15,6 @@ MAX_DEPTH = 5
 
 @dataclass(frozen=True, slots=True)
 class NodeRow:
-    """A structured node as the linkage reads it."""
-
     node_id: str
     node_type: str
     revision_id: str
@@ -53,7 +39,6 @@ class Family:
 
 
 def families(settings: list[NodeRow]) -> list[Family]:
-    """The settings grouped by variant family, in the order of each family's first setting."""
     occurrence: dict[tuple, int] = {}
     grouped: dict[tuple, list[tuple[int, NodeRow]]] = {}
     ordered = sorted(enumerate(settings), key=lambda item: (item[1].properties.get("path") or "", item[1].line or 0))
@@ -76,8 +61,6 @@ def families(settings: list[NodeRow]) -> list[Family]:
 
 @dataclass(frozen=True, slots=True)
 class Resolved:
-    """A setting's value after placeholder substitution; ``value`` is ``None`` when it stays unresolved."""
-
     raw: str
     value: str | None
     unresolved: tuple[str, ...] = ()
@@ -89,8 +72,6 @@ class Resolved:
 
 
 class Placeholders:
-    """Placeholder definitions per ``(repository, component)`` from the profile's placeholder sources."""
-
     def __init__(self, settings: list[NodeRow], pattern: ProfilePattern | None, sources: tuple[str, ...]) -> None:
         self.pattern = pattern
         self._defined: dict[tuple[Any, Any], dict[str, NodeRow]] = {}
@@ -142,7 +123,6 @@ class Placeholders:
 
 
 def variant_item(setting: NodeRow, resolved: Resolved | None = None, **extra: Any) -> dict[str, Any]:
-    """A variant as an edge property: where it is and what it holds (never a redacted value)."""
     props = setting.properties
     item = {"path": props.get("path"), "variant": props.get("variant"), "line": props.get("line"),
             "value": props.get("value")}

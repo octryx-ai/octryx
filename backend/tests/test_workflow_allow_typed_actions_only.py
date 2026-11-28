@@ -1,8 +1,5 @@
-"""Only a platform catalog action counts as allowed by its published workflow.
-
-A free ``tool`` step of a definition can name any tool; it keeps needing the project's explicit allow for a high-risk
-tool, so its tool context is not marked as a workflow platform action.
-"""
+"""Only a platform catalog action counts as allowed by its published workflow; a free ``tool`` step still
+needs the project's explicit allow for a high-risk tool."""
 
 from __future__ import annotations
 

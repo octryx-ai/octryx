@@ -1,20 +1,4 @@
-"""The presentation *arc*: agenda, section headers, statement, three topics.
-
-A plain plan produces a correct deck that reads like a report: title, then eleven bullet
-slides. A template that ships dozens of layouts, and whose own sample slides use
-many of them, is telling us something the planner ignored — a deck has an opening
-figure, an agenda, and headers that separate one block of thought from the
-next.
-
-Every slide here is optional in exactly the same way: it exists only if the
-template offers a layout that can carry it. There is no drawn substitute and no
-forced fallback onto a bullet layout that would then render half empty — a
-template without a section layout simply gets a deck without section headers,
-and the deck stays correct.
-
-The evidence rule is unchanged: these slides carry no claim that is not already
-sourced from the snapshot.
-"""
+"""The presentation *arc*: agenda, section headers, statement, three topics."""
 
 from __future__ import annotations
 
@@ -57,13 +41,6 @@ AGENDA_TITLE = "Agenda"
 def template_offers(
     template_snapshot: dict[str, Any], shapes: tuple[str, ...], *, units: int, subtitle: bool
 ) -> bool:
-    """True when some layout of one of these shapes can hold the slide.
-
-    Checked against capacity, never against layout names — the same rule the
-    rest of the planner follows. Legibility counts as capacity: a layout that
-    would render its title invisible cannot carry a titled slide, so it does
-    not make its shape "available" either.
-    """
     for layout in template_snapshot.get("layouts") or ():
         if not isinstance(layout, dict) or text(layout.get("content_shape")) not in shapes:
             continue
@@ -86,11 +63,6 @@ def template_offers(
 
 
 def section_draft(title: str, position: int) -> SlideDraft:
-    """A divider slide. It carries the section name and nothing else.
-
-    No subtitle: there is no sourced sentence to put there, and the planner
-    does not write one to make the layout look fuller.
-    """
     return SlideDraft(
         title=title,
         source=f"Planner: section {position} of this deck",
@@ -100,19 +72,6 @@ def section_draft(title: str, position: int) -> SlideDraft:
 
 
 def divider_layout_key(template_snapshot: dict[str, Any]) -> str:
-    """A section layout that visibly interrupts the flow, if the template has one.
-
-    Corporate templates often ship two: a plain section header (dark title on the
-    same plain background the content slides use) and a variant that paints the
-    brand backdrop behind a light title. Both are legible, so the gate is silent, and template order puts
-    the plain one first — which rendered a divider that divides nothing.
-
-    The rule is structural rather than decorative: a divider exists to separate
-    two blocks of content slides, so a layout painting its own backdrop does
-    the job and one sharing the content background does not. When no section
-    layout paints a backdrop, this returns ``""`` and the template's own order
-    decides.
-    """
     for layout in template_snapshot.get("layouts") or ():
         if not isinstance(layout, dict) or text(layout.get("content_shape")) != "section":
             continue
@@ -122,7 +81,6 @@ def divider_layout_key(template_snapshot: dict[str, Any]) -> str:
 
 
 def agenda_draft(section_titles: list[str]) -> SlideDraft:
-    """The deck's own table of contents — sourced from the deck's structure."""
     draft = SlideDraft(
         title=AGENDA_TITLE,
         source="Planner: sections of this deck",
@@ -140,11 +98,6 @@ def agenda_draft(section_titles: list[str]) -> SlideDraft:
 
 
 def statement_draft(aws_snapshot: dict[str, Any], summary: dict[str, Any]) -> SlideDraft | None:
-    """One slide, one number: how much architecture was actually found.
-
-    Returns ``None`` when the snapshot does not state that number — an empty
-    statement slide would be the loudest possible way to say nothing.
-    """
     node_count = int_or_none(summary.get("resource_node_count"))
     if node_count is None:
         return None
@@ -179,13 +132,6 @@ def statement_draft(aws_snapshot: dict[str, Any], summary: dict[str, Any]) -> Sl
 def topics_draft(
     aws_snapshot: dict[str, Any], summary: dict[str, Any], scope: dict[str, Any]
 ) -> SlideDraft | None:
-    """Three figures of equal rank, one per column.
-
-    Each column is a number and what it counts — the heading carries the
-    figure, the line under it says what it measures. Built only when all three
-    figures exist; the layout has three columns and the planner does not leave
-    one of them empty.
-    """
     regions = string_list(scope.get("regions")) or [text(aws_snapshot.get("region"))]
     regions = [region for region in regions if region]
     node_counts = counts(summary.get("node_counts_by_type"))

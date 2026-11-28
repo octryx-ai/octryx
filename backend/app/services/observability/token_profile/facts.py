@@ -1,11 +1,4 @@
-"""The facts the savings rules and the top consumers are read from, per scope (pure).
-
-- ``group``: one tool with the same input (the launcher's digest of the whole input; for earlier runs the stored
-  preview: the command or the file path): how often, how large, what it cost in all the calls that carried it;
-- ``path``: one file read, whatever the arguments (the digest of its path; earlier runs: the path);
-- ``job``: one session: the prompt-cache write of its last call, never read again (measured turns only);
-- ``phase``: one phase: calls, the average input a call carried (known only when every turn was measured), compactions.
-"""
+"""The facts the savings rules and the top consumers are read from, per scope (pure)."""
 
 from __future__ import annotations
 
@@ -20,12 +13,10 @@ LABEL_CHARS = 80
 
 
 def short_tool(tool: str) -> str:
-    """``mcp__server__name`` → ``name``: the tool as a person knows it."""
     return tool.rsplit("__", 1)[-1] if tool.startswith("mcp__") else tool
 
 
 def _label(tool: str, preview: str) -> str:
-    """The tool and its input in one line; a long one keeps its end (a file path's name) and loses its middle."""
     name, text = short_tool(tool), " ".join(preview.split())
     room = LABEL_CHARS - len(name) - 1
     if len(text) > room:

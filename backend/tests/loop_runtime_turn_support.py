@@ -1,10 +1,5 @@
-"""Dependency bundle for driving the real ``execute_runtime_turn``.
-
-``execute_runtime_turn`` takes every collaborator as a field of its ``RuntimeTurnInputs``.
-This module supplies inert stand-ins for all of them, so a test overrides
-only the few it is actually about — the dispatched response, the usage
-recorder, the database — and still runs the real turn body.
-"""
+"""Inert stand-ins for every collaborator of ``execute_runtime_turn``, so a test overrides only the few it is about
+and still runs the real turn body."""
 
 from __future__ import annotations
 
@@ -67,7 +62,6 @@ def _normalize_runtime_chat_result(result):
 
 
 def _runtime_turn_state() -> dict[str, Any]:
-    """Session, request and step-loop state of a fresh turn."""
     return {
         "db": None,
         "session_id": "session-1",
@@ -109,7 +103,6 @@ def _runtime_turn_state() -> dict[str, Any]:
 
 
 def _runtime_turn_collaborators() -> dict[str, Any]:
-    """Inert collaborators: no dispatch, no-op persistence and permissive or negative predicates."""
     return {
         "chat_with_runtime_fallback": _chat_with_runtime_fallback,
         "normalize_runtime_chat_result": _normalize_runtime_chat_result,

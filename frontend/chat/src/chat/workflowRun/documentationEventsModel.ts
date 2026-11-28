@@ -1,10 +1,3 @@
-// The run's documentation events (workflow_runs/documentation/auto_pages.py) as history lines:
-// - `documentation_page_written` (detail: title, url, page_id, version, slot): "Page written: <title>", links the page;
-// - `documentation_skipped` (detail.reason): "Documentation skipped: <reason in words>", links the Documentation
-//   target card where the Workspace can fix it;
-// - `documentation_failed` (detail.reason: a code or the Confluence error's text): "Documentation failed: <reason>".
-// Pure: no React.
-
 import { workspaceSectionHref } from "../../admin/components/projectsTab/workspaceSettingsLink";
 
 export const DOCUMENTATION_EVENTS = ["documentation_page_written", "documentation_skipped", "documentation_failed"] as const;
@@ -12,7 +5,6 @@ export const DOCUMENTATION_EVENTS = ["documentation_page_written", "documentatio
 export type RunHistoryLink = { href: string; label: string; external: boolean };
 export type DocumentationLine = { title: string; text: string; tone: "neutral" | "attention" | "problem"; link?: RunHistoryLink };
 
-// The skip and stop codes auto_pages.py records, in words.
 const REASONS: Record<string, string> = {
   no_parent_page: "no parent page set in Documentation target",
   no_documentation_space: "no space set in Documentation target",
@@ -29,11 +21,9 @@ const REASONS: Record<string, string> = {
   no_epic_story: "the story has no epic",
 };
 
-// Reasons the Workspace fixes in its Documentation target card.
 const FIXED_IN_CARD = new Set(["no_parent_page", "no_documentation_space", "auto_publish_off", "target_drift",
   "no_confluence_connection", "space_not_allowed", "parent_elsewhere"]);
 
-/** A reason code in words; an unknown code with underscores reads as words, a Confluence message stays as it is. */
 export function documentationReasonText(reason: unknown): string {
   const value = String(reason ?? "").trim();
   if (!value) return "no reason given";
@@ -46,7 +36,6 @@ const safeUrl = (value: unknown) => {
   return /^https?:\/\//i.test(url) ? url : "";
 };
 
-/** The line for a documentation event, or null for any other event. */
 export function documentationLine(kind: string, detail: Record<string, unknown>, projectId?: string | null): DocumentationLine | null {
   const reason = String(detail.reason ?? "").trim();
   if (kind === "documentation_page_written") {

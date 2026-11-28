@@ -1,14 +1,4 @@
-"""The newest turn of an Anthropic Messages request, read structurally.
-
-A client like Claude Code resends the whole conversation on every call. What is
-new on a call is everything *after the last* ``assistant`` message: the user's
-prompt, tool results, or both, and any trailing ``system``-role message the
-client appends after the user turn. The
-``tool_use`` blocks those results answer are in that last assistant message.
-Inline ``system`` texts are scanned like the rest of the turn but are never
-recorded as the user's words. Everything here is pure: it reads the parsed
-request body and never touches the database.
-"""
+"""The newest turn of an Anthropic Messages request (everything after the last assistant message), read structurally."""
 
 from __future__ import annotations
 
@@ -36,16 +26,12 @@ class ToolResultBlock:
 
 @dataclass(frozen=True, slots=True)
 class TurnDelta:
-    """What a request adds to the conversation."""
-
     user_texts: tuple[str, ...]
     tool_results: tuple[ToolResultBlock, ...]
     prior_tool_uses: tuple[ToolUseBlock, ...]
     inline_system_texts: tuple[str, ...] = ()
 
     def prompt_text(self) -> str:
-        """The user's own words: text blocks that are not a ``<system-reminder>``."""
-
         return "\n\n".join(
             text for text in self.user_texts if not text.strip().startswith(SYSTEM_REMINDER_PREFIX)
         ).strip()
@@ -65,8 +51,6 @@ def _text_of(block: Mapping[str, Any]) -> str:
 
 
 def tool_result_text(block: Mapping[str, Any]) -> str:
-    """The textual content of one ``tool_result`` block (string or text blocks)."""
-
     return "\n".join(filter(None, (_text_of(item) for item in _blocks(block.get("content")))))
 
 
@@ -102,8 +86,6 @@ def _prior_tool_uses(message: Any) -> list[ToolUseBlock]:
 
 
 def newest_turn(messages: Any) -> TurnDelta:
-    """Everything after the last assistant message, and the tool uses it answers."""
-
     items = messages if isinstance(messages, list) else []
     assistant_index = _last_assistant_index(items)
     tail = items[assistant_index + 1 :] if assistant_index is not None else items
@@ -137,13 +119,8 @@ def newest_turn(messages: Any) -> TurnDelta:
     return TurnDelta(tuple(user_texts), tuple(results), tuple(prior), tuple(inline_system))
 
 
+# Earlier turns were scanned when they were new, so the conversation is not rescanned on every call.
 def scanned_texts(body: Mapping[str, Any]) -> list[str]:
-    """The texts the content guard scans: the system prompt and the newest turn.
-
-    Earlier turns were scanned when they were new, so the conversation is not
-    rescanned on every call.
-    """
-
     delta = newest_turn(body.get("messages"))
     return [
         *system_texts(body.get("system")),

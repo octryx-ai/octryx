@@ -1,16 +1,4 @@
-"""A connection's recent errors and what still uses it (``recent_errors`` of the detail, the ``409`` of ``DELETE``).
-
-``recent_errors`` (newest first, at most :data:`MAX_ERRORS`), each ``{at, use, code, message}``: ``code`` is the
-recorded code, ``message`` its sentence (``error_sentences.py``), never a source system's text:
-
-- ``knowledge``: failed or refused runs of its Knowledge sources (the run's fixed ``reason``);
-- ``tickets``: intake runs with an error (``work_item_sync_runs.error``);
-- ``agent_tools`` / ``knowledge`` / ``tickets``: the runtime use that marked the connection ``failing``
-  (``named_connections/runtime_state.py``, code ``source_unauthorized``) while it still is.
-
-In use (``connection_in_use``): Knowledge sources naming it (``connection_id`` or a ``scope.connection_id`` pin),
-intakes naming it and skill sources reading through it. Messages are truncated; nothing secret is stored there.
-"""
+"""A connection's recent errors and what still uses it (``recent_errors`` of the detail, the ``409`` of ``DELETE``)."""
 
 from __future__ import annotations
 
@@ -64,7 +52,6 @@ async def recent_errors(db: AsyncSession, row: ConnectorNamedConnection, knowled
 
 
 async def in_use(db: AsyncSession, row: ConnectorNamedConnection) -> list[dict[str, Any]]:
-    """Everything that still reads through the connection (``409 connection_in_use`` lists it)."""
     users: list[dict[str, Any]] = []
     sources = (await db.execute(select(KnowledgeSourceConnector).where(
         KnowledgeSourceConnector.kind == row.tool_name))).scalars().all()

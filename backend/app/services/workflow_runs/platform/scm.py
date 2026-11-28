@@ -1,32 +1,4 @@
-"""Source-control platform actions of a run: branch, push, pull request.
-
-The run's ``repository`` names the provider and the repository: ``github:<owner>/<repo>``,
-``gitlab:<group>/<project>`` or ``bitbucket:<project key>/<repo slug>``. Each action dispatches that provider's
-governed tools on the Workspace's named connection:
-
-- **branch**: the name comes from the ticket key (``<type>/<KEY>-<slug>``, or the repository record's
-  ``branch_naming_rule`` with ``{type}``, ``{key}``, ``{slug}``,
-  ``source_control/branch_naming.py``); the remote branch is created and the run's
-  working copy (the chat session's workspace) is checked out on it;
-- **push**: the working copy is committed (``<KEY>: <title>``) and pushed;
-- **succession**: an existing remote branch is adopted only when an earlier run
-  of the same Work item created it and pushed every commit it has (``branch_adoption``), else ``branch_conflict``;
-  an earlier run's open pull request on the branch is reused, one on another branch refuses (``pr_adoption``);
-- **pull request**: the requesting user is a reviewer (their linked account on the SCM, ``pr_reviewers``; on
-  Bitbucket Cloud their Atlassian account, ``bitbucket_cloud.py``), plus the repository record's owners. An
-  unresolved requester never blocks the step: the PR is opened without them, mentions them and records
-  ``reviewer_skipped: requester_unresolved`` (``pr_reviewers``). When the connection signs in as the requester (they are
-  the author, ``tools/scm_requester_rule.py``), no reviewer is set for them: the description mentions them, the run
-  records ``reviewer_skipped: requester_is_author`` and notifies them (run card, Inbox); the watched merge is
-  unchanged. The PR is recorded on the Work item for every provider and on the run.
-- **empty repository**: a repository without any commit
-  has no default branch, so the remote branch cannot be created before a commit exists. When that creation fails
-  and the prepare tool reports ``repository_empty``, the run goes on in the prepared folder on its unborn branch
-  (``context.repository_empty``); the base is Git's empty tree (the reviewer reviews the whole first commit), and the
-  push creates the branch. A pull request needs a target branch the repository does not have yet: when the provider
-  refuses it, the step fails with a sentence that says so and what a person does (create the default branch, then
-  retry the step) — never a crash, and never a pull request into the branch itself.
-"""
+"""Source-control platform actions of a run: branch, push, pull request."""
 
 from __future__ import annotations
 
@@ -56,6 +28,7 @@ from .pr_details import (
     _record_opened,
     open_findings_text,
     review_notes_text,
+    run_links,
 )
 from .repo_ref import (
     REPOSITORY_EMPTY_KEY,
@@ -83,7 +56,6 @@ from .working_copy_git import (
 
 
 async def create_branch(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """The run's branch: created, or an existing one adopted only when it is this Work item's own (succession)."""
     ref = parse_repository(run.repository)
     if ref is None:
         return _no_repository(run)
@@ -98,15 +70,12 @@ async def create_branch(db: AsyncSession, run: WorkflowRun, params: dict[str, An
         await branch_name(db, run, ref, str(params.get("branch_type") or "feature")))
     prepare_args = {**ref.args(), "branch_name": name}
     if context.get("branch_created") != name:
-        # A story of an epic builds on the story before it (``epic_chain``): its branch starts from that branch.
         base = str(context.get("base_branch") or "").strip()
         created = await dispatch_tool(db, run, TOOLS[ref.provider]["branch"],
                                       {**ref.args(), "branch_name": name, **({"start_point": base} if base else {})},
                                       capability_class="deliver")
         if created.state == FAILED and base and _not_found(created):
-            # The story before it was merged and its branch deleted (GitHub's auto-delete): the story starts from the
-            # default branch, which now holds that work, and its pull request targets the default branch (story
-            # path: otherwise the chain would stop at a 404 on the start point).
+            # The story before it was merged and its branch deleted: the default branch now holds that work.
             from ..records import record_event
 
             run.context = {key: value for key, value in dict(run.context or {}).items() if key != "base_branch"}
@@ -114,11 +83,10 @@ async def create_branch(db: AsyncSession, run: WorkflowRun, params: dict[str, An
             created = await dispatch_tool(db, run, TOOLS[ref.provider]["branch"], {**ref.args(), "branch_name": name},
                                           capability_class="deliver")
         if created.state == FAILED:
-            # Does the branch exist already? The prepared working copy knows every remote branch.
             prepared = await dispatch_tool(db, run, TOOLS[ref.provider]["prepare"], prepare_args,
                                            capability_class="change")
             if prepared.ok and prepared.result.get(REPOSITORY_EMPTY_KEY) is True:
-                # No commit yet: the branch is created by the run's first push (module doc).
+                # No commit yet: the branch is created by the run's first push.
                 run.context = {**dict(run.context or {}), REPOSITORY_EMPTY_KEY: True}
                 return await _on_branch(db, run, ref, name, prepared)
             existing = await branch_adoption.existing_branch(db, run, name, prepared) if prepared.ok else None
@@ -135,7 +103,6 @@ async def create_branch(db: AsyncSession, run: WorkflowRun, params: dict[str, An
 
 
 async def checkout(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """Prepare the run's existing branch in its working copy to review it (Review & PR); base = the merge base."""
     ref = parse_repository(run.repository)
     if ref is None:
         return _no_repository(run)
@@ -174,7 +141,7 @@ async def push(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> To
         return ToolOutcome(FAILED, reason="push needs the run's branch and working copy (create the branch first)")
     from ..spec_studio.hooks import before_push
 
-    await before_push(db, run)  # a spec confirmed without a person still carries its Studio decisions
+    await before_push(db, run)
     reviewed = await _reviewed_tree(db, run, local_path)
     if isinstance(reviewed, ToolOutcome):
         return reviewed
@@ -191,7 +158,7 @@ async def push(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> To
     if outcome.ok and outcome.result.get("status") == "no_changes":
         from ..ci_return import pending_ci_failure
 
-        if pending_ci_failure(run) is not None:  # the CI-red return: back to the fix, never a dead end
+        if pending_ci_failure(run) is not None:
             return ToolOutcome(FAILED, outcome.result, "nothing to push: the CI failure of the pushed commit is not "
                                                        "fixed yet", failure_class=CLASS_NEEDS_FIX)
         if await _already_pushed(local_path, run, str(outcome.result.get("head_commit") or "")):
@@ -217,10 +184,7 @@ async def push(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> To
 
 
 async def _existing_github_pr(db: AsyncSession, run: WorkflowRun, ref: RepoRef) -> ToolOutcome | None:
-    """The open pull request GitHub already has for the run's branch (a create that answered "already exists").
-
-    A restart between the create call and the run's commit made the retry create again,
-    GitHub answered 422 and the step failed although the pull request existed."""
+    # A restart between the create call and the commit makes the retry create again, and GitHub then answers 422.
     owner = ref.path.split("/", 1)[0]
     listed = await dispatch_tool(db, run, "list_github_pull_requests", {
         **ref.args(), "state": "open", "head": f"{owner}:{run.branch}"}, capability_class="read_only")
@@ -272,7 +236,7 @@ async def open_pr(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) ->
         return ToolOutcome(FAILED, reason=f"the pull request waits: {why}")
     if proof := evidence_text(run):
         arguments["description"] = f"{arguments['description']}\n\n{proof}"
-    arguments["description"] = _bounded_description(arguments["description"], run)
+    arguments["description"] = _bounded_description(arguments["description"], run, await run_links(db, run))
     outcome = await dispatch_tool(db, run, TOOLS[ref.provider]["pr"], arguments, capability_class="deliver")
     if not outcome.ok and outcome.state == FAILED and dict(run.context or {}).get(REPOSITORY_EMPTY_KEY):
         return _no_pr_target(run, outcome)

@@ -1,9 +1,4 @@
-// Which assistant messages are intermediate tool steps of a turn. Pure: no React.
-//
-// An assistant message that ran tools and is followed by another assistant message before the next user
-// message is a step on the way to the answer ("I am now gathering the missing evidence…"), not the answer. It
-// shows no "Sources · none cited" chip; it keeps the chip when it does cite sources. Read from the timeline's
-// structure only, never from the message text.
+// Read from the timeline's structure only, never from the message text.
 
 type TimelineMessage = {
   id?: unknown;

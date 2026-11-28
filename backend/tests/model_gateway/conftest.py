@@ -1,19 +1,5 @@
-"""Shared offline fixtures for the governed LiteLLM gateway suites.
-
-Everything runs against a stateful offline fake gateway built on
-``httpx.MockTransport``. The fake records every request it receives, so a test
-can assert that a denial produced *zero* dispatches rather than merely failing.
-No network, no cluster, no AWS.
-
-Two fixtures keep the suites free of repeated ceremony:
-
-- ``build_gateway_client`` builds a driver against the fake and closes every
-  client it handed out at teardown, so a test that expects ``chat()`` to raise
-  does not need its own ``try``/``finally``;
-- ``RecordingRuntimeFactory`` is a single ``get_provider`` stand-in that records
-  what was constructed and what actually dispatched, so a chain test states its
-  failure per provider instead of defining another throwaway fake client.
-"""
+"""Shared offline fixtures for the governed LiteLLM gateway suites: a stateful recording fake gateway on
+``httpx.MockTransport``, so a denial is proven to produce zero dispatches."""
 
 from __future__ import annotations
 
@@ -50,6 +36,11 @@ GATEWAY_HOST = "litellm.internal.test"
 BASE_URL = f"https://{GATEWAY_HOST}/v1"
 VIRTUAL_KEY = "sk-virtual-key-value-must-never-leak"
 ALIAS = "octryx-general"
+# The test baseline's runtime (``tests/conftest``): its own provider and alias, so no suite's ``ALIAS`` is ambiguous.
+# An active gateway narrows every level's aliases (``model_catalog.clearance``), so the suites here, which build their
+# own gateway world, run with it switched off (``without_baseline_runtime``).
+BASELINE_ALIAS = "baseline-model"
+BASELINE_PROVIDER = "baseline_gateway"
 MODEL_GROUP = "general-group"
 PROJECT_ID = "project-alpha"
 # The default alias is approved for ``internal`` data, so a workspace classified
@@ -82,13 +73,6 @@ _CA_BUNDLE_PATH: Path | None = None
 
 
 def write_ca_bundle(path: Path, *, common_name: str = "Octryx Test CA") -> Path:
-    """Write a real single-certificate CA bundle, so trust is checked, not mocked.
-
-    Every TLS trust mode needs an explicit, parseable bundle: the transport
-    policy loads certificates from the exact bytes it validated, so a placeholder
-    file would be refused rather than silently accepted.
-    """
-
     key = ed25519.Ed25519PrivateKey.generate()
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, common_name)])
     now = datetime.now(UTC)
@@ -108,13 +92,6 @@ def write_ca_bundle(path: Path, *, common_name: str = "Octryx Test CA") -> Path:
 
 
 def shared_ca_bundle_path() -> str:
-    """Absolute path to one real CA bundle shared by the offline suites.
-
-    Created on first use outside the repository and removed at interpreter exit.
-    It is a module-level function rather than a fixture because ``gateway_section``
-    is called from module scope in several suites.
-    """
-
     global _CA_BUNDLE_DIRECTORY, _CA_BUNDLE_PATH
     if _CA_BUNDLE_PATH is None:
         _CA_BUNDLE_DIRECTORY = Path(tempfile.mkdtemp(prefix="octryx-litellm-test-ca-"))
@@ -142,8 +119,6 @@ CONTENT_LOGGING_POSTURE = {
 
 
 def public_bundle_tls() -> dict[str, Any]:
-    """The default TLS section: a public-root-program bundle at an explicit path."""
-
     return {"mode": "public_ca_bundle", "ca_bundle_path": shared_ca_bundle_path()}
 
 
@@ -181,8 +156,6 @@ def gateway_config(**overrides: Any) -> dict[str, Any]:
 
 
 def alias_with_cost(cost: dict[str, Any]) -> dict[str, Any]:
-    """The default gateway config with the alias' cost contract replaced."""
-
     section = gateway_section()
     section["aliases"][ALIAS]["cost"] = cost
     return {"litellm_gateway": section}
@@ -199,13 +172,6 @@ def chat_body(*, model: str = MODEL_GROUP, **overrides: Any) -> dict[str, Any]:
 
 
 def granted_project_config(*aliases: str) -> dict[str, Any]:
-    """Project config granting the given aliases, as the project row stores it.
-
-    It carries the ``data_policy`` block too, because that is what a project
-    configured for gateway dispatch looks like: an alias grant alone
-    no longer dispatches.
-    """
-
     return {
         "model_policy": {"allowed_aliases": list(aliases or (ALIAS,))},
         "data_policy": {"classification": WORKSPACE_CLASSIFICATION},
@@ -213,8 +179,6 @@ def granted_project_config(*aliases: str) -> dict[str, Any]:
 
 
 def workspace_classification(classification: str = WORKSPACE_CLASSIFICATION) -> WorkspaceDataClassification:
-    """A server-resolved workspace classification, as the source module returns it."""
-
     return resolve_data_classification(project_data_policy={"classification": classification})
 
 
@@ -222,8 +186,6 @@ def verified_admission(
     *aliases: str,
     classification: str = WORKSPACE_CLASSIFICATION,
 ) -> ProjectModelAdmission:
-    """A server-owned admission for PROJECT_ID granting the given aliases."""
-
     return build_project_model_admission(
         project_id=PROJECT_ID,
         project_config=granted_project_config(*aliases),
@@ -233,8 +195,6 @@ def verified_admission(
 
 
 def gateway_provider(**overrides: Any) -> LLMProvider:
-    """A configured gateway provider row, as readiness and model sync see it."""
-
     values: dict[str, Any] = {
         "id": str(uuid.uuid4()),
         "name": "litellm_gateway",
@@ -251,14 +211,21 @@ def gateway_provider(**overrides: Any) -> LLMProvider:
     return LLMProvider(**values)
 
 
+def baseline_gateway_provider() -> LLMProvider:
+    section = gateway_section()
+    section["aliases"] = {BASELINE_ALIAS: {**section["aliases"][ALIAS], "model_group": BASELINE_ALIAS}}
+    return gateway_provider(name=BASELINE_PROVIDER, display_name="LiteLLM (Default)", default_model_id=BASELINE_ALIAS,
+                            is_global=True, config_json={"litellm_gateway": section})
+
+
+def pytest_collection_modifyitems(config, items) -> None:  # noqa: ARG001 - pytest hook signature
+    here = Path(__file__).parent
+    for item in items:
+        if Path(str(item.fspath)).parent == here:
+            item.add_marker(pytest.mark.without_baseline_runtime)
+
+
 def gateway_runtime(**overrides: Any) -> dict[str, Any]:
-    """A resolved gateway runtime target, including the provider config.
-
-    ``config_json`` is part of the real payload (the control plane spreads the
-    provider client kwargs into every runtime), and the runtime boundary reads the
-    alias catalog out of it to learn the alias' declared data-policy class.
-    """
-
     runtime: dict[str, Any] = {
         "provider_name": "litellm",
         "driver": "litellm_gateway",
@@ -284,13 +251,6 @@ def backup_runtime(**overrides: Any) -> dict[str, Any]:
 
 
 async def stale_priced_gateway_model(db) -> LLMProvider:
-    """A gateway provider whose model row still carries a previous mode's prices.
-
-    Named after the gateway on purpose: the provider *name* is operator-chosen,
-    so a suite that relies on it would prove nothing about who may declare a
-    governed cost source.
-    """
-
     provider = LLMProvider(id=str(uuid.uuid4()), name="litellm_gateway", driver="litellm_gateway", display_name="LiteLLM", is_active=True)
     db.add_all(
         [
@@ -310,8 +270,6 @@ async def stale_priced_gateway_model(db) -> LLMProvider:
 
 
 class FakeLiteLLMGateway:
-    """Stateful offline gateway: records every request it is asked to serve."""
-
     def __init__(
         self,
         *,
@@ -356,15 +314,6 @@ class FakeLiteLLMGateway:
 
 
 class RecordingRuntimeFactory:
-    """``get_provider`` stand-in for runtime-chain tests.
-
-    ``failures`` maps a runtime's ``provider_name`` to the exception its
-    ``chat()`` must raise; every other provider answers successfully. A provider
-    listed in ``forbidden`` must never be constructed at all — the factory fails
-    the test instead of quietly serving it, which is how a zero-dispatch
-    admission denial is proven.
-    """
-
     def __init__(
         self,
         *,
@@ -409,8 +358,6 @@ def gateway() -> FakeLiteLLMGateway:
 
 @pytest.fixture
 async def build_gateway_client():
-    """Build gateway drivers against a fake and close them all at teardown."""
-
     created: list[LiteLLMGatewayClient] = []
 
     def _build(target: FakeLiteLLMGateway, **overrides: Any) -> LiteLLMGatewayClient:

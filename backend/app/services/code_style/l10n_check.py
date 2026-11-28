@@ -73,8 +73,6 @@ def _prefixed(key: str, feature: str, fmt: str) -> bool:
 
 
 def _prefix_findings(catalog: dict[str, Any], rules: dict[str, Any]) -> list[Finding]:
-    """Keys are unique per feature: the feature is their prefix (``beansTitle``,
-    ``beans.list.title``); gettext keys are the source text, never prefixed."""
     fmt, feature = str(rules.get("format") or ""), str(catalog.get("namespace") or "")
     entry = _source_entry(catalog, rules)
     if fmt == "gettext" or not feature or feature == "app" or not entry:
@@ -85,7 +83,6 @@ def _prefix_findings(catalog: dict[str, Any], rules: dict[str, Any]) -> list[Fin
 
 
 def _duplicate_findings(style: dict[str, Any], catalogs: list[dict[str, Any]]) -> list[Finding]:
-    """A key two features define collides once merged (gen-l10n, gettext) or loaded together: red."""
     owners: dict[tuple[str, str], list[str]] = {}
     for catalog in catalogs:
         rules = _l10n_rules(style, str(catalog.get("language") or ""))
@@ -97,7 +94,6 @@ def _duplicate_findings(style: dict[str, Any], catalogs: list[dict[str, Any]]) -
 
 
 def _target_regex(pattern: str) -> re.Pattern[str]:
-    """A ``files`` / ``merged.target`` pattern (``**/``, ``*``, ``<lang>``, ``<namespace>``) as a path regex."""
     regex = re.escape(pattern).replace(re.escape("**/"), "(?:.*/)?")
     for placeholder in ("<lang>", "<namespace>"):
         regex = regex.replace(re.escape(placeholder), "[^/]+")
@@ -105,7 +101,6 @@ def _target_regex(pattern: str) -> re.Pattern[str]:
 
 
 def merge_command(l10n: dict[str, Any]) -> str:
-    """The language's merge command (``l10n.merged.command``, data) filled in; ``""`` without one."""
     merged = dict(l10n.get("merged") or {})
     template, files = str(merged.get("command") or ""), list(l10n.get("files") or [])
     if not template or not files:
@@ -115,9 +110,6 @@ def merge_command(l10n: dict[str, Any]) -> str:
 
 
 def _generated_findings(style: dict[str, Any], changed: list[str]) -> list[Finding]:
-    """The merged file (``merged.target``) and what the toolchain generates from it (``merged.generated``) are never
-    edited by hand: changed without any feature file, they were (``merged.hand_edit``: warning or error; agents
-    otherwise hand-edit the merged ARB and the generated localizations)."""
     found: list[Finding] = []
     for language, rules in sorted(dict(style.get("languages") or {}).items()):
         l10n = dict(dict(rules or {}).get("l10n") or {})
@@ -139,11 +131,6 @@ def _generated_findings(style: dict[str, Any], changed: list[str]) -> list[Findi
 
 
 def l10n_findings(style: dict[str, Any], facts: Any) -> list[Finding]:
-    """The translations against the style's ``l10n`` rules, from the device's reading of the catalogs and the
-    changed code (``l10n``: ``{catalogs: [{language, namespace, files: {locale: {path, keys, count,
-    placeholders}}}], hardcoded: [[path, line, text, language]]}``). Every language has the source's
-    keys (missing red, extra a warning), the same placeholders, at most ``max_keys_per_file`` keys per file; new UI
-    text in code is a warning by default (``hardcoded_text``: error makes it red)."""
     if not isinstance(facts, dict) or not style:
         return []
     found: list[Finding] = []

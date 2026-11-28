@@ -1,22 +1,4 @@
-"""Gzip for complete text responses; streams, ranges and compressed bodies pass through untouched.
-
-The API answers JSON (a Work board page is about 1.3 MB) and the server-rendered pages answer HTML, and before
-this nothing on the way was compressed. Starlette's ``GZipMiddleware`` is not used because it also compresses
-streamed bodies: it buffers each chunk in a ``GzipFile`` without flushing it, so an NDJSON or relay stream would
-reach the client late and in bursts. Here only a body that arrives as **one** message is compressed, so a stream
-of any media type is never held back:
-
-- the response starts with a single ``http.response.body`` message (``more_body`` false);
-- the status is a 2xx other than 204 and 206, and no ``Content-Range`` is set (a range answers exact bytes);
-- no ``Content-Encoding`` is set (precompressed static assets, relayed upstream bodies);
-- the media type is text, JSON, JavaScript, XML, SVG or WebAssembly, never ``text/event-stream``;
-- the body is at least :data:`MINIMUM_SIZE` bytes, the request accepts ``gzip`` and
-  ``Cache-Control`` does not say ``no-transform``.
-
-Registered innermost (directly above the router) so it sees the route's own single body message; the
-``BaseHTTPMiddleware`` layers above re-stream whatever passes through and would make every body look streamed.
-The SPA's static files are compressed once and kept in memory by :mod:`app.web.static_files`.
-"""
+"""Gzip for complete text responses; streams, ranges and compressed bodies pass through untouched."""
 
 from __future__ import annotations
 
@@ -52,7 +34,6 @@ def media_type_of(content_type: str | None) -> str:
 
 
 def is_compressible_media_type(content_type: str | None) -> bool:
-    """True for text-like bodies that gzip shrinks; never for an event stream or an already packed format."""
     media_type = media_type_of(content_type)
     if not media_type or media_type in _EXCLUDED_TYPES:
         return False
@@ -62,7 +43,6 @@ def is_compressible_media_type(content_type: str | None) -> bool:
 
 
 def accepts_gzip(headers: Headers) -> bool:
-    """Whether ``Accept-Encoding`` allows gzip (``gzip`` or ``*`` without ``q=0``)."""
     accepted: dict[str, bool] = {}
     for part in str(headers.get("accept-encoding") or "").split(","):
         token, _, params = part.strip().partition(";")
@@ -95,7 +75,6 @@ async def gzip_bytes_off_loop(body: bytes, *, level: int = COMPRESS_LEVEL) -> by
 
 
 def weak_etag(etag: str) -> str:
-    """The ETag of the gzip representation: weak, so a revalidation still matches the file's own tag."""
     return etag if etag.startswith("W/") else f"W/{etag}"
 
 
@@ -112,8 +91,6 @@ def _eligible_start(start: Message) -> bool:
 
 
 class ResponseCompressionMiddleware:
-    """Pure ASGI middleware: gzip a complete text body, pass everything else through unchanged."""
-
     def __init__(self, app: ASGIApp, *, minimum_size: int = MINIMUM_SIZE) -> None:
         self.app = app
         self.minimum_size = minimum_size

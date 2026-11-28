@@ -1,13 +1,4 @@
-"""Keep a repository's code graph current: mirror it, then index it.
-
-- **after a merge**: a ``pr.merged`` webhook event (``workflow_runs.watch.deliver_event``) refreshes every repository
-  of the webhook's Workspace whose remote is the merged pull request's repository, in its own database session in
-  the background (the webhook answers at once; a failure is logged and left for the next merge or backfill);
-- **backfill**: every active repository with a remote (of one Workspace or all) is mirrored once and, unless its
-  graph is disabled, indexed (``POST /api/v1/admin/code-graph/backfill``).
-
-A repository without a mirror root or without a remote is indexed from its own ``repo_root``.
-"""
+"""Keep a repository's code graph current: mirror it, then index it."""
 
 from __future__ import annotations
 
@@ -20,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.runtime.code_intelligence import CodeRepository
+from ..data_access import background_viewer, run_as
 from .mirror import MirrorError, ensure_mirror, mirror_root
 
 logger = logging.getLogger(__name__)
@@ -27,7 +19,6 @@ _BACKGROUND: set[asyncio.Task] = set()
 
 
 async def refresh(db: AsyncSession, repo: CodeRepository, *, trigger: str) -> dict[str, Any]:
-    """Mirror (when a root is set and the repository has a remote), then index; what happened."""
     from .indexing import run_code_index
 
     outcome: dict[str, Any] = {"repository_id": repo.id, "trigger": trigger}
@@ -54,7 +45,6 @@ async def refresh(db: AsyncSession, repo: CodeRepository, *, trigger: str) -> di
 
 
 def _slug(value: str) -> str:
-    """``owner/repo`` (or ``project/slug``) of a remote URL or an event's repository, lower case."""
     text = re.sub(r"\.git$", "", str(value or "").strip().lower().rstrip("/"))
     text = re.sub(r"^.*?://[^/]+/", "", text)
     text = text.removeprefix("scm/")
@@ -88,17 +78,16 @@ async def _refresh_isolated(repository_ids: list[str], trigger: str) -> None:
 
 
 async def on_pr_merged(db: AsyncSession, repository: str, project_id: str | None) -> list[str]:
-    """Start the refresh of the merged repository's code graph in the background; the repository ids."""
     ids = [repo.id for repo in await repositories_for(db, repository, project_id)]
     if ids:
-        task = asyncio.get_running_loop().create_task(_refresh_isolated(ids, "pr_merged"))
+        refresh = _refresh_isolated(ids, "pr_merged")
+        task = asyncio.get_running_loop().create_task(run_as(background_viewer(), refresh))
         _BACKGROUND.add(task)
         task.add_done_callback(_BACKGROUND.discard)
     return ids
 
 
 async def backfill(db: AsyncSession, *, project_id: str | None = None) -> list[dict[str, Any]]:
-    """Mirror every active repository with a remote once and index those whose graph is enabled."""
     query = select(CodeRepository).where(CodeRepository.is_active.is_(True), CodeRepository.remote_url.is_not(None))
     if project_id is not None:
         query = query.where(CodeRepository.project_id == project_id)

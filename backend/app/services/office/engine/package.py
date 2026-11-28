@@ -72,8 +72,6 @@ _RATIO_FLOOR_BYTES = 1024 * 1024
 
 
 def check_package(archive: zipfile.ZipFile) -> None:
-    """Refuse a package whose declared sizes would exhaust memory: member count, total uncompressed size, and
-    the compression ratio of every large member and of the whole package."""
     members = archive.infolist()
     if len(members) > MAX_MEMBERS:
         raise OfficeEngineError(DOCUMENT_UNREADABLE, f"package has more than {MAX_MEMBERS} parts")
@@ -89,11 +87,6 @@ def check_package(archive: zipfile.ZipFile) -> None:
 
 
 def document_bytes(path: str | Path) -> bytes:
-    """The package bytes, with a template's main content type switched to the document type.
-
-    python-docx and python-pptx refuse a template main part, and a saved template content type would make
-    Office open the result as a template; converting at load time keeps every other part untouched.
-    """
     source = existing_file(path)
     if source.stat().st_size > MAX_PACKAGE_BYTES:
         raise OfficeEngineError(DOCUMENT_UNREADABLE, "file is larger than the size limit")
@@ -124,7 +117,6 @@ def document_bytes(path: str | Path) -> bytes:
 
 
 def open_document(path: str | Path, kind: str) -> Any:
-    """The library object for ``path``: ``docx.Document``, ``pptx.Presentation`` or an openpyxl workbook."""
     stream = io.BytesIO(document_bytes(path))
     try:
         if kind == "docx":
@@ -164,7 +156,6 @@ def new_document(kind: str) -> Any:
 
 
 def save_document(document: Any, path: str | Path) -> Path:
-    """Write next to the target and rename, so a reader never sees a half-written package."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     handle, temp_name = tempfile.mkstemp(prefix=f".{target.name}.", suffix=".tmp", dir=str(target.parent))

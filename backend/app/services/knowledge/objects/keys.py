@@ -1,22 +1,5 @@
-"""Content-addressed, Workspace-partitioned object keys.
-
-A key is derived only from the validated :class:`WorkspaceId`, the optional
-configured prefix, and the lower-case hex SHA-256 of the bytes:
-
-    ``<prefix>/knowledge/octryx_ws_<32 hex>/sha256/<aa>/<bb>/<64 hex>``
-
-Consequences that the rest of the slice depends on:
-
-- nothing user-supplied (no file name, no display title, no media type) is part
-  of a key, so a key can never carry path, query-language, or control syntax;
-- the Workspace segment is derived only from the canonical Workspace UUID
-  (``octryx_ws_<32 hex>``), so one Workspace identity produces one partition;
-- identical bytes in two Workspaces produce two different keys, and existence is
-  probed only inside the caller's own partition, so no Workspace can learn that
-  another holds the same document;
-- the key is a pure function of the digest, which makes the write idempotent:
-  re-uploading the same bytes addresses the object that is already there.
-"""
+"""Content-addressed, Workspace-partitioned object keys: ``<prefix>/knowledge/octryx_ws_<32 hex>/sha256/<aa>/<bb>/<64
+hex>``. Nothing user-supplied is part of a key."""
 
 from __future__ import annotations
 
@@ -66,13 +49,7 @@ def workspace_object_key(prefix: str | None, workspace: WorkspaceId, content_sha
 
 
 def content_digest_from_key(key: object) -> str | None:
-    """The content address ``key`` encodes, or ``None`` when it is not a derived key.
-
-    Used by the operator-owned inventory: an object that sits under a Workspace
-    prefix but whose key is not exactly this module's derivation — fan-out segments
-    included — has no known content address, so it is counted and never becomes a deletion
-    candidate.
-    """
+    """The content address ``key`` encodes, or ``None`` when it is not a derived key."""
     if type(key) is not str or not _OBJECT_KEY.fullmatch(key):
         return None
     digest = key.rsplit("/", 1)[-1]
@@ -82,12 +59,7 @@ def content_digest_from_key(key: object) -> str | None:
 
 
 def is_key_inside_workspace(key: object, prefix: str | None, workspace: WorkspaceId) -> bool:
-    """True when ``key`` lies in exactly this Workspace's partition.
-
-    Used before reading a persisted key, so a ledger row that was tampered with
-    (or written under a different prefix) cannot make one Workspace read
-    another Workspace's object.
-    """
+    """True when ``key`` lies in exactly this Workspace's partition."""
     if type(key) is not str or not _OBJECT_KEY.fullmatch(key):
         return False
     return key.startswith(f"{workspace_object_prefix(prefix, workspace)}/{DIGEST_SEGMENT}/")

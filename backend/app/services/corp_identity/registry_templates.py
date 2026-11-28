@@ -10,19 +10,11 @@ from .templates import CORP_IDENTITY_TEMPLATE_SUFFIXES
 
 
 def _stable_template_id(doc_type: str, source_file_name: str) -> str:
-    """A template id that survives a registry rebuild.
-
-    The template list is rebuilt from disk on every load; a random id per build
-    would make per-template metadata (the purpose description, the display name)
-    point at an id that no longer exists, so it would silently vanish. Deriving
-    the id from ``doc_type`` + file name keeps it stable across loads.
-    """
     digest = hashlib.md5(f"{doc_type}:{source_file_name}".encode(), usedforsecurity=False)
     return digest.hexdigest()
 
 
 def _template_meta_for(profile: dict[str, Any], source_file_name: str) -> dict[str, Any]:
-    """Persisted per-template metadata (description, display name), keyed by file."""
     store = profile.get("template_meta")
     if isinstance(store, dict):
         entry = store.get(source_file_name)
@@ -53,7 +45,6 @@ def _build_template_entry(
     profile_root: Path,
     summary: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Build a template entry dict for a given doc type, or None if not set."""
     path_key_map = {
         "pptx": ["ai_template_path", "source_path"],
         "docx": ["docx_template_path", "ai_docx_template_path", "word_template_path"],
@@ -74,7 +65,6 @@ def _build_template_entry(
 
 
 def _build_template_map(profile: dict[str, Any], profile_root: Path) -> dict[str, list[dict[str, Any]]]:
-    """Build a templates map for all doc types from a profile and its source/ directory."""
     summary = dict(profile.get("summary") or {})
     templates: dict[str, list[dict[str, Any]]] = {"pptx": [], "docx": [], "xlsx": []}
     for doc_type in ("pptx", "docx", "xlsx"):

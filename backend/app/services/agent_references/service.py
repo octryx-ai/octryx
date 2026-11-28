@@ -1,24 +1,4 @@
-"""Which workflows use one agent - read-only, bounded.
-
-Response contract::
-
-    {"agent_id": str,
-     "workflows":  [entry, ...],   # newest workflow first
-     "truncated": bool}            # true when the bound cut the list
-
-    entry = {"kind": "workflow", "id": str, "name": str,
-             "workspace_id": str | None,     # None = Global
-             "workspace_name": str | None,   # only when the caller may read that Workspace
-             "reference_state": "published" | "current_draft" | "older_revision_only",
-             "revision": int,                # the referencing workflow version
-             "latest_revision": int,         # the version the editor link opens (always the latest)
-             "latest_references_agent": bool}  # whether that latest version still references the agent
-
-Every rule is an existing one: the agent itself follows the agent panel's owner
-scope (another owner's or an unknown agent is the same 404); workflows follow the
-workflow API (global admins read every workflow). Nothing the caller cannot read is
-named or counted. No new persistence: stored versions are scanned, bounded.
-"""
+"""Which workflows use one agent - read-only, bounded."""
 
 from __future__ import annotations
 
@@ -41,8 +21,6 @@ MAX_ITEMS_PER_KIND = 50
 
 
 class _WorkspaceNames:
-    """Workspace display names, only for Workspaces the caller may read (``workspace_authorization``)."""
-
     def __init__(self, db: AsyncSession, user: User) -> None:
         self._db = db
         self._user = user
@@ -94,8 +72,9 @@ async def list_agent_references(db: AsyncSession, *, user: User, agent_id: str) 
 
     workflows: list[dict[str, Any]] = []
     flows_truncated = False
-    if await is_global_admin(db, user.id):
-        found, flows_truncated = await flow_references(db, agent_id=agent.id, limit=MAX_ITEMS_PER_KIND)
+    # Phases name platform agents only (their builtin key); another agent is named by no workflow.
+    if agent.builtin_key and await is_global_admin(db, user.id):
+        found, flows_truncated = await flow_references(db, agent_key=agent.builtin_key, limit=MAX_ITEMS_PER_KIND)
         for flow, reference in found:
             workspace = flow.project_id or None
             workflows.append(_entry("workflow", flow.id, flow.name, workspace, await names.name(workspace), reference))

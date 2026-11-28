@@ -1,16 +1,7 @@
-// Request contract of the Workspace-scoped MCP registry
-// (backend/app/web/routers/panel_channels.py, schemas MCPServerCreateRequest,
-// MCPCatalogInstallRequest and MCPServerUpdateRequest, all extra="forbid").
-//
-// Every registry call names one Workspace explicitly: listings return the
-// platform servers plus that Workspace's servers, and server actions resolve
-// the name inside that scope. Registrations created from the admin tab are
-// owned by the selected Workspace. Catalog secret fields are bound only as
-// Secret References, never as raw values.
+// Catalog secret fields are bound only as Secret References, never as raw values.
 
 export const MCP_PANEL_API = "/admin/chat/api/panel/mcp";
 
-/** Remote transports the backend accepts for custom registrations. */
 export const MCP_CUSTOM_TRANSPORTS = ["streamable-http", "sse"] as const;
 export type McpCustomTransport = (typeof MCP_CUSTOM_TRANSPORTS)[number];
 export const MCP_DEFAULT_CUSTOM_TRANSPORT: McpCustomTransport =
@@ -53,12 +44,7 @@ export function mcpWorkspaceOptions(
     .map((project) => ({ id: project.id, name: project.name || project.id }));
 }
 
-/**
- * Keep the current selection while it is still listed, else no Workspace.
- * There is deliberately no "first project" fallback: the shared active
- * workspace (chat/useActiveWorkspace) supplies the selection, and an unrelated
- * or temporary Workspace must never be preselected without intent.
- */
+/** No "first project" fallback: an unrelated Workspace must never be preselected without intent. */
 export function resolveMcpWorkspaceId(
   options: ReadonlyArray<McpWorkspaceOption>,
   currentId: string | null | undefined,
@@ -93,14 +79,12 @@ export function mcpCatalogListPath(workspaceId: string): string {
   return withWorkspace(`${MCP_PANEL_API}/catalog`, workspaceId);
 }
 
-/** Collection path for POST create; ownership travels in the body. */
 export const MCP_SERVERS_CREATE_PATH = `${MCP_PANEL_API}/servers`;
 
 export function mcpCatalogInstallPath(slug: string): string {
   return `${MCP_PANEL_API}/catalog/${encodeURIComponent(slug)}/install`;
 }
 
-/** Path for PUT/DELETE on one server, or its connect/disconnect action. */
 export function mcpServerActionPath(
   serverName: string,
   workspaceId: string,
@@ -118,13 +102,7 @@ export function isMcpSecretField(field: { type?: string | null }): boolean {
   );
 }
 
-/**
- * Split form values into plain settings and Secret References.
- *
- * Blank secret values are always omitted: on install nothing is bound, on
- * update the stored binding is kept. Blank plain values are omitted on install
- * (the preset default applies) and sent on update so a field can be cleared.
- */
+/** Blank secrets are never sent (install binds nothing, update keeps the binding); blank plain values clear on update. */
 export function splitMcpCatalogValues(
   preset: McpCatalogPresetLike,
   values: Record<string, string>,
@@ -189,7 +167,6 @@ export function buildMcpCustomServerBody(args: {
   };
 }
 
-/** Edit form seed: stored plain settings (or defaults), secrets left blank. */
 export function mcpEditValuesFromSettings(
   preset: McpCatalogPresetLike,
   settings: Record<string, unknown> | null | undefined,

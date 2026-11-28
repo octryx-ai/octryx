@@ -18,15 +18,12 @@ from .library_inputs import (
 
 @dataclass(frozen=True, slots=True)
 class EvidenceInventory:
-    """Root-provided, immutable record of which spans exist; matching is by key or by revision span."""
-
     sha256: str
     by_key: dict[str, dict[str, Any]]
     by_span: dict[tuple[str, str, int], dict[str, Any]]
     revisions_by_source: dict[str, set[str]]
 
     def verify(self, ref: EvidenceRef) -> str:
-        """``verified``, ``stale`` (the source has other content) or ``missing``."""
         if ref.evidence_key is not None:
             return "verified" if ref.evidence_key in self.by_key else "missing"
         if (ref.source_id, ref.content_sha256, ref.span_ordinal) in self.by_span:

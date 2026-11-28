@@ -1,12 +1,4 @@
-"""The platform MCP server's own gate and evidence ledger for a seat analysis session.
-
-- a connection whose session key names a pinned analysis session gets every tool outside the analysis set
-  refused server-side (``analysis_tool_not_allowed``), on the native protocol and the REST tool endpoint;
-  the tool never runs;
-- the read tools the server ran for the session's own user are recorded as the session's evidence, and a
-  submitted analysis cites exactly those runs; another user's run with the same key records nothing;
-- a connection without a key, or with a key of a normal session, keeps every tool.
-"""
+"""The platform MCP server's own gate and evidence ledger for a seat analysis session."""
 
 from __future__ import annotations
 
@@ -21,7 +13,7 @@ from sqlalchemy import select
 from app.models import ToolCall
 from app.services import mcp_seat_analysis_guard as guard_module
 from app.services.prompt_catalog.mcp_descriptions import CatalogFastMCP
-from tests.oauth_test_utils import obtain_oauth_tokens
+from tests.support.oauth_test_utils import obtain_oauth_tokens
 from tests.work_item_analysis.support import MANUAL_HIT, analysis
 from tests.work_item_analysis.test_seat_runner import _register, _registered, _seat_env, _submit
 

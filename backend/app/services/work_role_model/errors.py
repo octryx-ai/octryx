@@ -38,7 +38,6 @@ async def require_platform_admin(db: AsyncSession, user: User, setting: str) -> 
 
 
 async def may_admin_workspace(db: AsyncSession, user: User, workspace_id: str) -> bool:
-    """Workspace admin/owner (as for every Workspace setting), a platform admin, or the function ``assign_roles``."""
     from ..access_control import get_project_role_for_user
     from .effective import held_roles_by_user
     from .seeds import ASSIGN_ROLES
@@ -58,7 +57,6 @@ async def require_workspace_admin(db: AsyncSession, user: User, workspace_id: st
 
 
 async def require_scope_admin(db: AsyncSession, user: User, workspace_id: str | None, setting: str) -> None:
-    """Global roles and functions: platform admins; Workspace-scoped ones: that Workspace's admins too."""
     if workspace_id is None:
         await require_platform_admin(db, user, setting)
     else:

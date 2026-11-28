@@ -9,6 +9,9 @@ import pytest
 
 from tests.phased_workflow_fixtures import admin_user
 from tests.review_convergence_support import PNG, _delivery, _finding, _started
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -74,7 +77,6 @@ async def test_after_the_revisions_only_a_high_finding_asks_the_product_owner(db
 
 @pytest.mark.asyncio
 async def test_a_medium_finding_does_not_hold_back_a_done_task(db, tmp_path):
-    """Only a high finding sends a task back; medium ones are notes, so the story can ship after its revisions."""
     from app.services.workflow_runs.review.runner import run_due_reviews
     from tests.test_workflow_run_pause import _turn
     from tests.workflow_run_review_support import ScriptedReviewer
@@ -123,6 +125,12 @@ async def test_the_reviewer_sees_only_this_changes_screenshots_and_the_capture_r
 
     assert await run_due_reviews(db, model_factory=Reviewer().factory) == 1
     assert seen[0][1] == ["totals.png"]
+    # The review result names the screenshot it judged, pinned by its hash.
+    import hashlib
+
+    await db.refresh(run)
+    assert run.context["review"]["screens"] == [{"name": "totals.png", "media_type": "image/png", "size": len(PNG),
+                                                 "sha256": hashlib.sha256(PNG).hexdigest()}]
     assert "fixed bar" in SCREENS_RULE and SCREENS_RULE in seen[0][0]
     assert "Never read colours or contrast ratios off an image" in SCREENS_RULE
 
@@ -165,15 +173,13 @@ async def test_an_open_high_finding_after_the_revisions_waits_or_continues_by_th
     assert accepted and accepted[0].detail["high"] == 1 and "still open after 2" in accepted[0].detail["reason"]
 
 
-def test_on_open_high_defaults_by_workflow_and_is_validated():
+def test_on_open_high_comes_from_the_node_waits_when_unset_and_is_validated():
     from app.services.workflow_runs.auto_accept import on_open_high
     from app.services.workflow_runs.graph_validation import validate_phased_definition
     from tests.test_ticket_delivery import _definition as delivery
 
-    node = SimpleNamespace(config={})
-    assert on_open_high(node, "epic-delivery") == "continue_with_findings"
-    assert on_open_high(node, "bug-fix-reproduction") == "wait"
-    assert on_open_high(SimpleNamespace(config={"on_open_high": "wait"}), "epic-delivery") == "wait"
+    assert on_open_high(SimpleNamespace(config={})) == "wait"
+    assert on_open_high(SimpleNamespace(config={"on_open_high": "continue_with_findings"})) == "continue_with_findings"
     definition = delivery()
     definition["nodes"][3]["config"]["on_open_high"] = "maybe"
     assert "on_open_high" in {error["code"] for error in validate_phased_definition(definition)["errors"]}
@@ -199,8 +205,6 @@ async def test_the_pull_request_opens_with_the_open_findings_on_top(db, monkeypa
 
 @pytest.mark.asyncio
 async def test_no_high_finding_but_unverified_tasks_continues_an_unattended_story(db, tmp_path):
-    """After the revisions, a story with no high finding but a task the review did not see verified must not wait for
-    a person; with continue_with_findings it goes on with its open points on the PR."""
     from sqlalchemy import select
 
     from app.models import WorkflowRunEvent

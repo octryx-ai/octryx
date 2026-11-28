@@ -1,17 +1,4 @@
-"""A pull request comment, from a webhook or from the sync's poll, in the one shape ``commands`` reads. Pure.
-
-- GitHub: ``X-GitHub-Event: issue_comment`` (on a pull request) and ``pull_request_review_comment`` (a comment or a
-  reply on a diff line), ``action: created``;
-- Bitbucket Cloud: ``X-Event-Key: pullrequest:comment_created``;
-- Bitbucket Server/Data Center: ``eventKey: pr:comment:added``;
-- GitLab: ``X-Gitlab-Event: Note Hook`` on a merge request (``noteable_type: MergeRequest``), a new note only
-  (``action`` ``create`` where GitLab sends it), never a system note. A thread is a discussion: a note in one
-  (``DiffNote`` on a diff line, ``DiscussionNote`` elsewhere) names its ``discussion_id`` as the comment it answers,
-  so the bot's reply lands in the same discussion;
-- a polled comment (``list_*_pull_request_heads`` with ``comments_since``), the same shape on every platform.
-
-A local installation gets no webhook (a provider cannot reach it): there the poll is the only source.
-"""
+"""A pull request comment, from a webhook or from the sync's poll, in the one shape ``commands`` reads."""
 
 from __future__ import annotations
 
@@ -40,8 +27,6 @@ class CommentEvent:
 
     @property
     def thread_root(self) -> str:
-        """The comment a reply in the same thread answers (GitHub replies only to a thread's first comment; on
-        GitLab it is the discussion)."""
         return self.in_reply_to or self.comment_id
 
 
@@ -67,7 +52,6 @@ def _gitlab_note(payload: Any) -> CommentEvent | None:
 
 
 def comment_event(payload: Any, headers: Mapping[str, str]) -> CommentEvent | None:
-    """The new pull request comment a webhook reports, else ``None`` (an edit or a deletion is never a command)."""
     github = _header(headers, "x-github-event")
     if github in ("issue_comment", "pull_request_review_comment"):
         if _text(payload, "action") != "created":
@@ -100,7 +84,6 @@ def comment_event(payload: Any, headers: Mapping[str, str]) -> CommentEvent | No
 
 
 def listed_comment(repository: str, item: Mapping[str, Any]) -> CommentEvent | None:
-    """One comment of a poll (``list_*_pull_request_heads`` with ``comments_since``)."""
     provider, _, path = repository.partition(":")
     cloud_id = str(item.get("author_id") or "") if provider == "bitbucket" else ""
     return _make(provider, path, str(item.get("pr") or ""), str(item.get("id") or ""), str(item.get("author") or ""),

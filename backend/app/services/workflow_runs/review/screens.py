@@ -1,20 +1,4 @@
-"""Screenshots of the built app for the independent review: the review checks the UI.
-
-Without them, the system tests saved a screenshot of every page, the author looked at them, and the
-reviewer (text only) passed six stories without a finding while two screens were missing from the navigation. So the
-reviewer sees the screens too, next to the specification's UI and design section.
-
-- a server run: the working copy's ``test-reports/screenshots/`` (the system test rule's folder, git-ignored);
-- a device run: the launcher uploads that folder's images at Stop of a changing phase (``POST
-  /sessions/screenshots``), bound to the pass (node and entry), before the verification that ends the phase. They
-  are kept under the server working copy's ``.git`` folder, so they are never part of the pushed tree; a run whose
-  working copy is only on the device (no server copy) keeps them in the installation's data folder
-  (``<artifact_store_dir>/../run-screens/<run>/<node>``). Otherwise every device run's
-  hands-on screenshots were refused "no_working_copy" and lost, ``local_path`` being a folder on the Mac.
-
-Bounded: images only (PNG, JPEG, WebP by their magic bytes), at most :data:`MAX_SCREENS` per pass, each at most
-:data:`MAX_BYTES`; newest first.
-"""
+"""Screenshots of the built app for the independent review: the review checks the UI."""
 
 from __future__ import annotations
 
@@ -40,7 +24,6 @@ class Screen:
 
 
 def media_type(data: bytes) -> str:
-    """The image type by its magic bytes, ``""`` for anything else."""
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -79,7 +62,6 @@ def safe_name(name: str) -> str:
 
 
 def store(run: Any, *, node_id: str, entry: Any, name: str, data: bytes) -> str:
-    """Keep one uploaded screenshot of the pass; ``""`` when kept, else the refusal reason."""
     if len(data) > MAX_BYTES:
         return "too_large"
     if not media_type(data):
@@ -101,7 +83,6 @@ def store(run: Any, *, node_id: str, entry: Any, name: str, data: bytes) -> str:
 
 
 def collect(run: Any, node_id: str) -> list[Screen]:
-    """The pass's screenshots, newest first: uploaded by the device, else the server working copy's folder."""
     root = _root(run)
     uploaded = _store(run, node_id)
     folders = [uploaded] if uploaded is not None and uploaded.is_dir() else []
@@ -138,14 +119,7 @@ _TOKEN = re.compile(r"[a-z0-9]+")
 
 
 def of_change(screens: list[Screen], *, diff: str, changed: tuple[str, ...], root: Path | None) -> list[Screen]:
-    """The screenshots that belong to this change: a screenshot is dropped only when another part of the repository
-    claims it and this change does not (if unsure, keep).
-
-    Example: two apps share one repository and one system test folder; the
-    reviewer was shown the other app's ``members-page.png`` and wrote findings against this story. A screenshot
-    is another part's when its name carries another app's folder name, or when a test in another app's folder (a
-    top-level folder the change does not touch) names its file; it is this change's when the change names it, its
-    name shares a word with a test file the change touches, or carries the changed app's folder name."""
+    # If unsure, keep: a screenshot is dropped only when another part claims it and this change does not.
     if not screens or not changed:
         return screens
     ours = _words_of(changed)
@@ -165,7 +139,6 @@ def of_change(screens: list[Screen], *, diff: str, changed: tuple[str, ...], roo
 
 
 def _words_of(changed: tuple[str, ...]) -> set[str]:
-    """The words of the changed test files' names and of the changed apps' folders."""
     words: set[str] = set()
     for path in changed:
         parts = path.lower().split("/")
@@ -178,7 +151,6 @@ def _words_of(changed: tuple[str, ...]) -> set[str]:
 
 
 def _foreign_apps(root: Path | None, changed: tuple[str, ...]) -> set[str]:
-    """Top-level folders of the repository the change does not touch (other apps in a multi-app repository)."""
     if root is None:
         return set()
     touched = {path.split("/")[0].lower() for path in changed}
@@ -191,7 +163,6 @@ def _foreign_apps(root: Path | None, changed: tuple[str, ...]) -> set[str]:
 
 
 def _foreign_tests(root: Path, apps: set[str]) -> list[str]:
-    """The text of every test file in another app's folder (one the change does not touch)."""
     texts: list[str] = []
     for folder in sorted(apps):
         for path in _test_files(root / folder):
@@ -221,17 +192,12 @@ def _test_files(root: Path) -> list[Path]:
 
 
 def reviewed_phase(run: Any, graph: Any) -> str:
-    """The phase whose screenshots the person's decision card shows: the ``config.phase`` of the review node (the
-    changing phase the review checks, e.g. ``implement``), never the review node's own id; the screens are kept per
-    pass under that phase id and cleared on a new entry, so :func:`collect` returns only the current pass. The review
-    node is the one that gave the run's last verdict, else the first review node of the graph."""
     reviewed = str(dict(dict(run.context or {}).get("review") or {}).get("node_id") or "")
     nodes = [graph.nodes[node_id] for node_id in (graph.order or list(graph.nodes)) if node_id in graph.nodes]
     reviews = [node for node in nodes if node.kind == "review" and dict(node.config or {}).get("phase")]
     chosen = next((node for node in reviews if node.id == reviewed), reviews[0] if reviews else None)
     if chosen is None:
         return ""
-    # The pipeline's screenshots when the review takes them from there (``screens_node``), else the phase's.
     return str(chosen.config.get("screens_node") or chosen.config["phase"])
 
 

@@ -1,10 +1,4 @@
-"""Custom REST as a registered Work source (``intake/registry``): setup, discovery, sample, scheduling, write-back.
-
-The intake's "connection" is the REST definition (``connection_id`` = its key): an active definition the Workspace
-has a connection for (its own, else the platform's). Discovery lists the definition's enabled read operations with
-the roles their grants name, and its write operations for the write-back; :meth:`CustomRestIntakeSource.sample` maps
-one page of a draft's list operation without storing anything (the setup drawer's dry run before saving).
-"""
+"""Custom REST as a registered Work source: setup, discovery, sample, scheduling, write-back."""
 
 from __future__ import annotations
 
@@ -57,11 +51,10 @@ class CustomRestIntakeSource:
     write_effects = staticmethod(write_effects)
 
     def scope_key(self, item: WorkItem) -> str:
-        """The definition key: an item is bound to the REST API it came from, never to another source's key."""
+        # An item is bound to the REST API it came from, never to another source's key.
         return str(item.source_instance or "")
 
     def wants_auto_analysis(self, item: WorkItem, settings: Any, options: Mapping[str, Any]) -> bool:
-        """New items of an intake that switched ``auto_analyze_new`` on (per intake, default off)."""
         return bool(options.get("auto_analyze_new")) and str(item.work_state or "") == NEW_STATE
 
     def draft_what(self, row: WorkItemSyncConfig) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -70,13 +63,11 @@ class CustomRestIntakeSource:
         return what, dict(intake["state_mapping"])
 
     def draft_how(self, row: WorkItemSyncConfig) -> dict[str, Any]:
-        """The ``how`` keys of its own the setup draft carries (``intake/setup.draft_of``)."""
         intake = intake_of_row(row)
         return {"field_mapping": intake["fields"], "closed_statuses": intake["closed_statuses"],
                 "auto_analyze_new": intake["auto_analyze_new"], "write_back": intake["write_back"]}
 
     async def workspace_connections(self, db: AsyncSession, project_id: str) -> list[dict[str, Any]]:
-        """The definitions the Workspace can sync from (the overview's "connections" of this source)."""
         from ....models import RestApiDefinition
 
         rows = (await db.execute(select(RestApiDefinition).where(RestApiDefinition.is_active.is_(True))
@@ -142,7 +133,6 @@ class CustomRestIntakeSource:
 
     async def sample(self, db: AsyncSession, *, user: User, project_id: str, draft: dict[str, Any]
                      ) -> dict[str, Any]:
-        """One page of the draft's list operation, mapped, nothing stored: what the intake would import."""
         await self.require_connection(db, project_id, draft.get("connection_id"))
         config = normalize_config(_what(draft), _how(draft), draft.get("schedule"))
         key = str(draft["connection_id"]).strip()

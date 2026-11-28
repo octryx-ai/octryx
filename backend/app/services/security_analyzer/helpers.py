@@ -11,11 +11,6 @@ from ...tools.context import ToolContext
 
 
 def _capability_type(context: ToolContext) -> str:
-    """The guardrail profile the analyzers apply, from the enforced run capability only.
-
-    ``diagnosis`` (the read-only command rules) for an enforced ``read_only`` run,
-    ``change`` otherwise (``services/run_capability``).
-    """
     from ..run_capability import enforced_run_capability_class, guardrail_capability_type
 
     return guardrail_capability_type(enforced_run_capability_class(context) or "")
@@ -51,7 +46,6 @@ _KUBECTL_FLAGS_WITH_VALUE = frozenset({
 
 
 def _kubectl_subcommand_args(tokens: list[str]) -> list[str]:
-    """The argv from the subcommand on: ``kubectl --context x get pods`` → ``["get", "pods"]``."""
     skip_next = False
     for index, token in enumerate(tokens[1:], start=1):
         if skip_next:

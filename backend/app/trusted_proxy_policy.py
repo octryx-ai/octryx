@@ -1,51 +1,4 @@
-"""Validated trusted-proxy boundary for request scheme and client identity.
-
-One module decides, from one validated configuration (``trusted_proxy_ips``),
-what a request's effective scheme and effective client address are. Every
-security surface that depends on those two values — the auth-cookie policy
-the API and auth rate limiters, and request/auth audit attribution —
-reads the decision from here instead of parsing forwarded headers itself.
-
-Resolution rules, in order:
-
-1. The transport peer is not in the allowlist -> forwarded headers are ignored
-   completely: the client is the peer, the scheme is the transport scheme.
-2. The peer is in the allowlist -> ``X-Forwarded-For`` may name the client and
-   ``X-Forwarded-Proto`` / ``Forwarded: proto=`` may name the scheme.
-3. A trusted peer without a usable forwarded address stays attributed to the
-   peer (the proxy) rather than to an unparseable claim.
-
-Invariants that hold in every case:
-
-- A secure transport (``https``/``wss``) is never downgraded by a header.
-- A secure claim anywhere in the forwarded scheme evidence wins, so a
-  client-supplied ``http`` cannot suppress the ``https`` its proxy claimed.
-- Only syntactically valid IP addresses become a client address, so header text
-  can never reach rate-limit keys or audit rows.
-- The allowlist is deny-by-default and cannot express trust-all (see
-  ``config.parse_trusted_proxy_ips``).
-- Every occurrence of a forwarded header is read, in wire order, before any
-  bounding or selection happens (see ``_header_occurrences``).
-- The original transport peer and the trust decision remain available after the
-  effective client has been applied to the scope, so peer-based policies (the
-  local-debug cookie exemption) keep evaluating the real peer.
-
-Boundaries of this contract, deliberately chosen:
-
-- Every address in the allowlist may speak for any client. Name the proxy
-  addresses as narrowly as possible: a client inside a broad allowlisted network
-  can forge its own attribution.
-- Scheme resolution is fail-secure rather than positional: all
-  ``X-Forwarded-Proto`` values and all ``Forwarded: proto=`` values are combined,
-  and a secure claim among them wins over any insecure one. A forged ``https``
-  claim can only make the runtime stricter — ``Secure`` cookies and HTTPS URLs —
-  and never downgrades: a claimed ``http`` cannot lower a secure transport, and
-  any forwarded header already disqualifies the local-debug exemption. When no
-  claim is secure, the leftmost insecure claim (the scheme towards the first hop)
-  is used, matching the policy.
-- A forwarded chain longer than ``MAX_FORWARDED_ELEMENTS`` is truncated; which
-  end survives is a security decision, see the constant's comment.
-"""
+"""Validated trusted-proxy boundary for request scheme and client identity."""
 
 from __future__ import annotations
 
@@ -116,13 +69,6 @@ _KEEP_BOTH_ENDS = "both_ends"
 
 @dataclass(frozen=True)
 class ClientIdentity:
-    """Effective client attribution for one request.
-
-    ``peer_address`` is always the transport peer, never header-derived.
-    ``client_address`` is the address security surfaces should attribute the
-    request to. ``source`` records which of the two the client came from.
-    """
-
     peer_address: str
     client_address: str
     scheme: str
@@ -139,12 +85,6 @@ class ClientIdentity:
 
 
 def parse_ip_address(value: str | None) -> IpAddress | None:
-    """Parse a peer/forwarded address, or return ``None`` when it is not one.
-
-    Accepts the shapes proxies actually emit: a bare address, a bracketed IPv6
-    literal, and ``address:port`` for IPv4. IPv4-mapped IPv6 is normalized to
-    its IPv4 form so allowlists can be written in one family.
-    """
     raw = str(value or "").strip()
     if not raw:
         return None
@@ -160,7 +100,6 @@ def parse_ip_address(value: str | None) -> IpAddress | None:
 
 
 def is_trusted_proxy_peer(peer_address: str | None, settings: Settings) -> bool:
-    """True when the transport peer is named by the trusted-proxy allowlist."""
     networks = trusted_proxy_networks(str(settings.trusted_proxy_ips or ""))
     if not networks:
         return False
@@ -177,20 +116,6 @@ def _has_forwarded_headers(headers: Mapping[str, str] | Headers | None) -> bool:
 
 
 def _header_occurrences(headers: Mapping[str, str] | Headers | None, name: str) -> list[str]:
-    """Every occurrence of one header field, in wire order.
-
-    A comma-list header may arrive as several field lines, and HTTP defines that
-    to mean the same as one comma-joined list in the order received. A client can
-    therefore send its own ``X-Forwarded-For`` line and let the proxy append a
-    *second* line instead of extending the first. Reading only
-    ``headers.get(name)`` would take Starlette's *first* occurrence, i.e. the
-    client-supplied one, and hand the whole attribution decision to the client.
-
-    Starlette ``Headers`` expose ``getlist``; a plain ``Mapping`` (used by helpers
-    and tests) carries at most one value per name. Anything else is a programming
-    error at the call site, not an input to guess about, so it is rejected instead
-    of silently read as empty.
-    """
     if headers is None:
         return []
     getlist = getattr(headers, "getlist", None)
@@ -203,12 +128,6 @@ def _header_occurrences(headers: Mapping[str, str] | Headers | None, name: str) 
 
 
 def _comma_entries(headers: Mapping[str, str] | Headers | None, name: str) -> list[str]:
-    """Comma-separated entries of every occurrence of one header, in wire order.
-
-    Combining happens here, before any bound or selection is applied, so the
-    rightmost/leftmost decisions below operate on the complete chain rather than
-    on whichever field line happened to arrive first.
-    """
     entries: list[str] = []
     for occurrence in _header_occurrences(headers, name):
         for candidate in occurrence.split(","):
@@ -219,7 +138,6 @@ def _comma_entries(headers: Mapping[str, str] | Headers | None, name: str) -> li
 
 
 def _bounded(elements: list[str], keep: str) -> list[str]:
-    """At most ``MAX_FORWARDED_ELEMENTS`` elements, kept from the named end(s)."""
     if len(elements) <= MAX_FORWARDED_ELEMENTS:
         return elements
     if keep == _KEEP_TRAILING:
@@ -233,12 +151,6 @@ def _forwarded_elements(
     *,
     keep: str = _KEEP_TRAILING,
 ) -> list[dict[str, str]]:
-    """Parameters of each ``Forwarded`` element (RFC 7239), in request order.
-
-    All occurrences of the header are combined first, then bounded to
-    ``MAX_FORWARDED_ELEMENTS``; ``keep`` decides which end of an over-long chain
-    survives (see the constant's comment for why that matters).
-    """
     elements: list[dict[str, str]] = []
     for element in _bounded(_comma_entries(headers, "forwarded"), keep):
         parameters: dict[str, str] = {}
@@ -253,16 +165,6 @@ def _forwarded_elements(
 
 
 def forwarded_scheme(headers: Mapping[str, str] | Headers | None) -> str:
-    """Scheme claimed by a proxy, or an empty string when none is claimed.
-
-    Fail-secure rather than positional: every occurrence of ``X-Forwarded-Proto``
-    and every ``Forwarded`` element is combined, and a secure claim anywhere in
-    that evidence wins. A client that prepends ``http`` — as its own header line
-    or as the first list element — therefore cannot suppress the ``https`` its
-    trusted proxy claimed. With no secure claim at all, the leftmost insecure
-    claim is returned (``X-Forwarded-Proto`` before ``Forwarded: proto=``), which
-    cannot downgrade a secure transport either (``_effective_scheme``).
-    """
     claimed = [entry.lower() for entry in _bounded(_comma_entries(headers, "x-forwarded-proto"), _KEEP_BOTH_ENDS)]
     claimed += [element.get("proto", "").lower() for element in _forwarded_elements(headers, keep=_KEEP_BOTH_ENDS)]
     valid = [candidate for candidate in claimed if candidate in FORWARDED_SCHEMES]
@@ -275,7 +177,6 @@ def forwarded_scheme(headers: Mapping[str, str] | Headers | None) -> str:
 
 
 def _effective_scheme(transport_scheme: str, claimed_scheme: str) -> str:
-    """Apply a claimed scheme to the transport scheme without downgrading it."""
     transport = str(transport_scheme or "").strip().lower()
     if transport in SECURE_SCHEMES or not claimed_scheme:
         return transport
@@ -290,18 +191,6 @@ def _forwarded_client_address(
     headers: Mapping[str, str] | Headers | None,
     settings: Settings,
 ) -> str:
-    """Client address vouched for by a trusted proxy chain, or an empty string.
-
-    Each proxy appends the address it received the request from, so the client
-    is the rightmost entry that is not itself a trusted proxy. When every entry
-    belongs to the trusted chain the leftmost retained entry is the client.
-
-    All occurrences of the header are combined in wire order first, so a client
-    that sends its own ``X-Forwarded-For`` line cannot hide the line its proxy
-    added. The combined chain is then truncated to its rightmost
-    ``MAX_FORWARDED_ELEMENTS`` entries, so a client cannot pad the header to push
-    the entry its proxy appended out of the window either.
-    """
     entries = _bounded(_comma_entries(headers, "x-forwarded-for"), _KEEP_TRAILING)
     if not entries:
         # RFC 7239 proxies that only emit ``Forwarded: for=`` are read the same way.
@@ -327,7 +216,6 @@ def resolve_client_identity(
     headers: Mapping[str, str] | Headers | None,
     settings: Settings,
 ) -> ClientIdentity:
-    """Resolve the effective client identity for one request."""
     peer = parse_ip_address(peer_address)
     peer_text = str(peer) if peer is not None else str(peer_address or "").strip()[:MAX_ADDRESS_LENGTH]
     forwarded_present = _has_forwarded_headers(headers)
@@ -358,7 +246,6 @@ def resolve_client_identity(
 
 
 def resolve_scope_client_identity(scope: Any, settings: Settings) -> ClientIdentity:
-    """Resolve the identity for a raw ASGI connection scope."""
     client = scope.get("client") if hasattr(scope, "get") else None
     peer_address = client[0] if client else None
     return resolve_client_identity(
@@ -370,19 +257,11 @@ def resolve_scope_client_identity(scope: Any, settings: Settings) -> ClientIdent
 
 
 def record_client_identity(scope: Any, identity: ClientIdentity) -> None:
-    """Record the resolved identity in the ASGI scope.
-
-    Written to the scope itself and to ``scope["state"]``: the scope key keeps the
-    decision (and with it the original transport peer) readable even if a
-    sub-application replaces the request state, which would otherwise make the
-    fallback re-resolve trust from an already-rewritten client address.
-    """
     scope[SCOPE_STATE_KEY] = identity
     scope.setdefault("state", {})[SCOPE_STATE_KEY] = identity
 
 
 def recorded_client_identity(request: Any) -> ClientIdentity | None:
-    """The identity recorded by the boundary middleware, if it ran."""
     scope = getattr(request, "scope", None)
     if not isinstance(scope, dict):
         return None
@@ -394,12 +273,6 @@ def recorded_client_identity(request: Any) -> ClientIdentity | None:
 
 
 def client_identity(request: Any, settings: Settings | None = None) -> ClientIdentity:
-    """Effective client identity for a request.
-
-    Prefers the identity recorded by the boundary middleware; falls back to
-    resolving it from the request, which keeps helpers usable for requests that
-    were built outside the middleware stack.
-    """
     recorded = recorded_client_identity(request)
     if recorded is not None:
         return recorded
@@ -415,26 +288,16 @@ def client_identity(request: Any, settings: Settings | None = None) -> ClientIde
 
 
 def effective_client_address(request: Any, settings: Settings | None = None) -> str | None:
-    """Address to attribute a request to, or ``None`` when there is no peer."""
     if request is None:
         return None
     return client_identity(request, settings).client_address or None
 
 
 def rate_limit_client_key(request: Any, settings: Settings | None = None) -> str:
-    """Bucket key component for rate limiting: a validated address only."""
     return effective_client_address(request, settings) or UNKNOWN_CLIENT_ADDRESS
 
 
 def log_boundary_configuration(settings: Settings | None = None) -> str:
-    """Log the proxy trust boundary once at startup and return the mode.
-
-    An empty allowlist is valid (direct exposure), but for a production-like
-    runtime it usually means an ingress deployment forgot to name its proxies:
-    every request is then attributed to the ingress peer and absolute URLs are
-    built from the scheme the application itself sees. That is a configuration
-    problem an operator must see, not a reason to refuse startup.
-    """
     resolved = settings or get_settings()
     mode = forwarded_header_trust_mode(resolved.trusted_proxy_ips)
     logger.info("Trusted-proxy boundary active (forwarded_header_trust=%s)", mode)
@@ -453,16 +316,6 @@ def log_boundary_configuration(settings: Settings | None = None) -> str:
 
 
 def uvicorn_forwarded_header_options() -> dict[str, object]:
-    """Uvicorn options for the forwarded-header boundary.
-
-    Uvicorn's own ``ProxyHeadersMiddleware`` stays off: the application applies
-    the validated ``trusted_proxy_ips`` allowlist itself in
-    ``middleware.security.trusted_proxy``, which keeps one authority for every
-    launch path (``python -m app.main``, the uvicorn CLI, the e2e helper) and
-    keeps the original transport peer available to peer-based policies. The
-    empty allowlist is passed explicitly so an ambient ``FORWARDED_ALLOW_IPS``
-    cannot re-enable transport-level trust.
-    """
     return {"proxy_headers": False, "forwarded_allow_ips": []}
 
 

@@ -1,11 +1,4 @@
-"""The platform's served client release and the update notice for an installed octryx-claude.
-
-``served_release`` reads ``GET /octryx-claude/version`` (version, wheel name, sha256); ``self_update`` uses it to
-update an installed copy on start. With the auto-update switched off (``OCTRYX_CLAUDE_AUTO_UPDATE=0``) an installed
-copy only gets the notice here: at most once per ``CHECK_INTERVAL_SECONDS`` one line names the update command when
-the served version differs. A checkout never checks, and any failure (offline, refused, malformed answer) is
-silent: the notice never delays or blocks a command.
-"""
+"""The platform's served client release and the update notice for an installed octryx-claude."""
 
 from __future__ import annotations
 
@@ -30,8 +23,6 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ReleaseUnavailableError(Exception):
-    """No usable release; ``code`` is fixed (``offline``, ``timeout``, ``refused_<status>``, ``malformed``)."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -63,7 +54,6 @@ def _stamp(state: LocalState, now: float) -> None:
 
 
 def served_version(http: httpx.Client, base_url: str) -> str:
-    """The platform's client version, or ``""`` on any failure."""
     try:
         response = http.get(f"{base_url}{VERSION_PATH}", timeout=CHECK_TIMEOUT_SECONDS)
         payload = response.json() if response.status_code == 200 else None
@@ -74,7 +64,6 @@ def served_version(http: httpx.Client, base_url: str) -> str:
 
 
 def served_release(http: httpx.Client, base_url: str, *, timeout: float = CHECK_TIMEOUT_SECONDS) -> Release:
-    """The platform's release with its package name and checksum; raises ``ReleaseUnavailableError``."""
     try:
         response = http.get(f"{base_url}{VERSION_PATH}", timeout=timeout)
     except httpx.TimeoutException as exc:

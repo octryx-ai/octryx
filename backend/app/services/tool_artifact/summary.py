@@ -111,7 +111,6 @@ _KEPT_SHARE = 0.9
 
 
 def _text_and_items(value: Any) -> tuple[int, int]:
-    """Characters of the longer texts (markup stripped) and the number of list items, recursively."""
     if isinstance(value, str):
         text = " ".join(_TAG.sub(" ", value).split())
         # Prose only: hashes, ids and URLs are not what a reader of the answer needs.
@@ -123,18 +122,6 @@ def _text_and_items(value: Any) -> tuple[int, int]:
         parts = [_text_and_items(item) for item in value]
         return sum(p[0] for p in parts), len(value) + sum(p[1] for p in parts)
     return 0, 0
-
-
-def result_was_shortened(raw: Any, compact: Any) -> bool:
-    """Whether the result the model sees lost text or list items of the tool's real result.
-
-    A ``detail_available`` hint on a result whose compact form kept the whole page text (a 276-character
-    Confluence page as ``excerpt``) makes a model call ``load_tool_artifact`` by reflex, one more model call each.
-    Only a result that really lost text or items says so.
-    """
-    raw_text, raw_items = _text_and_items(raw)
-    text, items = _text_and_items(compact)
-    return text < raw_text * _KEPT_SHARE or items < raw_items * _KEPT_SHARE
 
 
 def build_tool_artifact_envelope(

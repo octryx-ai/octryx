@@ -1,21 +1,4 @@
-"""Who a run's pull request asks to review it, and what happens when the requester cannot be one.
-
-- **requester**: their account on the run's SCM, read only from their linked accounts (``services/linked_accounts``:
-  GitHub login, GitLab username, Bitbucket Server username; on Bitbucket Cloud their Atlassian account, else the
-  exact-email lookup, ``bitbucket_cloud.requester_account``);
-- **requester is the connection's account** (Bitbucket Cloud: they saved the serving connection with their own
-  Atlassian API token): no reviewer is set for them (Bitbucket refuses an author as reviewer), the description
-  mentions them and the run records ``reviewer_skipped: requester_is_author`` - never ``requester_unresolved``;
-- **unresolved requester** (no linked account, or the SCM does not know it): the pull request is still opened, without
-  them as reviewer; the description mentions them by their platform name, the run records ``reviewer_skipped:
-  requester_unresolved`` (run event, run card, Inbox: "link your account to be added as reviewer"). The watched merge
-  is unchanged. A retried step after linking resolves them again: they become the reviewer, or the
-  requester-is-author exception applies (``tools/scm_requester_rule.py``).
-- **stand-in** (``pr_reviewers.json`` ``fallback_roles``): for an unresolved requester, the first Workspace member of
-  those roles with a linked account on that SCM is asked to review instead, and the description says so; with none,
-  the unresolved note above stays the one sentence (a run started over the API may have nobody
-  to ask).
-"""
+"""Who a run's pull request asks to review it, and what happens when the requester cannot be one."""
 
 from __future__ import annotations
 
@@ -38,13 +21,11 @@ REQUESTER_IS_AUTHOR = bitbucket_cloud.REQUESTER_IS_AUTHOR
 
 @dataclass(frozen=True, slots=True)
 class PrReviewers:
-    """The requester's SCM identity (``""`` when unresolved, with ``unresolved`` saying why) and the owners."""
-
     requester: str
     owners: tuple[str, ...]
     platform: str
     unresolved: str = ""
-    is_author: bool = False  # the requester is the connection's account: no reviewer, ``requester_is_author``
+    is_author: bool = False
 
     @property
     def names(self) -> list[str]:
@@ -52,7 +33,6 @@ class PrReviewers:
 
 
 async def requester_reviewer(db: AsyncSession, run: WorkflowRun, ref) -> tuple[str, str, str]:
-    """``(identity, linked-account platform, why unresolved)`` of the requester on the run's SCM."""
     cloud = ref.provider == "bitbucket" and await bitbucket_cloud.is_cloud_repository(db, run, ref.args())
     platform_key = scm_platform(ref.provider, cloud=cloud)
     if cloud:
@@ -73,8 +53,6 @@ def _fallback_roles() -> list[str]:
 
 
 async def stand_in(db: AsyncSession, run: WorkflowRun, platform_key: str) -> tuple[str, str]:
-    """``(SCM identity, display name)`` of the Workspace member who reviews for an unresolved requester; ``("", "")``
-    when the rule names nobody with a linked account."""
     for role in _fallback_roles():
         rows = (await db.execute(select(UserProject.user_id).where(
             UserProject.project_id == run.project_id, UserProject.role == role,
@@ -113,7 +91,6 @@ def author_note(description: str, mention: str) -> str:
 
 
 def record_reviewer_skipped(db: AsyncSession, run: WorkflowRun, reason: str, *, detail: str = "") -> None:
-    """The requester reviews their own pull request outside the SCM: recorded on the run and as a run event."""
     run.context = {**dict(run.context or {}), "reviewer_skipped": reason}
     record_event(db, run, "reviewer_skipped", detail={"reason": reason, "pull_request": dict(run.pull_request or {}),
                                                       **({"why": detail} if detail else {})})

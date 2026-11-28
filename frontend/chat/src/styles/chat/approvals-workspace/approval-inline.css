@@ -48,7 +48,7 @@
 .approval-inline__icon {
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -76,14 +76,14 @@
 .approval-inline__title {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.2;
 }
 
 .approval-inline__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.4;

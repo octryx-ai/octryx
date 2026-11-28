@@ -1,21 +1,5 @@
-"""Does the session's folder have tests at all?
-
-The platform's "done means verified" gate asks for a green test run after a code change. In a folder with no test
-setup (a notes folder, a scripts folder without tests) that request can only make the model fumble: it invents a
-throwaway test or fails to install a runner. So the Stop hook tells the platform what it found here
-(``test_setup``: ``True`` / ``False``), from the session's folder up to the repository root (never above the home
-folder):
-
-- Python: ``pytest.ini``, ``conftest.py``, ``tox.ini``, ``noxfile.py``, a ``[tool.pytest`` / ``pytest`` mention in
-  ``pyproject.toml`` or ``setup.cfg``;
-- JavaScript/TypeScript: ``package.json`` with a real ``test`` script (not npm's "no test specified"), a vitest or
-  jest config;
-- JVM: ``pom.xml``, ``build.gradle(.kts)``; Go: ``go.mod``; Rust: ``Cargo.toml``; .NET: a ``*.csproj``; Ruby: a
-  ``spec`` folder with a ``Gemfile``;
-- a ``Makefile`` with a ``test:`` target; a ``tests`` or ``test`` folder next to code.
-
-Detection only reads names and small files; it never runs anything. Unsure is ``None`` (the platform then decides).
-"""
+"""Does the session's folder have tests at all? Without a test setup, a demand for a green test run only makes
+the model fumble."""
 
 from __future__ import annotations
 
@@ -68,7 +52,6 @@ def _folder_has_tests(folder: Path) -> bool:
 
 
 def has_test_setup(cwd: str, *, home: Path | None = None) -> bool | None:
-    """``True``/``False`` for the session's folder and its parents up to the repository root; ``None`` if unsure."""
     if not cwd or not cwd.startswith("/"):
         return None
     try:

@@ -1,9 +1,5 @@
 """A run's token profile for its Tokens view: per phase by category and by cache, the top consumers and the savings
-hints. Read from the run's own events when the view is opened; no metric is read from the database.
-
-``basis``: ``measured`` when every turn has the launcher's profile, ``estimated`` when none has, ``mixed`` otherwise;
-each phase, consumer and hint says which it is.
-"""
+hints."""
 
 from __future__ import annotations
 
@@ -68,7 +64,6 @@ def _basis(measured: int, total: int) -> str:
 
 
 def profile_of(turns: list[Turn]) -> dict[str, Any]:
-    """The view's payload from the run's turns (pure: the turns carry their phase titles already)."""
     pairs = _pairs(turns)
     phase_rows = _phases(pairs)
     totals = {name: sum(row["cache"][name] for row in phase_rows) for name in ("read", "write", "uncached", "output")}

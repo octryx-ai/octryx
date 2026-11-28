@@ -1,32 +1,5 @@
-"""``KnowledgeQueryStore`` served by the Workspace Evidence index (``evidence_index``).
-
-Lexical and vector retrieval. Vector search embeds the query in the Instance's embedding space and
-asks the index for that space's nearest spans, so it only ever compares vectors of one space.
-Without a configured space, and for graph, the mode raises the typed
-:class:`KnowledgeIndexUnavailableError`, so a request that asks for it fails the whole request at the
-facade instead of silently returning lexical hits that look like a complete answer.
-
-Bounded plan retrieval. ``lexical_recall`` builds a fetch plan from the query terms: tier 1 is one
-single-term fetch per term form, tier 2 (run after it) one conjunctive fetch per pair of terms whose
-tier-1 fetches filled their cap, at most ``MAX_FETCHES`` in total. Every fetch is a registry
-operation carrying the same server-owned ``LIMIT :cap`` (``min(limit_per_mode * 4, 64)``), so
-neither the number of fetches nor the size of any fetch depends on how many records match. Ranking
-runs over the deduplicated union of those bounded results only (``lexical_ranking``). No relevance
-``score`` is published for lexical hits; it orders the results and stays internal.
-
-The bound is enforced on this side too. A fetch that answers with more rows than its own cap is a
-contract violation rather than a larger candidate set.
-
-Fail-closed and whole-request. Every fetch of the plan must succeed; the first failure **in plan
-order** becomes the typed store error, so a partially answered plan can never be mistaken for a
-complete result, and the raised error does not depend on which fetch lost the race. That holds for
-all three ways one fetch can fail — the index, a response over its own cap, and a malformed row.
-Errors are raised outside every handler, so no index error is chained as context.
-
-The index is never trusted as the source of truth for lineage. The adapter returns the evidence key
-and text only; the citation and the source revision are re-resolved from the ledger by the
-retrieval service. Query text is only ever passed as bound parameter values.
-"""
+"""``KnowledgeQueryStore`` served by the Workspace Evidence index (``evidence_index``). An unconfigured mode fails the
+whole request, never falls back to lexical."""
 
 from __future__ import annotations
 
@@ -53,11 +26,7 @@ _VECTOR = RetrievalMode.VECTOR.value
 
 
 def _mapped_failure(error: BaseException) -> Exception | None:
-    """Translate one index failure into this boundary's typed state.
-
-    ``None`` means the failure is not this boundary's: it is re-raised unchanged
-    rather than flattened into a retrieval state.
-    """
+    # ``None``: not this boundary's failure; it is re-raised unchanged, never flattened into a retrieval state.
     if isinstance(error, EvidenceIndexContractError):
         # A refusal by the closed registry means the call does not match the contract.
         return KnowledgeStoreContractError()
@@ -68,16 +37,7 @@ def _mapped_failure(error: BaseException) -> Exception | None:
 
 
 class EvidenceIndexQueryStore:
-    """Query store over one deployment's Workspace Evidence index.
-
-    One store serves every Workspace: the Workspace of the validated request
-    selects the rows, so no caller can direct a search at another Workspace.
-
-    Precondition: the request's Workspace has been projected. The retrieval
-    service checks that against its ledger before building a request, so an
-    un-projected Workspace never reaches here.
-    """
-
+    # The validated request's Workspace selects the rows, so no caller can search another Workspace.
     def __init__(self, client: EvidenceIndexClient | None, *, embedding: EmbeddingRuntime | None = None) -> None:
         if client is not None and not isinstance(client, EvidenceIndexClient):
             raise KnowledgeStoreNotConfiguredError()
@@ -90,7 +50,6 @@ class EvidenceIndexQueryStore:
         return f"EvidenceIndexQueryStore(configured={self._client is not None})"
 
     async def search_lexical(self, request: RetrievalRequest) -> Sequence[Evidence]:
-        """Term retrieval served by the Workspace's full-text index."""
         if type(request) is not RetrievalRequest:
             raise KnowledgeStoreContractError()
         if self._client is None:
@@ -124,11 +83,7 @@ class EvidenceIndexQueryStore:
         )
 
     async def search_vector(self, request: RetrievalRequest) -> Sequence[Evidence]:
-        """Nearest spans in the Instance's embedding space; ``score`` is the cosine similarity.
-
-        The caller admits the Workspace for a remote space before the request reaches here,
-        because the query text is what leaves the process.
-        """
+        # The caller admits the Workspace for a remote space first: the query text leaves the process.
         if type(request) is not RetrievalRequest:
             raise KnowledgeStoreContractError()
         if self._client is None:
@@ -177,7 +132,6 @@ class EvidenceIndexQueryStore:
         )
 
     async def search_graph(self, request: RetrievalRequest) -> Sequence[Evidence]:
-        """Explicitly unavailable: this slice projects no entities or relations."""
         raise KnowledgeIndexUnavailableError(RetrievalMode.GRAPH.value)
 
     async def _collect(
@@ -187,17 +141,7 @@ class EvidenceIndexQueryStore:
         plan: tuple[LexicalFetch, ...],
         cap: int,
     ) -> tuple[dict[str, str], list[frozenset[str]]]:
-        """Run the whole plan and merge it, or fail the request; also each fetch's matched keys.
-
-        The fetches are dispatched together (the client's own connection limit is
-        the concurrency bound) because they are independent bounded reads of one
-        Workspace's index. ``return_exceptions`` keeps the results positional, so
-        the failure that is reported is the first one in plan order rather than the
-        first one to arrive, and nothing is raised from inside a handler.
-
-        Every check therefore only *records* a failure and keeps walking the plan;
-        this loop is the one place that decides which failure the request reports.
-        """
+        # ``return_exceptions`` keeps results positional, so the reported failure is the first in plan order.
         results = await asyncio.gather(
             *(client.run(request.workspace, fetch.operation, fetch.parameters(cap)) for fetch in plan),
             return_exceptions=True,
@@ -230,15 +174,6 @@ class EvidenceIndexQueryStore:
         return candidates, matched
 
     def _merge(self, candidates: dict[str, str], rows: tuple[dict[str, object], ...]) -> bool:
-        """Keep rows that carry both projected fields, stripped, deduplicated by key.
-
-        Answers whether every row was well-formed instead of raising, so the caller
-        can keep the earliest plan-order failure. A malformed row ends the merge for
-        this fetch; the candidates merged so far are discarded with the request.
-
-        One span can be returned by several fetches of the plan; the first spelling
-        wins, which is the same text either way because the key identifies the record.
-        """
         for row in rows:
             evidence_key = row.get("evidence_key")
             body_text = row.get("body_text")

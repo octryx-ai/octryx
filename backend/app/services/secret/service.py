@@ -1,8 +1,6 @@
 """Encrypted secret storage for tool and provider credentials."""
 
 import asyncio
-import base64
-import hashlib
 import logging
 import uuid
 from datetime import datetime, timedelta
@@ -12,7 +10,6 @@ from urllib.parse import urlencode
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...config import get_settings
 from ...models import Role, SecretRotationLog, StoredSecret, User, UserRole
 from ...time_utils import ensure_utc, utc_now, utc_now_aware
 from ..background_worker_state import (
@@ -20,35 +17,13 @@ from ..background_worker_state import (
     record_background_worker_success,
 )
 from ..team_notification import create_notification
+from .access import reveal_stored_secret
+from .crypto import encrypt_secret
 
-settings = get_settings()
-_FERNET_PREFIX = "fernet:"
 _SECRET_REF_PREFIX = "secret:"
 _SECRET_REF_FIELD_SUFFIX = "_secret_ref"
 _PROJECT_SCOPE_NOT_PROVIDED = object()
 logger = logging.getLogger(__name__)
-
-
-def _key_bytes() -> bytes:
-    return hashlib.sha256(settings.encryption_key.encode("utf-8")).digest()
-
-
-def _fernet():
-    from cryptography.fernet import Fernet
-
-    return Fernet(base64.urlsafe_b64encode(_key_bytes()))
-
-
-def encrypt_secret(value: str) -> str:
-    token = _fernet().encrypt(value.encode("utf-8")).decode("utf-8")
-    return f"{_FERNET_PREFIX}{token}"
-
-
-def decrypt_secret(value: str) -> str:
-    """A stored value is always ``fernet:<token>``; any other format is refused."""
-    if not value.startswith(_FERNET_PREFIX):
-        raise ValueError("Unknown secret format")
-    return _fernet().decrypt(value[len(_FERNET_PREFIX) :].encode("utf-8")).decode("utf-8")
 
 
 def secret_ref_label(secret_id: str | None) -> str | None:
@@ -220,6 +195,7 @@ async def get_secret_value(
     expected_tool_name: str | None = None,
     expected_field_name: str | None = None,
     expected_project_id: str | None | object = _PROJECT_SCOPE_NOT_PROVIDED,
+    purpose: str,
 ) -> str | None:
     entry = None
     if secret_id:
@@ -259,7 +235,7 @@ async def get_secret_value(
             },
         )
         return None
-    return decrypt_secret(entry.encrypted_value)
+    return await reveal_stored_secret(db, entry, purpose=purpose)
 
 
 async def resolve_secret_refs(
@@ -268,6 +244,7 @@ async def resolve_secret_refs(
     *,
     tool_name: str | None = None,
     project_id: str | None = None,
+    purpose: str,
 ) -> dict:
     """Resolve explicit ``*_secret_ref`` fields without falling back across scopes."""
     resolved = dict(config)
@@ -283,6 +260,7 @@ async def resolve_secret_refs(
                 expected_tool_name=tool_name,
                 expected_field_name=field_name if tool_name else None,
                 expected_project_id=project_id if tool_name else _PROJECT_SCOPE_NOT_PROVIDED,
+                purpose=purpose,
             )
             if secret_value is not None:
                 resolved[field_name] = secret_value

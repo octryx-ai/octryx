@@ -1,20 +1,4 @@
-"""Readable names for AWS resource types — and the rule that guards them.
-
-A bullet reading ``subnet: 9`` is a field dump, not a statement. This module
-holds the closed catalog that turns a snapshot key into a readable noun so the
-planner can write "9 subnets" instead, plus the discipline that keeps such a
-sentence honest:
-
-**Only values the snapshot states may appear in a sentence.** A number in a
-bullet has to be either a value the snapshot carries or the size of something
-the snapshot lists. Sums, percentages, averages and ratios are derived readings
-that the evidence does not make — they are forbidden, and
-``permitted_numbers()`` is what a test checks a finished plan against.
-
-The catalog is closed on purpose. An unknown resource type is never given an
-invented name; it keeps its raw type inside an explicit phrase that says
-the type came from the snapshot verbatim.
-"""
+"""Readable names for AWS resource types — and the rule that guards them."""
 
 from __future__ import annotations
 
@@ -89,11 +73,6 @@ NODE_TYPE_LABELS: dict[str, tuple[str, str]] = {
 
 
 def resource_phrase(node_type: str, count: int) -> str:
-    """"9 subnets" — the count with what it counts, never ``subnet: 9``.
-
-    An uncatalogued type keeps its raw snapshot key inside a phrase that says
-    so, instead of receiving a guessed name.
-    """
     label = NODE_TYPE_LABELS.get(node_type)
     if label is None:
         noun = "resource" if count == 1 else "resources"
@@ -112,24 +91,10 @@ _MAX_DEPTH = 12
 
 
 def numbers_in(text: str) -> set[int]:
-    """Every integer a sentence states."""
     return {int(match) for match in _NUMBER.findall(text)}
 
 
 def permitted_numbers(snapshot: Any, _depth: int = 0) -> set[int]:
-    """Numbers a sentence about this snapshot is allowed to contain.
-
-    Two kinds, and no others:
-
-    * a number the snapshot *states* — an integer value, or an integer that
-      appears inside one of its strings (a region name, an account id, a
-      timestamp);
-    * the *size* of something the snapshot lists — ``len(scope.regions)`` is a
-      measurement of the evidence, not an addition to it.
-
-    Everything else (sums, shares, averages) is a reading the evidence does not
-    make, and a bullet containing such a number fails the check.
-    """
     found: set[int] = set()
     if _depth > _MAX_DEPTH:
         return found

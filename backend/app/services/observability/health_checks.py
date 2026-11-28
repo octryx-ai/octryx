@@ -1,14 +1,4 @@
-"""The platform's health checks (``/api/v1/health``, the API's readiness and liveness probe).
-
-An exhausted connection pool (e.g. 5 + 10 used up by an admin page's parallel requests) must not take the API
-out of service: a probe that waits for a pooled connection like any request times out after 5 s, and the API is
-taken out of service (503 "no available server") for minutes. The probe therefore never waits for the pool:
-
-- the database is checked over a connection of its own (``SELECT 1``, no pool, :data:`DB_CHECK_SECONDS`): a busy
-  pool is no unreachable database;
-- the connector health read is bounded too (:data:`POOL_READ_SECONDS`); a busy pool degrades that component only;
-- the results are stored in the background, never before the answer.
-"""
+"""The platform's health checks (``/api/v1/health``, the API's readiness and liveness probe)."""
 
 from __future__ import annotations
 
@@ -17,15 +7,13 @@ import logging
 import time
 from typing import Any
 
-from sqlalchemy import text
+from sqlalchemy import exists, select, text
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.services.connector_health import list_connector_health_rows
-
-from ...models import PlatformHealthCheck
+from ...models import ConnectorHealth, PlatformHealthCheck
 from ...runtime_toggles import background_workers_enabled
 from ...time_utils import utc_now
 from ..redaction_policy import redact_secret_payload
@@ -44,7 +32,6 @@ _persisting: set[asyncio.Task] = set()
 
 
 def _engine_for_probe(session_factory: async_sessionmaker[AsyncSession]) -> AsyncEngine | None:
-    """An engine without a pool on the same database (``None`` for SQLite: one file, no server to reach)."""
     global _probe_engine
     bind = getattr(session_factory, "kw", {}).get("bind")
     url = getattr(bind, "url", None)
@@ -123,15 +110,13 @@ async def _database_check(session_factory: async_sessionmaker[AsyncSession]) -> 
 async def _connector_health_check(
     session_factory: async_sessionmaker[AsyncSession], connector_health_worker: Any
 ) -> dict[str, Any]:
-    """The connector health worker's task, degraded by an unhealthy connector or a busy pool."""
     connector_started = time.perf_counter()
     connector_task = getattr(connector_health_worker, "_task", None)
     connector_running = bool(connector_task is not None and not connector_task.done())
     connector_status = "ok"
     connector_error = None
     try:
-        connector_rows = await asyncio.wait_for(_connector_rows(session_factory), POOL_READ_SECONDS)
-        if any(row.status == "error" for row in connector_rows.values()):
+        if await asyncio.wait_for(_any_connector_in_error(session_factory), POOL_READ_SECONDS):
             connector_status = "degraded"
             connector_error = "One or more connectors are unhealthy"
     except TimeoutError:
@@ -158,7 +143,6 @@ async def run_platform_health_checks(
     outbound_webhook_worker: Any,
     connector_health_worker: Any,
     analytics_worker: Any,
-    prefetch_worker: Any,
     worker_monitor_worker: Any,
     worker_agenda_worker: Any,
     worker_report_worker: Any,
@@ -186,7 +170,6 @@ async def run_platform_health_checks(
     checks["connector_health_worker"] = await _connector_health_check(session_factory, connector_health_worker)
     checks.update(task_checks((
         ("analytics_worker", analytics_worker),
-        ("prefetch_worker", prefetch_worker),
         ("worker_monitor_worker", worker_monitor_worker),
         ("worker_agenda_worker", worker_agenda_worker),
         ("worker_report_worker", worker_report_worker),
@@ -201,8 +184,6 @@ async def run_platform_health_checks(
 
 
 async def _store(session_factory: async_sessionmaker[AsyncSession], checks: dict[str, dict[str, Any]]) -> None:
-    """Remember the run for ``/metrics`` and store it: inline in tests (``PERSIST_INLINE``), else in the background.
-    Both returns of :func:`run_platform_health_checks` go through here, also the one with workers disabled."""
     _remember(checks)
     if PERSIST_INLINE:
         await _persist_platform_health_checks(session_factory, checks)
@@ -219,23 +200,23 @@ def _remember(checks: dict[str, dict[str, Any]]) -> None:
 
 
 def last_platform_health_checks() -> tuple[float, dict[str, dict[str, Any]]] | None:
-    """The newest health run of this process (Unix seconds, checks), for ``/metrics``: a scrape never runs one."""
     return _last
 
 
 def forget_platform_health_checks() -> None:
-    """Tests: no health run yet."""
     global _last
     _last = None
 
 
-async def _connector_rows(session_factory: async_sessionmaker[AsyncSession]) -> Any:
+async def _any_connector_in_error(session_factory: async_sessionmaker[AsyncSession]) -> bool:
+    # A platform total over every Workspace, whoever asks (the probe has no viewer): one yes or no, never a row.
     async with session_factory() as db:
-        return await list_connector_health_rows(db)
+        connection = await db.connection()
+        return bool((await connection.execute(select(exists().where(
+            ConnectorHealth.__table__.c.status == "error")))).scalar())
 
 
 def _persist_later(session_factory: async_sessionmaker[AsyncSession], checks: dict[str, dict[str, Any]]) -> None:
-    """Store the results without holding the answer; at most one store at a time (a busy pool skips the next)."""
     if any(not task.done() for task in _persisting):
         return
     task = asyncio.get_running_loop().create_task(
@@ -249,8 +230,6 @@ async def _persist_platform_health_checks(
     session_factory: async_sessionmaker[AsyncSession],
     checks: dict[str, dict[str, Any]],
 ) -> None:
-    """One upsert for all components: two stores at once (api and worker, or two probes) never collide on a new
-    component's primary key, as a read-then-insert did."""
     if not checks:
         return
     now = utc_now()

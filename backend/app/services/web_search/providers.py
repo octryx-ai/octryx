@@ -1,19 +1,4 @@
-"""Governed web search providers: real search APIs only, chosen by explicit configuration.
-
-There is no scraping of public result pages. Scraped DuckDuckGo answers bot traffic with an
-anomaly page and Bing with unrelated sites, so a scraper returns results that have nothing to do
-with the query and cannot be governed. Without a configured provider, search is
-``needs_configuration``; nothing silently falls back.
-
-Selection is deterministic:
-
-- ``OCTRYX_WEB_SEARCH_PROVIDER`` (``tavily`` or ``exa``) names the provider; its key must be
-  set, otherwise search is ``needs_configuration``;
-- unset, the provider is Tavily when ``TAVILY_API_KEY`` is set, else Exa when ``EXA_API_KEY`` (or
-  the Workspace's ``exa_api_key``) is set.
-
-A provider failure is a fixed reason token; no response body, header or key reaches a caller.
-"""
+"""Governed web search providers: real search APIs only, chosen by explicit configuration."""
 
 from __future__ import annotations
 
@@ -65,7 +50,6 @@ class ProviderConfig:
 def provider_config(
     project_config: Mapping[str, Any] | None = None, environ: Mapping[str, str] | None = None
 ) -> ProviderConfig | None:
-    """The configured provider, or ``None`` when search is not configured."""
     source = os.environ if environ is None else environ
     keys = {
         "tavily": str(source.get(_KEY_ENV["tavily"]) or "").strip(),
@@ -155,7 +139,6 @@ async def search_provider(
     code: bool = False,
     client_factory: Callable[..., Any] = httpx.AsyncClient,
 ) -> list[SearchHit]:
-    """One provider request; raises :class:`SearchProviderError` with a fixed reason."""
     count = max(1, min(num_results, MAX_RESULTS))
     if config.name == "tavily":
         payload: dict[str, Any] = {"query": query, "max_results": count, "search_depth": "basic"}

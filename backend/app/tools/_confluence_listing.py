@@ -133,7 +133,6 @@ async def _list_allowed_pages(
 
 
 def _whole(spaces: list[str]) -> dict[str, Any]:
-    """Whole spaces are not enumerated here; the listing names them so a call can list one by ``space_key``."""
     return {"whole_spaces": spaces} if spaces else {}
 
 

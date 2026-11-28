@@ -1,9 +1,5 @@
-"""The Workspace's Memory settings, stored on its own project row.
-
-Automatic capture is off unless a Workspace admin or owner turns it on. The value is read from the
-``projects.config`` column of the Workspace itself, never from the merged turn configuration: agent-
-writable knowledge entries are merged into that one, and they must not be able to switch capture on.
-"""
+"""The Workspace's Memory settings, stored on its own project row. Never read from the merged turn configuration, which
+agent-writable entries reach."""
 
 from __future__ import annotations
 
@@ -66,7 +62,6 @@ async def confirm_roles(db: AsyncSession, project_id: str | None) -> tuple[str, 
 
 
 async def set_memory_policy(db: AsyncSession, project_id: str, **values: object) -> None:
-    """Merge validated values into the Workspace's memory policy. Flushes; the caller commits."""
     project = await db.get(Project, project_id)
     if project is None:
         return
@@ -80,7 +75,6 @@ async def set_memory_policy(db: AsyncSession, project_id: str, **values: object)
 
 
 async def set_automatic_capture(db: AsyncSession, project_id: str, *, enabled: bool) -> None:
-    """Store the switch on the Workspace row. Flushes; the caller commits."""
     project = await db.get(Project, project_id)
     if project is None:
         return

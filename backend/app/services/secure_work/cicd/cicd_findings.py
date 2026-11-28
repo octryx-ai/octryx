@@ -96,6 +96,7 @@ async def record_work_item_cicd_finding(
             action="secure_work.cicd_finding_recorded",
             resource_type="secure_work_cicd_finding",
             resource_id=row.id,
+            project_id=item.project_id,
             details={
                 "work_item_id": item.id,
                 "source_key": item.source_key,

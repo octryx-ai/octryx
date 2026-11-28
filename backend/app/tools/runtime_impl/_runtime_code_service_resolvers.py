@@ -1,8 +1,4 @@
-"""Code-intelligence, git-intelligence and review services of the code tools, read from their defining modules.
-
-Each name is looked up on its owning module at call time, so a test that replaces a service on that module
-reaches the tool.
-"""
+"""Code-intelligence, git-intelligence and review services of the code tools, read from their defining modules."""
 
 from __future__ import annotations
 
@@ -47,12 +43,8 @@ _RUNTIME_SERVICE_OWNERS = {
 
 
 def resolve_code_intelligence_service(function_name: str) -> Callable[..., Any]:
-    """The code-intelligence function ``function_name``, read from its defining module."""
-
     return getattr(importlib.import_module(_CODE_INTELLIGENCE_OWNERS[function_name]), function_name)
 
 
 def resolve_runtime_service(function_name: str) -> Callable[..., Any]:
-    """The git-intelligence or review function ``function_name``, read from its defining module."""
-
     return getattr(importlib.import_module(_RUNTIME_SERVICE_OWNERS[function_name]), function_name)

@@ -1,11 +1,4 @@
-"""The PR author lookup is best-effort on every SCM.
-
-Asking the SCM who the connection's account is (``GET /user``) before opening the pull request never fails the step:
-a token that may not read its own account (GitHub App / fine-grained token, a Bitbucket Cloud token without
-``read:user:bitbucket``, an SCM without that endpoint) leaves the author unknown; the requester is then requested as
-reviewer (the default); if the SCM refuses that reviewer, the pull request is still opened without them and the answer says
-``reviewer_skipped: reviewer_refused``, which the run card and Inbox turn into "review and merge it yourself".
-"""
+"""The PR author lookup is best-effort on every SCM."""
 
 from __future__ import annotations
 
@@ -22,7 +15,7 @@ from app.tools.bitbucket_impl import _bitbucket_cloud
 from app.tools.bitbucket_impl._bitbucket_pull_requests import CreateBitbucketPullRequest
 from app.tools.context import ToolContext
 from app.tools.scm_requester_rule import REVIEWER_REFUSED
-from tests.test_bitbucket_cloud_tools import LEAD, OWN, REPO, TOKEN, FakeBitbucketCloud, _context
+from tests.tools.bitbucket_impl.test_bitbucket_cloud_tools import LEAD, OWN, REPO, TOKEN, FakeBitbucketCloud, _context
 
 ARGS = {"title": "PAY-1: totals", "from_branch": "feature/PAY-1"}
 
@@ -33,14 +26,12 @@ def _status_error(url: str, status: int) -> httpx.HTTPStatusError:
 
 
 class CloudWithoutAccountRead(FakeBitbucketCloud):
-    """A token without ``read:user``: ``/2.0/user`` is refused; Bitbucket refuses the author as a reviewer."""
-
     def handler(self, request: httpx.Request) -> httpx.Response:
         if request.url.path == "/2.0/user":
             self.calls.append((request.method, request.url.path, None))
             return httpx.Response(403, json={"type": "error", "error": {"message": "Token lacks read:user"}})
         if request.url.path == f"/2.0/users/{OWN}":
-            return httpx.Response(200, json={"account_id": OWN})  # the account exists; only reading "me" is refused
+            return httpx.Response(200, json={"account_id": OWN})
         reviewers = json.loads(request.content).get("reviewers", []) if request.method == "POST" else []
         if request.url.path == f"{REPO}/pullrequests" and {"account_id": OWN} in reviewers:
             self.calls.append((request.method, request.url.path, None))
@@ -59,11 +50,9 @@ def cloud(monkeypatch) -> CloudWithoutAccountRead:
 async def test_bitbucket_cloud_opens_the_pull_request_without_reading_its_own_account(db, cloud):
     context = await _context(db)
     args = {**ARGS, "project_key": "ACME", "repo_slug": "payments"}
-    # The requester is not the author: requested as reviewer at the first try.
     other = await CreateBitbucketPullRequest().execute({**args, "reviewers": [LEAD], "requester": LEAD}, context)
     assert other["status"] == "created" and "reviewer_skipped" not in other
     cloud.prs.clear()
-    # The requester is the (unknown) author: Bitbucket refuses them, the PR opens without them and mentions them.
     own = await CreateBitbucketPullRequest().execute({**args, "reviewers": [OWN, LEAD], "requester": OWN}, context)
     assert (own["status"], own["reviewer_skipped"]) == ("created", REVIEWER_REFUSED) and len(cloud.prs) == 1
     sent = [body for method, path, body in cloud.calls if method == "POST" and path == f"{REPO}/pullrequests" and body]
@@ -73,8 +62,6 @@ async def test_bitbucket_cloud_opens_the_pull_request_without_reading_its_own_ac
 
 @pytest.mark.asyncio
 async def test_bitbucket_cloud_still_fails_a_refusal_it_cannot_explain(db, monkeypatch):
-    """With the author known, a 400 is not the author case: no silent retry, the step fails with Bitbucket's text."""
-
     class Refusing(FakeBitbucketCloud):
         def handler(self, request: httpx.Request) -> httpx.Response:
             if request.url.path == f"{REPO}/pullrequests" and request.method == "POST":
@@ -112,10 +99,10 @@ async def test_github_opens_the_pull_request_when_user_is_unreadable(monkeypatch
     async def http(method, url, **kwargs):
         sent.append(url)
         if url.endswith("/user"):
-            raise _status_error(url, 404)  # GitHub App tokens / the stub: no /user
+            raise _status_error(url, 404)
         if url.endswith("/requested_reviewers"):
             if refuse_reviewer:
-                raise _status_error(url, 422)  # "Review cannot be requested from pull request author."
+                raise _status_error(url, 422)
             return {"requested_reviewers": [{"login": name} for name in kwargs["json_body"]["reviewers"]]}
         return {"number": 9, "html_url": "https://scm.test/pr/9"}
 

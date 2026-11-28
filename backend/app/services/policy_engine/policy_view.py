@@ -1,18 +1,4 @@
-"""The per-policy read model of a policy-set version.
-
-The set is versioned as a whole (``store``); this view shows it per ``@id``:
-
-- name, description, template and source from the annotations the builder writes (``@name``,
-  ``@description``, ``@template``, ``@builder("1")``); a policy without ``@builder("1")`` is hand-written;
-- effect, actions (with their group and enforcement point), the plain-language outline, scope and warnings;
-- the **change state against the published version** by statement digest: ``new``, ``changed``,
-  ``unchanged``, and ``removed`` for a published policy the version no longer has (listed too);
-- when it last changed: the first version of the current run of identical text among the versions that were
-  published, plus the viewed one (a withdrawn draft never took effect), with that version's author.
-
-``include_generated`` adds the generated baseline read-only with its source (``platform:``,
-``classification:``, ``workspace:``) and where it is edited. Nothing here is stored.
-"""
+"""The per-policy read model of a policy-set version."""
 
 from __future__ import annotations
 
@@ -54,7 +40,6 @@ def index(text: str) -> list[Statement]:
 
 
 def builder_model_of(statement: Statement):
-    """The builder model of a statement, ``None`` for a hand-written one (it re-opens in the Cedar editor)."""
     return parse_est(statement.est, statement.text)
 
 
@@ -75,7 +60,6 @@ def _action_facts(actions: tuple[str, ...]) -> dict[str, list[str]]:
 
 
 def describe(statement: Statement, names: NameIndex, *, source: str | None = None) -> dict[str, Any]:
-    """One policy for the list and the drawer; ``source`` is given for generated policies, else derived."""
     model = builder_model_of(statement) if source is None else None
     source = source or (SOURCE_BUILDER if model is not None else SOURCE_HAND_WRITTEN)
     annotations = statement.annotations
@@ -108,7 +92,6 @@ async def _published(db: AsyncSession) -> PolicySetVersion | None:
 
 
 async def working_version(db: AsyncSession) -> PolicySetVersion | None:
-    """The version the Policies page shows: the open draft or the version in review, else the published one."""
     stmt = (select(PolicySetVersion)
             .where(PolicySetVersion.state.in_([REVISION_STATE_DRAFT, REVISION_STATE_IN_REVIEW]))
             .order_by(PolicySetVersion.version.desc()).limit(1))
@@ -124,7 +107,6 @@ async def _history_versions(db: AsyncSession, upto: PolicySetVersion | None) -> 
 
 
 def _last_changed(history: list[tuple[PolicySetVersion, dict[str, str]]], names: NameIndex) -> dict[str, dict]:
-    """``{policy_id: {version, by, by_name, at}}``: where the current run of identical text started."""
     last: dict[str, dict] = {}
     previous: dict[str, str] = {}
     for row, digests in history:
@@ -158,8 +140,6 @@ async def generated_items(db: AsyncSession, names: NameIndex) -> list[dict[str, 
 
 
 def edit_target(row: PolicySetVersion | None) -> dict[str, Any] | None:
-    """Where a policy-level save goes (``policy_edits``): the draft itself, a new draft from the published version,
-    or (version 0) from the empty set; ``None`` while the version is in review (frozen)."""
     from .custom_policies import custom_digest
 
     if row is None:
@@ -218,7 +198,6 @@ async def policies_view(
 
 
 async def policy_history(db: AsyncSession, policy_id: str) -> list[dict[str, Any]]:
-    """Every version that had ``policy_id``, oldest first, with the change against the version before it."""
     names = await load_name_index(db)
     rows = (await db.execute(select(PolicySetVersion).order_by(PolicySetVersion.version))).scalars()
     history: list[dict[str, Any]] = []

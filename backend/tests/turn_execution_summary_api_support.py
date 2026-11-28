@@ -4,8 +4,6 @@ import uuid
 
 from sqlalchemy import select
 
-import app.agent.engine as engine_module
-from app.agent.engine import run_agent
 from app.models import Message, Session, TurnTrace, User
 from app.services.session.execution_gate import evaluate_execution_gate
 from app.services.session.turn_execution_snapshot import (
@@ -84,39 +82,6 @@ async def _trace(
     db.add(trace)
     await db.flush()
     return trace
-
-
-def _fake_runtime(monkeypatch, content: str = "Pong") -> None:
-    async def fake_resolve_control_plane_runtimes(_db, runtime_target_id=None):
-        return [{"provider_name": "copilot", "model": "claude-haiku-4.5"}]
-
-    async def fake_chat_with_runtime_fallback(*, runtimes, messages, tools, max_tokens=4096, reasoning_effort=None):
-        return (
-            {
-                "content": content,
-                "tool_calls": None,
-                "model": "claude-haiku-4.5",
-                "usage": {"prompt_tokens": 7, "completion_tokens": 2, "total_tokens": 9},
-            },
-            runtimes[0],
-        )
-
-    monkeypatch.setattr(engine_module, "resolve_control_plane_runtimes", fake_resolve_control_plane_runtimes)
-    monkeypatch.setattr(engine_module, "_chat_with_runtime_fallback", fake_chat_with_runtime_fallback)
-
-
-async def _run_turn(db, session: Session, user_id: str, text: str = "ping") -> list:
-    return [
-        event
-        async for event in run_agent(
-            session_id=session.id,
-            user_message=text,
-            user_id=user_id,
-            project_id=None,
-            agent_type="diagnosis",
-            db=db,
-        )
-    ]
 
 
 async def _session_traces(db, session_id: str) -> list[TurnTrace]:

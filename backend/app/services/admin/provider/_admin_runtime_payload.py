@@ -6,8 +6,6 @@ from typing import Any
 
 RUNTIME_SETTINGS_RESPONSE_KEYS = (
     "agent_default_model",
-    "default_completion_tokens",
-    "extended_completion_tokens",
     "approx_chars_per_token",
     "trace_max_string",
     "trace_max_list_items",
@@ -18,11 +16,6 @@ RUNTIME_SETTINGS_RESPONSE_KEYS = (
     "auth_oidc_only",
     "agent_session_cost_limit_usd",
     "agent_request_cost_limit_usd",
-    "llm_cache_ttl_seconds",
-    "llm_cache_tools_ttl_seconds",
-    "llm_tool_planner_trace_call_enabled",
-    "llm_tool_planner_max_tokens",
-    "llm_tool_planner_timeout_seconds",
     "execution_runtime_provider",
     "execution_runtime_docker_image",
     "execution_runtime_docker_network_mode",
@@ -45,15 +38,6 @@ RUNTIME_SETTINGS_RESPONSE_KEYS = (
     "llm_security_analyzer_timeout_seconds",
     "llm_security_analyzer_review_threshold",
     "llm_security_analyzer_deny_threshold",
-    "stuck_loop_tool_repeat_threshold",
-    "stuck_loop_blocked_tool_threshold",
-    "stuck_loop_repeated_jira_threshold",
-    "stuck_loop_no_tool_duplicate_threshold",
-    "stuck_loop_summary_repeat_threshold",
-    "stuck_loop_no_tool_similarity_threshold",
-    "elastic_iteration_enabled",
-    "elastic_iteration_max_bonus",
-    "elastic_iteration_unique_tool_threshold",
     "security_analyzer_chain",
     "artifact_store_backend",
     "artifact_store_bucket",
@@ -63,12 +47,26 @@ RUNTIME_SETTINGS_RESPONSE_KEYS = (
 )
 
 
+# Shown, never written here: the default model comes from the platform order, the sync defaults are built in.
+_READ_ONLY_RUNTIME_SETTINGS = frozenset({
+    "agent_default_model",
+    "session_workspace_sync_default_excluded_dirs",
+    "session_workspace_sync_default_excluded_globs",
+})
+WRITABLE_RUNTIME_SETTINGS = frozenset(RUNTIME_SETTINGS_RESPONSE_KEYS) - _READ_ONLY_RUNTIME_SETTINGS | {
+    "max_output_tokens_default",
+}
+
+
+def unknown_runtime_settings(payload: dict[str, Any], *, extra: frozenset[str] = frozenset()) -> list[str]:
+    return sorted(set(payload) - WRITABLE_RUNTIME_SETTINGS - extra)
+
+
 def build_runtime_settings_payload(
     *,
     max_output_tokens_default: int | None,
     runtime_settings: dict[str, Any],
     security_analyzer_options: list[str],
-    context_budget_profiles: list[dict[str, Any]],
     cost_limit_scope: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
@@ -77,7 +75,6 @@ def build_runtime_settings_payload(
     for key in RUNTIME_SETTINGS_RESPONSE_KEYS:
         payload[key] = runtime_settings[key]
     payload["security_analyzer_options"] = security_analyzer_options
-    payload["context_budget_profiles"] = context_budget_profiles
     payload["cost_limit_scope"] = cost_limit_scope or {
         "scope": "global",
         "project_id": "",

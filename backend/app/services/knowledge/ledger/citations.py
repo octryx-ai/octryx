@@ -1,9 +1,5 @@
-"""Reading the ledger's spans and re-resolving citations (split from ``revisions.py``).
-
-The projection is never trusted for lineage: every retrieved evidence key is resolved here, inside
-one Workspace, to its span, revision, source, origin link and scope. Only the source's current
-revision is served.
-"""
+"""Reading the ledger's spans and re-resolving citations. The projection is never trusted for lineage; only the current
+revision is served."""
 
 from __future__ import annotations
 
@@ -28,8 +24,7 @@ from .errors import EvidenceLedgerContractError
 
 @dataclass(frozen=True, slots=True)
 class ResolvedCitation:
-    """A citation re-resolved from PostgreSQL, never trusted from the projection."""
-
+    # Re-resolved from PostgreSQL, never trusted from the projection.
     evidence_key: str
     citation: str
     revision_id: str
@@ -66,11 +61,6 @@ async def load_spans(
     after_ordinal: int = 0,
     limit: int | None = None,
 ) -> tuple[KnowledgeEvidenceSpan, ...]:
-    """Ordered spans of one revision inside one Workspace.
-
-    ``after_ordinal`` is the projection cursor and ``limit`` the batch bound, so a
-    revision with thousands of spans is read in bounded slices rather than whole.
-    """
     if type(after_ordinal) is not int or after_ordinal < 0:
         raise EvidenceLedgerContractError()
     statement = (
@@ -179,12 +169,8 @@ def _resolved_citation(row) -> ResolvedCitation:
 async def resolve_citations(
     db: AsyncSession, project_id: str, evidence_keys: tuple[str, ...], *, principal_keys: tuple[str, ...] = ()
 ) -> dict[str, ResolvedCitation]:
-    """Re-resolve evidence keys to their citation and source revision.
-
-    Scoped to one Workspace, so a key that exists in another Workspace simply
-    does not resolve and its evidence is dropped from the bundle. A key of a restricted source
-    resolves only for a reader whose ``principal_keys`` it admits; none admits none.
-    """
+    # Scoped to one Workspace, so another Workspace's key does not resolve; a restricted key needs an admitted
+    # principal.
     if not evidence_keys:
         return {}
     statement = _citation_statement(project_id, evidence_keys, principal_keys)
@@ -195,7 +181,6 @@ async def resolve_citations(
 
 
 async def load_revision_scope(db: AsyncSession, project_id: str, revision_id: str) -> tuple[tuple[str, ...], str]:
-    """``(products, version)`` of one revision; ``((), "")`` when it has no scope row."""
     row = (
         await db.execute(
             select(KnowledgeRevisionScope.products, KnowledgeRevisionScope.version).where(

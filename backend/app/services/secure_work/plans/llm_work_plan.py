@@ -41,8 +41,6 @@ RuntimeResolverFunc = Callable[..., Awaitable[list[dict]]]
 
 @dataclass(frozen=True)
 class LlmPlanDraft:
-    """A parsed model answer, not yet versioned or stored."""
-
     content: str
     plan_data: dict[str, Any]
     response: dict[str, Any]
@@ -105,11 +103,8 @@ async def dispatch_llm_work_plan(
     runtime_resolver_func: RuntimeResolverFunc = resolve_control_plane_runtimes,
     clarification_section: str | None = None,
 ) -> LlmPlanDraft:
-    """Admit Workspace runtimes, ask the model without tools and parse its Work Plan; writes nothing."""
     if chat_func is None:
-        # Imported lazily: the engine must not load when the secure_work
-        # package initializes (loop modules import secure_work contracts).
-        from ....agent.engine import _chat_with_runtime_fallback
+        from ....agent.runtime.runtime_fallback import _chat_with_runtime_fallback
 
         chat_func = _chat_with_runtime_fallback
     runtime_target_id = blank_to_none(payload.get("runtime_target_id"))
@@ -162,7 +157,7 @@ async def store_llm_work_plan(
     extra_evidence: dict[str, Any] | None = None,
     extra_audit: dict[str, Any] | None = None,
 ) -> WorkChangePlan:
-    """Store a parsed Work Plan as ``version``; the caller holds the plan write lock."""
+    # The caller holds the plan write lock.
     plan_data = dict(draft.plan_data)
     response, runtime = draft.response, draft.runtime
     recommendation_payload = await recommend_reviewers_for_work_item(db, item.id, viewer=current_user,

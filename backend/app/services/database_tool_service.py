@@ -105,13 +105,6 @@ async def update_database_connector(db: AsyncSession, connector_id: str, payload
     return serialize_database_connector(refreshed)
 
 
-async def delete_database_connector(db: AsyncSession, connector_id: str) -> dict[str, Any]:
-    connector = await _load_connector(db, connector_id)
-    await db.delete(connector)
-    await db.commit()
-    return {"status": "deleted"}
-
-
 async def test_database_connector(db: AsyncSession, connector_id: str) -> dict[str, Any]:
     connector = await _load_connector(db, connector_id)
     resolved = await resolve_connector_config(db, connector=connector, secret_scope=secret_scope(connector.id))

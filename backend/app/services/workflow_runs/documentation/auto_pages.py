@@ -1,35 +1,4 @@
-"""Unattended epic documentation: the spec page and a feature page per story.
-
-Two definition-only platform actions, each optional and never blocking (routes ``succeeded`` / ``failed`` /
-``skipped``, all three lead on in the seeds):
-
-- ``documentation.publish_spec`` (spec-writing, after the pull request): the pushed ``SPEC.md`` as a page;
-- ``documentation.publish_feature`` (epic-delivery, after each story's pull request): the story's feature page (its
-  pull request, the spec page, the epic overview) and the epic overview page listing every story's pull request so
-  far (the overview says when every story of the epic has one).
-
-**Where**: the Workspace's ``feature_documentation`` (``confluence_space_key``, ``parent_page_id``) on the connection
-the one resolver (``named_connections``) routes the space to, on the instance it serves now.
-
-**Who approves (the documentation grant)**. A Workspace admin opts in with ``feature_documentation.auto_publish:
-true`` (project config, admin-only). Then the start of the run by its requester is the approval, and the run
-records a grant (``context.documentation_grant``) at its first documentation step, bound to
-
-- the exact target: Workspace, instance, connection, space key, parent page id;
-- the epic (its key): the epic's story runs inherit the grant through the chain (``epic_chain.after_run``);
-- the operations: create pages under that parent; update only the pages this grant created (``pages``: slot →
-  page id, carried along the chain; each page carries the grant's marker and must still be in the space under the
-  parent). No delete, no move, no other space; the content is rendered only from repository and run data.
-
-Without the opt-in nothing is asked: an unattended flow has nobody to answer a card, so the step is skipped with an
-event (the requester-confirmed publication of feature-delivery-tdd is unchanged). A missing configuration, a drift of
-the target away from the grant (another space, parent, connection or instance), a title already used by a page this
-grant did not create: skipped with an event, nothing written anywhere. A Confluence error is an event and the
-``failed`` route; the code and the pull request are the deliverable. Every call is the governed tool call of the
-existing publication (``create/update/get_confluence_page``: named-connection routing, the connection's space
-allowlist, the Workspace's tool policy and approval gate, audit), pinned to the granted instance and connection; a
-Workspace approval rule on those tools still holds the run for the approval like any platform action.
-"""
+"""Unattended epic documentation: the spec page and a feature page per story."""
 
 from __future__ import annotations
 
@@ -61,7 +30,6 @@ def _skip(db: AsyncSession, run: WorkflowRun, reason: str, **detail: Any) -> tup
 
 async def _pages(db: AsyncSession, run: WorkflowRun, grant: dict[str, Any],
                  pages: list[tuple[str, str, Any, WorkItem | None]]) -> tuple[ToolOutcome, str]:
-    """Write each ``(slot, title, render, item)`` in order; ``render(grant)`` builds the body from what is known."""
     written: list[str] = []
     failed: list[str] = []
     for slot, title, render, item in pages:
@@ -103,11 +71,8 @@ async def _guarded(db: AsyncSession, run: WorkflowRun, build: Any) -> tuple[Tool
     return await _pages(db, run, grant, pages)
 
 
-# --- spec-writing: the specification page ---------------------------------------------------------------------------
-
 
 async def publish_spec(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> tuple[ToolOutcome, str]:
-    """``documentation.publish_spec``: the pushed specification as the epic's spec page."""
     del params
 
     async def build(grant: dict[str, Any], epic: WorkItem | None, _story: WorkItem | None) -> list:
@@ -133,7 +98,6 @@ async def publish_spec(db: AsyncSession, run: WorkflowRun, params: dict[str, Any
 
 def _spec_page(run: WorkflowRun, epic: WorkItem, path: str, text: str, keys: list[str], by_key: dict[str, WorkItem],
                *, pull_request: bool) -> tuple[str, str, Any, WorkItem]:
-    """The epic's spec page (slot ``spec``); ``pull_request``: the run's own pull request is the spec's."""
     pr_id, pr_url = _pr(run) if pull_request else ("", "")
 
     def render(_grant: dict[str, Any]) -> str:
@@ -148,14 +112,9 @@ def _spec_page(run: WorkflowRun, epic: WorkItem, path: str, text: str, keys: lis
     return ("spec", f"{epic.source_key}: {epic.title} - Specification"[:255], render, epic)
 
 
-# --- epic-delivery: the feature page and the epic overview -----------------------------------------------------------
-
 
 async def _missing_spec(run: WorkflowRun, grant: dict[str, Any], epic: WorkItem,
                         listed: list[tuple[WorkItem, WorkflowRun | None]]) -> list:
-    """The spec page, when the grant has none yet: the specification in the story's branch (spec-writing's
-    ``publish_spec`` skips while the Workspace has no Confluence connection, and nothing else publishes it later).
-    Without a specification in the branch: nothing (the feature page and overview still go)."""
     if dict(grant.get("pages") or {}).get("spec"):
         return []
     path, text = await pushed_spec(run)
@@ -167,7 +126,6 @@ async def _missing_spec(run: WorkflowRun, grant: dict[str, Any], epic: WorkItem,
 
 
 async def _story_prs(db: AsyncSession, run: WorkflowRun, epic: WorkItem) -> list[tuple[WorkItem, WorkflowRun | None]]:
-    """The epic's stories in build order with the newest top-level run that opened a pull request (this one too)."""
     from ..epic_chain import _stories, story_order
 
     stories = await _stories(db, run.project_id, str(epic.source_key), story_order(run))
@@ -182,7 +140,6 @@ async def _story_prs(db: AsyncSession, run: WorkflowRun, epic: WorkItem) -> list
 
 
 async def publish_feature(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> tuple[ToolOutcome, str]:
-    """``documentation.publish_feature``: the story's feature page, then the epic overview with every story's PR."""
     del params
 
     async def build(grant: dict[str, Any], epic: WorkItem | None, story: WorkItem | None) -> list:

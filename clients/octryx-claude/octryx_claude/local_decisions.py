@@ -1,31 +1,5 @@
-"""Tool decisions of an epic's story session made on the device: the hard-deny list only.
-
-A phase whose node says ``config.tool_decisions: "local"`` (epic-delivery's story session) gets a ``local_decisions``
-block in its job offer; the job manager writes it next to the session's state (:data:`POLICY_FILE`). From then on the
-PreToolUse hook decides without the platform whenever it can:
-
-- **allow**: Read / Glob / Grep / LS inside the repository; Edit / Write / MultiEdit / NotebookEdit inside the
-  repository (never in ``.git`` or an environment folder) or in Claude Code's own temp folder; a Bash command that
-  parses and is on no hard-deny list (``run_shell``), run from inside the repository; Claude Code's own planning tools
-  (TodoWrite, Agent, …); a browser call on loopback;
-- **deny**: the hard-deny list (credentials, uploads, ``rm`` outside the work folder, ``git push``, SCM and Jira
-  clients), the Workspace's destructive patterns (``always_deny_patterns``), free Playwright code, a browser URL
-  that is not loopback;
-- **server** (a round trip to the platform) for everything else: an unparseable command, a path outside the repository,
-a
-  command or path a Workspace rule names (``server_commands``, ``server_path_globs``), the launcher's own state or the
-  platform's control paths, the platform's MCP tools, any tool this table does not know, and any call while the run
-  is not running at a free-shell phase (paused, waiting, between phases: the remembered contract says so).
-
-A round trip per tool call costs time on every call, and so does starting the hook's Python with the whole
-launcher imported. This module and ``run_shell`` import only the standard library, so the hook entry
-(``octryx_claude_entry.py``) decides before the launcher's CLI is imported (:func:`fast_hook`).
-
-What the platform still gets, without a tool call waiting for it: every local denial and every tool's execution
-evidence go into a spool file (:data:`SPOOL_FILE`); the job manager uploads it in batches while the turn runs
-(``POST /sessions/tool-audit``) and the Stop hook uploads the rest before the platform's verification
-(:func:`drain`).
-"""
+"""Tool decisions of an epic's story session made on the device: the hard-deny list only. Stdlib only, so the
+hook entry decides before the launcher's CLI is imported."""
 
 from __future__ import annotations
 
@@ -62,7 +36,6 @@ SHELL_LIKE = frozenset({"Monitor"})
 
 
 def at_free_phase(contract: dict[str, Any] | None) -> bool:
-    """The remembered run contract says: running, at a phase with a free shell and no path rules."""
     if not isinstance(contract, dict):
         return False
     run, phase = contract.get("run"), contract.get("phase")
@@ -98,8 +71,6 @@ def _wakeup_decision(tool_input: dict[str, Any], contract: dict[str, Any] | None
 
 def decide(hook_input: dict[str, Any], policy: dict[str, Any] | None,
            contract: dict[str, Any] | None) -> tuple[str, str, str]:
-    """``(allow | deny | server, reason, message)`` for one PreToolUse. A Codex ``apply_patch`` is decided per file
-    (``codex_hook_input``): one denied file denies the patch, one the server must decide sends the patch there."""
     if not policy or not at_free_phase(contract):
         return SERVER, "", ""
     if hook_input.get("tool_name") == codex_hook_input.APPLY_PATCH:
@@ -127,7 +98,6 @@ def decide(hook_input: dict[str, Any], policy: dict[str, Any] | None,
 
 
 def deny_output(reason: str, message: str) -> dict[str, Any]:
-    """The same answer the server's denial gives (``hooks._deny_detail``), so the model reads one format."""
     text = f"Octryx policy denied this tool call [rule local] ({reason}): {message}"
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": text[:600]}}
@@ -139,8 +109,6 @@ def deny_output(reason: str, message: str) -> dict[str, Any]:
 
 
 def _wrapped_test_run(hook_input: dict[str, Any], contract: dict[str, Any] | None = None) -> bool:
-    """A Bash call the full hook must see: a test run it wraps or records evidence for, or the wrapper itself (also a
-    run of the code style's own tools, and one the full hook refuses with the form that runs)."""
     from . import local_tests  # noqa: PLC0415 - stdlib only
 
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
@@ -155,8 +123,6 @@ def _wrapped_test_run(hook_input: dict[str, Any], contract: dict[str, Any] | Non
 
 
 def sandbox_note(hook_input: dict[str, Any], contract: dict[str, Any] | None = None) -> bool:
-    """Tell the model once its browser failed inside the sandbox what can run instead (``local_tests``)."""
-
     if not local_tests_screens.sandbox_browser_failure(hook_input):
         return False
     text = local_tests_screens.sandbox_browser_text(contract)
@@ -170,8 +136,6 @@ _FULL_POST_PREFIXES = ("mcp__octryx-knowledge__",)
 
 
 def fast_hook(event: str, raw: bytes) -> bool:
-    """Handle ``pre-tool-use`` / ``post-tool-use`` here when the session decides locally; ``False`` hands the hook
-    (with ``raw`` as its input) to the full launcher."""
     folder = session_dir()
     policy = load_policy(folder)
     if policy is None or folder is None:
@@ -204,7 +168,12 @@ def fast_hook(event: str, raw: bytes) -> bool:
         spool(folder, "pre", hook_input, decision=DENY, reason=reason, message=message)
         sys.stdout.write(json.dumps(deny_output(reason, message)))
         sys.stdout.flush()
-    return True  # allow: no output, as for the server's allow (Claude Code's own permission flow still applies)
+        return True
+    # Claude Code's allow prints nothing (its own permission flow still applies); Codex's guard needs it stated.
+    if codex_hook_input.guarded():
+        sys.stdout.write(json.dumps(codex_hook_input.ALLOW))
+        sys.stdout.flush()
+    return True
 
 
 __all__ = [

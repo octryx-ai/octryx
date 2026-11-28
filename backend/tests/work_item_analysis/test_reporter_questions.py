@@ -1,7 +1,5 @@
-"""Open questions go to the Jira reporter once, only with ask_reporter and the workflow's write-back.
-
-Jira is an ``httpx.MockTransport`` stub; nothing leaves the process.
-"""
+"""Open questions go to the Jira reporter once, only with ask_reporter and the workflow's write-back (Jira is an
+``httpx.MockTransport`` stub)."""
 
 from __future__ import annotations
 
@@ -62,7 +60,6 @@ async def _setup(db, monkeypatch, *, config=CLOUD, sync_mode="execute", sync_bac
     async def project_config(_project_id, _db):
         return dict(config)
 
-    # The item's connection is resolved from the Workspace's config (``secure_work/item_connection.py``).
     monkeypatch.setattr(project_service, "get_project_config", project_config)
     monkeypatch.setattr(reporter_questions, "egress_transport", lambda *_a, **_k: httpx.MockTransport(jira.handler))
     return env, row, jira
@@ -87,7 +84,7 @@ async def test_the_reporter_is_mentioned_in_one_cloud_comment(db, monkeypatch):
     assert audit.details["state"] == "posted" and audit.details["analysis_id"] == row.id
     row.reporter_question = result
     assert (await _ask(db, env, row))["reason"] == "already_posted"
-    assert len(jira.comments()) == 1  # once per analysis
+    assert len(jira.comments()) == 1
 
 
 @pytest.mark.asyncio
@@ -163,8 +160,6 @@ async def test_the_runner_asks_the_reporter_once_after_a_successful_analysis(db,
 
 @pytest.mark.asyncio
 async def test_an_automatic_analysis_only_proposes_and_a_person_posts(db, monkeypatch):
-    """Questions an automatic analysis wrote after reading a third-party ticket
-    are a proposal; nothing reaches Jira until a person posts them, then exactly once."""
     from app.services.work_item_analysis.reporter_questions import post_proposed_questions
 
     env, row, jira = await _setup(db, monkeypatch)

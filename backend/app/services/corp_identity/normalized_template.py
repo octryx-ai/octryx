@@ -1,39 +1,4 @@
-"""The normalised template as a profile artefact.
-
-``normalize_template()`` writes a *derivative* of an uploaded
-template in which the layouts our composer needs exist as real ``slideLayout``
-parts. This module is the wiring — it decides when that derivative is built,
-where it lives inside a profile, and which of the two files a consumer should
-open.
-
-Three artefacts join the profile beside the existing ones, and none of them
-replaces anything:
-
-``normalized.potx``
-    The derivative, when the template had a gap to close. A real ``.potx``: the
-    customer can open it in PowerPoint and edit the generated layouts.
-``normalization.json``
-    What happened and why — always written, including for ``unchanged`` and
-    ``failed``. Paths in it are relative to the profile root, so a profile
-    directory stays movable, and no binary ever enters the JSON.
-``template-snapshot.json``
-    The evidence brief of the template that will actually be used: the
-    derivative if one exists, otherwise the original.
-
-Two rules carry the design:
-
-*Failure is a state, not an exception.* A template we cannot normalise (broken
-package, no master) leaves the profile fully valid — the manifest records
-``status: "failed"`` with the reason, and every consumer falls back to the
-original. An upload never fails because of normalisation.
-
-*The customer's edit outranks our derivative.* If ``normalized.potx`` no longer
-matches the digest we recorded when we wrote it, somebody changed it on
-purpose. It is then never overwritten, is marked ``customized``, and keeps
-being the template in use — even when the original changed and a fresh
-derivative would otherwise be due (``force=True`` is the explicit way to
-discard the edit).
-"""
+"""The normalised template as a profile artefact."""
 
 
 from __future__ import annotations
@@ -62,7 +27,6 @@ from .normalized_template_manifest import (
 
 
 def _source_digest(source: Path, root: Path) -> tuple[str, dict[str, Any] | None]:
-    """The original's digest, or the written ``failed`` manifest when it cannot be used."""
     try:
         if not source.is_file():
             raise _UnusableSourceError("template_source_not_found")
@@ -82,7 +46,6 @@ def _source_digest(source: Path, root: Path) -> tuple[str, dict[str, Any] | None
 
 
 def _rebuild(source: Path, root: Path, derivative: Path, source_sha: str) -> dict[str, Any]:
-    """Write a fresh derivative and snapshot; a broken template becomes a ``failed`` manifest."""
     if derivative.exists():
         derivative.unlink()
     try:
@@ -120,12 +83,6 @@ def build_profile_normalization(
     *,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Bring a profile's derived template artefacts up to date. Never raises.
-
-    Returns the manifest as written. ``status`` is ``normalized`` (a derivative
-    exists), ``unchanged`` (the template covers every required shape on its own)
-    or ``failed`` (with ``error``; the original stays in use).
-    """
     source = Path(source_path).expanduser()
     root = Path(profile_root).expanduser()
     root.mkdir(parents=True, exist_ok=True)

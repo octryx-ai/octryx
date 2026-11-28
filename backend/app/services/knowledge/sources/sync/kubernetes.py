@@ -1,35 +1,4 @@
-"""A Kubernetes cluster's workload inventory, on the Source Sync contract (operations graph).
-
-The connector reads one cluster through its Kubernetes connection (a named connection bound to the
-cluster, or the Workspace's default ``kubernetes`` entry with an API URL and token) and
-captures one Markdown inventory per namespace: the deployments with their desired, ready and
-available replicas and the image of every container. The structured graph's operations layer reads
-these revisions (connector kind ``kubernetes``) into ``Cluster``/``Namespace``/``Deployment``/
-``Version`` nodes with ``runs_in`` and ``uses_image`` edges, each cited from its line.
-
-**Read-only and bounded.** Only ``GET`` (``http.SourceReader``): the namespace list (only when the
-connection and the connector name no namespaces of their own) and each namespace's deployment list,
-with ``limit`` :data:`MAX_NAMESPACES` and :data:`MAX_DEPLOYMENTS`; a longer list is cut and the
-document says so. A connection limited to namespaces (``k8s_allowed_namespaces``) is never asked for
-the cluster-wide namespace list.
-
-**Memory, not storage.** The deployment list ``GET`` returns every deployment with its *full* pod
-template (containers with their env, args, probes, volumes; annotations): the API has no field
-selection for it. So up to :data:`MAX_DEPLOYMENTS` full objects per namespace are held in memory
-while one listing page is parsed (a response over ``http.MAX_RESPONSE_BYTES`` is refused, once read).
-:func:`deployment_of` keeps only name, replicas, ``resourceVersion`` and container images; nothing
-else of the response is stored, rendered, logged or kept past the listing (``_listed`` holds the
-reduced ``Deployment`` records only).
-
-**Listing.** The namespaces in name order, one item each (external id ``<namespace>``); the token is
-the position in that list. The version marker is a digest of the namespace's deployments and their
-``resourceVersion``s, so a namespace is fetched again only when a deployment changed. The rendered
-document holds no time and no secret: environment variables, arguments and annotations are never read.
-A namespace that is gone (``404``) is left out of the pass, and a completed pass retires it.
-
-**ACL.** Every item is readable by the connector's audience (``AclFacet.scope``): whoever may read the
-cluster through this Workspace's connection.
-"""
+"""A Kubernetes cluster's workload inventory, on the Source Sync contract (operations graph)."""
 
 from __future__ import annotations
 
@@ -87,7 +56,6 @@ class Deployment:
 
 
 def deployment_of(raw: object) -> Deployment:
-    """One deployment's name, replica counts and container images; nothing else is read."""
     if not isinstance(raw, dict):
         raise ConnectorError(REASON_SOURCE_CONTRACT_VIOLATION)
     metadata, spec, status = raw.get("metadata"), raw.get("spec") or {}, raw.get("status") or {}
@@ -119,7 +87,6 @@ def deployment_of(raw: object) -> Deployment:
 
 
 def render_inventory(cluster: str, namespace: str, deployments: list[Deployment], *, truncated: bool) -> bytes:
-    """The inventory document the operations layer reads (``ops_records.extract_inventory``)."""
     lines = [f"# Kubernetes inventory: namespace {namespace}", "", f"Cluster: {cluster}", "",
              f"## Deployments in {namespace} ({len(deployments)})", ""]
     if truncated:
@@ -194,6 +161,8 @@ class KubernetesConnector:
         items = []
         for namespace in page:
             try:
+                # The API has no field selection: every deployment arrives with its full pod template, held in
+                # memory only while this page is reduced by deployment_of.
                 payload = await self._reader.get_json(
                     f"/apis/apps/v1/namespaces/{namespace}/deployments", {"limit": MAX_DEPLOYMENTS}
                 )

@@ -1,12 +1,4 @@
-"""The built-in detectors: RE2 finds candidates, validators decide.
-
-Every candidate pattern runs on RE2 (linear time); the Python validators run only on candidates, and each
-detector looks at no more than :data:`MAX_CANDIDATES` candidates per text (more marks the scan incomplete).
-
-- ``iban``: country code, the per-country length and mod-97.
-- ``email`` and ``phone`` (E.164, or a national number after tel/phone/mobile/fax): medium.
-- ``secrets``: the gateway's secret scanner (``model_gateway/inbound/secret_scan``), high.
-"""
+"""The built-in detectors: RE2 finds candidates in linear time, validators decide."""
 
 from __future__ import annotations
 
@@ -54,7 +46,7 @@ _PHONE_KEYWORD = _compile(r"(?i)\b(?:tel|phone|mobile|fax)\b\.?[ \t]*[:=#]?[ \t]
 
 
 class CandidateLimitError(Exception):
-    """A text had more candidates than :data:`MAX_CANDIDATES`; the scan is incomplete."""
+    pass
 
 
 def _wordish(char: str) -> bool:
@@ -77,7 +69,6 @@ def _digits(value: str) -> str:
 
 
 def _iban_end(text: str, start: int, length: int) -> int | None:
-    """The end of an IBAN of ``length`` characters from ``start`` (single spaces allowed), else ``None``."""
     collected, index = 0, start
     while index < len(text) and collected < length:
         char = text[index]
@@ -138,7 +129,6 @@ INDEPENDENT: dict[str, Callable[[str], list[Finding]]] = {
 
 
 def find_builtin(text: str, enabled: frozenset[str]) -> list[Finding]:
-    """Every enabled built-in detector over ``text``; raises :class:`CandidateLimitError`."""
     found: list[Finding] = []
     for detector_id, finder in INDEPENDENT.items():
         if detector_id in enabled:

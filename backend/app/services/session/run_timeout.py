@@ -1,11 +1,4 @@
-"""Run timeout service — detects and resolves stalled in-progress sessions.
-
-A session is considered stalled when:
-- run_status == 'in_progress'
-- No heartbeat or last activity for longer than the configured timeout
-
-This service is called periodically by the scheduler to enforce timeout semantics.
-"""
+"""Run timeout service — detects and resolves stalled in-progress sessions."""
 
 from __future__ import annotations
 
@@ -20,7 +13,6 @@ from ...time_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
-# Default timeout for in-progress runs (minutes)
 DEFAULT_RUN_TIMEOUT_MINUTES = 60
 # Minimum safe timeout to avoid premature cancellation
 MIN_RUN_TIMEOUT_MINUTES = 5
@@ -31,13 +23,6 @@ async def timeout_stalled_sessions(
     *,
     timeout_minutes: int = DEFAULT_RUN_TIMEOUT_MINUTES,
 ) -> int:
-    """Find and timeout sessions that have been in_progress beyond the allowed duration.
-
-    Uses updated_at as the last-activity indicator. Sessions whose updated_at is older
-    than timeout_minutes are transitioned to run_status='error' with a timeout reason.
-
-    Returns count of sessions timed out.
-    """
     timeout_minutes = max(MIN_RUN_TIMEOUT_MINUTES, int(timeout_minutes or DEFAULT_RUN_TIMEOUT_MINUTES))
     cutoff = utc_now() - timedelta(minutes=timeout_minutes)
 

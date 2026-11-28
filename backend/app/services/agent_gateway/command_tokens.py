@@ -1,7 +1,5 @@
-"""Shell tokenizing shared by the gateway's command matchers (``command_match``, ``command_strict``).
-
-Heredoc bodies are data: :func:`without_data_heredocs` drops the bodies a shell does not read as commands.
-"""
+"""Shell tokenizing shared by the gateway's command matchers. Heredoc bodies are data: ``without_data_heredocs`` drops
+the bodies a shell does not read as commands."""
 
 from __future__ import annotations
 
@@ -54,20 +52,13 @@ _SHELL_INPUT_WORDS = _SHELLS | {"eval", "source", ".", "xargs"}
 
 
 def _feeds_a_shell(line: str) -> bool:
-    """A heredoc line whose body a shell reads as commands (any word of the line is a shell, ``eval`` or
-    ``source``); conservative: such a body is parsed like any other command."""
+    # Conservative: a heredoc body a shell reads is parsed like any other command.
     return any(posixpath.basename(word.strip("'\"()")) in _SHELL_INPUT_WORDS
                for word in re.split(r"[\s;&|]+", line) if word)
 
 
 def without_data_heredocs(command: str) -> str:
-    """The command without the bodies of its heredocs that are data (a file a ``cat >`` writes, a script ``python3 -``
-    reads); a body a shell reads stays.
-
-    Otherwise ``cat > conftest.py <<'EOF' … server.shutdown() … EOF`` is refused as ``destructive_command`` (the
-    exec policy's ``\\bshutdown\\b`` matches the file's text), and long heredocs (a JavaScript module, a Python data
-    script) as ``command_unparseable``: their bodies tokenize as shell into more than ``MAX_SEGMENTS`` segments.
-    Each costs the session a retry."""
+    # Parsed as shell, a data body is refused: ``shutdown`` in a written file reads as a destructive command.
     return _strip_heredoc_bodies(str(command or ""), keep_shell_input=True)
 
 

@@ -13,7 +13,6 @@ Where agent commands run, and where session files and artifacts are kept.
 
 ### Next steps
 - [Review command safety](/chat?area=admin&tab=commandSafety)
-- [Set tool output compression](/chat?area=admin&tab=runtimeCompression)
 
 ### The settings
 - **Isolation**: where shell, CLI, kubectl and saved-script commands run, and what they may reach. **Container network**: *No network* cuts all network access, *Own network (bridge)* gives the container its own network, *The server's network (host)* shares the server's.

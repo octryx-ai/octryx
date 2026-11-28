@@ -1,12 +1,4 @@
-"""A platform-written feature scenario that tests nothing never sends a fix back.
-
-Example: scenarios S1 and S2 seeded grinder M1, restarted the browser and clicked "M1". The app keeps its
-data in memory only, so M1 was gone; both failed at "click M1", before the grind setting they check, on the fix and
-on the base alike, and sent the run back to the fix three times (24 min of agent work for nothing). The launcher runs
-a red feature scenario once more on the base (``hands_on_base``); one that fails there at the same step, before the
-step it checks, is ``invalid``: reported, counted, never red. When its seed's data was gone after the restart, the
-run memory keeps that the app holds no data across a restart, so the next scenarios seed in the same session.
-"""
+"""A platform-written feature scenario that tests nothing never sends a fix back."""
 
 from __future__ import annotations
 
@@ -25,7 +17,6 @@ FACT_KIND, FACT_KEY = "app_fact", "data_not_persistent"
 
 
 def invalid_result(result: dict[str, Any], reported: dict[str, Any]) -> dict[str, Any]:
-    """``result`` not counted when the device marked the scenario invalid on the base."""
     found = reported.get("invalid")
     if result["passed"] or result.get("part") != "feature" or not isinstance(found, dict):
         return result
@@ -36,7 +27,6 @@ def invalid_result(result: dict[str, Any], reported: dict[str, Any]) -> dict[str
 
 
 async def record(db: AsyncSession, run: WorkflowRun, results: list[dict[str, Any]]) -> None:
-    """An event and a count per invalid scenario; the app fact for the run memory when data did not survive."""
     from ...observability.hands_on_metrics import count_invalid
     from ..run_memory.store import remember
 
@@ -50,15 +40,12 @@ async def record(db: AsyncSession, run: WorkflowRun, results: list[dict[str, Any
         if item["invalid"] == DATA_LOST:
             await remember(db, run, FACT_KIND, FACT_KEY, {"fact": REASONS[DATA_LOST], "scenario": item["id"]})
         else:
-            # E.g. a scenario pressed Enter in a form instead of clicking Save; the next scenarios repeated it
-            # unless the writer is told which setup step did not work on this app.
             step = str(item.get("failed_step") or "")
             await remember(db, run, FACT_KIND, f"setup:{step[:120]}", {
                 "fact": f"setup step failed on this app's base: {step} ({str(item.get('error') or '')[:160]})"})
 
 
 async def app_facts(db: AsyncSession, run: WorkflowRun) -> list[str]:
-    """What earlier runs learned about this app for the scenario writer (the run memory's ``app_fact`` entries)."""
     from ..run_memory.store import app_of, memory_of, record_of
 
     if not getattr(run, "repository", None):
@@ -68,7 +55,6 @@ async def app_facts(db: AsyncSession, run: WorkflowRun) -> list[str]:
 
 
 async def writer_notes(db: AsyncSession, run: WorkflowRun) -> str:
-    """The scenario writer's notes: the platform's hints (stacks.json ``general.scenario_hints``) and the app facts."""
     from ...engineering_knowledge.stacks import built_in
 
     hints = [str(item) for item in dict(built_in().get("general") or {}).get("scenario_hints") or []]
@@ -80,8 +66,6 @@ async def writer_notes(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 async def keeps_data(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Whether the app keeps its data across a restart: its environment file's ``serve.persistent`` (default true),
-    unless the run memory learned that it does not."""
     from ..run_memory.store import app_of, memory_of, record_of
     from ..workspace.spec import environment_for_run
 

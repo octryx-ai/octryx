@@ -157,8 +157,7 @@
 .ds-kpi__label { color: var(--muted); font-size: var(--ds-text-xs); }
 
 /* ---- Badges and status labels: one shape. ------------------------------------------------------------------------ */
-.ds-status,
-.ds-badge {
+.ds-status {
   min-height: 1.25rem;
   padding: 0 var(--ds-space-2);
   border-radius: var(--ds-radius-sm);

@@ -71,7 +71,7 @@
 .artifact-preview__badge {
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.25rem 0.5rem;
   font-size: var(--ds-text-xs);
   letter-spacing: 0.06em;

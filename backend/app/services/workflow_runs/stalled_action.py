@@ -1,15 +1,4 @@
-"""A platform action that never finished: the requester retries the step instead of only aborting.
-
-A platform action runs inside the request that reached its node. When that request dies before the action recorded
-its result (a crash, a restarted pod), the run stays ``running`` at the action node with no further event. Without
-this, runs hung at ``branch`` and offered only
-"change where it runs", abort and "continue in a new chat".
-
-The step counts as stalled when the run is ``running`` at a ``platform_action`` node, the current pass has no recorded
-result (``action_ledger``) and no live in-flight lease (``external_step``), and the pass began
-:data:`STALLED_AFTER_SECONDS` ago. **Retry the step** re-enters the node: a new pass, a new idempotency key, so the
-action really runs again (``scm.create_branch`` adopts the branch an earlier pass created, ``branch_adoption``).
-"""
+"""A platform action that never finished: the requester retries the step instead of only aborting."""
 
 from __future__ import annotations
 
@@ -37,7 +26,6 @@ def _entered_at(run: WorkflowRun) -> datetime | None:
 
 
 async def stalled_action_node(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """The id of the platform action node the run is stalled at, or ``None``."""
     from .external_step import IN_FLIGHT_KEY, _live, pass_key
 
     if run.status != STATUS_RUNNING or not run.current_node_id:
@@ -55,7 +43,7 @@ async def stalled_action_node(db: AsyncSession, run: WorkflowRun) -> str | None:
 
     deferred = dict(context.get(MARKER_KEY) or {})
     if deferred.get("state") == "pending" or (deferred.get("state") == "started" and not _lease_over(deferred, now)):
-        return None  # its executor runs it, or the sweep starts it again (``deferred_action``)
+        return None
     node = (await graph_for_run(db, run)).nodes.get(run.current_node_id)
     return node.id if node is not None and node.kind == NODE_PLATFORM_ACTION else None
 
@@ -67,7 +55,6 @@ async def retry_step_action(db: AsyncSession, run: WorkflowRun) -> dict | None:
 
 
 async def retry_stalled_step(db: AsyncSession, run: WorkflowRun, *, user: User) -> None:
-    """Run the stalled action node again (a new pass); refused when the step is not stalled."""
     from .engine import restart_at
     from .pause import record_decision
 

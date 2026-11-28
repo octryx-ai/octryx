@@ -16,17 +16,7 @@ MODE_BYPASS = "bypassPermissions"
 
 async def _run_turn_mode(db: AsyncSession, run: WorkflowRun, node: PhasedNode | None = None,
                          user_id: str | None = None) -> str:
-    """``acceptEdits`` for the run's own turns unless the Workspace asks before each edit (device_runs key
-    ``run_turns_ask_before_edits``): the platform's hooks decide every change; nobody has to sit at the device.
-
-    A phase whose node says ``config.permissions: "bypass"`` (epic-delivery's story session) runs in
-    ``bypassPermissions`` when the run's owner may use bypass in the Workspace (``role_modes.session_ceiling``: their
-    role and the Workspace's ``bypass_permissions``). The story session runs in bypass inside its own
-    branch: otherwise there were 29-34 of Claude Code's own approval prompts per epic in
-    ``acceptEdits`` (compound shell forms, sandbox network), each waiting for a person; plain Claude Code ran with
-    ``--dangerously-skip-permissions``. Bypass skips only Claude Code's own prompts: the platform's PreToolUse hook
-    (the phase contract, the hard-deny list, the browser's loopback rule) and the settings' deny rules still decide
-    every call, and the sandbox still holds every shell command."""
+    # Bypass skips only Claude Code's own prompts; the platform's PreToolUse hook, deny rules and sandbox still decide.
     from ...agent_gateway.policy import load_workspace_policy
     from ...agent_gateway.role_modes import CEILING_BYPASS, session_ceiling
     from ...devices.device_runs_keys import device_runs_section
@@ -44,25 +34,15 @@ async def _run_turn_mode(db: AsyncSession, run: WorkflowRun, node: PhasedNode | 
 
 
 def _phase_model(node: PhasedNode) -> str:
-    """The model the workflow's designer set on the phase (``config.model``), ``""`` when none."""
     return str(dict(node.config or {}).get("model") or "").strip() if node.kind == NODE_PHASE else ""
 
 
 def turn_phase_model(run: WorkflowRun, node: PhasedNode) -> str:
-    """The model the phase itself decides for its turn (its explicit ``model``), ``""`` when it leaves it to the
-    profile."""
     return _phase_model(node)
 
 
 async def _with_run_settings(db: AsyncSession, run: WorkflowRun, node: PhasedNode,
                              target: dict[str, Any], user_id: str | None = None) -> dict[str, Any]:
-    """The run's own permission mode and the turn's model on ``target``.
-
-    The phase's explicit model wins on every profile, also over a model chosen on the thread: team-delivery runs each
-    role on its own model (coordinate Sonnet, builders Haiku); otherwise the seat skips it
-    and every role runs on the seat's thread model (:func:`turn_phase_model`). Without one, a governed turn takes the
-    Workspace's model for the phase's class unless the thread chose one; the seat keeps the thread's (the person's
-    subscription choice) unless a model class default applies (``seat_models``)."""
     target = {**target, "permission_mode": await _run_turn_mode(db, run, node, user_id)}
     if target.get("profile") == "seat":
         # The seat's model by the phase's model class (``seat_models``): node > run start > workflow > Workspace >
@@ -81,9 +61,6 @@ async def _with_run_settings(db: AsyncSession, run: WorkflowRun, node: PhasedNod
 
 
 async def _run_turn_model(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> str:
-    """The model of the run's own governed turn: the phase's ``model`` (designer), else the Workspace's
-    ``device_runs.run_turn_models`` for the phase's capability class; ``""`` (device default) when the Workspace
-    does not admit it for the governed profile."""
     from ...agent_gateway.policy import load_workspace_policy
     from ...devices.device_runs_keys import DEFAULTS, device_runs_section
     from ..phase_contract import phase_definition

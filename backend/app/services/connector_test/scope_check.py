@@ -1,16 +1,4 @@
-"""Configured versus visible: the scope part of an admin connection test.
-
-After a successful test, a connector whose descriptor declares a ``visible_scopes`` probe lists what the
-account can see and compares it with the keys the tested config serves (``descriptor.default_keys``: the
-allowlist of the default entry, or the bound keys of a named connection, whose test config carries them as its
-allowlist). Each configured key the account cannot see is a warning naming the key ("Space RT is configured but
-not visible to this account."), so swapped accounts show up in the test, not in the first refused call. The
-result stays ``ok`` (the connection works); ``scope_warning`` marks it. Generic over descriptors: no connector
-name is branched on here.
-
-Only admin tests run it (``run_connector_connection_test(..., scope_check=True)``); the background health
-worker does not, so periodic checks send no extra requests.
-"""
+"""Configured versus visible: the scope part of an admin connection test."""
 
 from __future__ import annotations
 
@@ -23,7 +11,6 @@ MAX_SHOWN = 200
 
 
 async def check_scopes(tool_name: str, config: dict[str, Any], *, httpx_module: Any) -> dict[str, Any] | None:
-    """The comparison, or ``None`` when the connector declares no probe or there is nothing to compare."""
     descriptor = descriptor_of(tool_name)
     if descriptor is None or descriptor.visible_scopes is None:
         return None
@@ -53,7 +40,6 @@ async def check_scopes(tool_name: str, config: dict[str, Any], *, httpx_module: 
 
 
 def with_scope_check(result: dict[str, Any], check: dict[str, Any] | None) -> dict[str, Any]:
-    """The test result with the comparison, a warning per configured key the account cannot see."""
     if check is None:
         return result
     noun = str(check["noun"]).capitalize()

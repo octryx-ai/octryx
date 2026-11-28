@@ -15,8 +15,6 @@ from app.time_utils import utc_now
 from tests.agent_board.client_handoff_support import BASE, _headers, board  # noqa: F401
 from tests.agent_gateway.seat_presence_support import _gateway_headers
 
-# --- handoff_now ---------------------------------------------------------------------------------------------------
-
 
 async def _presence(db, session_key) -> AgentPresence:
     return (await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))).scalar_one()
@@ -30,7 +28,7 @@ async def test_handoff_now_fires_once_per_crossing_for_a_seat_session(db, board)
     anna.five_hour_pct = 99.0
     first = await handoff_now(db, session_key=board.anna_key)
     again = await handoff_now(db, session_key=board.anna_key)
-    assert first["handoff_now"] is True and first == again  # the same crossing id while it lasts
+    assert first["handoff_now"] is True and first == again
     assert first["handoff_trigger_pct"] == 99.0
     anna.five_hour_pct = 20.0
     assert await handoff_now(db, session_key=board.anna_key) == {}
@@ -57,7 +55,7 @@ async def test_handoff_now_follows_the_policy_trigger_and_the_governed_budget(db
     anna.profile, anna.seven_day_pct = "seat", 85.0
     await db.flush()
     assert (await handoff_now(db, session_key=board.anna_key))["handoff_now"] is True
-    ben = await _presence(db, board.ben_key)  # governed: the daily budget is the trigger
+    ben = await _presence(db, board.ben_key)
 
     async def budget(_db, *, user_id, workspace_id, now=None):
         return DailyBudgetDecision("allowed", "", Decimal("10"), Decimal(spent), None)
@@ -85,7 +83,7 @@ async def test_the_hook_answers_carry_handoff_now(client, db, board):  # noqa: F
     assert (await _register(client, gateway, profile="governed")).status_code == 200
     stop = await client.post("/api/v1/agent-gateway/sessions/verification", json={"hook_event_name": "Stop"},
                              headers=gateway)
-    assert stop.status_code == 200 and "handoff_now" not in stop.json()  # nothing added below the trigger
+    assert stop.status_code == 200 and "handoff_now" not in stop.json()
     presence = await _presence(db, gateway["x-octryx-session"])
     presence.profile, presence.seven_day_pct = "seat", 99.5
     await db.commit()
@@ -97,9 +95,6 @@ async def test_the_hook_answers_carry_handoff_now(client, db, board):  # noqa: F
     assert crossed["handoff_crossing"] == tool["handoff_crossing"]
     assert (await db.execute(select(func.count(WorkItem.id)))).scalar_one() >= 1
     assert (await db.execute(select(func.count(WorkItemTakeover.id)))).scalar_one() == 0
-
-
-# --- UI: "Hand over now" -------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -115,10 +110,9 @@ async def test_hand_over_now_posts_the_request_and_asks_the_holder_session_once(
     assert (by_member.status_code, by_outsider.status_code) == (403, 404)
     assert asked.status_code == 200 and asked.json()["session_asked"] is True
     assert hint["handoff_now"] is True and hint["handoff_crossing"].startswith("requested-")
-    assert "handoff_now" not in await handoff_now(db, session_key=board.ben_key)  # only the holder's session
+    assert "handoff_now" not in await handoff_now(db, session_key=board.ben_key)
     requests = (await db.execute(select(AgentBoardMessage).where(AgentBoardMessage.author_type == "system"))).scalars()
     assert len(requests.all()) == 1
-    # The session's next handoff clears the request.
     await client.post(f"{BASE}/commit", json={"work_item_id": "BRD-6", "repo": {}, "git": {}},
                       headers=await _headers(db, board))
     presence = await _presence(db, board.anna_key)
@@ -143,7 +137,6 @@ async def test_hand_over_now_asks_exactly_the_holder_session(client, db, board):
 
 @pytest.mark.asyncio
 async def test_a_failing_handoff_now_never_costs_a_tool_call(client, db, board, monkeypatch):  # noqa: F811
-    """Guarded like the other hook paths: logged, nothing added, the tool decision stands."""
     project = await db.get(Project, board.ws)
     project.config = {**(project.config or {}), "agent_gateway_policy": {
         "verification": {"test_command_prefixes": [["pytest"]], "change_tools": ["Edit"]}, "tool_rules": []}}

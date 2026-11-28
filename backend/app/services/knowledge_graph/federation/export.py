@@ -123,11 +123,8 @@ async def export_entity_graph_package(
     node_types: list[str] | None = None,
     max_nodes: int = MAX_EXPORT_NODES,
 ) -> dict[str, Any]:
-    """Build an unsigned portable package of the selected subgraph.
-
-    ``project_id=None`` exports the instance-global scope (the hub's shared
-    knowledge); a project id exports that project's graph.
-    """
+    """Build an unsigned portable package of the selected subgraph; ``project_id=None`` exports the instance-global
+    scope."""
     max_nodes = max(1, min(int(max_nodes or MAX_EXPORT_NODES), MAX_EXPORT_NODES))
     nodes = await _selected_nodes(db, project_id, node_types, max_nodes)
     node_ids = [node.id for node in nodes]

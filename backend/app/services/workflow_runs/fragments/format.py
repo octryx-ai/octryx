@@ -1,23 +1,4 @@
-"""The fragment format (``fragment/v1``) and the reference node of a composite source.
-
-A fragment definition (stored as an ordinary flow version)::
-
-    {"execution_kind": "phased_fragment", "schema_version": "fragment/v1", "entry": "<node id>",
-     "ports": {"<name>": {"edge": "next" | "loop", "accepts": "any" | "pause" | "outcome"}},
-     "requires": [<artefact kind>], "provides": [<artefact kind>], "instance": "single" | "many",
-     "nodes": [<phased node>], "edges": [<phased edge>; an exit edge has "target_port": <port> for its target]}
-
-It has no start, outcome or pause (those belong to the composite, which the fragment reaches through its ports) and
-no fragment reference (no nesting in v1). A composite source is a phased definition with at least one reference
-node (``type: fragment``) or an edge-list splice marker (``{"fragment_edges": "<ref node id>"}``)::
-
-    {"id": "<ref>", "type": "fragment", "config": {"fragment_key": ..., "fragment_version_id": ...,
-     "fragment_checksum": "sha256:<64 hex>", "namespace": "" | "<name>.", "ports": {"<port>": "<node id>"}}}
-
-The checksum (``handoff.contract.canonical_hash`` of the fragment's ``definition_json``) is the pin and is always
-required; the version id is required on the API path (``fragments.store``) and optional for seeds. Parsing is pure;
-every refusal is collected into one :class:`FragmentError` with ``{code, message}`` items like a validation report.
-"""
+"""The fragment format (``fragment/v1``) and the reference node of a composite source."""
 
 from __future__ import annotations
 
@@ -99,7 +80,6 @@ def _text(value: Any) -> str:
 
 
 def edge_end(edge: dict[str, Any], keys: tuple[str, ...]) -> tuple[str, str]:
-    """The first non-empty end key of an edge and its value (``graph._edge_end`` semantics), or ``("", "")``."""
     return next(((key, _text(edge.get(key))) for key in keys if _text(edge.get(key))), ("", ""))
 
 
@@ -221,7 +201,6 @@ def _edges(definition: dict[str, Any], local: set[str], ports: dict[str, Fragmen
 
 
 def parse_fragment(definition: dict) -> FragmentDefinition:
-    """The fragment definition; :class:`FragmentError` with every structural refusal."""
     if not isinstance(definition, dict):
         raise FragmentError([error("fragment_kind", "A fragment definition is an object.")])
     errors: list[dict[str, str]] = []
@@ -280,7 +259,6 @@ def _ref(node: dict[str, Any], index: int, errors: list[dict[str, str]]) -> Frag
 
 
 def fragment_refs(source: dict) -> list[FragmentRef]:
-    """The reference nodes of a composite source, in source order; :class:`FragmentError` on a malformed one."""
     errors: list[dict[str, str]] = []
     refs: list[FragmentRef] = []
     for index, node in enumerate(source.get("nodes") or [] if isinstance(source, dict) else []):

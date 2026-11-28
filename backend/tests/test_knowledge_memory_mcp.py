@@ -1,15 +1,5 @@
-"""The Memory lobe beyond the chat: MCP exposure, automatic capture, tool surfaces.
-
-Contract tests over the real ledger:
-
-- external CLIs reach the same governed tools over the Knowledge MCP; the Workspace is the
-  connection's (grant binding or header), never a tool argument, and personal memory stays personal;
-- automatic capture at turn end is off by default; when a Workspace enables it, only what the user
-  verbatim stated is written, as ``model_inferred`` + ``observed``, secrets are refused, nothing is
-  duplicated, and a sub-agent turn is never captured (the governed model is a fake);
-- ``memory_recall`` rides with the governed knowledge tools, ``memory_remember`` stays on the
-  user-facing chat surface.
-"""
+"""Memory beyond the chat: the governed memory tools over the Knowledge MCP in the connection's Workspace,
+automatic capture (off by default, verbatim only, never for a sub-agent) and the tool surfaces."""
 
 from __future__ import annotations
 
@@ -94,52 +84,9 @@ async def test_the_mcp_server_offers_the_governed_tools_without_a_workspace_argu
     register_governed_knowledge_tools(server, lambda ctx: ("u", None, None, ()))
     register_knowledge_ledger_tools(server, lambda ctx: ("u", None, None, ()))
     tools = {tool.name: tool for tool in await server.list_tools()}
-    assert set(tools) == {
-        "knowledge_search",
-        "knowledge_read",
-        "knowledge_changes",
-        "knowledge_code_impact",
-        "memory_recall",
-        "memory_remember",
-        "episode_summary",
-        "jira_release_status",
-    }
+    # knowledge_search, knowledge_read, knowledge_changes and the memory tools are registry tools (``surfaces``).
+    assert set(tools) == {"knowledge_code_impact", "episode_summary", "jira_release_status"}
     for tool in tools.values():
         assert not {"project_id", "workspace_id", "user_id"} & set(tool.inputSchema["properties"])
 
 
-def test_memory_recall_rides_with_the_governed_knowledge_tools_and_remember_stays_in_the_chat():
-    from app.agent.core.context.context_planner import plan_turn_context
-    from app.agent.core.context.tool_families import GOVERNED_KNOWLEDGE_TOOLS
-    from app.agent.core.context.turn_tool_surface import resolve_turn_tool_surface, resolve_workflow_tool_surface
-    from app.services.workflow_contracts.knowledge_request import plan_knowledge_request
-    from app.tools.registry import get_all_tools_with_plugins
-
-    knowledge_request = resolve_workflow_tool_surface(
-        workflow_id="knowledge_request", workflow_contract=None
-    )
-    assert "memory_recall" in knowledge_request and "memory_remember" not in knowledge_request
-    assert "memory_recall" in GOVERNED_KNOWLEDGE_TOOLS and "memory_remember" not in GOVERNED_KNOWLEDGE_TOOLS
-    # The Knowledge request still searches the sources first.
-    [first] = plan_knowledge_request(
-        {"knowledge_query": "Report Builder"},
-        turn_tool_history=[],
-        covered_evidence_axes=None,
-        allowed_tool_names={"knowledge_search", "memory_recall"},
-    )
-    assert first["function"]["name"] == "knowledge_search"
-
-    # A plain user-facing chat turn gets the governed default surface, which keeps both memory tools.
-    plan = resolve_turn_tool_surface(
-        plan_turn_context(project_id="p1", agent_definition=None, session_metadata={}, history_count=0),
-        capability_type="diagnosis",
-        workflow_id=None,
-        workflow_contract=None,
-        routing_resolution=None,
-        agent_definition=None,
-        project_config={},
-    )
-    assert plan.tool_surface_source == "governed_default" and plan.tool_surface_set == "diagnosis.v10"
-    assert {"memory_recall", "memory_remember"} <= set(plan.tool_allowlist)
-    catalog = {definition["function"]["name"] for definition in get_all_tools_with_plugins(agent_type="diagnosis")}
-    assert {"memory_recall", "memory_remember"} <= catalog

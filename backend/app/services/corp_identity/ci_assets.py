@@ -1,15 +1,4 @@
-"""Extract a profile's brand assets — logos, icons, images — into one catalog.
-
-PowerPoint templates already yield a named SVG icon catalog under
-``profile_root/icons``; this adds the raster images and, from Word templates, the
-letterhead logo (the image a header references) and any other embedded pictures.
-Everything lands under ``profile_root/ci-assets`` deduplicated by content, and the
-returned catalog gives each asset a stable, servable path so the corporate
-identity can actually hand the brand's marks to a composer or the admin UI.
-
-Assets are copied, never referenced in place: the uploaded template can move or
-be replaced, and the extracted brand must survive that.
-"""
+"""Extract a profile's brand assets — logos, icons, images — into one catalog."""
 
 from __future__ import annotations
 
@@ -33,7 +22,6 @@ def _sha(data: bytes) -> str:
 
 
 def _header_referenced_media(archive: zipfile.ZipFile) -> set[str]:
-    """Media file names referenced by a Word header — i.e. the letterhead logo."""
     referenced: set[str] = set()
     for name in archive.namelist():
         if not re.match(r"word/_rels/header\d+\.xml\.rels$", name):
@@ -94,7 +82,6 @@ def _extract_document_assets(
 def _extract_presentation_images(
     profile_root: Path, pptx_path: Path, seen: dict[str, Path]
 ) -> list[dict[str, Any]]:
-    """Raster images from a deck (backgrounds, logos); SVG icons come from the icon catalog."""
     assets: list[dict[str, Any]] = []
     try:
         with zipfile.ZipFile(pptx_path) as archive:
@@ -124,7 +111,6 @@ def _master_referenced_media(archive: zipfile.ZipFile) -> set[str]:
 
 
 def _icon_assets(icon_catalog: dict[str, Any]) -> list[dict[str, Any]]:
-    """The already-extracted SVG icon catalog, surfaced as icon assets."""
     assets: list[dict[str, Any]] = []
     categories = icon_catalog.get("categories") if isinstance(icon_catalog, dict) else None
     if not isinstance(categories, dict):
@@ -156,7 +142,6 @@ def extract_ci_assets(
     icon_catalog: dict[str, Any] | None = None,
     max_icons: int = 400,
 ) -> dict[str, Any]:
-    """Extract and catalog every brand asset a profile's templates carry."""
     root = Path(profile_root).expanduser()
     seen: dict[str, Path] = {}
     logos: list[dict[str, Any]] = []

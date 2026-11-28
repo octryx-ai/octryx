@@ -1,9 +1,4 @@
-"""Pluggable execution runtime for host and containerized command execution.
-
-This module owns the dispatch (``execute_with_runtime``: provider choice, host fallback, output
-redaction at the result boundary). Configuration lives in ``config``, value types in ``contracts``,
-and the two runners in ``host`` and ``docker``.
-"""
+"""Pluggable execution runtime for host and containerized command execution."""
 
 from __future__ import annotations
 
@@ -31,7 +26,6 @@ RUNTIME_UNAVAILABLE_CODE = "execution_runtime_unavailable"
 
 
 def _redacted_result(result: ExecutionRuntimeResult, metadata: dict[str, Any]) -> ExecutionRuntimeResult:
-    """Command output is a product result: kept at this one boundary, but only redacted."""
     return ExecutionRuntimeResult(
         exit_code=result.exit_code,
         stdout=redact_process_output(result.stdout),
@@ -57,16 +51,7 @@ async def execute_with_runtime(
     docker_command_fn: Callable[..., Awaitable[ExecutionRuntimeResult]] | None = None,
     guard_foreign_build: bool = True,
 ) -> ExecutionRuntimeResult:
-    """Run ``command`` on the platform's runtime (host or docker); the output comes back redacted.
-
-    ``guard_foreign_build``: the server never runs repository build/test tooling (``foreign_build_guard``).
-    A refused command does not start (``exit_code`` ``None``, the plain message in ``stderr``,
-    ``metadata.refused`` = ``server_build_not_allowed`` with the verdict). Only a caller that runs a fixed,
-    platform-chosen binary that is not repository content (kubectl, a connector probe, a saved script in the forced
-    docker sandbox, the platform's own git of a snapshot, worktree or git-intelligence read) passes ``False``; every
-    other caller is held, whatever its own checks were. A held command is audited (``command_audit``, fail-closed)
-    and runs with the allowlisted environment (``server_env``); every command gets the neutralised git
-    configuration."""
+    """Run ``command`` on the platform's runtime (host or docker); the output comes back redacted."""
     audit = None
     host_kwargs: dict[str, Any] = {}
     if guard_foreign_build:
@@ -93,7 +78,6 @@ async def execute_with_runtime(
 
 
 async def _foreign_build_refusal(command: list[str] | str, cwd: Path, shell: bool) -> ExecutionRuntimeResult | None:
-    """The audited refusal of a repository build/test command, or ``None`` when the command may run."""
     verdict = _guard.classify_command(command)  # resolved at call time
     if not verdict.blocked:
         verdict = _guard.cwd_verdict(cwd) or verdict
@@ -185,7 +169,6 @@ async def _host_fallback(
     run_host_command: Callable[..., Awaitable[ExecutionRuntimeResult]],
     host_call: dict[str, Any],
 ) -> ExecutionRuntimeResult:
-    """The configured runtime is unavailable: run on the host when allowed, otherwise report it."""
     if not config.allow_host_fallback:
         return ExecutionRuntimeResult(
             exit_code=None,

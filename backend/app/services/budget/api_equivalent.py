@@ -1,17 +1,4 @@
-"""What one model call on a seat would have cost through the API, at today's list price.
-
-A seat call costs the platform nothing (the subscription is paid elsewhere), but the platform shows
-what the same call would cost through the API, so a person can see "what would this cost without the subscription".
-It is the call's **API equivalent**, always shown apart from the real API cost and never added to it.
-
-- The price is the dated list price (``list_prices.json``), per call, at the tier the call's prompt falls in
-  (Haiku 5.5 above 100k, GPT-6 above 272k prompt tokens). Never the model catalog: the catalog holds what this
-  install pays, the list price is what the API would charge.
-- Token keys are Anthropic's: ``input_tokens`` without the cached part, cache reads and writes on top. A 1-hour
-  cache write is priced at the table's 1-hour rate when it has one.
-- A model without a list price gets ``None`` — never an estimate and never a similar model's price; the display
-  counts such calls as "no list price".
-"""
+"""What one model call on a seat would have cost through the API, at today's list price."""
 
 from __future__ import annotations
 
@@ -33,7 +20,6 @@ def _rate(value: float | None) -> Decimal:
 
 
 def one_hour_writes(usage: Mapping[str, Any]) -> int:
-    """The call's 1-hour cache writes: the flat launcher field, else Claude's ``cache_creation`` detail."""
     flat = _tokens(usage.get("cache_creation_1h_input_tokens"))
     if flat:
         return flat
@@ -42,7 +28,6 @@ def one_hour_writes(usage: Mapping[str, Any]) -> int:
 
 
 def api_equivalent_usd(model: str, usage: Mapping[str, Any]) -> Decimal | None:
-    """The list-price USD of one call's ``usage``, unrounded; ``None`` when the model has no list price."""
     uncached = _tokens(usage.get("input_tokens"))
     reads = _tokens(usage.get("cache_read_input_tokens"))
     writes = _tokens(usage.get("cache_creation_input_tokens"))
@@ -60,7 +45,6 @@ def api_equivalent_usd(model: str, usage: Mapping[str, Any]) -> Decimal | None:
 
 
 def stored(value: Decimal | None) -> Decimal | None:
-    """The value as the ``Numeric(12, 6)`` column stores it."""
     return None if value is None else value.quantize(Decimal("0.000001"))
 
 

@@ -1,12 +1,5 @@
-"""The launcher's PostToolUse hook against the real platform route, and the next model request.
-
-:func:`run_hook` runs ``octryx_claude.post_tool_use_hook`` (the launcher package from ``clients/octryx-claude``) in
-a worker thread with Claude Code's hook input on stdin; its control-plane calls go to the platform's own
-``POST /sessions/tool-executed`` through the test client (only the bearer token is the test session's). What the
-hook prints is Claude Code's disposition. A built-in tool's output stays in Claude Code's transcript whatever the
-disposition, so :func:`next_request` is the Anthropic request Claude Code sends next: the original output in the
-tool result, the hook's ``additionalContext`` beside it.
-"""
+"""The launcher's PostToolUse hook against the real platform route, and the next model request Claude Code sends
+(a built-in tool's output stays in the transcript whatever the hook's disposition)."""
 
 from __future__ import annotations
 
@@ -48,7 +41,7 @@ def hook_input(tool: str, response: Any) -> dict[str, Any]:
 
 
 async def platform_session(db) -> dict[str, str]:
-    from tests.test_agent_gateway_control_plane import _gateway, _workspace
+    from tests.services.agent_gateway.test_agent_gateway_control_plane import _gateway, _workspace
 
     headers, _session = await _gateway(db, await _workspace(db))
     return headers
@@ -56,7 +49,6 @@ async def platform_session(db) -> dict[str, str]:
 
 async def run_hook(client, headers: dict[str, str], tmp_path: Path, monkeypatch,
                    payload: dict[str, Any]) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    """(what the hook printed, the platform's answers) for one PostToolUse report (see the module doc)."""
     post_tool_use_hook, _content_hooks, local_state, scopes, audience = launcher()
     root = tmp_path / f"octryx-{uuid.uuid4().hex[:6]}"
     monkeypatch.setenv("OCTRYX_CLAUDE_HOME", str(root))
@@ -97,8 +89,6 @@ async def run_hook(client, headers: dict[str, str], tmp_path: Path, monkeypatch,
 
 def next_request(alias: str, payload: dict[str, Any], output: dict[str, Any] | None, *,
                  answered: bool) -> dict[str, Any]:
-    """Claude Code's next request after the tool ran; ``answered``: the model has replied since (the tool result
-    is history)."""
     stdout = payload["tool_response"].get("stdout") if isinstance(payload["tool_response"], dict) else None
     content = [{"type": "tool_result", "tool_use_id": payload["tool_use_id"],
                 "content": stdout if isinstance(stdout, str) else json.dumps(payload["tool_response"])}]
@@ -119,7 +109,6 @@ REFUSING_KINDS = frozenset({"withhold", "block"})
 
 
 def _refusing(content: dict[str, Any], tool: str) -> None:
-    """A platform answer that keeps the original out of the model: withheld, or blocked (the gateway re-check)."""
     assert content["kind"] in REFUSING_KINDS and content["reason"] == "content_scan_unfinished"
     if tool.startswith("mcp__") and not content["blocked"]:
         assert content["updated_output"] == {"text": WITHHELD_TEXT}
@@ -129,7 +118,6 @@ def _refusing(content: dict[str, Any], tool: str) -> None:
 
 
 async def launcher_route_case(fx) -> None:
-    """``app.api.routes.agent_gateway``: the platform's answer to the launcher's report, both delivery modes."""
     headers = await platform_session(fx.db)
     for tool, response in (("mcp__logs__tail", {"text": TEXT}), ("Bash", {"stdout": TEXT})):
         answer = await fx.client.post(TOOL_EXECUTED, headers=headers, json=hook_input(tool, response))
@@ -138,7 +126,6 @@ async def launcher_route_case(fx) -> None:
 
 
 async def launcher_disposition_case(fx) -> None:
-    """``octryx_claude.content_hooks``: the launcher's disposition of the platform's real answer."""
     _hook, content_hooks, *_rest = launcher()
     headers = await platform_session(fx.db)
     for tool, response in (("mcp__logs__tail", {"text": TEXT}), ("Bash", {"stdout": TEXT})):
@@ -160,7 +147,6 @@ async def launcher_disposition_case(fx) -> None:
 
 
 async def launcher_hook_case(fx) -> None:
-    """``octryx_claude.post_tool_use_hook``: the hook's report, its printed disposition, and the next request."""
     from tests.model_gateway.conftest import ALIAS
 
     _hook, content_hooks, *_rest = launcher()
@@ -169,7 +155,7 @@ async def launcher_hook_case(fx) -> None:
     output, answers = await run_hook(fx.client, headers, fx.tmp_path, fx.monkeypatch, payload)
     (answer,) = answers
     _refusing(answer["content"], "Bash")
-    assert output["hookSpecificOutput"]["additionalContext"] == content_hooks.KEPT_NOTE  # the client keeps it
+    assert output["hookSpecificOutput"]["additionalContext"] == content_hooks.KEPT_NOTE
     fake, build = fx.gateway
     gateway_headers = await build()
     for answered in (False, True):

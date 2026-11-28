@@ -1,14 +1,5 @@
-"""Section paths from a PDF's outline (bookmarks).
-
-Docling reports every heading of the vendor manuals at level 1, so a span's section path is only its
-nearest heading. The PDF outline has the real hierarchy (1300–1400 entries, six levels). Given that
-outline, a span's path is the ancestor chain of the deepest bookmark at or before the span's start
-(by page, then by distance from the page top), capped at :data:`MAX_OUTLINE_DEPTH` levels.
-
-An entry is ``(level, title, page)`` or ``(level, title, page, top)``: ``level`` from 0, ``page`` from 1,
-``top`` the distance in points from the page's top edge (``None``: the top of the page). A malformed
-outline is ignored as a whole, so the document keeps its heading-based paths.
-"""
+"""Section paths from a PDF's outline (bookmarks). An entry is ``(level, title, page[, top])``; a malformed outline is
+ignored as a whole."""
 
 from __future__ import annotations
 
@@ -26,7 +17,6 @@ class OutlineIndex:
     paths: tuple[tuple[str, ...], ...]
 
     def path_at(self, page: int | None, top: float | None) -> tuple[str, ...] | None:
-        """The section path of content starting at ``page``/``top``; ``None`` before the first bookmark."""
         if page is None:
             return None
         index = bisect_right(self.keys, (page, top if top is not None else 0.0)) - 1
@@ -47,7 +37,6 @@ def _entry(raw: object) -> tuple[int, str, int, float] | None:
 
 
 def outline_index(outline: object) -> OutlineIndex | None:
-    """The lookup for an outline, or ``None`` when there is none or it is malformed."""
     if not isinstance(outline, (list, tuple)) or not outline or len(outline) > MAX_OUTLINE_ENTRIES:
         return None
     entries = [_entry(raw) for raw in outline]

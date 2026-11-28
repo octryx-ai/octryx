@@ -22,11 +22,6 @@ STARTUP_ADVISORY_LOCK_KEY = 0x6F63747279737472
 
 @asynccontextmanager
 async def cross_process_startup_lock(engine: Any = None) -> AsyncIterator[None]:
-    """Hold a PostgreSQL transaction advisory lock on its own connection for the block; SQLite has its file lock.
-
-    A transaction lock ends with that transaction (or the connection, when the process dies), so a crashed
-    starter never leaves it behind; the block's own work runs on other connections.
-    """
     engine = engine or async_engine
     if engine.dialect.name != "postgresql":
         yield
@@ -38,8 +33,6 @@ async def cross_process_startup_lock(engine: Any = None) -> AsyncIterator[None]:
 
 
 async def ensure_database_schema_ready() -> None:
-    """Ensure the runtime schema exists without mixing in app-specific startup tasks."""
-
     await init_db()
 
 
@@ -48,8 +41,6 @@ async def ensure_runtime_database_ready(
     *,
     seed_database: DatabaseSeeder | None = None,
 ) -> None:
-    """Prepare the database boundary required by runtime startup."""
-
     async with cross_process_startup_lock():
         await ensure_database_schema_ready()
         if seed_database is not None:

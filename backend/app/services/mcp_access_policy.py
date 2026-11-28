@@ -1,24 +1,5 @@
-"""Project-level access policy for MCP servers.
-
-MCP servers are registered globally on the platform, but a project must opt in
-before its sessions may list or call a server's tools, resources, or prompts.
-Without an explicit opt-in the default is deny: a globally connected MCP server
-is not implicitly part of every project's execution surface.
-
-Project config contract (``project_config["mcp_policy"]``):
-
-- ``enabled_servers``: list of server names this project may use
-- ``disabled_servers``: list of server names explicitly blocked (wins over enabled)
-- ``allow_all``: bool, opt-in escape hatch that allows every registered server
-- ``selected_tools``: ``{server name: [tool name]}`` — an allowed server exposes only these tools;
-  a server without an entry exposes all of its tools
-
-No policy, or a policy that does not mention the server → deny. Written by the Workspace allow
-(``services/mcp_workspace_allow``) only. An added classification rule (``data_classification.effect_rules``, "MCP
-server access: off" from a level on) denies first, at the level the gateway resolves for the turn: the Workspace's
-level raised by the session's (``session_data_policy``), and the Instance default when the Workspace has none.
-(Workspace stricter overrides cover the matrix rules only; no override key exists for an effect rule.)
-"""
+"""Project-level access policy for MCP servers. Deny by default: a project must opt in before its sessions may list or
+call a server's tools, resources or prompts."""
 
 from __future__ import annotations
 
@@ -37,6 +18,11 @@ MCP_POLICY_CONFIG_KEY = "mcp_policy"
 ERROR_MCP_POLICY_INVALID = "mcp_policy_invalid"
 _SERVER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$")
 _MAX_ITEMS = 200
+REASON_MISSING_SERVER_NAME = "missing_server_name"
+REASON_SERVER_DEACTIVATED = "explicit_server_deactivation"
+REASON_SERVER_NOT_ACTIVE = "mcp_server_not_active_for_project"
+DENIAL_REASONS = frozenset({REASON_MISSING_SERVER_NAME, REASON_MCP_SERVER_OFF, REASON_SERVER_DEACTIVATED,
+                            REASON_SERVER_NOT_ACTIVE})
 
 
 class McpPolicyError(ValueError):
@@ -57,7 +43,6 @@ def _checked_names(value: Any, path: str, pattern: re.Pattern[str] | None = _SER
 
 
 def normalized_mcp_policy(value: Any) -> dict[str, Any]:
-    """Validate ``mcp_policy`` on every project-config write path (registered config key)."""
     allowed_keys = {"enabled_servers", "disabled_servers", "allow_all", "selected_tools"}
     if not isinstance(value, dict) or set(value) - allowed_keys:
         raise McpPolicyError(MCP_POLICY_CONFIG_KEY)
@@ -103,7 +88,6 @@ def _normalized_names(value: Any) -> set[str]:
 
 
 def effective_level(config: dict[str, Any], session_data_policy: Any = None) -> str | None:
-    """The level an effect rule is checked at: resolved like the gateway, else the declared one, else the default."""
     from app.services.knowledge.projection.workspace_classification_values import known_instance_default
 
     resolved = resolve_data_classification(
@@ -115,7 +99,6 @@ def effective_level(config: dict[str, Any], session_data_policy: Any = None) -> 
 
 
 def mcp_access_for_context(server_name: str | None, context: Any) -> McpServerAccessDecision:
-    """The decision for a tool call: the tool context's Workspace config and the session's ``data_policy``."""
     return mcp_server_access_decision(
         server_name, context.project_config, session_data_policy=getattr(context, "session_data_policy", None)
     )
@@ -127,13 +110,12 @@ def mcp_server_access_decision(
     *,
     session_data_policy: Any = None,
 ) -> McpServerAccessDecision:
-    """Return the auditable project access decision for one MCP server."""
     normalized_server = str(server_name or "").strip()
     if not normalized_server:
         return McpServerAccessDecision(
             server_name="",
             allowed=False,
-            reason="missing_server_name",
+            reason=REASON_MISSING_SERVER_NAME,
         )
     config = project_config if isinstance(project_config, dict) else {}
     level = effective_level(config, session_data_policy)
@@ -148,7 +130,7 @@ def mcp_server_access_decision(
         return McpServerAccessDecision(
             server_name=normalized_server,
             allowed=False,
-            reason="explicit_server_deactivation",
+            reason=REASON_SERVER_DEACTIVATED,
         )
     if lookup_name in _normalized_names(policy.get("enabled_servers")):
         return McpServerAccessDecision(
@@ -165,12 +147,11 @@ def mcp_server_access_decision(
     return McpServerAccessDecision(
         server_name=normalized_server,
         allowed=False,
-        reason="mcp_server_not_active_for_project",
+        reason=REASON_SERVER_NOT_ACTIVE,
     )
 
 
 def selected_mcp_tools(server_name: str | None, project_config: dict[str, Any] | None) -> frozenset[str] | None:
-    """The tools an allowed server may expose here, or ``None`` for all of them."""
     config = project_config if isinstance(project_config, dict) else {}
     policy = config.get(MCP_POLICY_CONFIG_KEY)
     selected = policy.get("selected_tools") if isinstance(policy, dict) else None
@@ -184,7 +165,6 @@ def selected_mcp_tools(server_name: str | None, project_config: dict[str, Any] |
 
 
 def mcp_tool_allowed(server_name: str | None, tool_name: str | None, project_config: dict[str, Any] | None) -> bool:
-    """Whether the Workspace's tool selection exposes this tool (the server decision is separate)."""
     selected = selected_mcp_tools(server_name, project_config)
     return selected is None or str(tool_name or "").strip() in selected
 
@@ -199,7 +179,6 @@ def blocked_mcp_tool_result(server_name: str, tool_name: str) -> dict[str, Any]:
 
 
 def blocked_mcp_server_result(decision: McpServerAccessDecision) -> dict[str, Any]:
-    """Uniform tool-result payload for a blocked MCP server access."""
     return {
         "error": (
             f"MCP server '{decision.server_name}' is not enabled for this project. "
@@ -212,6 +191,7 @@ def blocked_mcp_server_result(decision: McpServerAccessDecision) -> dict[str, An
 
 
 __all__ = [
+    "DENIAL_REASONS",
     "ERROR_MCP_POLICY_INVALID",
     "MCP_POLICY_CONFIG_KEY",
     "McpPolicyError",

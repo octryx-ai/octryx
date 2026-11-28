@@ -14,7 +14,6 @@ RunGitFn = Callable[..., Awaitable[dict[str, Any]]]
 
 
 def git_command_failure(code: str, result: dict[str, Any], repo_root: Path) -> dict[str, Any]:
-    """A failed git command as closed facts; its stderr (remote URLs, paths) is never kept."""
     exit_code = result.get("exit_code")
     return {
         "error": code,
@@ -25,7 +24,6 @@ def git_command_failure(code: str, result: dict[str, Any], repo_root: Path) -> d
 
 
 def redacted_git_output(result: dict[str, Any]) -> str:
-    """Git data the product parses and returns (subjects, authors, file names): redacted first."""
     return redact_process_output(result.get("stdout") or "")
 
 

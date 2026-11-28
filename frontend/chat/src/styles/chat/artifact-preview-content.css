@@ -20,7 +20,7 @@
 
 .artifact-preview__panel-title {
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: rgba(255, 255, 255, 0.94);
 }
 
@@ -92,12 +92,12 @@
   justify-content: center;
   min-width: 2.1rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: rgba(255, 179, 71, 0.16);
   border: 1px solid rgba(255, 179, 71, 0.28);
   color: #ffd697;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.04em;
 }
 

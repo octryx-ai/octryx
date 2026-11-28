@@ -1,21 +1,4 @@
-"""The built-in detectors behind the platform's shipped content policies (``content_security.handling``).
-
-Same contract as ``builtin`` (its RE2 compiler and candidate limit): RE2 finds candidates in linear time, small
-Python checks decide, a text with more candidates than ``builtin.MAX_CANDIDATES`` marks the scan incomplete.
-
-- ``credential_assignment`` (secrets, medium): a literal value assigned to ``password``/``passwd``/``pwd`` (4+
-  characters) or ``api_key``/``token``/``secret`` (12+ characters). Only the value is the finding, so a masked
-  text keeps ``password=``. A placeholder (``$VAR``, ``${...}``, ``<...>``, ``%s``, ``***``) or a code reference
-  (``settings.db_password``, ``os.getenv(...)``) is not a value. A quoted key counts (``"password": "..."``);
-  :func:`credential_field` decides a structured field (name ending in one of those names, the whole value). The
-  gateway secret scan (detector ``secrets``) leaves these out on purpose; this detector is what the platform
-  masks on its own model calls.
-- ``internal_ip`` (internal_network, medium): an IPv4 address in 10/8, 172.16/12 or 192.168/16, octets <= 255.
-- ``prompt_injection`` (prompt_injection, medium): instruction-override phrases (ignore/disregard/forget ...
-  previous/earlier/all ... instructions/prompt; do anything now, DAN mode, jailbreak, developer mode; you are now;
-  act as (not "act as an enterprise/infrastructure ..."); pretend you are / pretend to be).
-  :func:`is_role_phrasing` names the one role-phrasing form ("act as ..."); "you are now" is never role phrasing.
-"""
+"""The built-in detectors behind the platform's shipped content policies."""
 
 from __future__ import annotations
 
@@ -75,7 +58,6 @@ def _literal_value(name: str, value: str) -> bool:
 
 
 def credential_field(name: str, value: str) -> bool:
-    """A structured field ``name: value`` that assigns a literal credential: the whole value is the finding."""
     match = _FIELD_NAME.match(name.strip())
     value = value.strip()
     return match is not None and len(value) >= 4 and _literal_value(match.group(1), value)
@@ -111,7 +93,6 @@ def find_prompt_injection(text: str) -> list[Finding]:
 
 
 def is_role_phrasing(matched: str) -> bool:
-    """Whether a ``prompt_injection`` finding's text is the role phrasing "act as <role>" (and nothing else)."""
     return _ROLE_PHRASING.fullmatch(matched) is not None
 
 
@@ -124,7 +105,6 @@ PLATFORM: dict[str, Callable[[str], list[Finding]]] = {
 
 
 def find_platform(text: str, enabled: frozenset[str]) -> list[Finding]:
-    """Every enabled platform detector over ``text``; raises ``builtin.CandidateLimitError``."""
     found: list[Finding] = []
     for detector_id, finder in PLATFORM.items():
         if detector_id in enabled:

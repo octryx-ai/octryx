@@ -1,17 +1,4 @@
-"""The models a device job may run with (the model picker): the chat's Model pill and the send check.
-
-The rows are the ones octryx-claude's ``/model`` offers for the same profile (``model_listing``), decided
-for this user, this device and this Workspace:
-
-- ``governed``: the Workspace's admitted company aliases (``admission.admitted_tool_aliases``);
-- ``seat``: the Workspace seat policy's ``seat_models`` (subscription), plus ``company/<alias>`` rows only when
-  the Workspace sets ``seat_allows_governed_models``; none when the Workspace refuses seat sessions.
-
-An empty model means the device's own default (its ``main`` alias), exactly what a device job used before the
-picker. A chosen model outside the list is refused before anything is written
-(``denied: device_model_not_allowed``); every model call of the job is still decided by the gateway (seat and
-governed admission, content routing), so this list never admits a call on its own.
-"""
+"""The models a device job may run with (the model picker): the chat's Model pill and the send check."""
 
 from __future__ import annotations
 
@@ -52,9 +39,6 @@ _MODEL_ID = re.compile(r"[a-z][a-z0-9.]*(?:-[a-z0-9.]+)*")
 
 
 def readable_model_name(model_id: str) -> str:
-    """A person's name for a model id the catalog does not name (else the pill shows the raw id):
-    ``claude-opus-5-5`` -> ``Claude Opus 5.5``, ``claude-haiku-4-5-20251001`` -> ``Claude Haiku 4.5``. An id of
-    another shape is returned as it is."""
     if not _MODEL_ID.fullmatch(model_id):
         return model_id
     words: list[str] = []
@@ -75,9 +59,6 @@ def readable_model_name(model_id: str) -> str:
 
 
 async def subscription_model_names(db: AsyncSession, model_ids: Sequence[str]) -> dict[str, str]:
-    """The display name of each subscription model id: the model catalog's (``llm_models.display_name`` of the
-    id itself or of a provider-prefixed ``<provider>.<id>`` row) when it names the model, else
-    :func:`readable_model_name`. Never the bare id for a known Claude id."""
     from ...models import LLMModel  # noqa: PLC0415
 
     ids = [model_id for model_id in dict.fromkeys(model_ids) if model_id]
@@ -109,7 +90,6 @@ def _session_id(device_id: str) -> str:
 
 async def device_model_options(db: AsyncSession, *, user_id: str, workspace_id: str, profile: str,
                                device_id: str = "") -> DeviceModelOptions:
-    """The picker rows of ``profile`` for this user's device job in ``workspace_id``."""
     session_id = _session_id(device_id)
     if profile == PROFILE_GOVERNED:
         async with policy_principal_scope(user_id, session_id=session_id,
@@ -133,7 +113,6 @@ async def device_model_options(db: AsyncSession, *, user_id: str, workspace_id: 
 
 async def check_device_model(db: AsyncSession, *, user_id: str, workspace_id: str, profile: str, device_id: str,
                              model: str) -> tuple[str, str] | None:
-    """``None`` when ``model`` may be requested; else the refusal ``(state, reason)``."""
     if not model:
         return None
     if profile == PROFILE_SEAT and _is_codex_model(model):
@@ -155,8 +134,6 @@ async def check_device_model(db: AsyncSession, *, user_id: str, workspace_id: st
 
 
 def nearest_model(model: str, options: list[str] | tuple[str, ...]) -> str:
-    """The option sharing the longest name prefix with ``model`` (``claude-sonnet-5`` → ``claude-sonnet-5-5``), the
-    first option on a tie; ``""`` without options."""
     def shared(option: str) -> int:
         count = 0
         for left, right in zip(model.lower().split("-"), option.lower().split("-"), strict=False):
@@ -170,9 +147,6 @@ def nearest_model(model: str, options: list[str] | tuple[str, ...]) -> str:
 
 async def admitted_device_model(db: AsyncSession, *, user_id: str, workspace_id: str, profile: str, device_id: str,
                                 model: str, check: Any = None) -> tuple[str, tuple[str, str] | None]:
-    """``(model to use, refusal or None)``. A model outside the Workspace's list becomes the nearest listed one (allow
-    by default; ``device_runs.tool_defaults.device_models: list_only`` refuses it). A seat the
-    Workspace does not allow at all is still refused."""
     refused = await (check or check_device_model)(db, user_id=user_id, workspace_id=workspace_id, profile=profile,
                                                   device_id=device_id, model=model)
     if refused is None or refused[1] != REASON_MODEL_NOT_ALLOWED:

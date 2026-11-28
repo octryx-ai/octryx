@@ -1,15 +1,4 @@
-"""``urls_cited``: the distinct http(s) URLs a phase cited in what it wrote.
-
-A research phase (``device_runs.research_phases``) must name its sources as URLs in the file it writes (a "Sources"
-section). ``citations_present`` does not fit: it compares the chat answer with the platform's search results and is
-not applicable without them. This check only counts: params ``{min_count, path?}``; ``path`` is a glob over the
-repository paths the phase wrote (``fnmatch``; e.g. ``"**/SPEC.md"`` or ``"SPEC.md"``).
-
-What the phase wrote (``TurnEvidence.written_files``) is, on a device, the added lines of the launcher's change
-against the run's base (:func:`added_lines`), and in chat the content of the platform write tools' calls
-(:func:`tool_written_texts`). Without any written file the answer is counted (a phase that only answers).
-Pure; nothing is fetched or resolved.
-"""
+"""``urls_cited``: the distinct http(s) URLs a phase cited in what it wrote."""
 
 from __future__ import annotations
 
@@ -27,7 +16,6 @@ _TEXT_KEYS = ("content", "new_string", "new_text")
 
 
 def params_error(params: Any) -> str | None:
-    """``None`` when ``{min_count?, path?}`` is valid."""
     if params is None:
         return None
     if not isinstance(params, Mapping) or set(params) - {"min_count", "path"}:
@@ -42,8 +30,6 @@ def params_error(params: Any) -> str | None:
 
 
 def _platform_host() -> str:
-    """The platform's own host (``platform_public_origin``): a Workspace knowledge citation (``cite_as``) links there,
-    also on a local stack without a dotted host name."""
     from ...config import get_settings
 
     origin = str(getattr(get_settings(), "platform_public_origin", "") or "")
@@ -51,7 +37,6 @@ def _platform_host() -> str:
 
 
 def distinct_urls(text: str) -> list[str]:
-    """The distinct http(s) URLs in ``text`` in order, without trailing punctuation or a trailing slash."""
     seen: dict[str, None] = {}
     for match in _URL.finditer(str(text or "")):
         url = match.group(0).rstrip(_TRAILING)
@@ -63,7 +48,6 @@ def distinct_urls(text: str) -> list[str]:
 
 
 def added_lines(patch: str) -> dict[str, str]:
-    """The added lines per file of a git patch (``+++ b/<path>``); a deleted file adds nothing."""
     out: dict[str, list[str]] = {}
     current: str | None = None
     for line in str(patch or "").splitlines():
@@ -80,7 +64,6 @@ def added_lines(patch: str) -> dict[str, str]:
 
 
 def tool_written_texts(uses: Iterable[Any]) -> dict[str, str]:
-    """The content the platform write tools wrote, per path (chat phases)."""
     out: dict[str, list[str]] = {}
     for use in uses:
         params = getattr(use, "params", None)

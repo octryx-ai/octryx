@@ -1,27 +1,4 @@
-"""Workflow runs over MCP for an octryx-claude session.
-
-- ``workflow_select`` with ``run_id`` or a Work item (``work_item``, else the launcher's Work item): the session
-  attaches to the item's active run, or — for a phased workflow key without one — starts the run once the user
-  confirmed it (``workflow_runs/octryx/attach``). The answer is the run contract v2.
-- ``workflow_run_status``: the contract of the session's run (or a run the user may see in this Workspace).
-- ``workflow_action_request``: Jira, pull request or CI on the server for the session's run
-  (``workflow_runs/octryx/actions``).
-- phase outputs (``submit_definition_of_ready``, ``submit_test_contract``, ``submit_reproduction``,
-  ``submit_incident_hypothesis``, ``submit_work_plan``, ``submit_story_plan``): the current phase's structured
-  artefact for the session's run, only while the phase offers that tool (``workflow_runs/phase_outputs`` validates
-  and keeps it on the run).
-- ``workflow_decide``: the requester's decision of what the run waits for (a user confirmation or conversation, a
-  pause), only with the ticket of the user's accepted permission prompt (``agent_gateway/decision_confirmation``);
-  four-eyes approvals and external-state waits are refused (``workflow_runs/octryx/decisions``).
-
-Runs bind to a launcher session (the hooks enforce them); a connection without one gets ``needs_configuration``.
-
-A platform chat (``McpCaller.chat_session_id``) runs the same handlers with its own
-chat session in the launcher session's place: it follows the run it started or continues (``bind_session``, the run
-card's "continue in this chat", requester only), and the person's per-call confirmation in the chat
-(``tool_approval_gate``, rule ``chat_platform_write``) is the accepted permission prompt of ``workflow_decide``.
-Every handler runs behind ``mcp_parity_dispatch`` (scope, rate limit, the connection's Workspace, audit).
-"""
+"""Workflow runs over MCP for an octryx-claude session. A run starts only once the user confirmed it."""
 
 from __future__ import annotations
 
@@ -36,9 +13,9 @@ from .mcp_workflow_run_chat import _chat_follow, _chat_without_run
 from .mcp_workflow_run_session import _NO_LAUNCHER, _contract, _gateway, _refusal, _view
 from .workflow_runs.octryx.attach import (
     active_run_of_item,
-    attach,
     session_runtime_target,
     start_confirmed_run,
+    take_over,
     work_item_in_workspace,
 )
 from .workflow_runs.records import WorkflowRunError, active_run_for_session
@@ -49,7 +26,6 @@ DOR_TOOL = "submit_definition_of_ready"
 async def mcp_workflow_run_select(
     db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str, arguments: dict[str, Any]
 ) -> dict[str, Any] | None:
-    """The run answer of ``workflow_select``, or ``None`` when the call selects no run (a plain workflow)."""
     from .workflow_runs.engine import published_phased_flow
 
     key = str(arguments.get("workflow_key") or "").strip()[:180]
@@ -58,6 +34,16 @@ async def mcp_workflow_run_select(
     reference = str(arguments.get("work_item") or "").strip()
     if not (run_id or reference or phased):
         return None
+    if phased is not None and not run_id:
+        from .devices.device_turn_results import caller_device_job
+        from .workflow_runs.records import active_run_for_session
+
+        job = await caller_device_job(db, caller, user, workspace_id)
+        if job is not None and await active_run_for_session(db, job.session_id) is None:
+            # A chat thread's agent proposes; the chat shows the composer's start card and the person confirms.
+            from .workflow_routing.agent_start_card import chat_start_card
+
+            return await chat_start_card(db, job=job, user=user, workflow_key=key, reference=reference)
     gateway = await _gateway(db, caller, user, workspace_id)
     if gateway is None:
         return dict(_NO_LAUNCHER)
@@ -66,8 +52,8 @@ async def mcp_workflow_run_select(
                                   reference=reference)
     try:
         if run_id:
-            run = await attach(db, gateway_session=gateway, user=user, workspace_id=workspace_id,
-                               run=await db.get(WorkflowRun, run_id))
+            run = await take_over(db, gateway_session=gateway, user=user, workspace_id=workspace_id,
+                                  run=await db.get(WorkflowRun, run_id))
             return {"state": "selected", "workflow_run": await _contract(db, run, user, gateway)}
         reference = reference or str(dict(gateway.metadata_ or {}).get("work_item_key") or "")
         item = await work_item_in_workspace(db, reference, workspace_id)
@@ -76,7 +62,7 @@ async def mcp_workflow_run_select(
                     "message": "Name a Work item of this Workspace (work_item) or a run (run_id)."}
         existing = await active_run_of_item(db, item)
         if existing is not None:
-            run = await attach(db, gateway_session=gateway, user=user, workspace_id=workspace_id, run=existing)
+            run = await take_over(db, gateway_session=gateway, user=user, workspace_id=workspace_id, run=existing)
             return {"state": "selected", "workflow_run": await _contract(db, run, user, gateway)}
         if phased is None:
             return {"state": "needs_clarification", "reason": "phased_workflow_required",
@@ -90,7 +76,7 @@ async def mcp_workflow_run_select(
 
 async def _start(db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str, key: str, item: Any,
                  gateway: Any, repository: Any, runtime: Any = None) -> dict[str, Any]:
-    """An agent never starts a run alone: the user confirms it first (platform or Claude Code's prompt)."""
+    # An agent never starts a run alone: the user confirms it first.
     from .agent_gateway.confirmation import CONFIRMATION_ACTION_PREFIX
     from .approval.request_service import ensure_approval_request
     from .mcp_workflow_confirmation import _confirmation_answer, _confirmation_session, _latest_confirmation
@@ -175,7 +161,6 @@ async def mcp_workflow_action_request(
 async def _submit_phase_output(
     db: AsyncSession, tool: str, *, caller: McpCaller, user: User, workspace_id: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """A phase output from the run's session, exactly like the chat tool, within the current phase."""
     from .workflow_runs.access import run_access
     from .workflow_runs.phase_outputs import submit_output
     from .workflow_runs.records import lock_run
@@ -217,14 +202,14 @@ mcp_submit_definition_of_ready = _phase_output_handler(DOR_TOOL)
 # Every phase output tool (``workflow_runs/phase_outputs``): run-bound, only while the current phase offers it.
 PHASE_OUTPUT_MCP_HANDLERS = {tool: _phase_output_handler(tool) for tool in (
     "submit_test_contract", "submit_reproduction", "submit_incident_hypothesis", "submit_feature_documentation",
-    "submit_phase_result", "submit_work_plan", "submit_story_plan", "submit_spec_studio")}
+    "submit_phase_result", "submit_work_plan", "submit_story_plan", "submit_spec_studio", "submit_change_plan")}
 PHASE_OUTPUT_MCP_HANDLERS[DOR_TOOL] = mcp_submit_definition_of_ready
 
 
 async def mcp_workflow_decide(
     db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """A requester decision from the terminal: only with the ticket of the user's accepted permission prompt."""
+    # Only with the ticket of the user's accepted permission prompt.
     from .agent_gateway.decision_confirmation import redeem_decision_ticket
     from .workflow_runs.access import run_access
     from .workflow_runs.octryx.decisions import arguments_digest, decide_in_terminal

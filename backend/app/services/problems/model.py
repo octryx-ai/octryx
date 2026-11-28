@@ -1,10 +1,4 @@
-"""The shape of one problem and the context every collector reads with (problems aggregator).
-
-A problem is derived from existing status rows; nothing here is stored. ``key`` is
-``{kind}:{object_id}:{reason_code}`` and stays the same while the same object fails for the same reason, so it
-can be acknowledged and deep-linked. An object that is only unique per Workspace (a connector name, a rule)
-carries the Workspace in its key part (``scoped_object_id``).
-"""
+"""The shape of one problem and the context every collector reads with (problems aggregator)."""
 
 from __future__ import annotations
 
@@ -39,25 +33,23 @@ _MAX_KEY_PART = 90
 
 @dataclass(frozen=True)
 class CollectContext:
-    """What a collector reads: the time, the 7-day window and the Workspaces in scope.
-
-    ``workspace_ids`` is ``None`` for "every Workspace and the platform-wide objects" (a platform admin without a
-    Workspace filter); otherwise only rows of these Workspaces count and platform-wide rows are left out.
-    """
-
     now: datetime
     workspace_ids: frozenset[str] | None = None
     limit: int = ROW_LIMIT
+    viewer_id: str | None = None
 
     @property
     def window_start(self) -> datetime:
         return self.now - WINDOW
 
     def scope(self, column: Any) -> ColumnElement[bool]:
-        """The SQL filter of a Workspace column (``NULL`` or ``""`` is platform-wide)."""
+        from ..project.private_workspace import outside_foreign_private  # noqa: PLC0415
+
         if self.workspace_ids is None:
-            return true()
-        return column.in_(sorted(self.workspace_ids)) if self.workspace_ids else false()
+            condition = true()
+        else:
+            condition = column.in_(sorted(self.workspace_ids)) if self.workspace_ids else false()
+        return condition if self.viewer_id is None else condition & outside_foreign_private(column, self.viewer_id)
 
 
 @dataclass
@@ -96,7 +88,6 @@ class Problem:
 
 
 def iso(value: datetime | None) -> str | None:
-    """ISO 8601 with offset (``+00:00``); stored times are naive UTC."""
     return ensure_utc(value).isoformat() if value is not None else None
 
 
@@ -108,17 +99,14 @@ def _key_part(value: str) -> str:
 
 
 def problem_key(kind: str, object_id: str, reason_code: str) -> str:
-    """``{kind}:{object_id}:{reason_code}``; an over-long object id is replaced by its stable hash."""
     return f"{kind}:{_key_part(object_id)}:{_key_part(reason_code)}"
 
 
 def scoped_object_id(object_id: str, workspace_id: str | None) -> str:
-    """The key part of an object that is only unique within one Workspace."""
     return f"{object_id}@{workspace_id}" if workspace_id else object_id
 
 
 def workspace_of(value: str | None) -> str | None:
-    """A Workspace column value, ``None`` for platform-wide (``NULL`` or ``""``)."""
     return str(value) if value else None
 
 

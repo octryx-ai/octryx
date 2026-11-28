@@ -1,13 +1,4 @@
-"""The responsible person of a workflow run and taking a run over.
-
-Contract: a person's start keeps the requester responsible; an automatic start for a Work item walks the chain
-reporter → assignee over active human Workspace members (else nobody: the existing audience applies). The responsible
-person gets the run's confirmations (offered, decidable, in the attention queue) in addition to today's rights; the
-run never decides on its own. ``take_over`` needs write access to the run (requester, Work item owner, admin), is
-audited and is refused on an ended run or for a reader. A platform admin outside the Workspace who started the run
-takes it over themselves (self-take-over: ``requester`` → ``taken_over``, audited) and only then decides; anyone else
-already responsible is refused. Detail and list show ``responsible``.
-"""
+"""The responsible person of a workflow run and taking a run over."""
 
 from __future__ import annotations
 
@@ -29,8 +20,9 @@ from app.services.workflow_runs.states import STATUS_WAITING, WAITING_TOOL_APPRO
 from tests.knowledge_evidence_seed_support import seed_member, seed_outsider, seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 DEFINITION = {
     "execution_kind": "phased",
@@ -60,8 +52,6 @@ async def _item(db, workspace_id: str, *, reporter: str | None = None, assignee:
 
 
 async def _case(db, *, automatic: bool = False):
-    """A Workspace with a requester, the item's reporter and assignee (its owner) and a plain member; the run waits
-    at a legacy confirmation (no authored decider)."""
     workspace_id = await seed_workspace(db)
     requester, reporter, owner, viewer = [await _person(db, workspace_id) for _ in range(4)]
     item = await _item(db, workspace_id, reporter=reporter.username, assignee=owner.email)
@@ -77,9 +67,6 @@ def _confirm(run) -> dict:
     return {"action": "confirm", "payload_hash": run.node_state["waiting"]["payload_hash"]}
 
 
-# --- the chain ---------------------------------------------------------------------------------------------------
-
-
 async def test_the_chain_is_reporter_then_assignee_then_nobody(db):
     workspace_id = await seed_workspace(db)
     reporter, assignee = await _person(db, workspace_id), await _person(db, workspace_id)
@@ -89,7 +76,7 @@ async def test_the_chain_is_reporter_then_assignee_then_nobody(db):
     item.reporter = "someone-else@example.com"
     assert await responsible_for(db, item, workspace_id) == (assignee.id, "assignee")
     item.assignee = None
-    assert await responsible_for(db, item, workspace_id) is None  # broadcast: the existing audience applies
+    assert await responsible_for(db, item, workspace_id) is None
     assert await responsible_for(db, None, workspace_id) is None
 
 
@@ -101,7 +88,7 @@ async def test_inactive_people_and_people_without_a_workspace_role_are_skipped(d
     reporter.is_active = False
     await db.flush()
     assert await responsible_for(db, item, workspace_id) == (assignee.id, "assignee")
-    item.reporter = stranger.username  # an active platform account, but no role in this Workspace
+    item.reporter = stranger.username
     assert await responsible_for(db, item, workspace_id) == (assignee.id, "assignee")
     assignee.account_type = "service"
     await db.flush()
@@ -114,9 +101,6 @@ async def test_a_servicenow_caller_is_stored_as_the_reporter_identifier():
     assert _caller({}) is None
 
 
-# --- the start paths ---------------------------------------------------------------------------------------------
-
-
 async def test_a_person_started_run_keeps_its_requester_responsible(db):
     run, requester, _reporter, _owner, _viewer, _item_row = await _case(db)
     assert (run.responsible_user_id, run.responsible_source) == (requester.id, "requester")
@@ -126,7 +110,6 @@ async def test_an_automatic_start_makes_the_reporter_responsible_and_gives_them_
     run, requester, reporter, _owner, viewer, _item_row = await _case(db, automatic=True)
     assert (run.requested_by, run.responsible_user_id, run.responsible_source) == (
         requester.id, reporter.id, "reporter")
-    # The reporter reads the run (Workspace member) and is offered exactly the confirmation; a plain member is not.
     assert {item["key"] for item in await available_actions(db, run, access="read", user=reporter)} == {
         "confirm", "change", "stop"}
     assert await available_actions(db, run, access="read", user=viewer) == []
@@ -154,9 +137,6 @@ async def test_without_an_answer_the_run_keeps_waiting(db):
     assert (run.status, run.current_node_id, run.outcome) == (STATUS_WAITING, "go", None)
 
 
-# --- take over ---------------------------------------------------------------------------------------------------
-
-
 async def test_the_work_item_owner_takes_the_run_over_audited_and_gets_its_approvals(client, db):
     run, requester, _reporter, owner, viewer, _item_row = await _case(db)
     path = f"/api/v1/workflow-runs/{run.id}"
@@ -167,10 +147,10 @@ async def test_the_work_item_owner_takes_the_run_over_audited_and_gets_its_appro
     view = taken.json()["run"]
     assert view["responsible"] == {"user_id": owner.id, "display_name": owner.display_name or owner.username,
                                    "source": "taken_over"}
-    assert "take_over" not in {item["key"] for item in view["actions"]}  # already responsible
+    assert "take_over" not in {item["key"] for item in view["actions"]}
     assert "confirm" in {item["key"] for item in view["actions"]}
     await db.refresh(run)
-    assert (run.requested_by, run.status) == (requester.id, STATUS_WAITING)  # the requester keeps everything else
+    assert (run.requested_by, run.status) == (requester.id, STATUS_WAITING)
     [audit] = (await db.execute(select(AuditLog).where(AuditLog.action == "workflow_run.taken_over",
                                                        AuditLog.resource_id == run.id))).scalars()
     assert audit.user_id == owner.id and audit.details == {
@@ -180,7 +160,6 @@ async def test_the_work_item_owner_takes_the_run_over_audited_and_gets_its_appro
         WorkflowRunEvent.run_id == run.id, WorkflowRunEvent.kind == "responsible_taken_over"))).scalar_one()[
         "to"] == owner.id
 
-    # From now on the confirmation is in the new responsible person's queue; the requester still decides too.
     [entry] = [item for item in (await attention(db, owner))["items"] if item.get("id") == run.id]
     assert {action["key"] for action in entry["actions"]} == {"confirm", "change", "stop"}
     assert {item["key"] for item in await decision_actions(db, run, user=requester)} == {"confirm", "change", "stop"}
@@ -204,7 +183,7 @@ async def test_a_reader_cannot_take_over_and_an_ended_run_is_refused(client, db,
     assert run.responsible_user_id == requester.id
 
     admin = await admin_user(db)
-    taken = await client.post(path, json={"action": "take_over"}, headers=auth_headers)  # a platform admin may
+    taken = await client.post(path, json={"action": "take_over"}, headers=auth_headers)
     assert taken.status_code == 200 and taken.json()["run"]["responsible"]["user_id"] == admin.id
 
     decided = await client.post(path, json=_confirm(run), headers=bearer(requester.id))
@@ -233,9 +212,6 @@ async def test_a_responsible_person_who_left_the_workspace_decides_nothing(db):
     assert await decision_actions(db, run, user=reporter) == []
 
 
-# --- a platform admin outside the Workspace ----------------------------------------------------------------------
-
-
 async def _decider_ids(db, run) -> tuple[str, ...]:
     from app.services.workflow_runs.decider import resolve_decider
     from app.services.workflow_runs.graph import graph_for_run
@@ -245,8 +221,6 @@ async def _decider_ids(db, run) -> tuple[str, ...]:
 
 
 async def test_a_non_member_admin_who_starts_a_run_is_no_default_decider(client, db, auth_headers):
-    """A platform admin may start a run in any Workspace (cross-Workspace Work scope), and is its responsible
-    person by that start, but becomes a decider only by an explicit takeover, never by starting it."""
     workspace_id = await seed_workspace(db)
     admin = await admin_user(db)
     assert await db.get(UserProject, (admin.id, workspace_id)) is None
@@ -321,8 +295,6 @@ async def test_a_non_admin_outside_the_workspace_neither_takes_over_nor_decides(
     assert refused.status_code in (403, 404)
     assert refused.json()["detail"]["code"] in ("take_over_not_permitted", "unknown_run")
 
-    # The requester who left the Workspace stays responsible by their start, but no self-take-over makes them a
-    # decider.
     await db.delete(await db.get(UserProject, (requester.id, run.project_id)))
     await db.commit()
     assert "take_over" not in {item["key"] for item in await available_actions(db, run, access="write",

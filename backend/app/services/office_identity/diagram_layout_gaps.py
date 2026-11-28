@@ -1,11 +1,4 @@
-"""Which layout shapes a template lacks, and how a derivative layout would close the gap.
-
-The composer needs a layout that shows a large diagram next to a visible
-title. This module decides whether the template already has one and, if not,
-which of its own layouts to clone and where the picture placeholder goes: the
-content band between the donor's title, the template's footer row and the
-gutter its own layouts start their content at.
-"""
+"""Which layout shapes a template lacks, and how a derivative layout would close the gap."""
 
 from __future__ import annotations
 
@@ -31,13 +24,6 @@ def _slide_area(snapshot: dict[str, Any]) -> int:
 
 
 def find_diagram_full_layout(snapshot: dict[str, Any]) -> dict[str, Any] | None:
-    """A layout that already satisfies ``diagram_full``, or ``None``.
-
-    The three conditions are exactly what the shape means: the slide keeps a
-    title, the picture area is large, and the picture does not cover the brand
-    (``full_bleed`` is the snapshot's own verdict on that, computed from area
-    and from which chrome slots the picture swallows).
-    """
     for layout in snapshot.get("layouts", []):
         if not slots_by_role(layout, "title"):
             continue
@@ -51,15 +37,6 @@ def find_diagram_full_layout(snapshot: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def template_chrome_top_emu(layouts: list[dict[str, Any]]) -> int | None:
-    """The top edge of the template's footer row, or ``None`` if it has none.
-
-    Layouts that declare no chrome placeholder of their own still print the
-    master's footer and logo, so the row cannot be read from one layout alone.
-    Each layout that *does* declare chrome contributes its highest chrome edge,
-    and the most common of those values is the template's row (ties resolve to
-    the smaller value, so the result is deterministic) — the same rule
-    ``template_margin_emu`` uses for the gutter.
-    """
     per_layout: Counter[int] = Counter()
     for layout in layouts:
         tops = [
@@ -81,22 +58,6 @@ def content_band(
     margin_emu: int,
     chrome_top_emu: int | None,
 ) -> dict[str, int] | None:
-    """The slide band between this layout's title and the template's footer row.
-
-    Derived directly from the template geometry: the title slot's bottom
-    edge, the footer row's top edge, and the gutter the template's own layouts
-    start their content at. Nothing is guessed — a template without any of the
-    three simply yields a smaller band, and a layout whose title leaves no room
-    yields ``None`` and is passed over as a donor.
-
-    Unlike the run-time inset in ``picture_safe_area``, no width threshold
-    applies here: that threshold protects against cutting a slot down over a
-    narrow box, whereas this band is being authored full width, so *every*
-    protected placeholder has to be cleared. python-pptx's own default template
-    proved the difference — its caption title is too narrow to count as a band,
-    and reusing the run-time rule produced a layout whose picture covered the
-    title.
-    """
     size = snapshot.get("slide_size") or {}
     width = int(size.get("width_emu") or 0)
     height = int(size.get("height_emu") or 0)
@@ -125,34 +86,12 @@ def content_band(
 
 
 def _title_is_styled_for_the_plain_background(layout: dict[str, Any]) -> bool:
-    """Whether this layout's title is written to be read without a picture.
-
-    A layout whose picture slot is full bleed styles its title *for the photo*:
-    a donor layout may write its title run as ``bg1`` — light — because a dark
-    band and a photograph always sit behind it. Clone that layout, inset the
-    picture and the title becomes white on the white master background, i.e.
-    invisible. So the criterion is structural rather than a fill probe: only a
-    layout that never puts a picture behind its title can be trusted to have
-    styled that title for the plain slide.
-    """
     return not any(slot.get("full_bleed") for slot in slots_by_role(layout, "picture"))
 
 
 def _diagram_donor(
     snapshot: dict[str, Any], margin_emu: int
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, int]] | None:
-    """Pick the layout to clone for the diagram layout.
-
-    Requirements: a title, a picture placeholder to move, and a title that
-    stays legible once the picture is no longer behind it. The picture
-    placeholder is then given the layout's content band — so the donor
-    contributes its identity and its title styling, and the geometry comes from
-    the template's own title/chrome/gutter measurements.
-
-    Ranking: the largest existing picture slot first (that layout already leans
-    visual, so the fewest of its other placeholders are lost), then the
-    template's own master and layout order as the author's evidence.
-    """
     slide_area = _slide_area(snapshot)
     if slide_area <= 0:
         return None
@@ -208,7 +147,6 @@ def _diagram_spec(snapshot: dict[str, Any], margin_emu: int) -> LayoutSpec | Non
 
 
 def analyse_gaps(snapshot: dict[str, Any], margin_emu: int) -> dict[str, Any]:
-    """Which required shapes the template covers, and what would close a gap."""
     existing = find_diagram_full_layout(snapshot)
     spec = None if existing is not None else _diagram_spec(snapshot, margin_emu)
     return {

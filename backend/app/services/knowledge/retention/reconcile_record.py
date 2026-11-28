@@ -15,6 +15,7 @@ from ....models.project.knowledge_object_retention import (
     FINDING_STATE_SUPERSEDED,
     RUN_STATE_COMPLETED,
     RUN_STATE_FAILED,
+    RUN_STATE_LEGAL_HOLD,
     KnowledgeObjectReconciliationFinding,
     KnowledgeObjectReconciliationRun,
 )
@@ -30,8 +31,6 @@ logger = logging.getLogger(__package__ + ".reconcile")
 
 @dataclass(frozen=True, slots=True)
 class FindingRecord:
-    """One finding as an operator may see it: no key, no content address, no bucket."""
-
     finding_id: str
     byte_size: int
     observed_age_hours: int
@@ -41,8 +40,6 @@ class FindingRecord:
 
 @dataclass(frozen=True, slots=True)
 class ReconciliationReport:
-    """The counts of one run plus the findings it recorded, in oldest-object order."""
-
     run_id: str
     project_id: str
     mode: str
@@ -58,8 +55,6 @@ class ReconciliationReport:
 
 
 async def _supersede_open_findings(db: AsyncSession, project_id: str) -> None:
-    """Retire earlier observations of this Workspace before a new run: only the newest run's
-    findings describe the bucket as it is."""
     await db.execute(
         update(KnowledgeObjectReconciliationFinding)
         .where(
@@ -79,7 +74,6 @@ async def _record_failed_run(
     started_at: datetime,
     failure: str,
 ) -> None:
-    """Persist that the inventory could not be read, with a fixed failure token."""
     db.add(
         KnowledgeObjectReconciliationRun(
             id=str(uuid.uuid4()),
@@ -97,6 +91,31 @@ async def _record_failed_run(
     logger.warning("Knowledge object reconciliation failed: failure=%s workspace=%s", failure, project_id)
 
 
+async def _record_legal_hold_run(
+    db: AsyncSession, *, project_id: str, policy: RetentionPolicy, operator: str, started_at: datetime
+) -> ReconciliationReport:
+    await lock_workspace_governance(db, project_id=project_id)
+    # Earlier observations are no longer actionable while the Workspace is held.
+    await _supersede_open_findings(db, project_id)
+    run_id = str(uuid.uuid4())
+    db.add(
+        KnowledgeObjectReconciliationRun(
+            id=run_id,
+            project_id=project_id,
+            mode=policy.mode,
+            min_object_age_hours=policy.min_object_age_hours,
+            state=RUN_STATE_LEGAL_HOLD,
+            requested_by=operator,
+            started_at=started_at,
+            finished_at=utc_now(),
+        )
+    )
+    await db.commit()
+    logger.info("Knowledge object reconciliation skipped under legal hold: workspace=%s", project_id)
+    counts = _RunCounts(inventory=0, unreferenced=0, unrecognized=0, candidates=0, total_bytes=0, truncated=False)
+    return _report(run_id, project_id, policy, counts, [])
+
+
 async def _record_run(
     db: AsyncSession,
     *,
@@ -110,10 +129,6 @@ async def _record_run(
     unrecognized: int,
     truncated: bool,
 ) -> ReconciliationReport:
-    """Write the run, its findings, and the supersession of earlier ones in one transaction.
-
-    ``observed_at`` is the run's instant, already normalised to naive UTC by the caller.
-    """
     project_id = workspace.canonical
     run_id = str(uuid.uuid4())
     # The governance boundary, held until this run and its supersessions are committed, so a
@@ -144,7 +159,16 @@ async def _record_run(
     records = _add_findings(db, unreferenced, run_id=run_id, project_id=project_id, observed_at=observed_at,
                             policy=policy)
     await db.commit()
-    return _completed_report(run_id, project_id, policy, counts, records)
+    logger.info(
+        "Knowledge object reconciliation completed: objects=%d unreferenced=%d candidates=%d "
+        "truncated=%s workspace=%s",
+        counts.inventory,
+        counts.unreferenced,
+        counts.candidates,
+        counts.truncated,
+        project_id,
+    )
+    return _report(run_id, project_id, policy, counts, records)
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,7 +213,6 @@ def _add_findings(
     observed_at: datetime,
     policy: RetentionPolicy,
 ) -> list[FindingRecord]:
-    """Add one ``observed`` finding per unreferenced object; the operator view of each comes back."""
     records: list[FindingRecord] = []
     for item in unreferenced:
         age_hours = item.age_hours(observed_at)
@@ -221,19 +244,9 @@ def _add_findings(
     return records
 
 
-def _completed_report(
+def _report(
     run_id: str, project_id: str, policy: RetentionPolicy, counts: _RunCounts, records: list[FindingRecord]
 ) -> ReconciliationReport:
-    """Log the committed run and return its report."""
-    logger.info(
-        "Knowledge object reconciliation completed: objects=%d unreferenced=%d candidates=%d "
-        "truncated=%s workspace=%s",
-        counts.inventory,
-        counts.unreferenced,
-        counts.candidates,
-        counts.truncated,
-        project_id,
-    )
     return ReconciliationReport(
         run_id=run_id,
         project_id=project_id,

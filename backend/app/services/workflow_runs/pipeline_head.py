@@ -1,35 +1,4 @@
-"""A push or pull request only for the tree the run's CI pipeline ran green on.
-
-The pipeline's report (``pipeline_reported``) is bound to a tree, and ``scm.push`` / ``scm.open_pr`` push the reviewed
-tree (``review.tree``) only when the pipeline ran green on exactly that tree.
-
-**Which id, who reports it, how it is verified.** The pipeline is bound to a git **tree**, because the platform
-pushes trees (``platform/scm.push`` compares ``review.tree`` with the pushed commit's tree). The tree is the
-**server's own**: when the device reports the pipeline, the server builds ``base + context.device_change`` (the
-patch the device reported for this pass, the same one the review applies and the push pushes) in a throwaway index
-of the server working copy (``safe_git.patch_tree``) and records that hash as ``pipeline.tree``. The device reports
-the tree it ran the commands on as well (``octryx_claude.pipeline.tree_digest``: its working copy with untracked
-files, ``.gitignore`` and the runtime excludes holding, so the same content as its patch); it is kept as
-``device_tree`` and only cross-checks: a device tree that differs from the server's means the commands did not run
-on the change the server holds, and the pipeline is then bound to no tree (``tree_mismatch``). A device that reports
-no tree (git could not compute it, ``tree_digest`` returns ``""`` and the report leaves ``tree`` out) leaves the
-server's tree standing. The device is never the source of the
-hash the push is compared with.
-
-**The guard.** Before ``scm.push`` and ``scm.open_pr`` (as a workflow node or a session's request) the last
-pipeline of the run must be green and bound to exactly the tree about to go out: for the push the reviewed tree,
-for the pull request the pushed head's tree. Otherwise (no pipeline yet, pending, red, another tree, no tree):
-
-- a workflow node re-runs the pipeline once (route :data:`ROUTE`; the engine re-enters the pipeline node, whose
-  green goes on through the review to the push again, ``engine._exit_for``);
-- a pipeline that already was such a re-run pauses the run :data:`PAUSE_PIPELINE_NOT_FOR_HEAD` with the reason and a
-  hint; continue re-runs the pipeline;
-- a session's request (no node) is refused with the reason.
-
-A workflow without a pipeline node, a repository without a declared test command and a Server run (whose pipeline
-is skipped, ``pipeline.start``) are unchanged. The guard is server-side and the same for every coding engine
-(Claude Code, Codex): both run the pipeline through the same launcher step and report it the same way.
-"""
+"""A push or pull request only for the tree the run's CI pipeline ran green on."""
 
 from __future__ import annotations
 
@@ -46,7 +15,7 @@ from .platform.dispatch import ToolOutcome
 from .records import record_event
 from .states import PAUSE_PIPELINE_NOT_FOR_HEAD
 
-ROUTE = "pipeline_not_for_head"  # the push / pull request node's route back to the pipeline (engine)
+ROUTE = "pipeline_not_for_head"
 RERUN_KEY = "pipeline_head_rerun"  # context: the pipeline node to re-enter, set by the guard, read by the engine
 CLASS_PIPELINE_NOT_FOR_HEAD = "pipeline_not_for_head"
 EVENT = "pipeline_not_for_head"
@@ -57,7 +26,6 @@ HINT = ("The platform pushes and opens a pull request only for the tree its CI p
 
 
 async def server_tree(run: WorkflowRun) -> str:
-    """The tree of the change the server holds for this pass (``base + device_change``); '' when there is none."""
     context = dict(run.context or {})
     change = dict(context.get("device_change") or {})
     local = str(context.get("local_path") or "")
@@ -68,8 +36,6 @@ async def server_tree(run: WorkflowRun) -> str:
 
 
 async def binding(run: WorkflowRun, reported: Any) -> dict[str, Any]:
-    """The tree the pipeline report is bound to: ``tree`` (the server's, '' when unbound), ``device_tree`` and
-    ``tree_mismatch``."""
     device = str(reported).strip() if isinstance(reported, str) else ""
     tree = await server_tree(run)
     mismatch = bool(tree and device and device != tree)
@@ -85,7 +51,6 @@ def pipeline_nodes(graph: PhasedGraph) -> list[str]:
 
 
 async def _head_tree(run: WorkflowRun, key: str) -> str:
-    """The tree that goes out: the pushed head's for the pull request, the reviewed one for the push."""
     context = dict(run.context or {})
     if key == catalog.SCM_OPEN_PR and context.get("head_sha") and context.get("local_path"):
         pushed = await safe_git.tree_of(str(context["local_path"]), str(context["head_sha"]))
@@ -125,7 +90,6 @@ async def _applies(db: AsyncSession, run: WorkflowRun, current: dict[str, Any]) 
 
 async def guard(db: AsyncSession, run: WorkflowRun, key: str,
                 node: PhasedNode | None) -> tuple[ToolOutcome, str] | None:
-    """``None`` when ``key`` may run; else its ``(outcome, route)``: a re-run of the pipeline, a pause or a refusal."""
     from .graph import graph_for_run
     from .pipeline import state
 
@@ -162,7 +126,6 @@ async def guard(db: AsyncSession, run: WorkflowRun, key: str,
 
 
 def rerun_edge(run: WorkflowRun | None, graph: PhasedGraph, node: PhasedNode) -> PhasedEdge | None:
-    """The engine's way back from the push / pull request node to the pipeline the guard named."""
     target = str(dict(dict(getattr(run, "context", None) or {}).get(RERUN_KEY) or {}).get("node_id") or "")
     if target not in graph.nodes:
         return None
@@ -171,7 +134,6 @@ def rerun_edge(run: WorkflowRun | None, graph: PhasedGraph, node: PhasedNode) ->
 
 
 def take_rerun(run: WorkflowRun) -> bool:
-    """Whether this pipeline pass is the guard's re-run (consumed: a later pass through the pipeline is ordinary)."""
     context = dict(run.context or {})
     if RERUN_KEY not in context:
         return False

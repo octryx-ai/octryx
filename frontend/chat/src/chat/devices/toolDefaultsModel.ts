@@ -1,8 +1,3 @@
-// Workspace settings › Coding tools & devices › "Tool defaults" (allow by default; blocking is an
-// admin option). Backend services/devices/device_runs_keys.py: `device_runs.tool_defaults` (partial, stored as given)
-// and the GET/PUT answer's `tool_defaults_effective` (every key, defaults filled). The first choice of each key is its
-// default. Pure: no React.
-
 export const TOOL_DEFAULT_KEYS = [
   "unknown_tools", "web_tools", "shell", "path_rules", "device_models", "network", "browser",
 ] as const;
@@ -17,9 +12,7 @@ export type ToolDefaultOption = { value: string; label: string };
 export type ToolDefaultRow = {
   key: ToolDefaultKey;
   label: string;
-  /** Lower-case name used in a sentence ("Allowed by default: web.run (tools without a rule)"). */
   words: string;
-  /** What changes when an admin switches it to the blocking value. */
   help: string;
   options: ToolDefaultOption[];
 };
@@ -72,7 +65,6 @@ export const defaultValue = (key: ToolDefaultKey) => ROW_OF.get(key)!.options[0]
 const isChoice = (key: ToolDefaultKey, value: unknown): value is string =>
   typeof value === "string" && ROW_OF.get(key)!.options.some((option) => option.value === value);
 
-/** The option's label, or the raw value with spaces for one this UI does not know. */
 export function optionLabel(key: string, value: unknown): string {
   const option = toolDefaultRow(key)?.options.find((item) => item.value === value);
   return option ? option.label : String(value ?? "").replace(/_/g, " ");
@@ -80,7 +72,6 @@ export function optionLabel(key: string, value: unknown): string {
 
 export type ToolDefaultsView = { effective: ToolDefaults; canEdit: boolean; policyValid: boolean };
 
-/** The effective tool defaults from the device-runs answer; null when the server does not report them. */
 export function readToolDefaults(raw: unknown): ToolDefaultsView | null {
   if (!raw || typeof raw !== "object") return null;
   const item = raw as Record<string, unknown>;
@@ -94,20 +85,14 @@ export function readToolDefaults(raw: unknown): ToolDefaultsView | null {
   return { effective, canEdit: item.can_edit === true, policyValid: item.policy_valid !== false };
 }
 
-/** Whether a key differs from its default. */
 export const isChanged = (effective: ToolDefaults, key: ToolDefaultKey) => effective[key] !== defaultValue(key);
 
-/** How many keys an admin switched away from the default (shown in the section header). */
 export const changedCount = (effective: ToolDefaults) => TOOL_DEFAULT_KEYS.filter((key) => isChanged(effective, key)).length;
 
 /** The allowed-tools editor shows only while unknown tools are denied. */
 export const showsAllowedTools = (effective: ToolDefaults) => effective.unknown_tools === "deny";
 
-/**
- * The PUT body for one change. The server merges `tool_defaults` key by key (backend merge_tool_defaults), so the body
- * names only the changed keys; a key back at its default (an empty `allowed_tools` too) is sent as `null`, which
- * removes it from the stored section.
- */
+/** The server merges key by key, so only changed keys are sent; a key back at its default is sent as null. */
 export function toolDefaultsPatch(change: Partial<ToolDefaults>) {
   const body: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(change)) {
@@ -119,7 +104,6 @@ export function toolDefaultsPatch(change: Partial<ToolDefaults>) {
   return { tool_defaults: body };
 }
 
-/** Why a typed tool name cannot be added (the server's rule in words); null when it can. */
 export function allowedToolProblem(draft: string, current: readonly string[]): string | null {
   const value = draft.trim();
   if (!value) return "Enter a tool name, for example web.run or mcp__github__create_issue.";
@@ -138,7 +122,6 @@ const REASONS: Record<string, string> = {
   workspace_not_found: "This Workspace no longer exists or you are no longer a member.",
 };
 
-/** The field a refusal belongs to: a key of `tool_defaults`, `allowed_tools`, or "section". */
 export function toolDefaultsErrorField(error: unknown): ToolDefaultKey | "allowed_tools" | "section" {
   const { code, path } = (error ?? {}) as { code?: string | null; path?: string | null };
   if (code === "invalid_allowed_tools") return "allowed_tools";
@@ -147,7 +130,6 @@ export function toolDefaultsErrorField(error: unknown): ToolDefaultKey | "allowe
     ? key as ToolDefaultKey : "section";
 }
 
-/** A refused save in words, shown at the field `toolDefaultsErrorField` names. */
 export function toolDefaultsErrorText(error: unknown): string {
   const { status, code } = (error ?? {}) as { status?: number; code?: string | null };
   if (code && REASONS[code]) return REASONS[code];

@@ -18,6 +18,7 @@ from ..background_worker_state import (
     record_background_worker_failure,
     record_background_worker_success,
 )
+from ..snapshot import SnapshotService
 from ..system_config import get_system_config_value, set_system_config_value
 from .shared import get_session_metadata_text, set_session_metadata_value
 from .workspace_restore import restore_session_workspace_from_storage
@@ -41,6 +42,7 @@ AGENT_SESSION_WORKSPACE_MAX_AGE_HOURS_KEY = "agent.session_workspace_max_age_hou
 SESSION_WORKSPACE_BASE_DIR_ENV = "OCTRYX_SESSION_WORKSPACE_BASE_DIR"
 SESSION_WORKSPACE_MAX_AGE_HOURS_ENV = "OCTRYX_SESSION_WORKSPACE_MAX_AGE_HOURS"
 _SAFE_SEGMENT_PATTERN = re.compile(r"[^A-Za-z0-9._-]+")
+_BUSY_SESSION_STATUSES = frozenset({"running", "pending_approval", "awaiting_subagents"})
 
 
 def _safe_segment(value: str) -> str:
@@ -337,7 +339,6 @@ async def delete_session_workspace(db: AsyncSession, session_id: str) -> bool:
 
 
 async def _holds_open_run_copy(db: AsyncSession, session_id: str) -> bool:
-    """True while the session is bound to a workflow run that has not ended (its working copy is in this folder)."""
     from ...models import WorkflowRun, WorkflowRunSession
     from ..workflow_runs.states import TERMINAL_STATUSES
 
@@ -348,6 +349,15 @@ async def _holds_open_run_copy(db: AsyncSession, session_id: str) -> bool:
         .limit(1)
     )).first()
     return row is not None
+
+
+async def _session_in_use(db: AsyncSession, session_id: str) -> bool:
+    session = await db.get(Session, session_id)
+    if session is None:
+        return False
+    if str(session.status or "").strip().lower() in _BUSY_SESSION_STATUSES:
+        return True
+    return await _holds_open_run_copy(db, session.id)  # a workflow run's working copy lives here until the run ends
 
 
 async def cleanup_expired_session_workspaces(db: AsyncSession) -> dict[str, Any]:
@@ -372,16 +382,8 @@ async def cleanup_expired_session_workspaces(db: AsyncSession) -> dict[str, Any]
             continue
         if stat_result.st_mtime >= cutoff:
             continue
-        session = await db.get(Session, entry.name)
-        if session and str(session.status or "").strip().lower() in {
-            "running",
-            "pending_approval",
-            "awaiting_subagents",
-        }:
+        if await _session_in_use(db, entry.name):
             skipped.append(entry.name)
-            continue
-        if session and await _holds_open_run_copy(db, session.id):
-            skipped.append(entry.name)  # a workflow run's working copy lives here until the run ends
             continue
         shutil.rmtree(entry, ignore_errors=True)
         deleted.append(entry.name)
@@ -418,6 +420,9 @@ class SessionWorkspaceCleanupWorker:
         try:
             async with self._session_factory() as db:
                 result = await cleanup_expired_session_workspaces(db)
+                result["snapshotsPruned"] = await SnapshotService.prune_old_snapshots(
+                    in_use=lambda session_id: _session_in_use(db, session_id)
+                )
             await record_background_worker_success(
                 self._session_factory,
                 worker_name="session_workspace_cleanup_worker",

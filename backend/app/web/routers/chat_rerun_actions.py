@@ -1,18 +1,13 @@
-"""Chat rerun routes: rerun a turn from a message, tool call, approval or change preview.
-
-Included by ``chat_sessions_actions.router``.
-"""
+"""Chat rerun routes: rerun a turn from a message, tool call, approval or change preview."""
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.admin.admin_panel._chat import ChatMessageRerunRequest
 from app.services.session.turn_tasks import effective_session_status as _effective_session_status
 
-from ...agent.runtime_defaults import DEFAULT_AGENT_MODE_KEY
-from ...db import async_session_factory, get_db
+from ...db import get_db
 from ...models import (
     Approval,
     ChangePreview,
@@ -28,44 +23,10 @@ from ...services.chat_rerun import (
     resolve_chat_rerun_target_message_for_change_preview,
     resolve_chat_rerun_target_message_for_tool_call,
 )
-from ...services.session.turn_launch import start_chat_rerun_turn
-from .._helpers._chat_state_builder import _build_chat_state
 from .._helpers.api_guards import _require_api_user
 from .._helpers.chat_device_turn import device_chat_rerun
 
 router = APIRouter()
-
-
-async def _start_rerun_from_target_message(
-    *,
-    request: Request,
-    db: AsyncSession,
-    user,
-    session: AgentSession,
-    target_message: Message,
-    prompt: str,
-) -> JSONResponse:
-    # A device thread reruns on its device; only a Server thread takes the server turn path.
-    if (device_rerun := await device_chat_rerun(request, db, user=user, session=session,
-                                                target_message=target_message, prompt=prompt)) is not None:
-        return device_rerun
-    request_session_factory = getattr(request.app.state, "async_session_factory", async_session_factory)
-    rerun_session = await start_chat_rerun_turn(
-        db,
-        user_id=user.id,
-        session_factory=request_session_factory,
-        session=session,
-        message=target_message,
-        prompt=prompt,
-    )
-    state = await _build_chat_state(
-        request,
-        db,
-        user=user,
-        session_id=rerun_session.id,
-        agent_type=rerun_session.agent_type or DEFAULT_AGENT_MODE_KEY,
-    )
-    return JSONResponse(state)
 
 
 @router.post("/chat/api/sessions/{session_id}/messages/{message_id}/rerun")
@@ -99,9 +60,9 @@ async def chat_message_rerun_api(
             session=session,
             message=message,
         )
-        return await _start_rerun_from_target_message(
-            request=request,
-            db=db,
+        return await device_chat_rerun(
+            request,
+            db,
             user=user,
             session=session,
             target_message=target_message,
@@ -142,9 +103,9 @@ async def chat_tool_call_rerun_api(
             session=session,
             tool_call=tool_call,
         )
-        return await _start_rerun_from_target_message(
-            request=request,
-            db=db,
+        return await device_chat_rerun(
+            request,
+            db,
             user=user,
             session=session,
             target_message=target_message,
@@ -185,9 +146,9 @@ async def chat_approval_rerun_api(
             session=session,
             approval=approval,
         )
-        return await _start_rerun_from_target_message(
-            request=request,
-            db=db,
+        return await device_chat_rerun(
+            request,
+            db,
             user=user,
             session=session,
             target_message=target_message,
@@ -230,9 +191,9 @@ async def chat_change_preview_rerun_api(
             session=session,
             change_preview=change_preview,
         )
-        return await _start_rerun_from_target_message(
-            request=request,
-            db=db,
+        return await device_chat_rerun(
+            request,
+            db,
             user=user,
             session=session,
             target_message=target_message,

@@ -1,9 +1,4 @@
-"""Refusals of a composite: one case per code, and the phased laws over the composed graph.
-
-The compiler refuses pins, ports, ids, nesting, single instances, exits and markers with its own codes; the
-composed graph is then judged by the unchanged phased validator, so a ``next`` port back to an ancestor is a
-``cycle_without_loop_edge`` and a loop port to a node that is not earlier is a ``loop_not_back_edge``.
-"""
+"""Refusals of a composite: one case per code, and the phased laws over the composed graph."""
 
 from __future__ import annotations
 
@@ -28,7 +23,6 @@ from tests.test_s4_sf5_equivalence import b_source, resolved_sf5
 
 
 def confirm_fragment(*, instance: str = "many", requires: list[str] | None = None, node_id: str = "confirm") -> dict:
-    """The acceptance probe: one ``advance`` confirmation, ports go (next), stop (outcome), back (loop)."""
     return {
         "execution_kind": "phased_fragment", "schema_version": "fragment/v1", "entry": node_id,
         "ports": {"go": {"edge": "next", "accepts": "any"}, "stop": {"edge": "next", "accepts": "outcome"},
@@ -73,8 +67,6 @@ def test_the_probe_composite_is_valid_so_every_refusal_below_is_its_own():
         "nodes"]] == ["start", "ask", "probe.confirm", "done", "stopped"]
 
 
-# Pins -------------------------------------------------------------------------------------------------------------
-
 def test_a_missing_or_malformed_pin_is_refused():
     source, _fragment = probe()
     del source["nodes"][2]["config"]["fragment_checksum"]
@@ -106,8 +98,6 @@ def test_an_invalid_namespace_is_refused():
     assert _report_codes(source, {}) == ["fragment_namespace"]
 
 
-# Ports ------------------------------------------------------------------------------------------------------------
-
 def test_an_unmapped_port_is_refused():
     source, fragment = probe(ports={"go": "done", "back": "ask"})
     assert _codes(source, fragment) == ["fragment_port_unmapped"]
@@ -124,9 +114,8 @@ def test_a_port_to_an_unknown_node_is_refused():
 
 
 def test_a_port_to_a_node_of_the_wrong_kind_is_refused():
-    source, fragment = probe(ports={**PORTS, "stop": "ask"})  # accepts: outcome → a confirmation
+    source, fragment = probe(ports={**PORTS, "stop": "ask"})
     assert _codes(source, fragment) == ["fragment_port_target_kind"]
-    # accepts: pause → an outcome (SF-5's failed port mapped to B's 'blocked' outcome).
     assert _compile_codes(b_source(ports={"proven": "acceptance_open", "failed": "blocked", "stopped": "stopped",
                                           "rework": "doc_final"}), resolved_sf5()) == ["fragment_port_target_kind"]
 
@@ -136,8 +125,6 @@ def test_a_loop_port_to_a_node_that_is_not_earlier_is_loop_not_back_edge():
     codes = _report_codes(source, resolve(source, {"toy": fragment}))
     assert "loop_not_back_edge" in codes and not any(code.startswith("fragment_") for code in codes)
 
-
-# Cycles -----------------------------------------------------------------------------------------------------------
 
 def test_a_next_port_back_to_an_ancestor_is_a_cycle_between_fragments():
     source, fragment = probe(ports={**PORTS, "go": "ask"})
@@ -156,13 +143,10 @@ def test_a_fragment_with_a_next_cycle_is_refused():
     assert not report["valid"] and "cycle_without_loop_edge" in [item["code"] for item in report["errors"]]
 
 
-# Ids --------------------------------------------------------------------------------------------------------------
-
 def test_an_id_collision_with_the_empty_namespace_is_refused():
     source, fragment = probe(namespace="", ports=PORTS)
     source["nodes"].insert(1, {"id": "confirm", "type": "user_confirmation", "config": {"subject": "advance"}})
     assert _codes(source, fragment) == ["fragment_id_collision"]
-    # The same fragment under its default namespace is collision-free.
     source, fragment = probe()
     source["nodes"].insert(1, {"id": "confirm", "type": "user_confirmation", "config": {"subject": "advance"}})
     assert compile_composite(source, resolve(source, {"toy": fragment})).definition
@@ -179,8 +163,6 @@ def test_a_compiled_node_id_longer_than_128_characters_is_refused():
     source, fragment = probe(fragment=fragment, namespace="n" * 32 + ".")
     assert _codes(source, fragment) == ["fragment_node_id_too_long"]
 
-
-# Nesting, instances, exits, markers -------------------------------------------------------------------------------
 
 def test_nesting_is_refused_in_the_format_and_in_the_compiler():
     nested = confirm_fragment()
@@ -223,20 +205,17 @@ def test_an_unknown_or_duplicate_marker_is_refused():
     assert _codes(source, fragment) == ["fragment_marker_duplicate"]
 
 
-# Inputs -----------------------------------------------------------------------------------------------------------
-
 def test_a_required_input_not_produced_before_the_entry_is_refused():
     fragment = confirm_fragment(requires=["feature_documentation"])
     source, fragment = probe(fragment=fragment)
     assert _codes(source, fragment) == ["fragment_input_missing"]
     report = validate_composition(source, resolve(source, {"toy": fragment}))
     assert [item["code"] for item in report["errors"]] == ["fragment_input_missing"]
-    assert report["composition"]["compiled_digest"]  # the compiled graph was still judged
+    assert report["composition"]["compiled_digest"]
 
 
 def test_sf5_in_b_needs_the_final_documentation_before_its_entry():
     assert "fragment_input_missing" not in _report_codes(b_source(), resolved_sf5())
-    # Without the documentation phases nothing before the entry produces feature_documentation.
     source = b_source()
     source["nodes"] = [node for node in source["nodes"] if node["id"] not in {"doc_draft", "doc_final"}]
     codes = _report_codes(source, resolved_sf5())

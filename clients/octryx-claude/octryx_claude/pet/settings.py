@@ -1,16 +1,4 @@
-"""The person's own pet settings, in ``<state dir>/pet.json`` (no quiet hours by default; the person
-sets them in the pet's settings, nothing is hard-coded).
-
-``{"notifications": true, "quiet_hours": {"enabled": false, "start": "19:00", "end": "08:00"}}``
-
-Quiet hours use the computer's local time. During them, and while the platform reports the person's companion quiet
-hours (``quiet.active``), the pet shows its state but sends no notification. A broken file falls back to the
-defaults; it is never rewritten without a change from the person.
-
-Start at login (on by default, the person can turn it off any time): the installers turn it on;
-``pet disable`` or "Turn off Octryx" in the menu leaves the file ``<root>/pet-autostart-off``, which every later
-install and update respects until ``pet enable``.
-"""
+"""The person's own pet settings, in ``<state dir>/pet.json``."""
 
 from __future__ import annotations
 
@@ -59,7 +47,6 @@ def valid_hhmm(value: Any) -> bool:
 
 
 def parse_window(text: str) -> tuple[str, str] | None:
-    """``"19:00-08:00"`` → ``("19:00", "08:00")``; ``None`` when it is not two HH:MM times."""
     parts = [part.strip() for part in re.split(r"[-–]", text or "")]
     if len(parts) != 2 or not all(valid_hhmm(part) for part in parts) or parts[0] == parts[1]:
         return None
@@ -95,7 +82,6 @@ def with_quiet_hours(settings: PetSettings, *, enabled: bool, window: tuple[str,
 
 
 def autostart_off(root: Path) -> bool:
-    """The person turned the pet off (``pet disable`` or the menu); installs and updates leave it off."""
     return (root / AUTOSTART_OFF_FILE).exists()
 
 

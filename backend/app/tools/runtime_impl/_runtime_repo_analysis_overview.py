@@ -94,7 +94,6 @@ _BUILD_METADATA_KEYS = ("artifact_id", "group_id", "packaging", "package_name", 
 
 
 def _top_level_entries(repo_path: Path) -> tuple[list[str], list[str]]:
-    """``(top_level_files, top_level_directories)`` of the repository."""
     top_level_files: list[str] = []
     top_level_directories: list[str] = []
     for child in sorted(repo_path.iterdir(), key=lambda item: (not item.is_dir(), item.name.lower())):

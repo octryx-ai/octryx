@@ -1,10 +1,4 @@
-"""Launching Claude Code for a terminal session: open the session on the platform, then run it.
-
-``_open_session`` checks the target, the Workspace's client policy, the profile, registers the session and
-prepares its catalog skills; ``_run_session`` writes the session files, registers the hook key, starts the
-hook signer, the presence heartbeat and the transcript upload, and supervises Claude Code. Messages carry
-fixed reason codes only; tokens and response bodies are never printed.
-"""
+"""Launching Claude Code for a terminal session: open the session on the platform, then run it."""
 
 from __future__ import annotations
 
@@ -52,8 +46,6 @@ SEAT_LOGIN_NOTICE = (
 
 @dataclass
 class _Session:
-    """What the launch knows once the session is registered, before Claude Code starts."""
-
     base_url: str
     workspace_id: str
     workspace_label: str
@@ -69,7 +61,6 @@ class _Session:
 
 def _client_policy(state: LocalState, context: SessionContext, workspace_label: str,
                    requested: str) -> PlatformResult | int:
-    """The Workspace's client policy for this session; its notices are said once here."""
     with httpx.Client() as http:
         result = call_control_plane(
             state, context, "GET", "/client-policy", http=http, timeout=POLICY_TIMEOUT
@@ -91,7 +82,6 @@ def _client_policy(state: LocalState, context: SessionContext, workspace_label: 
 
 def _choose_profile(args: argparse.Namespace, claude_args: Sequence[str], state: LocalState, claude: str,
                     result: PlatformResult, purpose: str) -> tuple[str, dict] | int:
-    """The session's profile; ``--profile auto`` (the default) is decided once here for the whole session."""
     seat = status_block.seat_state_for(state, result)
     if purpose and (not_ready := analyze_cli.seat_not_ready(seat)):  # ``analyze`` runs on a ready seat only
         return cli_session.fail(f"analysis not started: {not_ready}")
@@ -104,7 +94,6 @@ def _choose_profile(args: argparse.Namespace, claude_args: Sequence[str], state:
 
 def _open_session(args: argparse.Namespace, claude_args: Sequence[str], state: LocalState,
                   purpose: str) -> _Session | int:
-    """Target, policy, profile, registration and skills of a terminal session, or the exit code of a refusal."""
     target = session_target(args, state)
     if isinstance(target, int):
         return target
@@ -149,7 +138,6 @@ def _open_session(args: argparse.Namespace, claude_args: Sequence[str], state: L
 
 def _session_process(claude_args: Sequence[str], state: LocalState,
                      session: _Session) -> tuple[list[str], dict[str, str]] | int:
-    """Claude Code's argv and environment for the session, with its settings and MCP files written."""
     context, profile, delivery = session.context, session.profile, session.delivery
     model = launch.model_env(
         base_url=session.base_url, session_key=context.session_key, workspace_id=session.workspace_id,
@@ -180,7 +168,6 @@ def _session_process(claude_args: Sequence[str], state: LocalState,
 
 
 def _run_session(args: argparse.Namespace, claude_args: Sequence[str], state: LocalState, session: _Session) -> int:
-    """Start Claude Code for an opened session and wait for it; the exit code is the session's."""
     process = _session_process(claude_args, state, session)
     if isinstance(process, int):
         return process

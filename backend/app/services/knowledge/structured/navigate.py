@@ -1,17 +1,4 @@
-"""Bounded, cited navigation of the structured graph for tools: neighbours and operations chains.
-
-- :func:`graph_neighbors` resolves an entity name to nodes by exact label forms only (``RequestTimeout``
-  matches ``[Cache?] RequestTimeout``, ``HttpService.RequestTimeout`` and a setting ``[S] RequestTimeout``;
-  ``INC0000105`` matches the record ``INC0000105 …``) and returns their one-hop facts.
-- :func:`ops_chain` follows one ticket (incident, change, problem, Jira issue) or one service: its
-  record, causes, mentions in both directions (which Jira issues hang on a change), the
-  configuration settings whose comments mention it, and — for an incident — the changes opened
-  before it that affected the same service, else the same assignment group (the ``basis`` says
-  which; no service field means no service claim).
-
-Every fact is served only when every revision it rests on is visible to the reader, with its
-resolved citations; results are data (``content_is_data``), never instructions.
-"""
+"""Bounded, cited navigation of the structured graph for tools: neighbours and operations chains."""
 
 from __future__ import annotations
 
@@ -65,8 +52,6 @@ async def _edges_of(db: AsyncSession, project_id: str, node_ids: list[str], edge
 
 
 class _Served:
-    """Visible edges and nodes of one read, presented with resolved citations."""
-
     def __init__(self, db: AsyncSession, authorized: AuthorizedWorkspace) -> None:
         self.db, self.authorized = db, authorized
         self.nodes: dict = {}

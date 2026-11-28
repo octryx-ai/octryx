@@ -20,5 +20,4 @@ export type FormProps = {
   setAll: (changes: [string, unknown][]) => void;
   replace: (config: Config) => void;
   onRoute?: (when: string, target: string | null) => void;
-  workflowKey?: string;
 };

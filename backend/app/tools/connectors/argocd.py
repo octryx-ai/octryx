@@ -41,7 +41,6 @@ def _resolve_argocd_application(context: ToolContext, params: dict[str, Any]) ->
 
 
 def with_application_source(item: dict[str, Any], base: str, app_name: Any) -> dict[str, Any]:
-    """The application's page on the configured ArgoCD: ``{base}/applications/{name}``."""
     return with_source(item, title=f"ArgoCD {app_name}", url=item_url(base, "applications", app_name))
 
 

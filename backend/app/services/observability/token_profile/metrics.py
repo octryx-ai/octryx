@@ -1,20 +1,5 @@
 """Where the tokens go, for Prometheus and Grafana: counted when a turn's ``token_profile`` arrives, in this process,
-never through the database.
-
-- ``octryx_tokens_total{workflow,size_class,phase,category,tool}``: a turn's input tokens by category
-  (``split.CATEGORY_KEYS``; ``tool`` names the tool for ``tool_results``, else ``none``) and its output;
-- ``octryx_token_cache_total{workflow,size_class,phase,kind}``: the same turns by ``read``, ``write``, ``uncached`` and
-  ``output``;
-- ``octryx_token_calls_total{workflow,size_class,phase}``: the turns' model calls in the main thread, so a panel can
-  show tokens per call;
-- ``octryx_token_cache_hit_ratio{workflow,size_class,phase}``: per turn, the share of its input read from the prompt
-  cache (read / (read + write + uncached)); a run's rate is ``octryx_token_cache_total`` read over its input.
-
-The labels come from the run the job works for, as this process holds it in memory (``live_state``): its
-workflow, the size class it started in and the phase it is in; ``effort`` is the turn's chosen effort (else
-``default``). A profile in parts is put together here first; the session's fixed start (system prompt and tool
-definitions) is the smallest first call this process saw for the job.
-"""
+never through the database."""
 
 from __future__ import annotations
 
@@ -57,8 +42,6 @@ def _remember(store: OrderedDict, key: Any, value: Any) -> Any:
 
 
 def _labels(session_id: str, effort: str) -> dict[str, str]:
-    """The run the session works for, as this process knows it (``live_state``): never a database read per turn
-   a session this process has not seen bound counts as ``none``."""
     from .. import live_state
 
     context = live_state.run_context(session_id) or {}
@@ -85,7 +68,6 @@ def count(turn: Turn, fixed: int, labels: dict[str, str]) -> None:
 
 
 async def observe(db: AsyncSession, job: Any, body: dict[str, Any]) -> None:
-    """One ``token_profile`` part of a job's turn; the complete profile is counted when its transaction commits."""
     from ..agent_metrics import on_commit
 
     turn_id = str(body.get("turn_id") or "")
@@ -108,7 +90,6 @@ async def observe(db: AsyncSession, job: Any, body: dict[str, Any]) -> None:
 
 
 async def _learn(db: AsyncSession, session_id: str, turn: Turn) -> None:
-    """A too-long Bash output of the turn, for the app's next run (``run_memory``, cost lever 2); never in the way."""
     import logging
 
     from ...workflow_runs.run_memory import large_outputs

@@ -1,8 +1,4 @@
-"""The matching rules and edge builders behind :func:`.config_linkage.compute_linkage`.
-
-Value comparison, section scopes, citations and the per-family edges live here so the linkage
-driver stays a short walk over families; the rules themselves are described in :mod:`.config_linkage`.
-"""
+"""The matching rules and edge builders behind :func:`.config_linkage.compute_linkage`."""
 
 from __future__ import annotations
 
@@ -39,7 +35,6 @@ def ini_matches(pattern: str, section: str | None) -> bool:
 
 
 def scope_covers(parameter: NodeRow, setting: NodeRow) -> str | None:
-    """How the parameter's scope covers the setting's section: ``ini_section``, ``plugin_type`` or ``None``."""
     kind, scope = parameter.properties.get("scope_kind"), parameter.properties.get("scope")
     if kind == "ini" and scope and ini_matches(scope, setting.properties.get("section")):
         return "ini_section"
@@ -53,8 +48,6 @@ def _file_id(setting: NodeRow) -> str:
 
 
 class _Scopes:
-    """Which sections the manual documents at all: by an INI section pattern or by a plugin type."""
-
     def __init__(self, parameters: list[NodeRow]) -> None:
         self.ini = sorted({p.properties["scope"] for p in parameters
                            if p.properties.get("scope_kind") == "ini" and p.properties.get("scope")})
@@ -77,7 +70,6 @@ def _cites(family: Family, *extra: tuple, resolved: list[Resolved] = ()) -> list
 def _value_edges(
     family: Family, parameter: NodeRow, resolved: dict[str, Resolved], non_comparable: tuple[ProfilePattern, ...]
 ) -> list[LinkEdge]:
-    """``deviates_from_default`` and ``unresolved_placeholder`` of one configured family."""
     default = parameter.properties.get("default")
     readable = [member for member in family.members if not member.properties.get("redacted")]
     if default is None or not readable or any(pattern.search(default) for pattern in non_comparable):
@@ -133,7 +125,6 @@ def _unknown_sections(unknown: dict[tuple, list[Family]], manuals: list[NodeRow]
 def _inconsistencies(
     grouped: list[Family], resolved: dict[str, Resolved] | None = None, definitions: frozenset[str] = frozenset()
 ) -> list[LinkEdge]:
-    """The differing pairs; a pair of ``definitions`` a differing settings pair resolves from is folded into it."""
     resolved = resolved or {}
     groups: dict[tuple, list[Family]] = {}
     for family in grouped:

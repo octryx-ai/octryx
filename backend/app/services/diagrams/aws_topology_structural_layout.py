@@ -1,17 +1,4 @@
-"""Structural (container-based) layout for AWS topology overview diagrams.
-
-Renders the architecture the way the AWS icon guidelines draw it: an AWS
-Cloud frame containing VPC containers, subnet containers grouped by tier,
-resources nested inside the subnet or VPC they belong to, and regional
-services beside the VPCs. Containment replaces the membership edges
-(``belongs_to``/``uses_subnet``/``runs_in``/``attached_to``), which removes
-most line clutter; security groups and CIDR peers stay out of the overview
-because they have their own security detail diagram.
-
-Used by ``aws_topology_diagram`` whenever the selection contains a VPC;
-selections without one (e.g. the security or data detail diagrams) keep the
-service-swimlane layout.
-"""
+"""Structural (container-based) layout for AWS topology overview diagrams."""
 
 from __future__ import annotations
 
@@ -103,8 +90,6 @@ def render_structural_topology_xml(
 
 
 def _cloud_content_cells(placement: StructuralPlacement, icon: _IconRenderer) -> tuple[list[str], int, int]:
-    """VPC containers and regional services inside the AWS Cloud frame; returns
-    the cells, the next free y offset and the widest inner width."""
     nodes_by_ref = placement.nodes_by_ref
     region_of_vpc = {
         ref: str(nodes_by_ref[ref].get("region") or "").strip() for ref in placement.vpc_refs

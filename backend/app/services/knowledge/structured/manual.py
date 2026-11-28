@@ -1,8 +1,4 @@
-"""The manual layer of one PDF revision: outline, references, parameters, compatibility, terms.
-
-Pure: spans in, :class:`~.facts.Extraction` out. Similarity across manuals needs the stored
-span vectors and runs at Workspace level (``similarity.py``).
-"""
+"""The manual layer of one PDF revision: outline, references, parameters, compatibility, terms."""
 
 from __future__ import annotations
 

@@ -15,6 +15,7 @@ from app.services.model_gateway.inbound import governed_dispatch as inbound_serv
 from app.services.model_gateway.inbound import seat_upstream
 from app.services.model_gateway.inbound import upstream as inbound_upstream
 from app.services.policy_engine.shadow import decision_counters
+from tests.content_security.gateway_route_support import configure
 from tests.model_gateway.inbound_model_picker_support import (
     MODELS,
     NO_TOOLS,
@@ -221,8 +222,9 @@ async def test_a_company_model_the_workspace_does_not_admit_is_refused_with_a_cl
 
 @pytest.mark.asyncio
 async def test_the_seat_company_path_keeps_the_secret_scan_and_the_budgets(client, db, upstreams, monkeypatch):
-    _workspace_id, gateway = await _workspace(db, policy=OPT_IN)
+    workspace_id, gateway = await _workspace(db, policy=OPT_IN)
     seat = await _seat(client, gateway)
+    await configure(db, workspace_id, "secrets", "refuse")  # the default masks
 
     secret = await client.post(SEAT_MESSAGES, json=_body(f"company/{ALIAS}", "key AKIA" + "ABCDEFGHIJKLMNOP"),
                                headers=seat)

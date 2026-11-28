@@ -31,9 +31,10 @@ from app.services.workflow_runs.handoff.permissions import rights_evaluator
 from app.services.workflow_runs.phase_outputs import HANDOFF_KEY
 from app.services.workflow_runs.records import RUN_METADATA_KEY
 from tests.knowledge_evidence_seed_support import seed_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.team_handoff_support import action, counts, setup_case
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 @pytest.fixture(autouse=True)

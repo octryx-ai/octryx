@@ -17,6 +17,7 @@ from app.services.export_package import (
 
 from ...models import AgentDefinition, Project, Skill, Task
 from ...models.agent.skill_catalog import SKILL_KIND_SKILL
+from ..project.private_workspace import PRIVATE_ACCESS_MODE
 
 ADMIN_CONFIG_INCLUDED_SECTIONS = ["project_config", "tasks", "agents", "skills"]
 ADMIN_CONFIG_EXCLUDED_SECTIONS = [
@@ -110,8 +111,11 @@ async def _build_definition_export_payload(
     export_type: str,
     project_id: str | None,
 ) -> dict[str, Any]:
+    # Like a named export, a bulk one never carries a private Workspace's definitions.
+    private = select(Project.id).where(Project.access_mode == PRIVATE_ACCESS_MODE)
     if export_type == "task_definitions":
-        stmt = select(Task).options(selectinload(Task.steps)).order_by(Task.created_at.asc())
+        stmt = (select(Task).options(selectinload(Task.steps)).order_by(Task.created_at.asc())
+                .where(Task.project_id.is_(None) | Task.project_id.not_in(private)))
         if project_id:
             stmt = stmt.where(Task.project_id == project_id)
         rows = (await db.execute(stmt)).scalars().all()
@@ -124,6 +128,7 @@ async def _build_definition_export_payload(
 
     stmt = (
         select(AgentDefinition).options(selectinload(AgentDefinition.steps)).order_by(AgentDefinition.created_at.asc())
+        .where(AgentDefinition.project_id.is_(None) | AgentDefinition.project_id.not_in(private))
     )
     if project_id:
         stmt = stmt.where(AgentDefinition.project_id == project_id)

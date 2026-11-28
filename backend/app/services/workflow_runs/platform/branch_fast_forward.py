@@ -1,18 +1,4 @@
-"""An adopted branch without own commits starts at the current default-branch head.
-
-Without it, an adopted ``feature/-…`` branch stayed at an old commit while main had moved on (a ``.gitignore``
-commit): the run worked on an outdated base. At ``scm.create_branch``, after ``branch_adoption`` adopted an existing
-branch, before ``workspace.prepare``:
-
-- **no own commits** (every commit on it is on the default branch) and the default branch is ahead → the remote
-  branch is fast-forwarded to the default-branch head on the server: the prepared working copy puts the branch on
-  ``origin/<default>`` and the provider's governed push tool pushes it without a commit (``push_only``; a plain,
-  never forced push — the SCM itself refuses anything but a fast-forward), on every provider. Recorded as
-  ``branch_fast_forwarded`` with the old and new head; the adoption's head becomes the new one, so every runtime
-  prepares that commit. A push that fails fails the step (recoverable: retry);
-- **own commits** → the branch is never moved; how many default-branch commits it lacks is recorded on the adoption
-  (``behind_base``) and shown on the run card.
-"""
+"""An adopted branch without own commits starts at the current default-branch head."""
 
 from __future__ import annotations
 
@@ -42,7 +28,6 @@ async def _behind(local_path: str, name: str, base: str) -> int | None:
 
 async def align_adopted_branch(db: AsyncSession, run: WorkflowRun, *, push_tool: str, repo_args: dict[str, Any],
                                name: str, prepared: ToolOutcome) -> ToolOutcome | None:
-    """Fast-forward an adopted branch without own commits; ``None`` unless that push failed."""
     context = dict(run.context or {})
     adoption = dict(context.get("branch_adoption") or {})
     local_path = str(prepared.result.get("local_path") or "")

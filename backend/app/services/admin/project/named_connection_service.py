@@ -1,23 +1,4 @@
-"""Admin CRUD and test of named connections, per Workspace or global.
-
-- **List** (``named_connection_view.py``) returns, per connection, its id, name, bound scopes, the unit's
-  non-secret fields, which secrets are stored (booleans), its last test and who uses it; never a secret
-  value or a ``*_secret_ref``. The connector's own entry is listed as the implicit ``default`` connection.
-- **Create/update** validate the name (``default`` is reserved, unique per connector and scope), the
-  bound scopes (no key bound by another connection of the same connector and scope: refused, never
-  resolved by order) and the complete unit (the connector descriptor's ``complete`` check; for Confluence,
-  Jira and ServiceNow URL, explicit auth mode and that mode's credential, the same rules as the Workspace
-  connection; ``named_connection_unit.py``). A kept secret never silently follows a
-  changed URL or client id (``secret_rebind``, 409). A typed secret is stored in the secret store under
-  this connection's own field name (``<field>#<id>``); an empty one keeps the stored one. Secrets a
-  mode switch drops are released.
-- **Delete** removes the connection and releases its secrets; the audit records who used it.
-- **Test** runs the connector's connection test on the connection (typed values for that test only,
-  never stored, same rebind rule). A test of the saved values is kept as the connection's
-  ``last_test``; it is never recorded as the connector's health, which belongs to the default connection.
-
-Create, update, delete and test are audited with names, scope keys and field names only.
-"""
+"""Admin CRUD and test of named connections, per Workspace or global."""
 
 from __future__ import annotations
 
@@ -90,7 +71,6 @@ async def save_named(
     actor_id: str | None,
     connection_id: str | None = None,
 ) -> dict[str, Any]:
-    """Create (``connection_id`` None) or update one named connection."""
     tool = await require_scope(db, connector, project_id)
     body = payload if isinstance(payload, dict) else {}
     row = await _row(db, tool, project_id, connection_id) if connection_id is not None else None
@@ -186,7 +166,6 @@ async def test_named(
     run_connection_test: RunConnectionTest,
     actor_id: str | None,
 ) -> dict[str, Any]:
-    """Test one named connection; typed values are used for this test only and never stored."""
     tool = await require_scope(db, connector, project_id)
     descriptor = require_descriptor(tool)
     if not descriptor.testable:

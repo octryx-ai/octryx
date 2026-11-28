@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
-from app.agent.core.runtime.runtime_errors import RUNTIME_ERROR_DATA_POLICY_DENIED, classify_runtime_error
+from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
+from app.agent.runtime.runtime_errors import RUNTIME_ERROR_DATA_POLICY_DENIED, classify_runtime_error
 from app.models import Project
 from app.services.model_gateway.data_policy import (
     CLASSIFICATION_SOURCE_PROJECT_CONFIG,
@@ -37,17 +37,12 @@ from tests.model_gateway.conftest import (
 )
 from tests.model_gateway.litellm_data_policy_support import EXCESSIVE_CLASSIFICATIONS, _alias_section
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
 def _project_config_with_classification(classification: Any) -> dict[str, Any]:
     return {**granted_project_config(), "data_policy": {"classification": classification}}
-
-
-# ---------------------------------------------------------------------------
-# The dispatch boundary: the driver's own layer-3 gate
-# ---------------------------------------------------------------------------
 
 
 async def test_a_permitted_classification_dispatches_and_records_the_comparison(gateway, build_gateway_client) -> None:
@@ -79,7 +74,6 @@ async def test_an_excessive_classification_creates_zero_requests(classification,
     assert excinfo.value.gateway_state == GATEWAY_STATE_DATA_POLICY_DENIED
     assert excinfo.value.denial_reason == DENIAL_CLASS_INSUFFICIENT
     assert classify_runtime_error(excinfo.value).error_class == RUNTIME_ERROR_DATA_POLICY_DENIED
-    # The fixed message carries the closed code and nothing else.
     assert str(excinfo.value).endswith(f"[reason={DENIAL_CLASS_INSUFFICIENT}]")
     assert classification not in str(excinfo.value)
 
@@ -116,13 +110,6 @@ async def test_an_unusable_classification_creates_zero_requests(
 
 
 def test_an_alias_declaring_secret_is_refused_before_a_client_exists(gateway, build_gateway_client) -> None:
-    """``secret`` is outside the alias vocabulary, so it never becomes a client.
-
-    No gateway alias may declare it, which is exactly why a ``secret`` workspace
-    has no admissible gateway target: the catalog refuses the alias, and a config
-    whose only alias is inadmissible does not produce a gateway client at all.
-    """
-
     with pytest.raises(LiteLLMGatewayError) as excinfo:
         build_gateway_client(gateway, config_json=_alias_section("secret"))
 
@@ -131,14 +118,7 @@ def test_an_alias_declaring_secret_is_refused_before_a_client_exists(gateway, bu
     assert data_policy_decision(workspace_classification("secret"), "restricted").reason == DENIAL_CLASS_INSUFFICIENT
 
 
-# ---------------------------------------------------------------------------
-# Caller and model input cannot choose the classification
-# ---------------------------------------------------------------------------
-
-
 async def test_a_model_argument_cannot_carry_a_classification(gateway, build_gateway_client) -> None:
-    """``chat`` takes an alias; nothing in it can name a data policy."""
-
     client = build_gateway_client(
         gateway,
         project_admission=verified_admission(ALIAS, classification="restricted"),
@@ -152,8 +132,6 @@ async def test_a_model_argument_cannot_carry_a_classification(gateway, build_gat
 
 
 async def test_a_caller_shaped_admission_cannot_reach_the_gate(gateway, build_gateway_client) -> None:
-    """Only the typed, server-built admission is accepted at construction."""
-
     class LookAlikeAdmission:
         verified = True
         project_id = PROJECT_ID
@@ -180,8 +158,6 @@ async def test_a_caller_shaped_admission_cannot_reach_the_gate(gateway, build_ga
 
 
 def test_a_classification_in_the_turn_project_config_is_never_read() -> None:
-    """The runtime boundary reads only the resolved classification argument."""
-
     admitted = apply_model_policy_to_runtimes(
         [gateway_runtime()],
         # Exactly what a knowledge-injected or session-patched turn config looks

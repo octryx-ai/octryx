@@ -45,6 +45,7 @@ from ...services.connector_watcher_rules import (
     list_connector_watcher_rule_decisions,
     list_connector_watcher_rules,
 )
+from ...services.connector_watcher_scope import watcher_scope
 from ...services.connector_watcher_service import list_connector_watcher_events, list_connector_watchers
 
 router = APIRouter()
@@ -52,8 +53,8 @@ router = APIRouter()
 
 @router.get("/chat/api/panel/webhooks")
 async def panel_list_webhooks(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_list_webhooks(db))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_list_webhooks(db, viewer_id=user.id))
 
 
 @router.post("/chat/api/panel/webhooks")
@@ -63,7 +64,7 @@ async def panel_create_webhook(
     db: AsyncSession = Depends(get_db),
 ):
     user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, user.id, payload.project_id)
     return JSONResponse(await admin_create_webhook(db, user_id=user.id, payload=payload.model_dump()))
 
 
@@ -74,23 +75,24 @@ async def panel_update_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
-        await admin_update_webhook(db, webhook_id=webhook_id, payload=payload.model_dump(exclude_none=True))
+        await admin_update_webhook(db, webhook_id=webhook_id, viewer_id=admin.id,
+                                   payload=payload.model_dump(exclude_none=True))
     )
 
 
 @router.delete("/chat/api/panel/webhooks/{webhook_id}")
 async def panel_delete_webhook(webhook_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_delete_webhook(db, webhook_id=webhook_id))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_delete_webhook(db, webhook_id=webhook_id, viewer_id=user.id))
 
 
 @router.get("/chat/api/panel/outbound-webhooks")
 async def panel_list_outbound_webhooks(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_list_outbound_webhooks(db))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_list_outbound_webhooks(db, viewer_id=user.id))
 
 
 @router.post("/chat/api/panel/outbound-webhooks")
@@ -100,7 +102,7 @@ async def panel_create_outbound_webhook(
     db: AsyncSession = Depends(get_db),
 ):
     user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, user.id, payload.project_id)
     return JSONResponse(
         await admin_create_outbound_webhook(db, current_user=user, payload=payload.model_dump(exclude_none=True))
     )
@@ -113,17 +115,18 @@ async def panel_update_outbound_webhook(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
-        await admin_update_outbound_webhook(db, webhook_id=webhook_id, payload=payload.model_dump(exclude_none=True))
+        await admin_update_outbound_webhook(db, webhook_id=webhook_id, viewer_id=admin.id,
+                                            payload=payload.model_dump(exclude_none=True))
     )
 
 
 @router.delete("/chat/api/panel/outbound-webhooks/{webhook_id}")
 async def panel_delete_outbound_webhook(webhook_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_delete_outbound_webhook(db, webhook_id=webhook_id))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_delete_outbound_webhook(db, webhook_id=webhook_id, viewer_id=user.id))
 
 
 @router.get("/chat/api/panel/outbound-webhook-deliveries")
@@ -134,10 +137,11 @@ async def panel_list_outbound_webhook_deliveries(
     limit: int = 100,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    user = await _require_admin_api(request, db)
     return JSONResponse(
         await admin_list_outbound_webhook_deliveries(
             db,
+            viewer_id=user.id,
             status_filter=status.strip() or None,
             webhook_id=webhook_id.strip() or None,
             limit=limit,
@@ -151,11 +155,11 @@ async def panel_list_connector_watchers(
     project_id: str = "",
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    user = await _require_admin_api(request, db)
     return JSONResponse(
         await list_connector_watchers(
             db,
-            scope=None,  # a platform admin: every Workspace
+            scope=await watcher_scope(db, user),
             project_id=project_id.strip() or None,
             include_inactive=True,
         )
@@ -170,11 +174,11 @@ async def panel_list_connector_watcher_events(
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    user = await _require_admin_api(request, db)
     return JSONResponse(
         await list_connector_watcher_events(
             db,
-            scope=None,  # a platform admin: every Workspace
+            scope=await watcher_scope(db, user),
             watcher_id=watcher_id.strip() or None,
             status=status.strip() or None,
             limit=limit,
@@ -188,11 +192,11 @@ async def panel_list_connector_watcher_rules(
     project_id: str = "",
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    user = await _require_admin_api(request, db)
     return JSONResponse(
         await list_connector_watcher_rules(
             db,
-            scope=None,  # a platform admin: every Workspace
+            scope=await watcher_scope(db, user),
             project_id=project_id.strip() or None,
             include_inactive=True,
         )
@@ -207,11 +211,11 @@ async def panel_list_connector_watcher_rule_decisions(
     limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    user = await _require_admin_api(request, db)
     return JSONResponse(
         await list_connector_watcher_rule_decisions(
             db,
-            scope=None,  # a platform admin: every Workspace
+            scope=await watcher_scope(db, user),
             event_id=event_id.strip() or None,
             rule_id=rule_id.strip() or None,
             limit=limit,

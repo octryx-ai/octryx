@@ -1,15 +1,4 @@
-"""Kubernetes: one named connection per cluster, an API URL and a token, bound to cluster (context) names.
-
-A named connection is the API path only (``k8s_api_url`` + ``k8s_token``, optional public PEM CA and allowed
-namespaces): a kubeconfig, a context or a kubectl binary picks a host credential, so none of them is inherited
-from the default entry (``named_drops``) and a named connection without its token is refused before the call
-(``runtime_guard``) instead of falling back to the platform pod's service account. ``run_kubectl`` runs a
-kubeconfig and therefore never runs on a named connection. With allowed namespaces, a call must name one of
-them; cluster-wide reads are refused on such a connection.
-
-A call names its cluster with ``cluster``; the default entry serves the cluster of its own ``k8s_context``.
-Without a cluster and with named connections, a call names its ``connection`` (``unscoped`` ``single``).
-"""
+"""Kubernetes: one named connection per cluster, an API URL and a token, bound to cluster (context) names."""
 
 from __future__ import annotations
 

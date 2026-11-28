@@ -1,42 +1,4 @@
-"""Phase outputs: a phase proposes a structured artefact, the server records it on the run.
-
-A phase that must hand something on declares it in its definition: ``{"type": "phase", "config": {"output":
-"<kind>", ...}}``. Its agent ends by calling the kind's submit tool (chat tool and run-bound MCP tool, same
-handler semantics): the server validates the proposal and records it under the run (``context.outputs[kind]``,
-versioned, with its hash, node and pass). The agent needs no write rights anywhere: whatever the artefact becomes
-outside the run (a Work change plan, a Jira text) is a server step that reads the recorded output
-(``platform/work_plan``, ``platform/texts``). A phase may also declare ``inputs`` — recorded outputs its agent
-reads in its contract (chat contract line, octryx run contract).
-
-Kinds (closed):
-
-- ``definition_of_ready`` (Workflow A triage, ``submit_definition_of_ready``): recorded also when incomplete; the
-  ``definition_of_ready`` check decides (``workflow_runs/definition_of_ready``).
-- ``test_contract`` (B clarify, ``submit_test_contract``): criteria → tests (each ``new`` or ``regression``,
-  ``test_roles``: derived and checked against the run's recorded test runs) → command, or a manual-only criterion
-  with its reason; ``work.draft_change_plan`` turns it into the Work item's change plan.
-- ``reproduction`` (C reproduce, ``submit_reproduction``): the tests that reproduce the bug and the symptom; the
-  reproduction confirmation shows it next to the tests the server saw failing.
-- ``incident_hypothesis`` (E hypothesis, ``submit_incident_hypothesis``): cause, impact, next step, whether a code
-  fix is needed, the cited sources; the bug ticket's text and the hand-over to C.
-- ``feature_documentation`` (B documentation, ``submit_feature_documentation``): title, what, why, how to use; the
-  page adds the recorded acceptance criteria → tests and links (``documentation``).
-- ``story_plan`` (the epic's split, ``submit_story_plan``): the stories in build order (``teamwork.stories``);
-  ``work.create_stories`` creates them under the epic.
-- ``spec_studio`` (spec-writing draft, ``submit_spec_studio``): the structured spec next to SPEC.md the product
-  owner reviews and approves in the Spec Studio (``spec_studio``); the answer lists the open points left.
-- ``work_plan`` (the coordinator, ``submit_work_plan``): the shared contract and the items a following
-  ``parallel_work`` node runs (``teamwork.plan``); recording it stores the run's task list (one task per item). The
-  coordinator may also submit a revised plan while the items run (at the ``parallel_work`` node, from any session
-  but an item's).
-
-A phase that declares ``result_values`` also records its **result**: its agent ends with
-``submit_phase_result`` naming one of them (``{"value", "summary"?}``, refused outside the declared values). The
-phase is done only once it recorded one in its current pass; a following decision routes on it (``conditions``).
-
-An invalid proposal is refused with its problems (a refusal is a failed tool call, so it never counts for a
-``tool_called`` check); the Definition of Ready keeps its own rule (recorded with what is missing).
-"""
+"""Phase outputs: a phase proposes a structured artefact, the server records it on the run."""
 
 from __future__ import annotations
 
@@ -50,6 +12,7 @@ from ...models import WorkflowRun
 from ...time_utils import utc_now
 from .conditions import phase_result_values
 from .graph import NODE_PARALLEL, NODE_PHASE, PhasedNode
+from .plan_scope import validate_change_plan
 from .specification.integration import KINDS as SPECIFICATION_KINDS
 from .specification.integration import proposal_validator
 
@@ -136,7 +99,7 @@ def _definition_of_ready(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]
 def _work_plan(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     from .teamwork.plan import validate_plan
 
-    return validate_plan(raw)  # the roles are checked against the parallel_work node in ``submit_output``
+    return validate_plan(raw)
 
 
 def _story_plan(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
@@ -175,6 +138,7 @@ OUTPUT_SPECS: dict[str, OutputSpec] = {spec.kind: spec for spec in (
     OutputSpec("work_plan", "submit_work_plan", "Work plan", _work_plan),
     OutputSpec("story_plan", "submit_story_plan", "Story plan", _story_plan),
     OutputSpec("spec_studio", "submit_spec_studio", "Spec Studio", _spec_studio),
+    OutputSpec("change_plan", "submit_change_plan", "Change plan", validate_change_plan),
 )}
 OUTPUT_SPECS.update({kind: OutputSpec(kind, f"submit_{kind}", kind.replace("_", " ").title(),
                                     proposal_validator(kind)) for kind in sorted(SPECIFICATION_KINDS)})
@@ -206,7 +170,6 @@ def phase_inputs(node: PhasedNode) -> list[str]:
 
 
 def phase_accepts(node: PhasedNode | None, spec: OutputSpec) -> bool:
-    """The phase submits this output: it declares it, or (a version before output contracts) offers its tool."""
     if node is None or node.kind != NODE_PHASE:
         return False
     if spec.kind == RESULT_KIND:
@@ -218,7 +181,6 @@ def phase_accepts(node: PhasedNode | None, spec: OutputSpec) -> bool:
 
 
 def phase_result(run: WorkflowRun, node: PhasedNode) -> str | None:
-    """The result the phase's agent recorded in the run's current pass of ``node`` (one of its result_values)."""
     envelope = recorded_output(run, RESULT_KIND) or {}
     value = _text(dict(envelope.get("record") or {}).get("value"), 80)
     if (envelope.get("node_id") != node.id or envelope.get("entry") != dict(run.node_state or {}).get("entry")
@@ -228,13 +190,11 @@ def phase_result(run: WorkflowRun, node: PhasedNode) -> str | None:
 
 
 def recorded_output(run: WorkflowRun, kind: str) -> dict[str, Any] | None:
-    """The newest recorded output of ``kind`` on the run (its envelope), else ``None``."""
     envelope = dict(dict(run.context or {}).get(OUTPUTS_KEY) or {}).get(kind)
     return dict(envelope) if isinstance(envelope, dict) else None
 
 
 def available_inputs(run: WorkflowRun, kinds: list[str]) -> dict[str, Any]:
-    """What a phase reads: its declared inputs recorded on this run, and whatever a parent run handed over."""
     inputs = {kind: envelope["record"] for kind in kinds if kind not in SPECIFICATION_KINDS
               if (envelope := recorded_output(run, kind)) and isinstance(envelope.get("record"), dict)}
     handoff = dict(dict(run.context or {}).get(HANDOFF_KEY) or {})
@@ -243,7 +203,6 @@ def available_inputs(run: WorkflowRun, kinds: list[str]) -> dict[str, Any]:
 
 
 def _canonical_tests(run: WorkflowRun, record: dict[str, Any]) -> tuple[dict[str, Any], list[str], list[str]]:
-    """``record`` with its test ids canonical, the problems of ids that cannot be, and every id it names."""
     from .test_resolution import canonical_ids, resolver_for
     from .test_roles import ROLES_KEY
 
@@ -276,8 +235,6 @@ def _canonical_tests(run: WorkflowRun, record: dict[str, Any]) -> tuple[dict[str
 
 async def submit_output(db: Any, run: WorkflowRun, tool: str, raw: Any, *, principal=None,
                         session_id=None, request_id=None, tool_history=None) -> dict[str, Any]:
-    """Validate and record a phase's proposal on the (claimed) run: ``recorded`` with version and hash, or
-    ``refused`` with the reason (``outside_phase_output`` / ``invalid_output`` with its problems)."""
     from .graph import graph_for_run
     from .handoff.lifecycle import guard_receiver
 
@@ -328,7 +285,6 @@ async def submit_output(db: Any, run: WorkflowRun, tool: str, raw: Any, *, princ
         if spec.kind == "test_contract" and not problems:
             from .test_roles import resolve_contract
 
-            # Each test's role, derived or checked against what the recorded runs showed on the branch.
             record, problems = resolve_contract(record, recorded_runs(run, ids))
             if not problems:
                 from .contract_coverage import check_contract_coverage
@@ -362,7 +318,7 @@ async def submit_output(db: Any, run: WorkflowRun, tool: str, raw: Any, *, princ
                  detail={"kind": spec.kind, "version": envelope["version"], "hash": envelope["hash"]})
     from .size_class.merge import output_recorded
 
-    await output_recorded(db, run, graph, node)  # a merged phase: the skipped steps' duties now (``merge``)
+    await output_recorded(db, run, graph, node)
     if spec.kind == "work_plan":
         from .teamwork.plan_updates import plan_recorded
 
@@ -378,20 +334,6 @@ async def submit_output(db: Any, run: WorkflowRun, tool: str, raw: Any, *, princ
     return answer
 
 
-__all__ = [
-    "HANDOFF_KEY",
-    "OUTPUTS_KEY",
-    "OUTPUT_BY_TOOL",
-    "OUTPUT_SPECS",
-    "OutputSpec",
-    "RESULT_KIND",
-    "RESULT_TOOL",
-    "available_inputs",
-    "output_hash",
-    "phase_accepts",
-    "phase_inputs",
-    "phase_output",
-    "phase_result",
-    "recorded_output",
-    "submit_output",
-]
+__all__ = ["HANDOFF_KEY", "OUTPUTS_KEY", "OUTPUT_BY_TOOL", "OUTPUT_SPECS", "OutputSpec", "RESULT_KIND", "RESULT_TOOL",
+           "available_inputs", "output_hash", "phase_accepts", "phase_inputs", "phase_output", "phase_result",
+           "recorded_output", "submit_output"]

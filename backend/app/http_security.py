@@ -1,8 +1,4 @@
-"""HTTP security helpers for auth cookies, CORS, and same-origin checks.
-
-The ``Secure`` attribute of the auth cookies is not decided here: it comes from
-``auth_cookie_policy``, which owns one authoritative policy for set and clear.
-"""
+"""HTTP security helpers for auth cookies, CORS, and same-origin checks."""
 
 from __future__ import annotations
 
@@ -64,7 +60,6 @@ def current_request_origin(request: Request) -> str:
 
 
 def get_auth_cookie_policy(request: Request | None = None) -> AuthCookiePolicy:
-    """Cookie attributes for this request, resolved by the auth-cookie policy."""
     return resolve_auth_cookie_policy(request)
 
 

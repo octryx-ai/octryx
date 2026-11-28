@@ -12,7 +12,6 @@ from .core import (
     BasePlugin,
     ChannelPlugin,
     PluginMetadata,
-    PluginRegistry,
     PluginToolDefinition,
     disable_plugin,
     enable_plugin,
@@ -31,8 +30,6 @@ logger = logging.getLogger(__name__)
 
 
 class _PluginManager:
-    """Channel plugin manager – manages lifecycle of ChannelPlugin instances."""
-
     def __init__(self):
         self._plugins: dict[str, ChannelPlugin] = {}
         self._plugin_classes: dict[str, type] = {}
@@ -43,8 +40,10 @@ class _PluginManager:
 
     @staticmethod
     def channel_fingerprint(plugin_id: str, config: dict) -> str:
-        """A stable digest of a channel's runtime configuration (the process-local ``__inbound`` excluded)."""
-        material = {"plugin_id": plugin_id, "config": {k: v for k, v in config.items() if k != "__inbound"}}
+        # A resolved secret counts through its version (``channel_config/credentials.py``), never its value.
+        resolved = set(config.get("__secret_versions") or ())
+        material = {"plugin_id": plugin_id,
+                    "config": {k: v for k, v in config.items() if k != "__inbound" and k not in resolved}}
         return hashlib.sha256(json.dumps(material, sort_keys=True, default=str).encode()).hexdigest()
 
     def applied_fingerprint(self, channel_id: str) -> str | None:
@@ -57,7 +56,6 @@ class _PluginManager:
         self._applied.pop(channel_id, None)
 
     def _inbound_here(self, cls: type) -> bool:
-        """Polling inbound runs only in the process with the background workers; webhook inbound anywhere."""
         from ..runtime_toggles import background_workers_enabled
 
         return background_workers_enabled() or not getattr(cls, "INBOUND_POLLING", False)
@@ -84,7 +82,6 @@ class _PluginManager:
         return list(self._plugin_classes.keys())
 
     def get_plugin_info(self, plugin_id: str) -> dict:
-        """Return metadata / config_fields for a plugin (uses running instance or temp one)."""
         plugin = self._plugins.get(plugin_id)
         if plugin:
             return plugin.get_plugin_info()
@@ -149,10 +146,6 @@ class _PluginManager:
             self._plugins.pop(channel_id, None)
             return False
 
-    async def start_channel(self, channel_id: str) -> bool:
-        """No-op – initialization already starts the plugin (e.g. starts polling)."""
-        return channel_id in self._plugins
-
     async def stop_channel(self, channel_id: str) -> bool:
         plugin = self._plugins.pop(channel_id, None)
         if plugin:
@@ -169,7 +162,6 @@ class _PluginManager:
             await self.stop_channel(channel_id)
 
     async def reload_channel(self, channel_id: str, plugin_id: str, new_config: dict) -> bool:
-        """Stop the plugin (if running), then start it again if enabled."""
         self._applied[channel_id] = self.channel_fingerprint(plugin_id, new_config)
         await self.stop_channel(channel_id)
         if new_config.get("enabled"):
@@ -191,7 +183,6 @@ __all__ = [
     "TelegramPlugin",
     "PluginMetadata",
     "PluginToolDefinition",
-    "PluginRegistry",
     "PLUGIN_INSTANCES",
     "plugin_manager",
     "get_all_discovered_plugins",

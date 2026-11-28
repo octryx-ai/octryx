@@ -1,29 +1,11 @@
-"""High-confidence secret detection for the content that enters the model gateway.
-
-A coding agent reads source code all day, and source code is full of *names* of
-secrets: ``password = settings.db_password``, ``token: str``, ``f"Bearer {token}"``,
-``postgresql://user:${DB_PASSWORD}@db``. The shared redaction policy treats every
-``token = ...`` assignment as secret-bearing, which is right for redacting stored
-payloads but would refuse ordinary source files at the gateway. This detector refuses
-only *values* that are credential material by their own shape:
-
-- a private key block,
-- an AWS access key id (``AKIA``/``ASIA`` + 16),
-- an AWS secret access key assigned to its well-known name,
-- a vendor token with its fixed prefix and a realistic length (GitHub, GitLab, Slack,
-  ``sk-`` API keys),
-- a JWT (three base64url segments, header starting ``eyJ``),
-- a bearer credential of realistic length,
-- a URL carrying a literal password (a ``$``/``{``/``<``-led placeholder is not one).
-
-Each hit has a fixed kind; the matched text itself is never returned. :func:`secret_spans` gives the content
-detectors (``services/content_detection``, detector ``secrets``) the positions to mask; they stay in memory.
-"""
+"""High-confidence secret detection for the content that enters the model gateway: values, never names."""
 
 from __future__ import annotations
 
 import re
 
+# Source code is full of secret names (password = settings.db_password): only values that are credential material by
+# their own shape are refused, and only the fixed kind ever leaves, never the matched text.
 _BOUNDARY = r"(?<![A-Za-z0-9_-])"
 
 _DETECTORS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -47,8 +29,6 @@ _DETECTORS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 
 def secret_spans(text: str) -> tuple[tuple[str, int, int], ...]:
-    """``(kind, start, end)`` of every credential found in ``text``, in text order (positions stay in memory)."""
-
     if not text:
         return ()
     spans = [(kind, match.start(), match.end()) for kind, pattern in _DETECTORS for match in pattern.finditer(text)]
@@ -56,8 +36,6 @@ def secret_spans(text: str) -> tuple[tuple[str, int, int], ...]:
 
 
 def secret_kinds(text: str) -> tuple[str, ...]:
-    """The fixed kinds of credential material found in ``text`` (empty when clean)."""
-
     if not text:
         return ()
     return tuple(kind for kind, pattern in _DETECTORS if pattern.search(text))

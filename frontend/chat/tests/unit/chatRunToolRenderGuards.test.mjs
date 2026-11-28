@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createContext, createElement } from "react";
 import { act, box, load, noop, render, text } from "./renderGuardHarness.mjs";
+import { runOnLabel, runsOnOwnDevice } from "../../src/chat/devices/executionTarget.ts";
 
 const byClass = (root, name) => root.findAll((node) => typeof node.type === "string"
   && typeof node.props?.className === "string" && node.props.className.split(" ").includes(name));
@@ -92,7 +93,8 @@ function loadRunOn(target, picked) {
     DeviceModelPill: { DeviceModelPill: box("model-pill") },
     devicesApi: { loadMyDevices: async () => devices,
       loadDeviceRunsPolicy: async () => ({ project_id: "p1", enabled: true, allowed_profiles: ["governed", "seat"], seat_allowed: true }) },
-    executionTarget: { SERVER_TARGET: { kind: "server" }, setExecutionTarget: (...args) => picked.push(args), useExecutionTarget: () => target },
+    executionTarget: { SERVER_TARGET: { kind: "server" }, runOnLabel, runsOnOwnDevice, setExecutionTarget: (...args) => picked.push(args),
+      useExecutionTarget: () => target },
   }).RunOnControls;
 }
 

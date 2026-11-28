@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete
 
-from app.api.routes import workflow_handoffs as routes
+from app.api.routes.workflows import workflow_handoffs as routes
 from app.db import get_db
 from app.models import Session, WorkflowRun
 from app.models.runtime.workflow_handoff import WorkflowHandoff

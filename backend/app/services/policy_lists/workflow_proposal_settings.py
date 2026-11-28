@@ -1,17 +1,4 @@
-"""Platform settings of workflow proposals as an admin-edited governed record.
-
-- ``timeout_seconds`` (seed ``10``): how long the governed proposal model call may take before
-  the turn runs without a workflow (``timeout``). An integer from 1 to 60.
-
-The record uses the governed policy-list mechanism (``records``): versioned, audited, with the
-seed live while no record exists.
-
-What stays code-owned, on purpose: a proposed workflow never starts by itself (it starts as a
-workflow run after the user's confirmation), and a ``low`` proposal is never offered.
-
-Closed validation: ``invalid_payload`` (not an object, a missing or an unknown field),
-``invalid_entry`` (a value of the wrong type), ``out_of_range`` (a timeout outside 1-60 seconds).
-"""
+"""Platform settings of workflow proposals as an admin-edited governed record."""
 
 from __future__ import annotations
 
@@ -87,7 +74,6 @@ def validate_workflow_proposal_settings(raw: Any) -> dict[str, Any]:
 
 
 async def read_workflow_proposal_settings(db: AsyncSession) -> WorkflowProposalSettings:
-    """The live settings, read from the database at the proposal (the seed while no record exists)."""
     values = (await read_policy_list_state(db, WORKFLOW_PROPOSAL_SETTINGS_SPEC)).values
     return WorkflowProposalSettings(timeout_seconds=int(values[TIMEOUT_SECONDS_FIELD]))
 

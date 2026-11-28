@@ -6,6 +6,8 @@ import { extractPerformanceSections, extractThinkingFromTrace } from "./messageB
 import { modelDisplayName, modelShortLabel } from "./header/runDetailsFacts";
 import { WORKFLOW_START_MODEL } from "./composer/automaticWorkflow";
 
+const UNNAMED_AUTHOR = "Team member";
+
 function resolveUserParticipantTitle(
   currentUserName?: string,
   currentUserEmail?: string,
@@ -31,7 +33,10 @@ export function participantLabels(
   const participantTitle = fromWorkflow
     ? "Octryx"
     : isUser
-    ? resolveUserParticipantTitle(currentUserName, currentUserEmail)
+    // The author the server recorded; the viewer's own name only for a message not stored yet (no author id),
+    // never for a stored author whose name did not resolve.
+    ? message.authorName?.trim()
+      || (message.authorId ? UNNAMED_AUTHOR : resolveUserParticipantTitle(currentUserName, currentUserEmail))
     : assistantParticipantTitle;
   const participantSupportLabel = fromWorkflow
     ? "Workflow"

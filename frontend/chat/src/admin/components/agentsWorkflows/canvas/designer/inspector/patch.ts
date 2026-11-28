@@ -1,5 +1,3 @@
-// Pure helpers of the side panel, kept out of the .tsx forms so unit tests can load them: building a node's complete
-// new config, and the backend's arrow rules (workflow_runs/graph.py route and loop checks) in plain words.
 import type { DefEdge, DefNode, DesignerCatalog, FieldIssue } from "../types";
 import { exitValues } from "./exitValues";
 import { exitName } from "./labels";
@@ -8,11 +6,9 @@ type Config = Record<string, unknown>;
 const record = (value: unknown): Config =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Config) : {};
 
-/** The problems at ``path`` and below it. */
 export const issuesAt = (issues: FieldIssue[], path: string) =>
   issues.filter((issue) => issue.path === path || issue.path.startsWith(`${path}.`));
 
-/** ``config`` with ``value`` at ``path`` (dot-separated); ``undefined`` removes the key. Never mutates. */
 export function setIn(config: Config, path: string, value: unknown): Config {
   const [head, ...rest] = path.split(".");
   const next = { ...config };
@@ -25,16 +21,13 @@ export function setIn(config: Config, path: string, value: unknown): Config {
   return next;
 }
 
-// A workflow runs one box at a time: two arrows for the same way out are a fork the engine does not run. Teamwork
-// work that should run side by side goes into a Parallel work box (split at run time by the coordinator's plan).
+// A workflow runs one box at a time: two arrows for the same way out are a fork the engine does not run.
 export const PARALLEL_HINT = "A workflow runs one box at a time; to let several agents work side by side, use a Parallel work box.";
 
-/** The results an arrow out of ``source`` can stand for; null: the box has one way out, no choice. */
 export function edgeChoices(source: DefNode | undefined, catalog: DesignerCatalog): string[] | null {
   return source ? exitValues(source, catalog) : null;
 }
 
-/** What the backend would refuse about one arrow, at its field ("when", "max_iterations"). */
 export function edgeIssues(edge: DefEdge, edges: DefEdge[], nodes: DefNode[], catalog: DesignerCatalog): FieldIssue[] {
   const issues: FieldIssue[] = [];
   const source = nodes.find((node) => node.id === edge.source);
@@ -43,7 +36,6 @@ export function edgeIssues(edge: DefEdge, edges: DefEdge[], nodes: DefNode[], ca
   if (choices === null && edge.when !== null)
     issues.push({ path: "when", message: "This box has only one way out; the arrow needs no result." });
   if (choices !== null && source?.type !== "outcome") {
-    // A condition's arrows are set in its own form (one row per result); here only the plain words differ.
     if (edge.when === null) issues.push({ path: "when", message: "Choose for which result this arrow is taken." });
     else if (!choices.includes(edge.when))
       issues.push({ path: "when", message: `${source?.label || "That box"} never ends with: ${exitName(edge.when)}.` });

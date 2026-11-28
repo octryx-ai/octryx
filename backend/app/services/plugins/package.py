@@ -1,20 +1,4 @@
-"""A plugin package read into memory and checked: the manifest and every file it points at (no database).
-
-Sources: a ``.zip`` entry of the image's plugin folder (the skill catalog's guarded reader: no symlinks, no encrypted
-entries, zip-bomb ratio, 1 MB per file, 5 MB in total) or a folder (an image entry, or the validate CLI). The manifest
-may sit at the root or in one top-level folder (``release-notes/octryx-plugin.yaml``, as GitHub's "Download ZIP" packs
-it).
-
-What it checks, with fixed codes and the file each issue is in:
-
-- every skill folder holds a valid ``SKILL.md`` (the catalog's spec rules; name = folder name);
-- every workflow file is ``{key, name, description?, definition}`` and the definition passes the same validator the
-  workflow designer uses;
-- every role file is ``{key, name, description?, function_keys, functions?}``; ``functions`` are new tool sets the
-  plugin brings, ``function_keys`` may also name functions that already exist;
-- a workflow step that writes (``jira.*``, ``confluence.*``, ``scm.*``) is declared in ``permissions.writes``, so what
-  the installer confirms is what the plugin can do.
-"""
+"""A plugin package read into memory and checked: the manifest and every file it points at (no database)."""
 
 from __future__ import annotations
 
@@ -55,7 +39,6 @@ def package_digest(files: dict[str, bytes]) -> str:
 
 
 def _rooted(files: dict[str, bytes]) -> dict[str, bytes]:
-    """Strip one top-level folder when the manifest sits there."""
     if MANIFEST_FILE in files:
         return files
     roots = {path.split("/", 1)[0] for path in files if path.endswith("/" + MANIFEST_FILE)
@@ -110,7 +93,6 @@ def files_from_folder(folder: Path) -> dict[str, bytes]:
 
 
 def read_package(files: dict[str, bytes]) -> PluginPackage:
-    """The checked package, or :class:`PackageError` listing every issue (manifest first)."""
     text = files.get(MANIFEST_FILE)
     try:
         manifest = parse_manifest((text or b"").decode("utf-8", errors="replace"))

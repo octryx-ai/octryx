@@ -20,7 +20,6 @@ import { useEntityGraphExpand } from "./useEntityGraphExpand";
 import {
   useEntityGraphDetail, useEntityGraphFocus, useEntityGraphLoad, useEntityGraphState, type EntityGraphState,
 } from "./useEntityGraphPanelState";
-import "./entity-graph-matches.css";
 import "./knowledge-graph.css";
 
 type Props = {

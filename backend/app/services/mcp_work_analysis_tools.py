@@ -1,15 +1,4 @@
-"""MCP tools ``work_item_analyze`` and ``work_item_analysis_submit``.
-
-``work_item_analyze`` starts, or reuses, the governed analysis of one Work Item. ``work_item_analysis_submit``
-stores the analysis a seat analysis session (``octryx-claude analyze <KEY>``) wrote, after the governed runner's
-schema, citation and secret checks (``work_item_analysis.seat_submit``); the session is named by the connection's
-launcher session key (``X-Octryx-Session``), never by a tool argument.
-
-Shared secure-work dispatch (``mcp_work_access.run_secure_work_tool``: ``work:manage`` scope, rate limit,
-activity, audit row). The item resolves inside the grant's item scope (``scoped_work_item``), so octryx-claude
-and seat sessions start exactly the analyses their grant reaches. The answer is the analysis record of
-``work_item_analysis.runner`` with its ``content_is_data`` notice: an analysis is data written by an agent.
-"""
+"""MCP tools ``work_item_analyze`` and ``work_item_analysis_submit``."""
 
 from __future__ import annotations
 

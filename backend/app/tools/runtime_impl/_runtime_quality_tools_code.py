@@ -123,7 +123,6 @@ _CODE_QUALITY_SERVICES = frozenset({
 
 
 def _resolve_code_quality_service(function_name: str):
-    """The code-quality function ``function_name``, read from its defining module at call time."""
     if function_name not in _CODE_QUALITY_SERVICES:
         raise KeyError(function_name)
     return getattr(code_quality_service, function_name)

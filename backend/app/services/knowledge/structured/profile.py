@@ -1,27 +1,4 @@
-"""The structured-graph extraction profile as validated data (``profiles/structured-v4.json``).
-
-The profile is the only place the rule-based extractors take vocabulary and patterns from: which
-revisions each layer reads, which configuration files are parsed and in which format, the heading
-and table-header vocabulary of manuals, the compatibility components and whether a product
-``requires`` or ``supports`` them, the comment prefixes per file format, the INI continuation
-prefixes, the variant file names (``app.ini-test`` is a variant of ``app.ini``), the
-placeholder syntax (``${Name}``) and the files that define placeholders, the documented defaults
-that are no value and are never compared (``<Format>``), whether a difference between two
-placeholder definitions folds into the settings that resolve from them, the reference, ticket and
-inventory patterns, and the similarity bounds. Ticket node types are the ``ticket_patterns``
-keys; a ServiceNow record is typed by the pattern its number matches.
-Changing any of it needs a new ``version``: the profile id ``structured-v<version>`` is recorded on
-every node, edge and extraction row, and rows of another profile are re-extracted on the next build.
-
-Loading is strict: exactly the known fields, every pattern compiles and is safe to run
-(``profile_patterns.check_pattern``: bounded length, no ambiguous nested repeat, compiled on the
-linear-time RE2 engine, every text capped), and the file
-fails when the catalog is read, never half-way through a build.
-
-The file is the **instance default**. A Workspace may store its own document of the same schema
-(``workspace_profile.py``); :func:`parse_profile` validates both the same way. A Workspace profile's
-id carries its revision (``structured-v4-w3``), so its graph is never mixed with the default's.
-"""
+"""The structured-graph extraction profile as validated data (``profiles/structured-v4.json``)."""
 
 from __future__ import annotations
 
@@ -90,7 +67,6 @@ def load_profile(path: Path) -> StructuredProfile:
 
 
 def _document_parts(raw: object) -> dict[str, Any]:
-    """The checked top-level sections and the few values validated before the profile is built."""
     top = _fields(raw, _TOP, "the profile")
     if not isinstance(top["key"], str) or not re.fullmatch(r"[a-z][a-z-]{1,30}", top["key"]):
         raise StructuredProfileError("structured profile: key must be lower-case kebab-case")
@@ -191,7 +167,6 @@ def _operations_fields(parts: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_profile(raw: object, *, workspace_revision: int | None = None) -> StructuredProfile:
-    """Validate a profile document (the file's or a Workspace's) into the profile the builds use."""
     if workspace_revision is not None and (type(workspace_revision) is not int or workspace_revision < 1):
         raise StructuredProfileError("structured profile: a workspace revision is a positive integer")
     parts = _document_parts(raw)
@@ -212,13 +187,11 @@ def parse_profile(raw: object, *, workspace_revision: int | None = None) -> Stru
 
 
 def default_profile_document() -> dict[str, Any]:
-    """The instance default as a document (a fresh copy), the starting point of a Workspace's own."""
     return json.loads(PROFILE_PATH.read_text(encoding="utf-8"))
 
 
 @cache
 def structured_profile() -> StructuredProfile:
-    """The current structured profile (``profiles/structured-v4.json``)."""
     return load_profile(PROFILE_PATH)
 
 

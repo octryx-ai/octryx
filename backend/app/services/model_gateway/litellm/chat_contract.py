@@ -1,7 +1,4 @@
-"""The chat-completions request a gateway call sends and the served answer it accepts (``client``).
-
-Every failure is raised with ``from None`` so no exception survives as ``__context__`` or ``__cause__``.
-"""
+"""The chat-completions request a gateway call sends and the served answer it accepts."""
 
 from __future__ import annotations
 
@@ -21,7 +18,6 @@ CONTRACT_DENIAL_MISSING_MODEL = "response_missing_model"
 
 
 def required_capabilities(tools: list[dict[str, Any]] | None, reasoning_effort: str | None) -> frozenset[str]:
-    """The capabilities the alias must have proven before this call may be sent."""
     required: set[str] = set()
     if tools:
         required.add(CAPABILITY_TOOLS)
@@ -58,7 +54,6 @@ def chat_payload(
 
 
 def served_message(entry: AliasEntry, body: Mapping[str, Any]) -> Mapping[str, Any]:
-    """The answer's message, once the served model group is the admitted one and the shape is the contract's."""
     returned_model = str(body.get("model") or "").strip()
     if not returned_model:
         raise LiteLLMGatewayError(

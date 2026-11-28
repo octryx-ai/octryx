@@ -1,48 +1,5 @@
-"""Explicit runtime resolution of an Agent Definition.
-
-Without this module the runtime would execute the mutable
-``AgentDefinition`` / ``AgentStep`` rows directly: call sites would query the live row,
-serialize it, and run it. Publication would then decide nothing, because nothing
-at execution time would look at a published revision.
-
-Resolution is always one of two **named** modes, read from the system-config
-key ``agent_definition_execution_mode``:
-
-``published``
-    The execution payload is built from the highest-numbered published
-    revision's snapshot. The live row is read only for identity, ownership, and
-    the group label — never for authored content, so a definition that was
-    published and then edited through the panel executes the *published* content.
-    A definition with no published revision is the explicit outcome
-    ``needs_publication``. There is no fallback of any kind.
-
-``draft``
-    The live row is the authored source, recorded as ``live_draft_row``.
-
-**When the key is unset the mode is** ``draft``**: the authoring default.** An
-administrator saves a definition in the Agent Designer and chats run what was saved;
-publishing records a revision, and the platform opts into running only published
-revisions by setting this key to ``published``. Platform agents are outside that choice:
-they always execute their published (four-eyes) revision, whatever the key says.
-
-A key that is *set* to anything else is a misconfiguration:
-resolution then yields ``needs_configuration`` and refuses, because falling back to
-``draft`` there would let a typo silently downgrade a platform that an
-administrator meant to run on published content. Only the absent key gets the
-documented default.
-
-In both modes the live row's ``is_active`` is the admission switch: a
-definition that is inactive *now* resolves to the explicit refusal ``inactive``,
-whatever its draft or published content says — a revision snapshotted while it was
-active does not revive it. Ownership is checked first, so another owner's inactive
-definition stays ``not_found``. The check admits new executions only; a turn already
-running is not cancelled.
-
-Every resolution carries its mode and source on the returned object, as payload
-keys, and — via :data:`RESOLUTION_METADATA_KEY` — in the canonical session,
-task-run, and turn-trace metadata, so what executed is recorded rather than
-assumed.
-"""
+"""Explicit runtime resolution of an Agent Definition. The runtime never executes the mutable live rows directly:
+resolution decides which content runs."""
 
 from __future__ import annotations
 
@@ -76,12 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_agent_definition_execution_mode(db: AsyncSession) -> str:
-    """Read the platform execution mode.
-
-    An absent key is the authoring default, ``draft``. A key set to anything
-    else raises :class:`AgentDefinitionExecutionModeError` — see the module docstring
-    for why that is not allowed to degrade into the default.
-    """
+    # An invalid mode raises instead of degrading to the ``draft`` default.
     raw_value = (
         str(await get_system_config_value(db, AGENT_DEFINITION_EXECUTION_MODE_KEY) or "")
         .strip()
@@ -100,12 +52,6 @@ async def get_agent_definition_execution_mode(db: AsyncSession) -> str:
 
 
 async def describe_execution_source(db: AsyncSession, definition_id: str) -> dict[str, Any]:
-    """Say which content a run of *definition_id* executes, for display only.
-
-    ``draft`` mode runs the live row (saved settings and steps, published or not);
-    ``published`` mode runs the published revision, or refuses with
-    ``needs_publication`` when there is none. An invalid mode is ``unknown``.
-    """
     try:
         mode = await get_agent_definition_execution_mode(db)
     except AgentDefinitionExecutionModeError:
@@ -124,13 +70,7 @@ async def resolve_agent_definition_for_execution(
     visible_to_user_id: str | None = None,
     workspace_id: str | None = None,
 ) -> AgentDefinitionResolution:
-    """Resolve *definition_id* into an execution payload, or an explicit refusal.
-
-    *visible_to_user_id* scopes the lookup to the agents that user may see (
-    ``agent_visibility``: own, Workspace-shared, global, built-in); without it the
-    lookup is unscoped. *workspace_id* further limits it to global, built-in and that Workspace's agents
-    (a turn in Workspace A never runs Workspace B's agent). This function changes which *content* executes.
-    """
+    # ``workspace_id`` limits the lookup, so a turn in one Workspace never runs another Workspace's agent.
     resolved_id = str(definition_id or "").strip()
     try:
         mode = await get_agent_definition_execution_mode(db)

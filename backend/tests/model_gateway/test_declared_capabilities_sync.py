@@ -1,9 +1,5 @@
-"""A gateway alias's declared tools/vision win over the catalog probe.
-
-llama.cpp's server advertises only "completion"; a sync that wrote ``supports_tools=false`` into the catalog row
-would be mirrored into the alias by the next catalog save, and the gateway would refuse Codex's tool calls
-(``capability_not_declared_for_alias``). The declaration stays; the probe's difference is a warning.
-"""
+"""A gateway alias's declared tools/vision win over the catalog probe (llama.cpp advertises only "completion");
+the probe's difference is a warning."""
 
 from __future__ import annotations
 

@@ -1,12 +1,5 @@
-"""External agent session ingest: usage return and the session transcript.
-
-External agent work (e.g. Claude Code) enters the platform through a shadow
-`Session` row (`agent_type="external_agent"`) so every existing report and
-budget mechanism applies unchanged. The redacted transcript digest becomes the
-shadow session's messages and feeds the knowledge graph.
-
-A session returns knowledge through the governed ``episode_summary`` and ``memory_remember`` tools.
-"""
+"""External agent session ingest: usage return and the session transcript. The redacted digest becomes a shadow
+session's messages, so every report and budget applies unchanged."""
 
 from __future__ import annotations
 
@@ -106,12 +99,7 @@ async def persist_session_knowledge(
     models: list[str] | None = None,
     work_item_key: str = "",
 ) -> dict[str, Any]:
-    """Work-item link and knowledge-graph processing for one ingested session.
-
-    Shared by ``mcp_session_ingest`` and the agent gateway's finalize. Flushes only; it never touches
-    the session's usage events, messages or tool calls. The transcript itself lives on the shadow
-    session (its messages and the ``summary`` metadata).
-    """
+    # Flushes only; never touches the session's usage events, messages or tool calls.
     work_item_link = await _link_work_item(
         db, user=user, client_session_id=client_session_id, work_item_key=work_item_key
     )
@@ -141,7 +129,6 @@ async def persist_session_knowledge(
 
 
 async def _find_reingest_session(db: AsyncSession, *, user: User, client_session_id: str) -> Session | None:
-    """The shadow session an earlier ingest of the same client session created, if any."""
     return (
         await db.execute(
             select(Session)
@@ -167,7 +154,6 @@ async def _ingest_target_session(
     workspace_ref: str | None,
     client_session_id: str,
 ) -> Session:
-    """The shadow session this ingest writes to: the earlier one reset, or a new one."""
     if existing is not None:
         # Re-ingest of the same client session (resume/re-end): replace the
         # usage instead of piling up duplicate platform sessions.
@@ -200,7 +186,6 @@ async def mcp_session_ingest(
     grant_id: str | None,
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
-    """Ingest an external session: summary + per-model usage records."""
     project_id = await _require_project_access(db, user, str(arguments.get("project_id") or ""))
     summary = str(arguments.get("summary") or "").strip()[:MAX_SUMMARY_CHARS]
     usage_records = _normalized_usage_records(arguments.get("usage"))
@@ -262,7 +247,6 @@ async def mcp_approval_request(
     grant_id: str | None,
     arguments: dict[str, Any],
 ) -> dict[str, Any]:
-    """File a formal approval request from an external agent session."""
     project_id = await _require_project_access(db, user, str(arguments.get("project_id") or ""))
     action = str(arguments.get("action") or "").strip()
     if not action:

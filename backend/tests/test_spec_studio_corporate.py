@@ -1,8 +1,5 @@
-"""The Corporate Identity as the Spec Studio's default direction.
-
-The brief comes from the platform's own CI pipeline (``office_identity.build_corporate_identity``, the shape
-``get_corp_identity_brief`` returns), so a change there shows up here.
-"""
+"""The Corporate Identity as the Spec Studio's default direction, taken from the platform's own CI pipeline
+(``office_identity.build_corporate_identity``)."""
 
 from __future__ import annotations
 
@@ -75,7 +72,6 @@ def test_an_empty_profile_still_gives_a_complete_direction():
 
 
 def test_the_logo_and_the_icons_come_from_the_ci_assets_by_slug():
-    """``extract_ci_assets`` lists icons with name and path (``<category>/<slug>.svg``), no slug field."""
     assets = {"logos": [{"name": "logo", "path": "assets/logo.png", "kind": "logo"}],
               "icons": [{"name": "Coffee Cup", "kind": "icon", "path": "icons/general/coffee-cup.svg"},
                         {"name": "Broken", "kind": "icon", "path": ""}]}

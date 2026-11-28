@@ -1,11 +1,4 @@
-"""The approval lifecycle as decision records (O2): requested → approved / rejected / expired / cancelled.
-
-A new ``approvals`` row (any producer: tool approval gate, workflow proposals, governance publish reviews, flows)
-records ``needs_approval`` through a mapper listener, so no producer can skip it. A decision records its outcome
-from :func:`record_approval_decided`, called by the one compare-and-set every decider goes through
-(``approval.resolution_service.decide_pending_approval``), with who decided and under which approval rule. The
-request's reason stays on the ``needs_approval`` record; the decider's note goes on the outcome record.
-"""
+"""The approval lifecycle as decision records (O2): requested → approved / rejected / expired / cancelled."""
 
 from __future__ import annotations
 
@@ -29,7 +22,6 @@ _LOG = PolicyDecisionLog.__table__
 
 
 def approval_gate(approval: Approval) -> str:
-    """Session and task-run approvals hold a run; the others are governance reviews (publish, resume, …)."""
     return GATE_TOOL_APPROVAL if approval.session_id or approval.task_run_id else GATE_GOVERNANCE_REVIEW
 
 
@@ -75,7 +67,6 @@ async def _label(db: AsyncSession, user_id: str | None) -> str:
 
 
 async def record_approval_decided(db: AsyncSession, approval: Approval) -> None:
-    """Record the decision just made on ``approval`` (its status, decider, note) under the approval rule."""
     if approval.status not in APPROVAL_OUTCOMES:
         return
     agent_metrics.on_commit(db, agent_metrics.approval_decided(approval))

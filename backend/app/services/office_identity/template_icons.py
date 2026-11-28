@@ -1,8 +1,4 @@
-"""Icon catalog of a template: every icon its slides reference.
-
-Part of ``office_template_snapshot``. Naming and recognition live in
-``corp_identity.slide_icons``; this module bounds, deduplicates and sorts.
-"""
+"""Icon catalog of a template: every icon its slides reference."""
 
 from __future__ import annotations
 
@@ -22,7 +18,6 @@ _GENERATED_FILE_NAME = re.compile(r"^[A-Za-z]+\d+$")
 
 
 def _icon_tags(icon: dict[str, Any], category: str) -> list[str]:
-    """Search words: the icon's name, alt text and telling file name, plus its category."""
     file_name = str(icon.get("file_name") or "")
     if _GENERATED_FILE_NAME.match(file_name):
         file_name = ""
@@ -37,13 +32,6 @@ def _icon_tags(icon: dict[str, Any], category: str) -> list[str]:
 def _extract_icons(
     package: PresentationPackage, warnings: list[str], slide_width: int = 0
 ) -> list[dict[str, Any]]:
-    """Every icon-sized SVG picture the template's slides reference.
-
-    Naming follows ``corp_identity.slide_icons`` (an ``ICO_`` caption, alt text,
-    a meaningful shape name, the file name). A slide titled "Icons …" lends its
-    category; any other slide files its icons under "General". The same part or
-    slug is catalogued once, first occurrence wins.
-    """
     collected: list[dict[str, Any]] = []
     for slide_part in package.slide_parts():
         root = package.xml(slide_part)

@@ -60,6 +60,7 @@ function TabScreen({ state, shown, openers, roleWorkspaceName, phonePages, choos
       setPhase={state.setPhase}
       openPage={state.openPage}
       openItem={openers.openItem}
+      takeOver={openers.takeOver}
       openThread={openers.openThread}
       openLocal={openers.openLocal}
     />

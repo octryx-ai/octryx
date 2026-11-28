@@ -1,17 +1,8 @@
 import { knowledgeBase } from "./workspaceKnowledgeRequest";
 
-// Whether the Workspace's Knowledge is enabled, as the connectors panel shows it. Synced items are
-// stored in the ledger either way, but search finds them only once Knowledge is enabled for the Workspace.
-//
-// Read from the server, never guessed:
-// - the connectors listing's `knowledge: { state, outcome, checked_at }` (backend,
-//   services/knowledge/projection/workspace_knowledge_state.py): the last recorded enablement, `unknown` when
-//   none is recorded yet; configuring a connector and Run now enable Knowledge themselves. A listing without
-//   `knowledge` makes the panel say it is not reported;
-// - the answer of POST /knowledge/enable (`{ workspace_id, state, outcome }`, 200 ready, 503
-//   needs_configuration; idempotent, Workspace authors only).
+// Synced items are stored either way, but search finds them only once Knowledge is enabled.
 
-// `not_recorded` is the server's `unknown` (no enablement recorded); `not_reported`: the listing has no `knowledge`.
+// `not_recorded` is the server's `unknown`; `not_reported`: the listing has no `knowledge`.
 export type KnowledgeState =
   | "ready"
   | "needs_configuration"
@@ -49,7 +40,6 @@ function parseState(value: unknown): KnowledgeEnablement | null {
   return { state, outcome, checkedAt };
 }
 
-/** The Knowledge state the connectors listing reports; "not_reported" when it does not. */
 export function knowledgeStateOf(listing: unknown): KnowledgeEnablement {
   return (
     (isRecord(listing) ? parseState(listing.knowledge) : null) ?? {
@@ -61,7 +51,6 @@ export function knowledgeStateOf(listing: unknown): KnowledgeEnablement {
 }
 
 export function knowledgeStateText(state: KnowledgeState): string {
-  // One sentence each; why and how is page help (help/knowledge/workspaceKnowledge.md).
   switch (state) {
     case "ready":
       return "Synced items are indexed for search.";
@@ -74,7 +63,6 @@ export function knowledgeStateText(state: KnowledgeState): string {
   }
 }
 
-/** POST /knowledge/enable; the closed state is read also from a 503 answer. */
 export async function enableKnowledge(
   workspaceId: string,
   fetcher: typeof fetch = fetch,

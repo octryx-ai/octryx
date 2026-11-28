@@ -200,7 +200,7 @@ test("the phone app signs in, loads its data and shows the tab screen for the ch
     OctryxMark: { OctryxMark: box("mark") },
     PairPage: { PairPage: box("pair") },
     pullToRefresh: { useRefreshEvent: noop },
-    useMobileOpeners: { useMobileOpeners: () => ({ openThread: noop, openLocal: noop, openItem: noop }) },
+    useMobileOpeners: { useMobileOpeners: () => ({ openThread: noop, openLocal: noop, openItem: noop, takeOver: noop }) },
     WorkspaceSwitcher: { WorkspaceSwitcher: box("switcher") },
   }, { window: windowStub, document: { hidden: false, visibilityState: "visible", addEventListener: noop, removeEventListener: noop } });
   const view = await render(MobileApp, {});
@@ -210,6 +210,6 @@ test("the phone app signs in, loads its data and shows the tab screen for the ch
   assert.deepEqual(seen.tabs.workspaceNames, { p1: "Petclinic" });
   assert.deepEqual(seen.tabs.session, { id: "phone" });
   assert.equal(seen.tabs.loading, false);
-  assert.equal(Object.keys(seen.tabs).length, 31);
+  assert.equal(Object.keys(seen.tabs).length, 32);
   act(() => view.unmount());
 });

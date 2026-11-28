@@ -38,7 +38,6 @@ type ContainerDerivedParams = {
     bootstrapControllers: Record<string, any>;
     connectorControllers: Record<string, any>;
     mcpControllers: Record<string, any>;
-    modeScenarioControllers: Record<string, any>;
     projectDesignTrace: Record<string, any>;
     projectQualityCore: Record<string, any>;
     providerManagement: Record<string, any>;
@@ -49,9 +48,7 @@ type ContainerDerivedParams = {
   corpIdentity: Record<string, any>;
   createUserState: Record<string, any>;
   knowledgeState: Record<string, any>;
-  localBootstrapState: Record<string, any>;
   mcpState: Record<string, any>;
-  modeScenarioState: Record<string, any>;
   officeTemplates: Record<string, any>;
   projectState: Record<string, any>;
   providerState: Record<string, any>;
@@ -93,7 +90,6 @@ export function useAdminPanelContainerDerived(params: ContainerDerivedParams) {
     ...params.controllers.bootstrapControllers,
     ...params.controllers.connectorControllers,
     ...params.controllers.mcpControllers,
-    ...params.controllers.modeScenarioControllers,
     ...params.controllers.projectDesignTrace,
     ...params.controllers.projectQualityCore,
     ...params.controllers.providerManagement,
@@ -102,9 +98,7 @@ export function useAdminPanelContainerDerived(params: ContainerDerivedParams) {
     ...params.corpIdentity,
     ...params.createUserState,
     ...params.knowledgeState,
-    ...params.localBootstrapState,
     ...params.mcpState,
-    ...params.modeScenarioState,
     ...params.officeTemplates,
     ...params.projectState,
     ...params.providerState,
@@ -126,10 +120,8 @@ export function useAdminPanelContainerDerived(params: ContainerDerivedParams) {
 
   const providersTabCtx = {
     ...params.controllers.providerManagement,
-    ...params.localBootstrapState,
     ...params.providerState,
     providers: params.providers,
-    setupGuide: params.localBootstrapState.setupGuide,
   };
 
   const runtimesTabCtx = {

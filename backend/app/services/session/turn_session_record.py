@@ -1,12 +1,4 @@
-"""The last step of turn preparation: persist the prepared facts and mark the turn.
-
-A new session is created with the facts; an existing one is refused when it is archived
-(``session_archived``), when this process still runs its turn (``turn_already_running``)
-or when its run is still ``in_progress`` (``duplicate_text``, the double-text guard);
-otherwise the facts overwrite the previous turn's. Then the turn is marked (``running`` /
-``in_progress``, process ownership, the user message, ``begin_chat_turn``), the explicit
-selection is recorded, and it all commits in one transaction.
-"""
+"""The last step of turn preparation: persist the prepared facts and mark the turn."""
 
 from __future__ import annotations
 
@@ -45,8 +37,6 @@ from .workspace import ensure_session_workspace_root
 
 @dataclass(frozen=True, slots=True)
 class TurnFacts:
-    """Everything preparation decided, as it is recorded on the session."""
-
     clean_prompt: str
     project_id: str
     session_agent_type: str
@@ -159,7 +149,6 @@ async def record_prepared_turn(
     workflow_decisions: dict[str, str] | None,
     session_metadata_patch: dict[str, Any] | None,
 ) -> tuple[AgentSession, Message]:
-    """Persist the facts, mark the turn and commit; returns the session and the turn's user message."""
     if session is None:
         session = await _create_session(db, user_id=user_id, facts=facts)
     else:
@@ -176,6 +165,7 @@ async def record_prepared_turn(
         content=facts.clean_prompt,
         created_at=turn_started_at,
         idempotency_key=idempotency_key,
+        author_user_id=user_id,
     )
     db.add(user_message)
     metadata = dict(session.metadata_ or {})

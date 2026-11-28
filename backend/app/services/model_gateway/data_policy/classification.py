@@ -1,24 +1,4 @@
-"""Closed workspace data classification and the order dispatch compares against.
-
-The vocabulary is the level registry (``services/data_classification/levels``: the five built-in levels plus the
-levels admins added), used here as an *order* rather than a label: a higher stored rank is more
-sensitive, and a model alias may only receive data at or below the sensitivity it is approved for.
-
-Two inputs produce the effective classification, and both are server-owned:
-
-- the **project floor**, ``Project.config["data_policy"]["classification"]``,
-  which is writable only through the audited admin project-config surface;
-- an optional **session raise**,
-  ``Session.metadata["data_policy"]["classification"]``, which applies only when
-  it is *more* sensitive than the floor.
-
-The session value can never lower the floor. That asymmetry is the whole reason
-it is allowed to participate: session metadata has many server writers, so the
-only influence it is granted is one that fails closed.
-
-A value outside the vocabulary is refused with its own code instead of falling
-back to a default — a classification nobody can read is not a classification.
-"""
+"""The closed Workspace data classification and the order dispatch compares against."""
 
 from __future__ import annotations
 
@@ -35,8 +15,6 @@ DATA_POLICY_CLASSIFICATION_CLEARED_FIELD = "classification_cleared"
 
 
 class _LevelOrder(Sequence[str]):
-    """The level keys in ascending sensitivity, read from the registry on every use (never a stale copy)."""
-
     def __getitem__(self, index: Any) -> Any:
         return level_registry().order[index]
 
@@ -60,8 +38,6 @@ class _LevelOrder(Sequence[str]):
 
 
 class _LevelSet(Set[str]):
-    """A live set view of the level keys (``model_levels``: only the levels a model may be cleared for)."""
-
     def __init__(self, *, model_levels: bool = False) -> None:
         self._model_levels = model_levels
 
@@ -115,8 +91,6 @@ def normalized_classification(value: Any) -> str:
 
 
 def declared_classification(section: Any) -> str:
-    """Read the declared classification out of a ``data_policy`` block."""
-
     if not isinstance(section, Mapping):
         return ""
     return normalized_classification(section.get(DATA_POLICY_CLASSIFICATION_FIELD))
@@ -125,10 +99,7 @@ def declared_classification(section: Any) -> str:
 @dataclass(frozen=True, slots=True)
 class WorkspaceDataClassification:
     """The effective, server-resolved classification for one dispatch path.
-
-    ``classification`` is empty exactly when ``reason`` names why no usable value
-    exists; the two are never both set.
-    """
+    ``classification`` is empty exactly when ``reason`` says why no usable value exists."""
 
     classification: str
     source: str
@@ -166,12 +137,7 @@ def resolve_data_classification(
     project_data_policy: Any,
     session_data_policy: Any = None,
 ) -> WorkspaceDataClassification:
-    """Resolve the effective classification from the two server-owned inputs.
-
-    ``project_data_policy`` must be the ``data_policy`` block of the *project row*
-    config. ``session_data_policy`` is the same block from the session row's
-    metadata and may only raise the result.
-    """
+    """The effective classification from the project row's ``data_policy``; the session's may only raise it."""
 
     project_value = declared_classification(project_data_policy)
     if not project_value:

@@ -1,12 +1,4 @@
-"""Resolve the default font size of a layout placeholder.
-
-The slide gate estimates text overflow against the slot rectangle, which is
-only meaningful with the size the text will actually be rendered at. PowerPoint
-resolves that size in two steps: the layout placeholder's own level-1
-``lstStyle`` overrides the master text style that its role belongs to. Both are
-read here so the snapshot can carry ``font_size_pt`` per slot and the gate never
-has to reopen the package.
-"""
+"""Resolve the default font size of a layout placeholder."""
 
 from __future__ import annotations
 
@@ -25,7 +17,6 @@ TEXT_STYLE_FOR_ROLE = {
 
 
 def font_size_pt(raw: str | None) -> float | None:
-    """``sz`` attributes are in hundredths of a point."""
     if not raw:
         return None
     try:
@@ -36,7 +27,6 @@ def font_size_pt(raw: str | None) -> float | None:
 
 
 def master_text_sizes(master: ET.Element | None) -> dict[str, float]:
-    """Default level-1 font size per master text style, in points."""
     styles = master.find(f"{{{NS_P}}}txStyles") if master is not None else None
     sizes: dict[str, float] = {}
     for style in list(styles) if styles is not None else []:
@@ -49,12 +39,6 @@ def master_text_sizes(master: ET.Element | None) -> dict[str, float]:
 
 
 def slot_font_color(shape: ET.Element) -> str | None:
-    """The level-1 text colour a layout placeholder declares, if any.
-
-    Returned as ``#RRGGBB`` for a literal colour or ``scheme:<slot>`` for a
-    theme reference; ``None`` means the placeholder inherits, which is the
-    normal case and always on brand.
-    """
     body = shape.find(f".//{{{NS_P}}}txBody")
     style = body.find(f"{{{NS_A}}}lstStyle") if body is not None else None
     level = style.find(f"{{{NS_A}}}lvl1pPr") if style is not None else None
@@ -75,7 +59,6 @@ def slot_font_color(shape: ET.Element) -> str | None:
 def slot_font_size(
     shape: ET.Element, role: str, master_sizes: dict[str, float]
 ) -> float | None:
-    """The layout's own level-1 override wins over the master default."""
     body = shape.find(f".//{{{NS_P}}}txBody")
     style = body.find(f"{{{NS_A}}}lstStyle") if body is not None else None
     level = style.find(f"{{{NS_A}}}lvl1pPr") if style is not None else None

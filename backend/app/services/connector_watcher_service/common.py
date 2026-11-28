@@ -62,9 +62,11 @@ def _record_order_health(watcher: ConnectorWatcher, event: ConnectorWatcherEvent
     watcher.health_json = health
 
 
+WATCHER_NOT_FOUND = "Connector watcher not found"
+
+
 async def _get_watcher(db: AsyncSession, watcher_id: str, *, scope: WatcherScope) -> ConnectorWatcher:
-    """The watcher, when it exists in ``scope`` (``None``: every Workspace); a foreign one is the 404 of a missing."""
-    return require_record(await db.get(ConnectorWatcher, watcher_id), scope, "Connector watcher not found")
+    return require_record(await db.get(ConnectorWatcher, watcher_id), scope, WATCHER_NOT_FOUND)
 
 
 async def _get_active_watcher(db: AsyncSession, watcher_id: str, *, scope: WatcherScope) -> ConnectorWatcher:
@@ -113,12 +115,14 @@ def _public_webhook(row: ConnectorWatcher) -> dict[str, Any]:
     return webhook
 
 
-def _audit(current_user: User, action: str, resource_id: str, details: dict[str, Any]) -> AuditLog:
+def _audit(current_user: User, action: str, resource_id: str, details: dict[str, Any], *,
+           project_id: str | None) -> AuditLog:
     return AuditLog(
         user_id=current_user.id,
         action=action,
         resource_type="connector_watcher",
         resource_id=resource_id,
+        project_id=project_id,
         details=details,
     )
 

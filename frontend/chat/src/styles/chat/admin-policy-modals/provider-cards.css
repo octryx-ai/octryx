@@ -1,4 +1,3 @@
 /* Provider cards stylesheet: imports its partials in cascade order. */
 @import "./provider-card.css";
 @import "./provider-guide.css";
-@import "./provider-key-access.css";

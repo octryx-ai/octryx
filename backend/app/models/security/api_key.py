@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -10,7 +11,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class APIKey(Base):
+class APIKey(WorkspaceBound, Base):
     __tablename__ = "api_keys"
     __table_args__ = (
         Index("ix_api_keys_user_id", "user_id"),

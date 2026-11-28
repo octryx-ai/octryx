@@ -92,7 +92,6 @@ async def git_hotspot_analysis_impl(
 
 
 def _parse_blame(output: str) -> tuple[Counter[str], Counter[str], dict[str, str]]:
-    """Lines per commit, lines per author and each commit's author from ``git blame --line-porcelain``."""
     commit_counts: Counter[str] = Counter()
     author_counts: Counter[str] = Counter()
     commit_authors: dict[str, str] = {}
@@ -114,7 +113,6 @@ def _parse_blame(output: str) -> tuple[Counter[str], Counter[str], dict[str, str
 def _ownership(
     author_counts: Counter[str], commit_counts: Counter[str], commit_subjects: dict[str, str], line_total: int
 ) -> dict[str, Any]:
-    """Who owns how much of the symbol's lines, and which commits wrote them."""
     return {
         "owners": [
             {

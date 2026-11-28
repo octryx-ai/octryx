@@ -1,16 +1,4 @@
-"""The explicit retention policy of one Workspace, and the operator identity token.
-
-Report-only is not a default value in a column — it is the meaning of *no row at all*, so a
-policy row is always a record of a deliberate operator decision.
-
-Nothing here reads a project's own configuration: the policy is operator-owned and lives in
-its own table, because project admins own their Workspace's *content* while the immutable
-objects behind governed references are an instance-operator matter.
-
-:func:`load_retention_policy` is the plain read a report uses. :func:`set_retention_policy` takes
-the Workspace's governance boundary (``governance_lock.py``) before it writes, so a policy change
-serializes with reconciliation runs.
-"""
+"""The explicit retention policy of one Workspace, and the operator identity token. No row means report-only."""
 
 from __future__ import annotations
 
@@ -36,18 +24,13 @@ from .governance_lock import lock_workspace_governance
 
 logger = logging.getLogger(__name__)
 
-# Who ran a reconciliation: ``cli:<name>`` or ``api:<user id>``. A narrow
+# Who ran a reconciliation: ``job:<name>``, ``cli:<name>`` or ``api:<user id>``. A narrow
 # charset, because this token is persisted and printed in operator output.
 _OPERATOR = re.compile(r"^[a-z]{2,12}:[A-Za-z0-9._@-]{1,50}$")
 
 
 @dataclass(frozen=True, slots=True)
 class RetentionPolicy:
-    """The effective retention policy of one Workspace.
-
-    ``explicit`` is False for the default policy, i.e. when no row exists.
-    """
-
     project_id: str
     mode: str
     min_object_age_hours: int
@@ -56,7 +39,6 @@ class RetentionPolicy:
 
 
 def default_policy(project_id: str) -> RetentionPolicy:
-    """The policy of a Workspace nobody configured: report-only, longest safe age bound."""
     return RetentionPolicy(
         project_id=project_id,
         mode=RETENTION_MODE_REPORT_ONLY,
@@ -67,14 +49,12 @@ def default_policy(project_id: str) -> RetentionPolicy:
 
 
 def normalize_operator(value: object) -> str:
-    """Validate the operator identity token of a reconciliation run."""
     if type(value) is not str or len(value) > MAX_OPERATOR_CHARS or not _OPERATOR.fullmatch(value):
         raise InvalidRetentionRequestError()
     return value
 
 
 def policy_from_row(project_id: str, row: KnowledgeObjectRetentionPolicy | None) -> RetentionPolicy:
-    """One persisted row as an effective policy; ``None`` is the report-only default."""
     if row is None:
         return default_policy(project_id)
     mode = str(row.mode)
@@ -92,7 +72,6 @@ def policy_from_row(project_id: str, row: KnowledgeObjectRetentionPolicy | None)
 
 
 async def load_retention_policy(db: AsyncSession, project_id: str) -> RetentionPolicy:
-    """The effective policy of one Workspace; an absent row is report-only."""
     if type(project_id) is not str or not project_id:
         raise InvalidRetentionRequestError()
     row = (
@@ -113,7 +92,6 @@ def _require_valid_policy_request(
     legal_hold: object,
     updated_by: object,
 ) -> None:
-    """Refuse a policy request whose values are of the wrong type or out of bounds."""
     if type(project_id) is not str or not project_id:
         raise InvalidRetentionRequestError()
     if type(mode) is not str or mode not in ALL_RETENTION_MODES:
@@ -137,7 +115,6 @@ async def set_retention_policy(
     legal_hold: object = False,
     updated_by: str | None,
 ) -> RetentionPolicy:
-    """Record one Workspace's explicit retention decision, or refuse it."""
     _require_valid_policy_request(
         project_id=project_id,
         mode=mode,

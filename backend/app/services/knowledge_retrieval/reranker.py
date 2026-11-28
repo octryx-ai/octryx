@@ -1,17 +1,4 @@
-"""Optional cross-encoder reranker for retrieved passages.
-
-Explicit opt-in: it only runs when ``knowledge_reranker_model`` is configured
-(settings/.env) — a per-query model pass must never be a silent default. The
-cross-encoder scores (query, passage) pairs jointly, which reorders the
-candidate list far more precisely than bi-encoder similarity alone; weak answer
-models benefit most because the context budget fills with the RIGHT passages.
-
-Model guidance (measured): ``BAAI/bge-reranker-base`` (Apache-2.0)
-and ``Xenova/ms-marco-MiniLM-L-12-v2`` rank ENGLISH queries precisely but fail
-on German queries (flat scores) — do not enable them on German-language
-instances. jina-reranker-v2-base-multilingual would handle German but is
-CC-BY-NC licensed, unsuitable as a product default. Hence: off by default.
-"""
+"""Optional cross-encoder reranker for retrieved passages."""
 
 from __future__ import annotations
 
@@ -28,8 +15,6 @@ KNOWLEDGE_RERANKER_MODEL_ENV = "OCTRYX_KNOWLEDGE_RERANKER_MODEL"
 
 
 def resolve_reranker_model() -> str | None:
-    """Resolve the configured reranker model (env first, then settings).
-    ``None`` means reranking is off — the explicit default."""
     configured = str(os.environ.get(KNOWLEDGE_RERANKER_MODEL_ENV) or "").strip()
     if not configured:
         from ...config import get_settings
@@ -49,7 +34,6 @@ def _load_cross_encoder(model: str) -> Any:
 
 
 def rerank_texts(query: str, texts: list[str], *, model: str) -> list[float]:
-    """Score (query, text) pairs with the cross-encoder; higher is better."""
     if not texts:
         return []
     encoder = _load_cross_encoder(model)
@@ -59,8 +43,6 @@ def rerank_texts(query: str, texts: list[str], *, model: str) -> list[float]:
 def rerank_chunks(
     query: str, chunks: list[dict[str, Any]], *, model: str, limit: int
 ) -> list[dict[str, Any]]:
-    """Reorder chunk candidates by cross-encoder relevance and cut to ``limit``.
-    Falls back to the original ranking if the reranker fails (logged loudly)."""
     if len(chunks) <= 1:
         return chunks[:limit]
     try:

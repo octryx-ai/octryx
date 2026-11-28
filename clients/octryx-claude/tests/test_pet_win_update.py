@@ -1,7 +1,3 @@
-"""The native Windows pet updates its own venv (it lives outside WSL, where the client's self-update runs): the
-platform's release, sha256 checked, pip --no-deps into the pet's venv, the new code must report the version, then the
-tray ends and the new pet starts. A failed version waits an hour; OCTRYX_CLAUDE_AUTO_UPDATE=0 switches it off."""
-
 from __future__ import annotations
 
 import hashlib

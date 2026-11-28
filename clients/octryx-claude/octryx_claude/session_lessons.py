@@ -1,19 +1,4 @@
-"""Lessons learned from this session for the team, the client's side.
-
-After a compaction (``PostCompact``, with Claude Code's own summary) and at the session's end (``SessionEnd``, the
-facts only) octryx sends the facts its context manager kept to ``POST /sessions/lessons``. The platform proposes
-lessons for the Workspace's team only when that Workspace switched it on; a person with the confirmation right
-confirms them (``knowledge/memory/session_lessons`` on the platform).
-
-What leaves the Mac, by design:
-
-- **paths, never file contents:** the facts hold file paths, commands and results, requests and todos; no tool output;
-- **secrets out before sending:** :func:`redact` removes private keys, AWS keys, tokens and ``password=…`` from every
-  text (the platform redacts again and refuses any candidate that still looks like one);
-- **one ``ref`` per compaction or end:** derived from the session and the content, so a hook retry sends the same
-  ``ref`` and the platform adds nothing twice;
-- **opt-out:** ``octryx-claude context-manager lessons off`` (or ``OCTRYX_SESSION_LESSONS=0``) sends nothing.
-"""
+"""Lessons learned from this session for the team, the client's side."""
 
 from __future__ import annotations
 
@@ -46,7 +31,6 @@ def enabled(state: LocalState) -> bool:
 
 
 def redact(value: Any) -> Any:
-    """Every string inside ``value`` with secret shapes replaced by ``[redacted]``."""
     if isinstance(value, str):
         for pattern in _SECRETS:
             value = pattern.sub("[redacted]", value)
@@ -59,7 +43,6 @@ def redact(value: Any) -> Any:
 
 
 def _facts(state: LocalState, hook_input: dict[str, Any]) -> dict[str, Any]:
-    """The context manager's facts of this session: kept at the last compaction, else read from the transcript."""
     from . import context_manager  # noqa: PLC0415
 
     session_id = str(hook_input.get("session_id") or "")
@@ -78,7 +61,6 @@ def _facts(state: LocalState, hook_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def lessons_body(state: LocalState, hook_input: dict[str, Any], *, kind: str) -> dict[str, Any] | None:
-    """The body for ``POST /sessions/lessons``, or ``None`` when off or there is nothing to send."""
     if not enabled(state):
         return None
     facts = _facts(state, hook_input)

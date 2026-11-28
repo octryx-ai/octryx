@@ -1,8 +1,3 @@
-"""The check proof end to end on the launcher's side (From Correction to Check, step 2): the server's own job pieces
-(``check_proposals.proof_job``: rule file and steps; ``devices.tree_archive``: the archives from git) run through
-the launcher's ``tool_jobs.run_job`` with its real ``tool_run`` and the pinned ast-grep, and the server's verdict
-reads the raw answer. The server's database side: ``backend/tests/test_check_proof.py``."""
-
 from __future__ import annotations
 
 import importlib.util
@@ -50,7 +45,6 @@ def _repo(tmp_path: Path) -> tuple[Path, list[str]]:
 
 
 def _run_on_device(monkeypatch, tmp_path: Path, rule: dict) -> dict:
-    """The job as the server builds it, run by the launcher; the server's verdict on the answer."""
     assert AST_GREP.exists(), "ast-grep-cli is a declared dependency of the launcher"
     monkeypatch.setattr(tool_run, "_executable", lambda tool_id: str(AST_GREP) if tool_id == "ast-grep" else None)
     repo, (before, after) = _repo(tmp_path)

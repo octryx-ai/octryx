@@ -1,29 +1,4 @@
-"""Custom REST as a Knowledge source on the Source Sync contract (``SourceConnector``).
-
-Goal: list documents through a REST definition's list operation, fetch their content, ingest incrementally into
-Knowledge with the existing pipeline, readable only by whom the grants admit. Synced content is untrusted.
-
-**Listing.** Every call goes through the REST executor (``secure_work/custom_rest/listing.read_page``): the pinned
-``custom_rest`` egress, the connection's auth and CSRF, the operation's pagination, one audit row per call, and the
-data scope of exactly the source's role (``IntakeCallContext.acting_role``: its scope parameters injected, its result
-filter applied). What the filter drops is counted (``listing.dropped_out_of_scope`` in the run report), never ingested.
-
-The runner asks for at most ``limit`` items per page, while the API pages by its own size. The token is
-``<skip>:<api cursor>``: a page larger than ``limit`` is answered in slices, re-reading the same API page with the
-next skip (one extra request per slice, never a lost record). The API cursor is the executor's own (signed for next
-URLs), carried unchanged.
-
-**Incremental.** With ``updated_since_param`` the connector has ``list_changed_items``: the runner's scheduled
-accelerator lists only records changed since the last clean pass (the parameter set to that instant, ISO 8601 UTC);
-the full header pass stays the source of truth for deletions and ACL changes (``incremental.py``).
-
-**Content.** The listed record itself, or with a ``detail_operation`` one more executor call with the record's id
-(``detail_param``); then ``rest_render.item_content``. HTML and PDF go through the parser sandbox.
-
-**ACL.** ``rest_acl``: restricted to the roles whose grants see the record, expanded to the Workspace's members who
-hold them; ``visibility: workspace`` makes every item readable by the whole Workspace instead (the admin's explicit
-choice).
-"""
+"""Custom REST as a Knowledge source on the Source Sync contract (``SourceConnector``). Synced content is untrusted."""
 
 from __future__ import annotations
 
@@ -63,6 +38,7 @@ from .rest_acl import admitted_roles, expand_roles, facet_for, roles_of
 from .rest_config import SANDBOXED_MEDIA, VISIBILITY_WORKSPACE
 from .rest_connection import RestSourceConnection
 from .rest_render import RecordHeader, item_content, record_header
+from .stored_types import RestListingFacts
 
 REASON_DETAIL_OUT_OF_SCOPE = "custom_rest_detail_out_of_scope"
 REASON_CURSOR_TOO_LONG = "custom_rest_cursor_too_long"
@@ -71,7 +47,7 @@ _HTTP_REASONS = {401: REASON_SOURCE_UNAUTHORIZED, 403: REASON_SOURCE_UNAUTHORIZE
 
 
 def source_reason(error: IntakeSourceError) -> str:
-    """The fixed run reason of a refused or failed executor call; never its message (it may quote the API)."""
+    # Never the message: it may quote the API.
     if error.code == "custom_rest_egress_refused":
         return REASON_EGRESS_REFUSED
     if error.code == "custom_rest_http_error":
@@ -91,7 +67,6 @@ def _token(raw: str | None) -> tuple[int, str | None]:
 
 
 def _applied(operation: Any, role: str, project_id: str, arguments: Mapping[str, Any]) -> AppliedScope:
-    """The scope the executor applies for ``role`` (resolved the same way, ``authorization.resolve_scope``)."""
     try:
         return resolve_scope(matching_grants(operation, frozenset({role.lower()}), project_id), dict(arguments))
     except NotGrantedError:
@@ -124,7 +99,7 @@ class RestKnowledgeConnector:
         self._expansions: dict[frozenset[str], AclExpansion] = {}
         self._list_scope: AppliedScope | None = None
         self._detail_roles: frozenset[str] | None = None
-        self.listing_facts: dict[str, Any] = {"role": connection.role, "pages": 0, "dropped_out_of_scope": 0}
+        self.listing_facts: RestListingFacts = {"role": connection.role, "pages": 0, "dropped_out_of_scope": 0}
         since = scope.get("updated_since_param")
         if since:
             # Only a source with a change parameter offers the accelerator (``incremental.accelerator_due``).

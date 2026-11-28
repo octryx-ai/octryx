@@ -21,11 +21,6 @@ from .servicenow_scope import scope_tables
 def scope_within_connection(
     kind: str, scope: dict, connection: SourceConnection | ServiceNowConnection | PublicGitConnection
 ) -> bool:
-    """True when every configured space, project or table is inside the connection's own allowlist.
-
-    A ``git_repository`` has no connection allowlist: a ``remote_git`` scope must name a known host;
-    a ``local_snapshot`` scope fetches nothing (its run is refused as ``snapshot_upload_required``).
-    """
     if connection.kind != kind:
         return False
     within = KINDS[kind].within if kind in KINDS else None

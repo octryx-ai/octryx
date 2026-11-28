@@ -63,7 +63,6 @@ def _hash_refresh_token(token: str) -> str:
 
 
 def _verify_refresh_token_bcrypt(token: str, stored_hash: str) -> bool:
-    """Verify a token against its bcrypt-of-sha256 hash; any failure (mismatch, malformed hash) is ``False``."""
     try:
         digest = hashlib.sha256(token.encode("utf-8")).digest()
         return bcrypt.checkpw(digest, stored_hash.encode("utf-8"))
@@ -87,7 +86,6 @@ def _web_access_claims(token: str) -> dict:
 
 
 def decode_token(token: str, *, allow_phone: bool = False) -> str:
-    """The user of a web access token. A phone's token only with ``allow_phone`` (the caller checks the phone)."""
     try:
         payload = _web_access_claims(token)
         user_id: str = payload.get("sub")
@@ -99,7 +97,6 @@ def decode_token(token: str, *, allow_phone: bool = False) -> str:
 
 
 def _cookie_token_kind(token: str) -> str:
-    """``"web"`` or ``"phone"`` for a valid platform access token, ``""`` for anything else."""
     try:
         payload = _web_access_claims(token)
     except jwt.PyJWTError:
@@ -110,17 +107,6 @@ def _cookie_token_kind(token: str) -> str:
 
 
 def cookie_access_token(request: Request) -> str:
-    """The access token a browser presents in its cookies (never a bearer token or an API key).
-
-    One browser may hold the web login (``access_token``) and a paired phone's session
-    (``octryx_phone_access``) at once:
-
-    1. A valid web token in ``access_token`` wins.
-    2. Otherwise the phone's own cookie, and only when it holds a valid phone token: a web token is never taken from
-       the phone's cookie name (the caller then runs ``mobile_access_refusal``, which keeps it on the phone surfaces).
-    3. Otherwise ``access_token`` as it is, so an invalid one answers 401; a phone token there is no login (a phone's
-       token lives only in ``octryx_phone_access``).
-    """
     web = str(request.cookies.get(ACCESS_TOKEN_COOKIE) or "").strip()
     if web and _cookie_token_kind(web) == "web":
         return web
@@ -151,7 +137,6 @@ def decode_session_stream_token(token: str) -> tuple[str, str]:
 
 
 async def verify_ws_token(token: str) -> str:
-    """Verify a JWT token for WebSocket authentication. Returns user_id (never for a phone or a stream token)."""
     try:
         payload = _web_access_claims(token)
         user_id: str = payload.get("sub")

@@ -1,8 +1,4 @@
-"""The visible identity of a Word template: theme fonts, colour palette, logo and letterhead.
-
-Read straight from the package parts; absent or unreadable parts yield empty
-values rather than a guess.
-"""
+"""The visible identity of a Word template: theme fonts, colour palette, logo and letterhead."""
 
 from __future__ import annotations
 
@@ -37,12 +33,6 @@ def _color_value(element: ET.Element | None) -> str | None:
 
 
 def extract_theme(path: Path) -> dict[str, Any]:
-    """The template's theme fonts and brand colour palette, from ``theme1.xml``.
-
-    This is the corporate identity the composed document inherits — the same
-    fonts and colour scheme the template's letterhead uses. Absent or unreadable themes
-    yield empty maps rather than a guess.
-    """
     theme: dict[str, Any] = {"fonts": {}, "colors": {}}
     try:
         with zipfile.ZipFile(path) as archive:
@@ -67,7 +57,6 @@ def extract_theme(path: Path) -> dict[str, Any]:
 
 
 def extract_branding(document: Document, path: Path) -> dict[str, Any]:
-    """Logo media and header/footer letterhead — the visible identity marks."""
     logos: list[str] = []
     try:
         with zipfile.ZipFile(path) as archive:

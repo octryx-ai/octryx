@@ -7,11 +7,11 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.runtime_fallback_policy import (
+from app.agent.runtime.retry_policy import build_runtime_retry_policy
+from app.agent.runtime.runtime_fallback_policy import (
     RUNTIME_FALLBACK_MODE_ALL_RUNTIMES,
     RUNTIME_FALLBACK_MODE_FIRST_RUNTIME_ONLY,
 )
-from app.agent.engine.runtime._engine_runtime_retry_policy import build_runtime_retry_policy
 from app.models import ControlPlaneRuntimeTarget, LLMModel, LLMProvider, Project, SystemConfig, User
 from app.services.auth import create_access_token
 from app.services.model_selection.page import default_and_fallback_page

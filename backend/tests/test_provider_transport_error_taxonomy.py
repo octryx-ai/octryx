@@ -1,11 +1,5 @@
-"""Transport failures of provider clients are typed by exception type (roadmap 3, R2).
-
-A connect error, a timeout, or a connection closed mid-response leaves the
-provider client as a ``ProviderRuntimeError`` whose class comes from the exception
-type and whose audited classification source is ``exception_type``. The Work
-Strategy alias failover switches only on such typed transient classes, so a
-gateway that is down now fails over instead of ending the node.
-"""
+"""Transport failures of provider clients are typed by exception type, so the Work Strategy alias failover
+switches on a gateway that is down instead of ending the node."""
 
 from __future__ import annotations
 
@@ -14,13 +8,11 @@ from typing import Any
 import httpx
 import pytest
 
-from app.agent.core.runtime.runtime_errors import (
+from app.agent.runtime.runtime_errors import (
     CLASSIFICATION_SOURCE_EXCEPTION_TYPE,
-    ProviderRuntimeError,
     classify_runtime_error,
 )
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
-from app.agent.providers import OpenAICompatibleClient
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
 from app.services.governed_agent_run.model_failover import (
     AliasChain,
     ModelFailover,
@@ -28,43 +20,24 @@ from app.services.governed_agent_run.model_failover import (
 )
 from app.services.model_gateway.litellm.errors import LiteLLMGatewayError, gateway_transport_error
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
-pytestmark = pytest.mark.usefixtures("platform_model_call")
-
 _HOST = "gateway.internal.test"
 _MESSAGES = [{"role": "user", "content": "hello"}]
-_ANSWER = {"choices": [{"message": {"content": "served"}}], "model": "backup"}
-
-TRANSPORT_CASES = [
-    (httpx.ConnectError(f"connect to {_HOST} failed"), "unreachable"),
-    (httpx.ConnectTimeout(f"connect to {_HOST} timed out"), "timeout"),
-    (httpx.ReadTimeout("read timed out"), "timeout"),
-    (httpx.RemoteProtocolError("Server disconnected without sending a response."), "transient"),
-]
+_ANSWER = {"content": "served", "tool_calls": None, "usage": {}, "model": "backup"}
 
 
-def _client(outcome: Exception | dict[str, Any]) -> OpenAICompatibleClient:
-    def handle(request: httpx.Request) -> httpx.Response:
-        if isinstance(outcome, Exception):
-            raise outcome
-        return httpx.Response(200, json=outcome, request=request)
+# A gateway client whose transport fails the way ``litellm.client`` reports it.
+class _Client:
 
-    client = OpenAICompatibleClient(base_url=f"http://{_HOST}/v1", api_key="test-key")
-    client.client = httpx.AsyncClient(base_url=f"http://{_HOST}/v1", transport=httpx.MockTransport(handle))
-    return client
+    def __init__(self, outcome: Exception | dict[str, Any]) -> None:
+        self.outcome = outcome
 
+    async def chat(self, **_kwargs: Any) -> dict[str, Any]:
+        if isinstance(self.outcome, Exception):
+            raise gateway_transport_error(self.outcome)
+        return dict(self.outcome)
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize(("exc", "expected_class"), TRANSPORT_CASES)
-async def test_openai_compatible_transport_failure_is_typed_by_exception_type(exc, expected_class) -> None:
-    with pytest.raises(ProviderRuntimeError) as excinfo:
-        await _client(exc).chat(messages=_MESSAGES, model="primary")
-
-    classification = classify_runtime_error(excinfo.value)
-    assert (classification.error_class, classification.source) == (expected_class, CLASSIFICATION_SOURCE_EXCEPTION_TYPE)
-    # A fixed message: the exception type, never the transport's own text.
-    assert str(excinfo.value) == f"OpenAI-compatible API transport failure ({type(exc).__name__})"
-    assert _HOST not in str(excinfo.value)
+    async def close(self) -> None:
+        return None
 
 
 @pytest.mark.parametrize(
@@ -112,7 +85,7 @@ async def test_a_connect_error_on_the_first_alias_fails_over_to_the_next() -> No
     served: list[str] = []
 
     def get_provider(**kwargs):
-        return _client(outcomes[str(kwargs.get("provider_name")).removeprefix("gateway-")])
+        return _Client(outcomes[str(kwargs.get("provider_name")).removeprefix("gateway-")])
 
     async def dispatch(chain: AliasChain):
         served.append(chain.alias)

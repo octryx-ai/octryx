@@ -13,15 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import AuditLog, FlowDefinition, FlowDefinitionVersion, User
 from ..time_utils import utc_now
 from .flow_definitions import compose_or_refuse, get_flow_definition, validate_flow_definition
-from .flow_orchestration.flow_agent_reference import with_agent_reference_errors
 from .flow_v2_validation_support import _scan_secret_values
 from .workflow_runs.fragments.store import draft_runtime_settings, is_composite, report_with_composition
 
 
 def draft_may_be_invalid(definition: dict[str, Any]) -> bool:
-    """A workflow that runs in phases is drawn by hand: its draft is saved with its validation report
-    even while it is incomplete. Publishing and starting a run still need a valid version (``publish_flow_definition
-    _version``, ``engine.start_phased_run``). A flow graph's draft can run as a trace, so it stays refused."""
+    # Publishing and starting still need a valid version; a flow graph's draft can run as a trace, so it stays refused.
     from .workflow_runs.graph import is_phased_definition
 
     return is_phased_definition(definition)
@@ -85,17 +82,13 @@ async def _expected_latest_version(db: AsyncSession, flow_id: str, expected: str
 async def save_flow_draft(
     db: AsyncSession, *, flow_id: str, current_user: User, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Require the latest revision as a precondition; never mutate an existing version."""
+    # An existing version is never mutated.
     expected = payload.get("expected_latest_version_id")
     if not isinstance(expected, str) or not expected:
         raise HTTPException(422, "expected_latest_version_id is required")
     definition, composition, report = await _checked_draft_definition(db, flow_id=flow_id, payload=payload)
     name, description = _checked_name_and_description(payload)
     flow = await _locked_open_flow(db, flow_id)
-    # A draft may only name agents this workflow can run.
-    report = await with_agent_reference_errors(
-        db, definition, report, user_id=current_user.id, project_id=flow.project_id
-    )
     if not report["valid"] and not draft_may_be_invalid(definition):
         raise HTTPException(422, report)
     latest = await _expected_latest_version(db, flow_id, expected)
@@ -123,6 +116,7 @@ async def save_flow_draft(
     ))
     db.add(AuditLog(
         user_id=current_user.id, action="flow_draft_saved", resource_type="flow_definition",
+        project_id=flow.project_id,
         resource_id=flow_id, details={"version_id": version_id, "base_version_id": expected},
     ))
     await db.flush()

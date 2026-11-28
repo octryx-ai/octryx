@@ -1,30 +1,4 @@
-"""Per-test results from what a test runner wrote, keyed by the canonical test id (``test_ids``). Pure.
-
-Readers, the structured one first:
-
-- **JUnit XML** (pytest ``--junitxml``, Jenkins/GitLab/Bitbucket/GitHub pipelines): a ``<testcase>`` with
-  ``<failure>`` is an assertion failure, ``<error>`` an error, ``<skipped>`` skipped. Its id comes from the ``file``
-  attribute when present, else from ``classname`` resolved against the repository's files (``test_ids.Resolver``).
-  A case without classname is a module that failed to collect. When the text carries JUnit XML only the XML counts.
-- **pytest** ``-v`` / ``-rA`` lines (also xdist's ``[gw0] [ 50%] PASSED id``): node ids, canonical as printed.
-  ``ERROR path`` without ``::`` is a collection error of that file.
-- **unittest** ``-v`` (``test_y (pkg.mod.TestA.test_y) ... ok`` on Python 3.11+, ``(pkg.mod.TestA)`` on 3.10 and below)
-  with the ``FAIL:``/``ERROR:`` blocks for messages; ``unittest.loader._FailedTest`` is a module that failed to load.
-- **Dart / Flutter** (``flutter test``, ``dart test``; the expanded reporter they print when not on a terminal):
-  ``00:01 +3 ~1 -1: <file>: <groups and name>``. The counters (passed, skipped, failed) of each line say what the
-  previous test did; ``[E]`` marks a failing test. Its id is ``test/x_test.dart::<full name>``, the file relative to
-  its ``test/`` (or ``integration_test/``) folder's parent; a run of one file names its file only in ``loading``.
-  Several files run concurrently by default and their lines interleave, so the counters cannot be attributed: such
-  a run keeps its failures and reports a problem for the rest. A run is sequential when every file it names was
-  loaded on its own ``loading`` line and its tests never interleave (one file, or ``flutter test -j 1``).
-- **Go** ``--- PASS|FAIL|SKIP: Name``: the name names no file, so the result stays ``unresolved`` (open: Go's
-  ``-json`` package output).
-
-``failed`` means the test ran and an assertion failed; ``error`` means it did not get that far. A file- or
-class-level ``error`` result marked ``scope: collection`` covers every test under it. A test whose id cannot be
-resolved is kept in ``unresolved`` with its reason and its raw parts (re-resolved when the run knows more files);
-a report that cannot be read, or output that lists fewer tests than its runner reported, is a ``problem``.
-"""
+"""Per-test results from what a test runner wrote, keyed by the canonical test id (``test_ids``)."""
 
 from __future__ import annotations
 
@@ -77,12 +51,10 @@ class ParsedTests:
     suite_passed: int = 0
 
     def executed(self) -> int:
-        """Tests the runner executed (a collection error is no executed test)."""
         return sum(1 for value in self.results.values() if value.get("scope") != SCOPE_COLLECTION) + sum(
             1 for item in self.unresolved if item.get("scope") != SCOPE_COLLECTION)
 
     def fields(self) -> dict[str, Any]:
-        """What a recorded test run carries (``results``, and ``unresolved``/``problems`` only when present)."""
         extra = {key: value for key, value in (("unresolved", self.unresolved), ("problems", self.problems),
                                                ("suite_passed", self.suite_passed)) if value}
         return {"results": self.results, **extra}
@@ -154,7 +126,6 @@ def _pytest_counts(line: str) -> int | None:
 
 
 def _unittest_where(name: str, where: str) -> str:
-    """The dotted class of a unittest line: ``pkg.mod.TestA.test_y`` (Python 3.11+) or ``pkg.mod.TestA``."""
     return where[: -len(name) - 1] if where.endswith("." + name) else where
 
 
@@ -182,9 +153,6 @@ def _unittest_add(parsed: ParsedTests, resolver: Resolver, name: str, where: str
 
 
 def _unittest_messages(lines: list[str]) -> dict[tuple[str, str], str]:
-    """The last line of each ``FAIL:`` / ``ERROR:`` block's traceback (``AssertionError: …``) by ``(name, where)``.
-
-    A block is its header (and the test's docstring line), a dashed line, then the traceback up to the next ruler."""
     messages: dict[tuple[str, str], str] = {}
     current: tuple[str, str] | None = None
     body, last = False, ""
@@ -208,10 +176,6 @@ _COLLECTING = re.compile(r"^_+ ERROR collecting (?P<file>\S+) _+$")
 
 
 def _collection_messages(lines: list[str]) -> dict[str, str]:
-    """The first ``E   …`` line of each pytest ``ERROR collecting <file>`` section, by file.
-
-    ``pytest -v`` prints a collection error's summary as a bare ``ERROR <file>``; its cause (``ModuleNotFoundError``
-    while the module under test does not exist yet) is only in the section above."""
     messages: dict[str, str] = {}
     current: str | None = None
     for line in lines:
@@ -314,7 +278,6 @@ _DART_TEST_DIRS = ("test", "integration_test", "test_driver")
 
 
 def _dart_file(path: str) -> str:
-    """``/abs/app/test/x_test.dart`` → ``test/x_test.dart`` (relative to the test folder's parent)."""
     parts = normalize(path).split("/")
     for index in range(len(parts) - 1, -1, -1):
         if parts[index] in _DART_TEST_DIRS:
@@ -323,7 +286,6 @@ def _dart_file(path: str) -> str:
 
 
 def _dart_split(text: str, single: str) -> tuple[str, str]:
-    """``(file, test name)`` of a reporter line's description."""
     head, sep, rest = text.partition(".dart: ")
     if sep and " " not in head.strip("/").split("/")[-1]:
         return _dart_file(head + ".dart"), rest
@@ -345,9 +307,6 @@ def _dart_sequential(lines: list[str], loading: list[str], single: str) -> bool:
 
 
 def parse_dart(text: str, command: str = "") -> ParsedTests:
-    """Per-test results of the Dart / Flutter expanded reporter (module docstring). ``command``: the test command;
-    its one ``.dart`` argument names the file when the output lost its ``loading`` line (as with
-    ``flutter test test/x_test.dart 2>&1 | tail -30``, which otherwise records no result at all)."""
     parsed = ParsedTests(format="dart")
     lines = [line.rstrip() for line in str(text or "").splitlines()]
     loading = list(dict.fromkeys(_dart_file(line.split(": loading ", 1)[1]) for line in lines
@@ -440,7 +399,6 @@ def _is_dart(text: str) -> bool:
 
 
 def parse(text: str, resolver: Resolver | None = None, command: str = "") -> ParsedTests:
-    """Per-test results of a test command's output (JUnit XML in it wins over its printed lines)."""
     text = str(text or "")
     if "<testcase" in text:
         report = parse_junit(text, resolver)
@@ -459,7 +417,6 @@ def parse(text: str, resolver: Resolver | None = None, command: str = "") -> Par
 
 
 def hint_files(raw: Iterable[Any] | None) -> list[str]:
-    """Bounded, canonical test-file hints from a report (anything else is dropped)."""
     files = [normalize(item) for item in (raw or []) if isinstance(item, str)]
     return list(dict.fromkeys(item for item in files if file_of(item) and not item.startswith("/")
                               and ".." not in item.split("/")))[:MAX_HINT_FILES]

@@ -22,8 +22,6 @@ DEFAULT_OFFICE_IMPORT_STALE_MIN_AGE_HOURS = 72
 
 @dataclass(frozen=True)
 class DiskHygieneCandidate:
-    """A safe cleanup candidate discovered from backend runtime storage."""
-
     kind: str
     path: Path
     bytes_used: int

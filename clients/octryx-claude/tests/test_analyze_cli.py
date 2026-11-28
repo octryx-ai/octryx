@@ -1,8 +1,3 @@
-"""``octryx-claude analyze <KEY>``: a work item analysis in a seat session.
-
-The fake control plane and the fake claude of ``conftest.launch_env``; no network, no model.
-"""
-
 from __future__ import annotations
 
 import json

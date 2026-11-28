@@ -1,14 +1,8 @@
-"""PR review bot: the pull request's ticket and its acceptance criteria.
-
-- the key comes from the branch, the title or the commits; it counts only when it names a Work item of the Workspace
-  or a key of a Jira project the Workspace is connected to (``UTF-8`` never does);
-- a Jira ticket is read through the governed tool and stored like the Jira sync stores it; the run is linked to the
-  Work item, so the reviewer reads it;
-- the reviewer answers one line per acceptance criterion (``acceptance``: optional, bounded,
-  informative only: a "missing" never changes the verdict); the summary shows the table, the footer the ticket.
-"""
+"""PR review bot: the pull request's ticket and its acceptance criteria."""
 
 from __future__ import annotations
+
+import pytest
 
 from app.models import WorkflowRun, WorkItem
 from app.models.runtime.secure_work import WorkItemSyncConfig
@@ -19,7 +13,10 @@ from app.services.pr_review_bot.starter import TRIGGER_WEBHOOK, start_review
 from app.services.workflow_runs.review.runner import run_due_reviews
 from app.services.workflow_runs.review.verdict import MAX_ACCEPTANCE, parse_verdict
 from tests.pr_review_bot_flow_support import HEADERS, REVIEW, _origin, _payload, _tools, _workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_key_shaped_words_come_from_branch_title_and_commits_in_that_order():
@@ -30,7 +27,7 @@ def test_key_shaped_words_come_from_branch_title_and_commits_in_that_order():
 async def _run(db, project_id: str, branch: str, title: str = "t") -> WorkflowRun:
     from app.services.pr_review_bot.bot_user import ensure_review_bot_user
 
-    owner = await ensure_review_bot_user(db, project_id)  # the bot's runs are requested by its Workspace member
+    owner = await ensure_review_bot_user(db, project_id)
     run = WorkflowRun(project_id=project_id, workflow_kind="phased", workflow_key="pr-review-bot", title="bot",
                       requested_by=owner.id, repository="github:acme/pay", branch=branch,
                       context={"pr_review": {"source_branch": branch, "title": title}})
@@ -82,10 +79,10 @@ async def test_a_key_of_a_connected_jira_project_is_read_and_stored_like_the_syn
 def test_acceptance_is_optional_bounded_and_never_changes_the_verdict():
     rows = [{"criterion": "AC1 " + "x" * 400, "status": "covered", "evidence": "pay/bulk.py:13"},
             {"criterion": "AC2", "status": "MISSING", "evidence": ""},
-            {"criterion": "AC3", "status": "done"},  # an unknown status is dropped, never read as missing
+            {"criterion": "AC3", "status": "done"},
             *({"criterion": f"AC{n}", "status": "partial"} for n in range(4, 50))]
     verdict = parse_verdict({"verdict": "pass", "summary": "ok", "findings": [], "acceptance": rows})
-    assert verdict.passed  # a missing criterion is informative only
+    assert verdict.passed
     assert len(verdict.acceptance) == MAX_ACCEPTANCE and len(verdict.acceptance[0][0]) == 300
     assert verdict.acceptance[1] == ("AC2", "missing", "") and "AC3" not in [row[0] for row in verdict.acceptance]
     assert parse_verdict({"verdict": "pass", "summary": "", "findings": [], "acceptance": "all fine"}).acceptance == ()
@@ -103,7 +100,7 @@ def test_the_summary_shows_the_acceptance_table_and_the_footer_the_ticket():
 
 
 async def test_the_bot_reviews_with_the_ticket_and_asks_for_the_acceptance_table(db, monkeypatch, tmp_path):
-    clone, head = _origin(tmp_path)  # its branch is feature/PAY-1-totals
+    clone, head = _origin(tmp_path)
     tools = _tools(monkeypatch, clone)
     project_id, _record, _hook = await _workspace(db)
     db.add(WorkItem(source_type="platform", source_instance="octryx", source_key="PAY-1", source_project_key="PAY",
@@ -117,7 +114,7 @@ async def test_the_bot_reviews_with_the_ticket_and_asks_for_the_acceptance_table
     system, task = reviewer.tasks[0]
     assert '"acceptance"' in system and "Totals round half up" in task and "AC1: 2.5 rounds to 3." in task
     posted = [call[1] for call in tools.calls if call[0] == "post_github_pull_request_review"][-1]
-    assert "<<<acceptance criteria of PAY-1" in task and "AC1: 2.5 rounds to 3." in task  # listed for the reviewer
+    assert "<<<acceptance criteria of PAY-1" in task and "AC1: 2.5 rounds to 3." in task
     assert "| AC1: 2.5 rounds to 3. | ❌ missing | round() rounds half to even |" in posted["summary"]
     assert "ticket PAY-1 (Totals round half up)" in posted["summary"]
 
@@ -129,7 +126,6 @@ AC3: the savings are rounded to 2 decimal places."""
 
 
 def test_acceptance_criteria_are_parsed_from_the_ticket():
-    """A reviewer that leaves the acceptance table out gets the criteria parsed and listed for it."""
     assert [item["id"] for item in ticket_context.acceptance_criteria(OCX_79)] == ["AC1", "AC2", "AC3"]
     assert ticket_context.acceptance_criteria(OCX_79)[2]["text"] == "the savings are rounded to 2 decimal places."
     bullets = "Intro\n\n## Acceptance criteria\n- Exactly 10 items get 5 %\n- An empty order saves 0\n\n## Notes\n- x"

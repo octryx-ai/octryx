@@ -36,11 +36,10 @@ TOTALS_TEST = "from pay.totals import round_total\n\n\ndef test_rounds_half_up()
 HEAD = "1" * 40
 
 
-REMOTE = "https://scm.stub.test/acme/pay.git"  # the Workspace's GitHub connection serves scm.stub.test
+REMOTE = "https://scm.stub.test/acme/pay.git"
 
 
 async def _device(db, user, folders: list[str]) -> str:
-    """A registered device of ``user`` (a member of the run's Workspace) and its grant's gateway token."""
     from app.models.security.user import UserProject
 
     workspace_id = (await db.execute(select(WorkflowRun.project_id).order_by(WorkflowRun.created_at.desc()))
@@ -86,7 +85,6 @@ async def _register(client, headers: dict) -> dict:
 
 
 async def _b_at_tests_first(client, auth_headers, db, systems) -> tuple[object, str, Path]:  # noqa: F811
-    """B started for a Work item, Clarify done in its chat thread, the contract confirmed: the run is at Tests first."""
     project, item = await _workspace(db, systems)
     started = await client.post("/api/v1/workflow-runs", headers=auth_headers,
                                 json={"workflow_key": B_KEY, "work_item_id": item.id})
@@ -113,7 +111,6 @@ def _call(gateway, tool: str, *, at, ok: bool = True, excerpt: str = "", **param
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

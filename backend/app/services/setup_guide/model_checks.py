@@ -1,13 +1,4 @@
-"""The model checks of the setup guide, read from what a turn reads.
-
-- **Models enabled**: at least one enabled Model catalog model cleared for some data (an uncleared model answers
-  nowhere).
-- **Default is ready**: #1 of the platform order is enabled, cleared, its provider can run, a gateway alias is
-  admitted by its catalog, and it has a price whenever the unpriced-model guard would otherwise refuse every turn.
-- **Prices** (not blocking): #1 has a price, otherwise its costs are not counted (with ``warn``, the default).
-- **Gateway admitted** (only with a model gateway): the connection can run and how many aliases its catalog admits.
-- **Workspaces**: how many active Workspaces have no model the resolver would let answer (allowed + cleared).
-"""
+"""The model checks of the setup guide, read from what a turn reads."""
 
 from __future__ import annotations
 
@@ -78,12 +69,11 @@ async def default_step(db: AsyncSession, runnable: dict[str, LLMProvider]) -> di
 
 
 async def prices_step(db: AsyncSession) -> dict[str, Any] | None:
-    """Only shown for a platform-billed #1 without a price; blocking stays with ``default`` under ``block``."""
     entries = await order_models(db)
     if not entries:
         return None
     target, provider, model = entries[0]
-    if model is None or not is_platform_billed_driver(provider.driver or provider.name, provider.runtime_kind):
+    if model is None or not is_platform_billed_driver(provider.driver or provider.name):
         return None
     if (await resolve_model_pricing(db, provider_name=provider.name, model_id=target.model_id)).priced:
         return None
@@ -97,8 +87,7 @@ async def prices_step(db: AsyncSession) -> dict[str, Any] | None:
 
 
 async def _refused_as_unpriced(db: AsyncSession, provider: LLMProvider, model_id: str) -> bool:
-    """What ``enforce_priced_models_under_cap`` would refuse for a platform-wide turn (no Workspace caps)."""
-    if not is_platform_billed_driver(provider.driver or provider.name, provider.runtime_kind):
+    if not is_platform_billed_driver(provider.driver or provider.name):
         return False
     if await unpriced_model_policy(db) != POLICY_BLOCK:
         return False

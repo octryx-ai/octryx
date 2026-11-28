@@ -8,7 +8,7 @@ class TaskCreate(BaseModel):
     project_id: WorkspaceId
     name: str
     description: str = ""
-    task_type: str = "diagnosis"
+    task_type: str = "agent_run"
     agent_type: str = "diagnosis"
     schedule: str | None = None
     config: dict = Field(default_factory=dict)

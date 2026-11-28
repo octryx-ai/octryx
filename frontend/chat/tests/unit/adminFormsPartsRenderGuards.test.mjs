@@ -1,6 +1,6 @@
 // Render guards for admin forms and panels split into smaller functions: a connector's access panel, the user,
-// group and API key forms, tool output compression, the schedule fields, a REST operation's setup, the knowledge
-// lookup limits, a provider's model table and GitHub sign-in, and the workspace storage fields render the same
+// group and API key forms, the schedule fields, a REST operation's setup, the knowledge
+// lookup limits, a provider's model table and the workspace storage fields render the same
 // structure after being split up.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -79,25 +79,6 @@ test("the group panel shows the info, the description, the toggle and the danger
   act(() => empty.unmount());
 });
 
-test("tool output compression shows the summary, the filters, the tools and the log", () => {
-  const { RuntimeCompressionSection } = load("admin/components/runtimeTab/RuntimeCompressionSection.tsx");
-  const ctx = {
-    formatRelativeTime: () => "just now", handleSaveToolResultCompressor: async () => {}, setToolResultCompressorDrafts: noop,
-    toolResultCompressionLogs: [{ id: "l1", tool_name: "search", strategy: "truncate", original_tokens: 100, compressed_tokens: 40, compression_ratio: 60, created_at: null }],
-    toolResultCompressionSaving: null, toolResultCompressorDrafts: {},
-    toolResultCompressors: [{ id: "c1", tool_name: "search", strategy: "truncate", config: {}, is_active: true },
-      { id: "c2", tool_name: "fetch", strategy: "none", config: {}, is_active: false }],
-  };
-  const view = create(createElement(RuntimeCompressionSection, { ctx }));
-  includesAll(text(view.root), ["Tool output compression", "1 on", "2 tools", "Recent compression log", "search", "fetch", "100", "40", "60 %", "just now"]);
-  assert.equal(all(view, "table").length, 2);
-  assert.equal(all(view, "tr").length, 5);
-  assert.ok(!buttons(view).includes("Reset"));
-  act(() => all(view, "input")[0].props.onChange({ target: { value: "zzz" } }));
-  includesAll(text(view.root), ["No tools match this filter.", "No log entries match this search.", "Reset"]);
-  act(() => view.unmount());
-});
-
 const apiKey = (patch = {}) => ({ id: "k1", name: "CI", key_prefix: "oc_ab", created_at: null, last_used_at: null, expires_at: null,
   revoked_at: null, scopes: ["read"], ...patch });
 const keyProps = { apiKeys: [apiKey(), apiKey({ id: "k2", name: "Old", revoked_at: "2026-01-01T00:00:00Z", scopes: [] })], apiKeyName: "", apiKeyScopes: "",
@@ -171,24 +152,6 @@ test("the knowledge lookup limits load, show one field per limit and save", asyn
   assert.equal(calls[1][2].knowledge_lookup.overview_graph_depth, 10);
   act(() => view.unmount());
   assert.equal(create(createElement(ProjectKnowledgeLookupSection, { ctx: { configuringProjectQuality: null, readJson } })).toJSON(), null);
-});
-
-test("GitHub sign-in shows the connected account, the device code or the failure", () => {
-  const { ProviderCopilotAuth } = load("admin/components/providerTab/ProviderCopilotAuth.tsx");
-  const base = { handleCopilotConnect: async () => {}, handleCopilotDisconnect: noop };
-  const idle = create(createElement(ProviderCopilotAuth, { ctx: { ...base, copilotFlow: null }, provider: { id: "p1", auth_login: "ada", auth_name: "Ada" } }));
-  includesAll(text(idle.root), ["GitHub Auth", "Ada", "@ada", "https://github.com", "Reconnect with GitHub"]);
-  act(() => idle.unmount());
-  const pending = create(createElement(ProviderCopilotAuth, { ctx: { ...base, copilotFlow: { providerId: "p1", status: "pending", userCode: "AB-12", verificationUri: "https://github.com/login/device" } }, provider: { id: "p1" } }));
-  includesAll(text(pending.root), ["AB-12", "and enter the code above.", "Waiting for authorization…", "Cancel"]);
-  act(() => pending.unmount());
-  const failed = create(createElement(ProviderCopilotAuth, { ctx: { ...base, copilotFlow: { providerId: "p1", status: "failed", error: "" } }, provider: { id: "p1" } }));
-  assert.deepEqual(buttons(failed), ["Retry", "Cancel"]);
-  assert.ok(text(failed.root).includes("Login failed: unknown error"));
-  act(() => failed.unmount());
-  const none = create(createElement(ProviderCopilotAuth, { ctx: { ...base, copilotFlow: null }, provider: { id: "p1" } }));
-  includesAll(text(none.root), ["Not connected", "Connect with GitHub"]);
-  act(() => none.unmount());
 });
 
 test("the workspace storage fields show eight inputs with the default exclusions", () => {

@@ -1,10 +1,5 @@
-"""Replace or remove the own Git token of a repository source (``repository_git_token.py``).
-
-Only an author of the Workspace, and only for a ``git_repository`` source linked to a Bitbucket Data Center
-connection (anything else: ``git_token_not_supported``). A new token is checked against exactly the source's
-repository before it replaces the stored one; a removal destroys the stored secret. Both are audited and commit.
-Registration sends the token with the configuration instead (``service.configure_connector``).
-"""
+"""Replace or remove the own Git token of a repository source. A new token is checked against exactly that repository
+first."""
 
 from __future__ import annotations
 
@@ -30,7 +25,6 @@ async def replace_git_token(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, row: KnowledgeSourceConnector, git_token: object,
     actor_id: str,
 ) -> KnowledgeSourceConnector:
-    """Check ``git_token`` against the source's repository, then store it in place of any earlier one."""
     checked = await check_git_token(_repository(authorized, row), git_token)
     await store_git_token(db, connector=row, checked=checked, actor_id=actor_id)
     await db.commit()
@@ -40,8 +34,6 @@ async def replace_git_token(
 async def clear_git_token(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, row: KnowledgeSourceConnector, actor_id: str
 ) -> KnowledgeSourceConnector:
-    """Remove the source repository's token (idempotent: nothing set, nothing audited); Git then uses the
-    connection's sign-in again."""
     _repository(authorized, row)
     if await remove_git_token(db, connector=row, actor_id=actor_id):
         await db.commit()

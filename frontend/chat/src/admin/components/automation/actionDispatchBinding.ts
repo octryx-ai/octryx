@@ -1,16 +1,4 @@
-// How an Action is executed: the explicit `dispatch_binding` field. Pure: no requests, no React.
-//
-// Contract: `dispatch_binding` is always one of "task_definition" (the Action runs its own definition: its
-// steps, its Work intake type or its own prompt), "agent_definition" (the Action runs its selected agent
-// directly) or "workflow_run". A create always names it; on update an absent field keeps the stored value;
-// the server validates the full effective state before any write.
-// - A new guided Action always sends "agent_definition".
-// - An existing Action is never converted implicitly: only an explicit opt-in on a guided edit of a
-//   "task_definition" Action sends it. Every other save omits the field, so the stored value is kept.
-// - The text describes the Action's current setting for its next runs. There is no per-run record of
-//   the binding, so it never describes past runs.
-// - "task_definition" says only that the Action's own execution setup is kept. How such an Action is routed
-//   (worker, deterministic local steps, ...) is decided by the backend; this module never re-derives it.
+// An existing Action is never converted implicitly: saves omit dispatch_binding so the stored value is kept.
 
 import type { PanelTaskRow } from "../taskTypes";
 
@@ -32,7 +20,6 @@ export function bindingState(task: PanelTaskRow | null): BindingState {
   return "unknown";
 }
 
-/** The value a guided save sends, or undefined to omit the field (the stored value is kept). */
 export function bindingToSend({
   task,
   convert,
@@ -46,7 +33,6 @@ export function bindingToSend({
     : undefined;
 }
 
-/** Whether a guided edit offers the explicit conversion of an Action without an explicit binding. */
 export function offersConversion(task: PanelTaskRow | null): boolean {
   return bindingState(task) === "existing";
 }
@@ -56,7 +42,6 @@ const DIRECT =
 const EXISTING =
   "Keeps its existing execution setup: it runs as it is configured today. It is not bound to run its agent directly.";
 
-/** The guided form's "How it runs" text for the current setting (a new Action is always direct). */
 export function guidedBindingText(task: PanelTaskRow | null): string {
   if (!task) return DIRECT;
   switch (bindingState(task)) {
@@ -71,7 +56,6 @@ export function guidedBindingText(task: PanelTaskRow | null): string {
   }
 }
 
-/** The card badge for the current setting; nothing when the server does not report it. */
 export function bindingBadge(
   task: PanelTaskRow,
 ): { label: string; title: string } | null {

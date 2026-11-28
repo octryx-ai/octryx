@@ -16,7 +16,6 @@ from .responsible import responsible_view
 from .run_card_parts import model_usage, spec_studio_summary, task_list_view
 from .run_engine import run_engine_routes
 from .run_notices import follow_up_failed, open_findings_view, reviewer_notice
-from .slices.delegate import slice_view, slices_of
 from .teamwork.views import work_view
 
 # The kinds that count as a phase of the run ("Phase n/m"): an agent phase and a Parallel work box, which does a
@@ -29,11 +28,6 @@ def _iso(value: Any) -> str | None:
 
 
 async def run_nodes(db: AsyncSession, run: WorkflowRun, *, user: Any = None) -> list[dict[str, Any]]:
-    """The run's nodes in display order (``id``, ``title``, ``kind``).
-
-    A node compiled from a fragment also carries ``fragment``: ``{key, version, ref}`` for every run reader, plus
-    the pinned ``version_id`` and ``checksum`` for a platform admin. A plain graph's nodes are unchanged.
-    """
     from .fragments.provenance import is_platform_admin, reader_fragment
     from .graph import graph_for_run
 
@@ -111,13 +105,11 @@ async def run_view(db: AsyncSession, run: WorkflowRun, *, access: str, user: Any
 async def _run_state(db: AsyncSession, run: WorkflowRun, *, nodes: list[dict[str, Any]], phases: list[dict[str, Any]],
                      current: dict[str, Any] | None, phase_index: int | None, sessions: Any,
                      projected_state: dict[str, Any], titles: Any, routing_view: Any) -> dict[str, Any]:
-    """The run card's identity, state, position, usage, pause, failure and ownership (through ``routing``)."""
     return {
         "id": run.id,
         "title": run.title,
         "workflow_key": run.workflow_key,
-        # The workflow's current display name from its definition (deriving it from the key showed
-        # "Epic delivery" after the shipped name became "Story / epic delivery").
+        # The workflow's current display name from its definition: a name derived from the key goes stale.
         "workflow_title": (await titles(db, [run])).get(run.id),
         "workflow_kind": run.workflow_kind,
         "workflow_version": run.workflow_version,
@@ -139,63 +131,42 @@ async def _run_state(db: AsyncSession, run: WorkflowRun, *, nodes: list[dict[str
         "waiting": projected_state.get("waiting") if run.status == "waiting" else None,
         "pause": _pause(run),
         "failure": await failure_view(db, run),
-        # Why a person stopped the run (abort / stop): shown on the card and the Work item's run list.
         "stop": stop_view(run),
-        # What this run took over from earlier runs of its Work item, and from which run (succession).
         "adopted": adopted_view(run),
         "work_item": await _work_item(db, run),
-        # Who the run's decisions go to: {user_id, display_name, source} or None.
         "responsible": await responsible_view(db, run),
-        # Routing by type (spec B/C §1): a triage's follow-up ({state, type, workflow_key, run_id, message}) and a
-        # follow-up's origin (``routed_from``); None for other runs.
         "routing": routing_view(run),
     }
 
 
 async def _run_work(db: AsyncSession, run: WorkflowRun, *, target_view: Any, contract_view: Any,
                     pipeline_run_view: Any, hands_on_run_view: Any, publish_prove_view: Any) -> dict[str, Any]:
-    """The run card's work: repository, runtime, pipeline, hands-on test, findings, documentation, slices, engine."""
     return {
         "ticket_key": run.ticket_key,
         "repository": run.repository,
         "branch": run.branch,
-        # Where the run executes (chosen at start, switched by ``change_runtime``) and its folder's preparation.
         "runtime_target": target_view(run),
         "preparation": contract_view(run),
-        # The CI pipeline's state and audit: which commands ran, from which declaration (the repository's environment
-        # file and its hash, or the record), on which commit and tree.
         "pipeline": pipeline_run_view(run),
-        # The hands-on test: the built app used in a browser from the platform's scenarios (state, results).
         "hands_on": hands_on_run_view(run),
         "pull_request": dict(run.pull_request or {}),
-        # on_open_high continue_with_findings: what the run continued with, high first; [] when none.
         "open_findings": open_findings_view(run),
         "spec_studio": spec_studio_summary(run),
         "task_list": task_list_view(run),
-        # B's documentation phase: the published page (URL, version) and whether Knowledge has it.
         "documentation": dict(dict(run.context or {}).get("documentation") or {}) or None,
         "publish_prove": publish_prove_view(run),
         # Exception: the requester is the PR author (the connection's account), so the SCM has them as no reviewer.
         "reviewer_notice": reviewer_notice(run),
-        # The slices the phase delegated to sub-agents (status, iteration, child session, structured result).
-        "slices": [slice_view(item) for item in slices_of(run).values()],
-        # Teamwork: the coordinator's split as it runs (items with role, model, status, iteration, depends_on);
-        # ``None`` before a plan ran, so the parallel box says "split at run time".
         "work": work_view(run),
         # Started by a signed *test* alert: the card and every confirmation say so (no real incident).
         "test_alert": bool(dict(dict(run.context or {}).get("alert") or {}).get("test")),
-        # An imported sample run (deployment/demo/sample-run): the card and the list show a "Sample run" badge.
         "sample": is_sample(run),
-        # The coding engine (claude_code / codex) and route (own_subscription / company_model) the run works on;
-        # None when the run has no device job and no gateway session (``run_engine``).
         **(await run_engine_routes(db, [run.id]))[run.id],
-        # The seat at its usage limit: "on company fallback until <reset>" (``octryx.seat_fallback``); None otherwise.
         "seat_fallback": seat_fallback_view(run),
     }
 
 
 def _latest_gate(run: WorkflowRun) -> dict[str, Any] | None:
-    """The gate or phase result the banner shows: the current node's, else the newest one recorded."""
     from .review.artefact_projection import gate_detail
 
     results = dict(run.gate_results or {})
@@ -214,7 +185,6 @@ def _pause(run: WorkflowRun) -> dict[str, Any] | None:
     detail = str(pause.get("message") or "")
     if not detail and loop is not None:
         detail = f"{loop['title']} reached {loop['used']} of {loop['limit']} iterations."
-    # Who caused it (``pause_causes``), stored at pause time (``limits.pause_run``, ``failure``).
     view = {"reason": str(run.pause_reason or ""), "detail": detail or "The run is paused.", "loop": loop,
             "cause": pause.get("cause"), "cause_rule": pause.get("cause_rule"),
             "code": str(pause.get("code") or "") or None,
@@ -251,16 +221,13 @@ def adopted_view(run: WorkflowRun) -> dict[str, Any]:
 
 
 def is_sample(run: Any) -> bool:
-    """An imported sample run (``backend/scripts/run_bundle.py`` marks it with the bundle in its context)."""
     return bool(dict(run.context or {}).get("sample_bundle"))
 
 
 def run_row(run: WorkflowRun) -> dict[str, Any]:
-    """A compact list row (Observability, Work item)."""
     return {
         "id": run.id, "title": run.title, "workflow_key": run.workflow_key, "workflow_kind": run.workflow_kind,
         "status": run.status, "waiting_kind": run.waiting_kind, "pause_reason": run.pause_reason,
-        # why a waiting run waits, when the wait says more than its kind ("spec_approval": the Spec Studio)
         "waiting_reason": dict(dict(run.node_state or {}).get("waiting") or {}).get("reason")
         if run.status == "waiting" else None,
         "outcome": run.outcome, "current_node_id": run.current_node_id, "work_item_id": run.work_item_id,

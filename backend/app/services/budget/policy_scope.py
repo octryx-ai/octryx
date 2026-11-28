@@ -28,12 +28,6 @@ async def _list_applicable_policies(
     flow_definition_id: str | None = None,
     provider_id: str | None = None,
 ) -> list[BudgetPolicy]:
-    """Return active policies that apply to the given scope dimensions.
-
-    A policy matches when every non-null scope dimension on the policy matches
-    the corresponding call argument.  Global policies (all dimensions null) are
-    excluded — every policy must be scoped to at least one dimension.
-    """
     stmt = select(BudgetPolicy).where(BudgetPolicy.is_active)
     rows = (await db.execute(stmt)).scalars().all()
     applicable: list[BudgetPolicy] = []
@@ -68,7 +62,6 @@ async def _list_applicable_policies(
 
 
 def _policy_window(policy: BudgetPolicy, now: Any = None) -> tuple[Any, Any]:
-    """Return (start, end) UTC datetimes for the policy's reset window at ``now`` (default: the current time)."""
     now = now or utc_now()
     period = (policy.reset_period or RESET_PERIOD_DAILY).lower()
     if period == RESET_PERIOD_DAILY:
@@ -96,22 +89,7 @@ def _policy_window(policy: BudgetPolicy, now: Any = None) -> tuple[Any, Any]:
     return start, end
 
 
-def _period_key(policy: BudgetPolicy) -> str:
-    """Return a string key for the current period (for QuotaUsageForecast)."""
-    now = utc_now()
-    period = (policy.reset_period or RESET_PERIOD_DAILY).lower()
-    if period == RESET_PERIOD_DAILY:
-        return now.strftime("%Y-%m-%d")
-    elif period == RESET_PERIOD_WEEKLY:
-        return now.strftime("%Y-W%W")
-    elif period == RESET_PERIOD_MONTHLY:
-        return now.strftime("%Y-%m")
-    else:
-        return "all"
-
-
 def _get_limits_for_period(policy: BudgetPolicy) -> tuple[Any, Any, Any]:
-    """Return (request_limit, token_limit, cost_limit) for the policy's reset period."""
     period = (policy.reset_period or RESET_PERIOD_DAILY).lower()
     if period == RESET_PERIOD_WEEKLY:
         return policy.weekly_request_limit, policy.weekly_token_limit, policy.weekly_cost_limit

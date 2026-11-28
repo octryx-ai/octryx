@@ -13,7 +13,7 @@ from ..states import STATUS_RUNNING
 from .continuation_marker import _device_target, _parse_time
 from .turn_settings import _with_run_settings
 
-REASON_SEAT_NEEDS_GOVERNED = "content_requires_governed"  # devices.device_policy.REASON_CONTENT_REQUIRES_GOVERNED
+REASON_SEAT_NEEDS_GOVERNED = "content_requires_governed"
 EVENT_PROFILE_GOVERNED = "runtime_profile_governed"
 
 
@@ -36,11 +36,6 @@ SEAT_FALLBACK_REASONS = frozenset(_SEAT_FALLBACK_MESSAGES)
 async def _switch_to_governed(db: AsyncSession, run: WorkflowRun, thread: Session, *, node_id: str,
                               reason: str = REASON_SEAT_NEEDS_GOVERNED, limit: Any = None,
                               engine: str = "") -> dict[str, Any]:
-    """The run and its thread keep device and folder but use the governed profile; one visible event says why.
-
-    ``limit`` (``seat_quota.SeatLimit``): the seat is at its usage limit; the run remembers until when, its turns run
-    on a company model of the seat model's class and the first turn after the reset is the seat's again
-    (``octryx.seat_fallback``)."""
     from ..runtime_target.target import apply_to_thread, stored_target, with_target
     from .seat_fallback import FALLBACK_KEY, remember_fallback
 
@@ -63,7 +58,6 @@ async def _switch_to_governed(db: AsyncSession, run: WorkflowRun, thread: Sessio
 
 
 async def _return_to_seat(db: AsyncSession, run: WorkflowRun, thread: Session, *, node_id: str) -> dict[str, Any]:
-    """The seat's limit has reset: the run and its threads go back to the seat profile; one event says so."""
     from ..runtime_target.target import apply_to_thread, stored_target, with_target
     from .seat_fallback import EVENT_SEAT_RETURNED, clear_fallback
 
@@ -83,15 +77,12 @@ async def _return_to_seat(db: AsyncSession, run: WorkflowRun, thread: Session, *
 async def start_run_turn(db: AsyncSession, run: WorkflowRun, node: PhasedNode, thread: Session,
                          target: dict[str, Any], start: Any, *, suffix: str = "",
                          model: str = "") -> tuple[Any, dict[str, Any]]:
-    """Start one of the run's own device turns with its settings and fallbacks: ``(started or refusal, target)``.
-
-    ``start(target, suffix)`` starts the turn on ``target``. The run's permission mode and the phase's model
-    (``model`` wins: a teamwork item's own model) apply; a seat at its usage limit, a model the Workspace refuses and
-    a seat the content or the Workspace refuses each fall back as for a phase (every
-    item turn goes through the same path as the main thread's)."""
     from ...devices.chat_turn import DeviceTurnStarted
+    from ..runtime_target.seat_required import pause_for_seat, seat_on_pool
     from .seat_fallback import fallback_state, reset_passed
 
+    if seat_on_pool(target):
+        return await pause_for_seat(db, run), target
     company_model = ""  # the same-class company model while the seat is at its limit: it wins over every other
 
     async def settings(target: dict[str, Any]) -> dict[str, Any]:
@@ -100,7 +91,7 @@ async def start_run_turn(db: AsyncSession, run: WorkflowRun, node: PhasedNode, t
         return {**target, "model": chosen} if chosen else target
 
     if target.get("profile") == "governed" and fallback_state(run) is not None and reset_passed(run):
-        # On the company models only because the seat was at its limit, and that limit has reset (decision 3).
+        # On the company models only because the seat was at its limit, and that limit has reset.
         target = await _return_to_seat(db, run, thread, node_id=node.id)
     if target.get("profile") == "seat" and target.get("device_id"):
         from ...devices.seat_quota import seat_limit
@@ -143,10 +134,7 @@ async def start_run_turn(db: AsyncSession, run: WorkflowRun, node: PhasedNode, t
 
 async def _same_class_company_model(db: AsyncSession, run: WorkflowRun, node: PhasedNode, thread: Session,
                                     target: dict[str, Any], settings: Any) -> str | None:
-    """The admitted company alias of the class of the model this turn would run on the seat (decision 2).
-
-    ``""`` when the seat model is unknown (the device's default): the governed profile's own choice.
-    ``None`` when the Workspace admits no company alias of that class: the run must not run on a bigger one."""
+    # None: the Workspace admits no company alias of that class, and the run must not run on a bigger one.
     from .seat_fallback import (
         EVENT_FALLBACK_MODEL,
         admitted_company_aliases,
@@ -172,7 +160,6 @@ async def _same_class_company_model(db: AsyncSession, run: WorkflowRun, node: Ph
 
 async def _pause_without_same_class(db: AsyncSession, run: WorkflowRun, node: PhasedNode, target: dict[str, Any],
                                     settings: Any) -> Any:
-    """No company model of the seat model's class: the run pauses with the seat model and the reset (decision 2)."""
     from ...devices.chat_turn import DeviceTurnRefusal
     from ..limits import pause_run
     from ..states import PAUSE_RUNTIME_FAILED

@@ -1,35 +1,5 @@
-"""AST scan for provider-dispatch sites (structural gate support).
-
-The pinned owner inventory (``app/services/model_gateway/dispatch_owners.py``) is
-only worth something if a new dispatch consumer cannot appear without being
-registered. The first version of that gate matched lines with a regular
-expression, so it was only "a gate, not a proof":
-a multi-line call, a client handed to a helper, or a ``driver=`` keyword built
-from a constant all slipped through.
-
-This module parses each source file instead and reports four things per module:
-
-``client_construction``
-    A call to a provider-client factory — a name imported from
-    ``agent.providers``, or a parameter the module receives as its factory (the
-    injected ``provider_factory`` / ``get_provider_func`` shape used across this
-    codebase). Constructing the client is the governed act, so this catches an
-    owner that builds a client and lets a *different* module dispatch it.
-``gateway_construction``
-    Such a call carrying ``driver=`` resolved to the governed gateway, whether
-    written as a string literal or as the ``LITELLM_GATEWAY_DRIVER`` constant, plus
-    any direct ``LiteLLMGatewayClient(...)``.
-``chat_dispatch``
-    Any ``<expr>.chat(...)`` call, however the receiver was spelled or wrapped,
-    and any bare ``<expr>.chat`` reference handed elsewhere as a callable.
-``factory_handoff``
-    A factory name passed *as an argument* to another call. Such a module builds
-    nothing itself; it is transport into an owner that does.
-
-A ``chat`` method definition, a comment and a docstring are not dispatch sites,
-which the mutation controls in ``test_dispatch_owner_inventory.py`` pin from both
-directions.
-"""
+"""AST scan for provider-dispatch sites: client and gateway construction, ``.chat`` dispatch and factory hand-offs per
+module, so a new dispatch consumer cannot appear without being registered."""
 
 from __future__ import annotations
 
@@ -81,8 +51,6 @@ class _DispatchVisitor(ast.NodeVisitor):
         self.sites: list[DispatchSite] = []
         self.factory_names: set[str] = set()
 
-    # --- name resolution ----------------------------------------------------
-
     def collect_imported_names(self, node: ast.ImportFrom) -> None:
         if _import_is_provider_package(node):
             for alias in node.names:
@@ -97,8 +65,6 @@ class _DispatchVisitor(ast.NodeVisitor):
         for arg in [*args.posonlyargs, *args.args, *args.kwonlyargs]:
             if arg.arg in _INJECTED_FACTORY_PARAMETERS:
                 self.factory_names.add(arg.arg)
-
-    # --- dispatch sites -----------------------------------------------------
 
     def _is_factory_reference(self, node: ast.expr) -> bool:
         if isinstance(node, ast.Name):
@@ -157,8 +123,6 @@ class _DispatchVisitor(ast.NodeVisitor):
 
 
 def scan_source(source: str, *, module: str) -> tuple[DispatchSite, ...]:
-    """Every dispatch site in one module's source, in source order."""
-
     visitor = _DispatchVisitor(module)
     tree = ast.parse(source)
     # Imports and factory parameters must be known before the calls that use them
@@ -179,8 +143,6 @@ def _relative(path: Path) -> str:
 
 @lru_cache(maxsize=1)
 def scan_app() -> tuple[DispatchSite, ...]:
-    """Scan every module under ``app/`` once per session."""
-
     sites: list[DispatchSite] = []
     for path in sorted(APP_ROOT.rglob("*.py")):
         if not path.is_file():
@@ -190,8 +152,6 @@ def scan_app() -> tuple[DispatchSite, ...]:
 
 
 def modules_with_kinds(*kinds: str, exclude_prefixes: tuple[str, ...] = ()) -> dict[str, DispatchSite]:
-    """First site per module for the given kinds, outside the excluded prefixes."""
-
     found: dict[str, DispatchSite] = {}
     for site in scan_app():
         if site.kind not in kinds or site.module in found:

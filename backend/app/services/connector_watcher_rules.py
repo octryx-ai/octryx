@@ -37,11 +37,7 @@ async def list_connector_watcher_rules(
     project_id: str | None = None,
     include_inactive: bool = False,
 ) -> list[dict[str, Any]]:
-    """The rules of ``scope`` (``connector_watcher_scope``); the caller has checked a named ``project_id``."""
-    stmt = select(ConnectorWatcherRule)
-    condition = scope_filter(ConnectorWatcherRule.project_id, scope, project_id)
-    if condition is not None:
-        stmt = stmt.where(condition)
+    stmt = select(ConnectorWatcherRule).where(scope_filter(ConnectorWatcherRule.project_id, scope, project_id))
     if not include_inactive:
         stmt = stmt.where(ConnectorWatcherRule.is_active.is_(True))
     rows = (
@@ -69,6 +65,7 @@ async def create_connector_watcher_rule(
             "connector_watcher_rule",
             rule.id,
             {"name": rule.name},
+        project_id=rule.project_id,
         )
     )
     await db.flush()
@@ -95,6 +92,7 @@ async def update_connector_watcher_rule(
             "connector_watcher_rule",
             rule.id,
             {"name": rule.name},
+        project_id=rule.project_id,
         )
     )
     await db.flush()
@@ -169,6 +167,7 @@ async def evaluate_connector_watcher_rules_for_event(
                 "connector_watcher_event",
                 event.id,
                 row.audit_json,
+            project_id=watcher.project_id,
             )
         )
         decisions.append(row)
@@ -191,10 +190,8 @@ async def list_connector_watcher_rule_decisions(
     rule_id: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
-    stmt = select(ConnectorWatcherRuleDecision)
-    condition = scope_filter(ConnectorWatcherRuleDecision.project_id, scope, None)
-    if condition is not None:
-        stmt = stmt.where(condition)
+    decision = ConnectorWatcherRuleDecision
+    stmt = select(decision).where(scope_filter(decision.project_id, scope, None))
     if event_id:
         stmt = stmt.where(ConnectorWatcherRuleDecision.event_id == event_id)
     if rule_id:
@@ -237,5 +234,5 @@ async def _normalized_rule_payload(
 
 
 async def _get_rule(db: AsyncSession, rule_id: str, *, scope: WatcherScope) -> ConnectorWatcherRule:
-    """The rule, when it exists in ``scope``; a foreign one is the 404 of a missing one."""
+    # A foreign rule answers like a missing one (404).
     return require_record(await db.get(ConnectorWatcherRule, rule_id), scope, "Connector watcher rule not found")

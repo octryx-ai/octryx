@@ -17,8 +17,6 @@ from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import admin_user
 from tests.workflow_run_runtime_evidence_support import ROOT, _device_session, _rows
 
-# --- recorded through the real writers ----------------------------------------------------------------------------
-
 
 async def _inner_call(db, gateway, command: str, tool_use_id: str) -> None:
     await record_tool_execution(db, session=gateway, hook_input={
@@ -56,7 +54,7 @@ async def test_a_codex_session_records_the_inner_call_and_it_counts(db):
 async def test_a_claude_code_session_records_and_judges_exactly_as_before(db):
     admin = await admin_user(db)
     gateway, _key = await _device_session(db, admin, await seed_workspace(db))
-    await _inner_call(db, gateway, "cat textkit/core.py", f"exec-{uuid.uuid4()}")  # an exec-like id
+    await _inner_call(db, gateway, "cat textkit/core.py", f"exec-{uuid.uuid4()}")
     await _gateway_exec(db, gateway, 'text(await tools.exec_command({cmd:"cat textkit/core.py"}))')
     rows = await _rows(db, gateway)
     hook = next(row for row in rows if str(row.request_id).startswith("exec-"))
@@ -66,7 +64,6 @@ async def test_a_claude_code_session_records_and_judges_exactly_as_before(db):
 
 
 def test_a_codex_exec_script_is_kept_whole_and_redacted_other_inputs_stay_bounded():
-    """A cut exec script makes the model repeat work, so the whole script is kept (64K)."""
     from app.services.model_gateway.inbound.transcript_tools import (
         MAX_TOOL_STRING_CHARS,
         bounded_tool_input,

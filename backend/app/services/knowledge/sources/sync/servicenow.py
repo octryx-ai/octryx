@@ -1,35 +1,4 @@
-"""ServiceNow knowledge articles and records, on the Source Sync contract.
-
-**Listing.** One target after another through the Table API (``GET /api/now/table/<table>``):
-
-- ``kb_knowledge`` for the configured knowledge bases, when any are configured;
-- each configured record table.
-
-Each target is paged by ``sysparm_offset`` in a fixed order (``servicenow_scope.py``), and the
-token is ``"<target index>:<offset>"``. Headers are listed with raw values
-(``sysparm_display_value=false``). The external id is the ``sys_id``, and the version marker is
-``<sys_mod_count>@<sys_updated_on>``. The deep link opens the record in the instance
-(``kb_view.do?sys_kb_id=`` for an article, ``<table>.do?sys_id=`` for a record).
-
-**ACL.** The audience of the scope is whoever can read the configured knowledge bases or tables.
-
-- **Article.** An article is readable by that whole audience only when its own ``Can read`` and
-  ``Cannot read`` user criteria (and legacy ``roles``) are empty. Otherwise it is restricted, and
-  its user criteria are kept in the facet. If either criteria field is missing from the response,
-  the ACL is ``unknown``, so the article is never ingested on a guess.
-- **Record.** A record outside the ``global`` domain (domain separation) is restricted. A record
-  whose ``sys_domain`` is missing is ``unknown``.
-
-**Record limit.** With the connector's ``servicenow_assignment_groups``/``servicenow_services``
-(``services/servicenow_record_limit.py``) a record target ANDs the limit's condition to its query and lists the
-limited fields (``assignment_group``, ``business_service`` and their ``.name``) so every record is re-checked; a
-record outside the limit, or without the field, is not listed. Articles have neither field.
-
-**Content.** Fetched per changed item, with display values (``servicenow_render.py``). Articles
-are HTML, through the Docling sandbox, so a connector with knowledge bases requires the parser.
-Records are Markdown, ingested in-process. The connector only reads: it has no code path that
-writes to ServiceNow.
-"""
+"""ServiceNow knowledge articles and records, on the Source Sync contract."""
 
 from __future__ import annotations
 
@@ -76,7 +45,6 @@ def _parse_token(token: str | None) -> tuple[int, int]:
 
 
 def _ids(value: object) -> tuple[str, ...] | None:
-    """A glide-list of ``sys_id``s: ``()`` when empty, ``None`` when missing or of an unknown shape."""
     if value is None or not isinstance(value, str):
         return None
     return tuple(part.strip() for part in value.split(",") if part.strip())

@@ -1,6 +1,5 @@
-"""A bug's fix phase on a Flutter app in a subfolder: a piped green Dart run
-counts, the system test rule never asks a phase that may not write tests, and the system test folder and the
-change's files compare from the app folder."""
+"""A bug's fix phase on a Flutter app in a subfolder: a piped green Dart run counts, the system test rule never asks a
+phase that may not write tests, and system test folder and changed files compare from the app folder."""
 
 from app.services.workflow_runs.octryx.declared_commands import run_green
 from app.services.workflow_runs.octryx.system_tests import phase_system_tests, system_folder, uncovered_change
@@ -33,7 +32,6 @@ def test_the_system_test_folder_and_the_change_compare_from_the_app_folder():
 
 
 def test_a_phase_that_writes_only_tests_is_never_asked_for_a_green_system_test_run():
-    """In the reproduce phase the bug is present by design, the phase writes tests only."""
     environment = {"system_test": SYSTEM, "app_folder": APP}
     reproduce = ["tests/**", "test/**", "**/tests/**", "**/test/**", "**/test_*", "**/*_test.*", "**/*_spec.*"]
     assert phase_system_tests("change", environment, write=reproduce) is None
@@ -41,7 +39,6 @@ def test_a_phase_that_writes_only_tests_is_never_asked_for_a_green_system_test_r
 
 
 def test_a_phase_that_writes_only_tests_is_not_held_by_the_full_suite_rule():
-    """In the reproduce phase its confirmed tests fail on the bug by design."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.octryx.declared_suite import declared_suite_result

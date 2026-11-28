@@ -55,7 +55,6 @@ def _validate_redirect_uri(uri: str) -> str:
 
 
 def _without_loopback_port(uri: str) -> str | None:
-    """Remove only the port, retaining every other raw URI component (RFC 8252)."""
     parsed = urlsplit(uri)
     if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "::1"}:
         return None

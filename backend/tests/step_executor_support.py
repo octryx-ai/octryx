@@ -1,8 +1,4 @@
-"""Tests for the generic StepExecutor.
-
-All external I/O (DB, run_agent, execute_tool) is mocked so the tests run
-without a live database or LLM.
-"""
+"""Tests for the generic StepExecutor."""
 
 from __future__ import annotations
 
@@ -11,13 +7,8 @@ import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
-# ---------------------------------------------------------------------------
-# Helpers / Fixtures
-# ---------------------------------------------------------------------------
-
 
 def make_step(**kwargs) -> SimpleNamespace:
-    """Create a minimal TaskStep-like namespace."""
     defaults = dict(
         id=str(uuid.uuid4()),
         position=1,
@@ -41,7 +32,6 @@ def make_step(**kwargs) -> SimpleNamespace:
     )
     defaults.update(kwargs)
     ns = SimpleNamespace(**defaults)
-    # Replicate model properties
     ns.connector_params = json.loads(ns.connector_params_json)
     ns.runtime_selector = json.loads(ns.runtime_selector_json)
     ns.context_fields = json.loads(ns.context_fields_json)
@@ -78,7 +68,6 @@ def make_task_run(**kwargs) -> SimpleNamespace:
 
 
 def make_scheduler(**kwargs) -> MagicMock:
-    """Return a mock TaskScheduler with _run_agent_for_task stubbed."""
     sched = MagicMock()
     fake_session = SimpleNamespace(id=str(uuid.uuid4()))
     fake_result = {"response": "✅ done", "session_id": fake_session.id}

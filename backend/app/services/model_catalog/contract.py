@@ -44,8 +44,6 @@ MAX_TEMPERATURE = 2.0
 
 
 class ModelCatalogError(ValueError):
-    """A refused catalog change; ``code`` is fixed, ``status`` the HTTP status the route answers with."""
-
     def __init__(self, code: str, status: int = 422, detail: str = "") -> None:
         super().__init__(code)
         self.code = code
@@ -54,8 +52,6 @@ class ModelCatalogError(ValueError):
 
 
 def capabilities_of(model: Any) -> dict[str, bool]:
-    """The explicit capabilities of a row; without ``capabilities_json`` (provider sync, admin create and local
-    bootstrap insert rows without it) tools and vision come from the ``supports_*`` flags."""
     stored = model.capabilities_json if isinstance(model.capabilities_json, dict) else None
     if stored is None:
         return {

@@ -1,10 +1,4 @@
-"""Which layout shape can hold a planned slide — capacity only, never names.
-
-Shared by the AWS and the generic deck planners: a slide draft states how many
-content units, pictures, titles and subtitles it needs, and these helpers pick
-the first preferred ``content_shape`` some layout of the template can really
-carry, then the layout of that shape whose demonstrated usage fits best.
-"""
+"""Which layout shape can hold a planned slide — capacity only, never names."""
 
 from __future__ import annotations
 
@@ -59,20 +53,6 @@ def _pick_shape(
     title: bool,
     subtitle: bool,
 ) -> str:
-    """First preferred shape whose layouts can really hold the slide.
-
-    An exact capacity match wins over a merely sufficient one: a layout with a
-    body slot this slide has nothing sourced for would leave that slot empty,
-    which the slide gate rightly reports as ``empty_required_slot``. The planner
-    does not fill it with prose to make the layout look used — it picks the
-    layout the evidence actually fills.
-
-    The cover (``title_slide`` preferred first) never falls to a divider while
-    a title layout can hold it: exact title layouts first, then a title layout
-    whose optional strapline stays empty, and only then the rest. Many title
-    layouts carry such a third line; exactness alone would put the cover on a
-    section header in a template without a plain title-and-subtitle layout.
-    """
     fitting = _fitting_layouts(template_snapshot, units, pictures, title, subtitle)
     if preference[:1] == ("title_slide",):
         exact_titles = {text(layout.get("content_shape")) for layout in fitting
@@ -96,7 +76,6 @@ def _pick_shape(
 
 
 def _text_volume(draft: SlideDraft) -> tuple[int, int]:
-    """(lines, characters) this slide will put into the template's text slots."""
     pieces = [draft.title, draft.subtitle]
     pieces.extend(block.heading for block in draft.blocks)
     pieces.extend(bullet.text for bullet in draft.all_bullets())
@@ -107,16 +86,6 @@ def _text_volume(draft: SlideDraft) -> tuple[int, int]:
 def _pick_layout_key(
     template_snapshot: dict[str, Any], draft: SlideDraft, shape: str
 ) -> str:
-    """The layout of this shape whose *demonstrated* usage fits the content.
-
-    The template's own sample slides record how much text each layout normally
-    carries; among several layouts of the same shape the closest match wins.
-
-    Deliberately skipped for slides carrying a picture: naming a ``layout_key``
-    bypasses the composer's full-bleed protection, and no amount of usage
-    evidence is worth losing the logo over. Those slides keep the composer's
-    capacity ranking.
-    """
     if not shape or draft.images:
         return ""
     if shape == "section":
@@ -141,15 +110,6 @@ def _pick_layout_key(
 def place_title_date(
     draft: SlideDraft, template_snapshot: dict[str, Any], shapes: tuple[str, ...]
 ) -> None:
-    """Keep the title slide on a title layout, wherever its date line has to go.
-
-    The date travels as the draft's one body line. A title layout that offers a
-    third text slot (a strapline under title and subtitle) carries it there.
-    Most templates — the editor defaults among them — offer title and subtitle
-    only; a third line would push the slide onto a title-and-content layout and
-    turn its subtitle into a marker. There the date joins the subtitle line
-    instead, and its source is kept in the notes.
-    """
     dated = [bullet for bullet in draft.bullets if bullet.key == "as_of"]
     if not dated:
         return

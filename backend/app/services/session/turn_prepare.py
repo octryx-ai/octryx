@@ -1,20 +1,4 @@
-"""Prepare one turn inside a database session: the single preparation owner of both entry paths.
-
-:func:`prepare_turn_in_session` decides, in this order, and refuses with ``TurnRefusedError``:
-
-1. the prompt (``prompt_required``), the runtime the caller named (``runtime_target_invalid``);
-2. the session: the caller's own or a new one (``/chat/api``), or the existing writable one
-   (``/api/v1``: ``session_not_found`` / ``session_access_denied``); the Workspace scope
-   (``project_*``);
-3. routing and execution strategy (``turn_routing_resolution``), the Workspace execution view
-   and project membership (``project_not_found``, the same as an unknown Workspace), the runtime
-   (``turn_runtime_selection``, ``runtime_not_allowed``) and the agent (``turn_agent_selection``, ``agent_*``);
-4. the execution profile, always built, and the session record (``turn_session_record``:
-   ``session_archived``, ``turn_already_running``, ``duplicate_text``), committed with the turn
-   marker.
-
-Locking, the SQLite retry and the workflow proposal before the lock are ``turn_start``'s.
-"""
+"""Prepare one turn inside a database session: the one preparation of both entry paths."""
 
 from __future__ import annotations
 
@@ -26,8 +10,6 @@ from ..clarification_service import answer_open_clarification_with_reply
 from ..execution_profile_service import build_execution_profile
 from ..platform_agents.catalog import agent_mode_of
 from ..policy_lists.live import refresh_live_policy_lists
-from ..workflow_routing.proposal_prefetch import PrecomputedWorkflowProposal
-from .turn_agent_admission import confirm_direct_agent_skip
 from .turn_agent_selection import select_turn_agent
 from .turn_preparation import resolve_thinking_level
 from .turn_project_scope import (
@@ -52,7 +34,6 @@ async def prepare_turn_in_session(
     *,
     user: User,
     request: TurnRequest,
-    precomputed_proposal: PrecomputedWorkflowProposal | None = None,
 ) -> PreparedTurn:
     clean_prompt = str(request.prompt or "").strip()
     if not clean_prompt:
@@ -86,7 +67,6 @@ async def prepare_turn_in_session(
         agent_id=request.agent_id,
         # An agent brings no default workflow; the request's explicit key is the only one.
         workflow_key=request.workflow_key.strip(),
-        precomputed_proposal=precomputed_proposal,
         platform_workflow_service=request.platform_workflow_service,
         workflow_decisions=request.workflow_decisions,
     )
@@ -106,8 +86,6 @@ async def prepare_turn_in_session(
         workspace_execution_view=view,
         project_id=effective_project_id or None,
     )
-    # A proposal skipped for a direct agent stays skipped only for that same agent.
-    confirm_direct_agent_skip(routing.policy_resolution, precomputed_proposal, agent)
     if agent.resolution is not None:
         if not request.project_id_explicit and not project_id and agent.resolution.project_id:
             project_id = agent.resolution.project_id

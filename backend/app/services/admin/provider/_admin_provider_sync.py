@@ -1,8 +1,4 @@
-"""Catalog writes and audit records of a provider model sync.
-
-The provider client itself is built and closed by ``admin_provider_service``, the
-registered dispatch owner; this module only handles what the client returned.
-"""
+"""Catalog writes and audit records of a provider model sync."""
 
 from __future__ import annotations
 
@@ -13,7 +9,6 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....agent.providers import infer_provider_runtime
 from ....models import LLMModel, LLMProvider
 from ....time_utils import utc_now
 from ...model_catalog.sync import flag_vanished_models
@@ -21,7 +16,6 @@ from ...model_gateway.cost_contract_pricing import (
     apply_model_pricing_update,
     resolve_model_pricing_update,
 )
-from ...provider.bedrock_pricing import sync_bedrock_model_pricing
 from ...provider.model_sync import (
     apply_model_sync_provider_metadata,
     model_sync_failure_payload,
@@ -153,6 +147,7 @@ async def record_sync_failure(
         action="admin.provider.models_synced",
         resource_type="provider_models",
         resource_id=provider.id,
+        project_id=None,
         before=_model_inventory_audit_snapshot(list(before_models)),
         after=_model_inventory_audit_snapshot(list(all_models)),
         details={
@@ -200,16 +195,9 @@ async def finish_model_sync(
     supports_model_sync: bool,
     actor_user_id: str | None,
 ) -> dict[str, Any]:
-    pricing_result: dict[str, Any] | None = None
-    if tally.models_seen > 0 and (
-        infer_provider_runtime(driver=provider.driver)["driver"] == "bedrock_api"
-    ):
-        pricing_result = await sync_bedrock_model_pricing(db)
     all_models = await _provider_models(db, provider)
     result = _sync_result(tally, all_models=all_models, supports_model_sync=supports_model_sync)
     capability_warnings = tally.capability_warnings
-    if pricing_result is not None:
-        result["pricing"] = pricing_result
     if capability_warnings:
         result["capability_warnings"] = capability_warnings  # the probe disagrees with the declaration: shown, kept
     apply_model_sync_provider_metadata(provider, result, checked_at=utc_now())
@@ -219,6 +207,7 @@ async def finish_model_sync(
         action="admin.provider.models_synced",
         resource_type="provider_models",
         resource_id=provider.id,
+        project_id=None,
         before=_model_inventory_audit_snapshot(list(before_models)),
         after=_model_inventory_audit_snapshot(list(all_models)),
         details={
@@ -231,7 +220,6 @@ async def finish_model_sync(
             "cache_state": result.get("cache_state"),
             "reason": result.get("reason"),
             "provider_supports_model_sync": supports_model_sync,
-            "pricing_synced": pricing_result is not None,
             **({"capability_warnings": capability_warnings} if capability_warnings else {}),
         },
     )

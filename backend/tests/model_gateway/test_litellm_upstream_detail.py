@@ -1,8 +1,4 @@
-"""The sanitized upstream cause of a failed gateway request.
-
-The fixed error message stays fixed; the short ``safe_detail`` names the gateway state, the HTTP status and the
-upstream's own error sentence, with every key, token and credential removed.
-"""
+"""The sanitized upstream cause of a failed gateway request."""
 
 from __future__ import annotations
 
@@ -18,7 +14,7 @@ from app.services.model_gateway.litellm.upstream_detail import (
 )
 from tests.model_gateway.conftest import ALIAS, MESSAGES, VIRTUAL_KEY, FakeLiteLLMGateway
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 AWS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
@@ -49,7 +45,7 @@ async def test_a_rejected_request_carries_the_upstream_sentence_but_no_key(build
     for leak in LEAKS:
         assert leak not in error.safe_detail
     assert len(error.safe_detail) <= MAX_DETAIL_CHARS + 40  # the closed head plus the bounded upstream text
-    assert "temperature" not in str(error)  # the message itself stays the fixed constant
+    assert "temperature" not in str(error)
 
 
 async def test_a_body_without_an_error_sentence_still_names_state_and_status(build_gateway_client) -> None:

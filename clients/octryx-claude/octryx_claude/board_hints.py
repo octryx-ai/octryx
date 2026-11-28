@@ -1,12 +1,4 @@
-"""Agent board hints in the hooks (S4): the handoff nudge and the takeover-decision guard.
-
-- **Handoff nudge:** the verification answer lists ``handoff_nudges`` (``[{work_item_key, marker}]``) for the
-  session's claims whose handoff is missing or behind. The Stop hook blocks with one line, "Update the handoff
-  for BRD-x with work_item_handoff_write before stopping.", only for markers it has not nudged for yet; the
-  markers are kept in the session state, so each change nudges once and the next stop goes through (no loop).
-- **Decision guard:** a takeover is confirmed or declined by a person in the Octryx UI (root D1), never
-  by the agent. PreToolUse denies any Bash command that calls a takeover decision endpoint.
-"""
+"""Agent board hints in the hooks: the handoff nudge and the takeover-decision guard."""
 
 from __future__ import annotations
 
@@ -26,10 +18,7 @@ DECISION_DENY_REASON = (
 
 
 def handoff_nudges(result: PlatformResult) -> list[tuple[str, str, str]]:
-    """``[(work item key, marker, kind)]`` from the verification answer; malformed entries are ignored.
-
-    ``kind`` is ``update`` (this session's handoff is behind) or ``offer`` (judge-s4 F1: the item is offered to this
-    agent; only its own ``work_item_takeover_request`` can take it over)."""
+    # kind 'offer': only the agent's own work_item_takeover_request can take the item over.
     raw = result.body.get("handoff_nudges") if result.outcome == "ok" else None
     found = []
     for entry in raw if isinstance(raw, list) else []:
@@ -54,7 +43,6 @@ def offer_line(keys: list[str]) -> str:
 def with_handoff_nudge(
     output: dict[str, Any] | None, result: PlatformResult, *, nudged: list[str]
 ) -> tuple[dict[str, Any] | None, list[str]]:
-    """Block once per new marker; returns ``(output, remembered markers)``. An existing block gets the line."""
     fresh = [(key, marker, kind) for key, marker, kind in handoff_nudges(result) if marker not in nudged]
     if not fresh:
         return output, nudged

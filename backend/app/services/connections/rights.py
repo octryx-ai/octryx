@@ -1,12 +1,4 @@
-"""Who may see and change which connection: the rules every connections endpoint applies.
-
-- A **platform admin** sees and changes every connection.
-- A **Workspace admin** (role ``admin`` or ``owner`` in a Workspace) sees the connections available in or owned by
-  their Workspaces, read-only for platform-owned ones (``can_edit`` false). They create connections only with
-  ``available_in = selected`` on their own Workspaces, owned by one of them, and change only those.
-- Anyone else gets 403 on the admin endpoints. On a Workspace's endpoints members read; its admins (and platform
-  admins) set and reset that Workspace's deviation.
-"""
+"""Who may see and change which connection: the rules every connections endpoint applies."""
 
 from __future__ import annotations
 
@@ -51,7 +43,6 @@ class Viewer:
 
 
 async def admin_viewer(db: AsyncSession, user: User) -> Viewer:
-    """The caller of an admin endpoint: a platform admin or the admin of at least one Workspace; else 403."""
     if await is_global_admin(db, user.id):
         return Viewer(user_id=user.id, platform_admin=True, admin_workspaces=frozenset())
     from ..project.service import get_project_access_details
@@ -64,7 +55,6 @@ async def admin_viewer(db: AsyncSession, user: User) -> Viewer:
 
 
 async def workspace_viewer(db: AsyncSession, user: User, workspace_id: str) -> tuple[Viewer, str]:
-    """``(viewer, role)`` for a Workspace's endpoints; 403 when the caller is no member."""
     role = await get_project_role_for_user(db, user.id, workspace_id)
     if role is None:
         raise refusal(403, CODE_WORKSPACE_ADMIN_REQUIRED, "Only members of this Workspace see its connections.")

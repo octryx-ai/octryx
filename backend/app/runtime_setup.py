@@ -7,6 +7,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.services.worker_pool.scaling import WorkerPoolAutoscaler
 
 from .bootstrap import seed_database
@@ -27,11 +29,13 @@ from .services.channel_config.runtime_sync import ChannelReconciler
 from .services.channel_router_runtime import channel_message_router
 from .services.connector_health import ConnectorHealthWorker
 from .services.connector_test_service import run_connector_connection_test
+from .services.data_access import platform_maintenance
 from .services.decisions.flusher import decision_flusher
 from .services.durable_process_runtime import configure_durable_process_runtime
 from .services.inbound_alerts.change_poller import ChangeSourcePollWorker
 from .services.interactive_python import interactive_python_manager
 from .services.knowledge.projection.worker import KnowledgeProjectionWorker
+from .services.knowledge.retention.scheduled import KnowledgeRetentionReconcileWorker
 from .services.knowledge.sources.sync.scheduler import KnowledgeSourceSyncScheduler
 from .services.lsp import lsp_manager
 from .services.mobile.push import MobilePushSweeper
@@ -41,7 +45,6 @@ from .services.observability.health_checks import evaluate_platform_health_summa
 from .services.outbound_webhook import OutboundWebhookWorker
 from .services.persistent_process_runtime import configure_persistent_process_runtime
 from .services.pr_review_bot.worker import PrReviewSyncWorker
-from .services.prefetch import prefetch_worker
 from .services.privacy import RetentionWorker
 from .services.problems.alerts import ProblemAlertWorker
 from .services.pty import pty_manager
@@ -61,6 +64,15 @@ from .services.workflow_runs.sweep import WorkflowRunSweepWorker
 from .services.workflow_runs.watch import WatchPollWorker
 
 logger = logging.getLogger(__name__)
+STARTUP_REASON = "startup: seeding and init_db"
+WORKERS_REASON = "platform background workers: queues, schedules, sweeps and pollers of every Workspace"
+
+
+async def _seed_as_platform(db) -> None:
+    async with platform_maintenance(STARTUP_REASON):
+        await seed_database(db)
+
+
 STATIC_DIR = (Path(__file__).parent / "web" / "static").resolve()
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CHAT_FRONTEND_DIR = (REPO_ROOT / "frontend" / "chat").resolve()
@@ -124,10 +136,19 @@ def ensure_chat_frontend_built() -> None:
 HEALTH_LOOP_SECONDS = 30.0
 
 
+async def _register_bundled_litellm(db: AsyncSession) -> None:
+    # A LiteLLM that is not up yet never stops the start; the next start registers it.
+    from .services.model_gateway.bundled_litellm import register_bundled_provider
+
+    try:
+        await register_bundled_provider(db)
+    except Exception:
+        await db.rollback()
+        logger.exception("The bundled LiteLLM provider could not be registered")
+
+
 @dataclass(slots=True)
 class PlatformRuntime:
-    """Owns background worker lifecycle and runtime health/metrics wiring."""
-
     async_session_factory: object
     task_scheduler: TaskScheduler
     retention_worker: RetentionWorker
@@ -149,6 +170,8 @@ class PlatformRuntime:
     knowledge_source_sync_scheduler: KnowledgeSourceSyncScheduler | None = None
     # Expires stale pending approvals; idle when approval_pending_ttl_hours is 0.
     stale_approval_expiry_worker: StaleApprovalExpiryWorker | None = None
+    # Reconciles every Workspace with a knowledge retention policy (report-only), daily by default.
+    knowledge_retention_reconcile_worker: KnowledgeRetentionReconcileWorker | None = None
     # Reminds and times out waiting workflow-run nodes.
     workflow_run_sweep_worker: WorkflowRunSweepWorker | None = None
     # The poll fallback of watched external states (PR, CI, Jira) every 5 minutes.
@@ -178,16 +201,16 @@ class PlatformRuntime:
 
     async def startup(self) -> None:
         ensure_chat_frontend_built()
-        workers_enabled = background_workers_enabled()
-        projection_enabled = knowledge_projection_enabled()
+        # The schema comes first: the maintenance audit row needs its table.
+        await ensure_runtime_database_ready(self.async_session_factory, seed_database=_seed_as_platform)
+        async with platform_maintenance(STARTUP_REASON):
+            await self._prepare_database()
+        async with platform_maintenance(WORKERS_REASON):
+            await self._start_workers()
 
-        await ensure_runtime_database_ready(self.async_session_factory, seed_database=seed_database)
-        await self.runtime_ownership_worker.start()
-        if self.remote_stop_watcher is not None:
-            await self.remote_stop_watcher.start()
-        decision_flusher.start()
+    async def _prepare_database(self) -> None:
         async with self.async_session_factory() as db:
-            if workers_enabled:
+            if background_workers_enabled():
                 refreshed_workers = await refresh_all_workers_on_startup(db)
                 logger.info("Worker startup refresh completed", extra={"workers_refreshed": refreshed_workers})
             # Reset circuit breakers on startup so stale errors from previous
@@ -206,19 +229,25 @@ class PlatformRuntime:
                 logger.info("Circuit breakers reset on startup")
             except Exception:
                 pass
-
+            await _register_bundled_litellm(db)
         await self._sync_image_plugins()
+
+    async def _start_workers(self) -> None:
+        workers_enabled = background_workers_enabled()
+        await self.runtime_ownership_worker.start()
+        if self.remote_stop_watcher is not None:
+            await self.remote_stop_watcher.start()
+        decision_flusher.start()
         await self._initialize_channels()
 
         if workers_enabled:
             self._background_workers_started = True
-            await self._start_background_workers(knowledge_projection_enabled=projection_enabled)
+            await self._start_background_workers(knowledge_projection_enabled=knowledge_projection_enabled())
             if self.mobile_push_sweeper is not None:
                 await self.mobile_push_sweeper.start()
             self._health_loop_task = asyncio.create_task(self._health_loop(), name="platform-health-loop")
 
     async def _sync_image_plugins(self) -> None:
-        """Plugins from the image's plugin folder (``services/plugins/image``); a plugin never stops the start."""
         from .runtime_toggles import SKIP_IMAGE_PLUGINS_ENV, env_flag
         from .services.plugins.image import sync_image_plugins
 
@@ -230,8 +259,6 @@ class PlatformRuntime:
             logger.exception("Image plugins could not be synced")
 
     async def _health_loop(self) -> None:
-        """The health checks every ``HEALTH_LOOP_SECONDS``: ``/metrics`` shows their newest result and never runs
-        them itself (metrics never go through the database)."""
         while True:
             try:
                 await self.health_checks(app_version="")
@@ -274,7 +301,6 @@ class PlatformRuntime:
             outbound_webhook_worker=self.outbound_webhook_worker,
             connector_health_worker=self.connector_health_worker,
             analytics_worker=self.analytics_worker,
-            prefetch_worker=prefetch_worker,
             worker_monitor_worker=self.worker_monitor_worker,
             worker_agenda_worker=self.worker_agenda_worker,
             worker_report_worker=self.worker_report_worker,
@@ -301,7 +327,6 @@ class PlatformRuntime:
             outbound_webhook_worker=self.outbound_webhook_worker,
             connector_health_worker=self.connector_health_worker,
             analytics_worker=self.analytics_worker,
-            prefetch_worker=prefetch_worker,
             worker_monitor_worker=self.worker_monitor_worker,
             worker_agenda_worker=self.worker_agenda_worker,
             worker_report_worker=self.worker_report_worker,
@@ -313,12 +338,6 @@ class PlatformRuntime:
         )
 
     async def _initialize_channels(self) -> None:
-        """Load the enabled channels in every process, then keep them in line with the stored rows.
-
-        Inbound polling (IMAP, Telegram, Matrix) runs only where the background workers run; an API
-        process of a split deployment loads those plugins for sending and runs webhook-driven ones
-        (Slack, Teams) fully, with the router that turns their inbound messages into turns.
-        """
         if self.channel_reconciler is None:
             self.channel_reconciler = ChannelReconciler(self.async_session_factory)
         await self.channel_reconciler.reconcile_once()
@@ -348,6 +367,8 @@ class PlatformRuntime:
             self._source_sync_scheduler_started = True
         if self.stale_approval_expiry_worker is not None:
             await self.stale_approval_expiry_worker.start()
+        if self.knowledge_retention_reconcile_worker is not None:
+            await self.knowledge_retention_reconcile_worker.start()
         if self.workflow_run_sweep_worker is not None:
             await self.workflow_run_sweep_worker.start()
         if self.workflow_run_watch_worker is not None:
@@ -358,7 +379,6 @@ class PlatformRuntime:
             await self.workflow_run_review_worker.start()
         if self.pr_review_sync_worker is not None:
             await self.pr_review_sync_worker.start()
-        await prefetch_worker.start()
         await self.worker_monitor_worker.start()
         await self.worker_agenda_worker.start()
         await self.worker_report_worker.start()
@@ -390,6 +410,8 @@ class PlatformRuntime:
             self._source_sync_scheduler_started = False
         if self.stale_approval_expiry_worker is not None:
             await self.stale_approval_expiry_worker.stop()
+        if self.knowledge_retention_reconcile_worker is not None:
+            await self.knowledge_retention_reconcile_worker.stop()
         if self.workflow_run_sweep_worker is not None:
             await self.workflow_run_sweep_worker.stop()
         if self.workflow_run_watch_worker is not None:
@@ -400,7 +422,6 @@ class PlatformRuntime:
             await self.workflow_run_review_worker.stop()
         if self.pr_review_sync_worker is not None:
             await self.pr_review_sync_worker.stop()
-        await prefetch_worker.stop()
         await self.worker_monitor_worker.stop()
         await self.worker_agenda_worker.stop()
         await self.worker_report_worker.stop()
@@ -415,11 +436,8 @@ class PlatformRuntime:
 
 
 def build_platform_runtime(async_session_factory: object) -> PlatformRuntime:
-    """Create the shared runtime object used by the FastAPI application."""
-
     configure_persistent_process_runtime(async_session_factory)
     configure_durable_process_runtime(async_session_factory)
-    prefetch_worker.configure(async_session_factory)
     return PlatformRuntime(
         async_session_factory=async_session_factory,
         task_scheduler=TaskScheduler(),
@@ -445,6 +463,7 @@ def build_platform_runtime(async_session_factory: object) -> PlatformRuntime:
         knowledge_source_sync_scheduler=KnowledgeSourceSyncScheduler(async_session_factory),
         change_source_poll_worker=ChangeSourcePollWorker(async_session_factory),
         stale_approval_expiry_worker=StaleApprovalExpiryWorker(async_session_factory),
+        knowledge_retention_reconcile_worker=KnowledgeRetentionReconcileWorker(async_session_factory),
         workflow_run_sweep_worker=WorkflowRunSweepWorker(async_session_factory),
         workflow_run_watch_worker=WatchPollWorker(async_session_factory),
         pull_request_refresh_worker=PullRequestRefreshWorker(async_session_factory),

@@ -1,21 +1,15 @@
-"""Work-item claims with leases and fencing epochs (agent coordination board).
-
-A claim says "this agent identity works on this Work Item until ``lease_until``". At most one claim per Work
-Item is active (``released_at IS NULL``): a partial unique index enforces it on PostgreSQL and SQLite alike,
-so two agents racing for an item have exactly one winner. ``epoch`` grows by one per item with every new
-claim; an agent write carrying a stale epoch is fenced (``claim_lost``). The holder is an agent identity:
-a gateway session (``gateway_session``) or an MCP grant (``mcp_session``), stored only as a hash.
-"""
+"""Work-item claims with leases and fencing epochs (agent coordination board)."""
 
 from __future__ import annotations
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class WorkItemClaim(Base):
+class WorkItemClaim(WorkspaceBound, Base):
     __tablename__ = "work_item_claim"
     __table_args__ = (
         Index(

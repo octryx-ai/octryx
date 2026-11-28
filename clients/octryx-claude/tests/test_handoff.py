@@ -1,9 +1,3 @@
-"""Root freeze 3c (client): the WIP branch, push policy, bundle fallback, /handoff, handoff_now, resume.
-
-Git runs only on temporary repositories; the "remote" is a local bare repository, never a real remote. The
-platform is an ``httpx.MockTransport`` that records every request.
-"""
-
 from __future__ import annotations
 
 import pytest

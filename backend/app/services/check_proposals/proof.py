@@ -1,17 +1,5 @@
-"""Proving a proposed ast-grep check on a device (From Correction to Check, step 2; one check
-kind end to end, ``pattern``).
-
-- :func:`prove_due` (the review worker's loop, after the drafts): every proposed ``pattern`` check with a rule and no
-  proof yet is offered as one device tool job (``devices/tool_jobs``), a proof that ended without a result once more;
-- :func:`offer_proof`: the cases come from the signature's occurrences: the corrected files as they were before the
-  correction (red, the check must match) and after it (green, the check must stay silent), read from the run's
-  working copy (the review's trees, or the pull request's commits). The job goes to a device of the runs' people,
-  which runs the launcher's pinned ast-grep on the rule file (data, never model code);
-- :func:`record` (the job's ``on_done``): the verdict (``proof_job.verdict``) as the proposal's proof.
-
-Without a code state on both sides the proof stays ``not_run`` with the reason; only ``accept_unproven`` approves it
-then. Counted at the event in ``octryx_check_proposal_proofs_total``.
-"""
+"""Proving a proposed ast-grep check on a device (From Correction to Check, step 2; one check kind end to end,
+``pattern``)."""
 
 from __future__ import annotations
 
@@ -45,7 +33,6 @@ def _side(occurrence: dict[str, Any], side: str) -> str:
 
 
 async def cases_of(db: AsyncSession, signature: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
-    """``(cases, people)``: a red and a green case per occurrence with both code states and a working copy."""
     cases, people = [], []
     for occurrence in [item for item in signature.get("occurrences") or [] if isinstance(item, dict)]:
         paths = [str(path) for path in occurrence.get("paths") or [] if path]
@@ -64,7 +51,6 @@ async def cases_of(db: AsyncSession, signature: dict[str, Any]) -> tuple[list[di
 
 
 def _archives(cases: list[dict[str, Any]], rule: bytes) -> tuple[list[Any], list[dict[str, Any]]]:
-    """The rule archive and one archive per case whose files the working copy still has."""
     from ..devices import tree_archive
 
     archives, kept = [tree_archive.build_archive([(proof_job.RULE_FILE, rule)], name=proof_job.RULE_ARCHIVE)], []
@@ -82,7 +68,6 @@ def _archives(cases: list[dict[str, Any]], rule: bytes) -> tuple[list[Any], list
 
 
 async def offer_proof(db: AsyncSession, proposal: CheckProposal, signature: dict[str, Any] | None) -> dict[str, Any]:
-    """Offer the proof job and keep it on the proposal (``running``), or keep why it cannot run (``not_run``)."""
     from ..devices import tool_jobs
 
     attempt = int(dict(proposal.proof or {}).get("attempt") or 0) + 1
@@ -113,7 +98,6 @@ async def offer_proof(db: AsyncSession, proposal: CheckProposal, signature: dict
 
 
 async def record(db: AsyncSession, job: Any) -> None:
-    """``on_done`` of the proof job: the verdict, or why the device gave none (one more attempt then)."""
     rows = (await db.execute(select(CheckProposal).where(CheckProposal.workspace_id == job.workspace_id,
                                                          CheckProposal.state == "proposed"))).scalars()
     proposal = next((row for row in rows if dict(row.proof or {}).get("job_id") == job.id), None)
@@ -140,7 +124,6 @@ def _due(proposal: CheckProposal) -> bool:
 
 
 async def prove_due(db: AsyncSession, *, signature_of: Any = None) -> int:
-    """Offer up to :data:`MAX_PER_PASS` due proofs; the number offered."""
     if signature_of is None:
         from ..workflow_runs.corrections import get_signature as signature_of
     due = list((await db.execute(select(CheckProposal).where(CheckProposal.state == "proposed")

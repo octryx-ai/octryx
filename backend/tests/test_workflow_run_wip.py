@@ -1,9 +1,5 @@
-"""The run's work in progress: the device's report is kept on the run; the Server restores it when it prepares.
-
-Contract: a ``wip_pushed`` job event of a run's device turn stores ``context.wip`` and a run event (a malformed
-branch or sha is never stored); ``restore_run_wip`` puts the remote ``octryx-wip/<run>`` tree into a clean working copy,
-says ``absent`` without one and never overwrites the copy's own changes.
-"""
+"""The run's work in progress: the device's report is kept on the run, and the Server restores it into a
+clean working copy when it prepares, never overwriting the copy's own changes."""
 
 from __future__ import annotations
 
@@ -17,7 +13,10 @@ from app.models import WorkflowRunEvent
 from app.services.devices.hub import device_hub
 from app.services.devices.job_events import apply_event
 from app.services.workflow_runs.workspace.server_prepare import restore_run_wip
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _confirm, _device_run, _jobs
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SHA = "a" * 40
 
@@ -80,8 +79,6 @@ async def test_the_server_restores_the_wip_into_a_clean_working_copy(tmp_path, m
 
 @pytest.mark.asyncio
 async def test_the_server_never_restores_a_wip_over_work_the_branch_gained_since(tmp_path, monkeypatch):
-    """The WIP's whole tree checked out over a branch that has merged items since would take their files away. Only
-    the WIP's own changes come back, where the branch kept the file."""
     config = tmp_path / "gitconfig"
     config.write_text("[user]\n\tname = t\n\temail = t@example.test\n[commit]\n\tgpgsign = false\n")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))
@@ -133,8 +130,6 @@ PATCH_NEW = ("diff --git a/new.py b/new.py\nnew file mode 100644\n--- /dev/null\
 
 @pytest.mark.asyncio
 async def test_the_server_pushes_the_wip_from_the_devices_change(tmp_path, monkeypatch):
-    """When the device's own push has no sign-in (e.g. Bitbucket Cloud), the Server pushes the WIP
-    from ``device_change`` with its connection, fast-forward only, without touching its working copy."""
     from app.services.workflow_runs.server_wip import build_and_push
 
     remote, server, base = _repos(tmp_path, monkeypatch)

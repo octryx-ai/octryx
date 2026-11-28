@@ -1,17 +1,4 @@
-"""The routes that take a Workspace id, read from the running application, and the smallest request each accepts.
-
-A route takes a Workspace id when any of its request parameters names one, in every request shape FastAPI resolves:
-a path or query parameter, a form field, a field of a body model (top level or a nested model, any of the names in
-``WORKSPACE_NAME``), or a key of a plain ``dict`` body: one its endpoint names, or one a function it calls reads from
-a mapping (``CALL_DEPTH`` calls deep; ``NOT_A_BODY_KEY`` lists the routes where such a key is not the body's).
-Sub-dependencies count like the endpoint's own parameters, and a dependency that reads the request itself (e.g. the
-Secure Work scope dependency: ``request.query_params.get("project_id")``, ``body.get("project_id")`` of the raw JSON
-body) adds the query and body keys it reads.
-
-``snapshot`` is what a refused request must leave unchanged: the content of every table (not only its row count, so
-an in-place update is seen; audit records included, apart from the per-request log) and the process-wide speaker
-profiles; ``record_side_effects`` records (instead of performing) every outbound HTTP request and subprocess start.
-"""
+"""The routes that take a Workspace id, read from the running application, and the smallest request each accepts."""
 
 from __future__ import annotations
 
@@ -63,8 +50,6 @@ class RouteCase:
 
     @property
     def addresses_a_resource(self) -> bool:
-        """The path addresses a resource (a Workspace in it, or another id the sweep fills with an unknown value):
-        a request for a resource that does not exist is 404 in the route's own wording."""
         workspace_paths = {name for shape, name in self.slots if shape == "path"}
         return bool(workspace_paths) or any(name != "user_id" for name, _type in self.path_types)
 
@@ -76,7 +61,6 @@ def _dependants(dependant):
 
 
 def _model_fields(model: Any, prefix: str = "", depth: int = 0) -> list[str]:
-    """Workspace fields of a body model, nested models included (``outer.inner``)."""
     fields = getattr(model, "model_fields", None) or {}
     found = []
     for name, info in fields.items():
@@ -106,7 +90,6 @@ NOT_A_BODY_KEY = {
 
 
 def _called_functions(function: Any) -> list[Any]:
-    """The application functions ``function`` calls by name, its function-local imports included."""
     try:
         tree = ast.parse(textwrap.dedent(inspect.getsource(function)))
     except (OSError, TypeError, SyntaxError):
@@ -137,8 +120,6 @@ def _called_functions(function: Any) -> list[Any]:
 
 
 def _dict_keys(route: APIRoute) -> list[str]:
-    """The Workspace keys a plain ``dict`` body is read for: any Workspace key the endpoint names, and the keys the
-    functions it calls (``CALL_DEPTH`` deep) read from a mapping."""
     try:
         source = inspect.getsource(route.endpoint)
     except (OSError, TypeError):
@@ -166,7 +147,6 @@ _BODY_READ = re.compile(r"""\bbody\.get\(\s*["'](\w+)["']""")
 
 
 def _request_sources(call: Any) -> list[str]:
-    """The source of a dependency and of the application functions it calls (``CALL_DEPTH`` deep)."""
     sources, seen, frontier = [], set(), [call]
     for _depth in range(CALL_DEPTH + 1):
         following = []
@@ -184,8 +164,6 @@ def _request_sources(call: Any) -> list[str]:
 
 
 def _request_reads(dependant: Any, method: str) -> list[tuple[str, str]]:
-    """The Workspace keys a dependency (or a function it calls) reads from the request: its query, and the raw JSON
-    body of a write."""
     call = getattr(dependant, "call", None)
     if call is None or dependant.request_param_name is None:
         return []
@@ -248,7 +226,6 @@ def _case(route: APIRoute, method: str) -> RouteCase | None:
 
 
 def workspace_routes() -> list[RouteCase]:
-    """Every route and method that takes a Workspace id, reads included."""
     cases = []
     for route in app.routes:
         if not isinstance(route, APIRoute):
@@ -261,8 +238,6 @@ def workspace_routes() -> list[RouteCase]:
 
 
 def refuses_an_unknown_workspace(case: RouteCase) -> bool:
-    """A write, or a request with a body model: an unknown Workspace is refused for every caller. A read filters by
-    the id instead (an empty or caller-owned answer); only its equality for unknown and foreign ids is the rule."""
     return case.method in WRITE_METHODS or "model" in case.shapes
 
 
@@ -316,19 +291,12 @@ def _location(shape: str) -> str:
 
 
 def request_slots(case: RouteCase) -> list[tuple[str, str]]:
-    """The distinct places of a route's Workspace ids in a request, as (location, name): location is path, query,
-    form or body (a body model field and a plain body key of the same name are one place)."""
     return list(dict.fromkeys((_location(shape), name) for shape, name in case.slots))
 
 
 def build_request(case: RouteCase, workspace_id: str, caller_id: str, *, own_workspace_id: str | None = None,
                   varied: tuple[str, str] | None = None, path_values: dict[str, str] | None = None,
                   references: dict[str, str] | None = None) -> dict[str, Any]:
-    """The arguments of ``client.request`` for the smallest request the route accepts, naming ``workspace_id`` in
-    every Workspace slot (one Workspace per request, so the route has no other id to answer for), or with ``varied``
-    (one of :func:`request_slots`) in that slot only and ``own_workspace_id`` in every other one. ``path_values``
-    names a real resource for another path parameter (else it is filled with an id that names nothing);
-    ``references`` sets request fields naming a related resource: body keys of a write, query parameters of a read."""
     def named(shape: str, name: str) -> str:
         return workspace_id if varied is None or (_location(shape), name) == varied else own_workspace_id
 
@@ -374,8 +342,6 @@ def build_request(case: RouteCase, workspace_id: str, caller_id: str, *, own_wor
 
 
 class SideEffects:
-    """Outbound HTTP requests and subprocess starts a request attempted; none of them is performed."""
-
     def __init__(self) -> None:
         self.calls: list[str] = []
 
@@ -410,7 +376,6 @@ def record_side_effects(monkeypatch) -> SideEffects:
 
 
 async def snapshot(db) -> dict[str, str]:
-    """A content hash per table (every column of every row) and of the process-wide speaker profiles."""
     from app.services.speaker.diarization import _speaker_profiles
 
     hashes = {}

@@ -2,11 +2,6 @@ import type { ChatMessage, SelectedSession } from "../../chatThreadTypes";
 import { useTranscriptViewer } from "./TranscriptButton";
 import { useThreadDeviceJobIds, useTranscriptItems } from "./useTranscriptItems";
 
-/**
- * The chat header's transcript entry: an octryx-claude session's own transcript, or those of the
- * thread's newest device jobs. `available` is false until one is stored and readable.
- */
-/** Whether a thread runs (or ran) on a device: a device chat or a device workflow run, not an octryx session. */
 export function isDeviceThread(selectedSession: SelectedSession | null, runsOnDevice: boolean, messages: ChatMessage[]): boolean {
   const gatewaySession = selectedSession?.agentType === "external_agent";
   return !gatewaySession && (runsOnDevice || messages.some((message) => message.origin === "device"));

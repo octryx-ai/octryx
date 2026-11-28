@@ -52,6 +52,7 @@ async def update_runtime_settings(
         action="admin.runtime.settings.updated",
         resource_type="runtime_settings",
         resource_id=normalized_project_id or "global",
+        project_id=normalized_project_id or None,
         before=before,
         after=result,
         details={
@@ -97,6 +98,7 @@ async def add_runtime(
         action="admin.runtime.target.created",
         resource_type="runtime_target",
         resource_id=str(result.get("id") or ""),
+        project_id=None,
         before=None,
         after=result,
         details={
@@ -137,6 +139,7 @@ async def move_runtime(
         action="admin.runtime.target.moved",
         resource_type="runtime_targets",
         resource_id=target_id,
+        project_id=None,
         before=before,
         after=result,
         details={
@@ -170,6 +173,7 @@ async def toggle_runtime(
         action="admin.runtime.target.toggled",
         resource_type="runtime_target",
         resource_id=target_id,
+        project_id=None,
         before=before,
         after=after,
         details={"operation": "toggle_runtime"},
@@ -200,6 +204,7 @@ async def update_runtime(
         action="admin.runtime.target.updated",
         resource_type="runtime_target",
         resource_id=target_id,
+        project_id=None,
         before=before,
         after=after,
         details={
@@ -230,6 +235,7 @@ async def delete_runtime(
         action="admin.runtime.target.deleted",
         resource_type="runtime_target",
         resource_id=target_id,
+        project_id=None,
         before=before,
         after=None,
         details={"operation": "delete_runtime"},

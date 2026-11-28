@@ -1,11 +1,4 @@
-"""Where a problem is fixed today: the one page per target (problems aggregator).
-
-Every ``fix`` of every collector comes from :func:`fix_link`, so the targets can move in one place. A connection
-target opens the connection page: ``/chat?area=admin&tab=adminConnections&connection=<uuid>``, or the
-connections list when the problem names no connection (an unlinked use, a connector check without a connection).
-The addresses follow the chat shell's URL contract (``/chat?area=<area>&tab=<page>`` plus the page's own focus
-parameters, see ``frontend/chat/src``).
-"""
+"""Where a problem is fixed today: the one page per target (problems aggregator)."""
 
 from __future__ import annotations
 
@@ -29,7 +22,6 @@ def _href(params: dict[str, str | None]) -> str:
 
 
 def fix_link(target: str, *, workspace_id: str | None = None, object_id: str | None = None) -> dict[str, str]:
-    """``{label, href}`` of the page that fixes a problem about ``object_id`` (in ``workspace_id``)."""
     ws = workspace_id or None
     if target == TARGET_CONNECTION:
         return {"label": "Open the connection" if object_id else "Open connections",

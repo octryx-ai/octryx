@@ -1,12 +1,4 @@
-"""The data-flow rules of the documentation steps (``data_flow``): who produces what the publication needs.
-
-The publish & prove steps (``s1_graph.py``) form one chain, so a definition that drops a step is refused at
-publish instead of failing closed at run time:
-
-- a ``publication`` confirmation (card (b)) produces ``confirmed_documentation``;
-- ``documentation.publish_v2`` consumes ``confirmed_documentation`` and produces ``documentation_page``;
-- ``documentation.sync_published_version`` consumes ``documentation_page``.
-"""
+"""The data-flow rules of the documentation steps (``data_flow``): who produces what the publication needs."""
 
 from __future__ import annotations
 

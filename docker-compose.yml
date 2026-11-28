@@ -11,7 +11,6 @@
 #
 # Optional, through profiles (e.g. `docker compose --profile ollama up -d`, or COMPOSE_PROFILES in .env):
 #   ollama             a local Ollama server (http://ollama:11434), configured in Admin › Models
-#   workers            the managed-CLI agent workers (agent, codex, gemini, opencode)
 #   code-intelligence  the code indexer
 #   llama-cpp          a llama.cpp server for one local GGUF model
 # Project name, also the prefix of the volumes. An install made under an earlier name keeps its data with
@@ -34,6 +33,7 @@ x-with-secrets: &with-secrets
       set -eu
       export JWT_SECRET="$$(cat /run/octryx-secrets/jwt_secret)"
       export ENCRYPTION_KEY="$$(cat /run/octryx-secrets/encryption_key)"
+      export RUNNER_JOIN_SECRET="$$(cat /run/octryx-runner/runner-join 2>/dev/null || true)"
       export DATABASE_URL="postgresql+asyncpg://octryx:$$(cat /run/octryx-secrets/postgres_password)@postgres:5432/${OCTRYX_POSTGRES_DB:-octryx}"
       exec "$$@"
     - with-secrets
@@ -47,6 +47,8 @@ x-environment: &environment
   CORS_ALLOWED_ORIGINS: http://localhost:${OCTRYX_PORT:-8000},http://127.0.0.1:${OCTRYX_PORT:-8000}
   FORCE_SECURE_AUTH_COOKIES: "true"
   AUTH_COOKIE_SAMESITE: lax
+  # The container runtime every server runner must run on (RUNNER_RUNTIME=runsc for gVisor, docker/runner/README.md).
+  RUNNER_RUNTIME: ${RUNNER_RUNTIME:-}
   # Unattended installs only. Empty: the first start logs a setup code (https://octryx.ai/docs/install/docker#steps).
   ADMIN_DEFAULT_PASSWORD: ${ADMIN_DEFAULT_PASSWORD:-}
   ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@localhost}
@@ -70,8 +72,20 @@ x-environment: &environment
   OCTRYX_KNOWLEDGE_OBJECT_AWS_PROFILE: octryx-knowledge-object
   AWS_SHARED_CREDENTIALS_FILE: /run/octryx-object-store/credentials
   HF_HUB_OFFLINE: "1"
+  OCTRYX_BUNDLED_LITELLM_URL: http://127.0.0.1:4000
+  OCTRYX_BUNDLED_LITELLM_MASTER_KEY_FILE: /run/octryx-secrets/litellm_master_key
 
 configs:
+  litellm-config:
+    # No UI, no message, spend or error logging and no callbacks: prompts and answers never land in LiteLLM's
+    # database.
+    content: |
+      litellm_settings:
+        turn_off_message_logging: true
+        drop_params: true
+      general_settings:
+        disable_spend_logs: true
+        disable_error_logs: true
   # The object store has no port outside the pod, so its one identity is not a secret: these keys
   # are reachable only from inside the pod and grant nothing beyond it.
   object-store-identities:
@@ -96,17 +110,28 @@ services:
     command:
       - |
         import os, secrets
-        for name in ("jwt_secret", "encryption_key", "postgres_password"):
+        for name in ("jwt_secret", "encryption_key", "postgres_password", "litellm_master_key", "litellm_salt_key"):
             path = os.path.join("/run/octryx-secrets", name)
             if not os.path.exists(path):
                 with open(path, "w") as handle:
-                    handle.write(secrets.token_hex(32))
-            os.chown(path, 10001, 10001)
-            # The database password is read by the postgres user too; the other two only by the platform.
-            os.chmod(path, 0o444 if name == "postgres_password" else 0o400)
+                    # LiteLLM accepts a master key only with its "sk-" prefix.
+                    handle.write(("sk-" if name == "litellm_master_key" else "") + secrets.token_hex(32))
+            # The database password is read by the postgres user too. LiteLLM runs as root without capabilities, so
+            # its keys belong to root and the platform reads them through its group; the rest only the platform reads.
+            litellm = name.startswith("litellm_")
+            os.chown(path, 0 if litellm else 10001, 10001)
+            os.chmod(path, 0o444 if name == "postgres_password" else 0o440 if litellm else 0o400)
         os.chmod("/run/octryx-secrets", 0o755)
+        # The server runners' join secret, alone in a volume of its own that only the api and the runners mount.
+        join = "/run/octryx-runner/runner-join"
+        if not os.path.exists(join):
+            with open(join, "w") as handle:
+                handle.write(secrets.token_hex(32))
+        os.chown(join, 10001, 10001)
+        os.chmod(join, 0o400)
     volumes:
       - secrets:/run/octryx-secrets
+      - runner_join:/run/octryx-runner
     cap_drop: [ALL]
     cap_add: [CHOWN, FOWNER]
 
@@ -132,7 +157,7 @@ services:
   migrate:
     <<: [*image, *with-secrets]
     restart: "no"
-    command: ["python", "-m", "alembic", "upgrade", "head"]
+    command: ["sh", "-c", "python -m app.services.model_gateway.bundled_litellm && python -m alembic upgrade head"]
     environment: *environment
     volumes:
       - secrets:/run/octryx-secrets:ro
@@ -167,6 +192,7 @@ services:
         mode: 0444
     volumes:
       - secrets:/run/octryx-secrets:ro
+      - runner_join:/run/octryx-runner:ro
       - app_data:/app/data
       - app_uploads:/app/uploads
     depends_on:
@@ -176,6 +202,47 @@ services:
         condition: service_completed_successfully
       object-store:
         condition: service_healthy
+      litellm:
+        condition: service_healthy
+
+  # The model gateway every model call goes through: on the pod's loopback only, so neither a runner nor the host
+  # reaches it. The platform calls it with a virtual key it mints with the master key (bundled_litellm).
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.82.0-stable@sha256:7acd2fdca2ab3b39024baff171fc7c743d63d9ff04ff6f9f01cf574f25f3a963
+    restart: unless-stopped
+    network_mode: "service:pod"
+    # Root without any capability: LiteLLM writes its Prisma migrations into its own package folder at start.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -eu
+        export LITELLM_MASTER_KEY="$$(cat /run/octryx-secrets/litellm_master_key)"
+        export LITELLM_SALT_KEY="$$(cat /run/octryx-secrets/litellm_salt_key)"
+        export DATABASE_URL="postgresql://octryx:$$(cat /run/octryx-secrets/postgres_password)@postgres:5432/litellm"
+        exec litellm --config /etc/litellm/config.yaml --host 127.0.0.1 --port 4000
+    environment:
+      STORE_MODEL_IN_DB: "True"
+      DISABLE_ADMIN_UI: "True"
+      LITELLM_TELEMETRY: "False"
+    configs:
+      - source: litellm-config
+        target: /etc/litellm/config.yaml
+    volumes:
+      - secrets:/run/octryx-secrets:ro
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 30
+      start_period: 30s
+    depends_on:
+      pod:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
 
   object-store:
     image: ghcr.io/chrislusf/seaweedfs:4.47@sha256:ce9e796f1fe6f06968f4c04bdaf8f678dad9c8acdfef3d244133d71bfa6bf882
@@ -235,64 +302,6 @@ services:
     volumes:
       - ./data/llama-cpp-models:/models
 
-  agent-worker: &worker
-    <<: *with-secrets
-    image: octryx-agent-worker:latest
-    profiles: ["workers"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: agent-worker
-      args:
-        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
-        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
-    command: ["python", "-m", "app.main"]
-    environment:
-      <<: *environment
-      ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
-    volumes:
-      - secrets:/run/octryx-secrets:ro
-      - app_data:/app/data
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-
-  codex-worker:
-    <<: *worker
-    image: octryx-codex-worker:latest
-    profiles: ["workers", "codex-worker"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: codex-worker
-      args:
-        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
-        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
-
-  gemini-worker:
-    <<: *worker
-    image: octryx-gemini-worker:latest
-    profiles: ["workers", "gemini-worker"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: gemini-worker
-      args:
-        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
-        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
-
-  opencode-worker:
-    <<: *worker
-    image: octryx-opencode-worker:latest
-    profiles: ["workers", "opencode-worker"]
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: opencode-worker
-      args:
-        ENABLE_MANAGED_CLI_TOOLS: ${ENABLE_MANAGED_CLI_TOOLS:-1}
-        INSTALL_CLAUDE_CODE: ${INSTALL_CLAUDE_CODE:-0}
-
   code-indexer:
     <<: *with-secrets
     image: octryx-code-intel-worker:latest
@@ -314,8 +323,56 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  # The server runners' only way to the platform: the api's port through this proxy (docker/runner/gateway.conf.template).
+  runner-gateway:
+    image: nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
+    restart: unless-stopped
+    environment:
+      OCTRYX_PUBLIC_HOST: localhost:${OCTRYX_PORT:-8000}
+    volumes:
+      - ./docker/runner/gateway.conf.template:/etc/nginx/templates/default.conf.template:ro
+    networks: [default, runners]
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Server runners (more with --scale runner=N): Codex sessions in a container of their own, on a network that
+  # reaches nothing but the runner gateway. Codex runs under the agent's account (docker/runner/entry.sh).
+  runner:
+    build:
+      context: .
+      dockerfile: docker/runner/Dockerfile
+    image: octryx-runner:local
+    restart: unless-stopped
+    # Docker refuses to start a runner whose runtime is not installed; it never falls back to another.
+    runtime: ${RUNNER_RUNTIME:-runc}
+    environment:
+      OCTRYX_BASE_URL: http://runner-gateway:8000
+      OCTRYX_RUNNER_RUNTIME: ${RUNNER_RUNTIME:-}
+    volumes:
+      - runner_join:/run/secrets/octryx:ro
+    read_only: true
+    tmpfs:
+      - /tmp:exec,mode=1777,size=2g
+      - /workspace:exec,size=4g
+      - /var/lib/octryx:exec,size=1g
+    cap_drop: [ALL]
+    # Root only sets up the writable places (entry.sh); the launcher keeps SETUID/SETGID, the agent nothing.
+    cap_add: [CHOWN, FOWNER, FSETID, SETUID, SETGID]
+    mem_limit: 4g
+    pids_limit: 512
+    networks: [runners]
+    depends_on:
+      runner-gateway:
+        condition: service_started
+
+networks:
+  runners:
+    internal: true
+
 volumes:
   secrets:
+  runner_join:
   postgres_data:
   app_data:
   app_uploads:

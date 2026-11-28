@@ -1,15 +1,5 @@
-"""The short cited answer on Knowledge Search.
-
-The person's search found passages; the answer may only rest on those. The client sends their evidence keys, never
-their text: each passage is read again with the reader's own Knowledge scope (``scoped_read``), so a key the reader
-may not see, or that does not exist, is simply left out. The governed model answers from the numbered passages; the
-validation keeps only sentences that cite them. Every outcome is a fixed state:
-
-- ``ok`` — at least one cited sentence;
-- ``no_answer`` — the passages do not answer the question (or nothing readable was sent);
-- ``needs_configuration`` / ``denied`` — the model admission's state for this Workspace (data class, no runtime);
-- ``unavailable`` — no admitted runtime gave a usable answer.
-"""
+"""The short cited answer on Knowledge Search. The client sends evidence keys, never text: each passage is read again
+with the reader's own scope."""
 
 from __future__ import annotations
 
@@ -38,8 +28,6 @@ def _result(state: str, sentences: list[dict[str, Any]] | None = None) -> dict[s
 async def _readable_passages(
     db: AsyncSession, scope: KnowledgeScope, evidence_keys: Sequence[str]
 ) -> list[tuple[str, str, str]]:
-    """``(evidence_key, title, text)`` for every key the reader may read, in the order sent."""
-
     passages: list[tuple[str, str, str]] = []
     for key in list(dict.fromkeys(evidence_keys))[:MAX_ANSWER_PASSAGES]:
         try:

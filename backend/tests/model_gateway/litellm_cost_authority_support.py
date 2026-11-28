@@ -12,8 +12,6 @@ from tests.model_gateway.conftest import ALIAS, BASE_URL, VIRTUAL_KEY, FakeLiteL
 
 
 async def _sync(db, provider: LLMProvider, gateway: FakeLiteLLMGateway, config_json: dict[str, Any], monkeypatch):
-    """Run the real model sync against a driver bound to the offline fake."""
-
     import app.agent.providers as providers_module
     from app.agent.providers.litellm_gateway import LiteLLMGatewayClient
 

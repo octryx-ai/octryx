@@ -1,7 +1,3 @@
-// Knowledge → Search: a hit's excerpt is not only the passage's headings ("Onboarding of new customers /
-// Deliveries…"). The excerpt is the part of the passage where the question's words occur, starting at the
-// line that holds the first of them, with the words marked; without a match it is the body after the headings.
-
 const STOP_WORDS = new Set([
   "the", "and", "for", "are", "was", "were", "with", "that", "this", "what", "which", "who", "how", "when", "where",
   "why", "does", "did", "has", "have", "had", "can", "may", "our", "your", "their", "from", "into", "about", "there",
@@ -9,7 +5,6 @@ const STOP_WORDS = new Set([
 
 export const EXCERPT_CHARS = 280;
 
-/** The words of a question worth finding in a passage: three letters or more, no stop words, each once. */
 export function queryTerms(query: string): string[] {
   const words = query.toLowerCase().match(/[\p{L}\p{N}][\p{L}\p{N}._-]*/gu) ?? [];
   return [...new Set(words.map((word) => word.replace(/[._-]+$/, "")).filter((word) => word.length >= 3 && !STOP_WORDS.has(word)))];
@@ -18,7 +13,6 @@ export function queryTerms(query: string): string[] {
 const isHeading = (line: string) => /^\s{0,3}#{1,6}\s/.test(line);
 const plain = (line: string) => line.replace(/^\s{0,3}#{1,6}\s+/, "").toLowerCase();
 
-/** Whether a passage holds nothing but headings and blank lines. */
 export function isHeadingOnly(text: string): boolean {
   const lines = text.split("\n").filter((line) => line.trim());
   return lines.length > 0 && lines.every(isHeading);
@@ -36,10 +30,6 @@ function cut(lines: string[], from: number, limit: number): string {
   return body.length > limit ? `${body.slice(0, limit).replace(/\s+\S*$/, "")}…` : body;
 }
 
-/**
- * The excerpt of a passage for a question: from the first body line with one of its words (or the heading right
- * above that line), else from the first body line; the whole passage when it is short or only headings.
- */
 export function excerptFor(text: string, terms: string[], limit = EXCERPT_CHARS): string {
   const trimmed = text.trim();
   const lines = trimmed.split("\n");
@@ -56,7 +46,6 @@ export function excerptFor(text: string, terms: string[], limit = EXCERPT_CHARS)
   return above > 0 ? `…\n${excerpt}` : excerpt;
 }
 
-/** `text` split into plain and marked parts (case-insensitive), for marking the question's words. */
 export function markTerms(text: string, terms: string[]): { text: string; marked: boolean }[] {
   if (!terms.length || !text) return [{ text, marked: false }];
   const escaped = [...terms].sort((a, b) => b.length - a.length).map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));

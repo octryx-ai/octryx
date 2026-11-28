@@ -1,27 +1,4 @@
-"""What the admin API says about a Custom REST Knowledge source: its ACL state and a dry-run sample.
-
-**ACL state** (in every answer that describes the source). A restricted source (the default) is ingested only when
-the Workspace enforces source ACLs (``access/source_acl.acl_enforcement_enabled``); otherwise every restricted item
-is withheld (``restricted_acl``), the existing behaviour for every source. An admin would otherwise see a source that
-"runs" and yields nothing, so the answer says it outright (``restricted_items_withheld``).
-
-**Sample** (the setup drawer's dry run before saving). One page of the draft's list operation through the same
-connector a run uses, mapped to item headers with their ACL facet, and the first item's content rendered (bounded for
-the answer). Nothing is ingested and no sync state is written; the REST calls are audited like any call
-(``rest_api_call_runs``), so the session commits them.
-
-The sample reads as the source's role, which the configuring author need not hold. So a restricted item's title,
-link and content are shown only when the author holds one of the roles it admits (else ``hidden: true``), the same
-rule a knowledge search applies after the sync: configuring a source never shows more than searching it would.
-
-**Excerpt**: every visible item carries the first ``EXCERPT_CHARS`` characters of its
-content (``excerpt``), so the author sees what will be ingested, not only titles. A source with a
-``detail_operation`` reads each visible sample item through it (at most ``SAMPLE_ITEMS`` calls, audited like the
-run's). The sample goes to people, never to a model, so by the rule "fence only at a model's input" it carries no
-fence markers (``unfence_text``, should the API's text contain any); it is masked with the secret rule set
-(``secret_masking.masked_text``) like every text shown back, and cut with an ellipsis. The first item's longer
-``text`` is masked the same way.
-"""
+"""What the admin API says about a Custom REST Knowledge source: its ACL state and a dry-run sample."""
 
 from __future__ import annotations
 
@@ -72,15 +49,10 @@ def _visible(item: Any, own_roles: frozenset[str]) -> bool:
 
 
 def shown_text(text: str) -> str:
-    """Text of a source shown to people: no fence markers, secrets masked."""
     return masked_text(unfence_text(text)) or ""
 
 
 def excerpt(text: str, title: str | None = None) -> str:
-    """At most ``EXCERPT_CHARS`` characters of ``text`` on one line, masked, cut with an ellipsis.
-
-    A rendered JSON record starts with its title as a heading (``rest_render.render_json``); the title is shown
-    next to the excerpt already, so the heading is left out."""
     body = text.replace("\r\n", "\n").strip()
     if title and body.startswith(f"# {title}"):
         body = body[len(f"# {title}"):]
@@ -106,7 +78,6 @@ def _header(item: Any, visible: bool, content: Any = None) -> dict[str, Any]:
 
 
 async def _contents(connector: RestKnowledgeConnector, items: tuple, visible: list[bool]) -> dict[str, Any]:
-    """Each visible sample item's content, or the fixed reason it could not be read (by external id)."""
     contents: dict[str, Any] = {}
     for item, shown in zip(items, visible, strict=True):
         if not shown:
@@ -133,7 +104,6 @@ def _first_content(items: tuple, visible: list[bool], contents: dict[str, Any]) 
 
 async def sample_rest_source(db: AsyncSession, *, authorized: AuthorizedWorkspace, config: ConnectorConfig,
                              actor_id: str) -> dict[str, Any]:
-    """Map one page of a draft ``custom_rest`` source without ingesting; raises ``ConnectorError`` when refused."""
     if type(authorized) is not AuthorizedWorkspace or not authorized.may_author:
         raise EvidenceLedgerContractError()
     await enforce_source_rules(db, project_id=authorized.project_id, config=config, actor_id=actor_id)

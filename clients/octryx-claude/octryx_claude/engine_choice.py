@@ -1,10 +1,4 @@
-"""The coding engine the platform decided for this person in a Workspace (Claude Code or Codex).
-
-The launcher never decides it: ``GET /api/v1/agent-gateway/engine?workspace_id=`` with the launcher's own login
-returns ``{engine, source, allowed, workspace_default, platform_default, person_choice}``. ``octryx status`` shows
-it; ``octryx claude`` / ``octryx codex`` start only an engine the Workspace allows. A platform without the route
-(older than the engine setting) knows only Claude Code: Claude Code starts, Codex does not.
-"""
+"""The coding engine the platform decided for this person in a Workspace (Claude Code or Codex)."""
 
 from __future__ import annotations
 
@@ -55,7 +49,6 @@ def fetch(state, context: SessionContext, *, http: httpx.Client) -> EngineSettin
 
 
 def refusal(setting: EngineSetting, engine: str) -> str:
-    """Why ``engine`` may not start here, or ``""``."""
     if setting.allows(engine):
         return ""
     return f"denied: engine_not_allowed_in_workspace ({NAMES[engine]} is not allowed in this Workspace)"

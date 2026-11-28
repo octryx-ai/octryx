@@ -18,7 +18,10 @@ from app.services.workflow_runs.records import main_session_id
 from app.time_utils import utc_now
 from tests.phase_seat_models_support import seat_admitted  # noqa: F401 - fixture
 from tests.phase_sessions_models_support import SONNET, _events, _seat_run, _with_phase
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import DEFINITION, _confirm, _hub, _jobs, _reenter  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 COMPANY_SONNET = "company-sonnet"
 LIMIT = {"status": "error", "error": "rate_limit", "result_text": "You've hit your session limit · resets 7pm "
@@ -27,7 +30,6 @@ LIMIT = {"status": "error", "error": "rate_limit", "result_text": "You've hit yo
 
 @pytest.fixture
 def company_aliases(monkeypatch, seat_admitted):  # noqa: F811
-    """The Workspace's admitted company aliases (``aliases``), also admitted as device models."""
     aliases: list[SimpleNamespace] = []
 
     async def admitted(*_a, **_k):

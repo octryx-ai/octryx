@@ -1,18 +1,4 @@
-"""Answer feedback in the Memory lobe: what a person liked and disliked about one assistant answer.
-
-Every rating is one structured record per (user, assistant message); re-submitting replaces it. The
-record carries the verdict (``good``/``bad``), the optional "what was good" / "what was not good"
-texts, the aspects marked liked or disliked, and the links of the answer: session, message, workflow,
-execution profile and the model/provider that answered. Its rendered form is a Workspace-scope memory
-item of class ``answer_feedback`` (``knowledge_memory_items``), stated by the person
-(``human_stated``), so it is recallable with an explicit class filter and forgettable like any
-memory. Feedback is never injected into a prompt.
-
-- ``session_id`` and ``message_id`` are plain references without a foreign key: memory outlives the
-  chat that produced it, exactly like ``knowledge_memory_items.session_id``.
-- Forgetting the memory item erases ``liked`` and ``disliked`` here too; the verdict and the aspects
-  stay as the tombstone's counts.
-"""
+"""Answer feedback in the Memory lobe: what a person liked and disliked about one assistant answer."""
 
 from __future__ import annotations
 
@@ -22,6 +8,7 @@ from enum import StrEnum
 from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -52,7 +39,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeAnswerFeedback(Base):
+class KnowledgeAnswerFeedback(WorkspaceBound, Base):
     __tablename__ = "knowledge_answer_feedback"
     __table_args__ = (
         UniqueConstraint("message_id", "user_id", name="uq_knowledge_answer_feedback_message_user"),
@@ -79,8 +66,10 @@ class KnowledgeAnswerFeedback(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeAnswerFeedbackAspect(Base):
+class KnowledgeAnswerFeedbackAspect(WorkspaceBound, Base):
     """One aspect of one feedback, marked liked or disliked; replaced together with its feedback."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"feedback_id": "knowledge_answer_feedback"}
 
     __tablename__ = "knowledge_answer_feedback_aspects"
     __table_args__ = (Index("ix_knowledge_answer_feedback_aspects_aspect", "aspect", "verdict"),)

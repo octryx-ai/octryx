@@ -1,14 +1,4 @@
-"""The git work of a ``parallel_work`` node in the device's main folder (teamwork design, WP-B), on real git
-repositories:
-
-- ``branch`` commits the coordinator's files, starts the item's worktree inside the folder on its own branch and keeps
-  ``/.octryx-items/`` out of the change;
-- ``merge`` commits the item's worktree, merges it ``--no-ff`` and removes the worktree;
-- a conflict aborts the merge and lists the files, the main folder stays as it was;
-- the report carries the main folder's change against the run's base (the review and the push see the whole story);
-- a re-run of the same ops is idempotent;
-- a device job with ``work_git`` reports it and runs no agent (``work_git_done``).
-"""
+"""The git work of a ``parallel_work`` node in the device's main folder, on real git repositories."""
 
 from __future__ import annotations
 

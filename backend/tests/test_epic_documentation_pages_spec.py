@@ -17,8 +17,8 @@ pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("public_source_dns")]
 @pytest.fixture
 def evidence_runtime(monkeypatch):
     from app.config import get_settings
-    from app.services.knowledge.runtime import set_evidence_runtime
     from tests.knowledge_evidence_runtime_support import build_runtime
+    from tests.knowledge_runtime_support import set_evidence_runtime
 
     monkeypatch.setattr(get_settings(), "platform_public_origin", "https://octryx.example.test")
     runtime, _, _index = build_runtime()
@@ -41,9 +41,6 @@ async def test_the_spec_page_is_skipped_without_a_pushed_spec(db, monkeypatch):
 
 
 async def test_a_story_publishes_the_spec_page_the_spec_run_could_not(db, monkeypatch, tmp_path):
-    """When spec-writing's ``publish_spec`` skips (no usable Confluence connection), nothing else publishes the spec.
-    The first story with a grant lacking the spec page writes it from its branch (the spec three folders deep),
-    before its feature page, which then links it."""
     admin, project, stub, epic, (s1, _s2) = await _workspace(db, monkeypatch)
     _git(tmp_path, "init", "-q")
     folder = tmp_path / "coffee" / "web" / "claude"
@@ -73,8 +70,6 @@ async def test_a_story_publishes_the_spec_page_the_spec_run_could_not(db, monkey
 
 
 async def test_the_spec_of_the_storys_own_folder_is_the_one_published(tmp_path):
-    """A repository can keep app/web/claude/SPEC.md and app/web/codex/SPEC.md side by side; a Codex story's commit
-    changes no SPEC.md, so the first by name (claude) must not be published for it."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.documentation.spec_source import pushed_spec
@@ -97,8 +92,6 @@ async def test_the_spec_of_the_storys_own_folder_is_the_one_published(tmp_path):
 
 async def test_what_the_runs_write_becomes_workspace_knowledge(
         client, db, monkeypatch, tmp_path, evidence_runtime):  # client: its own sessions reach the test database
-    """Knowledge first: the spec and every page a run writes are Workspace knowledge
-    at once (source link, a new revision per change); a Workspace switches it off."""
     from app.models.project.knowledge_evidence import KnowledgeEvidenceSource
 
     admin, project, _stub, epic, (s1, _s2) = await _workspace(db, monkeypatch)

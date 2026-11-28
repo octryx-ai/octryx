@@ -1,8 +1,4 @@
-"""Icon extraction helpers for corporate identity templates.
-
-Any slide may carry icons; which pictures count and how they are named is
-decided in ``slide_icons``. A slide titled "Icons …" only lends its category.
-"""
+"""Icon extraction helpers for corporate identity templates."""
 
 from __future__ import annotations
 
@@ -13,10 +9,7 @@ from typing import Any
 from xml.etree import ElementTree as ET
 
 from .parsing import (
-    NS_A,
     NS_P,
-    NS_R,
-    NS_SVG,
     load_rels,
     placeholder_meta,
     ppt_text,
@@ -27,7 +20,6 @@ from .slide_icons import slide_icons
 
 
 def icon_slide_category(root: ET.Element) -> str | None:
-    """Return the icon category of a parsed slide, or ``None`` if not an icon slide."""
     title_text = ""
     for shape in root.findall(f".//{{{NS_P}}}sp"):
         placeholder = placeholder_meta(shape)
@@ -46,7 +38,6 @@ def icon_slide_category(root: ET.Element) -> str | None:
 
 
 def slide_icon_category(root: ET.Element) -> str:
-    """The category a slide lends its icons: its "Icons …" title, else "General"."""
     return icon_slide_category(root) or "General"
 
 
@@ -60,7 +51,6 @@ def _slide_width(slides_dir: Path) -> int:
 
 
 def detect_icon_slides(slides_dir: Path) -> list[tuple[Path, Path, str]]:
-    """Every slide with its rels file and the category it lends its icons."""
     rels_dir = slides_dir / "_rels"
     matches: list[tuple[Path, Path, str]] = []
     for slide_path in sorted(
@@ -75,20 +65,6 @@ def detect_icon_slides(slides_dir: Path) -> list[tuple[Path, Path, str]]:
     return matches
 
 
-def image_target(element: ET.Element, rels: dict[str, str]) -> str:
-    svg_blip = element.find(f".//{{{NS_SVG}}}svgBlip")
-    if svg_blip is not None:
-        rel_id = str(svg_blip.attrib.get(f"{{{NS_R}}}embed") or "").strip()
-        if rel_id:
-            return rels.get(rel_id, "")
-    blip = element.find(f".//{{{NS_A}}}blip")
-    if blip is not None:
-        rel_id = str(blip.attrib.get(f"{{{NS_R}}}embed") or "").strip()
-        if rel_id:
-            return rels.get(rel_id, "")
-    return ""
-
-
 def parse_icon_slide(
     slide_path: Path, rels_path: Path, category: str, *, slide_width: int = 0
 ) -> list[dict[str, Any]]:
@@ -101,12 +77,6 @@ def parse_icon_slide(
 def icons_from_slide(
     root: ET.Element, rels: dict[str, str], category: str, *, slide_width: int = 0
 ) -> list[dict[str, Any]]:
-    """The icons of one slide (see ``slide_icons``).
-
-    ``rels`` maps relationship ids to image identifiers; callers decide whether
-    those are bare file names or full package part names — the value is only
-    passed through as ``original_file``.
-    """
     return slide_icons(root, rels, category, slide_width=slide_width)
 
 

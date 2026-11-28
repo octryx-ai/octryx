@@ -40,7 +40,6 @@ _ACCEPTANCE_MARKS = {"covered": "✅ covered", "partial": "🟡 partial", "missi
 
 
 def acceptance(rows: Any) -> list[str]:
-    """The ticket's acceptance criteria → code → evidence; informative, never the status."""
     rows = [dict(row) for row in rows or [] if isinstance(row, dict) and row.get("criterion")]
     if not rows:
         return []
@@ -50,7 +49,6 @@ def acceptance(rows: Any) -> list[str]:
 
 
 def incremental_lines(passed: Any, facts: dict[str, Any]) -> list[str]:
-    """The incremental pass in one line, with what it found fixed."""
     if not isinstance(passed, dict) or not passed.get("from"):
         return []
     fixed, withdrawn = list(passed.get("fixed") or []), list(passed.get("withdrawn") or [])

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .model import ToolFamily
 
-# ── Families (shared building blocks) ────────────────────────────────────────
 _WORKFLOW_SELECTION = ToolFamily(
     "workflow_selection", ("select_workflow", "list_available_workflows", "start_workflow")
 )
@@ -48,8 +47,7 @@ _CONNECTOR_READ = ToolFamily(
         "get_k8s_events",
     ),
 )
-# "Close PROJ-1..PROJ-6 and list the open PRs" needs the Jira transitions and a PR list; without them
-# the model loops on tool_search. Reads are free; chat set only (diagnosis.v10).
+# Without the Jira transitions and a PR list the model loops on tool_search; reads are free, chat set only.
 _CHAT_CONNECTOR_READ = ToolFamily(
     "connector_read_more",
     (
@@ -63,17 +61,13 @@ _CHAT_CONNECTOR_READ = ToolFamily(
 )
 # The lazy bridge to the Workspace's MCP servers (deny-by-default ``mcp_policy``).
 _MCP_BRIDGE = ToolFamily("mcp_bridge", ("list_mcp_servers", "list_mcp_server_tools", "call_mcp_server_tool"))
-# The runtime command tool: the diagnosis mode contract asks the model to call it on an explicit
-# command request so command policy allows, blocks or asks for approval. ``bash`` stays out: chat
-# commands go through the model and this governed tool (no prompt-regex fast path).
+# Explicit command requests go through this governed tool so command policy decides; ``bash`` stays out
 _SHELL = ToolFamily("shell", ("run_cli_command",))
-_DELEGATION = ToolFamily("delegation", ("spawn_sub_agent", "get_context_from_subthreads"))
 # Platform-native work items (Workspaces without Jira plan in chat; the board has no create button).
 _WORK_ITEMS = ToolFamily("work_items", ("work_item_create", "work_item_context", "work_item_note"))
 
-# Chat parity with the Octryx client (the chat can do what the client can): the reads the client's MCP server offers
-# that the chat lacked. Reads only, no confirmation;
-# visibility still drops a connector's tools until the Workspace activates it. Declared last: lowest priority.
+# The client's MCP reads the chat lacked; visibility drops a connector's tools until the Workspace activates it.
+# Declared last: lowest priority.
 _OPS_READ = ToolFamily(
     "ops_read",
     (
@@ -102,8 +96,7 @@ _SERVICENOW_READ = ToolFamily(
 _KNOWLEDGE_GRAPH = ToolFamily(
     "knowledge_graph", ("graph_neighbors", "config_vs_manual", "ops_chain", "jira_release_status")
 )
-# The client's work-item lifecycle (gap B): reads free; plans, decisions, transitions and a coding run's start are
-# confirmed per call in a chat (``tool_approval_gate``, rule ``chat_platform_write``).
+# Reads free; writes are confirmed per call in a chat (``tool_approval.gate``, rule ``chat_platform_write``).
 _WORK_LIFECYCLE = ToolFamily(
     "work_lifecycle",
     (
@@ -118,9 +111,7 @@ _WORK_LIFECYCLE = ToolFamily(
         "coding_agent_start",
     ),
 )
-# Coordination between agents (gap B group 2): the chat claims, posts and hands off as its own chat-session agent
-# (``agent_board.identity.chat_session_identity``). Reads free; claims, posts, acks, handoffs and takeover requests are
-# confirmed per call in a chat.
+# The chat acts as its own chat-session agent (``agent_board.identity.chat_session_identity``); writes are confirmed.
 _COORDINATION = ToolFamily(
     "coordination",
     (
@@ -137,8 +128,7 @@ _COORDINATION = ToolFamily(
         "work_item_takeover_request",
     ),
 )
-# Workflow runs, approvals and tasks (gap B group 3): the client's handlers with the chat as caller. Reads free;
-# continuing a run here, a run decision and a run action are confirmed per call.
+# Reads free; continuing a run, a run decision and a run action are confirmed per call.
 _RUN_STEERING = ToolFamily(
     "run_steering",
     (
@@ -155,7 +145,7 @@ _RUN_STEERING = ToolFamily(
         "workflow_action_request",
     ),
 )
-# The client's Knowledge extras (gap B group 4): sources, Workspaces, the entity graph; rating an answer is confirmed.
+# Sources, Workspaces, the entity graph; rating an answer is confirmed.
 _KNOWLEDGE_EXTRAS = ToolFamily(
     "knowledge_extras",
     ("knowledge_sources", "knowledge_projects", "entity_search", "entity_neighbors", "knowledge_feedback"),

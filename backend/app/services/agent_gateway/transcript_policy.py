@@ -1,10 +1,4 @@
-"""Writing the Workspace switch "full session transcripts", like the handoff policy.
-
-``set_workspace_transcript_policy`` validates the section (``transcript_policy_keys``), checks that the stored policy
-merged with it still validates (a broken stored policy is a coded refusal before any write), writes
-``agent_gateway_policy.session_transcripts`` through the governed project-config path and records an audit row
-with the before and after values: who switched a Workspace's transcripts on or off, and when, stays traceable.
-"""
+"""Writing the Workspace switch "full session transcripts", audited like the handoff policy."""
 
 from __future__ import annotations
 
@@ -29,7 +23,6 @@ REASON_POLICY_INVALID = "agent_gateway_policy_invalid"
 async def set_workspace_transcript_policy(
     db: AsyncSession, *, project: Project, value: Any, actor_id: str
 ) -> TranscriptPolicy:
-    """Store the validated section; raises ``TranscriptPolicyError`` (field reasons or the stored-policy reason)."""
     section = normalize_transcript_policy(value, f"{AGENT_GATEWAY_POLICY_CONFIG_KEY}.{SESSION_TRANSCRIPTS_KEY}")
     config = project.config if isinstance(project.config, dict) else {}
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY)

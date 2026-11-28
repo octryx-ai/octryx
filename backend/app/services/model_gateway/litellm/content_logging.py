@@ -1,68 +1,4 @@
-"""Content-logging and callback posture contract for the LiteLLM gateway.
-
-A LiteLLM deployment can be configured to persist request and response bodies and
-to forward them to observability callbacks. If that is on, every prompt this
-platform sends — and every credential a prompt happens to contain — is retained
-outside the Octryx audit boundary. The gateway's own configuration is
-readable only with the master key, which this platform deliberately never holds
-so the posture cannot be sniffed at runtime. It is therefore *declared*,
-validated deny-by-default here, and carries the source of its verification:
-
-``config_json["litellm_gateway"]["content_logging"]``::
-
-    {
-      "mode": "no_content_retention",
-      "prompt_retention": "disabled",
-      "response_retention": "disabled",
-      "key_metadata_retention": "disabled",
-      "header_retention": "disabled",
-      "success_callbacks": [],
-      "failure_callbacks": [],
-      "attestation_reference": "litellm-posture-2026-09-27",
-      "attested_on": "2026-09-27",
-      "verified_against": "live_gateway_configuration"
-    }
-
-Prompts are not the only thing a LiteLLM deployment can retain, and the other two
-surfaces are the ones that hold the *credential*:
-
-``header_retention``
-    Request headers. This is how ``Authorization: Bearer <virtual key>`` gets
-    captured by a deployment that logs no request body at all — through proxy
-    access logs or a callback that forwards headers.
-``key_metadata_retention``
-    The key's own identity in spend logs, audit logs and callback metadata
-    (LiteLLM's ``redact_user_api_key_info`` / ``store_audit_logs`` surface).
-
-Both are separate operator statements about separate settings. ``header_retention``
-must be ``disabled``: a posture that retains no prompt but stores the bearer token
-has not protected the credential boundary.
-
-``key_metadata_retention`` admits one honest exception besides ``disabled``:
-``retained_by_internal_platform_gateway``. It states that the *identity* of the
-virtual key (its alias / hashed token, never the bearer value) is kept in the
-spend logs of an internal, platform-operated gateway — the data platform's shared
-LiteLLM, which needs it for budget enforcement and cannot switch it off. It is
-admitted only when nothing else can carry the key out of that gateway: mode
-``no_content_retention``, prompt / response / header retention all ``disabled``,
-both callback lists *empty* (not even the content-free ``prometheus``), and the
-attestation reference every posture carries. Prompts, responses and headers stay
-forbidden; the value is recorded verbatim in the evidence and the qualification
-report so no reader mistakes it for ``disabled``.
-
-Neither field is named after a credential marker on purpose. The gateway section
-is scanned for credential-looking keys at admission and readiness
-(``alias_catalog.config_contains_credential_material``), and that scan is
-deliberately broad — a field called ``credential_retention`` would make every
-correctly configured provider look like it had a key pasted into its config.
-
-``verified_against`` is the honesty field. ``declared_configuration`` means an
-operator asserted the posture but nobody has read the running gateway's
-configuration; the qualification report then keeps the live gate open. Only
-``live_gateway_configuration`` records that the running deployment was inspected.
-Both are admitted for dispatch — a declaration is the operator's accountable
-statement — but only one of them can close the activation gate.
-"""
+"""Content-logging and callback posture of the LiteLLM gateway: declared, validated deny-by-default."""
 
 from __future__ import annotations
 
@@ -74,11 +10,16 @@ from typing import Any
 
 CONTENT_LOGGING_MODE_NO_RETENTION = "no_content_retention"
 RETENTION_DISABLED = "disabled"
+# The platform never holds the gateway's master key, so the posture is declared, not read. Headers carry
+# ``Authorization: Bearer <virtual key>``, so header retention must be disabled even with no body logged. Key metadata
+# (the key's alias or hash, never its value) may stay in an internal platform gateway's spend logs only while nothing
+# else can carry it out: no content retention, no callbacks, an attestation. No field is named after a credential
+# marker: the config credential scan is broad on purpose.
 KEY_METADATA_RETAINED_BY_INTERNAL_PLATFORM_GATEWAY = "retained_by_internal_platform_gateway"
 KEY_METADATA_RETENTION_STATES = frozenset({RETENTION_DISABLED, KEY_METADATA_RETAINED_BY_INTERNAL_PLATFORM_GATEWAY})
 
 VERIFIED_AGAINST_DECLARED = "declared_configuration"
-VERIFIED_AGAINST_LIVE = "live_gateway_configuration"
+VERIFIED_AGAINST_LIVE = "live_gateway_configuration"  # only this one can close the activation gate
 VERIFICATION_SOURCES = frozenset({VERIFIED_AGAINST_DECLARED, VERIFIED_AGAINST_LIVE})
 
 # Callbacks that provably carry no prompt or response content. Deny-by-default:

@@ -10,8 +10,6 @@ from .pipeline_results import _green
 
 
 def failure_for_agent(run: WorkflowRun) -> dict[str, Any] | None:
-    """The last red pipeline, for the building agent's next pass: which command failed, which tests failed in it,
-    and which tasks have no passing proof test."""
     current = state(run)
     if current.get("state") != STATE_RED:
         return None
@@ -31,10 +29,9 @@ def failure_for_agent(run: WorkflowRun) -> dict[str, Any] | None:
                            "reason": f"{item['skipped']}; it runs once the checks above and the code style are green"}
                           for item in waiting]
     if current.get("red_on_base_errors"):
-        red["red_on_base"] = list(current["red_on_base_errors"])[:20]  # the test must show the bug on the base
+        red["red_on_base"] = list(current["red_on_base_errors"])[:20]
     if current.get("code_style_errors"):
-        # Without this, when only code style was red the agent's contract
-        # named no failing command or test, so it changed nothing ("there is nothing new to fix this round").
+        # The agent's contract must name what is red, also when only the code style is.
         red["code_style_errors"] = list(current["code_style_errors"])[:40]
         red["code_style_rule"] = ("The installation's code style is part of the pipeline: fix every finding listed "
                                   "here exactly as named (file, line, rule) before anything else.")
@@ -53,8 +50,6 @@ def failure_for_agent(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 def file_problem(current: dict[str, Any]) -> dict[str, Any] | None:
-    """A red pipeline because of the repository's environment file (missing, invalid, its setup failed): what the
-    building agent has to do, with the file's format."""
     from .workspace.spec import ENVIRONMENT_FILE_FORMAT
 
     audit = dict(current.get("audit") or {})

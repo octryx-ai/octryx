@@ -1,21 +1,4 @@
-"""The governed model run of one work item analysis (``services/governed_agent_run``).
-
-1. The Workspace's ``model_policy`` setting (``name@revision``) resolves to the ordered gateway aliases of
-   that published revision (``model_call.load_policy_aliases``); the aliases are admitted through
-   ``admit_runtimes_for_dispatch`` under this module's own dispatch owner ``work_item_analysis``
-   (``model_call.admitted_runtimes``): the project's model grant and its data policy apply.
-2. Every request is a ``GovernedModelCall`` (guardrail scan, platform budget, alias failover, usage
-   accounting) plus the analysis cost cap: once the run has spent ``cost_cap_usd`` no further request is
-   made (``failed`` / ``cost_cap_reached``).
-3. The tool surface is fixed: ``knowledge_search``, ``knowledge_read`` and ``work_item_context`` are
-   required (a hidden, forbidden or approval-bound one is a refusal before any model request); the
-   read-only ticket tools of the item's source are offered when the Workspace allows them, and the ones it
-   does not are recorded as ``unavailable``. Every call goes through the registry's governance chain under
-   the session's enforced ``read_only`` class. ``work_item_context`` is pinned to the analysed item.
-4. Every tool output is kept for the citation check (``contract.check_citations``).
-5. Each request is bounded by the Workspace's ``max_output_tokens`` setting (default 8192); the model that
-   answered is recorded.
-"""
+"""The governed model run of one work item analysis (``services/governed_agent_run``)."""
 
 from __future__ import annotations
 
@@ -27,7 +10,8 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...agent.harness.runtime import HarnessRuntime
+from app.agent.runtime.harness_runtime import HarnessRuntime
+
 from ...tools.definitions import get_all_definitions
 from ...tools.visibility import tool_visibility_decision
 from ..governed_agent_run.context import ExecutionContext
@@ -70,7 +54,6 @@ class RunOutcome:
 
 
 def _usable(name: str, config: dict[str, Any], catalog: dict[str, Any]) -> str | None:
-    """``None`` when the Workspace offers ``name`` to this run, else the closed refusal code."""
     if name not in catalog or not is_registered_tool(name):
         return "tool_unavailable"
     if not tool_visibility_decision(name, config).visible or not tool_project_policy_decision(name, config).allowed:
@@ -97,8 +80,6 @@ def tool_surface(project_config: dict[str, Any], source_type: str) -> tuple[Agen
 
 
 class CappedModelCall(GovernedModelCall):
-    """A governed call that makes no further request once the run has spent its cost cap."""
-
     def __init__(self, *args: Any, cost_cap_usd: Decimal, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._cost_cap_usd = cost_cap_usd
@@ -113,8 +94,6 @@ class CappedModelCall(GovernedModelCall):
 
 
 class RecordingToolCall:
-    """The run's tool closure: ``work_item_context`` pinned to the item, every output kept."""
-
     def __init__(self, inner: AgentToolCall, work_item_id: str, outputs: list[str]) -> None:
         self._inner = inner
         self._work_item_id = work_item_id
@@ -151,7 +130,6 @@ async def run_governed_analysis(
     resolve_runtimes: RuntimeResolver | None = None,
     get_provider: Callable[..., Any] | None = None,
 ) -> RunOutcome:
-    """Run the analysis; every refusal is returned in ``outcome.refusal`` with the cost spent so far."""
     outcome = RunOutcome()
     call: CappedModelCall | None = None
     try:

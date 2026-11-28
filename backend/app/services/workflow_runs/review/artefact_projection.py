@@ -1,8 +1,4 @@
-"""Safe run-reader projection of internal immutable review snapshots.
-
-Run-read membership is not source-read authority. Never expose snapshot bodies, source text or ACL principals
-through the generic event API, including after a later source revocation.
-"""
+"""Safe run-reader projection of internal immutable review snapshots."""
 from __future__ import annotations
 
 from .artefact_contract import SNAPSHOT_EVENT
@@ -30,7 +26,6 @@ def event_detail(kind: str, detail: dict) -> dict:
 
 
 def gate_detail(gate):
-    """Artifact findings can quote evidence; a generic run reader gets state, not that source content."""
     if not isinstance(gate, dict):
         return gate
     results = gate.get("results")

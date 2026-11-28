@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -14,6 +13,7 @@ from ..sync.cursor import SyncCursor
 from ..sync.git_config import FETCH_LOCAL_SNAPSHOT
 from .binding import SnapshotRefusal, fetch_mode_of, repository_connector, session_binding, valid_commit
 from .policy import REASON_LOCAL_SNAPSHOTS_NOT_ALLOWED, local_snapshots_allowed
+from .protocol_types import SessionBinding, SnapshotCursor, SnapshotPassState
 
 # The open pass's wanted files and counters, beside the generic cursor fields.
 SNAPSHOT_CURSOR_KEY = "snapshot"
@@ -27,7 +27,7 @@ REASON_NO_OPEN_PASS = "snapshot_pass_not_open"
 
 @dataclass(frozen=True, slots=True)
 class _Pass:
-    binding: dict[str, Any]
+    binding: SessionBinding
     connector: KnowledgeSourceConnector
     head_commit: str
 
@@ -51,7 +51,7 @@ async def _writable_pass(
     return _Pass(binding=binding, connector=connector, head_commit=commit)
 
 
-def _open_snapshot(connector: KnowledgeSourceConnector, head_commit: str) -> dict[str, Any] | None:
+def _open_snapshot(connector: KnowledgeSourceConnector, head_commit: str) -> SnapshotPassState | None:
     raw = connector.cursor if isinstance(connector.cursor, dict) else {}
     snapshot = raw.get(SNAPSHOT_CURSOR_KEY)
     if not SyncCursor.load(raw).pass_open or not isinstance(snapshot, dict) or snapshot.get("commit") != head_commit:
@@ -59,8 +59,10 @@ def _open_snapshot(connector: KnowledgeSourceConnector, head_commit: str) -> dic
     return dict(snapshot)
 
 
-def _store_cursor(connector: KnowledgeSourceConnector, cursor: SyncCursor, snapshot: dict[str, Any] | None) -> None:
-    stored = cursor.as_dict()
+def _store_cursor(
+    connector: KnowledgeSourceConnector, cursor: SyncCursor, snapshot: SnapshotPassState | None
+) -> None:
+    stored: SnapshotCursor = cursor.as_dict()
     if snapshot is not None:
         stored[SNAPSHOT_CURSOR_KEY] = snapshot
     connector.cursor = stored

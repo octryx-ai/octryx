@@ -1,20 +1,5 @@
-"""Source ACL facets in the ledger: stored, re-checked, and projected.
-
-PostgreSQL is the authority. A source is restricted when it has a ``KnowledgeSourceAcl`` row, and
-readable only by the principal keys stored for it (``access/acl_keys.py``). This module owns:
-
-- **the switch**: a Workspace ingests restricted items only when ``Project.config`` carries
-  ``{"knowledge_source_acl": {"enforce": true}}``, read from the row itself and ``True`` only; any
-  other value keeps today's behavior, where restricted items are withheld at sync;
-- **the write** of one source's ACL, which a connector does *before* ingesting, so no revision of a
-  restricted item ever exists without its restriction; and the re-projection an ACL change owes;
-- **the re-check** (:func:`visible_source`): the SQL predicate every ledger read that returns
-  content or titles applies, so a stale or missing projection marker can never widen access;
-- **the marker** a projected span carries (:func:`span_marker_for_revision`).
-
-Retrieval enforcement never depends on the switch: a restricted source stays filtered after the
-switch is turned off, until a sync withholds and retires it.
-"""
+"""Source ACL facets in the ledger: stored, re-checked, and projected. The ACL is written before ingesting; retrieval
+enforcement never depends on the enforce switch."""
 
 from __future__ import annotations
 
@@ -38,7 +23,7 @@ from ....models.project.knowledge_evidence import (
 from ....models.project.knowledge_source_acl import KnowledgeSourceAcl, KnowledgeSourceAclPrincipal
 from ....time_utils import utc_now
 from ..ledger.errors import EvidenceLedgerContractError
-from .acl_keys import MAX_SOURCE_PRINCIPALS, normalize_email, principal_key_for_email, span_acl_keys
+from .acl_keys import MAX_SOURCE_PRINCIPALS, AclKey, normalize_email, principal_key_for_email, span_acl_keys
 
 ACL_CONFIG_KEY = "knowledge_source_acl"
 MAX_SOURCE_PRINCIPAL_LABELS = 20
@@ -52,14 +37,12 @@ class StoredSourceAcl:
 
 
 async def acl_enforcement_enabled(db: AsyncSession, project_id: str) -> bool:
-    """Whether this Workspace ingests restricted items with their ACL. Off unless explicitly ``True``."""
     config = (await db.execute(select(Project.config).where(Project.id == project_id))).scalar_one_or_none()
     section = config.get(ACL_CONFIG_KEY) if isinstance(config, Mapping) else None
     return isinstance(section, Mapping) and section.get("enforce") is True
 
 
 def visible_source(project_id: str, source_key: ColumnElement, principal_keys: tuple[str, ...]) -> ColumnElement:
-    """SQL predicate: the source named by ``source_key`` is readable with ``principal_keys``."""
     unrestricted = ~exists().where(
         KnowledgeSourceAcl.project_id == project_id, KnowledgeSourceAcl.source_key == source_key
     )
@@ -106,10 +89,7 @@ async def restrict_source(
     source_principals: tuple[str, ...] = (),
     member_emails: tuple[str, ...] = (),
 ) -> bool:
-    """Store the source as restricted to ``member_emails`` (none: readable by nobody). True when it changed.
-
-    Runs in the caller's transaction and never commits. Addresses are hashed here and not stored.
-    """
+    # Runs in the caller's transaction and never commits; addresses are hashed, never stored.
     if type(restriction) is not str or not 0 < len(restriction) <= MAX_RESTRICTION_CHARS:
         raise EvidenceLedgerContractError()
     emails = tuple(sorted({email for email in map(normalize_email, member_emails) if email is not None}))
@@ -138,7 +118,6 @@ async def restrict_source(
 
 
 async def unrestrict_source(db: AsyncSession, *, project_id: str, source_key: str) -> bool:
-    """The source is readable by the whole Workspace again. True when it was restricted."""
     row = await db.get(KnowledgeSourceAcl, (project_id, source_key))
     if row is None:
         return False
@@ -183,14 +162,7 @@ async def _reopen_applied_projection(
 
 
 async def reproject_source(db: AsyncSession, *, project_id: str, source_key: str) -> bool:
-    """Owe the projection of the source again, so every span it serves carries the new marker.
-
-    The current revision's completed projection is reopened from its first span, and every pending
-    projection of the source restarts at its first span, so no span keeps the old marker. A claimed
-    one is left to its holder (a fenced lease is never cleared from the side); until it reruns, the
-    ledger re-check still decides. Runs in the caller's transaction and never commits. True when an
-    obligation was reset.
-    """
+    # A claimed obligation is left to its holder: a fenced lease is never cleared from the side.
     head = (
         await db.execute(
             select(KnowledgeSourceHead.source_id, KnowledgeSourceHead.current_revision_id)
@@ -229,8 +201,7 @@ async def reproject_source(db: AsyncSession, *, project_id: str, source_key: str
     return bool(reset or restarted.rowcount)
 
 
-async def span_marker_for_revision(db: AsyncSession, project_id: str, revision_id: str) -> tuple[str, ...]:
-    """The ACL marker every projected span of ``revision_id`` carries, read from the ledger."""
+async def span_marker_for_revision(db: AsyncSession, project_id: str, revision_id: str) -> tuple[AclKey, ...]:
     source_key = (
         await db.execute(
             select(KnowledgeEvidenceSource.source_key)

@@ -7,20 +7,21 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-import app.agent.engine as agent_engine_module
-from app.agent.engine import AgentEvent
 from app.models import AgentChainRun, Project, Session, User
 from app.services.agent_chain import execute_agent_chain, templates
+from tests.scripted_pool_support import scripted_turns  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_turns")
 
 
 @pytest.mark.asyncio
-async def test_agent_chain_template_api_crud_and_run(client, auth_headers, db, monkeypatch):
+async def test_agent_chain_template_api_crud_and_run(client, auth_headers, db, monkeypatch, scripted_turns):  # noqa: F811
     project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
 
-    async def fake_run_agent(*, session_id, user_message, **kwargs):
-        yield AgentEvent(role="assistant", content=f"processed:{user_message}")
+    async def answer(user_message):
+        return f"processed:{user_message}"
 
-    monkeypatch.setattr(agent_engine_module, "run_agent", fake_run_agent)
+    scripted_turns["default"] = answer
 
     create_resp = await client.post(
         "/api/v1/agent-chains/templates",
@@ -109,7 +110,8 @@ async def test_agent_chain_template_api_crud_and_run(client, auth_headers, db, m
 
 
 @pytest.mark.asyncio
-async def test_execute_agent_chain_parallel_group_runs_concurrently_and_feeds_context(reset_db, monkeypatch):
+async def test_execute_agent_chain_parallel_group_runs_concurrently_and_feeds_context(reset_db, monkeypatch,
+                                                                                     scripted_turns):  # noqa: F811
     db = reset_db
     project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
     current_user = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
@@ -154,15 +156,15 @@ async def test_execute_agent_chain_parallel_group_runs_concurrently_and_feeds_co
     active = 0
     max_active = 0
 
-    async def fake_run_agent(*, user_message, **kwargs):
+    async def answer(user_message):
         nonlocal active, max_active
         active += 1
         max_active = max(max_active, active)
         await asyncio.sleep(0.2)
-        yield AgentEvent(role="assistant", content=f"done:{user_message}")
         active -= 1
+        return f"done:{user_message}"
 
-    monkeypatch.setattr(agent_engine_module, "run_agent", fake_run_agent)
+    scripted_turns["default"] = answer
     session_factory = async_sessionmaker(db.bind, class_=AsyncSession, expire_on_commit=False)
 
     run_payload = await execute_agent_chain(

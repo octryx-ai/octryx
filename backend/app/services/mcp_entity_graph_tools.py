@@ -1,18 +1,9 @@
-"""Entity-graph tool handlers for the MCP protocol server.
-
-The knowledge graph is the PRIMARY knowledge surface: entities and relations
-each carry their own ``trust_level`` (bronze evidence, silver once multiple
-independent sources or a review confirm it, gold as an explicit act). These
-tools expose the graph read-only under the existing ``knowledge:read`` scope
-so MCP clients can answer "who/what is X connected to" questions that
-entry-level search cannot.
-"""
+"""Entity-graph tool handlers for the MCP protocol server. Read-only, under the ``knowledge:read`` scope."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from mcp.server.fastmcp import Context
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,8 +34,7 @@ def _node_payload(node: KnowledgeGraphNode) -> dict[str, Any]:
 
 
 async def _readable_projects(db: AsyncSession, user: User) -> set[str]:
-    """The caller's own Workspaces (membership; private only their own, no admin shortcut). A
-    ``project_id`` argument outside them is refused; without one, only these are searched."""
+    # Private Workspaces only the caller's own, no admin shortcut; a ``project_id`` outside them is refused.
     from .project import get_user_project_ids  # noqa: PLC0415
 
     return set(await get_user_project_ids(str(user.id), db))
@@ -187,33 +177,4 @@ MCP_ENTITY_GRAPH_TOOL_HANDLERS = {
 }
 
 
-def register_entity_graph_tools(server: Any, call: Any) -> None:
-    """Register graph tools; ``call`` is the authenticated knowledge dispatch."""
-
-    @server.tool(
-        description=(
-            "Search knowledge-graph entities (person, repository, system, ticket, concept, ...) "
-            "by name/key. Returns per-node trust_level - the graph is not the gold layer."
-        )
-    )
-    async def entity_search(
-        query: str,
-        project_id: str = "",
-        node_type: str = "",
-        limit: int = 10,
-        ctx: Context | None = None,
-    ) -> dict[str, Any]:
-        return await call(
-            ctx,
-            "entity_search",
-            {"query": query, "project_id": project_id, "node_type": node_type, "limit": limit},
-        )
-
-    @server.tool(
-        description="Load an entity's graph neighborhood (edges + neighbor nodes) by id, node_key, or display name."
-    )
-    async def entity_neighbors(node: str, limit: int = 25, ctx: Context | None = None) -> dict[str, Any]:
-        return await call(ctx, "entity_neighbors", {"node": node, "limit": limit})
-
-
-__all__ = ["MCP_ENTITY_GRAPH_TOOL_HANDLERS", "register_entity_graph_tools"]
+__all__ = ["MCP_ENTITY_GRAPH_TOOL_HANDLERS"]

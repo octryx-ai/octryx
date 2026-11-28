@@ -1,12 +1,4 @@
-"""The platform extension of a skill version: what Octryx adds next to the Agent Skills bundle.
-
-``tools`` lists the tools a skill needs per surface (platform chat tool names; Claude Code permission patterns
-such as ``Bash(terraform validate *)``). They are **never** delivered as ``allowed-tools``: they only feed the
-readiness view and the chat's required-tools check. ``safety_rules`` and ``output_contract`` are rendered into the
-delivered body; ``approval_rules`` and the executor fields stay chat-only with unchanged semantics;
-``allowed_roles`` is resolved before delivery (no role, no skill). ``card_content`` optionally overrides the
-derived card (description + section outline).
-"""
+"""The platform extension of a skill version: what Octryx adds next to the Agent Skills bundle."""
 
 from __future__ import annotations
 
@@ -70,7 +62,6 @@ def normalize_extension(value: Any) -> dict[str, Any]:
 
 
 def outline(body: str, *, limit: int = 12) -> list[str]:
-    """The level 1-3 headings of a Markdown body, outside fenced code blocks."""
     headings: list[str] = []
     fenced = False
     for line in body.splitlines():
@@ -94,7 +85,6 @@ def card_text(description: str, body: str, extension: dict[str, Any]) -> str:
 
 
 def delivered_body(body: str, extension: dict[str, Any]) -> str:
-    """The body plus the catalog's output contract and safety rules."""
     parts = [body.rstrip("\n")]
     contract = extension.get("output_contract") or {}
     if contract:
@@ -107,7 +97,6 @@ def delivered_body(body: str, extension: dict[str, Any]) -> str:
 
 
 def token_cost(text: str) -> int:
-    """A deterministic estimate (4 characters per token), shown in the catalog; never a decision input."""
     return (len(text) + 3) // 4
 
 

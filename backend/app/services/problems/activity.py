@@ -1,27 +1,4 @@
-"""Activity problems: runs that loop or stand still, and device jobs that stopped talking (live monitoring).
-
-The other collectors judge a run by its status (``paused``/``failed``/waiting a day). These judge it by what it
-*does*:
-
-- ``run:looping`` (problem): one item of a running run was *dispatched* (a ``work_item`` event with status
-  ``running``) ``LOOP_DISPATCHES`` times inside ``LOOP_WINDOW`` at the same iteration; a replan raises the iteration,
-  so the count is per item and plan version. Pending/waiting events (``device_busy``) are not dispatches. A
-  looping item can be dispatched 105 times at one iteration in three minutes (210 item sessions) with nothing
-  flagging it; healthy team runs dispatch an item at most once per iteration in 5 minutes, and team delivery retries
-  an item at most 3 times. The loop guard pauses such a
-  run (``loop_guard``).
-- ``run:jobs_rejected`` (problem): the device refused ``REJECTED_JOBS`` of the run's jobs inside ``LOOP_WINDOW``
-  (e.g. ~105 rejected, ``workspace_preparation_workflow_run_not_bound`` / ``environment_not_ready``). The
-  most frequent reason is in the title, because it is what the person has to fix.
-- ``run:silent``: a ``running`` run, or one waiting for its device, with no run event and no change of any of its
-  device jobs for ``SILENT_ATTENTION`` (attention) or ``SILENT_PROBLEM`` (problem). Runs can go
-  an hour without a single event. Runs waiting for a person are left out; they are not silent, they wait.
-- ``device:job_stalled`` (problem): a ``running`` device job of a connected device with no event for
-  ``JOB_STALLED``. The 10-minute stalled-turn limit (``devices.jobs``) only acts when someone reads the job list;
-  past 15 minutes nobody has.
-
-These are signals, not limits: nothing is stopped or refused here.
-"""
+"""Activity problems: runs that loop or stand still, and device jobs that stopped talking (live monitoring)."""
 
 from __future__ import annotations
 
@@ -99,7 +76,6 @@ async def _looping(db: AsyncSession, ctx: CollectContext) -> list[tuple[Workflow
 
 
 async def looping_runs(db: AsyncSession, ctx: CollectContext) -> list[tuple[WorkflowRun, dict]]:
-    """``(run, {item, count, iteration, since, last})`` of every run with a dispatch loop (the loop guard's input)."""
     return await _looping(db, ctx)
 
 

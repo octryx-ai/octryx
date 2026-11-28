@@ -11,7 +11,6 @@ from .contracts import RetrievalRequest
 
 
 def vector_operation(request: RetrievalRequest, space_key: str, vector: list[float]) -> tuple[str, dict]:
-    """The nearest ``limit_per_mode`` spans of one space the request's ACL keys and scope admit."""
     parameters: dict[str, object] = {
         "space": space_key,
         "vector": vector,

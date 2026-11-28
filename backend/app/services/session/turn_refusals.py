@@ -1,16 +1,4 @@
-"""The closed set of reasons a turn is refused before it starts.
-
-Turn preparation (``turn_start.prepare_turn``) answers with a :class:`TurnRefusal` instead
-of an HTTP error. :data:`REFUSAL_HTTP_STATUS` is the one status contract of both entry
-paths; each path's thin adapter renders the body: ``web/_helpers/chat_turn_prepare`` keeps
-the ``/chat/api`` plain-text details, ``api/routes/_sessions_turn_routes`` answers
-``/api/v1`` with the state as a machine-readable ``code``. The request-bound services that
-start a chat turn (coordinator continue, coding execution) keep the chat rendering they
-always propagated.
-
-``detail`` is the operator-facing text (or, for ``agent_definition_refused``, the typed
-refusal record of). It never carries a prompt or an exception text.
-"""
+"""The closed set of reasons a turn is refused before it starts."""
 
 from __future__ import annotations
 
@@ -38,6 +26,7 @@ class TurnRefusalState(StrEnum):
     PROJECT_NOT_ASSIGNED = "project_not_assigned"
     PROJECT_NOT_FOUND = "project_not_found"  # a named Workspace that does not exist or the caller is no member of
     PREPARATION_FAILED = "preparation_failed"
+    RUNNER_REFUSED = "runner_refused"  # the runner turn the prepared message hands off to was refused
 
 
 # The status each refusal answers with, on every entry path. The values are the ones
@@ -61,6 +50,7 @@ REFUSAL_HTTP_STATUS: dict[TurnRefusalState, int] = {
     TurnRefusalState.PROJECT_NOT_ASSIGNED: 403,
     TurnRefusalState.PROJECT_NOT_FOUND: 404,
     TurnRefusalState.PREPARATION_FAILED: 500,
+    TurnRefusalState.RUNNER_REFUSED: 409,
 }
 
 
@@ -75,8 +65,6 @@ class TurnRefusal:
 
 
 class TurnRefusedError(Exception):
-    """Internal control flow of preparation; the owner returns the carried :class:`TurnRefusal`."""
-
     def __init__(self, state: TurnRefusalState, detail: str | dict[str, Any]) -> None:
         self.refusal = TurnRefusal(state=state, detail=detail)
         super().__init__(state.value)

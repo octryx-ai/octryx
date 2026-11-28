@@ -1,9 +1,4 @@
-"""The accepted spec in the new engineering B, the spec-origin PM decider and actual-viewer projections.
-
-Actual non-admin producer, PM, engineer and denied viewer; the real Knowledge ledger/ACL, confirmations, native
-offer/accept/allocator, the pinned published new graph, the HTTP routes and the MCP run-status handler. No authority
-doubles: only the scope of what is entered (one node of the pinned graph) is chosen by the test.
-"""
+"""The accepted spec in the new engineering B, the spec-origin PM decider and actual-viewer projections."""
 
 from __future__ import annotations
 
@@ -21,6 +16,7 @@ from app.services.workflow_runs.graph import graph_for_run
 from app.services.workflow_runs.phase_outputs import output_hash
 from app.services.workflow_runs.records import WorkflowRunError
 from tests.contract_coverage_support import FILE, NEW, REGRESSION, _base_copy
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_engineering_graph_support import SPEC_ORIGIN_NODES
 from tests.specification_engineering_integration_support import (  # noqa: F401
     SPEC_TEXT,
@@ -29,6 +25,8 @@ from tests.specification_engineering_integration_support import (  # noqa: F401
     tables,
 )
 from tests.specification_engineering_support import SPEC_CRITERIA, engineering_child_case, enter_node, spec_decision
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def headers(user):
@@ -54,9 +52,6 @@ def submitted_contract():
          "manual_reason": "A person inspects the protected-source refusal in the UI."},
         {"id": "AC99", "text": "Existing behaviour", "tests": [{"id": REGRESSION[0], "role": "regression"}],
          "command": f"python -m pytest {FILE}"}]}
-
-
-# --- Coverage card and actual-viewer projections ------------------------------------------------------------
 
 
 async def coverage_case(db, tmp_path):
@@ -111,9 +106,6 @@ async def test_wrong_actors_cannot_decide_the_engineers_contract_card(db, client
     assert await decisions(db, case.child) == count and case.child.current_node_id == "contract"
 
 
-# --- The spec-origin decider -----------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_spec_origin_is_the_exact_spec_confirmer_never_the_requester_or_idea_confirmer(db):
     case = await engineering_child_case(db)
@@ -127,7 +119,7 @@ async def test_spec_origin_is_the_exact_spec_confirmer_never_the_requester_or_id
         assert (resolution.policy, resolution.user_ids, resolution.reason) == ("spec_origin", (case.pm.id,), "")
     contract = await resolve_decider(db, case.child, graph.nodes["contract"])
     assert contract.user_ids == (case.engineer.id,) and contract.policy == "requester"
-    assert case.child.requested_by == case.engineer.id  # routing only; execution identity unchanged
+    assert case.child.requested_by == case.engineer.id
 
 
 @pytest.mark.asyncio
@@ -209,7 +201,7 @@ async def test_pm_decides_functional_acceptance_over_http_while_the_engineer_kee
         WorkflowRunDecision.subject == "functional_acceptance"))).scalar_one()
     assert decision.decided_by == case.pm.id and decision.action == "rejected"
     assert decision.payload_hash and case.child.current_node_id == "followup_intent"
-    assert case.child.requested_by == case.engineer.id  # the engineer keeps owner/execution identity
+    assert case.child.requested_by == case.engineer.id
     audit = (await db.execute(select(AuditLog).where(AuditLog.action == "workflow_decider.decision",
                                                      AuditLog.resource_id == case.child.id))).scalar_one()
     assert audit.user_id == case.pm.id and audit.details["policy"] == "spec_origin"
@@ -218,12 +210,11 @@ async def test_pm_decides_functional_acceptance_over_http_while_the_engineer_kee
 
 @pytest.mark.asyncio
 async def test_pm_without_own_source_authority_sees_nothing_and_decides_nothing(db, client):
-    """The engineer's valid authority resolves the PM as decider; it is never the PM's own permission."""
     case = await engineering_child_case(db)
     await enter_node(db, case.child, "accept_functional")
     card_hash = case.child.node_state["waiting"]["payload_hash"]
     pm = await db.get(type(case.pm), case.pm.id)
-    pm.email = f"renamed-{uuid.uuid4().hex[:6]}@example.com"  # the ACL principal no longer names this person
+    pm.email = f"renamed-{uuid.uuid4().hex[:6]}@example.com"
     await db.commit()
     node = (await graph_for_run(db, case.child)).nodes["accept_functional"]
     assert (await resolve_decider(db, case.child, node)).user_ids == (case.pm.id,)

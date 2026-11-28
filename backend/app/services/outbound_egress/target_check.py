@@ -1,11 +1,4 @@
-"""The connection-aware egress check: the outbound URL policy plus the connection's allowlist.
-
-``check_connection_target`` runs the policy in the connection's scope. When the only refusal
-is a private address on an allowlistable connection, it reads that connection type's
-admin-governed private-host allowlist (``private_hosts.py``) and checks again with it; the
-allowlist is read only then, so public targets never touch the database. The result carries
-every checked address, which the pinned transport connects to (``pinned_transport.py``).
-"""
+"""The connection-aware egress check: the outbound URL policy plus the connection's allowlist."""
 
 from __future__ import annotations
 
@@ -20,7 +13,6 @@ from .private_hosts import REASON_ALLOWLIST_UNAVAILABLE, PrivateHostAllowlistErr
 
 
 async def _private_host_keys(connection: str) -> frozenset[str]:
-    """The connection's allowlist from admin configuration, read in its own short session."""
     from ...db import core as db_core
 
     try:
@@ -40,7 +32,6 @@ async def check_connection_target(
     *,
     allow_hosts: frozenset[str] = frozenset(),
 ) -> CheckedTarget:
-    """The admitted target of ``url`` for ``rule``, else :class:`OutboundURLPolicyError`."""
     try:
         return await check_outbound_target(url, scope=rule.scope, allow_hosts=allow_hosts)
     except OutboundURLPolicyError as refused:

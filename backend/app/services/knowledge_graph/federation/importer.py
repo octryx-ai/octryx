@@ -13,7 +13,6 @@ from .package import FEDERATED_TRUST_LEVEL, _node_ref, verify_entity_graph_packa
 
 
 async def _import_node(db: AsyncSession, entry: dict[str, Any], source_ref: str) -> tuple[str, Any, bool] | None:
-    """``(package ref, upserted node, already existed)`` of one package entry; ``None`` for a bad entry."""
     node_type = str(entry.get("node_type") or "").strip().lower()
     node_key = str(entry.get("node_key") or "").strip()
     if not node_type or not node_key:
@@ -105,13 +104,8 @@ async def import_entity_graph_package(
     *,
     signing_key: str,
 ) -> dict[str, Any]:
-    """Verify and import a package as instance-global federated knowledge.
-
-    Nodes resolve alias-first: a federated entity whose alias already exists
-    locally MERGES into the local node (descriptions accumulate, aliases and
-    sources union) — never a duplicate. New nodes are created with
-    ``trust_level='federated'``; existing local trust levels are not touched.
-    """
+    """Verify and import a package as instance-global federated knowledge. An alias already known locally merges, never
+    duplicates."""
     verify_entity_graph_package(package, signing_key=signing_key)
     source_instance = str(package.get("source_instance") or "unknown")
     source_ref = f"federated:{source_instance}"
@@ -146,13 +140,7 @@ async def import_entity_graph_package(
 async def _resolve_target_scope(
     db: AsyncSession, *, node_type: str, node_key: str, aliases: list[str]
 ) -> tuple[bool, str | None]:
-    """Resolve a package entry against ALL local scopes.
-
-    Returns ``(existed, project_id)``: when an alias or the key matches an
-    active local node in any scope, the import targets THAT node's scope so
-    ``upsert_node`` merges into it. New entities land instance-global (None).
-    Preference on multiple matches: a global node first, else the oldest.
-    """
+    """Resolve a package entry against ALL local scopes."""
     from ..store import normalize_alias
 
     candidates = {normalize_alias(value) for value in [node_key, *aliases] if normalize_alias(value)}

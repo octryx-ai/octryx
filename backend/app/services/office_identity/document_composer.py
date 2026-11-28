@@ -1,13 +1,4 @@
-"""Deterministic Word composition from an evidence-bound document plan.
-
-The mirror of ``presentation_composer``: it opens the corporate template so the
-document inherits the template's styles, theme, headers and footers, clears the
-template's sample body, and writes the planned sections using the template's own
-named styles (resolved through the style snapshot's role map). It never invents
-formatting and never writes a claim the plan did not carry a source for — every
-section states its evidence, and the missing 20% stays visible as markers and an
-open-points section, exactly as the deck composer does.
-"""
+"""Deterministic Word composition from an evidence-bound document plan."""
 
 from __future__ import annotations
 
@@ -30,16 +21,6 @@ _MAX_IMAGE_WIDTH_EMU = 6_400_000  # ~6.67 in; fits inside 1-inch margins on Lett
 
 
 def _clear_body(document: Document) -> None:
-    """Remove the template's sample body content, keeping the section setup.
-
-    Everything the template ships in the document body — paragraphs, tables, and
-    the content controls (``w:sdt``) that carry cover titles and tables of
-    contents — is sample content, not corporate identity. The identity lives in
-    separate parts (theme, styles, header/footer, logo media) that are untouched.
-    Only the body-level ``w:sectPr`` (page size, margins, and the header/footer
-    references) is kept, so the letterhead, logo and footer survive while the
-    template's placeholder text does not leak into the composed document.
-    """
     body = document.element.body
     for child in list(body):
         if child.tag.endswith("}sectPr"):
@@ -101,7 +82,6 @@ def _add_diagram(
     source: str,
     findings: list[dict[str, Any]],
 ) -> int:
-    """Write a diagram block; returns how many images were embedded (0 or 1)."""
     title = str(block.get("title") or "").strip()
     if title:
         _add_heading(document, snapshot, int(block.get("level") or 2), title)
@@ -125,7 +105,6 @@ def _write_block(
     styles: tuple[str, str],
     findings: list[dict[str, Any]],
 ) -> tuple[bool, int]:
-    """Write one plan block; returns whether it was written and how many images it embedded."""
     body_style, bullet_style = styles
     kind = str(block.get("kind") or "").strip()
     source = str(block.get("source") or "").strip()

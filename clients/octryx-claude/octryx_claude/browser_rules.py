@@ -1,13 +1,10 @@
-"""The browser rule of a workflow run on the device (``run_shell``), a copy of the server's
-``workflow_runs.octryx.browser_tools`` (stdlib only, no I/O): the browser opens only loopback, never the platform's
-own port, and runs no free Playwright code."""
+"""The browser rule of a device workflow run, a stdlib-only copy of the server's ``browser_tools``:
+loopback only, never the platform's own port, no free Playwright code."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
-
-# --- workflow_runs.octryx.browser_tools -----------------------------------------------------------------------------
 
 BROWSER_TOOL_PREFIX = "mcp__playwright__"
 REFUSED_BROWSER_TOOLS = frozenset({f"{BROWSER_TOOL_PREFIX}browser_run_code_unsafe"})
@@ -39,7 +36,6 @@ REASON_BROWSER_PLATFORM = "browser_platform_port"
 
 
 def _loopback_port(url: str) -> int | None:
-    """The port of a loopback URL (80/443 by default), ``None`` for any other URL."""
     from urllib.parse import urlsplit  # noqa: PLC0415
 
     try:
@@ -57,8 +53,6 @@ _NUMERIC_LABEL = re.compile(r"^(?:0x[0-9a-f]*|[0-9]+)$", re.IGNORECASE)
 
 
 def external_page(url: str, platform_url: str = "") -> bool:
-    """An http(s) page on a public host the browser may read (B13): no private, link-local, shared (100.64/10) or
-    other non-global address, no internal or single-label name, not the platform's own host."""
     import ipaddress  # noqa: PLC0415
     from urllib.parse import urlsplit  # noqa: PLC0415
 
@@ -82,13 +76,6 @@ def external_page(url: str, platform_url: str = "") -> bool:
 
 def browser_rule(tool_name: str, tool_input: dict[str, Any], *, platform_url: str | None = None,
                  external: bool | None = None) -> tuple[str, str] | None:
-    """``(reason, message)`` when the session's browser call is refused, ``None`` when it stays on loopback.
-
-    Any loopback port is the app's (no repository declares its app's port); only the platform's own port is refused
-    while the platform listens on loopback (``OCTRYX_BASE_URL`` of a local stack), as for screenshots
-    (``local_tests``) and in the browser server's ``--blocked-origins`` (``browser_mcp``). With the offer's
-    ``browser_external`` (``OCTRYX_BROWSER_EXTERNAL``; allow by default, block as an admin option)
-    it also reads public http(s) pages (:func:`external_page`)."""
     import os  # noqa: PLC0415
 
     if tool_name in REFUSED_BROWSER_TOOLS:

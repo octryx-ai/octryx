@@ -1,15 +1,4 @@
-"""Azure and GCP: named connections per subscription or project.
-
-- **Azure**: a service principal (tenant, client id, client secret) bound to subscription ids; a call names
-  ``subscription_id`` (or a ``resource_id`` under ``/subscriptions/<id>/``). The connection's subscription list
-  is narrowed to its bound subscriptions. The Microsoft Graph helper prefers Outlook and SharePoint
-  credentials of the merged config over Azure's own, so a named Azure call never carries them
-  (``named_drops``): it signs in with exactly its own principal.
-- **GCP**: a service account JSON or an access token bound to project ids; a call names ``project_id``. The
-  default serves its own ``gcp_project_id``.
-
-A named connection without its credential is refused before the call.
-"""
+"""Azure and GCP: named connections per subscription or project."""
 
 from __future__ import annotations
 

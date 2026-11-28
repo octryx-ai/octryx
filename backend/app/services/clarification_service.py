@@ -26,7 +26,6 @@ async def create_clarification_question(
     priority: str = "medium",
     expires_at: Any | None = None,
 ) -> ClarificationQuestion:
-    """Create a new clarification question. Idempotent for duplicate question_id within a session."""
     # Idempotency: if a question with the same question_id+session_id already exists and is open, return it
     existing = await db.execute(
         select(ClarificationQuestion).where(
@@ -68,7 +67,6 @@ async def answer_clarification_question(
     answer_text: str,
     answered_by: str,
 ) -> ClarificationQuestion:
-    """Record an answer to an open clarification question."""
     question = await db.get(ClarificationQuestion, question_id)
     if question is None:
         raise HTTPException(status_code=404, detail="Clarification question not found")
@@ -86,12 +84,7 @@ async def answer_clarification_question(
 async def answer_open_clarification_with_reply(
     db: AsyncSession, *, session_id: str, answered_by: str, reply: str
 ) -> ClarificationQuestion | None:
-    """The requester's next message in the thread answers the open clarification .
-
-    The reply is also the next turn's input, so the run continues with the question and its answer in the
-    thread; nobody answers on the requester's behalf. ``None`` when the
-    session has no open clarification.
-    """
+    # Only the requester's next message answers; nobody answers on the requester's behalf.
     question = await get_open_clarification_for_session(db, session_id=session_id)
     if question is None or question.status != "open" or not (reply or "").strip():
         return None
@@ -107,7 +100,6 @@ async def skip_clarification_question(
     skipped_by: str,
     reason: str | None = None,
 ) -> ClarificationQuestion:
-    """Mark a clarification question as skipped."""
     question = await db.get(ClarificationQuestion, question_id)
     if question is None:
         raise HTTPException(status_code=404, detail="Clarification question not found")
@@ -129,7 +121,7 @@ async def cancel_clarification_question(
     question_id: str,
     cancelled_by: str,
 ) -> ClarificationQuestion:
-    """Cancel a clarification question (only requester or admin can cancel)."""
+    # Only the requester or an admin can cancel.
     question = await db.get(ClarificationQuestion, question_id)
     if question is None:
         raise HTTPException(status_code=404, detail="Clarification question not found")
@@ -148,7 +140,6 @@ async def cancel_clarification_question(
 
 
 async def get_clarification_by_id(db: AsyncSession, *, question_id: str) -> ClarificationQuestion:
-    """Get a single clarification question by ID."""
     question = await db.get(ClarificationQuestion, question_id)
     if question is None:
         raise HTTPException(status_code=404, detail="Clarification question not found")
@@ -160,7 +151,6 @@ async def get_open_clarification_for_session(
     *,
     session_id: str,
 ) -> ClarificationQuestion | None:
-    """Get the most recent open clarification question for a session (for resume check)."""
     result = await db.execute(
         select(ClarificationQuestion)
         .where(
@@ -197,7 +187,6 @@ async def list_clarification_questions(
     limit: int = 50,
     offset: int = 0,
 ) -> list[ClarificationQuestion]:
-    """List clarification questions with optional filters."""
     stmt = select(ClarificationQuestion).order_by(ClarificationQuestion.created_at.desc())
     if project_id:
         stmt = stmt.where(ClarificationQuestion.project_id == project_id)
@@ -223,7 +212,6 @@ async def count_clarification_questions(
     session_id: str | None = None,
     status: str | None = None,
 ) -> int:
-    """Count clarification questions with optional filters."""
     stmt = select(func.count()).select_from(ClarificationQuestion)
     if project_id:
         stmt = stmt.where(ClarificationQuestion.project_id == project_id)
@@ -240,7 +228,6 @@ async def count_clarification_questions(
 
 
 async def expire_overdue_clarification_questions(db: AsyncSession) -> int:
-    """Transition open questions past their expires_at to 'expired'. Returns count expired."""
     now = utc_now()
     stmt = select(ClarificationQuestion).where(
         ClarificationQuestion.status == "open",
@@ -258,7 +245,6 @@ async def expire_overdue_clarification_questions(db: AsyncSession) -> int:
 
 
 def serialize_clarification(question: ClarificationQuestion) -> dict[str, Any]:
-    """Serialize a ClarificationQuestion to a dict for API responses."""
     return {
         "id": question.id,
         "session_id": question.session_id,

@@ -1,15 +1,4 @@
-"""The alias cost contract is authoritative for model-catalog sync.
-
-An alias declares who owns its price. This suite walks one alias through every
-cost-mode transition and asserts what model sync persists, because the defect it
-pins down starts here: a ``catalog_pricing`` price that survives a move to
-``governed_free`` or ``gateway_reported`` and is then billed to a call that mode
-no longer prices. What the other end — usage accounting — does with the same
-contract is ``test_litellm_cost_attribution``.
-
-Everything runs against the offline fake gateway from ``conftest``; no cluster,
-no network, no AWS.
-"""
+"""The alias cost contract is authoritative for model-catalog sync."""
 
 from __future__ import annotations
 
@@ -51,12 +40,6 @@ CATALOG_PRICING_CONTRACT = {
 
 @pytest.fixture
 async def synced_gateway_provider(db, monkeypatch):
-    """A gateway provider whose alias has already synced as ``catalog_pricing``.
-
-    Every transition test starts from here, so "the old price is still there"
-    is a real starting state rather than a fixture constant.
-    """
-
     provider = gateway_provider()
     db.add(provider)
     await db.commit()
@@ -66,8 +49,6 @@ async def synced_gateway_provider(db, monkeypatch):
     assert model.cost_source == "catalog_pricing"
     return provider
 
-
-# --- what a governed catalog price must be ------------------------------------
 
 _NAN = float("nan")
 
@@ -100,9 +81,6 @@ def _catalog_pricing_cost(input_rate: Any, output_rate: Any) -> dict[str, Any]:
     }
 
 
-# --- published contract -------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     ("cost", "expected_contract"),
     [
@@ -116,8 +94,6 @@ async def test_every_alias_publishes_its_cost_contract_to_model_sync(
     cost: dict[str, Any] | None,
     expected_contract: dict[str, Any],
 ) -> None:
-    """A mode without a price still says so; silence is what let stale prices survive."""
-
     config = gateway_config() if cost is None else alias_with_cost(cost)
     client = build_gateway_client(FakeLiteLLMGateway(), config_json=config)
 
@@ -126,9 +102,6 @@ async def test_every_alias_publishes_its_cost_contract_to_model_sync(
     assert catalog[0][COST_CONTRACT_PAYLOAD_KEY] == expected_contract
     # The governance reference is closed call evidence, not catalog payload.
     assert "contract_reference" not in catalog[0][COST_CONTRACT_PAYLOAD_KEY]
-
-
-# --- catalog sync transitions -------------------------------------------------
 
 
 async def test_transition_to_governed_free_clears_the_price_and_records_the_audited_zero(
@@ -195,8 +168,6 @@ async def test_a_return_to_catalog_pricing_replaces_a_governed_free_zero(
 
 
 def test_a_provider_without_a_cost_contract_keeps_its_plain_pricing_block() -> None:
-    """Non-gateway sync is untouched: it still only ever adds a price."""
-
     priced = resolve_model_pricing_update({"id": "m", "pricing": {"prompt": "0.000002", "completion": "0.000008"}})
     silent = resolve_model_pricing_update({"id": "m"})
     zero_like = resolve_model_pricing_update({"id": "m", "pricing": {"prompt": "0", "completion": None}})
@@ -224,8 +195,6 @@ def test_a_malformed_cost_contract_fails_the_sync_instead_of_keeping_stale_price
 def test_an_unusable_per_token_rate_is_never_admitted(
     input_rate: Any, output_rate: Any, expected_denial: str
 ) -> None:
-    """Admission side: each required rate qualifies on its own or the alias is denied."""
-
     admission = resolve_alias_admission(ALIAS, alias_with_cost(_catalog_pricing_cost(input_rate, output_rate)))
 
     assert admission.admitted is False
@@ -236,8 +205,6 @@ def test_an_unusable_per_token_rate_is_never_admitted(
 def test_an_unusable_per_token_rate_never_reaches_a_model_row(
     input_rate: Any, output_rate: Any, expected_denial: str
 ) -> None:
-    """Sync side qualifies the same rates, so a hand-written catalog cannot slip one past."""
-
     with pytest.raises(ValueError, match="model_catalog_cost_pricing_invalid"):
         resolve_model_pricing_update(
             {"id": ALIAS, COST_CONTRACT_PAYLOAD_KEY: _catalog_pricing_cost(input_rate, output_rate)},
@@ -246,8 +213,6 @@ def test_an_unusable_per_token_rate_never_reaches_a_model_row(
 
 
 def test_two_strictly_positive_finite_rates_are_what_a_governed_catalog_price_is() -> None:
-    """The positive case, so the qualification above is not merely "everything fails"."""
-
     admission = resolve_alias_admission(ALIAS, alias_with_cost(_catalog_pricing_cost(0.15, 0.6)))
     update = resolve_model_pricing_update(
         {"id": ALIAS, COST_CONTRACT_PAYLOAD_KEY: _catalog_pricing_cost(0.15, 0.6)},

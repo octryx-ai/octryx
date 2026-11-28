@@ -1,27 +1,4 @@
-"""The seat analysis session: ``octryx-claude analyze <KEY>``.
-
-A Workspace whose analysis setting is ``runner: seat`` analyses its work items in the user's own seat
-session (their Claude subscription) instead of a governed server run. The launcher registers that session
-with ``purpose: work_item_analysis`` and the item's key (``X-Octryx-Work-Item``). Registration is
-refused, with a fixed reason, unless all of these hold:
-
-- the session's profile is ``seat`` (``analysis_requires_seat``); the Workspace's seat policy, classification
-  included, is checked by the registration route before (``seat_mode_forbidden``, ...);
-- the Workspace's analysis runner is ``seat`` (``analysis_runner_not_seat``);
-- the item key names exactly one work item of the Workspace (``analysis_work_item_required`` / ``_not_found``;
-  a key two sources or instances share, e.g. the same Jira key in two Jira instances, is
-  ``analysis_work_item_ambiguous``: the session is never pinned to an item chosen by order).
-
-The registered session is pinned to that item (session metadata ``purpose`` and ``analysis_work_item_id``).
-Its tools are fixed: the PreToolUse check (``agent_gateway.analysis_tools``) allows only the read-only
-analysis tools on the platform's MCP server plus ``work_item_analysis_submit``; everything else, Claude
-Code's own tools included, is denied. The platform's MCP server enforces the same set itself
-(``seat_mcp_gate``): a connection whose session key names this session gets every other tool refused.
-
-The citations of a submitted analysis are checked against the read tool runs the platform's MCP server
-itself executed for this session (``ToolCall`` rows with ``parameters.source = "mcp_server"``, recorded by
-``seat_mcp_gate``, bounded excerpts). ``tool_result`` blocks the client sends to the model gateway never count.
-"""
+"""The seat analysis session: ``octryx-claude analyze <KEY>``."""
 
 from __future__ import annotations
 
@@ -66,7 +43,6 @@ MAX_EVIDENCE_CALLS = 200
 
 
 def requested_purpose(body: Mapping[str, Any]) -> str | None:
-    """The registration body's purpose: ``None`` (a normal session) or the raw value."""
     value = body.get(PURPOSE_FIELD)
     return None if value in (None, "") else value
 
@@ -78,7 +54,6 @@ async def seat_runner_selected(db: AsyncSession, workspace_id: str) -> bool:
 
 
 async def items_by_key(db: AsyncSession, workspace_id: str, key: str) -> list[WorkItem]:
-    """At most two work items of the Workspace with this key (two means the key is ambiguous)."""
     return list((await db.execute(select(WorkItem).where(WorkItem.project_id == workspace_id,
                                                          WorkItem.source_key == key).limit(2))).scalars().all())
 
@@ -86,7 +61,6 @@ async def items_by_key(db: AsyncSession, workspace_id: str, key: str) -> list[Wo
 async def registration_refusal(
     db: AsyncSession, *, workspace_id: str, work_item_key: str, body: Mapping[str, Any]
 ) -> tuple[str | None, WorkItem | None]:
-    """``(refusal, None)`` or ``(None, pinned item)``; ``(None, None)`` for a session without a purpose."""
     purpose = requested_purpose(body)
     if purpose is None:
         return None, None
@@ -114,7 +88,6 @@ def pin_session(session: Session, item: WorkItem) -> None:
 
 
 def pinned_item_id(session: Session | None) -> str | None:
-    """The work item an analysis session is pinned to, or ``None`` for any other session."""
     metadata = session.metadata_ if session is not None and isinstance(session.metadata_, dict) else {}
     if metadata.get(PURPOSE_METADATA) != PURPOSE_ANALYSIS:
         return None
@@ -123,7 +96,6 @@ def pinned_item_id(session: Session | None) -> str | None:
 
 
 async def observed_tool_outputs(db: AsyncSession, session_id: str) -> list[str]:
-    """The excerpts of the read tools' successful results the platform's MCP server executed for the session."""
     rows = (await db.execute(
         select(ToolCall).where(
             ToolCall.session_id == session_id,

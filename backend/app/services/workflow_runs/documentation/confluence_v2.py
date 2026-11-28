@@ -1,34 +1,4 @@
-"""A bounded Confluence **Cloud REST v2** page/parent adapter, used only by the publish & prove path.
-
-This is not a Confluence client
-for the platform: the governed v1 tools (``tools/confluence.py``) stay as they are, and nothing else calls this
-module. It reuses the connection's credential resolution (``atlassian_auth``) and the governed egress transport.
-
-**Profile (Cloud only, no Data Center claim).** The pinned instance must be an Atlassian Cloud site:
-``https://<site>.atlassian.net`` or ``https://<site>.atlassian.net/wiki``, or the API gateway form
-``https://api.atlassian.com/ex/confluence/<cloud id>[/wiki]``. The REST v2 base is the site's ``/wiki`` plus
-``/api/v2``: an instance that already ends in ``/wiki`` is never doubled, and any other base path is refused
-(never silently replaced). Redirects are not followed, so a request never lands on another base.
-
-**Endpoints** (``https://developer.atlassian.com/cloud/confluence/rest/v2/``):
-
-- ``GET /spaces?keys=K`` and ``GET /spaces/{id}``: the pinned ``spaceId`` and its key;
-- ``GET /pages/{id}?body-format=storage[&version=n]``: a page (optionally a historical version) with its
-  storage body, ``spaceId``, ``parentId``, ``status`` and ``version``;
-- ``GET /pages?space-id=&title=&status=current``: the title-collision check (complete cursor scan);
-- ``GET /pages/{id}/direct-children``: the parent's direct children, complete cursor pagination (``_links.next``
-  or the ``Link`` header), with a scan cap: a capped or broken scan is **incomplete**, never "absent";
-- ``POST /pages`` (``status: current``, ``spaceId``, ``parentId``, storage body) and ``PUT /pages/{id}`` (``status:
-  current``, ``version.number`` = base + 1, ``version.message`` carrying the operation id; no parent, no move);
-- best effort only, outside the publication contract: REST v1 ``POST <site>/rest/api/content/{id}/label`` (the
-  ``ai-generated`` label of AI output marking; v2 has no label write, and a label is not a page version).
-
-**Classification at the transport boundary.** An HTTP answer is classified by its **status code only** (409 is
-``conflict``; no body text is matched). Every error says whether a mutating request may have reached the
-provider (:data:`SENT_NO`: it never left; :data:`SENT_REFUSED`: the provider answered with a definite 4xx
-refusal, nothing was applied; :data:`SENT_UNKNOWN`: it may have been applied). Every 2xx answer is validated
-strictly; a malformed space, page, parent, version, child list or pagination link raises ``malformed``.
-"""
+"""A bounded Confluence **Cloud REST v2** page/parent adapter, used only by the publish & prove path."""
 
 from __future__ import annotations
 
@@ -44,8 +14,7 @@ STATUS_CURRENT = "current"
 
 
 def _without_fences(title: str, storage: str) -> tuple[str, str]:
-    """A page is an exit to a foreign system: no fence marker reaches Confluence (the phase output a page is
-    built from may quote fenced Knowledge or ticket text)."""
+    # A page leaves the platform: fence markers from quoted Knowledge or ticket text must not reach Confluence.
     from ...content_security.knowledge_fence import unfence_html, unfence_text
 
     return unfence_text(title), unfence_html(storage)
@@ -54,14 +23,9 @@ def _without_fences(title: str, storage: str) -> tuple[str, str]:
 async def governed_v2_check(db: Any, run: Any, *, instance: str, connection_id: str, space_key: str,
                            page_id: str | None = None, parent_id: str | None = None,
                            title: str = "", body: str | None = None, base_version: int | None = None) -> Any:
-    """The normal registry gates on existing connector metadata, before this bounded adapter's I/O.
-
-    This adapter changes provider transport only. It does not waive connector activation,
-    workspace/tool policy, capability, MCP, parameter-bound approval, or coding gates.
-    Named credentials stay in the resolver/adapter, not this policy parameter payload.
-    """
+    # This adapter only changes the transport; it waives none of the registry's gates.
     from ....tools._confluence_instance import EXPECTED_CONNECTION_PARAM, EXPECTED_INSTANCE_PARAM
-    from ....tools.registry import _run_governed_tool_checks
+    from ....tools.registry_governance import _run_governed_tool_checks
     from ..platform.dispatch import read_outcome, tool_context
 
     params: dict[str, Any] = {"space_key": space_key, EXPECTED_INSTANCE_PARAM: instance,
@@ -91,9 +55,6 @@ async def governed_v2_check(db: Any, run: Any, *, instance: str, connection_id: 
 
 
 class CloudV2Client(V2Transport):
-    """One pinned Cloud site and one connection's credentials. Use as ``async with CloudV2Client(...) as c``."""
-
-    # --- reads -----------------------------------------------------------------------------------------------
 
     async def find_space(self, key: str) -> V2Space:
         payload, _ = await self._json("GET", f"{self.base.api}/spaces", params={"keys": key, "limit": 2})
@@ -133,8 +94,6 @@ class CloudV2Client(V2Transport):
                                            "status": STATUS_CURRENT, "limit": SCAN_PAGE_LIMIT},
                                 lambda item: parse_page(item))
 
-    # --- writes ----------------------------------------------------------------------------------------------
-
     async def create_page(self, *, space_id: str, parent_id: str, title: str, storage: str) -> V2Page:
         title, storage = _without_fences(title, storage)
         payload, _ = await self._json("POST", f"{self.base.api}/pages", mutating=True, json={
@@ -153,8 +112,6 @@ class CloudV2Client(V2Transport):
         return parse_page(payload, expected_id=page_id, sent=SENT_UNKNOWN)
 
     async def add_label(self, page_id: str, label: str) -> None:
-        """Add a global label (REST v1 ``POST /rest/api/content/{id}/label``: v2 has no label write). A label
-        is not a page version; callers use it best effort only (AI output marking, never the publication)."""
         await self._send("POST", f"{self.base.site}/rest/api/content/{_id(page_id, 'page id')}/label",
                          json=[{"prefix": "global", "name": label}])  # type: ignore[arg-type]
 

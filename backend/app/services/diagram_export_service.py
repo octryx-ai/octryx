@@ -1,21 +1,4 @@
-"""Server-side draw.io diagram rendering (PNG) via the local drawio CLI.
-
-The platform stores diagrams as draw.io XML (``<mxGraphModel>`` documents
-produced by the diagram tools). This service renders them into pixel-accurate
-PNGs using the installed draw.io desktop CLI (``drawio -x -f png``).
-
-Explicit states, no silent fallback:
-
-- Binary not installed/resolvable -> :class:`DiagramRendererUnavailableError`
-  (state ``renderer_unavailable``). Callers degrade explicitly (the chat card
-  falls back to the interactive embed, the endpoint answers 503).
-- CLI failure, invalid XML, timeout, or non-PNG output ->
-  :class:`DiagramRenderError` with the CLI detail.
-
-Rendered PNGs are cached on disk per ``diagram_id`` + content hash + scale so
-repeated chat views never re-launch the Electron export. The cache is bounded
-by a simple LRU file cleanup.
-"""
+"""Server-side draw.io diagram rendering (PNG) via the local drawio CLI. Explicit states, no silent fallback."""
 
 from __future__ import annotations
 
@@ -50,15 +33,14 @@ _RENDER_LOCK = threading.Lock()
 
 
 class DiagramRendererUnavailableError(RuntimeError):
-    """Explicit ``renderer_unavailable`` state: no drawio CLI binary."""
+    pass
 
 
 class DiagramRenderError(RuntimeError):
-    """The drawio CLI failed to produce a valid PNG for the given XML."""
+    pass
 
 
 def resolve_drawio_binary() -> str | None:
-    """Return the drawio executable path, or ``None`` when unavailable."""
     configured = str(os.environ.get(DRAWIO_BIN_ENV) or "").strip() or _DEFAULT_DRAWIO_BIN
     return shutil.which(configured)
 
@@ -78,18 +60,12 @@ def _safe_cache_stem(diagram_id: str) -> str:
 
 
 def diagram_png_cache_path(*, diagram_id: str, diagram_xml: str, scale: int) -> Path:
-    """Deterministic cache location for one diagram content + scale."""
     content_sha = hashlib.sha256(diagram_xml.encode("utf-8")).hexdigest()[:24]
     name = f"{_safe_cache_stem(diagram_id)}-{content_sha}-s{scale}.png"
     return _cache_dir() / name
 
 
 def render_diagram_png(*, diagram_id: str, diagram_xml: str, scale: int = 2) -> bytes:
-    """Render draw.io XML to PNG bytes, serving from the disk cache when possible.
-
-    Raises :class:`DiagramRendererUnavailableError` when the drawio CLI is not
-    installed and :class:`DiagramRenderError` on any render failure.
-    """
     if scale not in ALLOWED_SCALES:
         raise DiagramRenderError(f"Unsupported scale {scale!r}; allowed: {ALLOWED_SCALES}")
     xml = str(diagram_xml or "").strip()
@@ -194,7 +170,6 @@ def _write_cache(cache_path: Path, png: bytes) -> None:
 
 
 def _prune_cache(directory: Path) -> None:
-    """Bounded cache: keep the newest ``_CACHE_MAX_FILES`` PNGs (LRU by mtime)."""
     try:
         entries = [(path.stat().st_mtime, path) for path in directory.glob("*.png")]
     except OSError:

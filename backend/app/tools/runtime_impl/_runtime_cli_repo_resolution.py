@@ -92,7 +92,6 @@ _EXECUTABLE_REPO_MARKERS: tuple[tuple[frozenset[str], tuple[str, ...]], ...] = (
 
 
 def _command_parts_for_repo_inference(command: str) -> list[str]:
-    """Plain single commands only: a shell composition is never moved into a repository."""
     if any(token in command for token in ["&&", "||", "|", ";", "$(", "`"]):
         return []
     try:

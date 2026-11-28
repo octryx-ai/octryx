@@ -1,22 +1,4 @@
-"""The evidence a turn's tool results carry, as the answer evidence guard reads it.
-
-A tool result is evidence when it carries sources in the governed shape: an item with a
-``source_url`` and/or a ``cite_as`` field (Knowledge search/read/changes, web search, web fetch,
-and any connector read that exposes the same fields). The guard never decides by tool name.
-
-- ``linkable`` sources: an item whose ``source_url`` or ``cite_as`` target is an absolute http(s)
-  URL or the closed immutable repository-viewer route. These make a turn *evidence-bearing*:
-  a citation the reader can open.
-- ``plain_labels``: a ``cite_as`` without a link (``"Runbook (no link)"``). A block that copies
-  one exactly is cited; such a source has nothing to open.
-- ``executed_writes``: the write tools (declared risk ``write`` / ``admin``) that succeeded this turn. The
-  answer then reports an action; its confirmation needs no source.
-- ``result_urls``: every http(s) URL that appears anywhere in a successful tool result of the
-  turn. An answer link outside this set (and outside the user's own message) is invented.
-
-The tool history is what the model saw (the compact results), so the guard checks the answer
-against the evidence the model actually had.
-"""
+"""The evidence a turn's tool results carry, as the answer evidence guard reads it."""
 
 from __future__ import annotations
 
@@ -97,10 +79,6 @@ _WRITE_RISKS = frozenset({"write", "admin"})
 
 
 def _is_write_tool(tool_name: str) -> bool:
-    """A tool whose declared risk is ``write`` / ``admin`` (``create_jira_ticket``, ``add_jira_comment`` ...).
-
-    Imported late: the tool registry imports this package's citation rule, so a module-level import would cycle.
-    """
     from ...tools.definitions import get_tool_definition_metadata
 
     name = str(tool_name or "").strip()
@@ -108,7 +86,6 @@ def _is_write_tool(tool_name: str) -> bool:
 
 
 def collect_turn_evidence(turn_tool_history: Iterable[object] | None) -> TurnEvidence:
-    """The sources and URLs of this turn's successful tool results, and the writes the turn executed."""
     sources: list[EvidenceSource] = []
     labels: list[str] = []
     urls: list[str] = []

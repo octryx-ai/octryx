@@ -5,7 +5,6 @@ import { ToolEventList } from "./traceToolEventList";
 import { TraceTurnDiffSection } from "./traceTurnDiffUi";
 import { TraceWorkflowChecksPanel } from "./traceWorkflowChecksPanel";
 import { TraceWorkflowRoutingPanel } from "./traceWorkflowRoutingPanel";
-import { effectiveSetupSessionHref } from "../admin/components/agentsWorkflows/effectiveSetup/effectiveSetupModel";
 
 // Escape closes the trace like the side panels (SidePanel.ts): the listener is on the document, so it
 // works right after opening and after a click inside. Focus moves into the drawer and back to the opener on close.
@@ -114,7 +113,7 @@ type TraceDrawerProps = {
   onRetryFromToolEvent?: (event: ToolEvent) => void | Promise<void>;
   onPreviewArtifact?: (artifact: ToolArtifact) => void;
   actionsDisabled?: boolean;
-  // Admins open Agents & workflows → Effective setup for this session ("What did this turn get?").
+  // Admins also see the workflow check results of this session.
   canInspectSetup?: boolean;
 };
 
@@ -151,14 +150,6 @@ export function TraceDrawer({
         <DrawerHeader onClose={onClose} />
         <div className="trace-drawer__body">
           {hasTurnDiff ? <TurnDiffSection turnDiff={turnDiff} /> : null}
-          {canInspectSetup && sessionId ? (
-            <section className="trace-drawer__section">
-              <a className="admin-panel__action-btn" href={effectiveSetupSessionHref(sessionId)}
-                data-testid="trace-effective-setup-link">
-                What did this turn get?
-              </a>
-            </section>
-          ) : null}
           <TraceWorkflowRoutingPanel
             resolution={routingResolution}
             workflowContract={workflowContract}

@@ -1,10 +1,4 @@
-"""Row-level writes of the prompt catalog, shared by the seed step and the admin service.
-
-Every write goes through these helpers so the invariants hold in one place: a version
-is append-only, its digest is computed here, and publishing first retires the version
-that was published before (flushed, so the one-published partial index never sees
-two), then publishes the new one.
-"""
+"""Row-level writes of the prompt catalog, shared by the seed step and the admin service."""
 
 from __future__ import annotations
 
@@ -17,7 +11,7 @@ from ...models.runtime.governed_revision import (
     REVISION_STATE_PUBLISHED,
     REVISION_STATE_RETIRED,
 )
-from ...models.runtime.prompt_template import PromptTemplate, PromptTemplateVersion, uuid_pk
+from ...models.runtime.prompt_template import PROMPT_SCOPE_WORKSPACE, PromptTemplate, PromptTemplateVersion, uuid_pk
 from ...time_utils import utc_now
 from .contract import prompt_digest
 from .scopes import normalized_scope, scope_key
@@ -56,7 +50,6 @@ async def create_template(
 
 
 async def templates_in_scope(db: AsyncSession, *, scope_type: str, scope_id: str | None) -> dict[str, PromptTemplate]:
-    """Every template of one scope by key, versions loaded (one query plus one per 500 templates)."""
     rows = (
         await db.execute(
             select(PromptTemplate)
@@ -78,10 +71,6 @@ def stage_template_with_published_version(
     created_by: str,
     change_note: str,
 ) -> tuple[PromptTemplate, PromptTemplateVersion]:
-    """A new template whose version 1 is published, added to the session without a flush (the caller flushes once).
-
-    Nothing is published before it, so there is nothing to retire; ids are set here so audit rows can name them.
-    """
     kind, ident = normalized_scope(scope_type, scope_id)
     now = utc_now()
     template = PromptTemplate(
@@ -209,13 +198,13 @@ async def publish_existing(
 def add_audit(
     db: AsyncSession, *, user_id: str, action: str, template: PromptTemplate, details: dict[str, object]
 ) -> None:
-    """One audit row; details carry identifiers, versions and digests only, never a body."""
     db.add(
         AuditLog(
             user_id=user_id,
             action=action,
             resource_type="prompt_template",
             resource_id=template.id,
+            project_id=template.scope_id if template.scope_type == PROMPT_SCOPE_WORKSPACE else None,
             details={"key": template.key, "scope": template.scope_key, **details},
         )
     )

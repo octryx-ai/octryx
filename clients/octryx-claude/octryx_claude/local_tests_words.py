@@ -1,6 +1,5 @@
 """The words of a shell command that ``local_tests`` lets run outside the sandbox: tokens, segments, prefixes, the
-test runners, the repository's declared test commands and the read-only stages after a pipe. Stdlib only.
-"""
+test runners, the repository's declared test commands and the read-only stages after a pipe. Stdlib only."""
 
 from __future__ import annotations
 
@@ -48,7 +47,6 @@ def _tokens(command: str) -> list[str] | None:
 
 
 def _segments(tokens: list[str]) -> list[tuple[str, list[str]]] | None:
-    """``[(operator before it, words)]``; ``None`` for any operator but ``&& || | ;``."""
     found: list[tuple[str, list[str]]] = [("", [])]
     for token in tokens:
         if token and set(token) <= set(";&|<>()"):
@@ -61,7 +59,6 @@ def _segments(tokens: list[str]) -> list[tuple[str, list[str]]] | None:
 
 
 def _strip_prefixes(words: list[str]) -> list[str] | None:
-    """The words without leading environment assignments and a ``timeout`` wrapper; ``None`` if one is refused."""
     index = 0
     while index < len(words) and (match := _ASSIGNMENT.match(words[index])):
         if _REFUSED_ASSIGNMENT.match(match.group(1)):
@@ -79,7 +76,6 @@ def _strip_prefixes(words: list[str]) -> list[str] | None:
 
 
 def runner(words: list[str]) -> bool:
-    """pytest or unittest, by any interpreter path."""
     if not words:
         return False
     name = posixpath.basename(words[0])
@@ -127,10 +123,9 @@ def _declared_from(text: str) -> list[list[str]]:
     return found
 
 
+# With a pinned environment file only its commands count: a file the agent rewrote never decides what
+# runs outside the sandbox.
 def declared_commands(root: str, pinned: dict[str, Any] | None = None) -> list[list[str]]:
-    """The declared test commands of every environment file in the repository (up to a few folders deep); with the
-    run's pinned environment file (``environment_pin``, the run's contract) only its commands: a file the agent
-    rewrote never decides what runs outside the sandbox."""
     if isinstance(pinned, dict) and isinstance(pinned.get("environment"), dict):
         import json  # noqa: PLC0415
 
@@ -154,12 +149,6 @@ def declared_commands(root: str, pinned: dict[str, Any] | None = None) -> list[l
 
 
 def declared_runner(words: list[str], root: str, pinned: dict[str, Any] | None = None) -> bool:
-    """``words`` start with a declared test command; its further words are options or paths inside the repository.
-
-    A declared command that starts with a Python interpreter also matches another Python interpreter running the same
-    words after it (:func:`_python_word`): declared ``.venv/bin/python system_test/run_system_test.py`` or
-    ``python3 …``, typed ``python system_test/run_system_test.py``. Only the interpreter word may differ: the
-    script and every further word are the declared ones, so ``python -c …`` or another script stays inside."""
     for declared in declared_commands(root, pinned):
         if _python_word(declared[0], root) and len(declared) > 1 and words and _python_word(words[0], root):
             same = words[1:len(declared)] == declared[1:]
@@ -172,8 +161,6 @@ def declared_runner(words: list[str], root: str, pinned: dict[str, Any] | None =
 
 
 def _python_word(word: str, root: str) -> bool:
-    """``word`` names a Python interpreter: ``python``, ``python3``, ``python3.12`` from ``PATH``, or one in a ``bin``
-    folder inside the repository (``.venv/bin/python``)."""
     if not _PYTHON.match(posixpath.basename(word)):
         return False
     if "/" not in word:
@@ -209,12 +196,10 @@ def wrap(shim: Path | str, command: str) -> str:
 
 
 def excluded_pattern(shim: Path | str) -> str:
-    """The session's ``sandbox.excludedCommands`` entry: the wrapper and nothing else."""
     return f"{shlex.quote(str(shim))} {WRAPPER_VERB} *"
 
 
 def unwrap(command: str) -> str | None:
-    """The command a wrapped test run carries, or ``None`` when ``command`` is no wrapped test run."""
     match = _WRAPPED.match(str(command or "").strip())
     if not match or posixpath.basename(match.group("shim").strip("'")) not in ("octryx-claude", "octryx"):
         return None
@@ -225,5 +210,4 @@ def unwrap(command: str) -> str | None:
 
 
 def names_wrapper(command: str) -> bool:
-    """The agent's own command calls the wrapper (only the launcher's hook may produce that form)."""
     return bool(re.search(r"(?:^|[\s/'\";&|(])octryx(?:-claude)?['\"]?\s+" + WRAPPER_VERB + r"\b", command or ""))

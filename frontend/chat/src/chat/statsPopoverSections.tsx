@@ -1,5 +1,5 @@
-// The chat statistics panel's optional sections: workflow ROI and code intelligence.
-import type { ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
+// The chat statistics panel's optional sections: workflow ROI, code intelligence and the session's pull requests.
+import type { SessionPullRequest, ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
 import { formatCost, formatPercent, formatSignedPercent, formatSignedTokenCount, formatTokenCount } from "./statsFormat";
 
 export function workflowRoiSection(workflowRoi: NonNullable<ThreadUsageStats["workflowRoi"]>) {
@@ -129,6 +129,25 @@ export function codeIntelligenceSection(codeIntelligence: ThreadCodeIntelligence
           >
             <span>{row.label}</span>
             <strong>{row.value}</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function pullRequestsSection(pullRequests: SessionPullRequest[]) {
+  if (!pullRequests.length) return null;
+  return (
+    <div className="stats-panel__section" data-testid="session-pull-requests">
+      <div className="stats-panel__section-title">Pull requests</div>
+      <div className="stats-panel__rows">
+        {pullRequests.map((pullRequest) => (
+          <div key={pullRequest.url} className="stats-panel__row stats-panel__row--stacked">
+            <a href={pullRequest.url} target="_blank" rel="noopener noreferrer">
+              {pullRequest.title || pullRequest.url}
+            </a>
+            <strong>{pullRequest.state || "unknown"}</strong>
           </div>
         ))}
       </div>

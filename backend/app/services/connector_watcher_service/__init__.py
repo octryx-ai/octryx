@@ -1,12 +1,10 @@
-"""Connector watchers: webhook and polling event intake, deduplication, retries and health.
-
-The implementation lives in the modules of this package; this module keeps the names its callers import.
-"""
+"""Connector watchers: webhook and polling event intake, deduplication, retries and health."""
 
 from __future__ import annotations
 
 from .common import DEFAULT_RETRY_POLICY, EVENT_STATUSES, MAX_EVENTS, WATCHER_MODES
 from .ingest import (
+    authenticate_webhook_call,
     ingest_connector_poll_events,
     ingest_connector_webhook_event,
     list_connector_watcher_events,
@@ -20,6 +18,7 @@ __all__ = [
     "EVENT_STATUSES",
     "MAX_EVENTS",
     "WATCHER_MODES",
+    "authenticate_webhook_call",
     "create_connector_watcher",
     "ingest_connector_poll_events",
     "ingest_connector_webhook_event",

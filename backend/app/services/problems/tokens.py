@@ -1,9 +1,4 @@
-"""``token`` problems: stored credentials that expired or expire within 14 days (``stored_secrets.expires_at``).
-
-An expired credential is a problem, one that expires within 14 days needs attention; ``since`` and ``last_seen``
-are ``expires_at`` (a rotation moves it, so an acknowledged expiry comes back for the new date). The fix is the
-place the credential belongs to: the model provider that references it, otherwise its connection.
-"""
+"""``token`` problems: stored credentials that expired or expire within 14 days (``stored_secrets.expires_at``)."""
 
 from __future__ import annotations
 

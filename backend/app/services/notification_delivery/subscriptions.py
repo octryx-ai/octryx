@@ -172,9 +172,7 @@ async def list_notification_log(
 
 
 def delivery_allowed_by_preferences(subscription: NotificationSubscription, pref: NotificationPreference) -> bool:
-    """The person's channel switches gate their catch-all (``*``) subscriptions. A subscription to one event type is
-    its own switch (``is_active``): otherwise switching email on for problem alerts would switch it on for
-    every other email subscription of the person too."""
+    """The person's channel switches gate their catch-all (``*``) subscriptions."""
     if str(subscription.event_type or "*").strip() not in ("", "*"):
         return True
     if subscription.channel_type == "email":

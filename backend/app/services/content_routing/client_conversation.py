@@ -1,19 +1,4 @@
-"""The sticky content state of a coding-client conversation, for its user and its Workspace.
-
-The gateway keys the sticky state by the gateway session and Claude Code's conversation id
-(``conversation_state``); ``/clear`` starts a new id. The launcher's hooks send that id as ``session_id`` with
-every call, so:
-
-- :func:`note_conversation` keeps the conversation the client is in now on the gateway session
-  (``metadata.content_conversation``; written only when it changes);
-- :func:`route_answer` gives a hook the conversation's route once it is routed by a content policy (the
-  launcher shows its one-time terminal notice from it);
-- :func:`presence_sensitivity` gives the Agents area the state of each session's current conversation, so the
-  badge clears after ``/clear``. A session whose client never reported a conversation shows its newest state.
-
-Only names, counts, times and ids leave this module (categories, detector counts, policy, decision, route target);
-the state never holds content.
-"""
+"""The sticky content state of a coding-client conversation, for its user and its Workspace."""
 
 from __future__ import annotations
 
@@ -32,13 +17,11 @@ MAX_ITEMS = 20
 
 
 def hook_conversation(hook_body: Mapping[str, Any]) -> str:
-    """The conversation a hook call belongs to (Claude Code's ``session_id``), or the whole session."""
     value = hook_body.get("session_id")
     return conversation_key({"x-claude-code-session-id": value if isinstance(value, str) else ""})
 
 
 def note_conversation(session: Session, hook_body: Mapping[str, Any]) -> str:
-    """Remember the client's current conversation on the gateway session (the caller commits)."""
     key = hook_conversation(hook_body)
     metadata = dict(session.metadata_ or {})
     if key != SESSION_WIDE and metadata.get(METADATA_KEY) != key:
@@ -72,7 +55,6 @@ def state_payload(row: ContentConversationState) -> dict[str, Any]:
 
 
 async def route_answer(db: AsyncSession, session_id: str, conversation: str) -> dict[str, Any]:
-    """``{"content_route": ...}`` when the conversation is routed by a content policy, else ``{}``."""
     row = (await db.execute(select(ContentConversationState).where(
         ContentConversationState.session_id == session_id,
         ContentConversationState.conversation_key == conversation))).scalar_one_or_none()
@@ -82,11 +64,10 @@ async def route_answer(db: AsyncSession, session_id: str, conversation: str) -> 
 
 
 async def presence_sensitivity(db: AsyncSession, session_ids: Iterable[str | None]) -> dict[str, dict[str, Any]]:
-    """The state of each session's current conversation (newest when none was reported); sessions without one
-    are left out."""
     wanted = sorted({item for item in session_ids if item})
     if not wanted:
         return {}
+    # A session whose client never reported a conversation shows its newest state.
     current = {row.id: (row.metadata_ or {}).get(METADATA_KEY) for row in (await db.execute(
         select(Session.id, Session.metadata_).where(Session.id.in_(wanted)))).all()}
     rows = (await db.execute(select(ContentConversationState).where(

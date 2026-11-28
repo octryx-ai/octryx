@@ -1,10 +1,5 @@
-"""Loads the source-system stubs (``tests/fixtures/source_stubs``) for tests.
-
-The stubs are standalone scripts, not a package, and import their sibling modules by name
-(``stub_http``, ``*_fixtures``); each is loaded here once under that name. ``transport`` puts a
-stub's pure ``handle`` behind an ``httpx.MockTransport``, so the platform's real connectors talk to
-exactly what the acceptance stack serves, without a socket.
-"""
+"""Loads the standalone source-system stubs under their sibling names and puts a stub's ``handle`` behind an
+``httpx.MockTransport``, so the real connectors talk to what the acceptance stack serves."""
 
 from __future__ import annotations
 
@@ -38,8 +33,6 @@ acceptance_http = load("octryx_acceptance_http", STUB_DIR / "acceptance_http.py"
 
 
 def transport(stub, base_url: str, requests: list[str] | None = None) -> httpx.MockTransport:
-    """``stub.handle`` behind a mock transport that insists on the stub's pod-loopback address."""
-
     def handler(request: httpx.Request) -> httpx.Response:
         assert f"{request.url.scheme}://{request.url.netloc.decode()}" == base_url
         target = request.url.raw_path.decode()

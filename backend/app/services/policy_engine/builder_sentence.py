@@ -1,11 +1,4 @@
-"""The plain-language sentence of a builder policy, e.g. "Block everyone from changing data
-through ServiceNow on connection primary in all Workspaces, except for platform admins."
-
-Segments as in ``policy_sentence`` (verb / value / plain). Ids are shown by name (:class:`entity_listing.NameIndex`);
-an id that no longer exists reads "unknown …". One phrase per action group the policy touches, joined with
-"and"; the where-part and the exceptions follow. A content policy reads "When a model request contains …"
-(``builder_content_sentence``).
-"""
+"""The plain-language sentence of a builder policy."""
 
 from __future__ import annotations
 

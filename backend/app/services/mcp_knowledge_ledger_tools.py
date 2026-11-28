@@ -1,13 +1,5 @@
-"""Registers ``knowledge_search``, ``jira_release_status`` and ``episode_summary`` on the Knowledge MCP server.
-
-``knowledge_search`` and ``episode_summary`` run on the governed Knowledge ledger;
-``jira_release_status`` is the chat's live, read-only release status query. Like the other governed
-tools, no schema has a ``project_id``: the Workspace is the connection's (grant binding or
-``X-Octryx-Workspace`` header). ``knowledge_search`` is the chat's own tool (one definition,
-one class): its description is the chat definition's and its arguments are the chat
-schema's (``query``, ``limit``, ``products``, ``version``); any other argument
-is ignored, never an input. ``jira_release_status`` likewise reuses the chat definition.
-"""
+"""Registers ``jira_release_status`` and ``episode_summary`` on the Knowledge MCP server. No
+schema has a ``project_id``: the Workspace is the connection's."""
 
 from __future__ import annotations
 
@@ -17,7 +9,6 @@ from mcp.server.fastmcp import Context, FastMCP
 
 from ..db import async_session_factory
 from ..tools.definitions.jira_release import get_jira_release_definitions
-from ..tools.definitions.knowledge_evidence import KNOWLEDGE_SEARCH_DESCRIPTION
 from .mcp_governed_knowledge import run_governed_mcp_tool
 from .mcp_governed_knowledge_tools import AuthenticatedContext, mcp_caller
 from .mcp_knowledge_episode import run_episode_summary
@@ -32,21 +23,6 @@ def _present(arguments: dict[str, Any]) -> dict[str, Any]:
 
 
 def register_knowledge_ledger_tools(server: FastMCP, authenticate: AuthenticatedContext) -> None:
-    @server.tool(description=KNOWLEDGE_SEARCH_DESCRIPTION + _WORKSPACE_NOTE)
-    async def knowledge_search(
-        query: str,
-        limit: int | None = None,
-        products: list[str] | None = None,
-        version: str | None = None,
-        ctx: Context | None = None,
-    ) -> dict[str, Any]:
-        caller = mcp_caller(ctx, authenticate)
-        arguments = _present({"query": query, "limit": limit, "products": products, "version": version})
-        async with async_session_factory() as db:
-            result = await run_governed_mcp_tool(db, caller=caller, tool_name="knowledge_search", arguments=arguments)
-            await db.commit()
-            return result
-
     @server.tool(description=_RELEASE_STATUS_DESCRIPTION + _WORKSPACE_NOTE)
     async def jira_release_status(product: str, version: str, ctx: Context | None = None) -> dict[str, Any]:
         caller = mcp_caller(ctx, authenticate)

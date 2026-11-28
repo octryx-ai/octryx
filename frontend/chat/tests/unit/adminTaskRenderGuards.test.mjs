@@ -1,7 +1,7 @@
 // Run: node --import ./tests/unit/register-ts.mjs --test tests/unit/adminTaskRenderGuards.test.mjs
 //
 // Render guards for admin components that had no rendering test: the Action step form, the guided
-// Action fields, the scenario modal and the call agents tab keep their key labels, fields and buttons.
+// Action fields and the call agents tab keep their key labels, fields and buttons.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { createElement } from "react";
@@ -62,24 +62,6 @@ test("the guided Action fields show workspace, agent, execution, binding, capabi
   assert.match(text(edit.root), /\(an action keeps its workspace\)/);
   assert.match(text(edit.root), /No active agent is available in this workspace\. Open agents/);
   assert.match(text(edit.root), /Bad JSON\. Fix it under Advanced to use these fields\./);
-});
-
-test("the scenario modal renders its sections and the create button, and nothing when closed", () => {
-  const props = {
-    show: true, editingScenarioId: null, projects: [{ id: "p1", name: "Ops" }], scenarioName: "Route", setScenarioName: noop,
-    scenarioProjectId: "p1", setScenarioProjectId: noop, scenarioPriority: 1, setScenarioPriority: noop, scenarioActive: true,
-    setScenarioActive: noop, scenarioDescription: "", setScenarioDescription: noop,
-    scenarioMatchConfig: JSON.stringify({ route_reasons: ["incident"], required_domains: [] }), setScenarioMatchConfig: noop,
-    scenarioPlannerConfig: "{}", setScenarioPlannerConfig: noop, scenarioExecutionConfig: "{}", setScenarioExecutionConfig: noop,
-    scenarioFormError: "Name taken", scenarioFormLoading: false, onSaveScenario: noop, onClose: noop,
-  };
-  const view = mount("admin/components/AdminScenarioFormModal.tsx", "AdminScenarioFormModal", props);
-  assert.equal(text(view.root.findByProps({ className: "admin-panel__title" })), "New Scenario");
-  assert.deepEqual(buttons(view).slice(-2), ["Create Scenario", "Cancel"]);
-  assert.match(text(view.root), /Name taken/);
-  assert.equal(view.root.findAllByType("form").length, 1);
-  const closed = mount("admin/components/AdminScenarioFormModal.tsx", "AdminScenarioFormModal", { ...props, show: false });
-  assert.equal(closed.toJSON(), null);
 });
 
 test("the call agents tab lists a Workspace's call agents and opens the side panel", async () => {

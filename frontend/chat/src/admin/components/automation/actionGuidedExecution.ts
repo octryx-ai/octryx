@@ -1,8 +1,5 @@
-// Guided Action authoring: which content of the agent a run executes, and whether that content gives it a task.
 import type { PanelAgentRow } from "../taskTypes";
 import { hasAuthoredInstruction } from "./actionGuidedPath";
-
-// ---- which content of the agent an Action run executes ------------------------------------------
 
 export type AgentExecutionSource = {
   mode: string;
@@ -17,7 +14,6 @@ export type ExecutionLookup =
       agentId: string;
       execution: AgentExecutionSource | null;
       latestRevision: number | null;
-      /** The newest revision's status and snapshot, as the designer document returns them. */
       latestRevisionStatus?: string | null;
       latestSnapshot?: unknown;
     }
@@ -27,7 +23,6 @@ export type ExecutionView = {
   text: string;
   runnable: boolean;
   retry: boolean;
-  /** Set only when the execution source is known and runnable. */
   mode?: "draft" | "published";
   publishedRevision?: number;
 };
@@ -35,7 +30,6 @@ export type ExecutionView = {
 const isRevisionNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isInteger(value) && value > 0;
 
-/** Action wording for the execution source; anything not shown to be runnable blocks submit. */
 export function executionView(
   lookup: ExecutionLookup,
   agentId: string,
@@ -110,13 +104,10 @@ export function executionView(
   };
 }
 
-// ---- whether the executed content gives the agent a task ---------------------------------------
-
 export type InstructionCheck =
   | { state: "authored" | "missing"; source: "live" | "published" }
   | { state: "deferred"; publishedRevision: number };
 
-/** The published snapshot's authored instruction, read exactly like the runtime payload. */
 function snapshotHasAuthoredInstruction(snapshot: unknown): boolean | null {
   if (!snapshot || typeof snapshot !== "object") return null;
   const { definition, steps } = snapshot as {
@@ -141,14 +132,7 @@ function snapshotHasAuthoredInstruction(snapshot: unknown): boolean | null {
   );
 }
 
-/**
- * Checks the content a run executes, never another version of it:
- * - draft execution runs the live row, so the live row is checked;
- * - published execution runs revision N; its content is checked only when the designer document's
- *   newest revision is exactly that published revision, otherwise the check is left to the runtime
- *   admission, which reads revision N, and the form says so.
- * Callers pass only a runnable execution view.
- */
+// Published content is checked only when the newest revision is the published one; otherwise runtime admission decides.
 export function instructionCheck(
   view: ExecutionView,
   lookup: ExecutionLookup,
@@ -174,7 +158,6 @@ export function instructionCheck(
   return { state: "deferred", publishedRevision: published };
 }
 
-/** Text for the instruction field when the form cannot check the published content itself. */
 export function deferredInstructionNote(
   check: InstructionCheck,
 ): string | null {

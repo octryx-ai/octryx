@@ -1,6 +1,4 @@
-"""The apps of a repository that holds several (C2): each tracked ``.octryx/environment.json``
-names one. The preparation report lists them; the platform keeps the list on the repository record, so a later run
-chooses its app before any change exists (a bug's intake reads it)."""
+"""The apps of a repository that holds several: each tracked ``.octryx/environment.json`` names one."""
 
 from __future__ import annotations
 
@@ -12,7 +10,6 @@ PATTERNS = (".octryx/environment.json", "*/.octryx/environment.json")
 
 
 def found_apps(root: Path) -> list[str]:
-    """The tracked environment files under ``root``, sorted; ``[]`` when git cannot say."""
     try:
         done = subprocess.run(["git", "-C", str(root), "ls-files", "-z", "--", *PATTERNS], capture_output=True,
                               timeout=20, check=False)

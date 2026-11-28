@@ -1,9 +1,4 @@
-"""The configuration linkage as a pure function of the loaded nodes (no database).
-
-:func:`compute_linkage` walks the setting families once for ``configures``, the value findings,
-``undocumented`` and ``name_matches``, then states unknown sections, unused parameters and the
-inconsistencies, in that order, so the edge list is stable across rebuilds.
-"""
+"""The configuration linkage as a pure function of the loaded nodes (no database)."""
 
 from __future__ import annotations
 
@@ -58,7 +53,6 @@ def _family_edges(
     resolved: dict,
     non_comparable_defaults: tuple[ProfilePattern, ...],
 ) -> tuple[list[LinkEdge], set[str], set[tuple[str, str]], dict[tuple, list[Family]]]:
-    """Per family: what it configures and its value findings, or why it is undocumented."""
     scopes = _Scopes(parameters)
     by_name: dict[str, list[NodeRow]] = {}
     for parameter in parameters:
@@ -91,7 +85,6 @@ def _unmatched_edges(
     family: Family, candidates: list[NodeRow], scopes: _Scopes, manuals: list[NodeRow],
     unknown: dict[tuple, list[Family]],
 ) -> list[LinkEdge]:
-    """``undocumented`` (or the family is noted under an unknown section) and the ``name_matches`` hints."""
     lead = family.lead
     edges = []
     if scopes.known(lead):
@@ -111,7 +104,6 @@ def _unmatched_edges(
 def _documented_unused(
     grouped: list[Family], parameters: list[NodeRow], configured: set[str], used_scopes: set[tuple[str, str]]
 ) -> list[LinkEdge]:
-    """Parameters never configured although their scope is: one edge per file with such a section."""
     leads = [family.lead for family in grouped]
     by_section: dict[str, list[NodeRow]] = {}
     by_type: dict[str, list[NodeRow]] = {}

@@ -1,8 +1,4 @@
-"""Contract tests for the inbound Anthropic Messages gateway (octryx-claude PoC).
-
-The platform route runs in-process; LiteLLM is an ``httpx.MockTransport`` that
-records every request, so a refusal is proven to dispatch *nothing*.
-"""
+"""Contract tests for the inbound Anthropic Messages gateway (octryx-claude PoC)."""
 
 # ruff: noqa: F811  (the shared ``gateway_setup`` fixture is imported, then requested by name)
 from __future__ import annotations
@@ -104,8 +100,11 @@ async def test_streamed_call_is_relayed_under_the_alias_and_recorded(client, db,
 
 
 async def test_a_secret_in_the_newest_turn_is_refused_before_dispatch(client, db, gateway_setup):
+    from tests.content_security.gateway_route_support import configure
+
     fake, build = gateway_setup
     headers = await build()
+    await configure(db, headers["X-Octryx-Workspace"], "secrets", "refuse")  # the default masks
     # Only this request's traces: rows another test committed on the same xdist worker are not ours.
     traces_before = len((await db.execute(select(TurnTrace.id))).all())
 

@@ -1,18 +1,4 @@
-"""Run summary fields written on every ``turn_traces`` row.
-
-Observability → Runs groups trace rows into runs and filters them in SQL, so each row carries four small
-summary columns next to its JSON payload:
-
-- ``run_key``: the run the row belongs to. In-app turns share their request id; gateway calls share the
-  gateway session; a device turn is one run per turn; a row without any key is its own run.
-- ``outcome``: the row's outcome in the closed vocabulary below. A run's outcome is its newest row's.
-- ``started_at``: when the run started, if this writer knows it (request start, gateway call start, device
-  prompt). A run without any start is shown as "not measured", never as 0 ms.
-- ``agent_label``: the agent, workflow or client name shown in the list.
-
-Only explicit fields decide the outcome (the gate marker, the loop's status, an error, the gateway refusal or
-upstream error); nothing is inferred from text.
-"""
+"""Run summary fields written on every ``turn_traces`` row."""
 
 from __future__ import annotations
 
@@ -77,7 +63,6 @@ def source_for_origin(origin: str | None) -> str:
 
 
 def turn_outcome(raw_output: Any, usage: Any = None) -> str:
-    """The outcome of one persisted turn row."""
     raw = raw_output if isinstance(raw_output, Mapping) else {}
     meta = usage if isinstance(usage, Mapping) else {}
     gate = raw.get("gate_outcome")
@@ -110,7 +95,6 @@ def device_run_key(job_id: str, turn_id: str | None) -> str:
 
 
 def agent_label(context_snapshot: Any) -> str | None:
-    """The agent or workflow the in-app turn ran as (from its context snapshot), if named."""
     snapshot = context_snapshot if isinstance(context_snapshot, Mapping) else {}
     agent = snapshot.get("agent")
     name = str(agent.get("name") or "").strip() if isinstance(agent, Mapping) else ""
@@ -125,7 +109,6 @@ def run_summary_fields(
     started_at: datetime | None = None,
     label: str | None = None,
 ) -> dict[str, Any]:
-    """Column values for a new ``TurnTrace`` row."""
     return {
         "run_key": run_key[:RUN_KEY_MAX],
         "outcome": turn_outcome(raw_output, usage),
@@ -135,7 +118,6 @@ def run_summary_fields(
 
 
 def summary_row(trace: Any, fields: dict[str, Any]) -> Any:
-    """The ``turn_trace_summaries`` row of a new ``TurnTrace`` (``fields`` from :func:`run_summary_fields`)."""
     from ...models import TurnTraceSummary
 
     return TurnTraceSummary(
@@ -153,7 +135,6 @@ def gateway_run_summary(
     client_context: Mapping[str, str] | None,
     seat: bool = False,
 ) -> dict[str, Any]:
-    """Summary columns for one model-gateway call: the gateway session is the run; the call's start is known."""
     measured = isinstance(duration_ms, int) and duration_ms >= 0
     started = utc_now() - timedelta(milliseconds=duration_ms) if measured else None
     client = "Claude Code" if (client_context or {}).get("claude_session_id") else "Model gateway"

@@ -1,18 +1,8 @@
-"""Fields of a connection unit as the connector preset declares them.
-
-For connectors whose single entry already has a connection unit (``tool_config/connection_fields.py``:
-target, auth mode, principal, OIDC options, secrets), a descriptor takes exactly that unit, so a named
-connection edits the same fields as the connector's own entry.
-
-The admin form shows them in plain words and in the order Bitbucket's form uses: where the
-product runs (its URL), how it signs in (Authentication), then the chosen sign-in's fields: user, password or token,
-then the OpenID Connect token endpoint, client id and secret, and the optional scope, audience and client
-authentication. Never the config key ("Jira oidc token url").
-"""
+"""Fields of a connection unit as the connector preset declares them."""
 
 from __future__ import annotations
 
-from ...oidc_client_credentials import CLIENT_AUTH_METHODS
+from ...connector_auth.oidc_client_credentials import CLIENT_AUTH_METHODS
 from ...tool_config.connection_fields import (
     auth_mode_fields,
     oidc_option_fields,
@@ -71,13 +61,12 @@ def _position(tool_name: str, field: Field) -> int:
 
 def _field(tool_name: str, name: str, kind: str) -> Field:
     if _suffix(tool_name, name) == "oidc_client_auth":
-        # A closed choice (oidc_client_credentials.CLIENT_AUTH_METHODS); empty means client_secret_post.
+        # A closed choice (connector_auth.oidc_client_credentials.CLIENT_AUTH_METHODS); empty means client_secret_post.
         return Field(name, _label(tool_name, name), kind="select", options=CLIENT_AUTH_METHODS)
     return Field(name, _label(tool_name, name), kind=kind)
 
 
 def preset_unit(tool_name: str) -> tuple[Field, ...]:
-    """The preset's connection unit as descriptor fields, in the order the admin form shows them."""
     fields = [_field(tool_name, name, "url" if name.endswith("_url") else "text") for name in target_fields(tool_name)]
     fields += [_field(tool_name, name, "select") for name in auth_mode_fields(tool_name)]
     fields += [_field(tool_name, name, "text")

@@ -1,35 +1,4 @@
-"""The runner of manually requested structured builds, beside the projection worker.
-
-On the projection worker a manual "Build structured graph" would wait for its ticks (one slice per
-tick, only after its projection batch): a Workspace re-ingesting at the same time would take over an
-hour for a build whose slices add up to a minute. Manual builds (trigger ``manual``) are run
-here instead, in one managed task of their own:
-
-- the runner claims one due manual build (lease and per-Workspace exclusivity as in ``build.py``)
-  and runs it to completion in short slices (:data:`SLICE_SECONDS`, :data:`MAX_REVISIONS_PER_SLICE`),
-  each in its own session, yielding the event loop between slices (:data:`YIELD_SECONDS`); the
-  slices of one claim share a ``SliceCache`` (layer selection and ledger, planned once);
-- one claim runs at most :data:`MAX_RUN_SECONDS`; then the build is handed back (its lease
-  expires now) and the next poll claims it again, so a huge build never holds the runner;
-- a raising slice fails the build with the fixed token, as the cooperative path does;
-- a slice that finds the build claimed by another runner (its own lease expired, a stalled
-  process) returns ``lost`` (``build_states.RESULT_LOST``): the runner stops working on it at once,
-  hands nothing back and records the claim as lost; ``store.write_revision`` checks the claim inside
-  its transaction, so a lost runner writes no revision;
-- the runner records its run state under :data:`RUNNER_NAME` (``background_worker_state``): every
-  claim's outcome (slices, completed / failed / handed back / lost), idle polls throttled, and a fixed
-  failure token when the evidence runtime is unavailable or a pass ends outside its contract. The
-  structured status shows it (``status.py``);
-- the runner holds a build on a short lease (:data:`LEASE_SECONDS`), renewed by every slice it
-  saves: a runner that dies with its process (a restart, a deployment) leaves the build
-  ``running`` for at most that long, then any runner's next poll resumes it where the ledger says.
-  Leases of other runner ids are never expired on start: several processes run a runner each, and
-  a live runner's build must not be claimed twice.
-
-The projection worker never claims a manual build (it runs ``COOPERATIVE_TRIGGERS`` only) and is
-never waited on: the two share nothing but the build table. The projection worker owns the
-runner's lifecycle, so it runs exactly where knowledge projection runs.
-"""
+"""The runner of manually requested structured builds, beside the projection worker."""
 
 from __future__ import annotations
 
@@ -68,8 +37,6 @@ DEFAULT_POLL_INTERVAL_SECONDS = 2.0
 
 
 class StructuredBuildRunner:
-    """Run due manual builds to completion, one at a time, in short slices."""
-
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -99,7 +66,6 @@ class StructuredBuildRunner:
         self._task = asyncio.create_task(self._run_loop(), name=RUNNER_NAME)
 
     async def stop(self) -> None:
-        """Non-cancelling: the current slice commits, then the build is handed back."""
         self._stop_event.set()
         task = self._task
         if task is None:
@@ -111,7 +77,6 @@ class StructuredBuildRunner:
                 self._task = None
 
     async def run_once(self) -> str | None:
-        """Claim one due manual build and run it; returns its state afterwards (``None``: nothing due)."""
         started_at = utc_now()
         try:
             runtime = self._runtime_provider()
@@ -169,12 +134,6 @@ class StructuredBuildRunner:
 
     async def _health(self, started_at, *, result: dict | None = None, failure: str | None = None,
                       force: bool = False) -> None:
-        """Record the runner's run state (``background_worker_run_states``, :data:`RUNNER_NAME`).
-
-        A claim's outcome is always recorded; an idle poll (nothing due, no runtime) at most every
-        :data:`HEALTH_INTERVAL_SECONDS` unless its outcome changed, so polling every 2 s does not
-        write a row every 2 s. ``failure`` is a fixed token, never an error text.
-        """
         now = time.monotonic()
         if (not force and self._last_health is not None and failure == self._last_failure
                 and now - self._last_health < HEALTH_INTERVAL_SECONDS):

@@ -1,18 +1,4 @@
-"""The bot's review as the pull request shows it: one summary comment, inline comments and a status. Pure.
-
-Our own layout (concept §10: no copy of another bot's comments or wording):
-
-- **summary comment**, one per pull request, updated on every review (found again by :data:`MARKER`): the verdict
-  and the reviewer's one-sentence summary; the findings count by severity; the findings that cannot sit on a diff
-  line (``diff_lines``), each with its file and line; a folded walkthrough, one row per changed file with the
-  reviewer's words where it gave them (else what changed), and lines added and removed; a footer with the reviewed
-  commit, the reviewer's model and route, and the Octryx run;
-- **inline comments**, one per finding on a line of the diff: severity, the finding's id and the fix; a
-  ``suggestion`` as a block GitHub and GitLab apply with one click (GitLab's names how many lines above the
-  commented one it replaces: ``suggestion:-2+0``; on Bitbucket a code block, applied by hand);
-- **status** ``octryx/review``: ``success`` without a blocking finding (high or medium), ``failure`` with them. It
-  informs; a repository blocks merges on it only when its own branch protection requires it (opt-in, §12).
-"""
+"""The bot's review as the pull request shows it: one summary comment, inline comments and a status."""
 
 from __future__ import annotations
 
@@ -57,7 +43,6 @@ class ReviewPost:
 
 
 def _fence(text: str) -> str:
-    """A code fence longer than any backtick run inside the text, so a suggestion never closes it early."""
     longest = max((len(run) for run in text.split("\n") for run in _backtick_runs(run)), default=0)
     return "`" * max(3, longest + 1)
 
@@ -74,8 +59,6 @@ def _backtick_runs(line: str) -> list[str]:
 
 
 def _comment_body(finding: dict[str, Any], provider: str, above: int = 0, refused: str = "") -> str:
-    """``above``: how many lines before the commented one the suggestion replaces too (a range); ``refused``: why the
-    suggestion may not be a one-click block (``suggestion_names``): it is shown as text to apply by hand."""
     severity = str(finding.get("severity") or "low")
     head = f"**{SEVERITY_LABELS.get(severity, severity)}**" + (f" · {finding['id']}" if finding.get("id") else "")
     body = f"{head}\n\n{str(finding.get('fix') or '').strip()}"
@@ -126,7 +109,6 @@ def _counts(findings: list[dict[str, Any]]) -> str:
 
 def build_post(review: dict[str, Any], files: dict[str, FileChange], *, provider: str,
                facts: dict[str, Any]) -> ReviewPost:
-    """The post of one review record (``context.review``: verdict, summary, findings, optional walkthrough)."""
     findings = sorted((dict(item) for item in review.get("findings") or [] if isinstance(item, dict)),
                       key=lambda item: (_ORDER.get(str(item.get("severity")), 3), str(item.get("file")),
                                         item.get("line") if type(item.get("line")) is int else 0))
@@ -186,8 +168,6 @@ def build_post(review: dict[str, Any], files: dict[str, FileChange], *, provider
 
 def _status(facts: dict[str, Any], findings: list[dict[str, Any]], blocking: list[dict[str, Any]],
             passed: bool) -> tuple[str, str]:
-    """The commit status by the repository's ``status_policy`` (``settings``): ``gate`` fails on blocking findings;
-    ``inform`` (default) only on a committed secret and otherwise counts the findings in a ``success``."""
     secrets = [item for item in findings if item.get("kind") == "secrets"]
     # Every finding is counted, the low ones too ("No blocking findings"
     # without a number would break the promise that findings are counted).

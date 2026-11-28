@@ -1,11 +1,4 @@
-"""Interactive OAuth authorization endpoint (login-gated consent).
-
-GET /oauth/authorize validates the request, requires an active platform
-login (cookie), and either reuses an existing grant or renders the consent
-page. POST /oauth/authorize/decision processes the consent form. Invalid
-client/redirect_uri combinations render an error page and never redirect
-(RFC 6749 §4.1.2.1 open-redirect protection).
-"""
+"""Interactive OAuth authorization endpoint (login-gated consent)."""
 
 from __future__ import annotations
 
@@ -17,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import get_db
+from ...http_multipart_route import BoundedFormRoute
 from ...models import RefreshToken
 from ...services.oauth_provider import (
     create_grant,
@@ -32,7 +26,7 @@ from ...time_utils import utc_now
 from .._context import templates
 from .._helpers.auth import _get_user_from_cookie, validate_browser_origin_headers
 
-router = APIRouter(tags=["oauth-authorize"])
+router = APIRouter(tags=["oauth-authorize"], route_class=BoundedFormRoute)
 
 
 def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
@@ -50,7 +44,6 @@ def _redirect_with(redirect_uri: str, params: dict[str, str]) -> RedirectRespons
 
 
 async def _newest_login_session_id(db: AsyncSession, user_id: str) -> str | None:
-    """The user's most recent live platform refresh-token row anchors the grant."""
     row = (
         await db.execute(
             select(RefreshToken)
@@ -79,7 +72,7 @@ async def _validated_request(
     code_challenge: str | None,
     code_challenge_method: str | None,
 ):
-    """Return (client, scopes, error_response). Never redirects on client errors."""
+    # Never redirects on client errors.
     if not client_id or not redirect_uri:
         return None, [], _error_page(request, "Missing client_id or redirect_uri.")
     client = await get_active_client(db, client_id)
@@ -109,14 +102,10 @@ async def _validated_request(
     return client, scopes, None
 
 
+# Called only once client_id and redirect_uri are validated, so its refusal may redirect there (RFC 8707).
 def _resolved_resource(
     request: Request, raw: str | None, *, redirect_uri: str, state: str
 ) -> tuple[str | None, RedirectResponse | None]:
-    """RFC 8707: only known resource indicators; the raw value is never echoed.
-
-    Called only after client_id and redirect_uri were validated, so a refusal
-    redirects ``error=invalid_target`` to the registered redirect_uri.
-    """
     try:
         return resolve_resource_indicator(raw, issuer=str(request.base_url)), None
     except OAuthFlowError as exc:

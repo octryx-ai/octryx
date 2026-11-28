@@ -85,7 +85,6 @@ RISK_ANSWER_CONTRACT = (
 
 
 def _first_set(project_config: Any, runtime_settings: Any, key: str, default: int) -> int:
-    """The Workspace's value, else the platform's, else ``default`` — a stored 0 is a value."""
     for source in (project_config, runtime_settings):
         value = source.get(key) if isinstance(source, dict) else None
         if value is None or value == "":

@@ -16,16 +16,15 @@ GIT_KEY = "work_git"
 RELEASED_KEPT = 20  # bookkeeping of released main-thread turns (each ends once); never a limit on work
 
 
-# A gateway session of the coordinator's board wake (``teamwork.coordinator``) on the main thread: its contract shows
-# the plan phase (answer, revise the plan); its Stop is never a phase pass of the ``parallel_work`` node.
 COORDINATOR_METADATA_KEY = "workflow_run_coordinator_wake"
-ITEMS_DIR = ".octryx-items"  # octryx-claude work_git.ITEMS_DIR
+ITEMS_DIR = ".octryx-items"
 PROVENANCE = "teamwork"
 EVENT_SEQUENTIAL = "teamwork_sequential_fallback"
 EVENT_COMMIT_GUARDED = "teamwork_plan_commit_kept_merged_files"
 FALLBACK_ONE_SLOT = "device_runs_one_job"
 FALLBACK_NOT_PARALLEL = "node_not_parallel"
 FALLBACK_BRANCH_FAILED = "branch_failed"
+FALLBACK_NO_DEVICE = "main_thread_not_on_a_device"
 
 
 def _state(run: WorkflowRun) -> dict[str, Any]:
@@ -33,7 +32,6 @@ def _state(run: WorkflowRun) -> dict[str, Any]:
 
 
 def _set_state(run: WorkflowRun, state: dict[str, Any]) -> None:
-    """Stored as its own copy: a later in-place change is never mistaken for the stored value (``scheduler._store``)."""
     run.context = {**dict(run.context or {}), GIT_KEY: copy.deepcopy(state)}
 
 
@@ -68,11 +66,7 @@ async def _turn_of(db: AsyncSession, job_id: str) -> str | None:
 
 
 def _is_turn(entry: Any, job: Any) -> bool:
-    """Whether ``job``'s current turn is the one ``entry`` (``sent``, ``sequential_job``) started. The turn, not the
-    job: the git work and a sequential item run on the main thread's own job, reused for the coordinator's next turn
-    (one main job, turns phase, git, plan). A job id alone would claim that next turn
-    as teamwork's and swallow the coordinator's turn end. An entry without a turn id matches by
-    job."""
+    # The main job is reused for the coordinator's next turn, so a job id alone would swallow that turn's end.
     entry = dict(entry or {})
     if job is None or not entry.get("job_id") or entry.get("job_id") != getattr(job, "id", None):
         return False

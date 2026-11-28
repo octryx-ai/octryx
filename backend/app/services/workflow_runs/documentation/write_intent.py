@@ -1,22 +1,4 @@
-"""The documentation write intent: reserve, approve, claim, certify and finish one approved write.
-
-The records and their closed state machine are the
-foundation models (``models/runtime/documentation_publication.py``). Every state change here is a
-compare-and-set on ``state_version`` (and the current state), checked against ``intent_transition_allowed``.
-
-- :func:`reserve_publication_intent` pins the target and reserves the stable ``operation_id`` and marker
-  **before** card (b) is rendered, so the confirmed body carries the marker and is byte for byte the body that is
-  sent. It is idempotent per run and slot: as long as nothing was sent and the target is unchanged, a retried
-  pass (any pass key) gets the same intent and marker. A changed target supersedes the unsent intent and reserves
-  a new one. A potentially sent intent (``send_started``, ``pending_reconcile``) is never superseded: it must
-  reconcile first.
-- :func:`approve_publication_intent` binds the confirmed (b) decision, its card hash, the documentation output
-  hash and the approved storage body hash (``reserved -> approved``). Re-confirming a still unsent intent
-  rebinds the approval in place (same state, ``state_version`` + 1); a claimed intent cannot be re-approved.
-- :func:`claim_send` is the one claimed sender: ``approved | never_started_certified -> send_started`` on one row.
-- :func:`certify_never_started` is the only way back to a sendable state: the executor certifies that its claimed
-  request never left (or was answered with a definite refusal that applied nothing).
-"""
+"""The documentation write intent: reserve, approve, claim, certify and finish one approved write."""
 
 from __future__ import annotations
 
@@ -70,26 +52,23 @@ MARKER_PATTERN = re.compile(
 
 
 class PublicationIntentError(WorkflowRunError):
-    """The intent cannot be reserved or approved; ``code`` is closed, ``blockers`` what the requester sees."""
-
     def __init__(self, code: str, message: str, *, blockers: list[str] | None = None) -> None:
         super().__init__(code, message, 409)
         self.blockers = list(blockers or [message])
 
 
 def publication_body_hash(body: str) -> str:
-    """The approved body hash: ``sha256:`` of the storage body exactly as it is sent (normalised once)."""
     return "sha256:" + hashlib.sha256(normalize_storage_content(body).encode("utf-8")).hexdigest()
 
 
 def markers_in(storage: str | None) -> set[tuple[str, str]]:
-    """Every exact ``(run_id, operation_id)`` marker in a storage body (a longer token never matches)."""
+    # A longer token never matches.
     return {(match.group(1), match.group(2)) for match in MARKER_PATTERN.finditer(str(storage or ""))}
 
 
 def confirmed_binding_problem(intent: DocumentationWriteIntent, payload: dict[str, Any], *,
                               output_hash: str, body_hash: str, workspace_id: str | None) -> str:
-    """A publication decision must bind the whole server-owned intent, not only its body."""
+    # The decision must bind the whole server-owned intent, not only its body.
     target = payload.get("target")
     expected = {key: getattr(intent, key) for key in _PINNED if key != "title"}
     expected.update(operation_id=intent.operation_id, marker=intent.marker, expected_version=intent.expected_version,
@@ -109,12 +88,9 @@ def confirmed_binding_problem(intent: DocumentationWriteIntent, payload: dict[st
     return ""
 
 
-# --- lookups --------------------------------------------------------------------------------------------------
-
 
 async def active_intent(db: AsyncSession, run: WorkflowRun, slot: str = DOCUMENTATION_SLOT
                         ) -> DocumentationWriteIntent | None:
-    """The run's one active intent for the slot (partial unique index), fresh from the database."""
     row = (await db.execute(select(DocumentationWriteIntent).where(
         DocumentationWriteIntent.run_id == run.id, DocumentationWriteIntent.slot == slot,
         DocumentationWriteIntent.state.in_(INTENT_ACTIVE_STATES)))).scalar_one_or_none()
@@ -141,17 +117,12 @@ async def latest_publication_decision(db: AsyncSession, run: WorkflowRun) -> Wor
         .order_by(WorkflowRunDecision.created_at.desc()).limit(1))).scalar_one_or_none()
 
 
-# --- compare-and-set ------------------------------------------------------------------------------------------
-
 
 class IntentMovedError(Exception):
-    """Another writer changed the intent first (its ``state_version`` moved); the caller re-reads."""
+    pass
 
 
 async def transition(db: AsyncSession, intent: DocumentationWriteIntent, target: str, **values: Any) -> None:
-    """``intent.state -> target`` as one compare-and-set on ``(state, state_version)``, else :class:`IntentMovedError`.
-
-    ``target == intent.state`` is a same-state update (rebinding an unsent approval, recording a later fact)."""
     current, seen = str(intent.state), int(intent.state_version or 0)
     if target != current and not intent_transition_allowed(current, target):
         raise ValueError(f"intent transition {current} -> {target} is not allowed")
@@ -168,7 +139,6 @@ async def transition(db: AsyncSession, intent: DocumentationWriteIntent, target:
 
 async def claim_send(db: AsyncSession, intent: DocumentationWriteIntent, *, worker: str, pass_key: str,
                      dispatch_check: dict[str, Any]) -> bool:
-    """The one claimed sender: ``approved | never_started_certified -> send_started`` (``False``: lost the race)."""
     if intent.state not in INTENT_SENDABLE_STATES:
         return False
     now = utc_now()
@@ -183,7 +153,6 @@ async def claim_send(db: AsyncSession, intent: DocumentationWriteIntent, *, work
 
 async def certify_never_started(db: AsyncSession, intent: DocumentationWriteIntent, *, certified_by: str,
                                 reason: str, error_class: str | None = None) -> None:
-    """Executor certification: the claimed request never left (or a definite refusal applied nothing)."""
     await transition(db, intent, INTENT_NEVER_STARTED_CERTIFIED, certified_by=certified_by[:128],
                      certified_at=utc_now(), claimed_by=None, claimed_at=None, last_error_class=error_class,
                      last_error=reason[:2000])
@@ -192,7 +161,6 @@ async def certify_never_started(db: AsyncSession, intent: DocumentationWriteInte
 async def mark_pending_reconcile(db: AsyncSession, intent: DocumentationWriteIntent, *, reason: str,
                                  error_class: str | None = None, page_id: str | None = None,
                                  version: int | None = None) -> None:
-    """``send_started -> pending_reconcile``: it may have been applied; reconcile before any new write."""
     values: dict[str, Any] = {"pending_reconcile_at": utc_now(), "last_error_class": error_class,
                               "last_error": reason[:2000]}
     if page_id:
@@ -214,8 +182,6 @@ def lease_expired(intent: DocumentationWriteIntent) -> bool:
     return utc_now().replace(tzinfo=None) - started.replace(tzinfo=None) >= timedelta(seconds=SEND_LEASE_SECONDS)
 
 
-# --- reserve / approve ----------------------------------------------------------------------------------------
-
 
 def _same_target(intent: DocumentationWriteIntent, pinned: dict[str, Any]) -> bool:
     return all((getattr(intent, key) or None) == (pinned.get(key) or None) for key in _PINNED)
@@ -223,7 +189,6 @@ def _same_target(intent: DocumentationWriteIntent, pinned: dict[str, Any]) -> bo
 
 async def reserve_publication_intent(db: AsyncSession, run: WorkflowRun, *, transport: Any = None,
                                      node_id: str | None = None) -> DocumentationWriteIntent:
-    """Reserve (or return) the run's active intent and its stable marker before card (b) is rendered."""
     from ..external_step import pass_key
     from .target import resolve_v2_target
 
@@ -281,7 +246,6 @@ async def reserve_publication_intent(db: AsyncSession, run: WorkflowRun, *, tran
 
 async def approve_publication_intent(db: AsyncSession, run: WorkflowRun, *, decision_id: str, card_hash: str,
                                      output_hash: str, body_hash: str) -> DocumentationWriteIntent:
-    """Bind the confirmed (b) decision and its exact hashes to the run's active, unsent intent."""
     intent = await active_intent(db, run)
     if intent is None:
         raise PublicationIntentError("not_reserved", "No publication intent is reserved for this run.")
@@ -324,7 +288,6 @@ async def approve_publication_intent(db: AsyncSession, run: WorkflowRun, *, deci
 
 async def reserve_publication_action(db: AsyncSession, run: WorkflowRun, params: dict[str, Any] | None = None,
                                      *, transport: Any = None) -> ToolOutcome:
-    """A platform-action wrapper of :func:`reserve_publication_intent` (closed outcome, publication failure routes)."""
     from ..platform.dispatch import SUCCEEDED
     from .failure_routes import TARGET_DRIFT
 

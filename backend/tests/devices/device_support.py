@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -42,15 +43,20 @@ async def user_named(db: AsyncSession, username: str) -> User:
     return user
 
 
+def reported_engines(profiles: list[str] | None) -> dict[str, list[str]]:
+    # A test device reports both engines, and both seats when it offers the seat profile.
+    return {"engines": ["claude_code", "codex"], "seat_engines": ["claude_code", "codex"] if "seat" in (profiles or []) else []}
+
+
 async def device_with_grant(
     db: AsyncSession, user: User, *, name: str = "Test device", folders: list[str] | None = None,
     profiles: list[str] | None = None,
 ) -> tuple[UserDevice, str]:
-    """A registered device of ``user`` and the raw refresh token of its device grant."""
     client = await oauth_client(db)
     _private, public = new_key_pair()
     device = UserDevice(owner_user_id=user.id, name=name, name_key=name.lower(), os="linux", public_key=public,
-                        folders=folders or ["/home/sample/src"], profiles=profiles or ["governed"])
+                        folders=folders or ["/home/sample/src"], profiles=profiles or ["governed"],
+                        **reported_engines(profiles))
     db.add(device)
     await db.flush()
     grant, refresh = await issue_device_grant(db, user_id=user.id, client_id=client.client_id, device_id=device.id,
@@ -61,7 +67,6 @@ async def device_with_grant(
 
 
 async def gateway_login_token(db: AsyncSession, user: User, *, scopes: list[str] | None = None) -> str:
-    """A gateway token of ``user``'s ordinary octryx-claude login (no device grant)."""
     from app.services.agent_gateway.contract import GATEWAY_AUDIENCE
     from app.services.oauth_provider import mint_access_token
 
@@ -76,7 +81,6 @@ async def gateway_login_token(db: AsyncSession, user: User, *, scopes: list[str]
 
 
 async def member_with_headers(client, db: AsyncSession, username: str) -> tuple[User, dict[str, str]]:
-    """A non-admin user with a password, and its API login headers."""
     from app.models import Role, UserRole
     from app.services.auth import hash_password
 
@@ -98,24 +102,24 @@ def registration_body(name: str = "Test device", **overrides) -> dict:
 
 
 class SharedSession:
-    """A session factory over the test's own session (no commit is lost, nothing leaks between tests)."""
-
+    # One AsyncSession allows no concurrent operations: each block holds the lock, so a test that changes rows while the
+    # channel's ticker runs does so in a block of its own.
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
+        self.lock = asyncio.Lock()
 
     def __call__(self):
         return self
 
     async def __aenter__(self) -> AsyncSession:
+        await self.lock.acquire()
         return self.db
 
     async def __aexit__(self, *exc) -> None:
-        return None
+        self.lock.release()
 
 
 class FakeSocket:
-    """A WebSocket stand-in: the test feeds frames in and reads what the platform sent."""
-
     def __init__(self) -> None:
         import asyncio
 
@@ -144,14 +148,14 @@ class FakeSocket:
 
 
 async def keyed_device(db: AsyncSession, user: User, *, name: str = "Keyed device", folders=None, profiles=None):
-    """A device with a known private key and a channel token: ``(device, private_key, token)``."""
     from app.services.devices.contract import DEVICE_AUDIENCE
     from app.services.oauth_provider import mint_access_token
 
     client = await oauth_client(db)
     private, public = new_key_pair()
     device = UserDevice(owner_user_id=user.id, name=name, name_key=name.lower(), os="linux", public_key=public,
-                        folders=folders or ["/home/sample/src"], profiles=profiles or ["governed"])
+                        folders=folders or ["/home/sample/src"], profiles=profiles or ["governed"],
+                        **reported_engines(profiles))
     db.add(device)
     await db.flush()
     grant, _refresh = await issue_device_grant(db, user_id=user.id, client_id=client.client_id, device_id=device.id,
@@ -181,8 +185,6 @@ async def chat_session(db: AsyncSession, user: User):
 
 
 class RecordingConnection:
-    """A connected device as the channel tick sees it: records what the platform sends."""
-
     def __init__(self, device_id: str) -> None:
         self.device_id = device_id
         self.sent: list[tuple[str, dict]] = []
@@ -192,7 +194,6 @@ class RecordingConnection:
 
 
 async def enable_device_runs(db: AsyncSession, project_name: str = "acme-orders", **section):
-    """Store a Workspace's device runs section (on by default; a test sets the other keys explicitly)."""
     from app.models import Project
 
     project = (await db.execute(select(Project).where(Project.name == project_name))).scalar_one()

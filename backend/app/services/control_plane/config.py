@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import ControlPlaneConfig, ControlPlaneRuntimeTarget, LLMProvider
 from ..provider_runtime_config import resolve_provider_default_model
 from .env_model_access import env_model_access, env_model_access_problem
-from .provider_auth import provider_secret_scope
 
 logger = logging.getLogger(__name__)
 
@@ -23,32 +22,12 @@ def resolve_control_plane_default_model(
     config: ControlPlaneConfig | None = None,
     fallback_model_id: str | None = None,
 ) -> str | None:
-    """Resolve the default model for control-plane actions using shared precedence."""
-
     return resolve_provider_default_model(
         provider,
         config=config,
         fallback_model_id=fallback_model_id,
     )
 
-
-def resolve_control_plane_promoted_model(
-    provider: LLMProvider | None,
-    *,
-    config: ControlPlaneConfig | None = None,
-    fallback_model_id: str | None = None,
-) -> str | None:
-    """Resolve the model used when promoting a provider into the active runtime chain."""
-
-    for candidate in (
-        provider.default_model_id if provider else None,
-        config.model_id if config else None,
-        fallback_model_id,
-    ):
-        normalized = str(candidate or "").strip()
-        if normalized:
-            return normalized
-    return None
 
 
 async def get_or_create_control_plane_config(
@@ -72,68 +51,42 @@ async def get_or_create_control_plane_config(
     return config
 
 
+_ROUTE_FAILURES_LOGGED: set[str] = set()
+
+
 async def ensure_default_control_plane_provider(
     db: AsyncSession,
     *,
     settings: Any,
     infer_provider_runtime_func: Any,
 ) -> LLMProvider | None:
+    # The bundled LiteLLM provider with the environment's model as a route and the default (``env_model_access``).
+    from ..model_gateway.bundled_litellm import register_bundled_provider
+    from ..model_gateway.bundled_routes import ensure_route
+
     access = env_model_access(settings)
     if access is None:
         if problem := env_model_access_problem(settings):
             logger.error("startup.llm_provider_unsupported: %s", problem)
         return None
-    provider_name = access.name
-
-    result = await db.execute(
-        select(LLMProvider).where(
-            LLMProvider.name == provider_name,
-            LLMProvider.is_global,
-        )
-    )
-    provider = result.scalars().first()
-    if provider:
-        return provider
-
-    runtime = infer_provider_runtime_func(name=provider_name, driver=access.driver)
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name=provider_name,
-        provider_family=runtime["provider_family"],
-        driver=runtime["driver"],
-        runtime_kind=runtime["runtime_kind"],
-        display_name=access.display_name,
-        auth_mode="api_key",
-        endpoint_url=access.endpoint_url,
-        aws_region=settings.aws_region if access.driver == "bedrock_api" else None,
-        aws_role_arn=settings.aws_bedrock_role_arn if access.driver == "bedrock_api" else None,
-        # The env bootstrap names its model explicitly (``AGENT_DEFAULT_MODEL``).
-        default_model_id=str(settings.agent_default_model or "").strip() or None,
-        is_global=True,
-        is_active=True,
-    )
-    db.add(provider)
+    try:
+        provider = await register_bundled_provider(db)
+        if provider is None:
+            logger.error("startup.llm_provider_without_bundled_litellm: LLM_PROVIDER needs the bundled LiteLLM")
+            return None
+        await ensure_route(db, access)
+    except Exception as error:
+        # Retried on every call that finds no runtime target, so the cause is logged in full once per process.
+        failure = f"{access.alias}:{type(error).__name__}"
+        if failure in _ROUTE_FAILURES_LOGGED:
+            logger.debug("startup.llm_provider_route_failed again (alias=%s)", access.alias)
+        else:
+            _ROUTE_FAILURES_LOGGED.add(failure)
+            logger.exception("startup.llm_provider_route_failed")
+        return None
+    provider.default_model_id = access.alias
     await db.flush()
-    bootstrap_api_key = access.api_key or ""
-    if bootstrap_api_key:
-        await _store_bootstrap_api_key(db, provider, bootstrap_api_key)
     return provider
-
-
-async def _store_bootstrap_api_key(db: AsyncSession, provider: LLMProvider, bootstrap_api_key: str) -> None:
-    # Never persist the key in plaintext: route it through the encrypted
-    # secret store and keep only the reference on the provider row.
-    from ..secret import set_secret_value
-
-    tool_name, field_name = provider_secret_scope(provider)
-    secret_entry = await set_secret_value(
-        db,
-        tool_name=tool_name,
-        field_name=field_name,
-        project_id=None,
-        value=bootstrap_api_key,
-    )
-    provider.api_key_secret_ref = secret_entry.id
 
 
 async def get_runtime_targets(
@@ -236,14 +189,10 @@ async def ensure_default_runtime_target(
 
 
 def is_seed_runtime_target(target: ControlPlaneRuntimeTarget, provider: LLMProvider | None, *, settings: Any) -> bool:
-    if not provider:
-        return False
-    return (
-        provider.is_global
-        and (provider.display_name or "").endswith("(Default)")
-        and provider.name == getattr(env_model_access(settings), "name", "openrouter")
-        and target.model_id == provider.default_model_id
-    )
+    from ..model_gateway.bundled_litellm import PROVIDER_NAME
+
+    access = env_model_access(settings)
+    return bool(provider and access and provider.name == PROVIDER_NAME and target.model_id == access.alias)
 
 
 async def ensure_control_plane_defaults(

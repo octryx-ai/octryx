@@ -1,15 +1,4 @@
-"""The data-flow law of phased workflows and the phase output contract.
-
-A run of B must not wait at "Confirm the test contract" for a change plan nothing in the run can draft (Clarify is
-read-only, its agent can propose the contract only as chat text). So:
-
-- a phase declares the output it submits (``output``); its submit tool records it under the run (validated,
-  versioned, hashed), refused outside that phase or when malformed;
-- ``work.draft_change_plan`` is a server step that drafts the Work item's change plan from the recorded contract
-  (the run's Workspace only, idempotent per contract, a new contract supersedes);
-- publishing refuses a definition with a consumer and no producer before it, so a run never starts on one; a run
-  already on such a version says plainly that its version cannot produce the artefact.
-"""
+"""The data-flow law of phased workflows and the phase output contract."""
 
 from __future__ import annotations
 
@@ -32,7 +21,10 @@ from app.services.workflow_runs.platform.work_plan import draft_change_plan
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_hitl import CRITERIA, contract_definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _seed(key: str) -> dict:
@@ -48,7 +40,6 @@ def _codes(definition: dict) -> list[str]:
 
 
 def _without_draft(definition: dict) -> dict:
-    """B without its drafting step: Clarify straight to the confirmation."""
     definition["nodes"] = [node for node in definition["nodes"] if node["id"] != "draft_plan"]
     definition["edges"] = [edge for edge in definition["edges"] if edge["source_node_id"] != "draft_plan"]
     next(edge for edge in definition["edges"] if edge["id"] == "e-clarify")["target_node_id"] = "contract"
@@ -61,16 +52,13 @@ def test_every_shipped_workflow_satisfies_the_law():
 
 
 def test_publish_refuses_every_consumer_without_a_producer_before_it():
-    # B without the drafting step: a consumer without a producer is a publish error.
     assert "consumer_without_producer" in _codes(_without_draft(_seed("feature-delivery-tdd")))
-    # A phase that declares an output must offer its tool and be done only once it was submitted.
     no_tool = _seed("feature-delivery-tdd")
     _node(no_tool, "clarify")["config"]["tool_policy"]["allowlist"].remove("submit_test_contract")
     assert "phase_output_contract" in _codes(no_tool)
     unknown = _seed("feature-delivery-tdd")
     _node(unknown, "clarify")["config"]["output"] = "release_notes"
     assert "unknown_phase_output" in _codes(unknown)
-    # E: the confirmation shows the hypothesis, the bug text and the hand-over read it — all need its producer.
     incident = _seed("incident-analysis")
     hypothesis = _node(incident, "hypothesis")["config"]
     hypothesis.pop("output")
@@ -78,7 +66,6 @@ def test_publish_refuses_every_consumer_without_a_producer_before_it():
     messages = [error["message"] for error in validate_phased_definition(incident)["errors"]]
     assert {node for node in ("confirm_fix", "bug", "bugfix") if any(f"'{node}'" in text for text in messages)} == {
         "confirm_fix", "bug", "bugfix"}
-    # C: the reproduction confirmation and the fix phase's input need the submitted reproduction.
     bug_fix = _seed("bug-fix-reproduction")
     _node(bug_fix, "reproduce")["config"].pop("output")
     _node(bug_fix, "reproduce")["config"]["tool_policy"]["allowlist"].remove("submit_reproduction")
@@ -117,7 +104,7 @@ async def test_a_submission_is_validated_versioned_and_only_accepted_in_its_phas
     assert {"AC1: name its tests and the command that runs them (or mark it manual_only with a reason)",
             "AC1: a manual-only criterion names why no test can prove it",
             "criteria: every criterion needs its own id"} <= set(malformed["problems"])
-    assert "outputs" not in run.context  # nothing recorded from a refused proposal
+    assert "outputs" not in run.context
     first = await submit_output(db, run, "submit_test_contract", {"criteria": CRITERIA})
     second = await submit_output(db, run, "submit_test_contract", {"criteria": CRITERIA, "summary": "Totals"})
     assert (first["version"], second["version"]) == (1, 2) and first["hash"] != second["hash"]
@@ -134,7 +121,7 @@ async def test_the_draft_step_needs_the_contract_and_the_runs_workspace_and_is_i
     await submit_output(db, run, "submit_test_contract", {"criteria": CRITERIA})
     drafted = await draft_change_plan(db, run)
     again = await draft_change_plan(db, run)
-    assert drafted.ok and again.result["change_plan_id"] == drafted.result["change_plan_id"]  # same contract
+    assert drafted.ok and again.result["change_plan_id"] == drafted.result["change_plan_id"]
     first = await db.get(WorkChangePlan, drafted.result["change_plan_id"])
     assert first.validation_plan_json == [{"command": "pytest tests/test_billing.py",
                                           "source": "workflow_run_test_contract", "criteria": ["AC1"]}]
@@ -146,7 +133,7 @@ async def test_the_draft_step_needs_the_contract_and_the_runs_workspace_and_is_i
     assert run.context["change_plan"]["id"] == newer.result["change_plan_id"]
 
     other = await make_project(db)
-    item.project_id = other.id  # the item moved to another Workspace: the run never writes there
+    item.project_id = other.id
     await db.flush()
     assert (await draft_change_plan(db, run)).reason == "the Work item belongs to another Workspace than the run"
 
@@ -160,7 +147,6 @@ async def test_an_agent_cannot_ask_for_the_draft_step(db):
 
 @pytest.mark.asyncio
 async def test_a_run_on_a_version_before_the_law_names_its_design_gap(db):
-    """A run already waiting on a version that cannot draft the plan is told so, and a plan made in Work counts."""
     admin = await admin_user(db)
     definition = _without_draft(_seed("feature-delivery-tdd"))
     flow = FlowDefinition(key=f"legacy-{uuid.uuid4().hex[:6]}", name="Legacy B", status="published", is_active=True,
@@ -197,17 +183,14 @@ def test_a_confirmed_reproduction_binds_only_the_submitted_tests_the_server_saw_
                {"id": "tests/test_b.py::test_flaky", "message": "timeout"}]
     assert reproduction_tests({"failing_tests": failing, "tests": ["tests/test_a.py::test_x"]}) == (
         ["tests/test_a.py::test_x"], "assert 2 == 3")
-    assert reproduction_tests({"failing_tests": failing}) == (  # a version before outputs: every failing test
+    assert reproduction_tests({"failing_tests": failing}) == (
         ["tests/test_a.py::test_x", "tests/test_b.py::test_flaky"], "assert 2 == 3")
 
 
 def test_a_reproduction_named_from_the_repository_root_binds_the_test_the_app_folder_run_saw():
-    """Submitted "coffee/flutter/claude/test/...::name", the Flutter run in the app folder reports "test/...::name";
-    an exact match would bind nothing and the reproduce gate would loop."""
     failing = [{"id": "test/features/brews/grind_test.dart::OCX-89 starts at 15", "message": "Expected: '15.0'"},
                {"id": "test/features/brews/other_test.dart::unrelated", "message": "boom"}]
     named = ["coffee/flutter/claude/test/features/brews/grind_test.dart::OCX-89 starts at 15"]
     assert reproduction_tests({"failing_tests": failing, "tests": named}) == (
         ["test/features/brews/grind_test.dart::OCX-89 starts at 15"], "Expected: '15.0'")
-    # Only a whole path segment counts: "rest/..." is not "test/...".
     assert reproduction_tests({"failing_tests": failing, "tests": ["features/brews/rest/grind_test.dart::x"]})[0] == []

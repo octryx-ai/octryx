@@ -1,9 +1,4 @@
-"""Admin reads and writes of the governed policy lists (W22b).
-
-Every write validates with the list's own closed rules, stores the next version with its audit
-row (``records.write_policy_list``), commits, and refreshes this process's live snapshot. A
-reset stores the seed again as a new version. Unknown list ids are ``unknown_policy_list``.
-"""
+"""Admin reads and writes of the governed policy lists (W22b)."""
 
 from __future__ import annotations
 
@@ -92,7 +87,6 @@ async def _commit_and_refresh(db: AsyncSession) -> None:
 
 # ── Default tool sets ─────────────────────────────────────────────────────────
 async def default_tool_sets_payload(db: AsyncSession) -> dict[str, Any]:
-    """The Tool Catalog view: each class's live set, its seed, drift against the catalog, history."""
     states = await read_policy_list_states(db, DEFAULT_TOOL_SET_SPECS.values())
     sets = []
     for capability_type, spec in DEFAULT_TOOL_SET_SPECS.items():

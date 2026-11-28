@@ -1,25 +1,4 @@
-"""Read-only chat guidance for a session's agents.
-
-The chat bootstrap and the turn response carry one ``chatAgentGuidance`` object built here, so both
-show the same identities. It answers three display questions and nothing else:
-
-* which agent the *next* turn of this chat is bound to (``session_bound_agent_id``, by the runtime's own
-  rule: an explicit empty binding is unbound, a one-turn mention never rebinds);
-* which agent the *latest recorded turn* used (``agent_definition_id``). Preparation records it before
-  the turn completes and a turn can fail, so it is not proof of which agent produced an answer;
-* the declared tool surface of the next-turn agent's runtime content (published revision or live
-  draft row, per ``agent_definition_execution_mode``).
-
-Boundaries:
-
-* Visibility is the chat runtime's owner scope. A deleted and a foreign definition look identical:
-  ``unavailable`` with no name and no content. An owned inactive definition is ``inactive``.
-* ``available`` means owned and active only. It is not admission and not a capability
-  grant; a declared ``governed`` surface says nothing about which tools a turn will get.
-* An unbound next turn is ``None``: the runtime may still apply a Workspace default agent, which is
-  deliberately not predicted here.
-* No writes, no prompt rendering, no authored content, no provider calls.
-"""
+"""Read-only chat guidance for a session's agents: the next turn's agent, the latest turn's and its tool surface."""
 
 from __future__ import annotations
 
@@ -70,7 +49,6 @@ async def project_chat_agent_guidance(
     session: AgentSession | None,
     requested_agent_id: str = "",
 ) -> dict[str, Any]:
-    """The ``chatAgentGuidance`` payload for *session*, or for a new chat launched with *requested_agent_id*."""
     metadata = dict(session.metadata_ or {}) if session is not None else {}
     if session is not None:
         next_id = session_bound_agent_id(metadata)
@@ -125,7 +103,6 @@ def _identity(definition_id: str, definition: AgentDefinition | None) -> dict[st
 
 
 async def _declared_surface(db: AsyncSession, definition: AgentDefinition) -> tuple[str, str]:
-    """The declared surface of the content a next turn would execute, or ``unknown`` with the reason."""
     try:
         mode = await get_agent_definition_execution_mode(db)
     except AgentDefinitionExecutionModeError:

@@ -1,12 +1,4 @@
-"""Jira platform actions of a run: create an issue, comment, move the Work state.
-
-Issues and comments go through the governed Jira tools on the Workspace's Jira connection. A status change is
-always a Work state moved through the Work item's write-back mapping (``secure_work.workflow_mapping``),
-which decides the Jira transition — workflows never name Jira statuses.
-
-A run of a Work item that has no Jira ticket of its own adopts the ticket an earlier run of the same item created
-(``ticket_adopted_from_run``); follow-up issues are per run and never adopted.
-"""
+"""Jira platform actions of a run: create an issue, comment, move the Work state."""
 
 from __future__ import annotations
 
@@ -42,7 +34,6 @@ async def _project_key(db: AsyncSession, run: WorkflowRun, params: dict[str, Any
 
 
 async def _platform_item(db: AsyncSession, run: WorkflowRun) -> WorkItem | None:
-    """The run's Work item when it lives only on the platform (``source_type="platform"``, never synced to Jira)."""
     from ...secure_work.platform_items import PLATFORM_SOURCE_TYPE
 
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
@@ -54,10 +45,6 @@ def _skipped(note: str, **extra: Any) -> ToolOutcome:
 
 
 async def create_issue(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """A new issue; a follow-up names the run's ticket and is recorded once per run.
-
-    A run of a platform-native Work item (no Jira) creates no Jira issue: its own key is the
-    run's ticket for branch, commit and pull request."""
     follow_up = bool(params.get("follow_up"))
     if (item := await _platform_item(db, run)) is not None:
         if not run.ticket_key:
@@ -101,7 +88,6 @@ async def create_issue(db: AsyncSession, run: WorkflowRun, params: dict[str, Any
 
 
 async def _earlier_ticket(db: AsyncSession, run: WorkflowRun) -> ToolOutcome | None:
-    """The ticket an earlier run of the same Work item created (succession): adopted, never created again."""
     from ..records import record_event
     from ..succession import earlier_runs
 
@@ -117,13 +103,15 @@ async def _earlier_ticket(db: AsyncSession, run: WorkflowRun) -> ToolOutcome | N
 
 
 async def _link_follow_up(db: AsyncSession, run: WorkflowRun, key: str) -> ToolOutcome:
-    """Name the follow-up issue on the run's ticket, once (``context.follow_up_linked``)."""
     context = dict(run.context or {})
     if context.get("follow_up_linked") or not run.ticket_key:
         return ToolOutcome(SUCCEEDED, {"ticket_id": key, "status": "existing"})
-    outcome = await dispatch_tool(db, run, "add_jira_comment", {
-        "ticket_id": run.ticket_key, "body": f"Follow-up issue: {key}",
-    }, capability_class="deliver")
+    from ...ai_marking_tools import platform_text
+
+    with platform_text():
+        outcome = await dispatch_tool(db, run, "add_jira_comment", {
+            "ticket_id": run.ticket_key, "body": f"Follow-up issue: {key}",
+        }, capability_class="deliver")
     if outcome.state == APPROVAL_PENDING:
         return outcome
     run.context = {**dict(run.context or {}), "follow_up_linked": True}  # a failed comment is not retried
@@ -139,10 +127,15 @@ async def comment(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) ->
     body = await run_text(db, run, source)
     if not body:
         return ToolOutcome(FAILED, reason="nothing to comment")
-    if source != "work_item":  # the Work item's own (human) text is not AI output
-        from ...ai_marking import run_marking_facts, with_marker
+    from ...ai_marking_tools import platform_text
 
-        body = with_marker(body, await run_marking_facts(db, run))
+    if source == "work_item":  # the Work item's own (human) text is not agent output
+        with platform_text():
+            return await dispatch_tool(db, run, "add_jira_comment", {"ticket_id": run.ticket_key, "body": body},
+                                       capability_class="deliver")
+    from ...ai_marking import run_marking_facts, with_marker
+
+    body = with_marker(body, await run_marking_facts(db, run))
     return await dispatch_tool(db, run, "add_jira_comment", {"ticket_id": run.ticket_key, "body": body},
                                capability_class="deliver")
 
@@ -170,9 +163,7 @@ async def transition(db: AsyncSession, run: WorkflowRun, params: dict[str, Any])
                                        "note": "Jira not moved: the issue changed in Jira since the last sync, "
                                                "and that change stands"})
     if why in ("no_workflow_in_scope", "unknown_state"):
-        # No Jira write-back is configured for this state: the team has not asked the platform to move Jira. The run
-        # goes on (otherwise Jira intake ended "blocked" only because no write-back knew 'clarification'); the step
-        # records that Jira was left as it is. A team that wants the move configures the write-back definition.
+        # No Jira write-back for this state means the team has not asked the platform to move Jira: the run goes on.
         return ToolOutcome(SUCCEEDED, {**result, "status": "skipped", "work_state": state,
                                        "note": f"Jira not moved: no write-back definition knows the Work state "
                                                f"'{state}'"})

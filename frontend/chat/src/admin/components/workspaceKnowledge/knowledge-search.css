@@ -24,7 +24,7 @@
 }
 .knowledge-search__clear {
   position: absolute; right: .3rem; display: inline-flex; align-items: center; justify-content: center;
-  width: 1.4rem; height: 1.4rem; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  width: 1.4rem; height: 1.4rem; padding: 0; border: 0; border-radius: var(--ds-radius-pill); cursor: pointer;
   color: var(--muted); background: transparent;
 }
 .knowledge-search__clear:hover { color: var(--text); background: var(--surface-overlay-hover); }
@@ -49,21 +49,18 @@
   border: 1px solid var(--border); border-radius: var(--ds-radius-md); background: var(--panel);
 }
 .knowledge-search__notice p { margin: 0; color: var(--muted-strong); line-height: 1.5; }
-.knowledge-search__notice .knowledge-search__notice-title { font-weight: 600; color: var(--text); }
+.knowledge-search__notice .knowledge-search__notice-title { font-weight: var(--ds-weight-strong); color: var(--text); }
 .knowledge-search__results-head { display: grid; gap: .1rem; margin: 0 0 .25rem; }
 .knowledge-search__results-head h2 {
-  margin: 0; font-size: var(--ds-text-md); font-weight: 600; color: var(--highlight, var(--text)); overflow-wrap: anywhere;
+  margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); color: var(--highlight, var(--text)); overflow-wrap: anywhere;
 }
 .knowledge-search__empty { margin: .5rem 0; color: var(--muted-strong); }
 .knowledge-search__list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border-soft); }
 .knowledge-search__hit { padding: 0.5rem 0; border-bottom: 1px solid var(--border-soft); overflow-wrap: anywhere; }
 .knowledge-search__hit article { display: grid; gap: 0.25rem; min-width: 0; }
-.knowledge-search__hit-title { margin: 0; font-size: var(--ds-text-md); font-weight: 600; line-height: 1.4; color: var(--highlight, var(--text)); }
+.knowledge-search__hit-title { margin: 0; font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); line-height: 1.4; color: var(--highlight, var(--text)); }
 .knowledge-search__hit .knowledge-search__passage {
   margin: 0.25rem 0 0; white-space: pre-wrap; line-height: 1.55; color: var(--text); max-width: 60rem;
-}
-.knowledge-search__passage--clamped {
-  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
 }
 .knowledge-search__hit-foot { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .75rem; }
 .knowledge-search__toggle {
@@ -91,14 +88,10 @@
 .knowledge-search__tail-head {
   margin: 1rem 0 0.25rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
-}
-
-.knowledge-search__hint--attention {
-  color: var(--status-attention-ink);
 }
 
 /* The search field is the page's main control: taller, larger text, and the bar keeps a readable width. The page
@@ -119,18 +112,18 @@
 .knowledge-search__filters { display: grid; gap: 1rem; position: sticky; top: .5rem; }
 .knowledge-search__filter { display: grid; gap: 0.25rem; margin: 0; padding: 0; border: 0; min-width: 0; }
 .knowledge-search__filter legend, .knowledge-search__filter > span {
-  padding: 0; font-size: var(--ds-text-xs); font-weight: 600; color: var(--muted);
+  padding: 0; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); color: var(--muted);
 }
 .knowledge-search__filters .admin-panel__checkbox input { width: auto; min-height: 0; }
 .knowledge-search__count { color: var(--muted); font-size: var(--ds-text-xs); }
 .knowledge-search__results { display: grid; gap: .75rem; min-width: 0; }
 .knowledge-search__groups { display: grid; gap: 1rem; }
 .knowledge-search__group-head {
-  margin: 0 0 .25rem; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  margin: 0 0 .25rem; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
 }
 .knowledge-search__hit-number {
   display: inline-flex; align-items: center; justify-content: center; min-width: 1.35rem; height: 1.35rem; margin-right: 0.5rem;
-  border-radius: 999px; background: var(--surface-overlay-strong); color: var(--muted-strong); font-size: var(--ds-text-2xs); font-weight: 600;
+  border-radius: var(--ds-radius-pill); background: var(--surface-overlay-strong); color: var(--muted-strong); font-size: var(--ds-text-2xs); font-weight: var(--ds-weight-strong);
 }
 .knowledge-search__hit--selected { background: color-mix(in srgb, var(--accent) 7%, transparent); }
 .knowledge-search__snippet { color: var(--text); line-height: 1.55; max-width: 60rem; overflow-wrap: anywhere; }
@@ -138,7 +131,7 @@
 .knowledge-search__snippet > :last-child { margin-bottom: 0; }
 .knowledge-search__snippet p, .knowledge-search__snippet ul, .knowledge-search__snippet ol { margin: .25rem 0; }
 .knowledge-search__snippet pre, .knowledge-search__snippet code { font-size: var(--ds-text-xs); white-space: pre-wrap; }
-.knowledge-search__snippet-heading { margin: 0.25rem 0 .1rem; font-weight: 600; }
+.knowledge-search__snippet-heading { margin: 0.25rem 0 .1rem; font-weight: var(--ds-weight-strong); }
 .knowledge-search__hit-foot a { font-size: var(--ds-text-xs); color: var(--muted-strong); }
 .knowledge-search__preview-body { display: grid; gap: .5rem; font-size: var(--ds-text-sm); }
 .knowledge-search__context { color: var(--muted-strong); }
@@ -167,7 +160,7 @@
 .knowledge-search__answer-foot { display: flex; flex-wrap: wrap; gap: .5rem; }
 .knowledge-search__cite {
   margin-left: 0.25rem; padding: 0 .1rem; border: 0; border-radius: var(--ds-radius-sm); background: transparent; cursor: pointer;
-  font: inherit; font-size: var(--ds-text-xs); font-weight: 600; color: var(--accent); vertical-align: super; line-height: 1;
+  font: inherit; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); color: var(--accent); vertical-align: super; line-height: 1;
 }
 .knowledge-search__cite:hover { text-decoration: underline; }
 .knowledge-search__cite:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
@@ -175,7 +168,7 @@
 /* Older versions of one page folded under it; the question's words marked in the excerpt. */
 .knowledge-search__versions { margin: 0.25rem 0 0; padding-left: 1rem; display: grid; gap: 0.25rem; font-size: var(--ds-text-md); }
 /* No padding: a term marked inside a word ("postgres" in "PostgreSQL") must not split it ("PostgreS QL"). */
-.knowledge-search__term { background: var(--accent-soft); color: inherit; border-radius: 2px; padding: 0; }
+.knowledge-search__term { background: var(--accent-soft); color: inherit; border-radius: var(--ds-radius-sm); padding: 0; }
 
 /* Before the first search (K-Search): example questions and the sources searched, side by side, wrapping on narrow
    widths. Compact: no cards, one line per source. */
@@ -185,7 +178,7 @@
 }
 .knowledge-search__start-part { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
 .knowledge-search__start-head {
-  margin: 0; font-size: var(--ds-text-xs); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
+  margin: 0; font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); letter-spacing: .04em; text-transform: uppercase; color: var(--muted);
 }
 .knowledge-search__examples, .knowledge-search__sources { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
 .knowledge-search__example {
@@ -198,7 +191,7 @@
 .knowledge-search__source {
   display: grid; grid-template-columns: .5rem minmax(0, auto) minmax(0, 1fr); align-items: baseline; gap: .5rem; min-width: 0;
 }
-.knowledge-search__source-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.knowledge-search__source-name { font-weight: var(--ds-weight-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .knowledge-search__source-meta { color: var(--muted-strong); overflow-wrap: anywhere; }
 .knowledge-search__dot { width: .5rem; height: .5rem; border-radius: 50%; background: var(--muted); align-self: center; }
 .knowledge-search__dot--ok { background: var(--status-active, var(--accent)); }

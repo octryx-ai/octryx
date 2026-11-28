@@ -43,7 +43,7 @@
 .turn-diff-summary__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -51,7 +51,7 @@
 .turn-diff-summary__title {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-diff-summary__preview {
@@ -73,11 +73,11 @@
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-diff-summary__delta--positive {
@@ -128,7 +128,7 @@
 .turn-diff-summary__overview-label {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -148,7 +148,7 @@
 .turn-diff-summary__section-label {
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -192,7 +192,7 @@
   background: transparent;
   color: var(--status-running-ink);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-diff-summary__open:hover {

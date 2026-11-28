@@ -1,16 +1,5 @@
-"""The closed catalog of embedding spaces of the ``Embedder`` port.
-
-An embedding space is one provider, one model, one dimension and one version. Vectors are only
-ever compared inside one space, so the Evidence index keys every vector by its space, and switching
-spaces means embedding again into the new space, never mixing two spaces in one search.
-Adding a space is a code change, reviewed like any registry entry.
-
-Local spaces run in-process from a pinned artifact: the files and their SHA-256 are listed here,
-and the adapter refuses anything else. The vectors also depend on the runtime's pooling (fastembed
->= 0.6 uses mean pooling, the reference for these models); a runtime change that alters vectors
-needs a new space version, never an in-place change. Remote spaces carry the highest data classification they
-are approved for; a Workspace classified above it is denied before any text leaves the process.
-"""
+"""The closed catalog of embedding spaces of the ``Embedder`` port. Vectors are compared only inside one space; a
+runtime change that alters vectors needs a new version."""
 
 from __future__ import annotations
 
@@ -107,7 +96,6 @@ if len(EMBEDDING_SPACES) != len(_SPACES):  # a duplicate key would silently shri
 
 
 def embedding_space(key: object) -> EmbeddingSpace:
-    """Resolve a catalogued space. An unknown key is a closed-catalog error."""
     space = EMBEDDING_SPACES.get(key) if type(key) is str else None
     if space is None:
         raise KeyError("unknown embedding space")

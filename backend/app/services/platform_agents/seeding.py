@@ -1,9 +1,4 @@
-"""Seed the three platform agents once from code.
-
-- A missing agent is created global and published (bootstrap writer: revision 1 is published).
-- A changed seed updates the row only while it is still an earlier shipped seed (``SHIPPED_SEED_CHECKSUMS``);
-  a row an admin edited keeps its content and gets the new seed as a draft revision for review.
-"""
+"""Seed the three platform agents once from code."""
 
 from __future__ import annotations
 
@@ -47,14 +42,12 @@ def _apply(row: AgentDefinition, seed: PlatformAgentSeed) -> None:
 
 
 def seed_checksum(seed: PlatformAgentSeed) -> str:
-    """The snapshot checksum the seed produces on a fresh row (no steps)."""
     row = AgentDefinition(builtin_key=seed.key)
     _apply(row, seed)
     return compute_snapshot_checksum(build_definition_snapshot(row, []))
 
 
 async def _draft_for_review(db: AsyncSession, row: AgentDefinition, seed: PlatformAgentSeed, actor_id: str) -> str:
-    """``draft`` when the seed content is new to this agent's history, else ``admin_owned`` (already offered)."""
     draft = AgentDefinition(builtin_key=seed.key)
     _apply(draft, seed)
     snapshot = build_definition_snapshot(draft, [])
@@ -74,7 +67,6 @@ async def _draft_for_review(db: AsyncSession, row: AgentDefinition, seed: Platfo
 
 @governs_agent_definition_write(AgentDefinitionWriter.BOOTSTRAP_PLATFORM_AGENTS, actor_param="admin_user")
 async def seed_platform_agents(db: AsyncSession, *, admin_user: User) -> dict[str, str]:
-    """Create or upgrade the Assistant, Engineer and Reviewer; returns ``{key: outcome}``."""
     outcomes: dict[str, str] = {}
     for seed in PLATFORM_AGENT_SEEDS:
         row = (await db.execute(

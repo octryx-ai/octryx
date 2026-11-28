@@ -1,33 +1,4 @@
-"""Deterministic Terraform (HCL) parser for code structure snapshots.
-
-Terraform repositories declare infrastructure in ``*.tf`` files as literal
-blocks. This parser reads those LITERAL declarations only and maps them onto
-the shared snapshot parser contract (``{package, imports, types}``):
-
-- ``resource "TYPE" "NAME"`` -> kind ``resource``, node name ``TYPE.NAME``
-- ``data "TYPE" "NAME"``     -> kind ``data``, node name ``data.TYPE.NAME``
-- ``module "NAME"``          -> kind ``module``, node name ``module.NAME``
-- ``variable "NAME"``        -> kind ``variable``, node name ``var.NAME``
-- ``output "NAME"``          -> kind ``output``, node name ``output.NAME``
-- the file's parent directory -> the ``package`` (rendered as a package node
-  with ``belongs_to`` edges by the snapshot core)
-
-Edges come from literal reference tokens in the block body (``TYPE.NAME``,
-``module.X``, ``var.Y``, ``data.TYPE.NAME`` — ``depends_on`` entries use the
-same address grammar and are covered by the same scan). Candidates that match
-no declared node are dropped by the snapshot core, never guessed into edges.
-
-Provider attribution is literal too: the resource-type prefix classifies the
-node as ``aws`` / ``azurerm`` / ``google`` / ``other`` so downstream views
-stay provider-agnostic (Azure and GCP resources carry their prefix today and
-render through the same pipeline).
-
-Security note: Terraform argument VALUES routinely carry secrets, account
-ids, IPs, and connection strings. Field entries therefore carry argument KEY
-NAMES only — no value of any argument ever enters the snapshot. The only
-emitted strings are block identity (type + name), file/package attribution,
-the provider prefix, and reference addresses.
-"""
+"""Deterministic Terraform (HCL) parser for code structure snapshots."""
 
 from __future__ import annotations
 
@@ -65,7 +36,6 @@ def _package_from_path(relative_path: str) -> str:
 
 
 def _strip_comments(text: str) -> list[str]:
-    """Remove ``/* */`` blocks and ``#``/``//`` line comments (literal scan)."""
     without_blocks = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
     lines: list[str] = []
     for line in without_blocks.splitlines():
@@ -77,13 +47,11 @@ def _strip_comments(text: str) -> list[str]:
 
 
 def provider_prefix_for_resource_type(resource_type: str) -> str:
-    """``aws_lb`` -> ``aws``; unknown vendors classify literally as ``other``."""
     prefix = str(resource_type or "").split("_", 1)[0].lower()
     return prefix if prefix in _KNOWN_PROVIDER_PREFIXES else "other"
 
 
 def _node_identity(block_kind: str, type_label: str, name_label: str) -> tuple[str, str, str]:
-    """Return (kind, node_name, resource_type) for a block header."""
     if block_kind == "resource":
         return "resource", f"{type_label}.{name_label}", type_label
     if block_kind == "data":
@@ -118,7 +86,6 @@ def _finish_block(block: dict[str, Any]) -> dict[str, Any]:
 
 
 def parse_terraform_hcl(relative_path: str, text: str) -> dict[str, Any]:
-    """Parser-contract entry point: ``(relative_path, text) -> {package, imports, types}``."""
     lines = _strip_comments(text)
     types: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None

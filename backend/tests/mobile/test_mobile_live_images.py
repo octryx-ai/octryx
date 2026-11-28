@@ -1,8 +1,5 @@
-"""Octryx Mobile "live" pictures: the person sends screenshots to a session.
-
-A message may carry up to three PNG, JPEG or WebP pictures (checked by their bytes). The channel sends them in
-chunks before the ``live_send`` that names them; once the device settles the message, the platform deletes them.
-"""
+"""Octryx Mobile "live" pictures: up to three PNG, JPEG or WebP pictures per message, sent in chunks and deleted once
+the device settles the message."""
 
 from __future__ import annotations
 
@@ -20,7 +17,7 @@ from tests.mobile.mobile_live_support import cookie_client  # noqa: F401 - fixtu
 from tests.mobile.test_mobile_live import PEER, _admin, _reporting_device
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
-JPEG_BIG = b"\xff\xd8\xff\xe0" + bytes(range(256)) * ((CHUNK_BYTES * 2) // 256 + 3)  # three chunks
+JPEG_BIG = b"\xff\xd8\xff\xe0" + bytes(range(256)) * ((CHUNK_BYTES * 2) // 256 + 3)
 
 
 def _b64(data: bytes) -> str:
@@ -43,7 +40,7 @@ async def test_pictures_go_to_the_device_in_chunks_and_are_deleted_when_settled(
     await handlers.tick(db, connection)
     await db.commit()
     kinds = [kind for kind, _ in connection.sent]
-    assert kinds.index("live_send") == len(kinds) - 1  # every chunk before the message that names them
+    assert kinds.index("live_send") == len(kinds) - 1
     chunks = [body for kind, body in connection.sent if kind == "live_attachment"]
     [live_send] = [body for kind, body in connection.sent if kind == "live_send"]
     named = live_send["attachments"]

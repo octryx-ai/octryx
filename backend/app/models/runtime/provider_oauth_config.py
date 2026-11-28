@@ -1,24 +1,4 @@
-"""Normalized OAuth configuration + runtime state for LLM providers.
-
-This 1:1 table (keyed by ``provider_id``) is the sole store of provider OAuth
-configuration + runtime state. Stable admin-set configuration keys (``oauth_client_id``,
-``oauth_identity_provider_id``, ``google_cloud_project``) and the runtime state
-written by the six OAuth flows (login/name/host/source, Copilot token expiry,
-Google Personal subscription tier, the Bedrock static credential flag) each get
-a typed column. Any genuinely unexpected or volatile key that does not map to a
-column is preserved verbatim in ``residual_json`` so no data is ever silently
-dropped.
-
-Reads come in two flavours:
-
-* async callers holding an :class:`AsyncSession` use the bridge in
-  ``services.provider.oauth_config_bridge`` (explicit ``select``);
-* sync callers (serializers, readiness, audit snapshots) use
-  :func:`oauth_metadata_from_provider`, which reads the eager-loaded
-  ``provider.oauth_config`` relationship. Those call sites eager-load the
-  relationship at their query so ``provider.oauth_config`` is populated without
-  triggering a lazy load (which would raise ``MissingGreenlet`` under async).
-"""
+"""OAuth configuration and runtime state of an LLM provider, one row per provider."""
 
 import uuid
 
@@ -26,6 +6,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -33,7 +14,9 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class ProviderOAuthConfig(Base):
+class ProviderOAuthConfig(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"provider_id": "llm_providers"}
     __tablename__ = "provider_oauth_config"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -45,12 +28,10 @@ class ProviderOAuthConfig(Base):
         index=True,
     )
 
-    # --- Stable configuration (admin-set) ---
     oauth_client_id = Column(String(500), nullable=True)
     oauth_identity_provider_id = Column(String(36), nullable=True)
     google_cloud_project = Column(String(200), nullable=True)
 
-    # --- Runtime state (OAuth-flow-set) ---
     login = Column(String(320), nullable=True)
     name = Column(String(320), nullable=True)
     host = Column(String(500), nullable=True)
@@ -65,7 +46,6 @@ class ProviderOAuthConfig(Base):
     aws_static_credentials_configured = Column(Boolean, nullable=True)
     last_error = Column(Text, nullable=True)
 
-    # --- Residual open/volatile keys that do not map to a typed column ---
     residual_json = Column(JSON, nullable=True)
 
     created_at = Column(DateTime, default=utc_now)
@@ -101,13 +81,7 @@ _BOOL_KEYS: frozenset[str] = frozenset({"has_paid_tier", "aws_static_credentials
 
 
 def oauth_config_columns_from_metadata(meta: dict) -> dict:
-    """Split an ``auth_metadata_json`` mapping into typed column values.
-
-    Returns a dict of ``{column_name: value}`` suitable for populating a
-    :class:`ProviderOAuthConfig` row, with any unmapped keys collected under
-    ``residual_json``. Never drops data.
-    """
-
+    # Never drops data: unmapped keys go to ``residual_json``.
     columns: dict = {}
     residual: dict = {}
     for key, value in (meta or {}).items():
@@ -120,13 +94,6 @@ def oauth_config_columns_from_metadata(meta: dict) -> dict:
 
 
 def oauth_config_to_metadata(config: "ProviderOAuthConfig") -> dict:
-    """Reconstruct an ``auth_metadata_json``-shaped dict from a config row.
-
-    Only non-empty typed values are emitted (mirroring how the OAuth flows only
-    set keys they have values for), then residual keys are merged back in. This
-    is what dual-read consumers use when the config row is present.
-    """
-
     meta: dict = {}
     for key in OAUTH_CONFIG_TYPED_KEYS:
         value = getattr(config, key, None)
@@ -140,21 +107,8 @@ def oauth_config_to_metadata(config: "ProviderOAuthConfig") -> dict:
 
 
 def oauth_metadata_from_provider(provider) -> dict:
-    """Resolve OAuth metadata from a provider's eager-loaded config row.
-
-    Sync equivalent of ``oauth_config_bridge.read_oauth_metadata`` for call
-    sites that do not hold an ``AsyncSession`` (serializers, readiness checks,
-    audit snapshots). Reads the ``provider.oauth_config`` relationship, which
-    those call sites eager-load at their query so no lazy load is triggered.
-    Returns an empty dict when the provider has no config row.
-
-    If the relationship is not loaded (a caller forgot to eager-load and the
-    instance is attached to an async session), the value is treated as absent
-    rather than triggering a synchronous lazy load, which would raise
-    ``MissingGreenlet`` under async. The eager-load points documented on the
-    query sites keep this from masking real data.
-    """
-
+    # A relationship that is not loaded counts as absent: a synchronous lazy load would raise ``MissingGreenlet`` under
+    # async.
     from sqlalchemy import inspect as sa_inspect
 
     state = sa_inspect(provider, raiseerr=False)

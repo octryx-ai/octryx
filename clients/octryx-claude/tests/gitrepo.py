@@ -1,5 +1,3 @@
-"""A real temporary git repository for the code-intelligence tests."""
-
 from __future__ import annotations
 
 import os
@@ -21,7 +19,6 @@ def git(repo: Path, *args: str) -> str:
 
 
 def make_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Two committed files, a symlink and a remote with credentials; user config ignored."""
     empty = tmp_path / "gitconfig"
     empty.write_text("")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))

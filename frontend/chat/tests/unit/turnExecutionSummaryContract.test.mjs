@@ -149,8 +149,7 @@ test("fixture profile section has the backend key shape with a nested gate", () 
 test("fixture gate and profile decision sources are real backend values", () => {
   const gateSource = backendSource("session/execution_gate.py");
   assert.match(gateSource, new RegExp(`^GATE_SOURCE_PROFILE = "${GATE_SOURCE_PROFILE}"$`, "m"));
-  const producers =
-    backendSource("execution_profile_service.py") + backendSource("execution_profile_requirements.py");
+  const producers = backendSource("execution_profile_service.py");
   for (const source of Object.values(PROFILE_DECISION_SOURCES)) {
     assert.ok(producers.includes(`"${source}"`), source);
   }
@@ -176,11 +175,7 @@ function profileForReason(reasonCode) {
     };
   }
   const status = source === "execution_gate" ? reasonCode.slice("gate_".length) : "allowed";
-  return profileSection({
-    profileId: `${status}:${PROFILE_DECISION_SOURCES.workflowRequirements}`,
-    status,
-    decisionSource: PROFILE_DECISION_SOURCES.workflowRequirements,
-  });
+  return profileSection({ profileId: `${status}:workflow`, status, decisionSource: null });
 }
 
 test("every backend reason builds a fixture the client parses and presents", () => {

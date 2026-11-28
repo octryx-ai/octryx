@@ -1,26 +1,4 @@
-"""Run/Attempt identity of one turn for ``turn_execution_summary.v1``.
-
-The identity is resolved *only* through the Product Run stamp on the trace's
-execution snapshot (``services/product_run/turn_stamp.py``); the summary never
-looks up "the latest run of the session". Closed kinds:
-
-* ``product_run``   - a bound stamp resolved to exactly the stamped run/attempt
-  pair, in the trace's own session, owned by the requesting user, in the
-  session's Workspace, with the stamped attempt number and origin;
-* ``unscoped_turn`` - the turn's session had no resolvable Workspace, so no run
-  was opened;
-* ``compat_turn``   - no stamp: a caller that runs the agent without a ``run_origin``;
-* ``unresolved``    - a malformed stamp, or a bound stamp that does not resolve
-  (row missing or deleted, owner/session/Workspace/origin mismatch, run/attempt
-  mismatch). A forged snapshot therefore never yields a run, and the kind never
-  says *why*, so it cannot probe for foreign rows.
-
-The run and attempt states and the end reason are read from the database at
-summary time, never from the stamp. The reserved ``completed`` and ``verifying``
-states have no producer; should one ever be stored, it reads as ``unknown``.
-
-Loading is read-only: one owner-scoped SELECT, no writes, no gate evaluation.
-"""
+"""Run and Attempt identity of one turn for ``turn_execution_summary.v1``, from the trace's Product Run stamp."""
 
 from __future__ import annotations
 
@@ -45,8 +23,7 @@ _END_REASONS = frozenset(RUN_END_REASONS)
 
 @dataclass(frozen=True, slots=True)
 class ResolvedTurnRun:
-    """The stamped run/attempt as stored, loaded for the session owner only."""
-
+    # Loaded for the session owner only.
     run_id: str
     run_state: Any
     attempt_id: str
@@ -62,11 +39,7 @@ async def resolve_stamped_turn_run(
     session_id: str,
     owner_user_id: str,
 ) -> ResolvedTurnRun | None:
-    """Load the run/attempt named by a bound stamp, or ``None`` when it does not resolve.
-
-    Every scope condition is part of the one query, so a mismatch is
-    indistinguishable from an absent row.
-    """
+    # Every scope condition is part of the one query, so a mismatch is indistinguishable from an absent row.
     stamp = read_product_run_stamp(context_snapshot)
     if stamp.status != STAMP_BOUND:
         return None
@@ -107,7 +80,7 @@ def _identity(kind: str) -> dict[str, Any]:
 
 
 def build_run_identity(context_snapshot: Any, resolved: ResolvedTurnRun | None) -> dict[str, Any]:
-    """Closed ``run_identity`` section; ``resolved`` must come from :func:`resolve_stamped_turn_run`."""
+    # ``resolved`` must come from resolve_stamped_turn_run: only that scoped lookup checks owner, session and Workspace.
     stamp = read_product_run_stamp(context_snapshot)
     if stamp.status == "missing":
         return _identity("compat_turn")

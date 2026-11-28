@@ -1,21 +1,4 @@
-"""What an octryx-claude session receives: the manifest and its content-addressed blobs.
-
-The effective set for the surface ``octryx_claude`` (Workspace, user roles) becomes:
-
-- per skill: the delivered files with their sha256 and size — ``SKILL.md`` rebuilt with the **frontmatter
-  allowlist** (everything that grants tools or changes execution is dropped) plus the catalog metadata
-  (``octryx-skill-id``, ``octryx-version``, ``octryx-digest``, ``octryx-workspace``, ``octryx-category``), the body
-  plus the output
-  contract and safety rules; references, assets and the LICENSE; scripts only when the version allows them;
-- per MCP server entry allowed by the Workspace ``mcp_policy``: the launch spec with the image **by digest**.
-  Variables the upstream spec takes from the user's shell are never passed through; values from named connections
-  are not delivered in this version either (they would be readable by the agent inside the session), so they stay
-  unset and are listed as such;
-- ``withheld``: what is assigned but not delivered, with the reason.
-
-The rebuilt files are stored as blobs, so ``GET …/skills/blobs/{sha256}`` serves exactly what the manifest
-lists; a blob is served only when it belongs to the requesting session's manifest.
-"""
+"""What an octryx-claude session receives: the manifest and its content-addressed blobs."""
 
 from __future__ import annotations
 
@@ -49,7 +32,6 @@ def _metadata(candidate: Candidate, project_id: str | None) -> dict[str, str]:
 
 async def delivered_files(db: AsyncSession, candidate: Candidate, project_id: str | None
                           ) -> tuple[list[BundleFile], list[str]]:
-    """``(files, withheld script paths)`` of one skill as Claude Code receives it."""
     version: SkillVersion = candidate.version
     files: list[BundleFile] = []
     withheld: list[str] = []
@@ -115,7 +97,6 @@ async def build_manifest(db: AsyncSession, *, project_id: str | None, user_roles
 
 
 async def delivery_preview(db: AsyncSession, skill: Skill, version: SkillVersion) -> dict[str, Any]:
-    """What an octryx-claude session would receive from this version (admin detail → Delivery; no Workspace)."""
     category = await db.get(SkillCategory, version.category_id) if version.category_id else None
     parent = await db.get(SkillCategory, category.parent_id) if category is not None and category.parent_id else None
     stripped = sorted(set(version.frontmatter or {}) - set(DELIVERY_FRONTMATTER_KEYS))

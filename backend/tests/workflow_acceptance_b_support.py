@@ -55,9 +55,6 @@ async def _signed(client, db, project_id: str, source_type: str, payload: dict, 
 
 
 async def s1_publication_systems(db, project, monkeypatch, *, requester):
-    """The S1 publication's systems: a Confluence Cloud v2 fake for the real reserve/publish, the named audience and
-    acceptance environment. The Knowledge sync and the principals' own receipts are stand-ins here: their real paths
-    are proven by the ``test_s1_*`` publication, receipt and audience suites."""
     from types import SimpleNamespace
 
     from app.config import get_settings

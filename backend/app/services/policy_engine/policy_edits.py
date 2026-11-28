@@ -1,27 +1,4 @@
-"""Policy-level edits on the set-level draft.
-
-``PUT …/policy-sets/{v}/policies/{id}`` replaces or adds one policy — a builder model (rendered by ``builder``) or
-one hand-written Cedar statement — and ``DELETE`` removes it. The server rebuilds the set text deterministically
-(statements sorted by ``@id``, ``policy_text.join_statements``) and saves it through the existing store, so every
-edit is validated and runs the saved test cases exactly like a whole-text save.
-
-- ``{v}`` is the open draft: it is edited in place.
-- ``{v}`` is the published version and no draft exists: a new draft is created from it ("New policy" without a
-  draft). ``{v}`` = ``0`` is the empty set of an instance without any version yet.
-- Optimistic concurrency: ``If-Match`` must carry the digest of ``{v}`` as the client saw it (the empty set's digest
-  for ``0``); otherwise ``409 policy_set_draft_conflict`` (two admins editing one draft) with the current digest.
-  The check is a conditional ``UPDATE … WHERE digest = <If-Match>`` (:func:`_claim`): it holds the row lock until
-  the commit, so of two concurrent saves with the same ``If-Match`` the second one sees the new digest and is refused
-  instead of overwriting the first.
-- :func:`save_set` applies the same contract to the whole-text save ``PUT …/policy-sets/{v}`` (428 without
-  ``If-Match``, 409 when stale); a change note alone is saved without the text (``store.save_note``).
-- ``create: true`` (a new policy or a duplicate) refuses an ``@id`` the set already has (``policy_id_exists``)
-  instead of replacing it.
-- A version in review is frozen; with a draft or a version in review open, the published version is not a base.
-
-A model whose ``@id`` differs from the path id renames the policy (the old statement is replaced); an ``@id`` that
-another policy already has is refused by the custom-policy check (``policy_id_duplicate``).
-"""
+"""Policy-level edits on the set-level draft."""
 
 from __future__ import annotations
 
@@ -82,12 +59,10 @@ async def _open(db: AsyncSession) -> PolicySetVersion | None:
 
 
 async def open_or_published(db: AsyncSession) -> PolicySetVersion | None:
-    """The working version: the open draft (or the version in review), else the published one."""
     return await _open(db) or await store.published(db)
 
 
 async def _claim(db: AsyncSession, row: PolicySetVersion, expected: str) -> None:
-    """Refuse unless ``row`` still has the digest the client saw; the conditional UPDATE locks it until the commit."""
     claimed = await db.execute(
         update(PolicySetVersion)
         .where(PolicySetVersion.id == row.id, PolicySetVersion.state == row.state,
@@ -109,8 +84,6 @@ def _expected(if_match: str | None) -> str:
 async def edit_base(
     db: AsyncSession, version: int, if_match: str | None
 ) -> tuple[PolicySetVersion | None, str, DetectorDefinitions]:
-    """``(draft to edit in place or None, base text, base detectors)``; refuses a stale ``If-Match`` and a frozen
-    base. A new draft from the published version keeps its custom detectors."""
     draft, text, base = await _base_row(db, version, if_match)
     return draft, text, store.detector_definitions(base)
 
@@ -141,8 +114,6 @@ async def _base_row(
 
 
 def _statement(body: dict[str, Any], detectors: DetectorDefinitions) -> tuple[str, str]:
-    """``(policy id, statement text)`` of a builder model (its custom detectors from the base version) or of one
-    hand-written statement."""
     if body.get("model") is not None:
         model, issues = model_from_json(body["model"], custom_categories(detectors))
         if model is None:
@@ -194,7 +165,6 @@ async def save_edit(
 async def put_policy(
     db: AsyncSession, version: int, policy_id: str, body: Any, *, if_match: str | None, actor_id: str
 ) -> tuple[PolicySetVersion, str]:
-    """Save one policy into the draft; returns the draft and the saved policy's id. Flushes."""
     if not isinstance(body, dict) or (body.get("model") is None) == (body.get("cedar") is None):
         raise PolicyEditError(ERROR_BODY, 422)
     draft, text, detectors = await edit_base(db, version, if_match)
@@ -215,7 +185,6 @@ async def delete_policy(
 async def save_set(
     db: AsyncSession, row: PolicySetVersion, *, text: Any, note: Any, if_match: str | None, actor_id: str
 ) -> None:
-    """The whole-text save of a draft under ``If-Match`` (428 without, 409 when stale). Flushes."""
     expected = _expected(if_match)
     if row.state == REVISION_STATE_DRAFT:
         await _claim(db, row, expected)

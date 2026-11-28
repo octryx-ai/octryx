@@ -1,24 +1,4 @@
-"""Provider-neutral CI status of the run's branch: ``succeeded`` | ``failed`` | ``running`` | ``unknown``.
-
-- **Jenkins** (a ``job`` is named): the Workspace's ``jenkins`` named connection; the newest build of the job, and
-  its test report when it has one (per-test results);
-- **per-test results** of a finished build or pipeline come from the provider's report (Jenkins ``testReport``,
-  GitHub's JUnit test-report artifacts, GitLab's pipeline test report, Bitbucket Cloud's Pipelines test reports),
-  every result keyed by the canonical test id (``ci_tests``);
-- **Bitbucket** (Server/Data Center and Cloud, e.g. Bitbucket Pipelines): the build statuses Bitbucket stores for
-  the commit, through the governed ``get_bitbucket_build_statuses`` on the repository's connection (a stopped
-  pipeline is a failure);
-- **GitHub** / **GitLab**: the newest Actions run / pipeline of the branch through their governed list tools.
-
-**The pushed commit decides**: ``scm.push`` records the commit it pushed (``context.head_sha``) and
-clears the previous CI result. A build or run counts only when it built that commit: Jenkins builds by their
-built revision, Actions runs by ``head_sha`` (every workflow of the commit, or the one ``workflow`` named),
-GitLab pipelines by ``sha``, Bitbucket statuses of that commit. Nothing for the commit yet is ``running``. Before
-any push the newest result of the branch counts (the run did not push, so there is no commit to pin).
-
-:func:`read_ci_status` only reads; :func:`record_ci` writes the result on the run (``context.ci`` with its
-``sha``) — callers that are not holding the run claim read first and record after claiming.
-"""
+"""Provider-neutral CI status of the run's branch: ``succeeded`` | ``failed`` | ``running`` | ``unknown``."""
 
 from __future__ import annotations
 
@@ -50,10 +30,10 @@ class CiResult:
     state: str
     url: str = ""
     reason: str = ""
-    tests: ParsedTests | None = None  # the per-test results the provider reported (canonical ids, ``ci_tests``)
+    tests: ParsedTests | None = None
 
     sha: str = ""
-    build: str = ""  # a deploy's own build number (resolved from its queue item)
+    build: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {"provider": self.provider, "state": self.state, "url": self.url, "reason": self.reason,
@@ -76,7 +56,6 @@ def _aggregate(states: list[str]) -> str:
 
 
 def jenkins_tests(report: dict[str, Any]) -> ParsedTests:
-    """The per-test results of a Jenkins test report, keyed canonically (``ci_tests.jenkins_report``)."""
     return ci_tests.jenkins_report(report)
 
 
@@ -84,7 +63,7 @@ async def _jenkins(db: AsyncSession, run: WorkflowRun, job: str, *, queue_url: s
                    build_number: str = "") -> CiResult:
     from . import deploy
 
-    client = await deploy.jenkins_client(db, run)  # one client factory for the deploy and its watch
+    client = await deploy.jenkins_client(db, run)
     if client is None:
         return CiResult("jenkins", CI_UNKNOWN, reason="no Jenkins connection serves this Workspace")
     if queue_url:
@@ -109,10 +88,7 @@ async def _jenkins(db: AsyncSession, run: WorkflowRun, job: str, *, queue_url: s
 
 
 async def _deploy_build(client: Any, job: str, queue_url: str, build_number: str = "") -> CiResult:
-    """Exactly the build the run's deploy queued (its queue item), never another build of the job.
-
-    The build number is resolved once (Jenkins forgets a queue item minutes after it left the queue) and kept on
-    the run (``record_ci`` → ``context.deploy.build_number``); a notification event counts only for it."""
+    # Resolved once: Jenkins forgets a queue item minutes after it left the queue.
     number = build_number or await client.queued_build_number(queue_url)
     if number is None:
         return CiResult("jenkins", CI_RUNNING, reason=f"job '{job}' has not started the queued deploy yet")
@@ -122,7 +98,6 @@ async def _deploy_build(client: Any, job: str, queue_url: str, build_number: str
 
 
 async def _bitbucket(db: AsyncSession, run: WorkflowRun, ref: Any) -> CiResult:
-    """Build statuses of the pushed commit (or, before a push, of the branch head) on the repository's connection."""
     head = _head(run)
     outcome = await dispatch_tool(db, run, "get_bitbucket_build_statuses",
                                   {**ref.args(), **({"commit": head} if head else {"branch": run.branch}),
@@ -158,9 +133,8 @@ async def _github(db: AsyncSession, run: WorkflowRun, ref: Any, workflow: str) -
         return CiResult("github", _github_state(runs[0]), str(runs[0].get("html_url") or ""))
     if not outcome.ok:
         if re.search(r"\b(403|404)\b", str(outcome.reason or "")):
-            # The connection may not be allowed to read Actions (403); otherwise the watch waited
-            # for ever at the ci node. Treated like "no Actions run": after the no-CI grace the run goes on, and says
-            # why. A person who wants CI checked grants the connection Actions read access.
+            # A connection without Actions read access (403) counts as "no Actions run": after the grace the run goes on
+            # and says why.
             return CiResult("github", CI_UNKNOWN, sha=head, reason=(
                 f"no Actions run readable for {head[:12]}: the connection cannot read GitHub Actions "
                 f"({'403 Forbidden' if '403' in str(outcome.reason) else '404 Not Found'})"))
@@ -206,7 +180,6 @@ async def _native(db: AsyncSession, run: WorkflowRun, workflow: str = "") -> CiR
 
 
 async def read_ci_status(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> CiResult:
-    """The CI state of the run's pushed commit (or branch); reads only, never writes the run."""
     job = str(params.get("job") or "").strip()
     try:
         if job:
@@ -221,7 +194,6 @@ async def read_ci_status(db: AsyncSession, run: WorkflowRun, params: dict[str, A
 
 
 def record_ci(run: WorkflowRun, result: CiResult) -> None:
-    """Write a CI result on the (claimed) run: ``context.ci`` and, when it has a test report, a test run."""
     context = dict(run.context or {})
     context["ci"] = result.to_dict()
     if result.build and isinstance(context.get("deploy"), dict) and not context["deploy"].get("build_number"):
@@ -235,7 +207,6 @@ def record_ci(run: WorkflowRun, result: CiResult) -> None:
 
 
 async def ci_status(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> CiResult:
-    """Read and record (the caller holds the run claim: a platform action of the engine)."""
     result = await read_ci_status(db, run, params)
     record_ci(run, result)
     return result

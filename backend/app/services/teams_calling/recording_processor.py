@@ -1,16 +1,12 @@
 # ruff: noqa: E501
-"""Background recording processor for Teams calls.
-
-TeamsPlugin enqueues completed Graph recordOperation results here. A single
-background worker downloads each recording, routes it through enrollment
-detection, STT, speaker diarization, wake word evaluation, agent invocation,
-and TTS playback, then restarts the Graph recording cycle.
-"""
+"""Background recording processor for Teams calls."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import sys
 import uuid
 
 import httpx
@@ -41,7 +37,6 @@ _worker_task: asyncio.Task | None = None
 
 
 def enqueue_recording(item: dict) -> None:
-    """Called by TeamsPlugin when a Graph recordOperation completes."""
     _recording_queue.put_nowait(item)
     _ensure_worker()
 
@@ -71,17 +66,12 @@ async def _recording_processor_worker() -> None:
 
 
 async def _process_one_recording(item: dict, db: AsyncSession) -> None:
-    import sys as _sys
-
     call_id = item["call_id"]
     channel_id = item.get("channel_id", "")
     recording_location = item["recording_location"]
     recording_access_token = item["recording_access_token"]
-    print(
-        f"[CALL DEBUG] _process_one_recording called for {call_id}, caller={person_log_ref(item.get('caller_display_name'))}, direct={item.get('is_direct_call', False)}, has_location={bool(recording_location)}",
-        file=_sys.stderr,
-        flush=True,
-    )
+    _debug(f"_process_one_recording called for {call_id}, caller={person_log_ref(item.get('caller_display_name'))}, "
+           f"direct={item.get('is_direct_call', False)}, has_location={bool(recording_location)}")
 
     # Download the recording
     try:
@@ -103,31 +93,22 @@ async def _process_one_recording(item: dict, db: AsyncSession) -> None:
         await _process_downloaded_recording(item, audio_bytes, db)
 
 
-async def _process_downloaded_recording(item: dict, audio_bytes: bytes, db: AsyncSession) -> None:
-    import sys as _sys
+def _debug(message: str) -> None:
+    print(f"[CALL DEBUG] {message}", file=sys.stderr, flush=True)
 
+
+async def _process_downloaded_recording(item: dict, audio_bytes: bytes, db: AsyncSession) -> None:
     call_id = item["call_id"]
     channel_id = item.get("channel_id", "")
     project_id = item.get("project_id", "")
     https_base = item.get("https_base", "")
-    caller_display_name = item.get("caller_display_name", "")
-    caller_id = item.get("caller_id", "")
     is_direct_call = item.get("is_direct_call", False)
 
-    # =====================================================
-    # CHECK: Is this a voice enrollment sample recording?
-    # =====================================================
-    from ...services.speaker.voice_enrollment import (
-        get_enrollment_session,
-    )
+    from ...services.speaker.voice_enrollment import get_enrollment_session
 
     enrollment_session = get_enrollment_session(call_id)
     if enrollment_session:
-        print(
-            f"[CALL DEBUG] Enrollment recording received for {call_id}, speaker={person_log_ref(enrollment_session.speaker_name)}",
-            file=_sys.stderr,
-            flush=True,
-        )
+        _debug(f"Enrollment recording received for {call_id}, speaker={person_log_ref(enrollment_session.speaker_name)}")
         await handle_enrollment_sample(
             call_id=call_id,
             channel_id=channel_id,
@@ -139,42 +120,69 @@ async def _process_downloaded_recording(item: dict, audio_bytes: bytes, db: Asyn
         )
         return
 
-    # STT
-    print(f"[CALL DEBUG] Starting STT for call {call_id} ({len(audio_bytes)} bytes)", file=_sys.stderr, flush=True)
-    stt = await get_stt_service(db)
-    if stt is None:
-        print(f"[CALL DEBUG] STT not available for call {call_id}", file=_sys.stderr, flush=True)
-        await restart_recording(call_id, channel_id)
+    text = await _transcribe(call_id, channel_id, audio_bytes, db)
+    if text is None:
         return
 
-    try:
-        text = await stt.transcribe(audio_bytes, filename="recording.wav")
-        text = (text or "").strip()
-        print(f"[CALL DEBUG] STT result for {call_id}: chars={len(text)}", file=_sys.stderr, flush=True)
-    except Exception as _stt_err:
-        print(
-            f"[CALL DEBUG] STT EXCEPTION for {call_id}: error_type={type(_stt_err).__name__}",
-            file=_sys.stderr,
-            flush=True,
-        )
-        logger.exception("STT failed for call %s", call_id)
-        await restart_recording(call_id, channel_id)
-        return
-
-    if not text:
-        print(f"[CALL DEBUG] Empty transcription for {call_id} — restarting", file=_sys.stderr, flush=True)
-        await restart_recording(call_id, channel_id)
-        return
-
-    print(f"[CALL DEBUG] Call {call_id} STT: chars={len(text)}", file=_sys.stderr, flush=True)
-    logger.info("Call %s STT: chars=%d", call_id, len(text))
-
-    # Agent
     call_state = get_call_state(call_id)
     call_state.project_id = project_id or call_state.project_id
     call_state.channel_id = channel_id or call_state.channel_id
+    speaker_name, speaker_source = await _speaker_of(item, audio_bytes)
+    wake_word_decision = await _wake_word_decision(text, channel_id, is_direct_call, db)
 
-    # --- Speaker Diarization (identify who is speaking) ---
+    # Always add transcript segment (user said something)
+    chunk_duration_ms = int(len(audio_bytes) * 1000 / 32000)  # rough estimate: 16kHz 16-bit mono
+    call_state.add_user_segment(
+        text, duration_ms=chunk_duration_ms, speaker_name=speaker_name, speaker_source=speaker_source
+    )
+
+    if not wake_word_decision.should_respond:
+        _debug("No wake word → restarting recording")
+        logger.debug("Call %s: no wake word in chars=%d — restarting recording", call_id, len(text))
+        await restart_recording(call_id, channel_id)
+        return
+
+    command_text = wake_word_decision.command_text
+    _debug(f"Wake word matched, calling agent with: chars={len(command_text)}")
+    logger.info("Call %s: wake word matched, command chars=%d", call_id, len(command_text))
+    if await _handled_enrollment_command(item, command_text, db):
+        return
+
+    # The call's chat session and its owner (``call_owner.py``); a refused owner starts no turn.
+    call_session = await ensure_call_db_session(call_id, project_id, channel_id, db, caller_id=item.get("caller_id", ""))
+    if call_session.state is not None:
+        await restart_recording(call_id, channel_id)
+        return
+    await _answer(item, text, command_text, call_session.session_id, db)
+
+
+async def _transcribe(call_id: str, channel_id: str, audio_bytes: bytes, db: AsyncSession) -> str | None:
+    # None: the recording restarted (no STT, a failed or empty transcription).
+    _debug(f"Starting STT for call {call_id} ({len(audio_bytes)} bytes)")
+    stt = await get_stt_service(db)
+    if stt is None:
+        _debug(f"STT not available for call {call_id}")
+        await restart_recording(call_id, channel_id)
+        return None
+    try:
+        text = (await stt.transcribe(audio_bytes, filename="recording.wav") or "").strip()
+        _debug(f"STT result for {call_id}: chars={len(text)}")
+    except Exception as _stt_err:
+        _debug(f"STT EXCEPTION for {call_id}: error_type={type(_stt_err).__name__}")
+        logger.exception("STT failed for call %s", call_id)
+        await restart_recording(call_id, channel_id)
+        return None
+    if not text:
+        _debug(f"Empty transcription for {call_id} — restarting")
+        await restart_recording(call_id, channel_id)
+        return None
+    _debug(f"Call {call_id} STT: chars={len(text)}")
+    logger.info("Call %s STT: chars=%d", call_id, len(text))
+    return text
+
+
+async def _speaker_of(item: dict, audio_bytes: bytes) -> tuple[str | None, str]:
+    project_id = item.get("project_id", "")
     speaker_name: str | None = None
     try:
         from ...services.speaker.diarization import diarize_audio, get_enrolled_speakers
@@ -186,270 +194,178 @@ async def _process_downloaded_recording(item: dict, audio_bytes: bytes, db: Asyn
                 # Use the dominant speaker in this segment
                 dominant = max(diar_result.segments, key=lambda s: s.end_sec - s.start_sec)
                 speaker_name = dominant.speaker_name
-                print(
-                    f"[CALL DEBUG] Diarization: {diar_result.num_speakers} speakers, dominant={person_log_ref(speaker_name) if speaker_name else dominant.speaker_label}",
-                    file=_sys.stderr,
-                    flush=True,
-                )
+                _debug(f"Diarization: {diar_result.num_speakers} speakers, dominant="
+                       f"{person_log_ref(speaker_name) if speaker_name else dominant.speaker_label}")
     except ImportError:
         pass  # pyannote not available
     except Exception as _diar_err:
-        print(
-            f"[CALL DEBUG] Diarization failed (non-critical): error_type={type(_diar_err).__name__}",
-            file=_sys.stderr,
-            flush=True,
-        )
-
-    # Fallback: In direct calls, use the caller display name from Teams API
-    speaker_source = ""
+        _debug(f"Diarization failed (non-critical): error_type={type(_diar_err).__name__}")
     if speaker_name:
-        speaker_source = "diarization"
-    elif is_direct_call and caller_display_name:
-        speaker_name = caller_display_name
-        speaker_source = "teams_api"
+        return speaker_name, "diarization"
+    # Fallback: In direct calls, use the caller display name from Teams API
+    if item.get("is_direct_call", False) and item.get("caller_display_name", ""):
+        return item["caller_display_name"], "teams_api"
+    return None, ""
 
-    # Wake word evaluation — load channel config for wake word settings
-    # IMPORTANT: In direct (1:1) calls, wake word is NOT required — user called the bot intentionally.
-    print(
-        f"[CALL DEBUG] Loading wake word policy for channel_id={repr(channel_id)}, is_direct_call={is_direct_call}",
-        file=_sys.stderr,
-        flush=True,
-    )
+
+async def _wake_word_decision(text: str, channel_id: str, is_direct_call: bool, db: AsyncSession):
+    # In direct (1:1) calls no wake word is required: the user called the bot intentionally.
+    _debug(f"Loading wake word policy for channel_id={repr(channel_id)}, is_direct_call={is_direct_call}")
     wake_word_policy = await get_wake_word_policy_for_channel(channel_id, db)
-
     if is_direct_call:
-        # Direct call: no wake word needed, entire text is the command
-        wake_word_decision = WakeWordPolicy(require_wake_word=False).evaluate(text)
-        print(
-            f"[CALL DEBUG] Direct call → wake word skipped, full text is command: chars={len(text)}",
-            file=_sys.stderr,
-            flush=True,
-        )
-    else:
-        wake_word_decision = wake_word_policy.evaluate(text)
-        print(
-            f"[CALL DEBUG] Wake word: require={wake_word_policy.require_wake_word} words={wake_word_policy.wake_words} should_respond={wake_word_decision.should_respond}",
-            file=_sys.stderr,
-            flush=True,
-        )
+        _debug(f"Direct call → wake word skipped, full text is command: chars={len(text)}")
+        return WakeWordPolicy(require_wake_word=False).evaluate(text)
+    decision = wake_word_policy.evaluate(text)
+    _debug(f"Wake word: require={wake_word_policy.require_wake_word} words={wake_word_policy.wake_words} "
+           f"should_respond={decision.should_respond}")
+    return decision
 
-    # Always add transcript segment (user said something)
-    chunk_duration_ms = int(len(audio_bytes) * 1000 / 32000)  # rough estimate: 16kHz 16-bit mono
-    call_state.add_user_segment(
-        text, duration_ms=chunk_duration_ms, speaker_name=speaker_name, speaker_source=speaker_source
-    )
 
-    if not wake_word_decision.should_respond:
-        print("[CALL DEBUG] No wake word → restarting recording", file=_sys.stderr, flush=True)
-        logger.debug("Call %s: no wake word in chars=%d — restarting recording", call_id, len(text))
-        await restart_recording(call_id, channel_id)
-        return
-
-    command_text = wake_word_decision.command_text
-    print(
-        f"[CALL DEBUG] Wake word matched, calling agent with: chars={len(command_text)}", file=_sys.stderr, flush=True
-    )
-    logger.info("Call %s: wake word matched, command chars=%d", call_id, len(command_text))
-
-    # =====================================================
-    # CHECK: Is this a voice enrollment command?
-    # e.g., "register my voice" or "register my voice as Alice"
-    # Only allowed in direct (1:1) calls, not group calls.
-    # =====================================================
-    from ...services.speaker.voice_enrollment import (
-        _UNKNOWN_CALLER_PLACEHOLDER,
-        detect_enrollment_command,
-    )
-
-    enrollment_name = detect_enrollment_command(command_text, caller_display_name=caller_display_name)
-    if enrollment_name:
-        if not is_direct_call:
-            # Enrollment only works in 1:1 calls — tell the user
-            print("[CALL DEBUG] Enrollment rejected: not a direct call", file=_sys.stderr, flush=True)
-            _play_rejection = "Voice registration only works when you call me directly, not in a group call."
-            provider = await get_tts_provider(db, project_id=project_id or None)
-            from ...plugins import plugin_manager as _pm
-
-            _plugin = _pm.get_channel(channel_id)
-            if provider and _plugin and hasattr(_plugin, "_play_prompt"):
-                try:
-                    _rej_audio = await provider.synthesize(_play_rejection, voice="alloy", speed=1.0)
-                    _rej_id = str(uuid.uuid4())
-                    _temp_audio[_rej_id] = _rej_audio
-                    _rej_url = f"{https_base}/api/v1/teams/calls/{call_id}/audio/temp/{_rej_id}"
-                    await _plugin._play_prompt(call_id, _rej_url)
-                except Exception:
-                    pass
-            await restart_recording(call_id, channel_id)
-            return
-
-        # Resolve the placeholder name: try to get caller name from the plugin's active_calls
-        # (may have been fetched asynchronously via Graph participants API)
-        if enrollment_name == _UNKNOWN_CALLER_PLACEHOLDER:
-            from ...plugins import plugin_manager as _pm2
-
-            _plugin2 = _pm2.get_channel(channel_id)
-            if _plugin2 and hasattr(_plugin2, "_active_calls"):
-                _call_info = _plugin2._active_calls.get(call_id, {})
-                _resolved_name = _call_info.get("caller_display_name", "")
-                if _resolved_name:
-                    enrollment_name = _resolved_name.strip()  # Full name
-                    print(
-                        f"[CALL DEBUG] Resolved caller name from API: {person_log_ref(enrollment_name)}", file=_sys.stderr, flush=True
-                    )
-                else:
-                    # Still unknown — use caller_id as fallback or a generic name
-                    enrollment_name = caller_id[:8] if caller_id else "Speaker"
-                    print(
-                        f"[CALL DEBUG] Caller name unknown, using fallback: {person_log_ref(enrollment_name)}",
-                        file=_sys.stderr,
-                        flush=True,
-                    )
-
-        print(
-            f"[CALL DEBUG] Voice enrollment command detected: name={person_log_ref(enrollment_name)} (caller={person_log_ref(caller_display_name)})",
-            file=_sys.stderr,
-            flush=True,
-        )
-        await start_enrollment_flow(
-            call_id=call_id,
-            channel_id=channel_id,
-            project_id=project_id,
-            speaker_name=enrollment_name,
-            https_base=https_base,
-            db=db,
-        )
-        return
-
-    # The call's chat session and its owner (``call_owner.py``); a refused owner starts no turn.
-    call_session = await ensure_call_db_session(call_id, project_id, channel_id, db, caller_id=caller_id)
-    if call_session.state is not None:
-        await restart_recording(call_id, channel_id)
-        return
-    db_session_id = call_session.session_id
-
-    # --- Play Thinking Message immediately (before LLM processing) ---
+async def _handled_enrollment_command(item: dict, command_text: str, db: AsyncSession) -> bool:
+    # A voice enrollment command ("register my voice [as Alice]") works only in a direct (1:1) call.
     from ...plugins import plugin_manager
+    from ...services.speaker.voice_enrollment import _UNKNOWN_CALLER_PLACEHOLDER, detect_enrollment_command
 
-    plugin = plugin_manager.get_channel(channel_id)
-    thinking_message = await get_thinking_message(channel_id, db)
-
-    # Mark bot as "speaking" so playPromptOperation completed won't auto-restart recording
-    _playback_locks[call_id] = asyncio.Event()
-
-    if thinking_message and plugin and hasattr(plugin, "_play_prompt"):
+    call_id, channel_id = item["call_id"], item.get("channel_id", "")
+    project_id, https_base = item.get("project_id", ""), item.get("https_base", "")
+    caller_display_name, caller_id = item.get("caller_display_name", ""), item.get("caller_id", "")
+    enrollment_name = detect_enrollment_command(command_text, caller_display_name=caller_display_name)
+    if not enrollment_name:
+        return False
+    if not item.get("is_direct_call", False):
+        _debug("Enrollment rejected: not a direct call")
+        rejection = "Voice registration only works when you call me directly, not in a group call."
         provider = await get_tts_provider(db, project_id=project_id or None)
-        if provider:
+        plugin = plugin_manager.get_channel(channel_id)
+        if provider and plugin and hasattr(plugin, "_play_prompt"):
             try:
-                thinking_audio = await provider.synthesize(thinking_message, voice="alloy", speed=1.0)
-                thinking_file_id = str(uuid.uuid4())
-                _temp_audio[thinking_file_id] = thinking_audio
-                thinking_url = f"{https_base}/api/v1/teams/calls/{call_id}/audio/temp/{thinking_file_id}"
-                await plugin._play_prompt(call_id, thinking_url)
-                print(f"[CALL DEBUG] Thinking message played for {call_id}", file=_sys.stderr, flush=True)
-            except Exception as _think_err:
-                print(
-                    f"[CALL DEBUG] Thinking TTS failed: error_type={type(_think_err).__name__}",
-                    file=_sys.stderr,
-                    flush=True,
-                )
-
-    response_text = await agent_response(command_text, call_id, channel_id, db, project_id or None)
-    print(f"[CALL DEBUG] Agent response: chars={len(response_text or '')}", file=_sys.stderr, flush=True)
-    if not response_text:
-        print("[CALL DEBUG] Empty agent response → restarting recording", file=_sys.stderr, flush=True)
-        _playback_locks.pop(call_id, None)
+                await plugin._play_prompt(call_id, await _stored_audio_url(provider, rejection, https_base, call_id))
+            except Exception:
+                pass
         await restart_recording(call_id, channel_id)
-        return
+        return True
+    # The placeholder name: the caller's name the plugin may have fetched meanwhile (Graph participants API).
+    if enrollment_name == _UNKNOWN_CALLER_PLACEHOLDER:
+        plugin = plugin_manager.get_channel(channel_id)
+        if plugin and hasattr(plugin, "_active_calls"):
+            resolved = plugin._active_calls.get(call_id, {}).get("caller_display_name", "")
+            if resolved:
+                enrollment_name = resolved.strip()
+                _debug(f"Resolved caller name from API: {person_log_ref(enrollment_name)}")
+            else:
+                enrollment_name = caller_id[:8] if caller_id else "Speaker"
+                _debug(f"Caller name unknown, using fallback: {person_log_ref(enrollment_name)}")
+    _debug(f"Voice enrollment command detected: name={person_log_ref(enrollment_name)} "
+           f"(caller={person_log_ref(caller_display_name)})")
+    await start_enrollment_flow(call_id=call_id, channel_id=channel_id, project_id=project_id,
+                                speaker_name=enrollment_name, https_base=https_base, db=db)
+    return True
 
-    # Truncate overly long responses for voice (max ~200 chars ≈ 15s speech)
-    # Strip markdown artifacts that models sometimes generate
-    import re as _re_strip
 
-    response_text = _re_strip.sub(r"\*\*([^*]+)\*\*", r"\1", response_text)  # **bold** → bold
-    response_text = _re_strip.sub(r"\*([^*]+)\*", r"\1", response_text)  # *italic* → italic
-    response_text = _re_strip.sub(r"^#+\s*", "", response_text, flags=_re_strip.MULTILINE)  # # headers
-    response_text = _re_strip.sub(r"^[-*]\s+", "", response_text, flags=_re_strip.MULTILINE)  # bullet points
+async def _stored_audio_url(provider, text: str, https_base: str, call_id: str) -> str:
+    audio = await provider.synthesize(text, voice="alloy", speed=1.0)
+    file_id = str(uuid.uuid4())
+    _temp_audio[file_id] = audio
+    return f"{https_base}/api/v1/teams/calls/{call_id}/audio/temp/{file_id}"
+
+
+async def _play_thinking(item: dict, plugin, db: AsyncSession):
+    # The TTS provider when the thinking message was spoken, else None.
+    call_id, channel_id, project_id = item["call_id"], item.get("channel_id", ""), item.get("project_id", "")
+    thinking_message = await get_thinking_message(channel_id, db)
+    if not (thinking_message and plugin and hasattr(plugin, "_play_prompt")):
+        return None
+    provider = await get_tts_provider(db, project_id=project_id or None)
+    if provider:
+        try:
+            await plugin._play_prompt(call_id, await _stored_audio_url(provider, thinking_message,
+                                                                       item.get("https_base", ""), call_id))
+            _debug(f"Thinking message played for {call_id}")
+        except Exception as _think_err:
+            _debug(f"Thinking TTS failed: error_type={type(_think_err).__name__}")
+    return provider
+
+
+def _voice_text(response_text: str) -> str:
+    # Markdown the models write is not spoken, and a voice answer stays near 250 characters (about 15 s).
+    response_text = re.sub(r"\*\*([^*]+)\*\*", r"\1", response_text)
+    response_text = re.sub(r"\*([^*]+)\*", r"\1", response_text)
+    response_text = re.sub(r"^#+\s*", "", response_text, flags=re.MULTILINE)
+    response_text = re.sub(r"^[-*]\s+", "", response_text, flags=re.MULTILINE)
     response_text = response_text.replace("\n\n", " ").replace("\n", " ").strip()
-
-    # Hard limit: truncate at sentence boundary near 250 chars
     if len(response_text) > 250:
         cut_at = response_text.rfind(".", 0, 250)
-        if cut_at > 50:
-            response_text = response_text[: cut_at + 1]
-        else:
-            response_text = response_text[:250].rsplit(" ", 1)[0] + "."
-        print(f"[CALL DEBUG] Response truncated to {len(response_text)} chars for voice", file=_sys.stderr, flush=True)
+        response_text = response_text[: cut_at + 1] if cut_at > 50 else response_text[:250].rsplit(" ", 1)[0] + "."
+        _debug(f"Response truncated to {len(response_text)} chars for voice")
+    return response_text
 
+
+async def _answer(item: dict, text: str, command_text: str, db_session_id: str | None, db: AsyncSession) -> None:
+    from ...plugins import plugin_manager
+
+    call_id, channel_id, project_id = item["call_id"], item.get("channel_id", ""), item.get("project_id", "")
+    plugin = plugin_manager.get_channel(channel_id)
+    # Mark bot as "speaking" so playPromptOperation completed won't auto-restart recording
+    _playback_locks[call_id] = asyncio.Event()
+    provider = await _play_thinking(item, plugin, db)
+    response_text = await agent_response(command_text, call_id, channel_id, db, project_id or None)
+    _debug(f"Agent response: chars={len(response_text or '')}")
+    if not response_text:
+        _debug("Empty agent response → restarting recording")
+        await _done(call_id, channel_id)
+        return
+    response_text = _voice_text(response_text)
     logger.info("Call %s agent response: chars=%d", call_id, len(response_text))
-
-    # Persist the turn as chat messages
     if db_session_id:
         await add_call_message(db_session_id, "user", text, db)
         await add_call_message(db_session_id, "assistant", response_text, db)
         await db.commit()
-
-    # TTS the actual response
-    if not provider:
-        provider = await get_tts_provider(db, project_id=project_id or None)
+    provider = provider or await get_tts_provider(db, project_id=project_id or None)
     if provider is None:
         logger.warning("TTS not available for call %s", call_id)
-        _playback_locks.pop(call_id, None)
-        await restart_recording(call_id, channel_id)
+        await _done(call_id, channel_id)
         return
-
     try:
         audio_out = await provider.synthesize(response_text, voice="alloy", speed=1.0)
     except Exception:
         logger.exception("TTS failed for call %s", call_id)
-        _playback_locks.pop(call_id, None)
-        await restart_recording(call_id, channel_id)
+        await _done(call_id, channel_id)
         return
+    await _play_answer(item, plugin, audio_out)
 
-    # Calculate expected playback duration from WAV data
+
+async def _play_answer(item: dict, plugin, audio_out: bytes) -> None:
+    call_id, channel_id, https_base = item["call_id"], item.get("channel_id", ""), item.get("https_base", "")
     playback_duration = estimate_wav_duration(audio_out)
-    print(
-        f"[CALL DEBUG] Response audio: {len(audio_out)} bytes, estimated duration: {playback_duration:.1f}s",
-        file=_sys.stderr,
-        flush=True,
-    )
-
-    # Store temp audio and build public URL
+    _debug(f"Response audio: {len(audio_out)} bytes, estimated duration: {playback_duration:.1f}s")
     file_id = str(uuid.uuid4())
     _temp_audio[file_id] = audio_out
     audio_url = f"{https_base}/api/v1/teams/calls/{call_id}/audio/temp/{file_id}"
     logger.info("Call %s TTS stored at %s (%.1fs)", call_id, audio_url, playback_duration)
-
-    # Play via Graph API
-    if plugin and hasattr(plugin, "_play_prompt"):
-        # Create a FRESH event for the response playback (thinking msg may have set old one)
-        _playback_locks[call_id] = asyncio.Event()
-        await plugin._play_prompt(call_id, audio_url)
-        # Wait for playPromptOperation-completed notification (event-based)
-        # OR fall back to duration-based timeout if notification doesn't arrive.
-        evt = _playback_locks.get(call_id)
-        if evt:
-            max_wait = playback_duration + 2.0  # generous fallback timeout
-            print(
-                f"[CALL DEBUG] Waiting for playback-done event (timeout={max_wait:.1f}s)", file=_sys.stderr, flush=True
-            )
-            try:
-                await asyncio.wait_for(evt.wait(), timeout=max_wait)
-                print(f"[CALL DEBUG] Playback-done event received for {call_id}", file=_sys.stderr, flush=True)
-            except TimeoutError:
-                print(
-                    f"[CALL DEBUG] Playback-done event TIMEOUT for {call_id} after {max_wait:.1f}s — proceeding anyway",
-                    file=_sys.stderr,
-                    flush=True,
-                )
-        else:
-            # Fallback: no event available, use sleep
-            wait_time = playback_duration + 0.5
-            print(f"[CALL DEBUG] No event, sleeping {wait_time:.1f}s for playback", file=_sys.stderr, flush=True)
-            await asyncio.sleep(wait_time)
-        _playback_locks.pop(call_id, None)
-        await restart_recording(call_id, channel_id)
-    else:
+    if not (plugin and hasattr(plugin, "_play_prompt")):
         logger.warning("No plugin for channel %s — cannot play prompt for call %s", channel_id, call_id)
-        _playback_locks.pop(call_id, None)
-        await restart_recording(call_id, channel_id)
+        await _done(call_id, channel_id)
+        return
+    # A fresh event for the answer (the thinking message may have set the old one): the playPromptOperation
+    # completed notification ends the wait, else a timeout after the expected duration.
+    _playback_locks[call_id] = asyncio.Event()
+    await plugin._play_prompt(call_id, audio_url)
+    evt = _playback_locks.get(call_id)
+    if evt:
+        max_wait = playback_duration + 2.0
+        _debug(f"Waiting for playback-done event (timeout={max_wait:.1f}s)")
+        try:
+            await asyncio.wait_for(evt.wait(), timeout=max_wait)
+            _debug(f"Playback-done event received for {call_id}")
+        except TimeoutError:
+            _debug(f"Playback-done event TIMEOUT for {call_id} after {max_wait:.1f}s — proceeding anyway")
+    else:
+        wait_time = playback_duration + 0.5
+        _debug(f"No event, sleeping {wait_time:.1f}s for playback")
+        await asyncio.sleep(wait_time)
+    await _done(call_id, channel_id)
+
+
+async def _done(call_id: str, channel_id: str) -> None:
+    _playback_locks.pop(call_id, None)
+    await restart_recording(call_id, channel_id)

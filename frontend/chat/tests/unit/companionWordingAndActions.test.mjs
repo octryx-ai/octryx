@@ -213,7 +213,8 @@ test("An answered card says Answered where it stands, then leaves; the next card
   const second = { ...GATE, key: "run:run-10:1", id: "run-10", title: "Approve the plan.", text: "Approve the plan." };
   const left = [];
   const attention = readAttention({ items: [GATE, second], running: [] });
-  const { view, rerender } = await renderPanel({ attention, clock, onDone: (key) => left.push(key) });
+  // Long enough that a loaded machine still renders the answered card before it leaves.
+  const { view, rerender } = await renderPanel({ attention, clock, onDone: (key) => left.push(key), answeredMs: 400 });
   try {
     await act(async () => byTestId(view, "octryx-action")[0].props.onClick());
     await tick();
@@ -224,7 +225,7 @@ test("An answered card says Answered where it stands, then leaves; the next card
     assert.equal(text(byTestId(view, "octryx-answered")[0]), "Answered");
     assert.equal(cards[0].props["aria-busy"], true, "the answered card keeps its place");
     assert.match(text(byTestId(view, "octryx-needs")[0]), /^Needs you \(1\)/);
-    await tick(60);
+    await tick(450);
     assert.deepEqual(left, ["run:run-9:1"]);
     assert.equal(byTestId(view, "octryx-item").length, 1);
     const menus = view.root.findAll((node) => node.type === "button" && String(node.props["aria-label"] || "").startsWith("More actions for"));

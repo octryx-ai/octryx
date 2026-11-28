@@ -57,8 +57,6 @@ def _safe_response_headers(headers: Any) -> dict[str, str]:
 
 @dataclass(slots=True)
 class StoredSource:
-    """A source's archived raw file and what its fetch reported (a local file has no URL, status or headers)."""
-
     local_path: Path
     content_type: str
     final_url: str
@@ -70,7 +68,6 @@ class StoredSource:
 
 
 async def download_source(source_url: str, *, origin: str, bundle_root: Path) -> StoredSource | dict[str, Any]:
-    """Download ``source_url`` into the bundle; a failure is returned as the tool's error answer."""
     try:
         async with public_web_client(timeout=60, headers={"User-Agent": "Octryx/1.0"}) as client:
             response = await client.get(source_url)
@@ -108,7 +105,6 @@ async def download_source(source_url: str, *, origin: str, bundle_root: Path) ->
 
 
 def store_local_source(path: str, *, origin: str, workspace_root: Path, bundle_root: Path) -> StoredSource:
-    """Copy a Workspace file into the bundle (unless it already is the archived copy)."""
     source_path = resolve_document_path(path, workspace_root=workspace_root)
     file_name = _safe_file_name(source_path.name)
     content_sha256 = _sha256_file(source_path)
@@ -156,7 +152,6 @@ def _html_title_hint_from_source(raw_html: str) -> str:
 
 
 def source_title(parsed: ParsedDocument, local_path: Path, content_type: str, title_hint: str) -> str:
-    """The caller's hint unless the parsed title is better, else an HTML page's own title, else the parsed one."""
     parsed_title = _title_from_text(parsed.text, Path(local_path).stem.replace("-", " ").replace("_", " "))
     html_title_hint = ""
     normalized_content_type = str(content_type or "").split(";", 1)[0].strip().lower()

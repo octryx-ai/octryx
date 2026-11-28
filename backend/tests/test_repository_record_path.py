@@ -1,6 +1,5 @@
-"""A run finds its repository's coding setup also for Bitbucket Server records (the record
-``bitbucket/projects/SHOP/repos/demo-shop`` must match the run's ``shop/demo-shop``, or the declared test and system
-test commands are never applied)."""
+"""A run finds its repository's coding setup also for Bitbucket Server records, whose path
+``bitbucket/projects/SHOP/repos/demo-shop`` must match the run's ``shop/demo-shop``."""
 
 from app.services.workflow_runs.platform.repo_ref import parse_repository, record_path
 

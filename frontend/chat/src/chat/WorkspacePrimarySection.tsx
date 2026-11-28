@@ -80,6 +80,7 @@ export function WorkspacePrimarySection(props: WorkspacePrimarySectionProps) {
         setStatsOpen={setStatsOpen}
         stats={chatState?.selectedThreadStats ?? null}
         codeIntelligence={selectedThreadCodeIntelligence}
+        pullRequests={chatState?.selectedSessionPullRequests ?? []}
         traceEventCount={chatState?.traceEventCount ?? 0}
         onOpenTrace={() => setTraceOpen(true)}
         onOpenSidebar={() => setSidebarOpen(true)}

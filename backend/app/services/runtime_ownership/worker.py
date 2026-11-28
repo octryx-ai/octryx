@@ -1,14 +1,4 @@
-"""Keep this process's lease alive and sweep turns nobody owns (runtime robustness R1).
-
-Started in every platform process (API and worker), independent of the background
-worker toggle: a process that runs turns must hold a lease, or any other process
-would rightly settle its turns. ``start`` installs the lease *before* it settles, so
-this process can never settle what it is about to own; a failure to install the
-lease fails startup, because a lease-less process's turns would be settled under it.
-
-After start, the loop renews the lease every heartbeat and applies the settlement
-rule every ``sweep_every`` heartbeats. Failures are logged by exception type only.
-"""
+"""Keep this process's lease alive and sweep turns nobody owns (runtime robustness R1)."""
 
 from __future__ import annotations
 

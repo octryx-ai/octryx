@@ -1,7 +1,4 @@
-"""Observability API: admin-only reads, one router per page.
-
-Observability declares nothing: every route here reads; the only write is the audit event of a content read.
-"""
+"""Observability API: admin-only reads, one router per page. The only write is the audit event of a content read."""
 
 from fastapi import APIRouter
 
@@ -13,7 +10,6 @@ router.include_router(decisions.router)
 router.include_router(usage.router)
 router.include_router(health.router)
 router.include_router(audit.router)
-# ``/metrics`` and the health probes keep their root paths: api/routes/runtime_endpoints.py (access decided in
-# services/observability/endpoint_access.py).
+# ``/metrics`` and the health probes stay at the root: runtime_endpoints.py; access in observability/endpoint_access.py.
 
 __all__ = ["router"]

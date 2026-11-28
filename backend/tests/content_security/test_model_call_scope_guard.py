@@ -1,16 +1,4 @@
-"""Every production driver call carries its scope: a resolved Workspace or an explicit platform scope (B-01).
-
-Structural (AST over ``backend/app``): every provider dispatch — a ``<client>.chat(...)`` call and every call of the
-engine's runtime chain (``_chat_with_runtime_fallback``, or a ``chat_func`` holding it) — sits lexically inside a
-``with model_call_scope(...)`` of its own function. A nested function does not inherit an enclosing ``with`` (it may
-run after the scope ended). The only exceptions are the pass-throughs in :data:`PASS_THROUGH`: the chain itself and
-the loop sites that call the chain the engine injected; what the engine injects is pinned by
-:data:`INJECTED_CHAINS` (every ``chat_with_runtime_fallback=`` keyword in ``app``), and the injected origin itself
-sets the scope. A new unscoped caller fails here (the detector is mutation-tested below).
-
-Runtime: the provider wrapper refuses a driver call without a scope before anything is sent
-(``ModelCallScopeMissingError``, ``content_handling_scope_missing``), and records the refusal.
-"""
+"""Every production driver call carries its scope: a resolved Workspace or an explicit platform scope."""
 
 from __future__ import annotations
 
@@ -30,7 +18,10 @@ from app.services.content_security.model_call_scope import (
     workspace_call,
 )
 from app.services.content_security.refusal import ContentPolicyRefusedError
-from tests.content_security.model_call_driver_support import DRIVERS, Reply
+from tests.content_security.model_call_driver_support import DIRECT, DRIVERS, Reply
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 APP = Path(__file__).resolve().parents[2] / "app"
 #: The provider drivers themselves: a chat nested in another driver's chat is the same (outer, scoped) request.
@@ -40,27 +31,9 @@ INJECTED_NAME = "chat_with_runtime_fallback"
 
 #: (module, enclosing function, call) → why the scope is set by the caller of this site, not here.
 PASS_THROUGH: dict[tuple[str, str, str], str] = {
-    ("agent/engine/runtime/_engine_runtime_fallback.py", "_chat_with_runtime_fallback", "client.chat"):
+    ("agent/runtime/runtime_fallback.py", "_FallbackChain._call", "client.chat"):
         "the runtime chain itself; every call of the chain is checked",
-    ("agent/engine/__init__.py", "_chat_with_runtime_fallback", "_chat_with_runtime_fallback_impl"):
-        "the engine's binding of the chain to its provider factory; every call of it is checked",
-    ("agent/loops/runtime/_loop_dispatch.py", "dispatch_loop_runtime_response", INJECTED_NAME):
-        "calls the injected chain (INJECTED_CHAINS)",
-    ("agent/loops/control/_loop_tool_planner.py", "maybe_call_trace_only_tool_planner", INJECTED_NAME):
-        "calls the injected chain (INJECTED_CHAINS)",
-    ("agent/loops/runtime/_loop_runtime_turn.py", "_chat_with_retry_policy._chat_with_runtime_retry_policy",
-     INJECTED_NAME): "binds the injected chain to the turn's retry policy (INJECTED_CHAINS)",
 }
-#: Every ``chat_with_runtime_fallback=`` value in ``app``: the engine's scoped origin, or a forwarding of it.
-INJECTED_CHAINS: dict[tuple[str, str], str] = {
-    ("agent/engine/__init__.py", "_chat_with_budget_guard"): "origin: sets the turn's session scope",
-    ("agent/loops/runtime/_loop_runtime_turn.py", "_chat_with_runtime_retry_policy"): "forwards the injected chain",
-    ("agent/loops/runtime/_loop_runtime_cycle_inputs.py", "cycle.chat_with_runtime_fallback"):
-        "forwards the injected chain",
-    ("agent/loops/control/_loop_tool_planner.py", INJECTED_NAME): "forwards the injected chain",
-}
-#: The injected origin, which must set the scope itself.
-INJECTED_ORIGIN = ("agent/engine/__init__.py", "_chat_with_budget_guard")
 
 
 def _scope_with(node: ast.AST) -> bool:
@@ -78,7 +51,6 @@ def _name(node: ast.AST) -> str:
 
 
 def _dispatch(call: ast.Call) -> str:
-    """The dispatch a call is (``<expr>.chat``, a chain name, the injected chain), or ``""``."""
     func = call.func
     if isinstance(func, ast.Attribute) and func.attr == "chat":
         return ast.unparse(func)
@@ -87,9 +59,6 @@ def _dispatch(call: ast.Call) -> str:
 
 
 class _Sites(ast.NodeVisitor):
-    """Every dispatch call with its enclosing function and whether a ``with model_call_scope`` of that function
-    encloses it; every ``chat_with_runtime_fallback=`` keyword value; every function that sets a scope."""
-
     def __init__(self) -> None:
         self.stack: list[str] = []
         self.scoped: list[bool] = [False]
@@ -170,17 +139,12 @@ def test_every_production_dispatch_sets_a_model_call_scope():
                 unscoped.append(f"{module}:{line} {function}: {dispatch}")
     assert unscoped == [], "a driver call without `with model_call_scope(...)`: set the resolved Workspace scope"
     assert passed == set(PASS_THROUGH), "a pass-through that no longer exists must leave PASS_THROUGH"
-    assert scoped >= 15, "the scoped production dispatch sites (see the B-01 inventory)"
+    assert scoped >= 13, "the scoped production dispatch sites (B-01 inventory, less the deleted loop's two)"
 
 
-def test_every_injected_chain_is_the_scoped_origin_or_forwards_it():
-    found = {(module, value) for module, sites in _app_sites().items() for value, _line in sites.injected}
-    assert found == set(INJECTED_CHAINS)
-    origin_module, origin = INJECTED_ORIGIN
-    assert any(origin in _function_names(name) for name in _app_sites()[origin_module].scoping_functions)
-
-
-# --- the detector (mutation controls) ----------------------------------------------------------------------------
+def test_no_chain_is_injected_into_a_dispatch():
+    # The injected runtime chain belonged to the platform loop (WP-C4b1): every dispatch calls its own chain.
+    assert {(module, value) for module, sites in _app_sites().items() for value, _line in sites.injected} == set()
 
 
 @pytest.mark.parametrize("source", [
@@ -192,7 +156,6 @@ def test_every_injected_chain_is_the_scoped_origin_or_forwards_it():
     # A nested function does not inherit the enclosing scope: it can run after the scope ended.
     "async def outer(client):\n    with model_call_scope(scope):\n        async def later():\n"
     "            return await client.chat(messages=[])\n    return later\n",
-    # A different context manager is not a scope.
     "async def answer(client):\n    with prompt_set_scope(s):\n        return await client.chat(messages=[])\n",
 ])
 def test_the_detector_reports_an_unscoped_dispatch(source):
@@ -216,9 +179,6 @@ def test_the_detector_ignores_what_is_not_a_dispatch():
               "        return messages  # client.chat(messages)\n"
               "def other(x):\n    return x.chat_history()\n")
     assert scan(source).calls == []
-
-
-# --- the wrapper refuses a call without a scope -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("driver_name", sorted(DRIVERS))
@@ -257,7 +217,7 @@ def test_a_scope_names_a_workspace_or_a_known_platform_reason():
 async def test_a_platform_call_is_recorded_with_its_reason(monkeypatch):
     entries: list[dict] = []
     monkeypatch.setattr(model_call_module, "record_decision", entries.append)
-    harness = DRIVERS["openai_compatible"](monkeypatch, Reply("ok"))
+    harness = DRIVERS[DIRECT](monkeypatch, Reply("ok"))
     try:
         with model_call_scope(platform_call("record_without_workspace")):
             await harness.driver.chat(messages=[{"role": "user", "content": "mail a.person@example.org"}],
@@ -275,12 +235,12 @@ async def test_workspaces_of_one_call_with_different_handling_refuse_it(monkeypa
         return plan_for(settings[scope], surface)
 
     monkeypatch.setattr(model_call_scope_module, "content_handling_isolated", plan)
-    harness = DRIVERS["openai_compatible"](monkeypatch, Reply("ok"))
+    harness = DRIVERS[DIRECT](monkeypatch, Reply("ok"))
     try:
         with model_call_scope(workspace_call(["ws-a", "ws-b"])), pytest.raises(ContentPolicyRefusedError) as refused:
             await harness.driver.chat(messages=[{"role": "user", "content": "hello"}], model=harness.model)
         assert refused.value.content_notice["reason"] == "content_handling_conflict" and harness.sent() == []
-        with model_call_scope(workspace_call(["ws-a", "ws-c"])):  # the same handling (ws-c: the shipped mask)
+        with model_call_scope(workspace_call(["ws-a", "ws-c"])):
             await harness.driver.chat(messages=[{"role": "user", "content": "hello"}], model=harness.model)
     finally:
         await harness.driver.close()

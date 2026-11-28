@@ -1,16 +1,5 @@
-"""Take an approved knowledge package into the Workspace (Knowledge, research packages).
-
-Only documents an author accepted are fetched, one by one, through the closed public fetcher
-(``sources/web_fetch.py``), and ingested as ordinary sources: HTML and PDF through the Docling
-sandbox, text-native documents in-process. Each keeps the product, the version and the page URL
-the research gave it, so retrieval, citations and ``knowledge_changes`` treat them like any upload.
-One document's failure records its fixed reason and never stops the rest.
-
-Only trusted sources are fetched: the registry (``services/web_search/registry.py``) is checked for
-the document URL and again for the URL a redirect ends at. An accepted document whose source is not
-trusted (any more) is *held*: it keeps its state and is fetched on the approval after an admin
-trusts the source.
-"""
+"""Take an approved knowledge package into the Workspace. Only accepted documents of trusted sources are fetched,
+checked again after a redirect."""
 
 from __future__ import annotations
 
@@ -76,7 +65,6 @@ async def _sync_document(
     policy,
     created_by: str | None,
 ) -> str:
-    """Fetch and ingest one accepted document; returns its outcome (``ingested`` or the failure reason)."""
     outcome = "ingested"
     try:
         fetched = await fetch_public_document(document.url)

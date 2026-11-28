@@ -15,7 +15,7 @@
 
 .approval-preview__title {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 
@@ -74,7 +74,7 @@
   padding: 0.5rem 0.75rem;
   border-radius: var(--ds-radius-lg);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .approval-preview__list {

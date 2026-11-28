@@ -1,13 +1,5 @@
 """Access tokens for the gateway and the knowledge MCP, from one rotating refresh token.
-
-The platform OAuth server puts the requested ``resource`` into the JWT audience.
-The model gateway only accepts ``octryx-model-gateway``; the knowledge MCP
-only accepts ``octryx-mcp``. One login therefore yields one refresh token,
-and each audience gets its own access token minted through a refresh with the
-matching ``resource``. Every refresh rotates the refresh token, so refreshes run
-under an exclusive file lock and the new refresh token is stored atomically before
-the access token is handed out.
-"""
+Each audience needs its own access token, minted through a refresh with the matching ``resource``."""
 
 from __future__ import annotations
 
@@ -25,7 +17,7 @@ GATEWAY_AUDIENCE = "octryx-model-gateway"
 # of the cached one, so a token the platform no longer takes cannot fail the replay twice.
 FORCE_REFRESH_ENV = "OCTRYX_FORCE_TOKEN_REFRESH"
 MCP_AUDIENCE = "octryx-mcp"
-# The device channel (D1): 15-minute tokens, refreshed five minutes before expiry without a reconnect, so a
+# The device channel: 15-minute tokens, refreshed five minutes before expiry without a reconnect, so a
 # failed refresh is retried several times (every 30 s) before the platform closes the channel.
 DEVICE_AUDIENCE = "octryx-device"
 DEVICE_REFRESH_SKEW_SECONDS = 5 * 60
@@ -36,8 +28,6 @@ TOKEN_TIMEOUT_SECONDS = 10.0
 
 
 class TokenUnavailableError(Exception):
-    """No usable token. ``code`` is a fixed reason, safe to print."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -49,7 +39,6 @@ def request_token(
     base_url: str,
     form: dict[str, str],
 ) -> dict[str, Any]:
-    """POST ``/oauth/token``; returns the payload or raises ``TokenUnavailableError``."""
     try:
         response = http.post(f"{base_url}/oauth/token", data=form, timeout=TOKEN_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:
@@ -76,7 +65,6 @@ def store_token_response(
     audience: str,
     now: float,
 ) -> str:
-    """Fold a token response into ``credentials`` (in place); returns the access token."""
     access_token = str(payload["access_token"])
     try:
         expires_in = max(0, int(payload.get("expires_in") or 0))
@@ -84,7 +72,7 @@ def store_token_response(
         expires_in = 0
     credentials["refresh_token"] = str(payload["refresh_token"])
     if isinstance(payload.get("scope"), str) and payload["scope"].strip():
-        credentials["scopes"] = sorted(set(payload["scope"].split()))  # what the grant allows (seat finding SL-1)
+        credentials["scopes"] = sorted(set(payload["scope"].split()))  # what the grant allows
     tokens = credentials.get("tokens") if isinstance(credentials.get("tokens"), dict) else {}
     tokens[audience] = {"access_token": access_token, "expires_at": now + expires_in}
     credentials["tokens"] = tokens
@@ -114,7 +102,11 @@ def get_access_token(
     http: httpx.Client,
     clock: Callable[[], float] = time.time,
 ) -> str:
-    """A valid access token for ``audience``, refreshing (with rotation) when needed."""
+    from . import token_broker  # noqa: PLC0415
+
+    # An account that may not hold the credential (a server runner's agent) asks the launcher instead.
+    if broker := token_broker.broker_path():
+        return token_broker.request_token(audience, broker)
     with state.credentials_lock():
         credentials = state.credentials()
         base_url = str(credentials.get("base_url") or "")

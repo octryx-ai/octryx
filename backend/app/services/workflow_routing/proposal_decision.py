@@ -1,10 +1,4 @@
-"""The pending workflow proposal of a session, its recorded answers and the chat client's view of it.
-
-Only the proposal that is pending on the session right now (same ``proposal_id``, status
-``needs_confirmation``) can be answered (``proposal_approval``); the answer (``apply`` or ``skip``)
-is recorded on the session under ``workflow_proposal_decisions``, so a repeated answer finds it
-and starts nothing.
-"""
+"""The pending workflow proposal of a session, its recorded answers and the chat client's view of it."""
 
 from __future__ import annotations
 
@@ -37,7 +31,6 @@ def pending_workflow_proposal(metadata: Any) -> dict[str, Any] | None:
 
 
 def workflow_proposal_view(metadata: Any) -> dict[str, Any] | None:
-    """The chat client's view of the current turn's proposal (the owner's own session only)."""
     resolution = metadata.get(ROUTING_RESOLUTION_KEY) if isinstance(metadata, dict) else None
     record = resolution.get(WORKFLOW_PROPOSAL_KEY) if isinstance(resolution, dict) else None
     if not isinstance(record, dict):

@@ -1,9 +1,5 @@
-"""One story session per story, the way epic-delivery builds a story.
-
-The platform keeps what only it can do around one
-session: branch, the declared tests run without the agent, the independent review, push and pull request. A red
-pipeline and a high finding go back into the SAME session; medium and low findings become pull-request notes.
-"""
+"""One story session per story: the platform keeps branch, tests, review, push and pull request around it; a red
+pipeline and a high finding go back into the same session."""
 
 from __future__ import annotations
 
@@ -21,7 +17,10 @@ from app.services.workflow_runs.octryx.subagents import run_allows_subagents
 from app.services.workflow_runs.platform.pr_details import review_notes_text
 from app.services.workflow_runs.run_start import startable_workflows_for
 from tests.epic_delivery_story_session_support import STORY, _seed
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _confirm, _device_run, _jobs, _reenter
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_epic_delivery_is_the_default_for_an_epics_stories():
@@ -34,7 +33,6 @@ def test_epic_delivery_is_the_default_for_an_epics_stories():
 
 @pytest.mark.asyncio
 async def test_an_installation_offers_the_story_workflows(db):
-    """team-delivery ships as an optional workflow (the suite's baseline has it switched on)."""
     from app.services.workflow_runs.seeding import seed_phased_workflows
     from tests.phased_workflow_fixtures import admin_user
 
@@ -45,10 +43,6 @@ async def test_an_installation_offers_the_story_workflows(db):
 
 @pytest.mark.asyncio
 async def test_a_red_pipeline_goes_back_into_the_same_story_session_with_its_subagents(db):
-    """A red pipeline's fix must not run in a fresh session per pipeline turn (several new sessions in one story).
-    The pipeline turn is the building phase's: it resumes that
-    session (the launcher starts no agent when the pipeline is green), keeps the phase's subagents and, when red
-    sends the run back, counts as the phase's own pass."""
     admin, _device, thread, run = await _device_run(db, definition=STORY)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -56,19 +50,19 @@ async def test_a_red_pipeline_goes_back_into_the_same_story_session_with_its_sub
     await apply_event(db, job, "job_event", {"kind": "session", "claude_session_id": "claude-story-1"}, limits={})
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
 
-    await _reenter(db, run, "pipeline", runtime_step=True)  # the story session's Stop passed: the pipeline is next
+    await _reenter(db, run, "pipeline", runtime_step=True)
     assert run.context[CONTEXT_KEY]["then_phase"] == "work"
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     assert job.status == "offered" and offer_body(job, limits={})["resume_session_id"] == "claude-story-1"
     assert "pipeline ran" in job.turn_prompt and "pipeline_failure" in job.turn_prompt
     assert "do not re-read" in job.turn_prompt
-    assert await run_allows_subagents(db, run)  # judged by the phase the turn goes on with, not the runtime step
+    assert await run_allows_subagents(db, run)
 
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
-    await _reenter(db, run, "work")  # red: the run is back at the phase while the pipeline turn still runs
+    await _reenter(db, run, "work")
     marker = run.context[CONTEXT_KEY]
     assert (marker["node_id"], marker["state"], marker["phase"]) == ("work", "started", True)
-    assert len(await _jobs(db, thread)) == 1  # no second turn: the pipeline turn goes on as the phase's pass
+    assert len(await _jobs(db, thread)) == 1
 
 
 @pytest.mark.asyncio
@@ -93,8 +87,6 @@ def test_medium_and_low_findings_become_notes_on_the_pull_request():
 
 
 def test_a_session_browser_is_its_own_and_checks_both_widths():
-    """A browser MCP server with its own isolated browser (Playwright MCP) instead of Claude in Chrome,
-    with Playwright screenshots as the fallback; every screen at 1280 and 390 px."""
     from app.services.workflow_runs.octryx.browser import BROWSER_NOTE
 
     assert "browser_resize 1280x800" in BROWSER_NOTE["rule"] and "390x844" in BROWSER_NOTE["rule"]
@@ -102,7 +94,7 @@ def test_a_session_browser_is_its_own_and_checks_both_widths():
     from app.models import DeviceJob
 
     offer = offer_body(DeviceJob(id="j", profile="seat", folder="/f"), limits={}, browser=True)
-    assert offer["browser"] is True and "chrome" not in offer  # the browser is the session's own, never Chrome
+    assert offer["browser"] is True and "chrome" not in offer
 
 
 @pytest.mark.asyncio
@@ -116,7 +108,7 @@ async def test_the_offer_carries_the_browser_flag_of_the_phase_the_turn_works(db
     await _confirm(db, run, admin)
     assert node_allows_browser(await turn_phase(db, run))
     await _reenter(db, run, "pipeline", runtime_step=True)
-    assert node_allows_browser(await turn_phase(db, run))  # the pipeline turn goes on as the phase
+    assert node_allows_browser(await turn_phase(db, run))
     assert not node_allows_browser(await turn_phase(db, None))
 
 
@@ -136,8 +128,6 @@ def test_the_workspaces_browser_phases_are_validated():
 
 @pytest.mark.asyncio
 async def test_a_workspace_switches_the_browser_on_for_its_listed_phase_in_the_offer_and_the_contract(db):
-    """epic-delivery ships ``implement`` with ``browser: false``; a Workspace that lists
-    ``epic-delivery.implement`` in ``device_runs.browser_phases`` gives it the browser (offer and contract)."""
     from app.services.devices.jobs_channel import _thread_run
     from app.services.workflow_runs.octryx.contract import run_contract
     from tests.devices.device_support import enable_device_runs
@@ -153,7 +143,7 @@ async def test_a_workspace_switches_the_browser_on_for_its_listed_phase_in_the_o
 
     await _confirm(db, run, admin)
     assert run.current_node_id == "work" and await browser() == (False, False)
-    for listed in (["other-workflow.work"], [f"{run.workflow_key}.other_phase"]):  # another workflow or phase
+    for listed in (["other-workflow.work"], [f"{run.workflow_key}.other_phase"]):
         await enable_device_runs(db, browser_phases=listed)
         assert await browser() == (False, False)
     await enable_device_runs(db, browser_phases=[f"{run.workflow_key}.work"])

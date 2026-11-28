@@ -1,10 +1,4 @@
-"""The Studio on a run: what the product owner sees, their changes, approval (freeze + writeback) and revision.
-
-Approval is the spec's ``decisions`` confirmation: whichever way it is confirmed (the Studio, the decision card, the
-platform's auto-accept), the artefact and the product owner's state are frozen as version n, the decisions written
-into SPEC.md and the approved mock becomes the review baseline (``context.spec_studio.baseline`` and ``scenarios``,
-the fields hands_on reads).
-"""
+"""The Studio on a run: what the product owner sees, their changes, approval (freeze + writeback) and revision."""
 
 from __future__ import annotations
 
@@ -27,7 +21,6 @@ VIEWPORTS = {"desktop": {"width": 1280, "height": 800}, "phone": {"width": 390, 
 
 
 def artefact_of(run: Any) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    """``(artefact, envelope)`` of the newest recorded Studio artefact, else ``None``."""
     envelope = recorded_output(run, KIND)
     if not envelope or not isinstance(envelope.get("record"), dict):
         return None
@@ -35,7 +28,6 @@ def artefact_of(run: Any) -> tuple[dict[str, Any], dict[str, Any]] | None:
 
 
 def base_of(run: Any, artefact: dict[str, Any]) -> dict[str, Any] | None:
-    """A feature's context: the app approved before, read from the working copy next to its SPEC.md."""
     if artefact.get("mode") != "feature":
         return None
     local_path = str(dict(run.context or {}).get("local_path") or "")
@@ -48,7 +40,6 @@ def frozen(run: Any, envelope: dict[str, Any]) -> bool:
 
 
 def evaluate(run: Any) -> dict[str, Any] | None:
-    """Everything the Studio shows; ``None`` when the run recorded no artefact."""
     found = artefact_of(run)
     if found is None:
         return None
@@ -67,7 +58,6 @@ def evaluate(run: Any) -> dict[str, Any] | None:
 
 
 def _corporate_view(corporate: dict[str, Any] | None) -> dict[str, Any] | None:
-    """What the Studio shows of the snapshot: the profile, its locks, each value's source, logo and icons."""
     if corporate is None:
         return None
     extra = dict(corporate["direction"].get("corporate") or {})
@@ -82,7 +72,6 @@ def base_screen_ids(view: dict[str, Any]) -> tuple[str, ...]:
 
 
 def change(db: Any, run: Any, payload: dict[str, Any], *, user: Any) -> dict[str, Any]:
-    """Apply one product owner change and record it as an audited run event."""
     from ..records import record_event
 
     view = evaluate(run)
@@ -103,8 +92,6 @@ def render_url(run_id: str, screen: str, device: str, theme: str, version: int, 
 
 
 def baseline(run_id: str, artefact: dict[str, Any], version: int) -> list[dict[str, Any]]:
-    """One baseline image per screen × device × theme: name, viewport, theme, the Studio's render URL and the app
-    path hands_on opens to take the same shot of the built app."""
     devices = ("phone", "desktop")
     return [{"name": f"{screen['id']}-{VIEWPORTS[device]['width']}-{theme}", "screen": screen["id"],
              "viewport": dict(VIEWPORTS[device]), "theme": theme, "data": "filled",
@@ -113,7 +100,6 @@ def baseline(run_id: str, artefact: dict[str, Any], version: int) -> list[dict[s
 
 
 def scenarios(artefact: dict[str, Any]) -> list[dict[str, Any]]:
-    """The rules' worked examples that carry a hands_on scenario (schema of ``workflow_runs/hands_on``)."""
     found = []
     for rule in artefact["rules"]:
         for index, example in enumerate(rule["examples"], 1):
@@ -131,8 +117,6 @@ def _who(user: Any) -> str:
 
 
 async def freeze(db: Any, run: Any, *, user: Any, how: str) -> dict[str, Any] | None:
-    """Freeze the current artefact and state as the next approved version, write the decisions back into the working
-    copy and keep the reviewed tree in step; ``None`` without an artefact or when this version is frozen already."""
     from ..records import record_event
 
     view = evaluate(run)
@@ -168,7 +152,6 @@ async def freeze(db: Any, run: Any, *, user: Any, how: str) -> dict[str, Any] | 
 
 async def _write(run: Any, local_path: str, artefact: dict[str, Any], view: dict[str, Any], design: dict[str, Any],
                  entry: dict[str, Any], decisions: str, tokens: str | None) -> list[str]:
-    """Write SPEC.md and the approved app; a reviewed tree moves with this platform-authored change only."""
     from .. import safe_git
 
     review = dict(dict(run.context or {}).get("review") or {})
@@ -187,8 +170,6 @@ async def _write(run: Any, local_path: str, artefact: dict[str, Any], view: dict
 
 
 def revision_answer(view: dict[str, Any]) -> str:
-    """The product owner's answer for the draft phase: every decision, comment, changed value and rejected
-    criterion, so the next version carries them (and lists them under Decisions)."""
     artefact, state = view["artefact"], view["state"]
     names = {s["id"]: s["name"] for s in [*dict(view["base"] or {}).get("screens", []), *artefact["screens"]]}
     lines = ["The product owner reviewed the spec in the Spec Studio. Carry out every point below in SPEC.md and "

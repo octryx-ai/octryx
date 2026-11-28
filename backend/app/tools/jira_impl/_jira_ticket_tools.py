@@ -25,11 +25,6 @@ from ._jira_ticket_resolution import add_to_sprint, resolve_create_fields, resol
 
 
 async def _effective_issue_type(context: ToolContext, project_key: str, requested: str) -> str:
-    """The issue type Jira will get, read from the project like ``execute`` resolves it.
-
-    Gemma left out issue_type; the preview said "Improvement" (its own default) while the schema says
-    "default: Task" and execute asked for Task. The person confirms the type Jira really gets. Unreadable project
-    metadata shows the requested type."""
     jira_url = _jira_base_url(context)
     if not jira_url or not project_key:
         return requested

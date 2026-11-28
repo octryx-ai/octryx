@@ -1,36 +1,5 @@
-"""Codex code mode: the inner calls of one ``exec`` as gateway evidence.
-
-With the person's own ChatGPT model (the Codex seat route) Codex runs in *code mode*: the model calls one tool,
-``exec``, whose input is JavaScript (``text(await tools.exec_command({cmd:"cat README.md"}))``). The launcher's
-hooks see every inner call (``tool_use_id`` ``exec-<uuid>``) and decide it; the model gateway only sees
-the outer ``exec`` call (``call_…``), so the third condition of every evidence path — the gateway recorded the same
-call (``block_index``, matched by ``tool_use_id``) — never held and no read, write or test counted.
-
-A hook-reported inner call counts as seen by the gateway when the same tool with the same **literal** arguments
-appears in an ``exec`` input the gateway recorded:
-
-- in the same session, and only for a session whose launcher registered as Codex (``SESSION_ENGINE_KEY``); a Claude
-  Code session never reaches this module (:func:`codex_exec_evidence` returns ``None``);
-- after the model asked for that ``exec``: the hook report is newer than the gateway write that came with the
-  response emitting it. The gateway records a tool call from the *next* request (the call and its result), so the
-  ``exec`` row itself is written after its inner calls ran; the response that emitted it ended with the session's
-  previous gateway write (:func:`_emitted_after`, with :data:`EMIT_SKEW` for that write landing just after the
-  stream);
-- each call occurrence inside an ``exec`` input is consumed once (two hook rows, one occurrence: one counts);
-- only literal calls: ``tools.<name>({...})`` / ``tools.<name>("...")`` whose arguments are string literals
-  (``"…"``, ``'…'``, a template literal without ``${}``), numbers, booleans, null and objects/arrays of them.
-  Variables, interpolation, concatenation, computed names or keys, spreads: no evidence
-  (:data:`LITERAL_HINT` tells the model at Stop).
-
-Names map as on the direct path (``openai_view.evidence_names``): ``exec_command``/``shell`` → ``Bash`` with the
-unwrapped command, ``apply_patch`` → the ``Write``/``Edit`` of each file it names, ``mcp__octryx_knowledge__x``
-→ ``mcp__octryx-knowledge__x``.
-
-The hook side needs the inner call's arguments: ``tool_execution.record_tool_execution`` stores them for ``exec-``
-ids of a Codex session only (:data:`EXEC_CALL_KEY`, :func:`exec_call_record`). A matched hook row is handed to the
-unchanged evidence code as a *transient copy* with the gateway fields (``block_index``, ``input``, ``command``,
-status and result); the stored rows are never changed. Security is unchanged: the hooks still decide every call.
-"""
+"""Codex code mode: a hook-reported inner call of an ``exec`` counts as gateway evidence when the gateway
+recorded the same literal call in an ``exec`` input of the same session."""
 
 from __future__ import annotations
 
@@ -54,6 +23,7 @@ from .contract import (
     TOOL_CALL_STATUS_SUCCESS,
 )
 from .engine_keys import ENGINE_CODEX, SESSION_ENGINE_KEY
+from .stored_types import ExecCallRecord
 
 EXEC_TOOL = "exec"
 EXEC_ID_PREFIX = "exec-"
@@ -77,15 +47,13 @@ def is_exec_inner_id(tool_use_id: Any) -> bool:
     return isinstance(tool_use_id, str) and tool_use_id.startswith(EXEC_ID_PREFIX)
 
 
-def exec_call_record(tool_name: str, hook_input: Mapping[str, Any]) -> dict[str, Any]:
-    """What the hook said the inner call was (bounded, redacted like the gateway's own tool input)."""
+def exec_call_record(tool_name: str, hook_input: Mapping[str, Any]) -> ExecCallRecord:
+    # Bounded and redacted like the gateway's own tool input.
     from ..model_gateway.inbound.transcript_tools import bounded_tool_input
 
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), Mapping) else {}
     return {"tool": tool_name, "input": bounded_tool_input(tool_input), "cwd": str(hook_input.get("cwd") or "")[:500]}
 
-
-# --- matching ------------------------------------------------------------------------------------------------------
 
 
 def _recorded(row: ToolCall) -> bool:
@@ -112,8 +80,7 @@ def _inner_hook_row(row: ToolCall) -> bool:
 
 
 def _emitted_after(row: ToolCall, writes: Mapping[str, list[datetime]]) -> datetime:
-    """When the gateway had seen the model ask for this exec at the latest: the session's previous gateway write
-    (the one that ended the response emitting it), minus :data:`EMIT_SKEW`; the beginning without one."""
+    # An exec row is written with the next request; the response that emitted it ended at the previous write.
     times = writes.get(str(row.session_id), [])
     index = bisect_left(times, row.created_at or datetime.min)
     return times[index - 1] - EMIT_SKEW if index > 0 else datetime.min
@@ -130,8 +97,6 @@ class _Slot:
 
 @dataclass(frozen=True, slots=True)
 class ExecEvidence:
-    """The session's rows with matched inner calls in their gateway shape, and the hook rows that stayed unmatched."""
-
     rows: list[ToolCall]
     matched: tuple[str, ...]
     unmatched: tuple[ToolCall, ...]
@@ -143,7 +108,6 @@ def _excerpt(row: ToolCall) -> str:
 
 
 def _exec_green(exec_row: ToolCall) -> bool:
-    """The exec as a whole ran clean: its result is no error and no command in it exited non-zero."""
     result = exec_row.result if isinstance(exec_row.result, Mapping) else None
     if exec_row.status != TOOL_CALL_STATUS_SUCCESS or result is None or result.get("is_error") is not False:
         return False
@@ -152,7 +116,7 @@ def _exec_green(exec_row: ToolCall) -> bool:
 
 
 def _matched_row(hook: ToolCall, slot: _Slot) -> ToolCall:
-    """A transient copy of the hook row in the shape the gateway gives a direct call (never added to the session)."""
+    # A transient copy: never added to the session.
     parameters = dict(_parameters(hook))
     executed = parameters.get(TOOL_CALL_EXECUTED_KEY) if isinstance(parameters.get(TOOL_CALL_EXECUTED_KEY),
                                                                    Mapping) else {}
@@ -173,7 +137,6 @@ def _matched_row(hook: ToolCall, slot: _Slot) -> ToolCall:
 
 
 def match_exec_calls(rows: Sequence[ToolCall]) -> ExecEvidence:
-    """Each hook-reported inner call matched to one unconsumed literal occurrence of the same call. Pure."""
     recorded = [row for row in rows if _recorded(row)]
     writes: dict[str, list[datetime]] = {}
     for row in recorded:
@@ -217,15 +180,13 @@ def match_exec_calls(rows: Sequence[ToolCall]) -> ExecEvidence:
 
 
 def codex_exec_evidence(session: Any, rows: Sequence[ToolCall]) -> ExecEvidence | None:
-    """The rows the evidence code reads for a Codex session; ``None`` for any other engine (Claude Code: unchanged)."""
     if not is_codex_session(session):
         return None
     return match_exec_calls(rows)
 
 
 def with_literal_hint(answer: dict[str, Any], evidence: ExecEvidence | None) -> dict[str, Any]:
-    """A blocked Stop answer of a Codex session gets :data:`LITERAL_HINT` while inner calls stayed unmatched since the
-    last matched one (an old dynamic call followed by literal ones no longer earns the hint)."""
+    # Only inner calls left unmatched since the last matched one earn the hint.
     if evidence is None or not evidence.unmatched or answer.get("state") != "blocked":
         return answer
     matched_at = [row.created_at for row in evidence.rows

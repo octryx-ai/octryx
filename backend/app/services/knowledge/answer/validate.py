@@ -15,13 +15,10 @@ _INLINE_MARKERS = re.compile(r"\s*(?:\[\s*\d+(?:\s*[,;]\s*\d+)*\s*\])+")
 
 
 def plain_sentence(text: str) -> str:
-    """The sentence without inline passage markers, whitespace before punctuation tidied."""
     return re.sub(r"\s+([.,;:!?])", r"\1", _INLINE_MARKERS.sub("", text)).strip()
 
 
 def cited_sentences(answer: dict[str, Any], keys: Sequence[str]) -> list[dict[str, Any]]:
-    """``[{text, cites: [evidence_key...]}]`` from the model's JSON; numbers map to ``keys`` (1-based)."""
-
     if answer.get("insufficient") is True:
         return []
     raw = answer.get("sentences")

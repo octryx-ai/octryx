@@ -30,11 +30,6 @@ async def link_session_to_work_item(
     client_session_id: str,
     current_user: User,
 ) -> dict[str, Any]:
-    """Bidirectional link: item lists the session, the session names the item.
-
-    Unvalidated path (agent tool, ``session_ingest``): the session may be absent and is
-    resolved by client id alone. The Work MCP tool uses ``link_validated_session_to_work_item``.
-    """
     normalized = str(client_session_id or "").strip()
     if not normalized:
         raise HTTPException(status_code=422, detail="client_session_id is required")
@@ -65,14 +60,10 @@ async def resolve_linkable_session(
     client_session_id: str,
     current_user: User,
 ) -> Session:
-    """The caller's own external session of ``client_session_id`` in the item's workspace.
-
-    Unknown, foreign-owner and other-workspace sessions answer the same 404, so the link tool
-    discloses nothing about sessions it may not touch; several matches are an explicit 409.
-    """
     normalized = str(client_session_id or "").strip()
     if not normalized:
         raise HTTPException(status_code=422, detail="client_session_id is required")
+    # Unknown, foreign-owner and other-Workspace sessions answer alike: the link discloses nothing
     not_found = HTTPException(status_code=404, detail=f"Session not found: {normalized}")
     if not item.project_id:
         raise not_found
@@ -102,7 +93,6 @@ async def link_validated_session_to_work_item(
     session: Session,
     current_user: User,
 ) -> dict[str, Any]:
-    """Link a session already validated by ``resolve_linkable_session``; graph stays in the workspace."""
     if not item.project_id or session.project_id != item.project_id or session.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
     client_session_id = str((session.metadata_ or {}).get("client_session_id") or "").strip()
@@ -158,7 +148,7 @@ async def _record_session_link(
 async def _link_session_in_graph(
     db: AsyncSession, *, item: WorkItem, client_session_id: str, scoped: bool = False
 ) -> None:
-    """``scoped``: the session node must belong to the item's own workspace."""
+    # The session node must belong to the item's own Workspace.
     try:
         from ...models import KnowledgeGraphNode
         from ..knowledge_graph import resolve_node_by_alias, upsert_edge

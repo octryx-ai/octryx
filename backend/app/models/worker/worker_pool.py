@@ -1,9 +1,10 @@
 import uuid
 
-from sqlalchemy import JSON, Column, Date, DateTime, Float, ForeignKey, Index, Integer, Numeric, String, Text
+from sqlalchemy import JSON, Column, Date, DateTime, Float, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class WorkerPoolConfig(Base):
+class WorkerPoolConfig(WorkspaceBound, Base):
     __tablename__ = "worker_pool_config"
     __table_args__ = (Index("ix_worker_pool_config_project_id", "project_id", unique=True),)
 
@@ -35,7 +36,9 @@ class WorkerPoolConfig(Base):
     project = relationship("Project")
 
 
-class WorkerCapacityLog(Base):
+class WorkerCapacityLog(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_capacity_log"
     __table_args__ = (Index("ix_worker_capacity_log_worker_recorded", "worker_id", "recorded_at"),)
 
@@ -51,7 +54,9 @@ class WorkerCapacityLog(Base):
     worker = relationship("AgentWorker")
 
 
-class WorkerDomainExpertise(Base):
+class WorkerDomainExpertise(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_domain_expertise"
     __table_args__ = (
         Index("ix_worker_domain_expertise_domain", "domain"),
@@ -70,7 +75,7 @@ class WorkerDomainExpertise(Base):
     worker = relationship("AgentWorker")
 
 
-class TaskRoutingRule(Base):
+class TaskRoutingRule(WorkspaceBound, Base):
     __tablename__ = "task_routing_rules"
     __table_args__ = (
         Index("ix_task_routing_rules_project_active", "project_id", "is_active"),
@@ -90,7 +95,7 @@ class TaskRoutingRule(Base):
     project = relationship("Project")
 
 
-class WorkerRateLimit(Base):
+class WorkerRateLimit(WorkspaceBound, Base):
     __tablename__ = "worker_rate_limits"
     __table_args__ = (Index("ix_worker_rate_limits_project_id", "project_id", unique=True),)
 
@@ -111,29 +116,4 @@ class WorkerRateLimit(Base):
     reset_day_at = Column(Date, nullable=True)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, index=True)
 
-    project = relationship("Project")
-
-
-class DistributedWorkerRegistration(Base):
-    __tablename__ = "distributed_workers"
-    __table_args__ = (
-        Index("ix_distributed_workers_project_active", "project_id", "is_active"),
-        Index("ix_distributed_workers_heartbeat", "last_heartbeat"),
-    )
-
-    id = Column(String(36), primary_key=True, default=uuid_pk)
-    worker_id = Column(String(36), ForeignKey("agent_workers.id"), nullable=False, index=True)
-    project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, index=True)
-    backend = Column(String(20), nullable=False, default="database")
-    status = Column(String(20), nullable=False, default="starting")
-    domains = Column(JSON, default=list)
-    capabilities = Column(JSON, default=dict)
-    pod_name = Column(String(255), nullable=True)
-    queue_name = Column(String(255), nullable=True)
-    last_error = Column(Text, nullable=True)
-    is_active = Column(Integer, nullable=False, default=1)
-    registered_at = Column(DateTime, default=utc_now, index=True)
-    last_heartbeat = Column(DateTime, default=utc_now, index=True)
-
-    worker = relationship("AgentWorker")
     project = relationship("Project")

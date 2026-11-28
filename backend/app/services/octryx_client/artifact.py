@@ -1,19 +1,4 @@
-"""The octryx-claude package the platform serves to its installers.
-
-The wheel is built in-process from the client sources shipped with the platform
-(``clients/octryx-claude``), so the served client always matches this platform build. The build is
-deterministic: fixed file order and timestamps, so the same sources give the same bytes, the same
-sha256 and the same version. The version is the package's ``__version__`` plus a local segment of
-the source hash (``0.2.0+1a2b3c4d5e6f``): every source change is a new version with a new sha256, which the
-installer and the launcher's self-update on start compare exactly, so each deploy with changed client code reaches
-installed copies at their next start (the Dockerfile copies these sources into the image).
-
-Contents: the ``octryx_claude`` package (no tests), the platform scripts the transcript digest and the full
-transcript upload reuse (``backend/scripts``: the two session-ingest scripts and ``transcript_secrets``, as
-``octryx_claude/_platform_scripts``) and the
-metadata from the client's ``pyproject.toml`` (name, Python requirement, pinned dependencies,
-console script). Stdlib only: the installer tests import it without the app.
-"""
+"""The octryx-claude package the platform serves to its installers."""
 
 from __future__ import annotations
 
@@ -41,8 +26,6 @@ _REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class ClientArtifactError(Exception):
-    """The package cannot be built; ``code`` is fixed (``octryx_client_source_missing``, ...)."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -67,12 +50,10 @@ def default_scripts_dir() -> Path:
 
 
 def _packaged(package_dir: Path) -> list[Path]:
-    """The package's modules and its data files (``os_junk.json``: read by the launcher and by the platform)."""
     return [path for pattern in PACKAGED for path in package_dir.rglob(pattern)]
 
 
 def _sources(client_dir: Path, scripts_dir: Path) -> list[tuple[str, bytes]]:
-    """``(archive path, bytes)`` of every packaged file, sorted by path."""
     package_dir = client_dir / PACKAGE
     if not package_dir.is_dir():
         raise ClientArtifactError("octryx_client_source_missing")
@@ -199,7 +180,6 @@ def _signature(client_dir: Path, scripts_dir: Path) -> tuple:
 
 
 def current_artifact(client_dir: Path | None = None, scripts_dir: Path | None = None) -> ClientArtifact:
-    """The served package; rebuilt only when a source file changed (mtime or size)."""
     client_dir = client_dir or default_client_dir()
     scripts_dir = scripts_dir or default_scripts_dir()
     if not (client_dir / PACKAGE).is_dir():

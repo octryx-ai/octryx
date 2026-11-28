@@ -56,19 +56,13 @@
   gap: 0.5rem;
 }
 
-.admin-panel__stack {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
 .admin-panel__stack--compact {
   gap: 0.5rem;
 }
 
 .admin-panel__section-title {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -110,13 +104,13 @@
 
 .admin-panel__field > span {
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-size: var(--ds-text-xs);
 }
 
 /* A one-line hint under a field reads as text, not as a second label ("At least 8 characters."). */
 .admin-panel__field > .admin-users__form-help {
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   font-size: var(--ds-text-xs);
   text-transform: none;
   letter-spacing: 0;

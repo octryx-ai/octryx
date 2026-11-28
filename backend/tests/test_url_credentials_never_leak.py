@@ -1,8 +1,5 @@
-"""Credentials in a remote URL never reach a log, an event or an error text.
-
-Every scrubber that prints remote URLs gets the same inputs: a token as user name (``https://<token>@github.com``, the
-usual Git token form, easy for a redaction to miss), user and password, a password with an
-``@``, a percent-encoded one, and several URLs in one error text."""
+"""Credentials in a remote URL never reach a log, an event or an error text; every scrubber gets the same
+inputs, including a token as user name, the form redactions most easily miss."""
 
 import pytest
 

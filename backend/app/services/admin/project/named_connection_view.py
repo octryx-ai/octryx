@@ -1,18 +1,4 @@
-"""The admin view of named connections, per Workspace or global.
-
-Per connection: its stable, server-generated ``id`` (what other config references: a Knowledge
-connector's ``connection_id``, run reports, audit), name, bound scopes, the unit's non-secret fields,
-which secrets are stored (booleans), the last test of the saved connection, and who uses it
-(``usage.py``: Workspaces and Knowledge connectors, with the keys each one reads through it). Never a
-secret value or a ``*_secret_ref``.
-
-Every list carries the connector's ``descriptor`` (``ConnectorDescriptor.public``: binding, fields with
-secrets flagged, form kind, test), so the one UI component renders any connector type.
-
-A Workspace's list also carries ``inherited``: the global connections, read-only, with the keys each
-serves in this Workspace and the keys a Workspace connection overrides. The global list carries
-``workspace_connections``: every active Workspace's own connections, read-only (``named_connection_workspaces.py``).
-"""
+"""The admin view of named connections, per Workspace or global."""
 
 from __future__ import annotations
 
@@ -37,7 +23,6 @@ LAST_TEST_SUMMARY_CHARS = 300
 
 
 async def require_scope(db: AsyncSession, connector: str, project_id: str | None) -> str:
-    """The canonical connector name; 404 for an unsupported connector or an unknown Workspace."""
     try:
         tool = require_connector(connector)
     except NamedConnectionError:
@@ -54,7 +39,6 @@ def _iso(value: Any) -> str | None:
 
 
 def last_test_record(result: dict[str, Any], at: Any) -> dict[str, Any]:
-    """What is kept of a test of the saved connection: ok, time and the test's fixed summary (truncated)."""
     summary = str(result.get("summary") or "").strip()[:LAST_TEST_SUMMARY_CHARS]
     return {"ok": bool(result.get("ok")), "at": _iso(at), "summary": summary}
 
@@ -67,7 +51,6 @@ def _last_test(row: ConnectorNamedConnection) -> dict[str, Any] | None:
 
 
 def serialize(row: ConnectorNamedConnection, usage: dict[str, list] | None = None) -> dict[str, Any]:
-    """One connection: id, names, scopes, non-secret fields, secret presence, last test, usage. Never a secret."""
     tool, config = str(row.tool_name), dict(row.config or {})
     view = {
         "id": row.id,
@@ -92,7 +75,6 @@ async def usage_of_row(db: AsyncSession, row: ConnectorNamedConnection) -> dict[
 
 
 async def _inherited(db: AsyncSession, tool: str, project_id: str, own: list) -> list[dict[str, Any]]:
-    """The global connections as this Workspace sees them: read-only, with served and overridden keys."""
     global_rows = await list_rows(db, tool, None)
     effective = effective_of([to_value(row) for row in own], [to_value(row) for row in global_rows])
     served = {connection.id: keys for _, connection, keys in effective}
@@ -135,7 +117,6 @@ async def list_named(db: AsyncSession, *, connector: str, project_id: str | None
 
 
 def list_descriptors() -> dict[str, Any]:
-    """Every connector type with named connections and what its form needs (the UI's only source for them)."""
     return {"connectors": [descriptor.public() for descriptor in DESCRIPTORS.values()]}
 
 

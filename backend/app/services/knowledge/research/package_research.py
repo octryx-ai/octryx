@@ -1,25 +1,5 @@
-"""Research a knowledge package from the web with a governed model (Knowledge, research packages).
-
-A bounded, fixed pipeline; the model decides the content, never the control flow:
-
-1. **Plan.** From the author's topic (and optional product and version hints) the model proposes the
-   package title, the product key, the versions, at most :data:`MAX_QUERIES` web search queries, and
-   the official entry-point pages it knows.
-2. **Discover.** The entry points are fetched and their same-host links collected; the queries run
-   through the governed web search (``services/web_search``), restricted to the Workspace's trusted
-   sources and the entry points that answered. There is no open web search here. Every candidate is
-   a page observed on the web, none is blocked, and the search outcome is recorded.
-3. **Select.** The model chooses the authoritative candidates *by number* and gives each its version,
-   role and a one-sentence rationale. A choice outside the numbered list is dropped, never repaired,
-   and every chosen URL is probed again; one that does not answer is not proposed.
-4. **Draft.** The package and its proposed documents are stored; nothing is fetched until an author
-   approves (``package_sync.py``). A chosen document outside the trusted sources makes its source a
-   *proposal* in the trusted-source registry, which an admin decides; until then the document cannot
-   be accepted.
-
-The topic and the queries leave the platform to the search provider; the model call is admitted for
-the Workspace's data policy like every other governed call.
-"""
+"""Research a knowledge package from the web with a governed model. A fixed pipeline (plan, discover, select, draft):
+the model decides content, never control flow."""
 
 from __future__ import annotations
 
@@ -59,7 +39,6 @@ logger = logging.getLogger(__name__)
 async def _search(
     db: AsyncSession, project_id: str, queries: list[str], *, hosts: list[str], product: str, policy: SourcePolicy
 ) -> tuple[list[Candidate], list[str]]:
-    """Governed searches restricted to ``hosts``; each query's outcome is recorded as ``provider:reason``."""
     if not hosts:
         return [], ["skipped:no_trusted_or_entry_point_hosts"]
     candidates: dict[str, Candidate] = {}
@@ -104,7 +83,6 @@ async def _candidates(
 
 
 async def _grounded(documents: list[dict]) -> list[dict]:
-    """Only documents whose URL answers as an ingestible public document right now."""
     alive = await verified([document["url"] for document in documents])
     return [document for document in documents if document["url"] in alive]
 
@@ -118,7 +96,6 @@ async def research_package(
     versions: object = None,
     created_by: str | None,
 ) -> KnowledgePackage:
-    """Research and store a draft package; raises the typed refusal when it cannot."""
     text = _clean(topic, MAX_TOPIC_CHARS)
     if len(text) < 3:
         raise InvalidEvidenceRequestError()
@@ -178,7 +155,6 @@ async def extend_package(
     package: KnowledgePackage,
     instruction: object,
 ) -> int:
-    """A further research round on the author's instruction; appends only sources not yet in the package."""
     ask = _clean(instruction, MAX_TOPIC_CHARS)
     if len(ask) < 3:
         raise InvalidEvidenceRequestError()

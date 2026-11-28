@@ -1,11 +1,5 @@
-"""The catalog rows one MCP capability mirror run reads and writes.
-
-:mod:`.mcp_capability_catalog` drives the run; this module builds and refreshes
-the individual ``CapabilityType`` and ``WorkspaceCapabilityBinding`` rows. A new
-binding is always disabled, and a refresh
-never rewrites admin-owned governance state except to park a drifted contract
-for review.
-"""
+"""The catalog rows one MCP capability mirror run reads and writes. A new binding is always disabled; a refresh never
+rewrites admin-owned state except to park a drifted contract for review."""
 
 from __future__ import annotations
 
@@ -17,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import CapabilityType, WorkspaceCapabilityBinding
 from .mcp_capability_contract import capability_source_entity_id
-from .mcp_capability_policy import (
+from .mcp_governance.capability_policy import (
     DEFAULT_MCP_CAPABILITY_RISK,
     MCP_CAPABILITY_KIND,
     MCP_CAPABILITY_REVIEW_STATE_NEEDS_REVIEW,
@@ -76,7 +70,6 @@ def upsert_capability_type(
     display_name: str,
     contract: dict[str, Any],
 ) -> tuple[CapabilityType, bool]:
-    """The capability type for one tool, created or contract-refreshed; whether it stays globally retired."""
     capability_type = existing_types.get(binding_key)
     if capability_type is None:
         capability_type = CapabilityType(
@@ -112,7 +105,7 @@ def new_capability_binding(
     contract: dict[str, Any],
     mirrored_at: str,
 ) -> WorkspaceCapabilityBinding:
-    """A disabled binding for a newly mirrored tool; an admin enables it."""
+    # Disabled until an admin enables it.
     return WorkspaceCapabilityBinding(
         id=str(uuid.uuid4()),
         workspace_id=workspace_id,
@@ -147,7 +140,6 @@ def refresh_capability_binding(
     contract: dict[str, Any],
     mirrored_at: str,
 ) -> tuple[bool, bool]:
-    """Refresh an existing binding's contract digest; ``(drifted, updated)``."""
     previous_config = binding.binding_config if isinstance(binding.binding_config, dict) else {}
     previous_digest = str(previous_config.get("schemaDigest") or "")
     has_drift = bool(previous_digest) and previous_digest != contract["schemaDigest"]

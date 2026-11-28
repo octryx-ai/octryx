@@ -11,22 +11,21 @@ import pytest
 from app.services.workflow_checks import evidence_families as families
 from app.services.workflow_checks.evidence_families import (
     OK,
-    REFUSED,
     UNAVAILABLE,
-    evaluate_families,
     evidence_envelope,
-    records_of,
     with_envelope,
 )
 from app.services.workflow_checks.library import (
     FAILED,
     PASSED,
-    ToolUse,
     TurnEvidence,
     evaluate_check,
     validate_checks,
 )
 from tests.incident_evidence_families_support import IN_WINDOW, SCOPE, WINDOW, _check, _use
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 # --- a phase turn end to end: unavailable pauses, no loop ---------------------------------------------------------
 
@@ -71,36 +70,6 @@ async def _phased_run(db, check: dict):
 # --- the session tool cache (contract G12) ------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_the_session_tool_cache_never_serves_another_session_or_a_refusal(db):
-    from app.services.session.tool_cache import lookup_session_tool_cache, store_session_tool_cache
-    from app.services.workflow_runs.records import new_chat_session
-    from tests.phased_workflow_fixtures import admin_user
-
-    admin = await admin_user(db)
-    first, second = await new_chat_session(db, admin, None), await new_chat_session(db, admin, None)
-    params = {"namespace": "shop"}
-    stored = with_envelope({"failed_count": 1, "failed_pods": [{}]}, evidence_envelope(
-        "kubernetes", OK, target_id="checkout", namespace="shop", window=None, count=1))
-    await store_session_tool_cache(db, session_id=first.id, tool_name="list_failed_pods", params=params,
-                                   result=stored)
-    assert (await lookup_session_tool_cache(db, session_id=first.id, tool_name="list_failed_pods",
-                                            params=params))[0]["evidence"]["target_id"] == "checkout"
-    assert await lookup_session_tool_cache(db, session_id=second.id, tool_name="list_failed_pods",
-                                           params=params) is None
-    refused = with_envelope({"error": "namespace_out_of_scope"}, evidence_envelope(
-        "kubernetes", REFUSED, target_id="checkout", namespace="shop", window=None, count=0,
-        reason="namespace_out_of_scope"))
-    other = {"namespace": "kube-system"}
-    await store_session_tool_cache(db, session_id=first.id, tool_name="list_failed_pods", params=other,
-                                   result=refused)
-    assert await lookup_session_tool_cache(db, session_id=first.id, tool_name="list_failed_pods",
-                                           params=other) is None
-    # A result cached under one run's target, served again in the same session for another target, carries the
-    # first target's envelope: it is not counted for the second.
-    cached = records_of([ToolUse("list_failed_pods", True, stored)])
-    assert evaluate_families(cached, required=["kubernetes"],
-                             scope={**SCOPE, "target_id": "payments"})[0] == FAILED
 
 
 @pytest.mark.asyncio

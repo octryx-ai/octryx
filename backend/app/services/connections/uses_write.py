@@ -1,18 +1,4 @@
-"""``PUT /api/v1/admin/connections/{id}`` ``uses``: the connection's own level and its linked uses.
-
-- ``agent_tools.level`` (``off`` | ``read`` | ``write``) is the connection's; ``write`` needs a credential
-  (``422 agent_tools_level_requires_credentials`` for a connection without sign-in).
-- ``knowledge`` (``enabled``, ``scope``, ``schedule``, ``schedule_cron``) and ``tickets`` (``enabled``, ``filter``,
-  ``scope``, ``schedule``, ``schedule_cron``, ``status_map``) change the one Knowledge source / intake linked to the
-  connection: none linked is ``409 use_not_linked``, several (one per Workspace) ``409 use_spans_workspaces``
-  (changed per Workspace there). An intake is saved through its own service (``secure_work/intake/setup``), so its
-  checks, schedule and preview rule stay exactly theirs; enabling an intake still needs a preview.
-- ``tickets.write_back`` belongs to the Workspace's work item workflow: ``422 write_back_on_workflow``.
-
-Only sent keys change; an array (``scope.*``, ``status_map``) replaces the stored one. Everything is validated before
-anything is written: a scope outside ``bound_scopes`` is ``422 scope_outside_connection``, a ``status_map[].ours``
-outside the server's work item states ``422 status_unknown``, a bad cron ``422 schedule_cron_invalid``.
-"""
+"""``PUT /api/v1/admin/connections/{id}`` ``uses``: the connection's own level and its linked uses."""
 
 from __future__ import annotations
 
@@ -59,7 +45,6 @@ def _bool(value: Any, field: str) -> bool:
 
 
 def parse_scope(row: ConnectorNamedConnection, raw: Any, field: str) -> list[str]:
-    """The scope key's items, canonical, within the connection's ``bound_scopes`` (when it has any)."""
     tool = str(row.tool_name)
     key = SCOPE_KEYS.get(tool)
     if key is None or not isinstance(raw, dict) or set(raw) != {key} or not isinstance(raw[key], list):
@@ -101,7 +86,6 @@ def _single(rows: list, use: str) -> Any:
 
 
 def parse_uses(row: ConnectorNamedConnection, raw: Any) -> dict[str, dict[str, Any]]:
-    """The validated ``uses`` changes; nothing is written here."""
     if not isinstance(raw, dict):
         raise invalid("uses", "uses must be an object.")
     allowed = uses_of(str(row.tool_name))
@@ -188,7 +172,6 @@ async def _apply_tickets(db: AsyncSession, user: User, row: ConnectorNamedConnec
 
 async def apply_uses(db: AsyncSession, user: User, row: ConnectorNamedConnection,
                      parsed: dict[str, dict[str, Any]]) -> list[str]:
-    """Write validated changes; returns the changed uses (for the audit)."""
     targets: dict[str, Any] = {}
     if parsed.get(USE_KNOWLEDGE):
         targets[USE_KNOWLEDGE] = _single((await knowledge_rows(db, [row.id]))[row.id], USE_KNOWLEDGE)

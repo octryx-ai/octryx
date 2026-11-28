@@ -1,14 +1,4 @@
-"""Authorization-code flow for the platform OAuth server (refresh rotation and revocation: ``refresh``).
-
-Security posture:
-- PKCE S256 is mandatory (OAuth 2.1); "plain" is rejected.
-- Authorization codes are single-use with a 10-minute TTL.
-- Refresh tokens rotate on every use; replaying a rotated token revokes the
-  whole grant (token-theft signal).
-- Every refresh checks that the platform login session captured at consent
-  time is still alive (rotation-chain walk). Platform logout or session
-  expiry therefore forces the external client back through /oauth/authorize.
-"""
+"""Authorization-code flow for the platform OAuth server (refresh rotation and revocation: ``refresh``)."""
 
 from __future__ import annotations
 
@@ -133,7 +123,6 @@ async def issue_authorization_code(
 
 
 async def _login_session_alive(db: AsyncSession, platform_refresh_token_id: str | None) -> bool:
-    """Walk the platform refresh-token rotation chain; the newest link must live."""
     if not platform_refresh_token_id:
         return False
     current = await db.get(RefreshToken, platform_refresh_token_id)
@@ -177,7 +166,6 @@ async def _issue_refresh_token(
 
 
 def _require_device_audience_binding(grant: OAuthGrant, resource: str | None) -> None:
-    """The device channel audience is minted for device grants only."""
     from ..devices.contract import DEVICE_AUDIENCE
 
     if resource == DEVICE_AUDIENCE and not grant.device_id:

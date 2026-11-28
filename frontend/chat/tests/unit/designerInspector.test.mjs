@@ -10,7 +10,7 @@ import { deciderName, exitName, kindName, paramName, toolName } from "../../src/
 import { DESIGNER_STEP_ID, defaultConfig } from "../../src/admin/components/agentsWorkflows/canvas/designer/inspector/nodeDefaults.ts";
 import { nodeConfigIssues } from "../../src/admin/components/agentsWorkflows/canvas/designer/inspector/nodeIssues.ts";
 import { edgeIssues, setIn } from "../../src/admin/components/agentsWorkflows/canvas/designer/inspector/patch.ts";
-import { onOpenHighChoices, onOpenHighDefault, onOpenHighSentence } from "../../src/admin/components/agentsWorkflows/canvas/designer/inspector/onOpenHigh.ts";
+import { onOpenHighChoices, onOpenHighSentence } from "../../src/admin/components/agentsWorkflows/canvas/designer/inspector/onOpenHigh.ts";
 
 const SEEDS = JSON.parse(fs.readFileSync(
   new URL("../../../../backend/app/services/workflow_runs/seeds/phased_workflows.json", import.meta.url), "utf8",
@@ -208,19 +208,15 @@ test("an agent step carries the technical name the backend requires", () => {
   assert.ok(!/workflow_id|workflow_class/.test(issues[0].message), "said in plain words");
 });
 
-// on_open_high (backend auto_accept.py): unset follows the workflow (epic delivery continues,
-// every other workflow waits); a wrong value or the key on another kind of box is said at the box, not only on save.
-test("a confirmation's open-high setting names the workflow default and refuses what the backend refuses", () => {
-  assert.equal(onOpenHighDefault("epic-delivery"), "continue_with_findings");
-  assert.equal(onOpenHighDefault("bug-fix-reproduction"), "wait");
-  assert.equal(onOpenHighDefault(undefined), "wait");
-  assert.equal(onOpenHighChoices("epic-delivery").empty, "Workflow default (continue; findings on the pull request)");
-  assert.equal(onOpenHighChoices("bug-fix").empty, "Workflow default (wait for a person)");
-  assert.equal(onOpenHighSentence({ auto_revise: 2 }, "epic-delivery"),
-    "If a high finding is still open after the automatic revisions, the run continues and the findings go on the pull request (workflow default).");
-  assert.equal(onOpenHighSentence({ on_open_high: "wait" }, "epic-delivery"),
-    "If a high finding is still open after the automatic revisions, the run waits for a person.");
-  assert.equal(onOpenHighSentence({}, "epic-delivery"), "");
+// on_open_high (backend auto_accept.py): unset waits; a wrong value or the key on another kind of box is said at the
+// box, not only on save.
+test("a confirmation's open-high setting names the default and refuses what the backend refuses", () => {
+  assert.equal(onOpenHighChoices().empty, "Default (wait for a person)");
+  assert.equal(onOpenHighSentence({ auto_revise: 2 }),
+    "If a high finding is still open after the automatic revisions, the run waits for a person (default).");
+  assert.equal(onOpenHighSentence({ on_open_high: "continue_with_findings" }),
+    "If a high finding is still open after the automatic revisions, the run continues and the findings go on the pull request.");
+  assert.equal(onOpenHighSentence({}), "");
   const catalog = { confirmationSubjects: ["decisions"] };
   const box = (type, config) => ({ id: "n", type, label: "Ship", config });
   const at = (issues) => issues.filter((issue) => issue.path === "config.on_open_high").map((issue) => issue.message);

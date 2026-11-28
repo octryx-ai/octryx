@@ -1,15 +1,5 @@
-"""Platform chat delivery of catalog skills: ``skill_search`` and ``skill_get``.
-
-Both read **published versions** through the one effective-set function (``skill_catalog.effective``) for the
-surface ``platform_chat``: availability, the Workspace surface switch, the assignment mode with selected skills
-and categories, blocked skills, the agent's blocked skills and the user's roles. On top of that the chat keeps its
-two runtime checks: the agent's allowed-skill list and the required tools of the turn.
-
-``skill_search`` returns metadata only; ``skill_get`` returns one content level (summary = description, card =
-description + section outline or the version's card override, full = the SKILL.md body) or one reference file
-(``resource="references/…"``). Scripts never reach chat. ``diagnostics`` (admin/operator only) loads the latest
-version of a skill that is not delivered, for troubleshooting; it is recorded as such.
-"""
+"""Platform chat delivery of catalog skills: ``skill_search`` and ``skill_get``. Both read published versions through
+the one effective-set function."""
 
 from __future__ import annotations
 

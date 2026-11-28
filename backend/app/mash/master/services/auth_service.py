@@ -1,8 +1,4 @@
-"""MASH OAuth2 client-credentials auth service.
-
-Handles token issuance and verification for platform-to-master
-communication using the client_credentials grant type.
-"""
+"""MASH OAuth2 client-credentials auth service."""
 
 from __future__ import annotations
 
@@ -42,7 +38,6 @@ def verify_client_secret(plain: str, hashed: str) -> bool:
 
 
 def generate_client_credentials() -> tuple[str, str]:
-    """Generate a (client_id, client_secret) pair."""
     client_id = f"mash_plat_{secrets.token_hex(12)}"
     client_secret = f"mash_sec_{secrets.token_urlsafe(32)}"
     return client_id, client_secret
@@ -66,7 +61,6 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> dict[str, Any]:
-    """Decode and verify a MASH access token. Raises jwt.PyJWTError on failure."""
     return jwt.decode(
         token,
         settings.jwt_secret,
@@ -77,7 +71,6 @@ def decode_access_token(token: str) -> dict[str, Any]:
 
 
 def validate_scopes(requested: list[str]) -> list[str]:
-    """Return only valid MASH scopes from the requested list."""
     return [s for s in requested if s in MASH_SCOPES]
 
 

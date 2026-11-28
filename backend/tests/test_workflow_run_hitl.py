@@ -1,9 +1,4 @@
-"""DevOps workflows S3: human-in-the-loop nodes of a phased run.
-
-A conversation is a clarification bound to the run, a confirmation decides on the hash of a typed payload (the
-test contract is the Work item's change plan behind the coverage gate), and an approval is four-eyes under the
-platform approval rule.
-"""
+"""DevOps workflows S3: human-in-the-loop nodes of a phased run."""
 
 from __future__ import annotations
 
@@ -25,10 +20,12 @@ from app.services.workflow_runs.sweep import sweep_waiting_runs
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
 from tests.prompt_catalog_publish_support import second_admin
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _definition(hitl: dict, routes: list[tuple[str, str, str | None]]) -> dict:
-    """start → <hitl node> → (routes) …, with a phase and two outcomes to route to."""
     return {
         "execution_kind": "phased",
         "nodes": [
@@ -69,7 +66,7 @@ async def test_a_conversation_asks_in_the_thread_and_the_reply_continues_the_run
     assert any(item["kind"] == "clarification" for item in (await personal_inbox(db, admin))["waiting"])
 
     resolution = await run_turn_resolution(db, session, user_message="The billing service.")
-    assert resolution["workflow_run"]["node_id"] == "work"  # the reply's own turn runs the next phase
+    assert resolution["workflow_run"]["node_id"] == "work"
     assert run.context["replies"]["ask"] == "The billing service."
     assert question.status == "answered"
 
@@ -85,7 +82,6 @@ async def _item(db) -> WorkItem:
 CONTRACT = {"id": "contract", "type": "user_confirmation", "label": "Test contract",
             "config": {"subject": "test_contract"}}
 CONFIRM_ROUTES = [("confirmed", "work", None), ("changed", "blocked", None), ("stopped", "blocked", None)]
-# A read-only phase that submits the test contract, so the run drafts the plan the confirmation shows.
 CLARIFY = copy.deepcopy(PHASE)
 CLARIFY["output"] = "test_contract"
 CLARIFY["tool_policy"]["allowlist"].append("submit_test_contract")
@@ -96,7 +92,6 @@ CRITERIA = [{"id": "AC1", "text": "Totals round half up", "tests": ["tests/test_
 
 
 def contract_definition(routes: list[tuple[str, str, str | None]] = CONFIRM_ROUTES) -> dict:
-    """start → clarify (submits the test contract) → draft the change plan → confirm it → (routes) …"""
     definition = _definition(CONTRACT, routes)
     definition["nodes"][1:1] = [
         {"id": "clarify", "type": "phase", "label": "Clarify", "config": copy.deepcopy(CLARIFY)},
@@ -112,7 +107,6 @@ def contract_definition(routes: list[tuple[str, str, str | None]] = CONFIRM_ROUT
 
 
 async def reach_contract(db, run, session, criteria: list[dict] | None = None) -> None:
-    """Clarify submits the contract and passes; the server drafts the plan and the run waits for the confirmation."""
     from app.services.workflow_runs.phase_outputs import submit_output
 
     answer = await submit_output(db, run, "submit_test_contract", {"criteria": criteria or CRITERIA})
@@ -139,7 +133,7 @@ async def test_confirming_the_test_contract_approves_the_change_plan_bound_to_it
     waiting = view["waiting"]
     assert waiting["subject"] == "test_contract" and waiting["payload"]["blockers"] == []
     assert (waiting["payload"]["change_plan_id"], waiting["payload"]["plan_hash"]) == (
-        plan.id, run.context["change_plan"]["hash"])  # exactly the plan the run drafted
+        plan.id, run.context["change_plan"]["hash"])
     assert [action["key"] for action in view["actions"]][:3] == ["confirm", "change", "stop"]
     assert view["actions"][0]["label"] == "Confirm these tests"
 
@@ -162,7 +156,6 @@ async def test_an_uncovered_test_contract_cannot_be_confirmed_only_changed(clien
     item = await _item(db)
     _admin, run, session = await _start(db, contract_definition(), work_item_id=item.id)
     await reach_contract(db, run, session)
-    # Edited in Work while the run waits: AC1 loses its command. The decision rebuilds the payload.
     plan = await drafted_plan(db, run)
     plan.acceptance_criteria_json = [{**plan.acceptance_criteria_json[0], "validation_commands": []}]
     await db.commit()
@@ -198,11 +191,10 @@ async def test_an_approval_is_four_eyes_unless_the_platform_rule_is_single_admin
     reviewer = await second_admin(db)
     inbox = await personal_inbox(db, reviewer)
     assert any(item["kind"] == "workflow_run_approval" and item["id"] == run.id for item in inbox["waiting"])
-    assert not any(item.get("id") == approval.id for item in inbox["waiting"])  # not twice as a review
+    assert not any(item.get("id") == approval.id for item in inbox["waiting"])
     await perform_action(db, run, user=reviewer, body={"action": "approve"})
     assert (run.status, run.current_node_id, approval.status) == ("running", "work", "approved")
 
-    # Single-admin rule: the requester approves their own run; a decision made elsewhere moves the run too.
     await set_approval_rule(db, rule="single_admin", actor_id=admin.id)
     _admin, second, _session = await _start(db, _definition(node, routes))
     assert "approve" in {item["key"] for item in await available_actions(db, second, access="write", user=admin)}
@@ -223,7 +215,7 @@ async def test_an_expired_approval_and_an_unanswered_question_pause_the_run(db):
 
     await continue_run(db, run, user=admin, k=1, is_admin=True)
     assert run.waiting_kind == "awaiting_approval"
-    assert run.node_state["waiting"]["approval_id"] != first_approval  # a new request
+    assert run.node_state["waiting"]["approval_id"] != first_approval
 
     ask = {"id": "ask", "type": "user_conversation", "config": {"question": "Which one?", "timeout_hours": 2,
                                                                 "reminder_hours": 1}}

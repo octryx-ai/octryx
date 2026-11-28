@@ -1,29 +1,4 @@
-"""Which profile patterns the structured extractors may run, and the engine that runs them.
-
-A Workspace can bring its own profile (``workspace_profile.py``), so its regular expressions run in
-the shared knowledge worker over every manual, file and record of the Workspace. Python's ``re``
-backtracks without a time limit (``(a|aa)*c`` on a long run of ``a`` never returns), so **no
-profile pattern runs on ``re``**: every one, the instance default's too, runs on RE2
-(``google-re2``), whose matching time is linear in the text. Each pattern:
-
-- is at most :data:`MAX_PATTERN_CHARS` long and compiles as Python syntax;
-- has no *ambiguous nested repeat* (the first line of defence): a repeated group
-  (``*``, ``+``, ``{2,}``) whose body itself repeats something and has no mandatory single
-  character of its own at its top level. ``(?: \\w+){3,}`` passes; ``(\\w+\\s?)*`` and ``(a+)+``
-  are refused;
-- compiles on RE2 (:class:`UnsupportedPatternError` otherwise: look-around, back-references,
-  ``(?x)``, a program larger than RE2's memory budget), so a document that saves is one that runs.
-
-Python semantics are kept where RE2 differs: ``\\w``, ``\\d``, ``\\s`` (and ``\\W``, ``\\D``, ``\\S``
-outside a character class) are rewritten to their Unicode classes (RE2's are ASCII), ``\\Z`` to
-``\\z``. ``\\b`` stays RE2's ASCII word boundary, and ``$`` without ``(?m)`` matches only at the very
-end (Python also before a final newline). A negated class shorthand inside a class (``[^\\W]``) has
-no Unicode form and is refused.
-
-Every text a pattern sees is capped at :data:`MAX_MATCH_INPUT_CHARS` (the head of the text, so
-offsets stay valid; ``sub`` leaves the tail as is, ``fullmatch`` of a longer text is no match).
-The messages name the rule, never the pattern.
-"""
+"""Which profile patterns the structured extractors may run, and the engine that runs them."""
 
 from __future__ import annotations
 
@@ -57,11 +32,11 @@ _INSIDE = {"w": _WORD, "d": _DIGIT, "D": r"\P{Nd}", "s": _SPACE}
 
 
 class UnsafePatternError(ValueError):
-    """The pattern is too long or could backtrack without bound."""
+    pass
 
 
 class UnsupportedPatternError(ValueError):
-    """The pattern uses syntax the linear-time engine (RE2) does not run."""
+    pass
 
 
 def _options() -> re2.Options:
@@ -114,7 +89,6 @@ def _check(items) -> None:
 
 
 def to_re2(pattern: str) -> str:
-    """The pattern in RE2 syntax with Python's Unicode ``\\w``/``\\d``/``\\s``; :class:`UnsupportedPatternError`."""
     out: list[str] = []
     index, in_class = 0, False
     while index < len(pattern):
@@ -154,8 +128,6 @@ def _capped(text: str) -> str:
 
 
 class ProfileMatch:
-    """One RE2 match with the ``re.Match`` calls the extractors use (group names work everywhere)."""
-
     __slots__ = ("_match", "_names")
 
     def __init__(self, match, names: dict[str, int]) -> None:
@@ -192,8 +164,6 @@ class ProfileMatch:
 
 
 class ProfilePattern:
-    """A checked profile pattern on RE2; every call sees at most :data:`MAX_MATCH_INPUT_CHARS`."""
-
     __slots__ = ("pattern", "groupindex", "_regexp")
 
     def __init__(self, pattern: str, regexp) -> None:
@@ -228,7 +198,6 @@ class ProfilePattern:
 
 
 def check_pattern(pattern: str) -> ProfilePattern:
-    """The pattern on RE2; :class:`UnsafePatternError`, :class:`UnsupportedPatternError`, ``re.error`` as is."""
     if len(pattern) > MAX_PATTERN_CHARS:
         raise UnsafePatternError()
     re.compile(pattern)

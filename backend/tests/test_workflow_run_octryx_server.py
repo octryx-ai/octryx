@@ -2,23 +2,17 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-from pathlib import Path
-
 import pytest
 
 from app.models import WorkflowRun
-from app.services.agent_gateway.policy import load_workspace_policy
-from app.services.agent_gateway.tool_decision import decide_tool_check
 from app.services.devices.job_offer import offer_body
 from app.services.mcp_governed_knowledge import McpCaller
 from app.services.mcp_workflow_run_tools import mcp_workflow_action_request, mcp_workflow_run_status
 from app.services.mcp_workflow_tools import mcp_workflow_select
-from app.services.workflow_runs.octryx.stop import run_stop
 from app.services.workflow_runs.records import active_run_for_session
-from app.time_utils import utc_now
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member, seed_workspace
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import systems  # noqa: F401 - the stubbed Jira and GitHub fixture
 from tests.workflow_run_octryx_support import (  # noqa: F401
     CONFIRMED,
@@ -28,6 +22,8 @@ from tests.workflow_run_octryx_support import (  # noqa: F401
     _launcher,
     _server_pipeline,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -113,86 +109,3 @@ async def test_only_a_person_who_may_act_attaches_and_a_new_run_waits_for_the_us
 # --- end to end: Workflow C's fix phase in a simulated octryx-claude session ----------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_an_octryx_session_runs_workflow_cs_fix_phase_cannot_edit_the_confirmed_test_and_pauses_at_n(
-        client, auth_headers, db, systems):  # noqa: F811 - the imported fixture
-    from app.services.workflow_runs.gateway_tests import record_gateway_tests
-    from tests.workflow_acceptance_support import (
-        KEY,
-        REPRO_TEST,
-        REPRODUCTION,
-        _phase_turn,
-        _pytest,
-        _settle,
-        _workspace,
-        submitted,
-    )
-
-    project, item = await _workspace(db, systems)
-    started = await client.post("/api/v1/workflow-runs", headers=auth_headers, json={
-        "workflow_key": KEY, "work_item_id": item.id, "project_id": project.id, "repository": "github:acme/pay"})
-    run_id, session_id = started.json()["run"]["id"], started.json()["session_id"]
-    await _settle(client, auth_headers, run_id)
-    run = await db.get(WorkflowRun, run_id)
-    working_copy = Path(run.context["local_path"])
-    (working_copy / "tests" / "test_totals.py").write_text(REPRO_TEST)
-    await _phase_turn(db, session_id, [_pytest(working_copy), await submitted(  # red, waits for the confirmation
-        db, session_id, "submit_reproduction", REPRODUCTION)])
-
-    admin = await admin_user(db)
-    gateway, key = await _launcher(db, admin, project.id, root=str(working_copy))
-    caller = McpCaller(user_id=admin.id, grant_id="mcp", scopes=("workflow:read",), workspace_header=project.id,
-                       session_key=key)
-    attached = await mcp_workflow_select(db, caller=caller, user=admin, workspace_id=project.id,
-                                         arguments={"work_item": item.source_key})
-    assert attached["workflow_run"]["waiting"]["kind"] == "awaiting_confirmation"
-    await db.commit()
-    waiting = (await client.get(f"/api/v1/workflow-runs/{run_id}", headers=auth_headers)).json()["run"]["waiting"]
-    confirmed = await client.post(f"/api/v1/workflow-runs/{run_id}/actions", headers=auth_headers,
-                                  json={"action": "confirm", "payload_hash": waiting["payload_hash"]})
-    assert confirmed.json()["run"]["current_node"]["id"] == "fix"  # confirmed in the platform
-
-    import hashlib
-
-    digest = "sha256:" + hashlib.sha256(REPRO_TEST.encode()).hexdigest()
-    policy = (await load_workspace_policy(db, project.id)).policy
-
-    async def facts() -> dict:  # the launcher reports for the pass its contract names
-        current = await db.get(WorkflowRun, run_id)
-        return {"workflow_run_facts": {"node_id": current.current_node_id, "entry": current.node_state.get("entry"),
-                                       "confirmed_test_digests": {CONFIRMED: digest}, "checked_files": [CONFIRMED],
-                                       "target_exists": True}}
-
-    async def pre_tool_use(tool, **tool_input):
-        hook = {**_hook(tool, **tool_input), "cwd": str(working_copy), **await facts()}
-        return await decide_tool_check(db, session=gateway, session_key=key, policy=policy, hook_input=hook)
-
-    denied = await pre_tool_use("Edit", file_path=str(working_copy / CONFIRMED), old_string="3", new_string="2")
-    assert (denied["decision"], denied["reason"]) == ("deny", "confirmed_test_protected")
-    assert (await pre_tool_use("Edit", file_path=str(working_copy / "pay" / "totals.py"), old_string="a",
-                               new_string="b"))["decision"] == "allow"
-    run = await db.get(WorkflowRun, run_id)
-    assert run.context["confirmed_test_files"][f"{CONFIRMED}::test_rounds_half_up"]["device_sha256"] == digest
-
-    # Every round the suite is green but the confirmed test did not run: the server's green gate loops back.
-    at = utc_now()
-    for round_number in range(4):
-        at += timedelta(minutes=1)
-        rows = [_call(gateway, "Edit", at=at, file_path=str(working_copy / "pay" / "totals.py")),
-                _call(gateway, "Bash", at=at + timedelta(seconds=1), command="pytest -q tests/test_zero.py",
-                      excerpt="tests/test_zero.py::test_zero PASSED")]
-        for row in rows:
-            db.add(row)
-        await db.flush()
-        await record_gateway_tests(db, session_id=gateway.id, policy=policy, tool_calls=rows)
-        answer = await run_stop(db, session=gateway, hook_input=await facts(), tool_calls=rows,
-                                test_prefixes=(("pytest",),))
-        await db.commit()
-        if round_number < 3:
-            assert answer["state"] == "passed" and answer["workflow_run"]["phase"]["title"] == "Minimal fix"
-    run = await db.get(WorkflowRun, run_id)
-    assert (run.status, run.pause_reason) == ("paused", "loop_limit")
-    assert answer["state"] == "passed" and answer["workflow_run"]["paused"]["reason"] == "loop_limit"
-    paused = await pre_tool_use("Edit", file_path=str(working_copy / "pay" / "totals.py"), old_string="a",
-                                new_string="b")
-    assert (paused["decision"], paused["reason"]) == ("deny", "run_paused")

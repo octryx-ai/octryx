@@ -23,7 +23,6 @@ _EXTENSIONS = {"image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp"}
 
 
 def picture_type(data: bytes) -> str:
-    """PNG, JPEG or WebP by their first bytes (the platform checks the same), else ``""``."""
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -34,8 +33,7 @@ def picture_type(data: bytes) -> str:
 
 
 def inbox_dir() -> Path:
-    """Where pictures from the phone land: the user's own temp folder (per user on macOS), outside octryx's state,
-    which octryx's sessions may not read."""
+    # Outside octryx's state, which octryx's sessions may not read.
     return Path(tempfile.gettempdir()) / "octryx-inbox"
 
 
@@ -64,7 +62,6 @@ class AttachmentInbox:
         entry["size"] += len(data)
 
     def _store(self, message_id: str, named: list[Any]) -> list[Path] | None:
-        """The message's pictures written to the inbox, or ``None`` when one is missing or not what it claims."""
         pictures: list[tuple[str, bytes]] = []
         for item in named:
             item = item if isinstance(item, dict) else {}

@@ -1,35 +1,4 @@
-"""``run_test_suite`` in a server phase of a workflow run: the repository's declared test command in the run's copy.
-
-Without it, ``run_test_suite`` ran ``/usr/local/bin/python -m pytest … -q`` — the
-API container's own interpreter (``code_quality/tests.py``) — in the run's working copy, three times: "No module named
-pytest", no test ran. The repository declares its environment (coding setup: ``path: [.venv/bin]``, ``test: python -m
-pytest -v tests/ --junitxml=test-reports/report.xml``) and ``workspace.prepare`` had made it ready in that copy.
-
-For a turn whose tools work in the run's copy (``project_config.run_working_copy``) and whose run repository
-**declares** its environment with a test command — the environment the Prepare step recorded as prepared
-(``context.workspace_preparation.spec.environment``; without a recorded preparation, ``spec.environment_for_run``),
-declared source only — :func:`declared_test_run` runs exactly that command:
-
-- in the run's working copy, as a shell command through the platform's execution runtime (``execute_with_runtime``,
-  the same boundary every platform command takes: provider, host-fallback rule, network/resource limits, timeout,
-  metadata), with the declared ``path`` directories first on ``PATH`` (``server_prepare._env``, as the readiness
-  probes run) — never the API's interpreter and never a direct host spawn. A runtime that refuses
-  or cannot start the runner answers as a runner that could not start;
-- verbatim, so its ``-v`` output carries canonical ``file::test`` node ids and its JUnit report lands where the
-  declared command writes it in the copy;
-- bound to exactly this execution: the declared report path is removed before the run, so a report
-  present afterwards (mtime checked again) is this run's — parsed against the copy's files into canonical ids and
-  used as the run's evidence (``test_report.fresh``). A report that is absent afterwards is never trusted: an
-  earlier run's report can never make a runner that did not start, or crashed, look red or green;
-- a preparation that is not ``ready`` or a declared ``path`` directory missing in the copy (the environment is not
-  prepared) is answered exit 127 with the reason, and a runner that cannot start answers as it does (``No module
-  named pytest``, exit 127): the run's test evidence classifies both as ``environment``
-  (``workflow_checks/test_command_outcome``) and the run pauses ``environment_not_ready`` — never "not called",
-  never a pass.
-
-Anything else — chat outside a run, a run on a device, a run without a declared test command — keeps the generic
-``run_test_suite`` (``code_quality/tests``).
-"""
+"""``run_test_suite`` in a server phase of a workflow run: the repository's declared test command in the run's copy."""
 
 from __future__ import annotations
 
@@ -52,7 +21,6 @@ def _kept(text: str) -> str:
 
 
 def _report_path(root: Path, command: str) -> Path | None:
-    """The JUnit report the declared command writes, inside the copy (``None``: none, or a path outside it)."""
     match = _JUNIT.search(command)
     if match is None:
         return None
@@ -61,10 +29,7 @@ def _report_path(root: Path, command: str) -> Path | None:
 
 
 def _fresh_report(path: Path | None, started: float, root: Path) -> dict[str, Any]:
-    """The report this execution wrote — canonical results via the copy's files — or ``{"fresh": False}``.
-
-    The path was removed before the run, so a report present now was written by it (checked again by its mtime);
-    an absent one is never trusted, an earlier run's report never reaches the evidence."""
+    # The path was removed before the run, so only a report present now is this execution's.
     from ...workflow_checks.test_ids import Resolver
     from ...workflow_checks.test_output import parse_junit
 
@@ -81,7 +46,6 @@ def _fresh_report(path: Path | None, started: float, root: Path) -> dict[str, An
 
 
 def _not_ready(command: str, root: Path, reason: str) -> dict[str, Any]:
-    """The answer of a runner that could not start: exit 127 with the reason (classified ``environment``)."""
     return {"framework": "declared", "repo_root": str(root), "command": command, "exit_code": 127,
             "passed": 0, "failed": 0, "errors": 0, "skipped": 0, "all_green": False, "stdout": "",
             "stderr": f"{command.split()[0] if command.split() else 'test'}: command not found ({reason})",
@@ -90,10 +54,7 @@ def _not_ready(command: str, root: Path, reason: str) -> dict[str, Any]:
 
 async def _execute(command: str, *, root: Path, env: dict[str, str], timeout: int, db: Any,
                    project_config: dict[str, Any]) -> tuple[int | None, str, str, dict[str, Any]]:
-    """The declared command through the platform's execution runtime (``execute_with_runtime``), never a direct host
-    spawn: the configured provider, its host fallback rule, network/resource limits and timeout decide, exactly as
-    for every other platform command (``code_quality_service._run_exec``). ``exit_code`` is ``None`` when the runtime
-    refused or could not start it; a timeout answers 124."""
+    # Never a direct host spawn: the configured runtime's limits and fallback rule apply as for every platform command.
     from ... import execution_runtime  # resolved at call time: the module's configured entry
     from ...code_quality.run_status import bounded_command_timeout
 
@@ -108,15 +69,12 @@ async def _execute(command: str, *, root: Path, env: dict[str, str], timeout: in
 
 
 async def declared_environment(db: Any, run: Any) -> tuple[Path, dict[str, Any], dict[str, Any]] | None:
-    """``(copy, environment, preparation)`` for a run whose copy is on this server and whose repository declares its
-    environment (the Prepare step's recorded spec, else the declaration now; declared source only), else ``None``."""
     from .preparation import preparation
     from .spec import SOURCE_CODING_SETUP, SOURCE_DECLARED, environment_for_run, runtime_environment
 
     root = run_working_copy(run) if run is not None else None
     if root is None:
         return None
-    # The environment the Prepare step prepared (its recorded spec), else the repository's declaration now.
     prepared = preparation(run)
     environment = dict(dict(prepared.get("spec") or {}).get("environment") or {}) or runtime_environment(
         await environment_for_run(db, run))
@@ -127,7 +85,6 @@ async def declared_environment(db: Any, run: Any) -> tuple[Path, dict[str, Any],
 
 def not_ready_reason(label: str, command: str, root: Path, environment: dict[str, Any],
                      prepared: dict[str, Any]) -> str:
-    """Why the declared ``label`` command cannot run in the copy (refused, not prepared, path missing), else ''."""
     from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_MESSAGE
 
     from ...execution_runtime.foreign_build_guard import guard_server_command_in
@@ -153,7 +110,6 @@ def not_ready_reason(label: str, command: str, root: Path, environment: dict[str
 
 def server_build_refused(db: Any, run: Any, label: str, command: str,
                          environment: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The run event of a declared command the server refused (``server_build_refused``); its result's extra fields."""
     from app.services.execution_runtime.build_guard_classify import classify_command
     from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_NOT_ALLOWED
 
@@ -173,7 +129,6 @@ def server_build_refused(db: Any, run: Any, label: str, command: str,
 
 
 async def audit_refusal(command: str, where: str) -> None:
-    """The refused declared command's one audit row (``command_audit``; refused either way)."""
     from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_NOT_ALLOWED
 
     from ...execution_runtime import command_audit
@@ -186,7 +141,6 @@ async def audit_refusal(command: str, where: str) -> None:
 
 async def declared_test_run(context: Any, *, timeout_sec: int = 120,
                             previous_failed_tests: list[str] | None = None) -> dict[str, Any] | None:
-    """The declared test command's result in the run's copy, or ``None`` (the generic runner applies)."""
     from ..records import active_run_for_session
     from .server_prepare import _env
 

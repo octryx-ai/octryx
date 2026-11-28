@@ -1,18 +1,4 @@
-"""What a repository (or a plugin folder in it) contains, from its tree listing.
-
-- A **skill** is every folder with a ``SKILL.md`` below the inspected path; a ``SKILL.md`` inside another skill's
-  folder is not a second skill (listed as ignored). Other Markdown files with frontmatter (``SECURITY.md``) are
-  reference files.
-- A **plugin root** is a folder with ``.claude-plugin/plugin.json`` or ``.mcp.json``; its MCP servers become MCP
-  server entries.
-- Plugin components the catalog never imports are listed with the reason: ``agents/``, ``commands/``, ``hooks/``
-  (would run code outside the tool check), ``bin/``, ``.lsp.json``, ``output-styles/`` and other harnesses'
-  manifests (``.codex-plugin/``, ``.cursor-plugin/``).
-- A **marketplace entry** (``.claude-plugin/marketplace.json``) resolves to a folder of the same repository
-  (``"./external_plugins/terraform"``, below ``metadata.pluginRoot`` when set) or to another repository
-  (``github``/``url``/``git-subdir`` sources, pinned by ``sha`` or ``ref``). A folder that does not exist at the
-  commit is refused with ``plugin_source_missing``.
-"""
+"""What a repository (or a plugin folder in it) contains, from its tree listing."""
 
 from __future__ import annotations
 
@@ -60,8 +46,6 @@ class Layout:
 
 @dataclass(frozen=True, slots=True)
 class PluginSource:
-    """Where a marketplace entry's plugin lives: ``url`` None means the marketplace repository itself."""
-
     name: str
     path: str
     url: str | None = None

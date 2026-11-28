@@ -56,8 +56,6 @@ def test_the_decision_about_the_copy_carries_its_path_and_a_denial_stays_a_denia
 
 
 def test_a_seat_config_dir_outside_the_state_directory_is_the_sessions_own_too(state, tmp_path, monkeypatch):
-    """A seat config dir shared from another place (the keychain login), seen by the hook only as CLAUDE_CONFIG_DIR,
-    is the session's own: the Read and a jq of the spilled contract are allowed."""
     shared = tmp_path / "elsewhere" / "claude-config-seat"
     folder = shared / "projects" / "-repo" / SESSION / "tool-results"
     folder.mkdir(parents=True)
@@ -76,7 +74,6 @@ def test_a_seat_config_dir_outside_the_state_directory_is_the_sessions_own_too(s
 
 
 def test_the_sessions_own_layout_is_recognised_whatever_the_hooks_environment_says(state, tmp_path, monkeypatch):
-    """The hook sees CLAUDE_CONFIG_DIR as the person's own dir and no seat dir: the layout still decides."""
     shared = tmp_path / "home" / ".octryx" / "claude-config-seat"
     folder = shared / "projects" / "-repo" / SESSION / "tool-results"
     folder.mkdir(parents=True)

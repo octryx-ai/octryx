@@ -1,5 +1,4 @@
-/* Flow builder root, workbench layout and the definitions sidebar. */
-/* ── Flow Builder Root ───────────────────────────────────────────────────────── */
+/* ── Editor root ─────────────────────────────────────────────────────────────── */
 .flow-builder {
   display: flex;
   flex-direction: column;
@@ -48,7 +47,7 @@
   -webkit-line-clamp: 2;
 }
 
-/* ── Workbench layout (definitions | canvas | inspector) ───────────────────── */
+/* ── Editor layout (canvas | side panel) ─────────────────────────────────────── */
 .flow-builder__layout {
   position: relative;
   display: grid;
@@ -64,20 +63,6 @@
   overflow: hidden;
 }
 
-/* Sidebar column: fixed width */
-.flow-builder__sidebar {
-  grid-area: sidebar;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  border-right: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--panel-elevated) 72%, transparent);
-  padding: 1rem 12px;
-  min-height: 0;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
 /* Main area: fills remaining space */
 .flow-builder__main {
   grid-area: main;
@@ -90,57 +75,4 @@
   align-self: stretch;
   overflow: hidden;
   background: color-mix(in srgb, var(--panel-strong) 88%, transparent);
-}
-
-.flow-builder__inspector {
-  grid-area: inspector;
-  border-left: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--panel-elevated) 78%, transparent);
-  overflow: hidden;
-  overflow-y: auto;
-  min-height: 0;
-}
-
-/* ── Sidebar elements ─────────────────────────────────────────────────────────── */
-.flow-builder__list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.flow-builder__list-header {
-  display: flex;
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: var(--ds-text-xs);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0 4px;
-}
-
-.flow-builder__list-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  width: 100%;
-  min-height: 52px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--ds-radius-md);
-  background: color-mix(in srgb, var(--panel) 74%, transparent);
-  color: var(--text);
-  text-align: left;
-  padding: 0.75rem 12px;
-  cursor: pointer;
-}
-
-.flow-builder__list-item--active {
-  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-  background: color-mix(in srgb, var(--accent) 10%, transparent);
-  color: var(--accent-strong);
-}
-
-.flow-builder__list-item small {
-  color: var(--muted);
-  font-size: var(--ds-text-xs);
 }

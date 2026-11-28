@@ -111,3 +111,38 @@ test("the phone home shows what needs the person, the tiles, the tasks and the r
   assert.equal(classes(root, "m-icon-button")[0].props.className, "m-icon-button m-spin");
   act(() => view.unmount());
 });
+
+test("a session handed over or waiting in the pool is taken over from Needs you, a refusal in its own words", async () => {
+  const { HomePage } = load("mobile/HomePage.tsx", {
+    RedactedText: { RedactedText: (p) => createElement("span", null, p.value) },
+    ChatList: { ChatRows: () => createElement("ul") },
+    icons: { Icon: (p) => createElement("i", { "data-icon": p.name }) },
+    PageHeader: { TabHeader: (p) => createElement("header", null, p.title) },
+    pullToRefresh: { requestRefresh: async () => {} },
+    TaskRow: { TaskRow: () => createElement("li") },
+  });
+  const taken = [];
+  let refuse = true;
+  const props = {
+    switcher: null, workspaces: {}, loading: false, error: "", approvals: [], tiles: [], threads: [], sessions: [], cases: [],
+    usage: null, onOpenItem: noop, onOpenApproval: noop, onOpenCase: noop, onOpenThread: noop, onOpenSession: noop,
+    onAllChats: noop, onNewChat: noop,
+    needs: [{ key: "pool:p-1", kind: "pool", title: "Checkout copy", subtitle: "In the session pool", workspace: null },
+      { key: "n1", kind: "problem", title: "Run stuck", subtitle: "", workspace: null }],
+    onTakeOver: async (item) => {
+      taken.push(item.key);
+      if (refuse) throw new Error("Someone else took this session first.");
+    },
+  };
+  const view = await render(HomePage, props);
+  const root = view.root;
+  const buttons = root.findAllByProps({ "data-testid": "m-take-over" }).filter((node) => typeof node.type === "string");
+  assert.equal(buttons.length, 1, "only the pool entry is taken over here");
+  await act(async () => buttons[0].props.onClick());
+  assert.equal(text(root.findByProps({ role: "alert" })), "Someone else took this session first.");
+  refuse = false;
+  await act(async () => buttons[0].props.onClick());
+  assert.deepEqual(taken, ["pool:p-1", "pool:p-1"]);
+  assert.equal(root.findAllByProps({ role: "alert" }).length, 0);
+  act(() => view.unmount());
+});

@@ -8,14 +8,11 @@ from typing import Any
 
 from sqlalchemy import select
 
-from app.agent.loops.response._loop_workflow_checks import handle_workflow_checks_guard
 from app.models import User
 from app.services.flow_definitions import create_flow_definition, publish_flow_definition_version
-from app.services.prompt_catalog import prompt_set_scope, seed_prompt_set
-from app.services.workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
 
 PHASE = {
-    "agent": "engineer",  # every phase names its platform agent
+    "agent": "engineer",
     "workflow_id": "knowledge_request",
     "workflow_class": "knowledge_request",
     "workflow_contract": {
@@ -57,8 +54,6 @@ async def admin_user(db) -> User:
 
 
 async def join_workspace(db, user: User, project_id: str, *, role: str = "admin") -> None:
-    """``user`` becomes a member of the Workspace, the way a real requester is: a platform admin outside the run's
-    Workspace is no default decider (``workflow_runs.responsible.responsible_decider``)."""
     from app.models.security.user import UserProject
 
     if await db.get(UserProject, (user.id, project_id)) is None:
@@ -67,7 +62,6 @@ async def join_workspace(db, user: User, project_id: str, *, role: str = "admin"
 
 
 async def requester_workspace(db, user: User) -> str:
-    """A fresh active Workspace with ``user`` as a member; the id."""
     from app.models import Project
 
     project = Project(id=str(uuid.uuid4()), name=f"runs-{uuid.uuid4().hex[:8]}", config={}, is_active=True)
@@ -78,8 +72,6 @@ async def requester_workspace(db, user: User) -> str:
 
 
 async def run_workspace(db, user: User, work_item_id: str | None = None) -> str:
-    """The Workspace a test run starts in, with ``user`` as a member: the Work item's, else a fresh one (which a
-    Work item without a Workspace then belongs to)."""
     from app.models.runtime.secure_work import WorkItem
 
     item = await db.get(WorkItem, work_item_id) if work_item_id else None
@@ -87,14 +79,13 @@ async def run_workspace(db, user: User, work_item_id: str | None = None) -> str:
         await join_workspace(db, user, item.project_id)
         return item.project_id
     workspace_id = await requester_workspace(db, user)
-    if item is not None:  # a Work item belongs to the Workspace its run works in
+    if item is not None:
         item.project_id = workspace_id
         await db.flush()
     return workspace_id
 
 
 async def member_admin(db, project_id: str) -> User:
-    """The platform admin as a member of ``project_id`` (the requester of a run in it)."""
     admin = await admin_user(db)
     await join_workspace(db, admin, project_id)
     return admin
@@ -104,7 +95,6 @@ REVIEWER_USERNAME = "phased-reviewer"
 
 
 async def reviewer_user(db) -> User:
-    """A second admin: a phased version is published by an admin other than its author (D2b2 four-eyes)."""
     from app.models import Role, UserRole
 
     user = (await db.execute(select(User).where(User.username == REVIEWER_USERNAME))).scalar_one_or_none()
@@ -134,17 +124,7 @@ async def publish_phased(db, definition: dict[str, Any], *, key: str | None = No
 
 
 async def phase_turn(db, session_id: str, resolution: dict, tools: list[str]) -> Any:
-    """One governed chat turn's end: the real turn-end checks guard with the given successful tool calls."""
-    history = [{"tool_name": name, "status": "success", "result": {}} for name in tools]
+    from tests.phase_turn_support import finish_phase_turn
 
-    async def persist_turn_trace(**_kwargs):
-        return None
-
-    with prompt_set_scope(seed_prompt_set()):
-        return await handle_workflow_checks_guard(
-            db=db, session_id=session_id, runtime={"provider_name": "test"}, response={"usage": {}},
-            request_messages=[], messages=[], context_snapshot={}, runtime_attempts=[], runtime_settings={},
-            usage_model="m", content="Done.", tool_calls=None, has_followup_steps=False, sub_agent_depth=0,
-            request_analysis={ROUTING_RESOLUTION_KEY: resolution}, turn_tool_history=history,
-            persist_turn_trace=persist_turn_trace,
-        )
+    return await finish_phase_turn(db, session_id, resolution,
+                                   [{"tool_name": name, "status": "success", "result": {}} for name in tools])

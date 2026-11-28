@@ -1,8 +1,4 @@
-"""The shipped content of the three platform agents.
-
-An agent holds a role, instructions, a capability ceiling and a runtime preference. It never grants tools
-(tools come from the phase or from the chat default set), never names a workflow and has no steps.
-"""
+"""The shipped content of the three platform agents."""
 
 from __future__ import annotations
 
@@ -21,7 +17,7 @@ class PlatformAgentSeed:
     capability_ceiling: str
     runtime_preference: str
     chat_selectable: bool
-    #: ``none`` is the enforced text-only boundary (services/agent_tool_surface.py).
+    #: ``none`` is the enforced text-only boundary (services/agent_tool_surface_contract.py).
     tool_surface: str = "governed"
     #: A read-only system mode, so the agent alone never raises a turn's class; the phase does.
     agent_type: str = "diagnosis"

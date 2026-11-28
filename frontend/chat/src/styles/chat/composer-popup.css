@@ -41,7 +41,7 @@
 
 .composer-popup__title {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -73,7 +73,7 @@
 
 .composer-popup__name {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--highlight);
   white-space: nowrap;
 }
@@ -103,7 +103,7 @@
   padding: 0.25rem 0.75rem 0.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

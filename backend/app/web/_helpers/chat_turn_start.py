@@ -1,11 +1,4 @@
-"""The ``/chat/api`` turn-start adapter, and the chat task-generation handler.
-
-``_start_chat_turn`` hands the chat routes' request to the service owner
-(``services/session/turn_start.start_turn``: preparation with explicit refusal states, the
-turn marker, the explicit selection, the background task) and renders a refusal with the
-chat HTTP contract (``chat_turn_prepare``). Running, completing and settling the turn are
-owned by ``services/session`` (``turn_runner``, ``turn_settlement``, ``turn_failure``).
-"""
+"""The ``/chat/api`` turn-start adapter with the chat HTTP contract for a refusal, and the task-generation handler."""
 
 import logging
 from typing import Any
@@ -57,11 +50,6 @@ async def _start_chat_turn(
     session_factory=None,
     **request_kwargs,
 ) -> AgentSession:
-    """Start a ``/chat/api`` turn through the service owner; a refusal is the chat HTTP error.
-
-    ``request_kwargs`` are :func:`chat_turn_request`'s. Returns the prepared session,
-    loaded in the request's database session.
-    """
     started = await start_turn(
         chat_turn_request(user_id=user.id, **request_kwargs),
         session_factory=session_factory or async_session_factory,
@@ -77,15 +65,8 @@ async def _start_chat_turn(
 def _pre_turn_dispatch_failure(
     admission_denial: dict | None, last_error: Exception | None
 ) -> HTTPException:
-    """The failure a pre-turn extraction reports when no candidate answered.
-
-    A Workspace refusal produced no request, and it stays reported even when a
-    *later* candidate additionally failed for a provider reason — otherwise the
-    generic runtime error would hide the policy state an operator has to act on.
-    ``409`` when nothing dispatched at all, ``502`` when a real provider failure
-    also happened; ``runtime_failure`` names which of the two it is.
-    """
-
+    # A Workspace refusal stays reported even when a later candidate failed for a provider reason: otherwise the generic
+    # runtime error would hide the policy state an operator must act on.
     if admission_denial is not None:
         return HTTPException(
             status_code=502 if last_error is not None else 409,
@@ -97,11 +78,6 @@ def _pre_turn_dispatch_failure(
 
 
 async def _task_extraction_candidates(db: AsyncSession, session: AgentSession) -> tuple[list[tuple], Any, Any]:
-    """The ordered (provider, model id) candidates for task extraction, with the model snapshot and scope.
-
-    Order: the "Task extraction from chat" Task model when one is set, else the session's own runtime
-    target (the user's runtime selection); then every other active control-plane target as fallback.
-    """
     candidates: list[tuple] = []
     session_meta = dict(session.metadata_ or {})
     session_runtime_target_id = str(session_meta.get("runtime_target_id") or "").strip()
@@ -142,7 +118,6 @@ async def _dispatch_task_extraction(
     scope: Any,
     llm_messages: list[dict],
 ) -> dict:
-    """The first non-empty answer of a candidate the model gates and the Workspace admission allow."""
     from ...agent.providers import get_provider as _get_provider
     from ...services.content_security.model_call_scope import model_call_scope, session_call
 
@@ -177,12 +152,11 @@ async def _dispatch_task_extraction(
                     temperature=0,
                     max_tokens=1024,
                 )
-            # Treat empty/null content as a failure and try next provider
             if not (response.get("content") or "").strip():
                 last_error = RuntimeError(f"Provider {_prov_obj.name}/{_model_id} returned empty content")
                 response = None
                 continue
-            break  # success — stop trying
+            break
         except Exception as _exc:
             last_error = _exc
         finally:

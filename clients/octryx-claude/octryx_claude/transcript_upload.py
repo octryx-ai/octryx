@@ -1,22 +1,5 @@
-"""Full session transcripts to the platform, only while the Workspace's switch is on.
-
-Today the platform gets a session's job events, its live progress (no file contents), the redacted digest at
-finalize and its usage; the raw Claude Code transcript (``<profile config dir>/projects/<folder>/<session id>.jsonl``)
-stays on the Mac. With the Workspace's ``session_transcripts`` switch on (the client policy says so at the start),
-a daemon thread next to the launcher's heartbeat reads the new complete lines of the session's transcript and of its
-subagents' transcripts (``<folder>/<session id>/subagents/agent-<id>.jsonl``), redacts them (:mod:`transcript_redact`)
-and posts them in batches (``POST /sessions/transcript``). It never blocks a tool call or the session: Claude Code
-writes the file, this thread only reads it, and every failure is the next round.
-
-Like the device's event outbox (:mod:`device_outbox`) nothing is lost over a sleep or a lost connection: the
-transcript itself is the durable buffer and ``transcript-outbox/<session id>.json`` (0600) keeps, per stream, the byte
-offset and line the platform acknowledged. A round sends everything after it; a batch the platform already holds is
-acknowledged as ``duplicate``. A resumed session continues after what the platform has. A session that ended while
-the platform was unreachable is sent by the next session's thread on this Mac (:func:`flush_leftovers`).
-
-When the platform answers ``off`` (an admin switched it off) the thread stops at once and forgets its offsets. Off at
-the start: no thread, no file, no call; nothing changes against a launcher without this feature.
-"""
+"""Full session transcripts to the platform, redacted and batched, only while the Workspace's switch is on.
+The transcript itself is the durable buffer; an outbox keeps the acknowledged offset per stream."""
 
 from __future__ import annotations
 
@@ -58,14 +41,12 @@ _JOB_ID = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
 
 def enabled(policy_body: dict[str, Any] | None) -> bool:
-    """The client policy's word: on only when the Workspace switched it on."""
     section = (policy_body or {}).get("session_transcripts")
     return isinstance(section, dict) and section.get("enabled") is True
 
 
 @dataclass
 class Shipper:
-    """One session's upload: its context, its transcript's id and the acknowledged position per stream."""
 
     state: LocalState
     context: SessionContext
@@ -110,7 +91,6 @@ class Shipper:
                                   timeout=TIMEOUT_SECONDS, body=body)
 
     def ship_round(self, http: httpx.Client) -> bool:
-        """Send every new complete line once; ``False`` when the round stopped early (unreachable, refused, off)."""
         if self.stopped:
             return False
         for stream, path in sorted(stream_files(self.config_dir, self.claude_session_id).items()):
@@ -171,7 +151,6 @@ def _alive(pid: Any) -> bool:
 
 
 def flush_leftovers(state: LocalState, http: httpx.Client, *, skip: str = "", now: float | None = None) -> None:
-    """Send what ended sessions on this Mac still owe (the platform was unreachable at their end)."""
     root = state.root / OUTBOX_DIR
     for path in sorted(root.glob("*.json")) if root.is_dir() else []:
         stored = read_json(path)
@@ -198,8 +177,6 @@ def flush_leftovers(state: LocalState, http: httpx.Client, *, skip: str = "", no
 
 
 class Running:
-    """The upload thread of one session: :meth:`stop` sends what is left once (bounded wait), :meth:`bind` follows
-    a transcript id that is known only after the turn (a forked device turn)."""
 
     def __init__(self, shipper: Shipper, *, interval: float, client_factory: Callable[[], httpx.Client]) -> None:
         self.shipper = shipper
@@ -250,7 +227,6 @@ class Running:
 def start(state: LocalState, context: SessionContext, *, config_dir: Path, claude_session_id: str, job_id: str = "",
           interval: float = INTERVAL_SECONDS,
           client_factory: Callable[[], httpx.Client] = httpx.Client) -> Running | None:
-    """The upload thread for a session whose Workspace switched transcripts on; ``None`` without a transcript id."""
     if not _SESSION_ID.match(claude_session_id or ""):
         return None
     shipper = Shipper(state, context, config_dir, claude_session_id, job_id).load()
@@ -261,7 +237,6 @@ def start(state: LocalState, context: SessionContext, *, config_dir: Path, claud
 def running(state: LocalState, context: SessionContext, *, config_dir: Path, claude_session_id: str, on: bool,
             job_id: str = "", interval: float = INTERVAL_SECONDS,
             client_factory: Callable[[], httpx.Client] = httpx.Client) -> Iterator[Running | None]:
-    """Upload while the block runs, when ``on``; off yields ``None`` and does nothing at all."""
     upload = start(state, context, config_dir=config_dir, claude_session_id=claude_session_id, job_id=job_id,
                    interval=interval, client_factory=client_factory) if on else None
     try:
@@ -272,9 +247,6 @@ def running(state: LocalState, context: SessionContext, *, config_dir: Path, cla
 
 
 def start_for_turn(prepared: Any, offer: dict[str, Any]) -> Running | None:
-    """A device job's turn (``device_jobs``): on only when ``prepare_session`` found the switch on. A resumed turn
-    continues its session's transcript; a fresh or forked one writes under the session key or the id Claude Code
-    reports (:meth:`Running.bind` after the turn)."""
     upload = (getattr(prepared, "extra", None) or {}).get(EXTRA_KEY)
     if not isinstance(upload, dict):
         return None

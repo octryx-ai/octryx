@@ -5,13 +5,15 @@ from __future__ import annotations
 import pytest
 
 from app.services.workflow_runs import pipeline, pipeline_failure, pipeline_report
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import COMMANDS, _at_pipeline, _device_run, _fix_with_pipeline, _report
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FLAKY = "tests/system/test_cli.py::test_port_in_use_exits_3"
 
 
 def _flaky_report(run):
-    """The unit tests green; the system tests red once, their failed test green when the device ran it again."""
     report = _report(run, [0, 1])
     report["results"][1].update(rerun={"exit_code": 0, "seconds": 1.0, "output_tail": "1 passed", "junit_xml": None,
                                        "tests": [FLAKY]}, flaky=[FLAKY])
@@ -20,10 +22,7 @@ def _flaky_report(run):
 
 @pytest.mark.asyncio
 async def test_before_a_pipeline_the_stop_wants_the_full_suite_but_not_the_proofs_in_the_diff(db, monkeypatch):
-    """Stop must not refuse over and over for the agent's own test runs and proofs in the diff: followed by the
-    pipeline, the proofs are the pipeline's to judge. Without a full run the pass would end on single files and the
-    pipeline would loop red; so the full suite after the last change blocks again, in any form (here piped into
-    tail)."""
+    # Without a full run the pass would end on single files and the pipeline would loop red.
     from datetime import timedelta
 
     from app.models import ToolCall
@@ -38,7 +37,7 @@ async def test_before_a_pipeline_the_stop_wants_the_full_suite_but_not_the_proof
         return "device"
 
     async def commands(_db, _run):
-        return list(COMMANDS), []
+        return list(COMMANDS), [], COMMANDS[-1] if len(COMMANDS) > 1 else ""
 
     monkeypatch.setattr(pipeline, "commands_for", commands)
     monkeypatch.setattr("app.services.workflow_runs.workspace.preparation.runtime_of", device)
@@ -91,8 +90,6 @@ async def test_before_a_pipeline_pytest_q_is_fine_elsewhere_it_is_asked_again_wi
 
 @pytest.mark.asyncio
 async def test_a_test_that_fails_then_passes_on_the_rerun_is_flaky_and_not_counted_the_first_time(db, monkeypatch):
-    """A flaky test that goes red, green, red without a code change must not send the story back to the agent
-    again and again."""
     from sqlalchemy import select
 
     from app.models import WorkflowRunEvent

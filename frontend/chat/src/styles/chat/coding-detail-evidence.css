@@ -16,7 +16,7 @@
 .coding-detail__kv dt {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -39,7 +39,7 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   color: var(--status-running-ink);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-decoration: none;
 }
 

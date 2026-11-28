@@ -1,15 +1,4 @@
-"""Platform work-item tools: thin adapters over the platform_items service.
-
-Same operations as the MCP ``work_item_*`` tools, exposed to platform chat
-agents: create local epics/tasks while planning, leave handover notes, link
-sessions, and pull the full context of a task another worker started.
-
-Workspace scope: exactly the MCP boundary (``mcp_work_access``). The caller's Work
-scope (``work_scope_project_ids``; a platform admin is unrestricted) is intersected with the chat session's
-Workspaces (``context.project_ids``, the counterpart of a grant's project binding; none binds nothing). An item
-is resolved by id or key only inside that scope (``scoped_work_item``): one outside it answers exactly like a
-missing one. A new item may only target a Workspace of the scope's listing projects.
-"""
+"""Platform work-item tools: thin adapters over the platform_items service."""
 
 from __future__ import annotations
 
@@ -37,13 +26,11 @@ async def _require_db_and_user(context: ToolContext) -> tuple[Any, User]:
 
 
 async def _chat_scope(db: Any, user: User, context: ToolContext) -> WorkGrantScope:
-    """The MCP intersection for a chat run: the user's Work scope narrowed by the session's Workspaces."""
     projects = frozenset(str(project).strip() for project in context.project_ids or () if str(project).strip())
     return await build_work_grant_scope(db, user=user, grant_id=None, binding=projects or None)
 
 
 async def _item_by_key_or_id(db: Any, user: User, context: ToolContext, value: Any) -> WorkItem:
-    """The work item by id or key inside the caller's scope; out of scope is the same 404 as missing."""
     return await scoped_work_item(db, await _chat_scope(db, user, context), value)
 
 
@@ -52,7 +39,6 @@ def _error(exc: HTTPException) -> dict[str, Any]:
 
 
 async def _open_twin(db, project_id: str, params: dict) -> WorkItem | None:
-    """An open platform item of the Workspace with the same title, type and epic, or ``None``."""
     from sqlalchemy import select
 
     from ...services.secure_work.platform_items import PLATFORM_SOURCE_TYPE

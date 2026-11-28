@@ -1,36 +1,4 @@
-"""Plugins from the image: a folder Octryx reads at every start.
-
-Installing a plugin is putting it into the folder and building the image; an admin then switches it on per Workspace.
-The only limit is that an admin does it.
-
-    FROM <octryx image>
-    COPY my-plugin/ /opt/octryx/plugins/my-plugin/
-
-or, without an own image, a volume (Helm: ConfigMap, initContainer, PVC) at that path. ``OCTRYX_PLUGIN_DIR`` moves it.
-
-Each entry (a folder with ``octryx-plugin.yaml`` or a ``.zip``) is read with the package checks. A plugin has two
-parts:
-
-- **the image's part** (one platform install, ``is_image_part``): its skills (in the catalog) and MCP servers
-  (registered). It reaches no Workspace by itself;
-- **one activation per Workspace** where an admin switched it on (``activate``): its workflows, roles and functions
-  are created in that Workspace, its UI and settings belong to it, it refers to the image's skills (which now reach
-  that Workspace) and allows the MCP servers there. Switching off keeps everything; on again is the same install.
-
-At every start:
-
-- new in the folder → its part is registered, ``available`` (on nowhere yet);
-- another package (a newer image, or an older one: rollback) → the part and every activation move to it in place
-  (``upgrade.py``); one that an admin switched off stays off;
-- the same package → nothing; switched off because it was missing → switched on again where it had been on;
-- no longer in the folder → switched off everywhere with reason ``missing_from_image``, never deleted (only when the
-  folder exists: no folder at all changes nothing).
-
-A broken or conflicting entry is skipped with its reason in the log and in ``GET /api/v1/plugins/image``; the start
-never fails because of a plugin. Start changes run as the service account ``octryx-image-plugins`` (a platform admin,
-inactive: nobody can sign in as it); switching on and off is recorded as the admin who did it. Several replicas start
-at once: a database lock serialises them. Only the API process syncs (the worker sets ``OCTRYX_SKIP_IMAGE_PLUGINS``).
-"""
+"""Plugins from the image: a folder Octryx reads at every start."""
 
 from __future__ import annotations
 
@@ -109,7 +77,6 @@ def plugin_dir() -> Path:
 
 
 def read_folder(folder: Path, report: SyncReport) -> dict[str, tuple[str, PluginPackage]]:
-    """The packages in the folder by plugin id; broken entries and duplicate ids go to the report."""
     found: dict[str, tuple[str, PluginPackage]] = {}
     duplicates: set[str] = set()
     for path in sorted(folder.iterdir()) if folder.is_dir() else []:
@@ -141,8 +108,6 @@ def read_folder(folder: Path, report: SyncReport) -> dict[str, tuple[str, Plugin
 
 
 async def service_user(db: AsyncSession) -> User:
-    """The account image plugins are installed as: platform admin, inactive (no sign-in, no API key works), no usable
-    password. It acts only here, in-process, for the audit's "who"."""
     from ..auth import hash_password
 
     user = (await db.execute(select(User).where(User.username == SERVICE_USERNAME))).scalar_one_or_none()
@@ -175,12 +140,10 @@ def _source(entry: str, package: PluginPackage, folder: Path) -> dict[str, Any]:
 
 
 def is_image_part(row: PluginInstall) -> bool:
-    """The platform install that holds an image plugin's shared objects (skills, MCP servers); no Workspace sees it."""
     return row.scope == SCOPE_PLATFORM and (row.source_json or {}).get("kind") == SOURCE_KIND
 
 
 def refs(part: PluginInstall) -> list[dict[str, Any]]:
-    """What a Workspace's activation shares with the image's install: its skills and MCP servers, not dropped."""
     return [{"kind": item["kind"], "id": item["id"], "key": item["key"], "created": False}
             for item in part.contributions_json or [] if item["kind"] in SHARED_KINDS and not item.get("dropped")]
 
@@ -191,8 +154,6 @@ def _refused(found: list[dict[str, Any]]) -> PluginError:
 
 
 async def _image_part(db: AsyncSession, package: PluginPackage, source: dict[str, Any], user: User) -> PluginInstall:
-    """Bring a new image plugin's shared objects in: its skills (in the catalog, reaching no Workspace yet) and MCP
-    servers (registered, allowed in no Workspace yet)."""
     manifest = package.manifest
     found = [item for item in (await _conflicts(db, package, SCOPE_PLATFORM, None))[0]
              if item["kind"] in SHARED_KINDS | {"plugin"}]
@@ -213,6 +174,7 @@ async def _image_part(db: AsyncSession, package: PluginPackage, source: dict[str
     row.contributions_json = made
     row.findings_json = [{"skill": name, **item} for name, items in findings.items() for item in items]
     db.add(AuditLog(user_id=user.id, action=AUDIT_INSTALLED, resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": manifest.id, "version": manifest.version, "scope": SCOPE_PLATFORM,
                              "package_digest": package.digest, "source": source, "contributions": made}))
     await db.flush()
@@ -242,7 +204,6 @@ async def _activations(db: AsyncSession, plugin_key: str) -> list[PluginInstall]
 
 
 async def _switch_on(db: AsyncSession, rows: list[PluginInstall], user: User) -> bool:
-    """Switch back on what was off only because the plugin was missing from the image."""
     back = False
     for row in rows:
         source = dict(row.source_json or {})
@@ -255,9 +216,6 @@ async def _switch_on(db: AsyncSession, rows: list[PluginInstall], user: User) ->
 
 async def sync_one(db: AsyncSession, entry: str, package: PluginPackage, folder: Path, user: User,
                    report: SyncReport) -> None:
-    """Bring one package from the folder in; flushes. New → its skills and MCP servers are registered and it is
-    available (no Workspace has it until an admin activates it there). Another package → the image's part and every
-    Workspace's activation move to it. Back after missing → switched on again where it was."""
     manifest = package.manifest
     row = await installed_here(db, manifest.id, SCOPE_PLATFORM, None)
     source = _source(entry, package, folder)
@@ -297,9 +255,6 @@ async def switch_off_missing(db: AsyncSession, present: set[str], user: User, re
 # ---- a Workspace admin activates an image plugin -----------------------------------------------------------------
 
 async def activate(db: AsyncSession, plugin_key: str, workspace_id: str, user: User) -> PluginInstall:
-    """Switch an image plugin on in one Workspace; flushes. The first time, its workflows and roles are created in the
-    Workspace, its UI and settings get their own install there; it refers to the image's skills and MCP servers (those
-    reach this Workspace now). Again after deactivating → the same install, its settings kept."""
     part = await installed_here(db, plugin_key, SCOPE_PLATFORM, None)
     if part is None or not is_image_part(part) or part.status != STATUS_ACTIVE:
         raise PluginError("plugin_not_available", "This plugin is not in the Octryx image.", 404)
@@ -333,6 +288,7 @@ async def activate(db: AsyncSession, plugin_key: str, workspace_id: str, user: U
     row.contributions_json = made
     await switch_contributions(db, row, True, actor_id=user.id)
     db.add(AuditLog(user_id=user.id, action=AUDIT_ACTIVATED, resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": manifest.id, "version": manifest.version, "workspace_id": workspace_id,
                              "package_digest": package.digest, "contributions": made}))
     await db.flush()
@@ -340,7 +296,6 @@ async def activate(db: AsyncSession, plugin_key: str, workspace_id: str, user: U
 
 
 def _package(part: PluginInstall) -> PluginPackage:
-    """The package the image's install came from, read again from the folder (every API replica has the image)."""
     source = part.source_json or {}
     path = Path(str(source.get("folder") or plugin_dir())) / str(source.get("entry") or "")
     try:
@@ -354,7 +309,6 @@ def _package(part: PluginInstall) -> PluginPackage:
 
 
 async def available(db: AsyncSession, workspace_id: str | None) -> list[dict[str, Any]]:
-    """The image's plugins, each with what it brings in plain words and whether it is on in ``workspace_id``."""
     from .summary import needs_settings, summary
 
     parts = [row for row in (await db.execute(select(PluginInstall).where(
@@ -389,8 +343,6 @@ def _schema(part: PluginInstall) -> dict[str, Any] | None:
 
 
 def failure(error: Exception) -> tuple[str, str, dict[str, Any]]:
-    """A fixed code, a sentence and the structured details of why one plugin failed (never a class name or a dict
-    as text)."""
     if isinstance(error, PluginError):
         return error.code, error.message, {k: v for k, v in error.details.items() if k in ("conflicts",
                                                                                           "blocking_findings")}
@@ -414,7 +366,6 @@ def failure(error: Exception) -> tuple[str, str, dict[str, Any]]:
 
 
 async def sync_image_plugins(session_factory, folder: Path | None = None) -> SyncReport:
-    """Bring the folder's plugins in; one transaction per plugin, so one failure stops only that plugin."""
     global LAST_REPORT
     folder = folder or plugin_dir()
     report = SyncReport(folder=str(folder), started_at=utc_now().isoformat(), folder_exists=folder.is_dir())

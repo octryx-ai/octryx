@@ -21,8 +21,8 @@ export const buttons = (root) => root.findAll((node) => node.type === "button").
 export const flush = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
 // A light React Flow: the canvas renders its nodes and edges as data attributes and its children.
-export const stateHook = (initial) => { const [value, setValue] = useState(initial); return [value, setValue, () => {}]; };
-export const xyflowKnown = {
+const stateHook = (initial) => { const [value, setValue] = useState(initial); return [value, setValue, () => {}]; };
+const xyflowKnown = {
   ReactFlowProvider: ({ children }) => children,
   ReactFlow: ({ nodes, edges, children, minZoom }) => createElement("div", {
     "data-testid": "rf", "data-min-zoom": minZoom, "data-nodes": nodes.map((node) => node.id).join(","),

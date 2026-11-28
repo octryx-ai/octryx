@@ -1,29 +1,4 @@
-"""Self-update of an installed octryx-claude on start.
-
-Every person-facing start of an installed copy (``venvs/<version>`` under the state dir, ``venvs/current``, the
-``~/.local/bin`` shim) asks the configured platform for its release (``update_check.served_release``; the answer
-is cached for ``CACHE_SECONDS`` so quick successive starts do not ask again). When the served version differs from
-the installed one it does what ``install.sh`` does: download ``/octryx-claude/package/<version>``, refuse it unless
-its sha256 matches the published one, build ``venvs/<version>`` (uv when present, else ``python -m venv`` + pip),
-check the new venv reports that version, switch ``venvs/current`` atomically, keep the previous venv (a running
-session keeps calling the version it started) and prune older ones. Then the command re-executes through the
-shim with its original argv, so it runs on the new version.
-
-Fail safe: offline, refused, malformed, digest mismatch or a failed build keep the installed version with one
-warning line; a failed version is not retried for ``FAILED_RETRY_SECONDS``; another process updating at the same
-time (``venvs/.update.lock``) is left alone. ``REEXEC_GUARD_ENV`` marks the re-executed process, which never
-checks again on start. ``OCTRYX_CLAUDE_AUTO_UPDATE=0`` switches all of this off (the once-a-day notice remains).
-A checkout never updates, the only source is the configured base URL, and nothing under ``~/.claude*`` is touched.
-
-Rollback and no flip-flop: before the switch the new venv must import the device
-service modules, not only the CLI. A switch leaves ``venvs/.pending-health.json`` ``{version, previous,
-attempts}``; every ``device run`` start on that version counts an attempt (``start_attempt``) and the running
-service clears it once healthy (connected, or ``HEALTHY_AFTER_SECONDS`` without a crash, ``confirm_healthy``).
-A version that started ``MAX_START_ATTEMPTS`` times without getting healthy is rolled back to the previous venv
-and not activated again for ``ROLLED_BACK_RETRY_SECONDS``. A version this install switched away from less than
-``FLIP_FLOP_SECONDS`` ago is not activated again (one base URL answering with alternating builds would restart the
-service every five minutes).
-"""
+"""Self-update of an installed octryx-claude on start."""
 
 from __future__ import annotations
 
@@ -87,7 +62,6 @@ def enabled(env: MutableMapping[str, str] | None = None) -> bool:
 
 
 def detect_layout(state: LocalState, *, prefix: str | None = None, home: Path | None = None) -> Layout | None:
-    """The layout when this interpreter runs from ``<state>/venvs/<version>`` with a ``current`` link, else None."""
     layout = Layout(state.root, home or Path.home())
     if not layout.current.is_symlink():
         return None
@@ -103,7 +77,6 @@ def detect_layout(state: LocalState, *, prefix: str | None = None, home: Path | 
 
 
 def _refuse_claude_path(path: Path, home: Path) -> None:
-    """G1 of the installer: nothing written here may be Claude Code's own config."""
     try:
         relative = path.resolve().relative_to(home.resolve())
     except ValueError:
@@ -122,13 +95,11 @@ def _refuse_claude_path(path: Path, home: Path) -> None:
 
 
 def wants_pet(root: Path, platform: str | None = None) -> bool:
-    """The pet comes along on macOS unless the person left it out (``install.sh --no-pet``)."""
     return (platform or sys.platform) == "darwin" and not (root / NO_PET_FILE).exists()
 
 
 def build(layout: Layout, release: update_check.Release, http: httpx.Client, base_url: str, *,
           runner: Runner = default_runner, env: MutableMapping[str, str] | None = None) -> Path:
-    """``venvs/<version>`` built from the verified wheel; an existing venv that reports the version is reused."""
     env = os.environ if env is None else env
     venv = layout.venvs / release.version
     if _reports(runner, venv, release.version):
@@ -157,9 +128,6 @@ def update_if_available(state: LocalState | None = None, *, warn: Warn, http: ht
                         runner: Runner = default_runner, env: MutableMapping[str, str] | None = None,
                         now: float | None = None, installed: str | None = None, prefix: str | None = None,
                         home: Path | None = None, timeout: float = CHECK_TIMEOUT_SECONDS) -> Updated | None:
-    """Builds and activates the served version when it differs; None when nothing changed (warns on failures).
-
-    ``timeout`` bounds the version check (short on an interactive start, longer in the background service)."""
     env = os.environ if env is None else env
     mine = installed_version() if installed is None else installed
     if not mine or not enabled(env):
@@ -214,7 +182,6 @@ def update_if_available(state: LocalState | None = None, *, warn: Warn, http: ht
 
 def restart(argv: Sequence[str], updated: Updated, err: TextIO, *, env: MutableMapping[str, str] | None = None,
             execv: Callable[[str, list[str]], object] | None = None) -> None:
-    """Re-executes ``argv`` through the shim on the new version; returns only when that failed."""
     env = os.environ if env is None else env
     shim = str(updated.layout.shim)
     err.write(f"octryx-claude updated {updated.previous} -> {updated.version}\n")
@@ -230,7 +197,6 @@ def restart(argv: Sequence[str], updated: Updated, err: TextIO, *, env: MutableM
 
 def on_start(argv: Sequence[str], err: TextIO, *, env: MutableMapping[str, str] | None = None,
              **kwargs) -> None:
-    """The launcher's start step: update and re-execute, or the notice when auto-update is off. Never raises."""
     env = os.environ if env is None else env
     try:
         if env.pop(REEXEC_GUARD_ENV, None):

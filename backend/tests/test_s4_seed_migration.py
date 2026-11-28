@@ -1,15 +1,5 @@
-"""Compiling the shipped SF-5 fragment preserves B's graph, its digest and the engineering B derived from it.
-
-The test derives, from the shipped B seed, exactly the two seed forms the seeder ships:
-
-- ``sf5_fragment(b)``: the fragment ``sf-publish-prove`` v1, the 6 SF-5 nodes and their 14 edges verbatim, its four
-  exits as ports;
-- ``b_source(b, checksum)``: B's ``definition_source``, the 6 nodes replaced by one ``publish_prove`` reference at node
-  index 23 and the 14 edges by one ``{"fragment_edges": "publish_prove"}`` marker at edge index 56.
-
-Compiling the source with the fragment must give B back list-for-list, so its digest stays ``BASE_DIGEST`` and the
-accepted-spec engineering graph derived from it is unchanged. The compiler is ``compile_composite``.
-"""
+"""Compiling the shipped SF-5 fragment gives B's graph back list-for-list, so its digest stays
+``BASE_DIGEST`` and the engineering graph derived from it is unchanged."""
 
 from __future__ import annotations
 
@@ -51,15 +41,11 @@ SF5_V1_CHECKSUM = "sha256:e9165bc6bf990bce5033a52d9061323c1b4a0319c899c5bb2fcc32
 FRAGMENT_SEED_MARKER = "phased_fragments"
 
 
-# --- the migration harness (it writes the seed snippets) ------------------------------------------------------------
-
-
 def _b_seed() -> dict[str, Any]:
     return base_seed()
 
 
 def _sf5_block(b: dict[str, Any]) -> tuple[list[dict], list[dict]]:
-    """SF-5's 6 nodes and 14 edges; both contiguous at the contract's indices, else the harness refuses."""
     ids = [node["id"] for node in b["nodes"]]
     assert ids[SF5_NODE_INDEX:SF5_NODE_INDEX + len(SF5_NODES)] == list(SF5_NODES), "SF-5 nodes moved in B"
     edges = b["edges"][SF5_EDGE_INDEX:SF5_EDGE_INDEX + SF5_EDGE_COUNT]
@@ -69,7 +55,6 @@ def _sf5_block(b: dict[str, Any]) -> tuple[list[dict], list[dict]]:
 
 
 def sf5_fragment(b: dict[str, Any]) -> dict[str, Any]:
-    """``sf-publish-prove`` v1: an exit edge names its port instead of its target."""
     nodes, edges = _sf5_block(b)
     port_of = {target: port for port, target in B_PORT_TARGETS.items()}
     for edge in edges:
@@ -91,7 +76,6 @@ def sf5_fragment(b: dict[str, Any]) -> dict[str, Any]:
 
 
 def b_source(b: dict[str, Any], checksum: str) -> dict[str, Any]:
-    """B's ``definition_source``: the seed path pins by checksum only (no version id)."""
     _sf5_block(b)
     source = copy.deepcopy(b)
     reference = {"id": SF5_REF, "type": "fragment", "label": "Publish & prove",
@@ -114,19 +98,13 @@ def compile_b(source: dict[str, Any], fragment: dict[str, Any]) -> tuple[dict, d
 
 
 def migrated_forms() -> tuple[dict[str, Any], dict[str, Any], str]:
-    """``(fragment, b_source, checksum)`` from the shipped B (compiled again once B is a ``definition_source``)."""
     b = _b_seed()["definition"]
     fragment = sf5_fragment(b)
     checksum = canonical_hash(fragment)
     return fragment, b_source(b, checksum), checksum
 
 
-# --- the tests ----------------------------------------------------------------------------------------------------
-
-
 def test_the_b_seed_digest_is_the_engineering_base_digest_golden():
-    """The golden digest test: B ships as its composite source only, compiled it is ``BASE_DIGEST``, and the
-    shipped forms are exactly the harness forms."""
     seed = _b_seed()
     assert definition_digest(seed["definition"]) == BASE_DIGEST
     # B is not shipped as a workflow; its source stays as the engineering graph's base (``BASE_SEED_PATH``).
@@ -190,8 +168,6 @@ def test_the_spec_engineering_graph_is_still_built_from_the_same_base():
 
 @pytest.mark.asyncio
 async def test_the_seeder_never_creates_b_or_its_fragment(db):
-    """feature-delivery-tdd (B) is not shipped as a workflow, so the seeder never creates it, nor SF-5, which only B
-    uses (a fresh installation would list a part no workflow of it runs)."""
     admin = await admin_user(db)
     flows = (await db.execute(select(FlowDefinition.id).where(
         FlowDefinition.key.in_((BASE_KEY, SF5_KEY)), FlowDefinition.project_id.is_(None)))).scalars().all()

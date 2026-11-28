@@ -1,9 +1,5 @@
-"""Agent catalog classification: categories, priority scores and the chat agent option payload.
-
-Used by the chat agent catalog (``web/_helpers/_routing_catalog``) to group and order the
-agent options. The classification reads configured agent text (name, description, goal), never
-a user prompt, and never selects the agent a turn runs with.
-"""
+"""Agent catalog classification: categories, priority scores and the chat agent option payload. It reads configured
+agent text, never a user prompt, and never selects the agent a turn runs with."""
 
 from typing import Any
 

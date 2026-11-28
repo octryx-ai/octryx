@@ -46,7 +46,7 @@
 .message-thinking-panel__title {
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -92,7 +92,7 @@
 .message-performance-panel__title {
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -165,7 +165,7 @@
 .thinking-indicator__dots i {
   width: 0.38rem;
   height: 0.38rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: rgba(255, 255, 255, 0.5);
   animation: thinking-bounce 1.2s infinite ease-in-out;
 }

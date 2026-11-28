@@ -1,29 +1,5 @@
-"""Graph expansion of a scoped hybrid search: the cited facts behind the hits (open point K3).
-
-After ``scoped_evidence`` found its spans, each Workspace that contributed hits is asked for the
-graph facts behind *its own* hits (``temporal/fact_expansion.py``), in its own database, with its
-own authorized view. So the rules of the span search hold unchanged:
-
-- **Bindings.** Only Workspaces of the resolved scope are read: the reader's own and its active,
-  non-transitive bindings, whose classification ``resolve_scope`` re-checked for this read. A bound
-  source is read with the binding's product bound, the same filter its span search used, so a
-  fact of a product outside the binding is never shown; every fact's citation is re-checked.
-- **ACL.** Citations resolve with the reader's principal keys; a fact without a citation its
-  reader may open is dropped.
-
-The Workspaces' facts are fused by rank (RRF, scope order breaking ties), the same fact stated in
-two Workspaces is kept once, and the answer is cut to ``limit``. Every Workspace shares one time
-budget (:data:`EXPANSION_BUDGET_SECONDS`), so a slow graph costs its facts, never the search.
-
-Each Workspace's deterministic structured facts (``structured/expansion.py``) follow its extracted
-facts; a Workspace whose extracted graph is absent answers ``ok`` when it has structured facts.
-They are read inside the same deadline and inside a savepoint: a spent budget or any error of the
-structured read is logged and yields no structured facts, never a failed ``knowledge_search``.
-
-The overall state is ``ok`` when any Workspace's graph answered, even with no fact; otherwise the
-reader's own state when its hits were expanded, else the first Workspace's; ``no_hits`` when the
-search found nothing to expand. The per-Workspace states are reported next to it.
-"""
+"""Graph expansion of a scoped hybrid search: the cited facts behind the hits. Each Workspace answers only for its own
+hits, in its own database."""
 
 from __future__ import annotations
 
@@ -69,7 +45,6 @@ class GraphExpansion:
 def _targets(
     scope: KnowledgeScope, requested: tuple[str, ...]
 ) -> list[tuple[AuthorizedWorkspace, tuple[str, ...] | None]]:
-    """Each Workspace in scope order with the product bound its span search used (``None``: unbounded)."""
     targets: list[tuple[AuthorizedWorkspace, tuple[str, ...] | None]] = [(scope.primary, requested or None)]
     for source in scope.sources:
         narrowed = source.products_for(requested)
@@ -88,7 +63,6 @@ async def expand_scoped_hits(
     version: object = None,
     limit: int = DEFAULT_EXPANSION_FACTS,
 ) -> GraphExpansion:
-    """The cited graph facts behind ``retrieval``'s hits, bounded, with an explicit state."""
     if type(limit) is not int or not 1 <= limit <= MAX_EXPANSION_FACTS:
         raise ValueError("graph expansion limit out of bounds")
     if not retrieval.evidence:
@@ -146,7 +120,6 @@ async def _structured_facts(
     deadline: float,
     limit: int,
 ) -> tuple[ExpandedFact, ...]:
-    """The Workspace's structured facts inside the shared deadline; ``()`` on a spent budget or any error."""
     if asyncio.get_running_loop().time() >= deadline:
         return ()
     try:

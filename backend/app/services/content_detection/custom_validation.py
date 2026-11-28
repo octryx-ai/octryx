@@ -135,7 +135,6 @@ def _detector(data: Mapping[str, Any], categories: set[str], issues: list[dict[s
 
 
 def check_detector_set(raw: Any) -> DetectorDefinitions:
-    """The validated definitions of ``raw`` (``None`` or ``{}`` is none); :class:`DetectorSetError` otherwise."""
     if raw is None or raw == {}:
         return EMPTY_DEFINITIONS
     if not isinstance(raw, Mapping) or set(raw) - {"categories", "detectors"}:

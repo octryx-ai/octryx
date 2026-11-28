@@ -18,8 +18,6 @@ PARENT = "100001"
 
 
 class FakeCloudV2:
-    """A Confluence Cloud v2 site: spaces, pages with versions, direct children with cursor pagination."""
-
     def __init__(self, *, page_size: int = 250) -> None:
         self.spaces = {SPACE_ID: SPACE_KEY}
         self.pages: dict[str, dict[str, Any]] = {}
@@ -30,10 +28,8 @@ class FakeCloudV2:
         # One-shot faults by "METHOD" or "METHOD /path"; persistent overrides by "METHOD /path".
         self.faults: dict[str, Callable[[FakeCloudV2, httpx.Request], httpx.Response | None]] = {}
         self.overrides: dict[str, Callable[[FakeCloudV2, httpx.Request], httpx.Response]] = {}
-        self.store: Callable[[str], str] = lambda storage: storage  # the provider's storage re-serialisation
+        self.store: Callable[[str], str] = lambda storage: storage
         self.add_page("Feature documentation", "<p>Index of the features.</p>", page_id=PARENT, parent=None)
-
-    # --- state -------------------------------------------------------------------------------------------------
 
     def add_page(self, title: str, storage: str, *, page_id: str | None = None, parent: str | None = PARENT,
                  space: str = SPACE_ID, status: str = "current") -> str:
@@ -52,14 +48,17 @@ class FakeCloudV2:
     def children(self, parent: str) -> list[str]:
         return sorted(pid for pid, page in self.pages.items() if page["parentId"] == parent)
 
+    # The publication's own writes; the ai-generated label is a separate best-effort call (``labels``).
     @property
     def writes(self) -> list[tuple[str, str]]:
-        return [request for request in self.requests if request[0] in ("POST", "PUT")]
+        return [request for request in self.requests if request[0] in ("POST", "PUT") and not request[1].endswith("/label")]
+
+    @property
+    def labels(self) -> list[tuple[str, str]]:
+        return [request for request in self.requests if request[0] == "POST" and request[1].endswith("/label")]
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self.handle)
-
-    # --- rendering ---------------------------------------------------------------------------------------------
 
     def page_json(self, page_id: str, *, version: int | None = None, body: bool = True) -> dict[str, Any]:
         page = self.pages[page_id]
@@ -71,8 +70,6 @@ class FakeCloudV2:
         if body:
             data["body"] = {"storage": {"representation": "storage", "value": at["storage"]}}
         return data
-
-    # --- HTTP --------------------------------------------------------------------------------------------------
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append((request.method, str(request.url)))
@@ -153,12 +150,7 @@ class FakeCloudV2:
         return httpx.Response(200, json={"results": chunk, "_links": links})
 
 
-# --- faults ----------------------------------------------------------------------------------------------------
-
-
 def apply_then(error: BaseException) -> Callable[[FakeCloudV2, httpx.Request], None]:
-    """The provider applies the request, then the answer is lost (``error`` raised to the client)."""
-
     def fault(fake: FakeCloudV2, request: httpx.Request) -> None:
         fake.route(request)
         raise error

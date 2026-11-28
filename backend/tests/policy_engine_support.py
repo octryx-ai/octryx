@@ -32,7 +32,6 @@ def bearer(user_id: str) -> dict[str, str]:
 
 
 async def approve(db, approval_id: str, approver_id: str) -> None:
-    """Decide the governance approval directly (the approvals API is covered by its own tests)."""
     approval = await db.get(Approval, approval_id)
     approval.status = "approved"
     approval.approved_by = approver_id
@@ -40,7 +39,6 @@ async def approve(db, approval_id: str, approver_id: str) -> None:
 
 
 def use_custom_policies(text: str, *, mode: str = "shadow", version: int = 1) -> PolicyRuntime:
-    """Install a snapshot with ``text`` as the published custom set (no database)."""
     checked = check_custom_policies(text)
     runtime = PolicyRuntime(mode=mode, custom_text=checked.text, custom_ids=frozenset(checked.ids),
                             custom_version=version, custom_digest=checked.digest, loaded_at=1e18)
@@ -48,7 +46,6 @@ def use_custom_policies(text: str, *, mode: str = "shadow", version: int = 1) ->
     return runtime
 
 
-# Role "sre" may restart a rollout only against the non-prod context.
 ROLLOUT_POLICY = (
     '@id("rollout-restart-non-prod-only")\n'
     'forbid (principal in Role::"sre", action == Action::"run_command", resource)\n'
@@ -69,7 +66,6 @@ async def grant_role(db, user_id: str, role_name: str) -> None:
 
 
 async def publish(client, db, policies: str) -> int:
-    """Draft, submit, approve by a second admin and publish ``policies``; returns the version."""
     author, reviewer = await make_user(db, admin=True), await make_user(db, admin=True)
     created = await client.post(f"{BASE}/policy-sets", json={"policies": policies}, headers=bearer(author))
     assert created.status_code == 201, created.text

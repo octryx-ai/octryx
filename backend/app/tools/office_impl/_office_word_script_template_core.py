@@ -213,7 +213,6 @@ def render_word_script_template_core(
     sources_literal: str,
     include_bibliography: bool,
 ) -> str:
-    """The generated script text, assembled from its blocks in script order."""
     return (
         _word_script_header(
             import_root=import_root,

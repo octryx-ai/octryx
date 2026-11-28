@@ -31,7 +31,6 @@ INTERFERENCE_ADVICE = ("this scenario failed while others ran at the same time a
 
 
 def record_interference(db: AsyncSession, run: WorkflowRun, report: dict[str, Any]) -> None:
-    """Red side by side, green alone: an event per such scenario for the team, never red."""
     for item in report.get("scenarios") or []:
         if isinstance(item, dict) and item.get("parallel_interference") is True:
             # Red side by side, green alone: information for the team, never red.
@@ -41,7 +40,6 @@ def record_interference(db: AsyncSession, run: WorkflowRun, report: dict[str, An
 
 async def record_ran(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], report: dict[str, Any], *,
                      session_id: str, outcome: str) -> str:
-    """A pass the device ran (or could not run): green goes on to the review, red back to the building phase."""
     from .waiver import waived, waived_result
 
     skip = waived(run)
@@ -61,7 +59,7 @@ async def record_ran(db: AsyncSession, run: WorkflowRun, current: dict[str, Any]
     timing = {"seconds": seconds, **({"over_budget": current.get("budget_seconds") or BUDGET_SECONDS} if over else {})}
     from ..pipeline import state as pipeline_state
 
-    tree = str(pipeline_state(run).get("tree") or "")  # the code it was red on (``_unchanged_since_red``)
+    tree = str(pipeline_state(run).get("tree") or "")
     _set(run, {**current, "state": GREEN if green else RED, "results": results, "reported_at": utc_now().isoformat(),
                "session_id": session_id, **({"problem": problem} if problem else {}), **timing,
                **({"red_tree": tree} if tree and not green else {})})
@@ -76,7 +74,6 @@ async def record_ran(db: AsyncSession, run: WorkflowRun, current: dict[str, Any]
     if green:
         await _route(db, run, ToolOutcome(SUCCEEDED, {"scenarios": len(results)}))
         return GREEN
-    # the failed step and the device's own message, both.
     failed = [f"{item['id']} {item['title']}: "
               + (" - ".join(str(part) for part in (item.get("failed_step"), item.get("error")) if part) or "failed")
               for item in results if not item["passed"]]
@@ -92,8 +89,6 @@ async def record_ran(db: AsyncSession, run: WorkflowRun, current: dict[str, Any]
 
 
 def _serve_end(report: dict[str, Any]) -> dict[str, Any]:
-    """How the device's serve group ended (exit code or signal, who ended it, after how long), on the event: without it
-    nobody can tell who sent a SIGTERM."""
     end = report.get("serve_end")
     if not isinstance(end, dict):
         return {}
@@ -101,8 +96,6 @@ def _serve_end(report: dict[str, Any]) -> dict[str, Any]:
 
 
 def failure_code(report: dict[str, Any]) -> str:
-    """The structured code of a red hands-on report (the device's ``code``; a broken scenario file's; a failed
-    step's), never read from a message text."""
     if str(report.get("code") or ""):
         return str(report["code"])[:60]
     items = [item for item in report.get("scenarios") or [] if isinstance(item, dict) and not item.get("passed")]
@@ -112,9 +105,7 @@ def failure_code(report: dict[str, Any]) -> str:
 
 
 async def _deterministic_pause(db: AsyncSession, run: WorkflowRun, code: str, problem: str) -> bool:
-    """A deterministic failure (``failure_codes``: the same input fails the same way) pauses the run once with what to
-    fix and uses no loop round (a missing ``serve`` would otherwise use 3 rounds in one second).
-    Retry runs the step again after the fix."""
+    # The same input fails the same way, so another loop round would only burn rounds.
     from .. import failure_codes
     from ..graph import graph_for_run
     from ..limits import pause_run
@@ -173,7 +164,6 @@ async def _record_reproduce(db: AsyncSession, run: WorkflowRun, current: dict[st
 
 
 async def _route(db: AsyncSession, run: WorkflowRun, outcome: ToolOutcome, *, route: str = "") -> None:
-    """Route the waiting node like the pipeline (ledger, event); red takes the definition's ``failed`` edge."""
     from ..engine import resolve_current_node
     from ..engine_context import _set_context
     from ..states import EVENT_ACTION
@@ -189,9 +179,7 @@ async def _route(db: AsyncSession, run: WorkflowRun, outcome: ToolOutcome, *, ro
 
 
 async def _stale(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], report: dict[str, Any]) -> bool:
-    """A report of a pass the device started before the scenarios were written again (``regenerate``) is ignored and
-    the new set offered again. Otherwise an old pass that reports after the regeneration has its
-    results keyed onto the new scenarios by id, and the agent gets failures that never happened."""
+    # A late report of an earlier pass would otherwise be keyed onto the new scenarios by id.
     from datetime import datetime, timedelta
 
     stale_before = str(current.get("stale_before") or "")

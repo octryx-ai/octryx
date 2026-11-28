@@ -7,6 +7,7 @@ from pydantic_settings import SettingsConfigDict
 
 from .channel_webhook_dev_policy import validate_channel_webhook_dev_setting
 from .four_eyes_dev_policy import dev_self_approval_environment_permitted
+from .knowledge_retention_settings import KnowledgeRetentionSettings
 from .knowledge_snapshot_settings import KnowledgeSnapshotSettings
 from .loopback_stub_policy import validate_loopback_allowlist_setting
 from .multipart_admission_policy import (
@@ -38,16 +39,11 @@ def _is_sqlite_database_url(url: str) -> bool:
 
 
 def is_production_like_runtime_profile(profile: str | None) -> bool:
-    """True for every runtime profile that is not an explicit local/test one."""
     return _normalize_runtime_profile(profile) not in _LOCAL_DATABASE_PROFILES
 
 
 class TrustedProxyAllowlistError(ValueError):
-    """Explicit rejection of a trusted-proxy allowlist.
-
-    Carries a fixed, input-free message so the startup error can be surfaced
-    verbatim without echoing the configured value.
-    """
+    pass
 
 
 _IP_ADDRESS_SPACE_SIZES = {4: 2**32, 6: 2**128}
@@ -56,15 +52,6 @@ _IP_ADDRESS_SPACE_SIZES = {4: 2**32, 6: 2**128}
 def _reject_full_address_space_coverage(
     networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network],
 ) -> None:
-    """Reject an allowlist whose networks together cover a whole address family.
-
-    A single trust-all entry is caught per entry, but a *composite* set can say
-    the same thing without any one entry looking wide: ``0.0.0.0/1`` plus
-    ``128.0.0.0/1`` is trust-all for IPv4, and ``::/1`` plus ``8000::/1`` is
-    trust-all for IPv6. Collapsing each family answers the question exactly —
-    complete coverage always merges into a zero-prefix network, while ordinary
-    narrow or merely adjacent CIDRs never do.
-    """
     for version, size in _IP_ADDRESS_SPACE_SIZES.items():
         family = [network for network in networks if network.version == version]
         if not family:
@@ -79,18 +66,6 @@ def _reject_full_address_space_coverage(
 
 
 def parse_trusted_proxy_ips(raw: str | None) -> list[str]:
-    """Normalize a comma-separated trusted-proxy allowlist of IPs or CIDRs.
-
-    Invalid entries raise ``ValueError`` so a typo fails startup instead of
-    silently widening or narrowing the proxy trust boundary. Trust-all entries
-    (``*``, ``0.0.0.0/0``, ``::/0``) are rejected as well, and so is any set of
-    entries that together covers a whole address family: the boundary must name
-    the proxies it trusts.
-
-    Keep the list as narrow as the deployment allows: every address it names may
-    speak for any client, so a broad network (a whole pod/VPC CIDR) lets any
-    workload inside it forge its own client address and scheme.
-    """
     values: list[str] = []
     networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
     for item in str(raw or "").split(","):
@@ -112,13 +87,11 @@ def parse_trusted_proxy_ips(raw: str | None) -> list[str]:
 
 
 def forwarded_header_trust_mode(raw: str | None) -> str:
-    """Enum-like description of the proxy trust boundary for health reporting."""
     return _FORWARDED_TRUST_ALLOWLIST if parse_trusted_proxy_ips(raw) else _FORWARDED_TRUST_DISABLED
 
 
 @lru_cache(maxsize=32)
 def trusted_proxy_networks(raw: str) -> tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...]:
-    """Parsed trusted-proxy networks for an already validated setting value."""
     return tuple(ipaddress.ip_network(entry) for entry in parse_trusted_proxy_ips(raw))
 
 
@@ -172,18 +145,15 @@ def _security_sensitive_default_fields(settings: "Settings") -> list[str]:
     return fields
 
 
-class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_ / knowledge_snapshot_settings.py
+class Settings(RateLimitSettings, KnowledgeSnapshotSettings, KnowledgeRetentionSettings):
     model_config = SettingsConfigDict(env_file=(".env", "../.env"), env_file_encoding="utf-8")
 
     app_name: str = "Octryx"
-    app_version: str = "0.0.1-alpha"
+    app_version: str = "0.0.2-alpha"
     debug: bool = False
 
-    # Database
     database_url: str = "sqlite+aiosqlite:///data/octryx.db"
-    # The API's connection pool (server databases only; env DB_POOL_SIZE, DB_MAX_OVERFLOW, DB_POOL_TIMEOUT). The
-    # defaults are SQLAlchemy's; a shared deployment uses 10 + 20 and 10 s (5 + 10 was exhausted by one admin
-    # page); the same is recommended for the chart and production.
+    # SQLAlchemy defaults; a shared deployment needs 10 + 20 and 10 s (5 + 10 was exhausted by one admin page).
     db_pool_size: int = Field(default=5, ge=1, le=200)
     db_max_overflow: int = Field(default=10, ge=0, le=400)
     db_pool_timeout: float = Field(default=30.0, gt=0, le=300)
@@ -196,25 +166,21 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
             "APP_ENV",
         ),
     )
-    # Four-eyes development exception: lets one developer approve their
-    # own governance request on a machine-local stack. Startup refuses it anywhere
-    # production is not positively excluded (see four_eyes_dev_policy).
+    # Lets one developer approve their own governance request locally; startup refuses it anywhere
+    # production is not positively excluded.
     four_eyes_dev_self_approval: bool = Field(
         default=False,
         validation_alias=AliasChoices("four_eyes_dev_self_approval", "OCTRYX_FOUR_EYES_DEV_SELF_APPROVAL"),
     )
-    # Development-only: accept channel webhooks without their channel's authentication (local
-    # stubs). Refused at startup and per request outside DEBUG on a machine-local stack
-    # (see channel_webhook_dev_policy). Never set in Helm/EKS.
+    # Development-only (local stubs): refused at startup and per request outside DEBUG on a machine-local
+    # stack. Never set in Helm/EKS.
     channel_webhook_dev_unauthenticated: bool = Field(
         default=False,
         validation_alias=AliasChoices(
             "channel_webhook_dev_unauthenticated", "OCTRYX_CHANNEL_WEBHOOK_DEV_UNAUTHENTICATED"
         ),
     )
-    # Development-only exemption for local loopback stubs (Source Sync and the
-    # connector tools alike), gated like the four-eyes exception (see
-    # loopback_stub_policy). Never set in Helm/EKS.
+    # Development-only loopback-stub exemption, gated like the four-eyes exception. Never set in Helm/EKS.
     source_sync_allow_loopback_hosts: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -229,10 +195,12 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         validation_alias=AliasChoices("web_fetch_proxy_url", "OCTRYX_WEB_FETCH_PROXY_URL"),
     )
 
-    # JWT
+    runner_join_secret: str = ""
+    runner_runtime: str = ""
+
     jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
-    jwt_expire_minutes: int = 1440  # 24 hours
+    jwt_expire_minutes: int = 1440
     # bcrypt work factor of passwords and stored token/secret hashes (bcrypt's own default, 12). The test suite
     # sets 4 (tests/conftest.py): the hashing stays real bcrypt, only cheaper. Existing hashes keep their own cost.
     auth_bcrypt_rounds: int = Field(
@@ -242,11 +210,8 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         validation_alias=AliasChoices("auth_bcrypt_rounds", "OCTRYX_AUTH_BCRYPT_ROUNDS"),
     )
 
-    # Encryption
     encryption_key: str = "change-me-32-chars-long-secret!"
 
-    # Git identity used for platform-authored commits (agent deliveries,
-    # repository bootstrap). Override per deployment via env/.env.
     git_commit_user_name: str = Field(
         default="Octryx Bot",
         validation_alias=AliasChoices("git_commit_user_name", "OCTRYX_GIT_USER_NAME"),
@@ -256,7 +221,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         validation_alias=AliasChoices("git_commit_user_email", "OCTRYX_GIT_USER_EMAIL"),
     )
 
-    # LLM Providers
     llm_provider: str = ""
     openrouter_api_key: str | None = None
     # The first start's model access for LLM_PROVIDER=anthropic|openai (services/control_plane/env_model_access.py).
@@ -267,8 +231,7 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
     aws_region: str = "eu-central-1"
     aws_bedrock_role_arn: str | None = None
 
-    # Knowledge-base embeddings (.env-friendly: consulted when the process
-    # environment does not set OCTRYX_KNOWLEDGE_EMBEDDING_PROVIDER/_MODEL)
+    # .env-friendly: consulted when the process environment does not set OCTRYX_KNOWLEDGE_EMBEDDING_*.
     knowledge_embedding_provider: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -283,8 +246,7 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
             "OCTRYX_KNOWLEDGE_EMBEDDING_MODEL",
         ),
     )
-    # Optional cross-encoder reranker for retrieved passages (explicit opt-in;
-    # e.g. "BAAI/bge-reranker-base"). None/off disables reranking.
+    # Explicit opt-in cross-encoder reranker; None/off disables reranking.
     knowledge_reranker_model: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -293,9 +255,8 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         ),
     )
 
-    # Opt-in Instance default Workspace data classification ("public", "internal", ...), written once
-    # when Knowledge is enabled for a Workspace without one, so the data-policy gate can admit its
-    # remote Knowledge models (reranker). Empty: Workspaces stay unclassified until an admin sets it.
+    # The Instance default classification of a new Workspace (also written when Knowledge is enabled for an
+    # unclassified one). Empty: "internal"; "none": Workspaces stay unclassified until an admin sets it.
     knowledge_default_data_classification: str = Field(
         default="",
         validation_alias=AliasChoices(
@@ -311,9 +272,7 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         validation_alias=AliasChoices("agent_designer_origin", "OCTRYX_AGENT_DESIGNER_ORIGIN"),
     )
 
-    # Turn runtime behind the execution gate. Every value runs the native
-    # standard loop; a value other than "native" is logged as a warning
-    # (app/agent/harness/activation.py records why).
+    # Every value runs the native standard loop; a value other than "native" is logged as a warning.
     harness_runtime: str = Field(
         default="native",
         validation_alias=AliasChoices("harness_runtime", "OCTRYX_HARNESS_RUNTIME"),
@@ -337,9 +296,7 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         validation_alias=AliasChoices("mobile_vapid_subject", "MOBILE_VAPID_SUBJECT"),
     )
 
-    # HMAC key for entity-graph federation packages (hub-and-spoke). Empty
-    # means federation endpoints refuse with needs_configuration — never a
-    # default key.
+    # Empty: federation endpoints refuse with needs_configuration, never a default key.
     knowledge_federation_signing_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices(
@@ -348,8 +305,7 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         ),
     )
 
-    # Native pgvector column dimension; consumed (via the environment) by the
-    # pgvector migrations when provisioning a fresh PostgreSQL database.
+    # Also read via the environment by the pgvector migrations on a fresh PostgreSQL database.
     knowledge_embedding_dimension: int = Field(
         default=1024,
         validation_alias=AliasChoices(
@@ -358,7 +314,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         ),
     )
 
-    # Telegram
     telegram_bot_token: str | None = None
 
     # Observability: a Prometheus scraper presents this as a bearer token on /metrics (unset: login only).
@@ -366,7 +321,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
     # A pending approval nobody decided within this many hours expires (audited); 0 never expires.
     approval_pending_ttl_hours: int = 72
 
-    # Bootstrap
     # Unattended installs only; empty means the first-start setup creates the admin (services/auth/first_admin.py).
     admin_default_password: str = ""
     admin_email: str = "admin@localhost"
@@ -379,7 +333,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
     # service exist. None: on in a local runtime profile only, never on a production-like one.
     check_proposals_stub: bool | None = None
 
-    # Server
     host: str = "0.0.0.0"
     port: int = 8000
     cors_allowed_origins: str = (
@@ -394,18 +347,13 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
     artifact_store_s3_endpoint_url: str | None = None
     auth_cookie_samesite: str = "lax"
     force_secure_auth_cookies: bool = False
-    # Reverse proxies whose forwarded request metadata may be trusted, as a
-    # comma-separated list of IPs or CIDRs. Empty means deny-by-default: no
-    # forwarded header is read. Set this for ingress/reverse-proxy deployments.
+    # Trusted reverse-proxy IPs/CIDRs; empty is deny-by-default: no forwarded header is read.
     trusted_proxy_ips: str = Field(
         default="",
         validation_alias=AliasChoices("trusted_proxy_ips", "OCTRYX_TRUSTED_PROXY_IPS"),
     )
-    # Hard ceiling on raw multipart request bytes, enforced before any form
-    # parsing. The default is derived from the largest payload a current upload
-    # route accepts, so the boundary cannot refuse an upload the product accepts;
-    # lower it to the largest upload a deployment actually needs. Invalid or
-    # effectively unbounded values fail startup — see multipart_admission_policy.
+    # Enforced before any form parsing; lower it to the largest upload a deployment actually needs.
+    # Invalid or effectively unbounded values fail startup.
     max_multipart_request_bytes: int = Field(
         default=DEFAULT_MULTIPART_REQUEST_BYTES,
         validation_alias=AliasChoices(
@@ -414,7 +362,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
         ),
     )
 
-    # Agent
     agent_max_tool_calls_per_session: int = 50
     agent_default_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
     engineering_knowledge_repo_search_roots: str = ""
@@ -444,11 +391,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
 
     @model_validator(mode="after")
     def validate_multipart_admission_ceiling(self):
-        """Fail closed on an invalid or effectively unbounded ingress ceiling.
-
-        Deliberately has no debug/local escape hatch: an admission ceiling nobody
-        chose is a resource-exhaustion boundary nobody chose, in every profile.
-        """
         try:
             self.max_multipart_request_bytes = validate_multipart_request_bytes(self.max_multipart_request_bytes)
         except MultipartAdmissionConfigError as exc:
@@ -460,12 +402,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
 
     @model_validator(mode="after")
     def validate_rate_limit_key_bound(self):
-        """Fail closed on a rate-limit key bound that would not bound anything.
-
-        Like the multipart ceiling, this has no local/debug escape hatch: limiter
-        state nobody bounded is a memory-growth surface in every profile, and the
-        bound becomes load-bearing the moment TRUSTED_PROXY_IPS is configured.
-        """
         try:
             self.max_rate_limit_keys = validate_max_rate_limit_keys(self.max_rate_limit_keys)
         except RateLimitRetentionConfigError as exc:
@@ -517,7 +453,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
 
     @model_validator(mode="after")
     def validate_four_eyes_dev_exception(self):
-        """Fail closed: the self-approval exception never starts outside development."""
         if self.four_eyes_dev_self_approval and not dev_self_approval_environment_permitted(
             self.runtime_profile, self.cors_allowed_origins
         ):
@@ -538,7 +473,6 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
 
     @model_validator(mode="after")
     def validate_loopback_stub_exemption(self):
-        """Fail closed: the loopback stub exemption never starts outside development."""
         validate_loopback_allowlist_setting(
             self.source_sync_allow_loopback_hosts, self.runtime_profile, self.cors_allowed_origins
         )
@@ -573,17 +507,10 @@ class Settings(RateLimitSettings, KnowledgeSnapshotSettings):  # see rate_limit_
 
 @lru_cache
 def get_settings() -> Settings:
-    """The one settings entrypoint for every startup path.
-
-    Construction goes through ``load_validated_settings`` so an invalid
-    configuration fails closed with an input-free ``SettingsValidationError``
-    instead of Pydantic's rendering of the settings payload.
-    """
     return load_validated_settings(Settings)
 
 
 def git_commit_identity() -> tuple[tuple[str, str], tuple[str, str]]:
-    """Git config pairs for platform-authored commits."""
     resolved = get_settings()
     return (
         ("user.name", resolved.git_commit_user_name),

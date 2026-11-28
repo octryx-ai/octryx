@@ -20,7 +20,6 @@ GATE_CHECKS = [{"type": "tool_called", "blocking": True, "params": {"tools": ["s
 
 
 def toy_fragment(*, instance: str = "many") -> dict:
-    """Every node-id-valued key (gate.phase, decision.source, review.producer, payload_from) and a bounded loop."""
     return {
         "execution_kind": "phased_fragment", "schema_version": "fragment/v1", "entry": "work",
         "ports": {"done": {"edge": "next", "accepts": "any"}, "stop": {"edge": "next", "accepts": "outcome"},
@@ -57,7 +56,6 @@ def ref_node(node_id: str, fragment: dict, *, key: str = "toy", ports: dict | No
 
 
 def composite(*refs: dict, marker: bool = True) -> dict:
-    """``start → ask → <refs in a row> … → done | stopped``; refs are chained through their ``done`` ports."""
     edges: list[dict] = [{"id": "e-start", "source_node_id": "start", "target_node_id": "ask"},
                          {"id": "e-ask", "source_node_id": "ask", "target_node_id": refs[0]["id"],
                           "when": "confirmed"},
@@ -73,7 +71,6 @@ def composite(*refs: dict, marker: bool = True) -> dict:
 
 
 def resolve(source: dict, fragments: dict[str, dict], *, version: int = 1) -> dict[str, ResolvedFragment]:
-    """Resolve every reference of ``source`` from ``fragments`` (key → definition), as the store would."""
     return {ref.node_id: ResolvedFragment(key=ref.fragment_key, version_id=f"{ref.fragment_key}-v{version}",
                                           version=version, checksum=canonical_hash(fragments[ref.fragment_key]),
                                           definition=parse_fragment(fragments[ref.fragment_key]))
@@ -94,17 +91,16 @@ def test_the_default_namespace_renames_nodes_edges_and_every_node_ref_key():
     assert _node(compiled, "probe.check")["config"]["phase"] == "probe.work"
     assert _node(compiled, "probe.pick")["config"]["source"] == "probe.check"
     assert _node(compiled, "probe.rev")["config"]["producer"] == "probe.work"
-    assert _node(compiled, "probe.rev")["config"]["source"] == "local_output"  # not a node ref: unchanged
+    assert _node(compiled, "probe.rev")["config"]["source"] == "local_output"
     assert _node(compiled, "probe.show")["config"]["payload_from"] == "probe.work"
     edges = {edge["id"]: edge for edge in compiled["edges"]}
-    assert edges["e-ask"]["target_node_id"] == "probe.work"  # into the reference → the namespaced entry
+    assert edges["e-ask"]["target_node_id"] == "probe.work"
     assert edges["probe.e-check"] == {"id": "probe.e-check", "source_node_id": "probe.check",
                                       "target_node_id": "probe.pick", "when": "passed"}
-    assert edges["probe.e-show"]["target_node_id"] == "done"  # a port → the composite node it maps to
+    assert edges["probe.e-show"]["target_node_id"] == "done"
     assert edges["probe.loop-show"]["target_node_id"] == "ask"
     assert not any(node["type"] == "fragment" for node in compiled["nodes"])
     assert not any(FRAGMENT_EDGES_KEY in edge for edge in compiled["edges"])
-    # Definition-level keys come from the source; the fragment carries none.
     assert (compiled["execution_kind"], compiled["plan_node"], compiled["budget"]) == ("phased", "", {"tool_calls": 9})
 
 
@@ -155,7 +151,7 @@ def test_the_compile_is_deterministic_and_never_mutates_its_inputs():
     assert composition_settings(first, source) == composition_settings(second, source)
     assert (source, fragment) == before
     first.definition["nodes"][2]["config"]["agent"] = "changed"
-    assert fragment["nodes"][0]["config"]["agent"] == "a"  # the compiled graph shares nothing with the fragment
+    assert fragment["nodes"][0]["config"]["agent"] == "a"
 
 
 def test_node_refs_rewrite_is_a_deep_copy_and_external_refs_leave_the_fragment():
@@ -164,7 +160,7 @@ def test_node_refs_rewrite_is_a_deep_copy_and_external_refs_leave_the_fragment()
     assert renamed["config"]["phase"] == "x.work" and node["config"]["phase"] == "work"
     assert renamed["config"]["checks"] is not node["config"]["checks"]
     assert external_refs(node, {"check"}) == ["work"] and external_refs(node, {"work"}) == []
-    phase_less_gate = {"id": "g", "type": "gate", "config": {"checks": []}}  # the last phase: no ref at all
+    phase_less_gate = {"id": "g", "type": "gate", "config": {"checks": []}}
     assert external_refs(phase_less_gate, set()) == []
     other_kind = {"id": "p", "type": "platform_action", "config": {"source": "elsewhere"}}
-    assert external_refs(other_kind, set()) == []  # only the closed (kind, key) pairs name nodes
+    assert external_refs(other_kind, set()) == []

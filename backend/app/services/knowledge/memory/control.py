@@ -1,18 +1,5 @@
-"""User control over memory: list, confirm, correct, forget.
-
-- A user always controls their own personal items; Workspace items need the authoring role
-  (``visibility.load_for_change``).
-- **confirm** moves an unreviewed (``observed``) item to ``confirmed``.
-- **correct** records the corrected statement as a new ``human_stated``, ``confirmed`` item that
-  supersedes the old one; the old one becomes ``superseded`` and is never recalled again.
-- **forget** is real: the item's text and content hash are erased, and so are those of every older
-  version it superseded, because they hold earlier wordings of the same memory. The tombstone keeps
-  the id, scope, class, state and who forgot it when. A newer correction of a forgotten item is a
-  separate statement and stays. Forgetting an answer-feedback item erases the texts of its
-  structured record too.
-- Answer feedback (class ``answer_feedback``) is not listed here and cannot be corrected: it has its
-  own learning surface, and only its author changes it by rating the answer again.
-"""
+"""User control over memory: list, confirm, correct, forget. Forget is real: the text of the item and of every version
+it superseded is erased."""
 
 from __future__ import annotations
 
@@ -41,11 +28,6 @@ _CORRECTABLE_STATES = frozenset(_CURRENT_STATES)
 async def list_memory(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, include_history: bool = False
 ) -> list[dict]:
-    """The user's own personal items and the Workspace's items, newest first.
-
-    Without ``include_history`` only current items are listed; with it, superseded, expired and
-    forgotten tombstones too.
-    """
     item = KnowledgeMemoryItem
     # Answer feedback has its own learning surface (``feedback_query``); this list is the memories.
     statement = select(item).where(
@@ -97,12 +79,12 @@ def _audit_lesson(db: AsyncSession, row: KnowledgeMemoryItem, user_id: str, acti
     from ....models import AuditLog  # noqa: PLC0415
 
     db.add(AuditLog(user_id=user_id, action=action, resource_type="knowledge_memory_item", resource_id=row.id,
+                    project_id=row.project_id,
                     details={"project_id": row.project_id, "item_class": row.item_class,
                              "session_id": row.session_id}))
 
 
 async def reject_memory(db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, memory_id: object) -> None:
-    """Reject a session's proposed lesson: it is deleted, not hidden (and the rejection is audited)."""
     row = await load_for_change(db, authorized=authorized, user_id=user_id, memory_id=memory_id)
     if row.state != MemoryState.PROPOSED.value:
         raise MemoryRefusedError("not_active")
@@ -114,7 +96,6 @@ async def reject_memory(db: AsyncSession, *, authorized: AuthorizedWorkspace, us
 async def correct_memory(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, memory_id: object, text: object
 ) -> KnowledgeMemoryItem:
-    """Replace a memory with the user's corrected statement; returns the new item."""
     row = await load_for_change(db, authorized=authorized, user_id=user_id, memory_id=memory_id)
     if row.state not in _CORRECTABLE_STATES:
         raise MemoryRefusedError("not_active")
@@ -145,7 +126,6 @@ async def correct_memory(
 
 
 async def forget_memory(db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, memory_id: object) -> int:
-    """Erase the item and the older versions it superseded; returns how many items were erased."""
     row = await load_for_change(db, authorized=authorized, user_id=user_id, memory_id=memory_id)
     erased = 0
     erased_ids: list[str] = []

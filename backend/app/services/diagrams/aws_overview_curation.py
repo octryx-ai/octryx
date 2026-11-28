@@ -1,18 +1,4 @@
-"""Role aggregation for the structural AWS overview.
-
-The raw evidence selection is an inventory; a readable architecture overview
-needs fewer, role-shaped nodes. These explicit rules collapse generated
-implementation detail while keeping the counts visible:
-
-- a target group routed by a load balancer is implementation detail of that
-  load balancer -> absorbed, the LB subtitle carries the count;
-- an auto-scaling group backing exactly one EKS nodegroup is absorbed into
-  the nodegroup ("ASG-backed");
-- target groups without any load-balancer route in evidence collapse into
-  one summary node, as do route tables without a rendered route.
-
-Only the overview is curated; the detail diagrams keep the full inventory.
-"""
+"""Role aggregation for the structural AWS overview."""
 
 from __future__ import annotations
 
@@ -31,7 +17,6 @@ def curate_overview(
     kept_edges: list[tuple[str, str, str]],
     resource_vpc: dict[str, str],
 ) -> list[str]:
-    """Mutates the maps in place; returns human-readable notes for the legend."""
     notes: list[str] = []
     removed: set[str] = set()
 
@@ -73,9 +58,6 @@ def _fold_nodegroups_into_cluster(
     kept_edges: list[tuple[str, str, str]],
     removed: set[str],
 ) -> int:
-    """Nodegroups are an implementation detail of their EKS cluster in an
-    overview; fold them in with a total node count and roll their kept edges
-    (e.g. connects_to a datastore) onto the cluster so the flow is preserved."""
     ng_to_cluster: dict[str, str] = {}
     for source, target, edge_type in kept_edges:
         if (

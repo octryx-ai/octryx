@@ -26,6 +26,7 @@ async def _project_config_for_tool_entry(db: AsyncSession, entry: BuiltInToolCon
         entry.config,
         tool_name=entry.tool_name,
         project_id=entry.project_id,
+        purpose="connector.workspace_config",
     )
 
 
@@ -253,9 +254,6 @@ async def merge_tool_configs_into_project_config(db: AsyncSession, project_id: s
 
 
 async def _attach_named_connections(db: AsyncSession, project_id: str | None, merged: dict) -> None:
-    """The connections the Workspace may use, for the tool router; never a value from
-    ``Project.config``. The default connection's unit replaces its entry's (``unbound_default.py``); the platform
-    scope (no Workspace) has no connection routes."""
     from app.services.named_connections.routes_model import NAMED_CONNECTIONS_KEY
     from app.services.named_connections.workspace_routes import workspace_routes
 

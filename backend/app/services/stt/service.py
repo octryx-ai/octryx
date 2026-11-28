@@ -66,6 +66,13 @@ _NO_SPEECH_PROB_THRESHOLD = 0.9
 # If transcribed text has more characters than this, keep it regardless of
 # no_speech_prob (clearly real content, not a hallucination).
 _MIN_CHARS_OVERRIDE_NSPROB = 15
+_TRANSCRIPTION = "stt.transcription"
+
+
+async def _stt_setting(db, field_name: str):
+    from ..secret import get_secret_value
+
+    return await get_secret_value(db, tool_name="stt", field_name=field_name, project_id=None, purpose=_TRANSCRIPTION)
 
 
 def _is_hallucination(text: str) -> bool:
@@ -273,44 +280,23 @@ def _blocked_resolution(
 
 
 async def resolve_stt_service(db, project_id: str | None = None) -> STTServiceResolution:
-    """Return the configured STT provider, preferring local/self-hosted endpoints.
-
-    Credentials are always resolved from global secrets (project_id=None).
-    The project_id is reserved for future per-project STT config overrides
-    (e.g. language preference stored in project.config.stt).
-
-    Priority:
-        1. Local Whisper (OpenAI-compatible)
-        2. AWS Transcribe (cloud, with diarization)
-        3. Azure Speech (cloud, with diarization)
-        4. OpenAI Whisper (cloud)
-    """
+    """Return the configured STT provider, preferring local/self-hosted endpoints."""
     attempts: list[STTProviderAttempt] = []
     fallback_allowed = True
     try:
         from ..secret import get_secret_value
 
         fallback_allowed = _truthy_config(
-            await get_secret_value(db, tool_name="stt", field_name="allow_provider_fallback", project_id=None),
+            await _stt_setting(db, "allow_provider_fallback"),
             default=True,
         )
-        whisper_base_url = await get_secret_value(db, tool_name="stt", field_name="whisper_base_url", project_id=None)
+        whisper_base_url = await _stt_setting(db, "whisper_base_url")
         if whisper_base_url:
             try:
-                whisper_api_key = await get_secret_value(
-                    db,
-                    tool_name="stt",
-                    field_name="whisper_api_key",
-                    project_id=None,
-                )
-                whisper_model = await get_secret_value(db, tool_name="stt", field_name="whisper_model", project_id=None)
-                whisper_endpoint_path = await get_secret_value(
-                    db,
-                    tool_name="stt",
-                    field_name="whisper_endpoint_path",
-                    project_id=None,
-                )
-                language = await get_secret_value(db, tool_name="stt", field_name="language", project_id=None)
+                whisper_api_key = await _stt_setting(db, "whisper_api_key")
+                whisper_model = await _stt_setting(db, "whisper_model")
+                whisper_endpoint_path = await _stt_setting(db, "whisper_endpoint_path")
+                language = await _stt_setting(db, "language")
                 service = OpenAICompatibleSTTService(
                     base_url=whisper_base_url,
                     api_key=whisper_api_key,
@@ -335,24 +321,16 @@ async def resolve_stt_service(db, project_id: str | None = None) -> STTServiceRe
             attempts.append(STTProviderAttempt("local_whisper", "skipped", "not_configured"))
 
         # --- AWS Transcribe (cloud with diarization) ---
-        aws_access_key = await get_secret_value(
-            db, tool_name="stt", field_name="aws_access_key_id", project_id=None
-        )
-        aws_secret_key = await get_secret_value(
-            db, tool_name="stt", field_name="aws_secret_access_key", project_id=None
-        )
+        aws_access_key = await _stt_setting(db, "aws_access_key_id")
+        aws_secret_key = await _stt_setting(db, "aws_secret_access_key")
         if aws_access_key and aws_secret_key:
             try:
                 from .aws_transcribe import AWSTranscribeSTTService
 
-                aws_region = await get_secret_value(db, tool_name="stt", field_name="aws_region", project_id=None)
-                aws_language = await get_secret_value(
-                    db, tool_name="stt", field_name="aws_language_code", project_id=None
-                )
-                language = await get_secret_value(db, tool_name="stt", field_name="language", project_id=None)
-                aws_diarization = await get_secret_value(
-                    db, tool_name="stt", field_name="aws_enable_diarization", project_id=None
-                )
+                aws_region = await _stt_setting(db, "aws_region")
+                aws_language = await _stt_setting(db, "aws_language_code")
+                language = await _stt_setting(db, "language")
+                aws_diarization = await _stt_setting(db, "aws_enable_diarization")
 
                 service = AWSTranscribeSTTService(
                     aws_access_key_id=aws_access_key,
@@ -381,19 +359,15 @@ async def resolve_stt_service(db, project_id: str | None = None) -> STTServiceRe
             attempts.append(STTProviderAttempt("aws_transcribe", "skipped", "missing_credentials"))
 
         # --- Azure Speech (cloud with diarization) ---
-        azure_key = await get_secret_value(db, tool_name="stt", field_name="azure_subscription_key", project_id=None)
+        azure_key = await _stt_setting(db, "azure_subscription_key")
         if azure_key:
             try:
                 from .azure_speech import AzureSpeechSTTService
 
-                azure_region = await get_secret_value(db, tool_name="stt", field_name="azure_region", project_id=None)
-                azure_language = await get_secret_value(
-                    db, tool_name="stt", field_name="azure_language", project_id=None
-                )
-                language = await get_secret_value(db, tool_name="stt", field_name="language", project_id=None)
-                azure_diarization = await get_secret_value(
-                    db, tool_name="stt", field_name="azure_enable_diarization", project_id=None
-                )
+                azure_region = await _stt_setting(db, "azure_region")
+                azure_language = await _stt_setting(db, "azure_language")
+                language = await _stt_setting(db, "language")
+                azure_diarization = await _stt_setting(db, "azure_enable_diarization")
 
                 service = AzureSpeechSTTService(
                     subscription_key=azure_key,
@@ -421,11 +395,12 @@ async def resolve_stt_service(db, project_id: str | None = None) -> STTServiceRe
             attempts.append(STTProviderAttempt("azure_speech", "skipped", "not_configured"))
 
         # --- OpenAI Whisper Cloud (fallback) ---
-        key = await get_secret_value(db, tool_name="stt", field_name="openai_api_key", project_id=None)
+        key = await _stt_setting(db, "openai_api_key")
         key_source = "stt.openai_api_key"
         if not key and fallback_allowed:
             # Fallback: try tts key (same OpenAI account)
-            key = await get_secret_value(db, tool_name="tts", field_name="openai_api_key", project_id=None)
+            key = await get_secret_value(db, tool_name="tts", field_name="openai_api_key", project_id=None,
+                                         purpose=_TRANSCRIPTION)
             key_source = "tts.openai_api_key"
         if key:
             attempts.append(STTProviderAttempt("openai_whisper", "configured", key_source))

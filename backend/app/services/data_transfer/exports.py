@@ -21,7 +21,7 @@ from app.services.data_transfer.export_payloads import (
 from app.services.data_transfer.gdpr_export import _build_user_data_gdpr_zip
 from app.services.data_transfer.queries import serialize_data_export_job
 
-from ...models import DataExportJob, User
+from ...models import DataExportJob, Project, User
 from ...time_utils import utc_now
 
 _EXPORT_TYPES = {"admin_config_backup", "project_backup", "user_data_gdpr", "task_definitions", "agent_definitions"}
@@ -93,7 +93,6 @@ async def _validated_export_format(
     normalized_scope_id: str | None,
     normalized_format: str,
 ) -> str:
-    """Refuse an export the caller may not run; the GDPR export is always a zip."""
     if normalized_type not in _EXPORT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported export_type")
     if normalized_scope_type not in {"project", "user", "global"}:
@@ -110,11 +109,15 @@ async def _validated_export_format(
             normalized_format = "zip"
     elif not await _is_admin_user(db, current_user):
         raise HTTPException(status_code=403, detail="Admin access required")
-    if normalized_scope_type == "project" and normalized_scope_id:
-        from ..project.private_workspace import private_project  # noqa: PLC0415
+    if normalized_scope_type == "project" and not normalized_scope_id:
+        raise HTTPException(status_code=400, detail="scope_id is required for scope_type=project")
+    if normalized_scope_type == "project":
+        from ..access_control import workspace_not_found  # noqa: PLC0415
+        from ..project.private_workspace import is_private  # noqa: PLC0415
 
-        if await private_project(db, normalized_scope_id) is not None:  # no admin export of a private one
-            raise HTTPException(status_code=404, detail="Project not found")
+        project = await db.get(Project, normalized_scope_id)
+        if project is None or is_private(project):  # no admin export of a private one
+            raise workspace_not_found()
     return normalized_format
 
 

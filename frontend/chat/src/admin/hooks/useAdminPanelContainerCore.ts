@@ -55,7 +55,7 @@ export function useAdminPanelControllers(
   core: AdminPanelCore,
   onApprovalStateChanged: ((sessionId?: string | null) => void) | undefined,
 ) {
-  const { providers, setProviders, setLoadingTab, setTabError, setTab, users, setUsers, agentForms, tab } = core;
+  const { providers, setProviders, setLoadingTab, setTabError, users, setUsers, agentForms, tab } = core;
   const s = core.slices;
   const controllers = useAdminPanelContainerControllers({
     onApprovalStateChanged,
@@ -63,7 +63,6 @@ export function useAdminPanelControllers(
     setProviders,
     setLoadingTab,
     setTabError,
-    setTab,
     users,
     setUsers,
     agentForms,
@@ -74,9 +73,7 @@ export function useAdminPanelControllers(
     corpIdentity: s.corpIdentity,
     createUserState: s.createUserState,
     knowledgeState: s.knowledgeState,
-    localBootstrapState: s.localBootstrapState,
     mcpState: s.mcpState,
-    modeScenarioState: s.modeScenarioState,
     officeTemplates: s.officeTemplates,
     projectState: s.projectState,
     providerState: s.providerState,
@@ -120,9 +117,7 @@ export function useAdminPanelDerived(
     corpIdentity: s.corpIdentity,
     createUserState: s.createUserState,
     knowledgeState: s.knowledgeState,
-    localBootstrapState: s.localBootstrapState,
     mcpState: s.mcpState,
-    modeScenarioState: s.modeScenarioState,
     officeTemplates: s.officeTemplates,
     projectState: s.projectState,
     providerState: s.providerState,

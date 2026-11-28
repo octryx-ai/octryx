@@ -1,9 +1,3 @@
-"""Each hands-on pass serves the app on a free port when the serve command names the declared one.
-
-Parallel runs on the file's fixed port would wait for each other, and a server left on that port makes the test
-refuse "something else already answers".
-"""
-
 from __future__ import annotations
 
 import socket

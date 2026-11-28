@@ -19,7 +19,6 @@ def _git(cwd: Path, *args: str) -> str:
 
 @pytest.fixture
 def remote(tmp_path) -> Path:
-    """A bare repository ``acme/pay.git`` with one commit on main."""
     work = tmp_path / "work"
     work.mkdir()
     _git(work, "init", "-q", "-b", "main")
@@ -60,7 +59,6 @@ async def test_a_shallow_mirror_under_the_root_follows_the_default_branch(db, re
     assert record["path"] == str(target) and repo.repo_root == str(target) and record["bytes"] > 0
     assert (target / "app.py").is_file() and _git(target, "rev-parse", "--is-shallow-repository") == "true"
     first = record["head"]
-    # A merge on the remote: the update fetches it, still shallow.
     work = remote.parent.parent.parent / "work"
     (work / "app.py").write_text("def total(items):\n    return round(sum(items), 2)\n")
     _git(work, "commit", "-qam", "second")
@@ -96,7 +94,6 @@ async def test_a_merge_finds_the_repository_by_its_remote_and_the_backfill_mirro
     monkeypatch.setattr("app.services.code_intelligence.indexing.run_code_index", index)
     (result,) = await graph_refresh.backfill(db, project_id=repo.project_id)
     assert result["mirror"]["head"] and indexed == [(repo.id, True, "backfill")]
-    # After a merge only an enabled graph is indexed again; a disabled one is only mirrored.
     repo.graph_backend = "disabled"
     outcome = await graph_refresh.refresh(db, repo, trigger="pr_merged")
     assert outcome["index"] == "graph disabled for this repository" and len(indexed) == 1
@@ -122,7 +119,7 @@ async def test_the_agents_tools_read_only_their_own_workspaces(db, remote, mirro
     repo = await _repository(db, remote)
     user = await admin_user(db)
     listed = await mcp_code_graph_summary(db, user=user, arguments={})
-    assert repo.id not in [item["id"] for item in listed["repositories"]]  # not a member of that Workspace
+    assert repo.id not in [item["id"] for item in listed["repositories"]]
     with pytest.raises(HTTPException) as refused:
         await mcp_code_graph_summary(db, user=user, arguments={"repository": repo.id})
     assert refused.value.status_code == 404
@@ -151,9 +148,6 @@ async def test_a_merged_pull_request_refreshes_the_code_graph_without_a_waiting_
 @pytest.mark.asyncio
 async def test_a_repository_whose_connection_refuses_the_remote_never_stops_the_backfill(
         db, remote, mirror_root, monkeypatch):
-    """A Bitbucket repository whose remote is not the connection's host must not raise ValueError in the
-    credential helper and fail the whole backfill with 500: that repository reports credential_refused and the
-    others are mirrored."""
     from app.services.code_intelligence import mirror
 
     good = await _repository(db, remote)

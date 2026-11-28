@@ -28,7 +28,6 @@ CONNECTOR_HEALTH_LOG_RETENTION_DAYS = 7
 
 
 def _utc_iso(value) -> str | None:
-    """A stored (naive UTC) time as ISO 8601 with ``+00:00``, so no client reads it as local time."""
     return ensure_utc(value).isoformat() if value else None
 
 
@@ -193,7 +192,8 @@ async def refresh_all_connector_health(
         ):
             continue
         config = dict(entry.config or {})
-        resolved = await resolve_secret_refs(db, config, tool_name=entry.tool_name, project_id=None)
+        resolved = await resolve_secret_refs(db, config, tool_name=entry.tool_name, project_id=None,
+                                             purpose="connector.health_check")
         health = await refresh_connector_health(
             db,
             connector_name=entry.tool_name,

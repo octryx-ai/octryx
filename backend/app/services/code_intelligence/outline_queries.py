@@ -62,7 +62,6 @@ async def get_file_outline(
 def _fallback_outline(
     target: Path, *, text: str, language: str, relative: str, snapshot: dict[str, Any], backend: str
 ) -> tuple[list[dict[str, Any]], str]:
-    """Parse the file directly when the structure index has no outline for it."""
     outline: list[dict[str, Any]] = []
     if language == "python":
         outline = _python_ast_outline(target, text)

@@ -1,11 +1,4 @@
-"""``list_jenkins_builds`` — the alert target's Jenkins builds in the alert window, bounded and read-only.
-
-- ``job`` must be one of the target's ``ci.jenkins_jobs`` (without a scope: only the Workspace's deploy job);
-- builds are filtered to the window (default: the alert window), at most ``limit`` ≤ 20, newest first, with the
-  test summary on request;
-- no Jenkins connection, an unreachable or failing Jenkins → ``unavailable`` (transport stub, no network);
-- it only reads: every request the real client sends is a GET.
-"""
+"""``list_jenkins_builds`` — the alert target's Jenkins builds in the alert window, bounded and read-only."""
 
 from __future__ import annotations
 
@@ -81,6 +74,7 @@ def jenkins(monkeypatch):
     def scoped(scope):
         async def run_alert_scope(_context):
             return scope
+
         monkeypatch.setattr(jenkins_module, "run_alert_scope", run_alert_scope)
 
     scoped(SCOPE)
@@ -102,10 +96,10 @@ async def test_a_job_outside_the_scope_is_refused_before_any_request(jenkins):
     refused = await _list(job="deploy-payments")
     assert (refused["error"], refused["evidence"]["status"], refused["allowed_jobs"]) == (
         "job_out_of_scope", "refused", ["deploy-checkout"])
-    scoped(None)  # without a scope: the Workspace's deploy job only
+    scoped(None)
     assert (await _list(job="release-everything"))["error"] == "job_out_of_scope"
     assert requests == []
-    assert (await _list())["job"] == "deploy-checkout"  # the only allowed job is the default
+    assert (await _list())["job"] == "deploy-checkout"
 
 
 @pytest.mark.asyncio
@@ -119,7 +113,7 @@ async def test_builds_are_filtered_by_the_alert_window_and_bounded(jenkins):
         "timestamp": "2026-10-15T09:20:00Z", "duration_ms": 60000, "commit": "bad1",
         "url": "https://ci.example.test/job/deploy-checkout/43/", "tests": None}
     assert result["builds"][1]["tests"] == {"available": True, "total": 30, "failed": 2, "skipped": 1}
-    assert result["builds"][0]["tests"]["available"] is False  # still building: no report
+    assert result["builds"][0]["tests"]["available"] is False
     assert (result["evidence"]["status"], result["evidence"]["count"], result["evidence"]["target_id"]) == (
         "ok", 2, "checkout")
     limited = await _list(job="deploy-checkout", limit=1)

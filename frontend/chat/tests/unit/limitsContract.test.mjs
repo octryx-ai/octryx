@@ -19,7 +19,7 @@ import {
   usedText,
 } from "../../src/admin/components/limits/limitsContract.ts";
 
-const SETTINGS = { agent_session_cost_limit_usd: 25, agent_request_cost_limit_usd: 0, default_completion_tokens: 4096 };
+const SETTINGS = { agent_session_cost_limit_usd: 25, agent_request_cost_limit_usd: 0, max_output_tokens_default: 4096 };
 
 test("only the changed limits are sent; empty is refused, 0 on a cost cap is the explicit No limit", () => {
   const stored = draftsFromSettings(SETTINGS);
@@ -27,7 +27,7 @@ test("only the changed limits are sent; empty is refused, 0 on a cost cap is the
   assert.deepEqual(limitsPayload({ ...stored, agent_session_cost_limit_usd: "30" }, stored),
     { payload: { agent_session_cost_limit_usd: 30 } });
   assert.match(limitsPayload({ ...stored, agent_session_cost_limit_usd: "" }, stored).error, /No limit/);
-  assert.match(limitsPayload({ ...stored, default_completion_tokens: "4.5" }, stored).error, /whole number/);
+  assert.match(limitsPayload({ ...stored, max_output_tokens_default: "4.5" }, stored).error, /whole number/);
   const requestCap = LIMIT_ROWS.find((row) => row.key === "agent_request_cost_limit_usd");
   assert.equal(isNoLimit(requestCap, stored.agent_request_cost_limit_usd), true);
 });

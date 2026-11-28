@@ -1,11 +1,4 @@
-"""Runtime governance: chain behavior, readiness, and the governed fallback mode.
-
-A refusal is never silent and never free: a denied target leaves a zero-dispatch
-attempt, a served contract violation stops the chain instead of buying a second
-billable answer, a pre-dispatch configuration gap still falls back, and the
-cross-runtime fallback mode is writable only through the validated admin
-surface — schema, route, and service writer.
-"""
+"""Runtime governance: chain behavior, readiness, and the governed fallback mode."""
 
 from __future__ import annotations
 
@@ -13,16 +6,16 @@ from typing import Any
 
 import pytest
 
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
-from app.agent.core.runtime.runtime_errors import (
+from app.agent.runtime.attempt_admission import CHAIN_HALT_ERROR_CLASS
+from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
+from app.agent.runtime.runtime_errors import (
     NON_FALLBACKABLE_RUNTIME_ERROR_CLASSES,
     RUNTIME_ERROR_ALIAS_DENIED,
     RUNTIME_ERROR_CONTRACT_VIOLATION,
     RUNTIME_ERROR_FALLBACK_VIOLATION,
 )
-from app.agent.core.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_ALL_RUNTIMES
-from app.agent.engine.runtime._engine_runtime_admission import CHAIN_HALT_ERROR_CLASS
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
+from app.agent.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_ALL_RUNTIMES
 from app.services.model_gateway.litellm import (
     LiteLLMGatewayError,
     ProjectModelAdmission,
@@ -77,8 +70,6 @@ async def test_fallback_violation_stops_the_runtime_chain() -> None:
 
 
 async def test_a_cost_contract_violation_never_buys_a_second_call() -> None:
-    """A deterministic response-contract violation is terminal, not a fallback."""
-
     factory = RecordingRuntimeFactory(
         failures={
             "litellm": LiteLLMGatewayError(
@@ -99,12 +90,6 @@ async def test_a_cost_contract_violation_never_buys_a_second_call() -> None:
 
 
 async def test_a_pre_dispatch_configuration_gap_stays_fallbackable() -> None:
-    """Configuration gaps, including a redirected endpoint, are not terminal.
-
-    Nothing was served, so the chain may still use its other targets: a
-    misconfigured gateway must not hard-fail a turn that has a working runtime.
-    """
-
     for denial_reason in ("probe_contract_missing", ENDPOINT_DENIAL_REDIRECTED):
         factory = RecordingRuntimeFactory(
             failures={
@@ -125,7 +110,7 @@ async def test_denied_alias_never_builds_a_provider_client() -> None:
     factory = RecordingRuntimeFactory(forbidden=("litellm",))
     runtimes = apply_model_policy_to_runtimes(
         [gateway_runtime(), backup_runtime()],
-        project_config={},
+        project_config={"model_policy": {"allowed_aliases": []}},
         project_id=PROJECT_ID,
     )
 
@@ -156,8 +141,6 @@ async def test_a_fully_denied_chain_dispatches_nothing_and_fails_explicitly() ->
 
 
 async def test_main_chat_dispatch_carries_the_project_admission_into_the_factory() -> None:
-    """Main chat path: runtime boundary grant -> factory kwarg -> driver."""
-
     factory = RecordingRuntimeFactory()
     runtimes = apply_model_policy_to_runtimes(
         [gateway_runtime()],

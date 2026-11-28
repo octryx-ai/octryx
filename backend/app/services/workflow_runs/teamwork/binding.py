@@ -1,10 +1,4 @@
-"""An item session's turn is governed by its item's synthetic phase (design section 3, "Item contract").
-
-The run sits at the ``parallel_work`` node, which no session runs as such; an item's session gets the routing
-resolution of its own phase (``item_definition``) with the item marker (``"item": <key>``), so its tools, path rules,
-checks and result tool apply, and ``record_phase_turn`` reports the turn to its item. A turn of an item that is not
-running (finished, replaced by a newer session, or the run moved on) is held.
-"""
+"""An item session's turn is governed by its item's synthetic phase."""
 
 from __future__ import annotations
 

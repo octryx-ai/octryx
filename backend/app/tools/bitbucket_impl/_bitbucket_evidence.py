@@ -1,9 +1,4 @@
-"""Bitbucket (Server/Data Center) read results as evidence: each item names its openable source.
-
-URLs are the Workspace's configured ``bitbucket_url`` plus the item keys, in the Bitbucket Server web
-forms (``/projects/{KEY}/repos/{slug}/browse[/{path}]``, ``/pull-requests/{id}``, ``/commits/{id}``).
-No configured base or a missing key: no source fields (``tools/evidence_fields``).
-"""
+"""Bitbucket (Server/Data Center) read results as evidence: each item names its openable source."""
 
 from __future__ import annotations
 

@@ -1,8 +1,4 @@
-"""Slide gate checks about slots: text overflow, empty required slots, layout capacity.
-
-Every check measures the composed slide against the layout evidence and
-returns findings; none of them changes a slide.
-"""
+"""Slide gate checks about slots: text overflow, empty required slots, layout capacity."""
 
 from __future__ import annotations
 
@@ -31,7 +27,6 @@ _FALLBACK_FONT_PT = {"title": 24.0, "subtitle": 16.0, "content": 16.0}
 
 
 def _autofit_shrinks(shape: Any) -> bool:
-    """True only when the placeholder explicitly shrinks text to fit."""
     try:
         from pptx.enum.text import MSO_AUTO_SIZE
 

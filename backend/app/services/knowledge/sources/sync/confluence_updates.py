@@ -1,24 +1,4 @@
-"""Which Confluence pages changed recently, read from the Source Sync ledger.
-
-The feed is what the Workspace's Confluence Source Sync connectors recorded, with no other store
-or fallback:
-
-- a page is **new** when its source's first revision was recorded inside the window, and **changed**
-  when a later revision was; each carries its title, its Confluence page version, the ledger revision,
-  when the platform recorded it (``recorded_at``: the sync time, not the Confluence edit time) and the
-  page link of that revision;
-- a page is **removed** when its sync item was retired inside the window (deleted or no longer listed
-  in the connector's scope); a withheld (restricted) item is never reported;
-- ``total_pages`` counts the pages the connectors currently serve.
-
-Every row passes the same source-ACL re-check as the governed search (``access/source_acl``), so a
-restricted page's title never reaches a reader its ACL does not admit.
-
-Explicit states instead of guesses: no Confluence connector is ``needs_configuration``
-(``confluence_sync_not_configured``); connectors that never completed a sync are
-``needs_configuration`` (``confluence_sync_never_ran``), because an empty ledger would otherwise read
-as "nothing changed". ``synced_through`` says how fresh the answer is.
-"""
+"""Which Confluence pages changed recently, read from the Source Sync ledger, with no other store or fallback."""
 
 from __future__ import annotations
 
@@ -212,7 +192,6 @@ async def _served_count(db: AsyncSession, authorized: AuthorizedWorkspace, conne
 async def confluence_page_updates(
     db: AsyncSession, authorized: AuthorizedWorkspace, *, days: object = None, limit: object = None
 ) -> dict[str, object]:
-    """New, changed and removed Confluence pages of the last ``days`` days, from the ledger only."""
     window = _bounded(days, DEFAULT_DAYS, MAX_DAYS)
     bound = _bounded(limit, DEFAULT_LIMIT, MAX_LIMIT)
     if window is None or bound is None:

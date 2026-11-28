@@ -1,11 +1,4 @@
-"""Lifecycle of an instruction: create, new draft version, submit, publish, retire, seed.
-
-Every operation refuses with a closed :class:`InstructionRefusal` code. A version is append-only. Submit
-runs the conflict check (``conflicts.check_conflicts``) and creates the four-eyes approval; findings block
-it unless the submitter accepts them. Publish needs that approval approved through the platform's single
-four-eyes decision (``services/governance/four_eyes``); the approver is a global admin, or an admin/owner
-of the instruction's Workspace. Every change writes an audit row with ids, versions and digests only.
-"""
+"""Lifecycle of an instruction: create, new draft version, submit, publish, retire, seed."""
 
 from __future__ import annotations
 
@@ -103,7 +96,6 @@ async def retire_instruction(db: AsyncSession, *, instruction_id: str, user: Use
 
 
 async def ensure_default_instructions(db: AsyncSession, *, admin_user: User) -> int:
-    """Create each shipped instruction once, published (global, bound to its workflow); never overwrites."""
     created = 0
     for seed in SEEDS:
         exists = (

@@ -90,13 +90,6 @@ async def device_approval_entries(db: AsyncSession, user: User) -> list[dict[str
 
 
 async def tool_approval_entries(db: AsyncSession, user: User) -> list[dict[str, Any]]:
-    """Every pending approval the person may decide, also from other people's sessions and runs: one entry each.
-
-    Listing only the approvals of the person's own sessions would never push a decider of a colleague's chat or
-    a task run to the phone. The circle is ``approval/decidable``, the one
-    ``GET /api/v1/approvals/decidable`` lists; the key stays ``tool_approval:<id>`` so an approval notified before
-    is not pushed again and the phone's ``#item=tool_approval:<id>`` opens it. The title is the approval in words.
-    """
     from ..approval.decidable import decidable_approvals
     from ..approval.detail import latest_preview_payload
     from ..approval.presentation import approval_texts

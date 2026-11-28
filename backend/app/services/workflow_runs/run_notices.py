@@ -9,8 +9,6 @@ from ...models import WorkflowRun
 
 
 def open_findings_view(run: WorkflowRun) -> list[dict[str, Any]]:
-    """The findings the run went on with (``context.open_findings``, written by the decisions gate), high first, in
-    one shape for the run page: severity, file, line, summary, fix."""
     from .auto_accept import _SEVERITY_ORDER, OPEN_FINDINGS_KEY
 
     items = [dict(item) for item in dict(run.context or {}).get(OPEN_FINDINGS_KEY) or [] if isinstance(item, dict)]
@@ -35,7 +33,6 @@ REQUESTER_UNRESOLVED_NOTICE = ("Your {account} account is not linked, so you wer
 
 
 def reviewer_notice(run: WorkflowRun) -> dict[str, str] | None:
-    """What the requester does when the run could not make them the pull request's reviewer; ``None`` otherwise."""
     from ..linked_accounts.contract import PLATFORMS
 
     pr = dict(run.pull_request or {})
@@ -56,17 +53,12 @@ WAITS_FOR_MERGE = " The run waits for the merge."
 
 
 def _waiting(run: WorkflowRun, text: str) -> str:
-    """A finished run waits for nothing (e.g. a workflow that ends after opening the pull request; the
-    card must not say the run waits for the merge)."""
     from .states import ACTIVE_STATUSES
 
     return text if run.status in ACTIVE_STATUSES else text.replace(WAITS_FOR_MERGE, "")
 
 
 def follow_up_failed(run: Any) -> dict[str, Any] | None:
-    """A triage whose follow-up workflow did not start (``triage_routing``, state ``failed``): its workflow, code and
-    message, which a work item's runs show (otherwise the failure was silent). The run card reads
-    ``routing``."""
     routing = dict(dict(run.context or {}).get("routing") or {})
     if routing.get("state") != "failed":
         return None

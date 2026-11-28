@@ -1,21 +1,4 @@
-"""Takeovers: move a Work Item's claim to another agent, confirmed only by a person in the UI.
-
-- **Request** (:func:`request_takeover`): a member's agent asks for an item someone else holds, or an admin asks
-  a person to take an item over (``handoff-requests``). One ``pending`` takeover per item and requester; asking
-  again answers the pending one. It posts a linked ``handoff_request`` board message. It is ``automatic`` when the
-  held claim already has an automatic handoff request.
-- **Decision** (:func:`decide_takeover`): only the receiving user (``to_user``), a Workspace admin/owner or a
-  platform admin; never an agent (there is no MCP tool for it). The status moves ``pending`` → ``confirmed`` /
-  ``declined`` by compare-and-set, so a racing confirm and decline have exactly one winner; anything else is
-  409 ``takeover_not_pending``. A pending takeover past ``expires_at`` reads, and is stored as, ``expired``.
-- **Confirm** transfers the claim in the same transaction: the live claim is released ``taken_over`` and the
-  requester's agent gets a new claim with the next epoch and a fresh lease (an admin request without an agent
-  only releases it; the person's agent claims next). The old holder's later writes are fenced (``claim_lost``).
-  It posts ``handoff_accept``, audits both users and answers with the latest handoff.
-
-States and codes live in ``takeover_status``, the claim transfer in ``takeover_transfer`` and the UI shape in
-``takeover_listing``.
-"""
+"""Takeovers: move a Work Item's claim to another agent, confirmed only by a person in the UI."""
 
 from __future__ import annotations
 
@@ -66,7 +49,6 @@ async def _automatic(db: AsyncSession, claim: WorkItemClaim | None) -> bool:
 
 
 async def _pending_takeover(db: AsyncSession, work_item_id: str, requester_ref: str) -> WorkItemTakeover | None:
-    """The requester's pending takeover of this item, if any."""
     return (
         await db.execute(
             select(WorkItemTakeover).where(
@@ -90,7 +72,6 @@ async def request_takeover(
     message_to_user_id: str | None = None,
     require_claim: bool = True,
 ) -> WorkItemTakeover:
-    """A pending takeover (new, or the requester's existing one) plus its ``handoff_request`` post. Flushes."""
     await expire_pending(db, work_item_id=item.id)
     requester_ref = to_agent_hash or f"user:{to_user_id}"
     existing = await _pending_takeover(db, item.id, requester_ref)
@@ -144,7 +125,6 @@ async def _new_takeover(
     text: str,
     message: AgentBoardMessage,
 ) -> WorkItemTakeover:
-    """The pending row of a new request, under the Workspace's handoff policy (not yet added)."""
     now = utc_now()
     project = await db.get(Project, item.project_id)
     policy, _source = handoff_policy_from_config(project.config if project is not None else None)
@@ -183,12 +163,6 @@ async def decide_takeover(
     confirm: bool,
     policy_snapshot: dict[str, Any] | None = None,
 ) -> WorkItemTakeover:
-    """Confirm (transfer the claim) or decline; the caller checked membership. Flushes; the caller commits.
-
-    ``user_id=None`` is the server deciding under the Workspace's ``auto`` handoff policy: no
-    person check, ``decided_by_kind = system`` and the applied ``policy_snapshot`` are stored. The compare-and-set
-    and the claim transfer are exactly the human ones.
-    """
     system = user_id is None
     if not system and not await may_decide_takeover(db, takeover, user_id):
         raise HTTPException(status_code=403, detail="Only the receiving person or a Workspace admin may decide")
@@ -218,7 +192,7 @@ async def decide_takeover(
     actor = user_id or takeover.to_user_id
     if not confirm:
         db.add(AuditLog(user_id=actor, action=DECLINE_AUDIT_ACTION, resource_type="work_item_takeover",
-                        resource_id=takeover.id, details=details))
+                        resource_id=takeover.id, project_id=takeover.project_id, details=details))
         await db.flush()
         return takeover
     await _apply_confirmation(db, takeover, user_id=user_id, system=system, actor=actor, details=details)
@@ -229,7 +203,6 @@ async def _apply_confirmation(
     db: AsyncSession, takeover: WorkItemTakeover, *, user_id: str | None, system: bool, actor: str,
     details: dict[str, Any],
 ) -> None:
-    """Transfer the claim, retire competing requests, post ``handoff_accept`` and audit both users."""
     claim = await _transfer_claim(db, takeover)
     takeover.new_claim_id = claim.id if claim is not None else None
     if takeover.from_claim_id:
@@ -247,10 +220,10 @@ async def _apply_confirmation(
     )
     details = {**details, "new_claim_id": takeover.new_claim_id, "epoch": claim.epoch if claim else None}
     db.add(AuditLog(user_id=actor, action=CONFIRM_AUDIT_ACTION, resource_type="work_item_takeover",
-                    resource_id=takeover.id, details=details))
+                    resource_id=takeover.id, project_id=takeover.project_id, details=details))
     for affected in {takeover.from_user_id, takeover.to_user_id} - {None}:
         db.add(AuditLog(user_id=affected, action=TRANSFER_AUDIT_ACTION, resource_type="work_item_takeover",
-                        resource_id=takeover.id, details=details))
+                        resource_id=takeover.id, project_id=takeover.project_id, details=details))
     await db.flush()
 
 

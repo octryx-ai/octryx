@@ -1,15 +1,5 @@
-"""The commit a checkout is on, read from ``.git`` without running git.
-
-An impact list is only reproducible when it names the commit it was computed from. The Knowledge
-module runs no subprocess, so the commit is resolved from the repository metadata itself:
-
-1. ``.git`` as a directory, or as a ``gitdir:`` pointer file (a worktree);
-2. ``HEAD``, either detached (a hash) or a ``ref:``;
-3. the ref's loose file, then ``packed-refs``, then the worktree's common directory.
-
-An unresolvable checkout answers ``None``, which the caller reports as an explicit "not a git
-checkout" rather than a guessed commit.
-"""
+"""The commit a checkout is on, read from ``.git`` without running git. An unresolvable checkout answers ``None``, never
+a guessed commit."""
 
 from __future__ import annotations
 
@@ -53,7 +43,6 @@ def _ref(git_dir: Path, ref: str) -> str | None:
 
 
 def checkout_commit(root: Path) -> str | None:
-    """The 40-character commit ``root`` is checked out at, or ``None``."""
     git_dir = _git_dir(root)
     if git_dir is None:
         return None

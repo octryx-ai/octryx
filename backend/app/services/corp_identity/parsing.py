@@ -59,13 +59,6 @@ def safe_upload_name(name: str) -> str:
     return cleaned or "template.potx"
 
 
-def read_json(path: Path, default: Any) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return default
-
-
 def read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -121,22 +114,6 @@ def ppt_text(element: ET.Element) -> str:
         if node.text:
             parts.append(node.text)
     return " ".join(parts).strip()
-
-
-def shape_position(element: ET.Element) -> tuple[int, int]:
-    shape_props = element.find(f"{{{NS_P}}}spPr")
-    if shape_props is None:
-        return (0, 0)
-    transform = shape_props.find(f"{{{NS_A}}}xfrm")
-    if transform is None:
-        return (0, 0)
-    off = transform.find(f"{{{NS_A}}}off")
-    if off is None:
-        return (0, 0)
-    try:
-        return int(off.attrib.get("x", 0)), int(off.attrib.get("y", 0))
-    except (TypeError, ValueError):
-        return (0, 0)
 
 
 def shape_rect_cm(element: ET.Element) -> dict[str, float] | None:
@@ -214,11 +191,6 @@ def text_guideline(placeholder_type: str, purpose: str) -> dict[str, Any]:
 
 
 def is_corporate_safe(placeholders: list[dict[str, Any]], category: str) -> bool:
-    """Whether a generic deck may use the layout: not a people/contact layout.
-
-    ``category`` comes from the structural classification (where the layout
-    name is only a hint).
-    """
     if category == "contact":
         return False
     for placeholder in placeholders:
@@ -248,11 +220,6 @@ def icon_zones_for_layout(
     all_shapes: list[tuple[ET.Element, dict[str, float] | None]],
     slide_dimensions: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """Icon frames drawn on the layout, else the free area a model may place icons in.
-
-    Decided by structure only: small square circles are frames; a title without body leaves the area under
-    it free; a layout without placeholders leaves the whole slide free.
-    """
     dims = slide_dimensions or {}
     slide_w = float(dims.get("width_cm") or 25.4)
     slide_h = float(dims.get("height_cm") or 14.288)

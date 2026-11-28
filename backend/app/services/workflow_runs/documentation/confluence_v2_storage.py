@@ -9,13 +9,10 @@ from typing import Any
 
 
 def storage_digest(storage: str | None) -> str:
-    """``sha256:<hex>`` of a storage body exactly as given."""
     return "sha256:" + hashlib.sha256(str(storage or "").encode("utf-8")).hexdigest()
 
 
 class _StorageTokens(HTMLParser):
-    """Compare storage structure while preserving every text byte, including pre/code whitespace."""
-
     VOID = frozenset({"br", "hr", "img", "input", "meta", "link", "wbr", "area", "base", "embed", "param",
                       "source", "track", "col"})
 
@@ -45,11 +42,7 @@ class _StorageTokens(HTMLParser):
 
 
 def canonical_storage(storage: str | None) -> str:
-    """Provider serialization equivalence, never general whitespace normalization.
-
-    Only parsed entity spelling and void-tag slash/spacing differ. Text and attribute
-    values remain exact; escaped markup is a text token rather than a tag token.
-    """
+    # Provider serialization equivalence only: text and attribute values stay exact.
     parser = _StorageTokens()
     parser.feed(str(storage or ""))
     parser.close()

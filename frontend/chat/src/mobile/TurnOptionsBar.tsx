@@ -97,6 +97,12 @@ export function TurnOptionsBar({
           </option>
         ))}
       </select>
+      {options.permissionMode === "bypassPermissions" ? (
+        <p className="m-note">
+          Bypass runs without the sandbox on your device. The platform still checks every call, but this mode does
+          not protect your device against the agent itself.
+        </p>
+      ) : null}
     </div>
   );
 }

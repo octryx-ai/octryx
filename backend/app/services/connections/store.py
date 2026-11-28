@@ -58,7 +58,6 @@ async def workspace_names(db: AsyncSession, ids: Iterable[str | None]) -> dict[s
 
 
 async def set_workspaces(db: AsyncSession, connection_id: str, workspace_ids: Iterable[str]) -> None:
-    """Replace the connection's ``connection_workspaces`` rows with ``workspace_ids``."""
     wanted = set(workspace_ids)
     current = (await workspaces_of(db, [connection_id]))[connection_id]
     for row in (await db.execute(select(ConnectionWorkspace).where(

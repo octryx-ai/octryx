@@ -1,16 +1,12 @@
-// Plugin words: counts, connection names, status, install line and summary lines in words.
 import type { PluginInstall, PluginStatus, SummaryLine } from "./pluginsApi";
 
 export const plural = (count: number, one: string, many = `${one}s`) => `${count} ${count === 1 ? one : many}`;
-
-// ---- words ------------------------------------------------------------------------------------------------------
 
 const CONNECTION_NAMES: Record<string, string> = {
   jira: "Jira", confluence: "Confluence", github: "GitHub", gitlab: "GitLab", bitbucket: "Bitbucket", scm: "Git hosting",
   slack: "Slack", teams: "Microsoft Teams", email: "Email", sharepoint: "SharePoint",
 };
 
-/** "jira" → "Jira"; an unknown kind keeps its name with a capital first letter. */
 export function connectionName(kind: string): string {
   const key = kind.trim().toLowerCase();
   return CONNECTION_NAMES[key] ?? (key ? key.charAt(0).toUpperCase() + key.slice(1).replace(/[_-]+/g, " ") : "");
@@ -35,10 +31,6 @@ export function installedText(install: Pick<PluginInstall, "installed_by_name" |
 
 const strings = (value: unknown): string[] => (Array.isArray(value) ? value.map(String).filter(Boolean) : []);
 
-/**
- * One summary line in words. The backend's English text names connections by their kind ("jira"); the params let
- * the line name them as people know them ("Jira"). An unknown key keeps the backend's text.
- */
 export function summaryText(line: SummaryLine): string {
   const params = line.params ?? {};
   switch (line.key) {

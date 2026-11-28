@@ -1,10 +1,5 @@
-"""A short map of the run's app, in the first turn's context (cost lever 3).
-
-The token profile of flutter-story 83820a26: 56 model calls, 85k tokens of context each, much of it the agent
-finding its way (ls, find, grep over the tree). The launcher has the working copy, so it hands the agent the app's
-tracked files once per session: the files whose path names a word of the work item's title first ("likely
-relevant"), then the folders with their file counts. Generic: git's own list of tracked files, no stack knowledge.
-"""
+"""A short map of the run's app's tracked files for the first turn's context, so the agent spends fewer
+tokens finding its way."""
 
 from __future__ import annotations
 
@@ -24,7 +19,6 @@ MAX_SHARE = 0.25  # a word in more than a quarter of the paths (test, lib, src) 
 
 
 def tracked_files(root: str, app_folder: str) -> list[str]:
-    """The app's tracked files relative to the repository (``[]`` when git cannot say)."""
     folder = app_folder.strip("/") or "."
     try:
         out = subprocess.run(["git", "-C", root, "ls-files", "-z", "--", folder], capture_output=True, timeout=10,
@@ -45,7 +39,6 @@ def _stem(word: str) -> str:
 
 
 def relevant(files: list[str], title: str) -> list[str]:
-    """The files whose path names a word of the title (singular and plural alike), most matches first."""
     lowered_files = [name.lower() for name in files]
     words = {word for word in {_stem(item) for item in _words(title)}
              if sum(1 for name in lowered_files if word in name) <= max(MIN_SHARED, int(len(files) * MAX_SHARE))}
@@ -66,8 +59,6 @@ def folders(files: list[str]) -> list[str]:
 
 
 def style_commands(files: list[str], contract: dict[str, Any] | None) -> list[str]:
-    """The platform's formatter and linter commands for the languages the app's files are in (``<files>`` for the
-    changed files), so the agent runs the same check the platform runs (5a059ed7 / f34f0640)."""
     from .style_tools import EXTENSIONS
 
     phase = contract.get("phase") if isinstance(contract, dict) else None
@@ -86,7 +77,6 @@ def style_commands(files: list[str], contract: dict[str, Any] | None) -> list[st
 
 
 def code_map(root: str, contract: dict[str, Any] | None, head: str, style_head: str = "") -> str:
-    """The map's text under ``head`` (a catalog text), or ``""`` without a phase or tracked files."""
     if not isinstance(contract, dict) or not isinstance(contract.get("phase"), dict) or not root:
         return ""
     environment = dict(dict(contract.get("preparation") or {}).get("environment") or {})

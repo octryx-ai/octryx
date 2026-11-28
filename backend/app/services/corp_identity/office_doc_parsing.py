@@ -1,8 +1,4 @@
-"""Office document parsing helpers for DOCX/XLSX (theme, colors, fonts).
-
-Shares the same approach as PPTX extraction — read the XML archive directly,
-no external dependencies beyond stdlib.
-"""
+"""Office document parsing helpers for DOCX/XLSX (theme, colors, fonts)."""
 
 from __future__ import annotations
 
@@ -37,7 +33,6 @@ def _theme_schemes(root: ET.Element) -> tuple[ET.Element | None, ET.Element | No
 
 
 def _find_theme_schemes(extracted_root: Path) -> tuple[ET.Element | None, ET.Element | None]:
-    """Return the colour and font scheme elements of the first readable Word/Excel theme."""
     # Word / Excel: the shared theme is in word/theme/ or xl/theme/
     for theme_dir in (extracted_root / "word", extracted_root / "xl"):
         if not theme_dir.exists():
@@ -58,7 +53,6 @@ def _find_theme_schemes(extracted_root: Path) -> tuple[ET.Element | None, ET.Ele
 
 
 def _page_dimensions(extracted_root: Path) -> dict[str, Any]:
-    """Read the page size from document settings; a later readable file overrides an earlier one."""
     slide_dimensions: dict[str, Any] = {}
     doc_settings_paths = [
         extracted_root / "word" / "settings.xml",
@@ -120,10 +114,6 @@ def _scheme_fonts(font_scheme: ET.Element | None) -> dict[str, str]:
 
 
 def extract_office_document_theme(extracted_root: Path) -> dict[str, Any]:
-    """Extract theme (colors + fonts) from a DOCX or XLSX archive root.
-
-    Attempts multiple known XML paths since Office apps vary their internal structure.
-    """
     color_scheme, font_scheme = _find_theme_schemes(extracted_root)
     slide_dimensions = _page_dimensions(extracted_root)
     colors = _scheme_colors(color_scheme)
@@ -151,7 +141,6 @@ def extract_office_document_summary(
     doc_type: str,
     profile_root: Path,
 ) -> dict[str, Any]:
-    """Build a summary dict for a DOCX or XLSX profile (PPTX-specific fields omitted)."""
     color_list = [
         {
             "token": token,
@@ -184,7 +173,6 @@ def generate_office_document_guide(
     summary: dict[str, Any],
     doc_type: str,
 ) -> str:
-    """Generate a minimal LLM guide for a DOCX or XLSX profile."""
     profile_name = summary.get("name") or "Profile"
     font_family = summary.get("font_family") or "Arial"
     theme_name = summary.get("theme_name") or "-"

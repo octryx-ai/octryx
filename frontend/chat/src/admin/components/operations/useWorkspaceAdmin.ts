@@ -30,3 +30,20 @@ export function useWorkspaceAdmin(isPlatformAdmin: boolean, projects: { id: stri
 
   return isPlatformAdmin || answer;
 }
+
+// The compliance audit's own eligibility (its /kinds answers 403 otherwise), never cached: roles and errors change.
+export function useAnyWorkspaceAdmin(isPlatformAdmin: boolean, enabled = true, userId?: string): boolean {
+  const [answer, setAnswer] = useState(false);
+
+  useEffect(() => {
+    if (isPlatformAdmin || !enabled) return undefined;
+    let current = true;
+    setAnswer(false);
+    fetch("/api/v1/admin/compliance-audit/kinds", { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then((response) => response.ok, () => false)
+      .then((ok) => { if (current) setAnswer(ok); });
+    return () => { current = false; };
+  }, [isPlatformAdmin, enabled, userId]);
+
+  return isPlatformAdmin || answer;
+}

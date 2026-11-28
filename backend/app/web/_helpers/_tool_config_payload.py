@@ -24,7 +24,6 @@ async def _apply_secret_fields(
     project_id: str | None,
     persist_secrets: bool,
 ) -> None:
-    """Replace the preset's secret fields in ``parsed_config`` by secret refs (or the typed value for a test)."""
     from ...services.secret import set_secret_value
 
     for field_name in secret_fields:
@@ -58,11 +57,8 @@ async def _build_tool_config_payload(
     actor_user_id: str | None = None,
     persist_secrets: bool = True,
 ) -> dict:
-    """The validated config of one tool config form.
-
-    ``persist_secrets=False`` (a connection test) never writes the secret store: a typed
-    secret is carried in the returned config for that test only, and the stored refs stay untouched.
-    """
+    # A connection test never writes the secret store: a typed secret is carried in the returned config for that test
+    # only.
     from ...services.tool_config import get_tool_config, validate_tool_config
     from ...services.tool_config.secret_rebind import CONFIRM_SECRET_REBIND_FIELD, enforce_secret_rebind
 

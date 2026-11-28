@@ -1,28 +1,4 @@
-"""The instance-wide classification policy matrix: what each data classification level allows.
-
-The five levels are fixed (``DATA_CLASSIFICATION_ORDER``); their rules are configurable by platform admins.
-Each rule is enforced at its existing decision point, never in a parallel path:
-
-- ``seat_allowed`` and ``requires_governed_routing``: ``agent_gateway/seat_policy.seat_decision_for``;
-- ``allowed_model_aliases``: the project model admission every gateway dispatch goes through
-  (``model_gateway/litellm/project_admission.ProjectModelAdmission.decide``), so the inbound gateway, chat and
-  the Knowledge model paths narrow alike. **Derived, read-only**: level L lists every enabled
-  gateway model cleared at or above L in the Model catalog (``model_catalog/clearance``); a submitted or stored
-  value is ignored;
-- ``reranker_allowed``, ``remote_embeddings_allowed``: ``knowledge/embedding/selection.admit_remote``;
-- ``connectors`` and ``log_masking_required``: the tool admission (``classification_tool_policy``);
-- ``transcript_retention_days``: stored and shown only;
-- ``device_runs_allowed``: the device dispatch gate (``devices/device_policy``); true at every level by
-  default, protection comes from the model routing of each call of the device job.
-
-Only rules that differ from the defaults are
-stored, in the admin ``system_config`` store (:data:`POLICY_MATRIX_CONFIG_KEY`), so a missing row is the
-default matrix. A stored value the backend cannot read is ``invalid`` and fails closed: every level gets
-:data:`LOCKED_RULES`, never the permissive defaults.
-
-The vocabulary and value types live in ``policy_rules``, the validation in ``policy_validation``; this module loads
-the live matrix and keeps every name importable from here.
-"""
+"""The instance-wide classification policy matrix: what each data classification level allows."""
 
 from __future__ import annotations
 
@@ -62,12 +38,10 @@ async def load_classification_policy(db: AsyncSession) -> ClassificationPolicy:
 
 
 async def model_allowlists(db: AsyncSession) -> dict[str, frozenset[str]]:
-    """The per-level gateway alias allowlists for the project model admission builders."""
     return (await load_classification_policy(db)).model_allowlists()
 
 
 async def level_rules(db: AsyncSession, level: str) -> LevelRules:
-    """The rules of one resolved level (for a decision point that holds a classification)."""
     return (await load_classification_policy(db)).rules_for(level)
 
 

@@ -1,13 +1,4 @@
-"""Compose a deck or document about *any* topic from sourced content.
-
-The AWS plan builders turn an ``aws_topology_snapshot`` into slides and sections;
-this does the same for a general topic — a release, a task distribution, an
-onboarding guide — from ``content`` the caller assembled: a title and a list of
-sections, each a heading with bullets, every bullet ideally carrying its source.
-The composer, the corporate identity, the evidence rule and the open-points
-discipline are all shared: a section with no source becomes a
-``[SOURCE MISSING: …]`` marker, never invented prose, exactly as on the AWS path.
-"""
+"""Compose a deck or document about *any* topic from sourced content."""
 
 from __future__ import annotations
 
@@ -65,13 +56,6 @@ def _columns(raw: Any) -> list[tuple[str, str, str]]:
 
 
 def _section_draft(section: dict[str, Any]) -> SlideDraft | None:
-    """One slide, its type chosen from how the section is shaped.
-
-    Explicit ``type`` wins (``statement`` / ``columns`` / ``quote`` / ``bullets``);
-    otherwise it is inferred — columns when the section provides them, a statement
-    for a single short headline, a bullet list otherwise. Every variant keeps the
-    evidence rule: a claim with no source becomes a marker, never invented prose.
-    """
     heading = str(section.get("heading") or "").strip()
     kind = str(section.get("type") or "").strip().lower()
     subtitle = str(section.get("subtitle") or section.get("text") or "").strip()
@@ -195,11 +179,6 @@ def build_generic_deck_plan(
 
 
 def _headline_draft(content: dict[str, Any]) -> SlideDraft | None:
-    """An opening statement slide from ``content['statement']`` — the deck's thesis.
-
-    ``statement`` may be a string or ``{text, subtitle?, source?}``. Absent, the
-    deck simply opens on its content; a statement is never invented.
-    """
     raw = content.get("statement")
     if isinstance(raw, str):
         raw = {"text": raw}

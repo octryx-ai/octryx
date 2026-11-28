@@ -1,11 +1,4 @@
-"""Fixed facts about a webhook receiver's answer; the answer's body is never stored.
-
-A receiver's response body is foreign text: it can echo the delivered payload, carry the
-receiver's internal hosts, paths or tokens. A delivery keeps only the HTTP status, the body's
-length in bytes and a closed outcome. The ``response_body`` column holds exactly that as one line, ``outcome=accepted
-http_status=200 content_length=17``, and serialization returns it only when it matches this grammar, so a
-stored raw body is never echoed.
-"""
+"""Fixed facts about a webhook receiver's answer; the answer's body is never stored."""
 
 from __future__ import annotations
 
@@ -46,13 +39,11 @@ def delivery_outcome(status_code: int) -> str:
 
 
 def response_facts_line(response: httpx.Response) -> str:
-    """The stored line for a receiver's answer: outcome, status and body length, no body text."""
     status = int(response.status_code)
     return f"outcome={delivery_outcome(status)} http_status={status} content_length={len(response.content or b'')}"
 
 
 def parse_response_facts(value: Any) -> dict[str, Any] | None:
-    """The facts of a stored line, or None for anything else (including raw bodies)."""
     match = _FACTS_LINE.match(value) if isinstance(value, str) else None
     if match is None or match.group(1) not in DELIVERY_OUTCOMES:
         return None
@@ -64,7 +55,6 @@ def parse_response_facts(value: Any) -> dict[str, Any] | None:
 
 
 def serialized_response_facts(value: Any) -> tuple[str | None, dict[str, Any] | None]:
-    """``(response_body, response_facts)`` for the API: the validated line and its parsed facts."""
     facts = parse_response_facts(value)
     return (value if facts else None), facts
 

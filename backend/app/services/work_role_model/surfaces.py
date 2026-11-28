@@ -1,14 +1,4 @@
-"""The one role filter for the chat's tool surface and the octryx client's MCP ``tools/list`` and calls.
-
-Both surfaces enforce: ``offered = governed set ∩ tools of the person's roles ∩ connection
-levels ∩ Workspace policy``, and "the same filter applies to the client's MCP tools/list and its dispatch, so chat
-and client match for the same person and Workspace". Both surfaces compute :func:`effective_permission` for
-(user, Workspace) once per request and ask the same synchronous checks (``grant_checks``).
-
-Only chat turns are filtered on the chat side (``chat_connector_writes`` marks them, ``run_capability.chat_writes``):
-workflow-run phases, schedules, flows and sub-agents keep their declared surfaces. Nothing narrows while the
-Workspace switch ``role_based_tools`` is off, and platform admins are never filtered.
-"""
+"""The one role filter for the chat's tool surface and the octryx client's MCP ``tools/list`` and calls."""
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +13,6 @@ TRUSTED_NOTICE = ("Note: one of your roles in this Workspace is trusted. Your ch
 
 
 async def chat_turn_grant(db: AsyncSession, *, user_id: str | None, workspace_id: str | None) -> WorkRoleGrant | None:
-    """The chat turn's grant, ``None`` when nothing narrows (no Workspace, switch off, platform admin)."""
     if not db or not user_id or not workspace_id:
         return None
     grant = await effective_permission(db, user_id, workspace_id)
@@ -47,13 +36,11 @@ def context_grant(context: Any) -> WorkRoleGrant | None:
 
 
 def dispatch_refusal(tool_name: str, context: Any) -> dict[str, Any] | None:
-    """A chat turn's call outside the person's roles (a model may name a tool it was never offered)."""
     return tool_refusal(context_grant(context), tool_name)
 
 
 def write_connection_refusal(tool_name: str, context: Any, connection_id: str | None,
                              connection_label: str = "") -> dict[str, Any] | None:
-    """Delivery per connection: a write through a connection none of the person's roles is granted."""
     from ..named_connections.connection_gate import is_write_tool
 
     grant = context_grant(context)
@@ -63,13 +50,11 @@ def write_connection_refusal(tool_name: str, context: Any, connection_id: str | 
 
 
 def trusted_writes(context: Any) -> bool:
-    """A trusted role: the chat's connector and platform writes run without the per-call card (explicit opt-in)."""
     grant = context_grant(context)
     return grant is not None and grant.trusted
 
 
 def prompt_note(grant: WorkRoleGrant | None) -> str | None:
-    """What the chat model must tell the person: no role (and why), or that their writes are trusted."""
     if grant is None:
         return None
     if empty_reason(grant):
@@ -79,7 +64,6 @@ def prompt_note(grant: WorkRoleGrant | None) -> str | None:
 
 
 def with_prompt_note(messages: list[dict[str, Any]], note: str | None) -> list[dict[str, Any]]:
-    """Append ``note`` to the leading system message (string or content blocks); other shapes stay unchanged."""
     if not note or not messages or messages[0].get("role") != "system":
         return messages
     first = dict(messages[0])
@@ -94,7 +78,6 @@ def with_prompt_note(messages: list[dict[str, Any]], note: str | None) -> list[d
 
 
 async def mcp_grant(db: AsyncSession, user_id: str | None, workspace_id: str | None) -> WorkRoleGrant | None:
-    """The client connection's grant (same function as the chat); ``None`` when nothing narrows."""
     if not user_id or not workspace_id:
         return None
     grant = await effective_permission(db, user_id, workspace_id)

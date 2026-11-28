@@ -1,25 +1,4 @@
-"""Authoritative Secure-attribute policy for the auth cookies.
-
-One decision function owns the ``Secure`` flag for every auth-cookie set and
-clear operation, so the two can never disagree. Precedence, highest first:
-
-1. ``force_secure_auth_cookies=True`` -> ``Secure`` unconditionally.
-2. Effective request scheme is HTTPS -> ``Secure``.
-3. Explicit local-debug HTTP over an unproxied loopback peer -> not ``Secure``.
-4. Anything else, including a missing request -> ``Secure`` (fail secure).
-
-Proxy handling is deny-by-default and owned by ``trusted_proxy_policy``:
-``X-Forwarded-Proto``/``Forwarded`` are only read when the transport peer is
-listed in ``trusted_proxy_ips``. The presence of any forwarded header
-disqualifies the loopback exemption, so a spoofed ``X-Forwarded-For: 127.0.0.1``
-cannot buy non-secure cookies. The policy always evaluates the *transport peer*,
-even after the boundary middleware has applied a forwarded client address to the
-request.
-
-Decisions carry a short reason code for auditing. Reason codes are enum-like
-constants and never contain cookie values, tokens, header contents, or
-addresses.
-"""
+"""Authoritative Secure-attribute policy for the auth cookies."""
 
 from __future__ import annotations
 
@@ -59,8 +38,6 @@ INSECURE_REASON_LOCAL_DEBUG = "local_debug_loopback_http"
 
 @dataclass(frozen=True)
 class AuthCookiePolicy:
-    """Resolved cookie attributes for one request, shared by set and clear."""
-
     secure: bool
     samesite: str
     secure_reason: str = SECURE_REASON_FAIL_SECURE
@@ -73,7 +50,6 @@ class AuthCookiePolicy:
 
 
 def _peer_address(request: Request | None, settings: Settings):
-    """Transport peer address of the request, never a forwarded claim."""
     if request is None:
         return None
     return parse_ip_address(client_identity(request, settings).peer_address)
@@ -93,25 +69,12 @@ def _has_forwarded_headers(request: Request | None) -> bool:
 
 
 def effective_request_scheme(request: Request | None, settings: Settings) -> str:
-    """Scheme the client actually used, as far as it can be trusted.
-
-    A direct HTTPS request is authoritative. Forwarded headers are only
-    consulted for a trusted proxy peer, and never downgrade HTTPS to HTTP.
-    """
     if request is None:
         return ""
     return client_identity(request, settings).scheme
 
 
 def _local_debug_http_allowed(request: Request | None, settings: Settings) -> bool:
-    """True only for an explicit local-debug runtime reached over loopback.
-
-    Requires debug mode, a non-production-like runtime profile, a loopback peer
-    address, and no proxy in the path. A request carrying forwarded headers is
-    not a direct loopback request even when the peer address claims to be one,
-    which is what stops a spoofed ``X-Forwarded-For: 127.0.0.1`` from buying a
-    non-secure cookie.
-    """
     if not settings.debug or is_production_like_runtime_profile(settings.runtime_profile):
         return False
     address = _peer_address(request, settings)

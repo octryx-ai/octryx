@@ -1,20 +1,4 @@
-"""What would the open draft block in live traffic? The draft shadow.
-
-The decision log only stores non-matches and hashes the coding-agent resource, so it cannot be replayed against a
-draft. Instead, while a draft (or a version in review) exists, the shadow evaluator also evaluates the baseline
-plus the draft's custom policies for every decision the existing check **allowed** (``shadow._draft_blocking``),
-and when that evaluation denies, the draft policies that determine it are counted here — per draft digest, policy,
-point, action and hour — with a bounded set of hashed principals and a few redacted samples (the point's
-``log_resource``, never a command line or a path; the sample's principal is the same hash, never the label). It
-never changes a decision, a comparison or a counter of the live shadow; a failure is logged and dropped.
-
-Counts are buffered in memory and upserted as one ``policy_draft_impact`` row per bucket by
-:func:`flush_draft_impact` (with the decision-log flush, own session); each bucket is written in its own savepoint,
-so a unique conflict with a concurrent flush (another worker) re-reads the row and adds to it instead of losing the
-batch. Rows older than the decision-log retention are pruned at most once an hour (:func:`draft_prune_due`, called
-by ``runtime.maintain_policy_runtime``). ``GET …/policy-sets/{v}/impact?hours=24`` reads them (plus the not yet
-flushed buffer) for the version whose digest they were recorded for.
-"""
+"""What would the open draft block in live traffic?"""
 
 from __future__ import annotations
 
@@ -58,7 +42,6 @@ def _principal_hash(label: str) -> str:
 
 def record_draft_denial(*, draft_digest: str, draft_version: int, query: PointQuery,
                         policy_ids: Iterable[str]) -> None:
-    """Count one would-deny of the draft for each deciding draft policy. Bounded; never raises."""
     now = utc_now()
     principal = _principal_hash(query.principal.label())
     sample = {"time": now.isoformat(), "point": query.point, "action": query.action,
@@ -91,7 +74,6 @@ def reset_draft_impact() -> None:
 
 
 def draft_prune_due() -> bool:
-    """Whether the hourly prune is due; claims it (the next call within the hour answers ``False``)."""
     now = time.monotonic()
     with _LOCK:
         if now - _STATE["last_prune"] < PRUNE_SECONDS:
@@ -133,7 +115,6 @@ def _add(row: PolicyDraftImpact, bucket: dict[str, Any], now: datetime) -> None:
 
 
 async def _write(db: AsyncSession, taken: dict[tuple, dict[str, Any]]) -> None:
-    """Upsert per hourly bucket: a row another flush inserted meanwhile is re-read and added to."""
     now = utc_now()
     for (digest, version, policy_id, point, action, hour), bucket in taken.items():
         row = await _bucket_row(db, digest, policy_id, point, action, hour)
@@ -160,7 +141,6 @@ async def prune_draft_impact(db: AsyncSession, *, days: int) -> None:
 
 
 async def flush_draft_impact(db: AsyncSession | None = None, *, prune_days: int | None = None) -> int:
-    """Upsert the buffered buckets (own session and commit unless ``db`` is given); returns how many."""
     taken = _take()
     if not taken and prune_days is None:
         return 0
@@ -187,7 +167,6 @@ def _pending_for(digest: str, since: datetime) -> list[dict[str, Any]]:
 
 
 async def draft_impact_view(db: AsyncSession, row: PolicySetVersion, *, hours: int) -> dict[str, Any]:
-    """What ``row`` (as a draft) would have blocked in the last ``hours``, per policy."""
     window = max(1, min(int(hours), MAX_HOURS))
     since = utc_now() - timedelta(hours=window)
     stored = (await db.execute(select(PolicyDraftImpact).where(

@@ -1,14 +1,4 @@
-"""What became of the bot's findings, counted when it happens
-(``review_bot_metrics.count_outcome``; metrics are emitted at the event, never queried):
-
-- ``fixed`` / ``suggestion_applied``: an incremental pass found an open finding fixed; ``suggestion_applied`` when it
-  carried a suggestion and a commit of the delta is GitHub's "Apply suggestion…" commit;
-- ``ignored``: ``@octryx ignore`` (``ignore``);
-- ``open_at_close``: the sync no longer lists the pull request as open while its last pass still had open findings
-  (counted once per pull request, marked on that run).
-
-The bot's precision is (fixed + suggestion_applied) / (fixed + suggestion_applied + ignored).
-"""
+"""What became of the bot's findings, counted when it happens (metrics are emitted at the event, never queried)."""
 
 from __future__ import annotations
 
@@ -28,7 +18,6 @@ _APPLIED = re.compile(r"^apply suggestions?\b", re.IGNORECASE)
 
 
 async def suggestion_commits(root: str, base: str, head: str) -> bool:
-    """Whether the delta holds a commit GitHub made by applying a review suggestion."""
     if not root or not base or not head:
         return False
     code, out, _err = await safe_git.git(root, "log", "--format=%s", f"{base}..{head}")
@@ -48,8 +37,6 @@ def count_ignored(provider: str, repository: str, finding: dict[str, Any]) -> No
 
 
 async def count_closed(db: AsyncSession, project_id: str, repository: str, open_numbers: set[str]) -> int:
-    """``open_at_close`` for every pull request whose last posted pass still had open findings and that the sync no
-    longer lists as open; each counted once. How many findings were counted."""
     rows = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.project_id == project_id, WorkflowRun.workflow_key == WORKFLOW_KEY,
         WorkflowRun.repository == repository).order_by(WorkflowRun.created_at.desc()).limit(500))).scalars().all()

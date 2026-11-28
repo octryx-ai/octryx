@@ -20,8 +20,6 @@ def build_execution_event(
     max_output_chars: int = 8000,
     metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build the stable audit/event shape for a runtime execution attempt."""
-
     event: dict[str, Any] = {
         "kind": kind,
         "tool_name": tool_name,

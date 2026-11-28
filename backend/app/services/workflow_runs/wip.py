@@ -1,9 +1,5 @@
 """The run's work in progress (``octryx-wip/<run id>``): pushed by the Server from the device's change after each device
-turn (``server_wip``), the device's own push (octryx-claude) only as a fallback.
-
-The latest pushed commit is kept on the run (``context.wip``) and every report is a run event, so a handover, a
-device loss or a switch to the Server can say what travels with the run and restore it (``server_prepare``).
-"""
+turn (``server_wip``), the device's own push (octryx-claude) only as a fallback."""
 
 from __future__ import annotations
 
@@ -21,11 +17,7 @@ _BRANCH = re.compile(r"^octryx-wip/[A-Za-z0-9._-]{1,60}$")
 
 
 async def record_wip(db: AsyncSession, job: DeviceJob, body: dict[str, Any]) -> None:
-    """The Server pushes the WIP from the device's reported change (``server_wip``); the device's own push is only a
-    fallback, kept when the Server had nothing to push, and its failure is never an error event (otherwise
-    every turn logged ``wip_failed … push_refused`` whenever the person's git sign-in had no Bitbucket
-    entry).
-    """
+    # A failed device push is never an error event: it is only a fallback.
     from .records import active_run_for_session, record_event
     from .server_wip import push_from_device_change
 

@@ -7,7 +7,7 @@ from typing import Any
 
 import httpx
 
-from ..services.ai_marking import CONFLUENCE_LABEL, marking_facts, with_storage_marker
+from ..services.ai_marking import CONFLUENCE_LABEL, MARKER_PREFIX
 from ..services.request_analysis import effective_limit_from_request_analysis
 from ._confluence_access import (
     ancestor_ids_of,
@@ -64,7 +64,6 @@ def _confluence_user_summary(user: Any) -> dict[str, Any] | None:
 
 
 def _parent_of(ancestor_ids: list[str] | None) -> str | None:
-    """The direct parent of a complete chain (``complete_ancestor_ids``): ``""`` at the root, ``None`` unknown."""
     if ancestor_ids is None:
         return None
     return ancestor_ids[-1] if ancestor_ids else ""
@@ -75,8 +74,6 @@ def storage_sha256(storage: str) -> str:
 
 
 def _written_storage(sent: str, result: dict[str, Any]) -> dict[str, Any]:
-    """Proof material of a write: the hash of the storage sent and, when the answer carries it, of the storage
-    Confluence stored (its canonical form). A publisher compares the read-back's full-body hash against these."""
     stored = ((result.get("body") or {}).get("storage") or {}).get("value")
     return {"sent_storage_sha256": storage_sha256(sent),
             **({"storage_sha256": storage_sha256(stored)} if isinstance(stored, str) else {})}
@@ -226,9 +223,6 @@ def _request_kwargs(context: ToolContext) -> dict:
 
 
 async def _add_ai_label(client: httpx.AsyncClient, confluence_url: str, page_id: str, kwargs: dict) -> None:
-    """Best effort: label an AI-written page ``ai-generated`` (EU AI Act Art. 50(2)); a failure only logs.
-
-    A label is not a page version, so the write's version and storage proof stay as they are."""
     if not page_id:
         return
     try:
@@ -376,8 +370,7 @@ class CreateConfluencePage:
             return {"error": f"Space '{space_key}' is not allowed for this project"}
 
         parent_id = str(params.get("parent_id") or "").strip() or None
-        facts = await marking_facts(context)
-        storage_content = with_storage_marker(normalize_storage_content(content), facts)
+        storage_content = normalize_storage_content(content)
 
         payload = build_create_page_payload(
             space_key=space_key,
@@ -395,7 +388,7 @@ class CreateConfluencePage:
             )
             response.raise_for_status()
             result = response.json()
-            if facts is not None:
+            if MARKER_PREFIX in storage_content:
                 await _add_ai_label(client, confluence_url, str(result.get("id") or ""), kwargs)
 
         return {
@@ -482,10 +475,8 @@ class UpdateConfluencePage:
                                      f"not {expected_version}", "status_code": 409, "current_version": current_version}
 
             # Prepare updated content
-            # Only new content is AI output: a title-only update keeps the stored body (and is not marked).
-            facts = await marking_facts(context) if new_content else None
-            storage_content = (with_storage_marker(normalize_storage_content(new_content), facts) if new_content
-                               else page_metadata["body"])
+            # Only new content is agent output: a title-only update keeps the stored body (and is not marked).
+            storage_content = normalize_storage_content(new_content) if new_content else page_metadata["body"]
 
             update_payload = build_update_page_payload(
                 title=resolved_title,
@@ -500,7 +491,7 @@ class UpdateConfluencePage:
             )
             update_resp.raise_for_status()
             result = update_resp.json()
-            if facts is not None:
+            if new_content and MARKER_PREFIX in storage_content:
                 await _add_ai_label(client, confluence_url, resolved_id, kwargs)
 
         return {
@@ -552,7 +543,7 @@ class AddConfluenceComment:
             # Post comment
             comment_payload = build_add_comment_payload(
                 page_id=page_id,
-                storage_content=with_storage_marker(normalize_storage_content(body), await marking_facts(context)),
+                storage_content=normalize_storage_content(body),
             )
             post_resp = await client.post(
                 f"{confluence_url}/rest/api/content",

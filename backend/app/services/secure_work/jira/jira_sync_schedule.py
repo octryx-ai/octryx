@@ -67,28 +67,6 @@ async def sync_jira_work_item_scheduler(
     return {"task_id": task.id, "scheduler_id": scheduler.id}
 
 
-async def reload_jira_work_item_scheduler_job(db: AsyncSession, *, config_id: str) -> None:
-    candidates = (
-        await db.execute(select(Task).where(Task.task_type == WORK_JIRA_SYNC_TASK_TYPE))
-    ).scalars().all()
-    task = next((row for row in candidates if str((row.config or {}).get("sync_config_id") or "") == config_id), None)
-    if task is None:
-        return
-    scheduler = (
-        await db.execute(
-            select(Scheduler)
-            .where(Scheduler.task_id == task.id)
-            .order_by(Scheduler.created_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-    if scheduler is None:
-        return
-    from ....runtime_lifecycle import get_task_scheduler
-
-    get_task_scheduler().request_reconcile()
-
-
 async def _get_or_create_sync_task(
     db: AsyncSession,
     *,

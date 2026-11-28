@@ -1,19 +1,4 @@
-"""The effective policy of one Workspace in one read-only view (``GET .../policy-summary``).
-
-Every fact is read from the decision the runtime makes, never recomputed by a second rule set:
-
-- classification: ``workspace_classification_view`` (effective level and source);
-- rules: the level's row of the classification policy matrix;
-- seat: ``agent_gateway/seat_policy.workspace_seat_decision``;
-- agent gateway policy: ``agent_gateway/policy.load_workspace_policy`` (tool rules and client permissions);
-- models: every alias of the active LiteLLM gateway providers, decided by the same project model admission
-  the gateway uses (``model_policy`` grant ∩ the level's alias list ∩ the alias' ``data_policy_class``);
-- budgets: the octryx-claude daily budget (``agent_gateway_policy.session_budget``) and the agent session and
-  request cost limits (``budget/agent_cost_limits``) with their source;
-- connectors: the level's connector families.
-
-It returns ids, kinds, targets, aliases and amounts only; no secret, credential or connection value.
-"""
+"""The effective policy of one Workspace in one read-only view (``GET .../policy-summary``)."""
 
 from __future__ import annotations
 
@@ -71,7 +56,7 @@ def _gateway_policy(loaded: Any) -> dict[str, Any]:
 
 def _daily_budget(project: Project, loaded: Any) -> dict[str, Any]:
     policy = loaded.policy
-    if policy is None or policy.daily_budget_usd is None:
+    if policy is None:
         return {"value_usd": None, "source": SOURCE_UNSET}
     config = project.config if isinstance(project.config, dict) else {}
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY)

@@ -3,21 +3,13 @@ import type { OidcFieldError } from "./oidcClientCredentialsModel";
 import { serviceNowAuthView } from "./serviceNowAuthModel";
 import type { ServiceNowAuthView } from "./serviceNowAuthModel";
 
-// Which ServiceNow API the connector reads. Pure: no requests, no React.
-//
-// API contract: `servicenow_api_style` is `table` (default, today's behaviour: /api/now/table/*) or
-// `scripted` (the customer's Scripted REST API). For `scripted`: `servicenow_incidents_path` and/or
-// `servicenow_changes_path` (at least one; each beginning with /api/, no scheme, host, `..` or query), optional
-// `servicenow_journal_path`, and `servicenow_page_size` (default 100, max 200). Nothing about the customer's API
-// (namespace, API id, resource names) is built in: the admin enters the paths.
-
 export type ServiceNowApiStyle = "table" | "scripted";
 
 export const API_STYLE_FIELD = "servicenow_api_style";
 export const PAGE_SIZE_FIELD = "servicenow_page_size";
 export const PAGE_SIZE_DEFAULT = 100;
 export const PAGE_SIZE_MAX = 200;
-// The backend's path rule (services/servicenow_scripted.py): /api/ then letters, digits and _ . ~ / - only, at most 300.
+// Mirrors the backend's Scripted REST path rule.
 const PATH_PATTERN = /^\/api\/[A-Za-z0-9_.~/-]+$/;
 const PATH_MAX_CHARS = 300;
 
@@ -40,20 +32,17 @@ export const API_STYLE_TEXT: Record<ServiceNowApiStyle, { label: string; help: s
   },
 };
 
-/** Every field the API section owns, so the generic panel and save loop leave them alone. */
 export function serviceNowApiOwnedFields(): string[] {
   return [API_STYLE_FIELD, ...SCRIPTED_PATHS.map((path) => path.field), PAGE_SIZE_FIELD];
 }
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "");
 
-/** The chosen style: the draft's value, else the stored one, else `table` (the default, today's behaviour). */
 export function serviceNowApiStyle(connector: AdminConnector, draft: Record<string, string>): ServiceNowApiStyle {
   const value = text(draft[API_STYLE_FIELD]) || text(connector.public_fields?.[API_STYLE_FIELD]);
   return value === "scripted" ? "scripted" : "table";
 }
 
-/** Why a Scripted REST path cannot be used, or null. Only a path on the instance: /api/…, no scheme, host, `..` or query. */
 export function scriptedPathProblem(value: string): string | null {
   if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) {
     return "Enter only the path, without https:// or a host; the instance URL above is used.";
@@ -66,7 +55,6 @@ export function scriptedPathProblem(value: string): string | null {
   return null;
 }
 
-/** Why a page size cannot be used, or null; empty means the default. */
 export function pageSizeProblem(value: string): string | null {
   if (!value) return null;
   if (!/^\d+$/.test(value)) return "Enter a whole number.";
@@ -86,7 +74,7 @@ export function serviceNowApiView(connector: AdminConnector, draft: Record<strin
       const problem = value ? scriptedPathProblem(value) : null;
       if (problem) errors[path.field] = { message: problem, live: true };
     }
-    // At least one list endpoint: incidents or changes (the journal alone lists nothing).
+    // The journal alone lists nothing.
     if (!text(draft[SCRIPTED_PATHS[0].field]) && !text(draft[SCRIPTED_PATHS[1].field])) {
       errors[SCRIPTED_PATHS[0].field] = { message: "Enter the incidents path, the changes path or both.", live: false };
     }
@@ -96,13 +84,8 @@ export function serviceNowApiView(connector: AdminConnector, draft: Record<strin
   return { style, errors };
 }
 
-/**
- * The API part of the save body. The style is sent once chosen or stored; with `scripted` the paths and the page size follow (an
- * optional path or page size that was stored and is now cleared is sent as ""). With `table` the stored paths are left
- * as they are (they are ignored for the Table API).
- */
 export function serviceNowApiSaveFields(connector: AdminConnector, draft: Record<string, string>): Record<string, unknown> {
-  // Nothing chosen and nothing stored: the default (Table API) stays implicit, so an untouched save changes nothing.
+  // The Table API default stays implicit, so an untouched save changes nothing.
   if (!text(draft[API_STYLE_FIELD]) && !text(connector.public_fields?.[API_STYLE_FIELD])) return {};
   const style = serviceNowApiStyle(connector, draft);
   const body: Record<string, unknown> = { [API_STYLE_FIELD]: style };
@@ -115,13 +98,10 @@ export function serviceNowApiSaveFields(connector: AdminConnector, draft: Record
   return body;
 }
 
-// ---- connection test per endpoint ----------------------------------------------------------------
-
 export type EndpointResult = { endpoint: string; label: string; ok: boolean; text: string };
 
 const ENDPOINT_LABEL: Record<string, string> = { incidents: "Incidents", changes: "Changes", journal: "Journal" };
 
-// The backend's closed endpoint codes (services/servicenow_scripted.py).
 const ENDPOINT_CODE_TEXT: Record<string, string> = {
   servicenow_endpoint_http_status: "the endpoint answered with an error status",
   servicenow_endpoint_empty_answer: "the endpoint answered without content",
@@ -134,10 +114,6 @@ const ENDPOINT_CODE_TEXT: Record<string, string> = {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/**
- * The per-endpoint lines of a Scripted REST connection test. Read from `endpoints`: a list of
- * `{endpoint, ok, total?, code?, http_status?, summary?}` or a map `{<endpoint>: {...}}`. Empty when the test has none.
- */
 export function endpointResults(result: unknown): EndpointResult[] {
   if (!isRecord(result)) return [];
   const raw = result.endpoints;
@@ -158,11 +134,8 @@ export function endpointResults(result: unknown): EndpointResult[] {
   });
 }
 
-// ---- the whole ServiceNow setup ------------------------------------------------------------------
-
 export type ServiceNowSetupView = { auth: ServiceNowAuthView; api: ServiceNowApiView; errors: Record<string, OidcFieldError> };
 
-/** Sign-in and API section together: the card stops a save while either has an error. */
 export function serviceNowSetupView(connector: AdminConnector, draft: Record<string, string>): ServiceNowSetupView {
   const auth = serviceNowAuthView(connector, draft);
   const api = serviceNowApiView(connector, draft);

@@ -1,22 +1,4 @@
-"""Codex's ``namespace`` tools as plain function tools for any upstream, mapped back transparently.
-
-Codex 0.169 sends a Workspace's MCP tools as one Responses tool of type ``namespace`` (``{"type": "namespace",
-"name": "mcp__octryx_knowledge", "tools": [{"type": "function", "name": "workflow_catalog", ...}]}``) and
-expects a call as ``function_call`` with ``namespace`` and the inner ``name``. OpenAI's own models know that type;
-models behind LiteLLM or llama.cpp do not, and never call those tools (e.g. LFM2.5 behind llama-server).
-So the gateway stays model-independent and flattens them for every upstream.
-
-- request (:func:`flatten_request`): every inner tool of a namespace becomes a top-level tool named
-  ``<namespace>__<name>`` (at most 64 characters, else shortened with a stable hash); ``defer_loading`` is dropped
-  (every tool is offered). Earlier calls in ``input`` (``function_call`` / ``custom_tool_call`` with ``namespace``)
-  and their outputs get the same flat name, so the history matches the offered tools; a ``tool_choice`` naming a
-  namespaced tool too;
-- answer (:class:`NamespaceMap`): every call item whose name is a flat name gets its ``namespace`` and inner
-  ``name`` back, in streamed events (``item``, ``response.output``, a top-level ``name``) and in a JSON answer.
-
-Tools that are not in a namespace are forwarded unchanged. The content checks and the transcript see the request as
-Codex sent it; only the upstream body is flattened.
-"""
+"""Codex's ``namespace`` tools as plain function tools for any upstream, mapped back transparently."""
 
 from __future__ import annotations
 
@@ -34,7 +16,6 @@ _FLATTENED_TYPES = frozenset({"function", "custom"})
 
 
 def _type(item: Mapping[str, Any]) -> str | None:
-    """An item's ``type`` only when it is a string (never hashed in another shape)."""
     kind = item.get("type")
     return kind if isinstance(kind, str) else None
 
@@ -49,8 +30,6 @@ def flat_name(namespace: str, name: str) -> str:
 
 @dataclass
 class NamespaceMap:
-    """Flat name -> ``(namespace, inner name)`` of one request."""
-
     pairs: dict[str, tuple[str, str]] = field(default_factory=dict)
 
     def __bool__(self) -> bool:
@@ -70,7 +49,6 @@ class NamespaceMap:
         return {**item, "namespace": pair[0], "name": pair[1]}
 
     def restore_payload(self, payload: Mapping[str, Any]) -> Mapping[str, Any]:
-        """A streamed event or a JSON answer with every flat call name mapped back (the same object if none)."""
         if not self.pairs:
             return payload
         restored: dict[str, Any] | None = None
@@ -102,7 +80,7 @@ def _flatten_tools(tools: Any, names: NamespaceMap) -> Any:
             continue
         namespace = str(tool.get("name") or "")
         if not isinstance(tool.get("tools"), list):
-            flattened.append(tool)  # not a namespace the gateway can flatten: its gate reads it as it is (C12B-03)
+            flattened.append(tool)  # not a namespace the gateway can flatten: its gate reads it as it is
             continue
         for inner in tool["tools"]:
             if not isinstance(inner, Mapping) or _type(inner) not in _FLATTENED_TYPES or not inner.get("name"):
@@ -129,8 +107,8 @@ def _flatten_input(items: Any, names: NamespaceMap) -> Any:
     return out
 
 
+# Models behind LiteLLM or llama.cpp do not know Codex's namespace tool type.
 def flatten_request(body: Mapping[str, Any]) -> tuple[dict[str, Any], NamespaceMap]:
-    """The upstream body with Codex's namespace tools flattened, and the map to restore the answer."""
     names = NamespaceMap()
     upstream = copy.copy(dict(body))
     if "tools" in upstream:

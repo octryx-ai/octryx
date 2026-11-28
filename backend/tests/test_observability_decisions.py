@@ -1,4 +1,4 @@
-"""Observability O2: one decision timeline for every gate, the approval lifecycle and the content policies."""
+"""One decision timeline for every gate, the approval lifecycle and the content policies."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.trace_runtime import persist_turn_trace
+from app.agent.runtime.trace_runtime import persist_turn_trace
 from app.models import PolicyDecisionCounter
 from app.services.approval.request_service import ensure_approval_request
 from app.services.approval.resolution_service import resolve_approval_request

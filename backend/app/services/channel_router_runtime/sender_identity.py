@@ -1,11 +1,4 @@
-"""Which platform user a channel sender is.
-
-A sender resolves to a platform user only through an explicit link: the plugin's
-``sender_mappings`` (sender id -> active user id) or, for the email channel, the sender's
-address matching an active user's email. :func:`resolve_sender_user_id` returns ``None`` for
-anyone else. Whatever a channel does for an unresolved sender elsewhere, a decision such as an
-approval is never taken for one (``approval_commands.py``: ``channel_sender_unresolved``).
-"""
+"""Which platform user a channel sender is."""
 
 from __future__ import annotations
 
@@ -23,7 +16,6 @@ _EMAIL_IN_BRACKETS = re.compile(r"<([^>]+)>")
 
 
 async def resolve_sender_user_id(db, plugin, sender_id: str) -> str | None:
-    """The active platform user linked to ``sender_id``, else ``None``."""
     mappings = getattr(plugin, "sender_mappings", None) or {}
     mapped_user_id = mappings.get(sender_id) if isinstance(mappings, dict) else None
     if mapped_user_id:

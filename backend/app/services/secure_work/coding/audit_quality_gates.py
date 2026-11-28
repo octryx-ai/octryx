@@ -33,7 +33,7 @@ def _quality_gates(bundle: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _gate_change_plan(bundle: dict[str, Any]) -> dict[str, Any]:
-    """Decided by the latest plan version only: an earlier approval never covers a newer plan."""
+    # Decided by the latest plan version only: an earlier approval never covers a newer plan.
     rows = bundle["change_plans"]  # newest version first
     if not rows:
         return _gate("change_plan", "missing", "No Change Plan evidence is attached.", {})
@@ -105,7 +105,6 @@ def _gate_recorded(bundle: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def _planned_check_count(bundle: dict[str, Any]) -> int:
-    """Planned checks (latest plan and active Change Units): intent, reported but never evidence."""
     plans = bundle["change_plans"]
     planned = len(plans[0].validation_plan_json or []) if plans else 0
     return planned + sum(len(unit.validation_commands_json or []) for unit in bundle["change_units"])

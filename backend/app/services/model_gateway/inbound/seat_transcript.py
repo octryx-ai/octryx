@@ -1,15 +1,4 @@
-"""Usage and transcript of one seat call, written after the response like the governed route.
-
-The same records as ``transcript.py`` (``UsageEvent``, ``TurnTrace``, ``ToolCall`` rows, agent-loop
-``Message`` rows, all redacted and bounded), with two differences:
-
-- the cost is 0 with ``cost_source = seat_subscription``: the user's own subscription pays, not the
-  platform, so no platform budget is spent;
-- the model is the Anthropic model id the client asked for (there is no LiteLLM alias).
-
-Nothing of the request headers is recorded; the subscription ``Authorization`` never reaches this
-module.
-"""
+"""Usage and transcript of one seat call, written after the response like the governed route."""
 
 from __future__ import annotations
 
@@ -64,8 +53,6 @@ class SeatCallRecord:
     # view of its Responses request (``openai_view``).
     provider: str = SEAT_PROVIDER
     dispatch_owner: str = SEAT_DISPATCH_OWNER
-    # Extra keys of the trace's usage (a device-sent Codex seat call: ``seat_traffic`` and its report's marks).
-    evidence: Mapping[str, Any] = field(default_factory=dict)
 
 
 def _usage_event(record: SeatCallRecord, model: str) -> UsageEvent:
@@ -104,7 +91,6 @@ def _usage_json(record: SeatCallRecord, model: str) -> dict[str, Any]:
         "upstream_status": record.status_code,
         "upstream_error_type": observation.upstream_error_type,
         "gateway_evidence": {"dispatch_owner": record.dispatch_owner, "profile": "seat"},
-        **dict(record.evidence),
     }
 
 
@@ -132,7 +118,6 @@ async def _write(db: AsyncSession, record: SeatCallRecord) -> None:
         created_at=utc_now(),
     )
     db.add(trace)
-    # Runs: the summary row of this call.
     db.add(summary_row(trace, gateway_run_summary(
         session_id=record.session_id, raw_output=raw_output, usage=usage_json,
         duration_ms=record.duration_ms, client_context=record.client_context, seat=True,
@@ -151,8 +136,6 @@ HOSTED_SEARCH_TOOL = "codex_hosted_web_search"
 
 
 def hosted_search_row(session_id: str, search: Mapping[str, str]) -> ToolCall:
-    """A Codex provider-hosted web search as the session's tool call (``phase_evidence`` counts a completed one as
-    ``web_search``)."""
     completed = search.get("status") == "completed"
     return ToolCall(session_id=session_id, tool_name=HOSTED_SEARCH_TOOL, status="success" if completed else "error",
                     parameters={"source": TOOL_CALL_SOURCE_GATEWAY, "hosted": True, "item_id": search.get("id"),
@@ -161,11 +144,9 @@ def hosted_search_row(session_id: str, search: Mapping[str, str]) -> ToolCall:
 
 
 async def record_seat_call(record: SeatCallRecord) -> bool:
-    """Persist one seat call; never raises into the response path."""
-    route = agent_metrics.ROUTE_DEVICE_REPORT if record.evidence.get("seat_traffic") == "device" \
-        else agent_metrics.ROUTE_GATEWAY
     try:
-        with agent_metrics.seat_call(route, record.duration_ms / 1000 if record.duration_ms else None):
+        seconds = record.duration_ms / 1000 if record.duration_ms else None
+        with agent_metrics.seat_call(agent_metrics.ROUTE_GATEWAY, seconds):
             async with db_core.async_session_factory() as db:
                 await _write(db, record)
                 await db.commit()

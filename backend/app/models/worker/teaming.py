@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Strin
 from sqlalchemy.orm import relationship, validates
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -39,7 +40,7 @@ class TeamMember(Base):
     added_by_user = relationship("User", foreign_keys=[added_by])
 
 
-class TeamProject(Base):
+class TeamProject(WorkspaceBound, Base):
     __tablename__ = "team_projects"
 
     team_id = Column(String(36), ForeignKey("teams.id"), primary_key=True)
@@ -71,8 +72,8 @@ class Notification(Base):
 
     @validates("title", "body")
     def _unfenced(self, _key, value):
-        """A notification is read by a person: no fence marker from a fenced read reaches it (fences belong only at a
-        model's input). Every creator (team notifications, the agent board, action-needed) passes here."""
+        # A person reads notifications, and fences belong only at a model's input; every notification creator passes
+        # here.
         from ...services.content_security.knowledge_fence import unfence_text
 
         return unfence_text(value)

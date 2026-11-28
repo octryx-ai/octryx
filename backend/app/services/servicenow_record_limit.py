@@ -1,30 +1,5 @@
-"""The ServiceNow connector's record limit: assignment groups and services.
-
-Three fields on the Workspace's ServiceNow connector:
-
-- ``servicenow_assignment_groups``: group names or ``sys_id``s (32 hex characters);
-- ``servicenow_services``: service names or ``sys_id``s (Table API ``business_service``; the Scripted REST
-  endpoints answer it as ``service``);
-- ``servicenow_filter_mode``: ``all`` (default) — a record must match *every* configured list (group in the
-  groups AND service in the services); ``any`` — it must match *at least one* configured list.
-
-An empty or absent list sets no condition on its field; with both empty there is no limit. Neither mode ever
-widens beyond what the admin listed: a record that matches none of the configured lists is never returned, and
-with a single list both modes are the same. Every ServiceNow read of the Workspace — the chat and Knowledge MCP
-tools, the Knowledge Source Sync and the work item intake, per named connection too (the limit is a setting of
-the connector's default entry, never of a connection unit) — returns only matching records:
-
-- **Table API:** the query gets the condition server-side (``servicenow_record_query.with_clause``):
-  ``<ref>IN<sys_ids>`` and, per name, ``<ref>.nameSTARTSWITH<name>`` (a stored name may carry stray
-  whitespace, e.g. a trailing space, that an exact ``IN`` would miss). That condition is deliberately a
-  superset: every record is *also* checked client-side (:func:`record_in_limit`), exactly, and a record
-  without the field never passes.
-- **Scripted REST:** the endpoint lists what it lists, so records are filtered client-side while paging.
-
-Names match case-insensitively after trimming and collapsing whitespace on both sides; ``sys_id``s match
-exactly (hex, any case). A stored value that no longer validates matches nothing (fail closed), never
-everything. The intake may narrow a list further (:func:`narrowed`), never widen it.
-"""
+"""The ServiceNow connector's record limit: assignment groups and services. Every record is checked client-side,
+whatever the server-side query returned."""
 
 from __future__ import annotations
 
@@ -32,6 +7,8 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
+
+from .servicenow_connector_types import RecordLimitView
 
 GROUPS_FIELD = "servicenow_assignment_groups"
 SERVICES_FIELD = "servicenow_services"
@@ -47,9 +24,6 @@ _FORBIDDEN = re.compile(r"[\^,\x00-\x1f\x7f]|javascript:", re.IGNORECASE)
 
 @dataclass(frozen=True, slots=True)
 class LimitField:
-    """One limited record field: its connector setting, intake override, Table API reference and the record
-    keys an answer may carry it under."""
-
     key: str
     config_field: str
     intake_field: str
@@ -72,7 +46,7 @@ CHECK_FIELDS = tuple(name for spec in FIELDS for name in (spec.reference, spec.w
 
 
 class RecordLimitError(ValueError):
-    """A refused list or mode; the message names the rule, never a value. ``field``: the refused setting."""
+    # The message names the rule, never a value.
 
     def __init__(self, message: str, *, field: str | None = None) -> None:
         super().__init__(message)
@@ -85,8 +59,6 @@ def _name_key(text: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ValueLimit:
-    """The values of one field. ``entries`` as configured; ``sys_ids`` lower-cased, ``names`` normalised."""
-
     entries: tuple[str, ...]
     sys_ids: frozenset[str]
     names: frozenset[str]
@@ -99,8 +71,6 @@ class ValueLimit:
 
 @dataclass(frozen=True, slots=True)
 class RecordLimit:
-    """The effective limit: at least one list; ``mode`` combines them (``all``: AND, ``any``: OR)."""
-
     groups: ValueLimit | None = None
     services: ValueLimit | None = None
     mode: str = MODE_ALL
@@ -118,7 +88,7 @@ class RecordLimit:
         return any(results) if self.mode == MODE_ANY else all(results)
 
     def matches(self, refs: Mapping[str, tuple[object, object]]) -> bool:
-        """Whether ``refs`` (field key -> ``(sys_id, name)``) pass; a missing field never matches."""
+        # A missing field never matches.
         return self.combine([values.matches(*refs.get(spec.key, (None, None))) for spec, values in self.lists()])
 
 
@@ -127,7 +97,6 @@ NOTHING = RecordLimit(groups=_NOTHING_VALUES)
 
 
 def normalize_entries(value: Any, *, field: str = GROUPS_FIELD) -> list[str]:
-    """The validated list (whitespace collapsed, de-duplicated case-insensitively, order kept); raises."""
     if value is None or value == "":
         return []
     if not isinstance(value, list) or len(value) > MAX_ENTRIES:
@@ -166,7 +135,7 @@ def _limit_of(groups: list[str], services: list[str], mode: str) -> RecordLimit 
 
 
 def record_limit(config: Mapping[str, Any]) -> RecordLimit | None:
-    """The connector's limit: ``None`` (no limit) or the lists; any invalid stored value matches nothing."""
+    # An invalid stored value matches nothing.
     try:
         return _limit_of(normalize_entries(config.get(GROUPS_FIELD), field=GROUPS_FIELD),
                          normalize_entries(config.get(SERVICES_FIELD), field=SERVICES_FIELD),
@@ -176,9 +145,7 @@ def record_limit(config: Mapping[str, Any]) -> RecordLimit | None:
 
 
 def narrowed(config: Mapping[str, Any], overrides: Mapping[str, list[str]]) -> RecordLimit | None:
-    """The intake's effective limit: each override (``assignment_groups``, ``services``) replaces the connector's
-    list of its field and must lie within it. Raises when an override names a value outside a limited list, or
-    adds a list the connector does not set while the connector's mode is ``any`` (an OR-ed list would widen)."""
+    # An override must lie within the connector's list; an extra OR-ed list would widen the limit.
     connector = record_limit(config)
     if connector is NOTHING:
         return NOTHING
@@ -200,7 +167,6 @@ def narrowed(config: Mapping[str, Any], overrides: Mapping[str, list[str]]) -> R
 
 
 def _reference(value: Any) -> tuple[Any, Any]:
-    """``(sys_id, display name)`` of a reference value in any representation the APIs answer."""
     if isinstance(value, Mapping):
         return value.get("value"), value.get("display_value", value.get("name"))
     if isinstance(value, str):
@@ -214,7 +180,6 @@ def _walked(record: Mapping[str, Any], spec: LimitField) -> Any:
 
 
 def record_refs(record: Mapping[str, Any]) -> dict[str, list[tuple[Any, Any]]]:
-    """Every ``(sys_id, name)`` a record carries per limited field (reference, dot-walked name, alias keys)."""
     refs: dict[str, list[tuple[Any, Any]]] = {}
     for spec in FIELDS:
         found = [_reference(record.get(key)) for key in spec.record_keys if record.get(key) not in (None, "")]
@@ -225,7 +190,7 @@ def record_refs(record: Mapping[str, Any]) -> dict[str, list[tuple[Any, Any]]]:
 
 
 def record_in_limit(record: Mapping[str, Any], limit: RecordLimit | None) -> bool:
-    """Whether a record passes ``limit``: always without a limit; never without a limited field."""
+    # Never passes without a limited field.
     if limit is None:
         return True
     refs = record_refs(record)
@@ -233,7 +198,6 @@ def record_in_limit(record: Mapping[str, Any], limit: RecordLimit | None) -> boo
 
 
 def collapse(record: Mapping[str, Any], display: str) -> dict[str, Any]:
-    """A record read with ``sysparm_display_value=all`` in the representation the caller asked for."""
     if display == "all":
         return dict(record)
     key = "display_value" if display == "true" else "value"
@@ -241,8 +205,7 @@ def collapse(record: Mapping[str, Any], display: str) -> dict[str, Any]:
             for name, value in record.items()}
 
 
-def describe(limit: RecordLimit | None) -> dict[str, Any]:
-    """The limit as the intake card and run summaries show it; empty lists mean no condition."""
+def describe(limit: RecordLimit | None) -> RecordLimitView:
     if limit is None:
         return {"assignment_groups": [], "services": [], "filter_mode": MODE_ALL}
     return {"assignment_groups": list(limit.groups.entries) if limit.groups else [],

@@ -1,9 +1,4 @@
-"""The actions a viewer may take on a run, as closed keys the UI renders.
-
-The UI never decides what is allowed: it shows the actions this list names (with the typed input an action
-needs, e.g. *k* more iterations within the ceiling) and posts them back to ``perform_action``, which checks them
-again against the run's state and the viewer's right.
-"""
+"""The actions a viewer may take on a run, as closed keys the UI renders."""
 
 from __future__ import annotations
 
@@ -16,7 +11,7 @@ from ..admin.governance.admin_access_service import is_global_admin
 from .action_failures import PAUSED_AT_ACTION
 from .limits import loop_ceiling
 from .pause import MAX_BUDGET_FACTOR, abort_run, change_plan, continue_run, loop_headroom
-from .records import WorkflowRunError
+from .records import WorkflowRunError, record_event
 from .states import (
     ACTIVE_STATUSES,
     KIND_PHASED,
@@ -25,9 +20,10 @@ from .states import (
     PAUSE_CONTENT_BLOCKED,
     PAUSE_ENVIRONMENT_NOT_READY,
     PAUSE_EVIDENCE_UNRESOLVED,
-    PAUSE_LOOP_LIMIT,
+    PAUSE_NEEDS_APPROVAL,
     PAUSE_NEEDS_INPUT,
     PAUSE_PIPELINE_NOT_FOR_HEAD,
+    ROUND_LIMIT_REASONS,
     RUNTIME_FAILURE_REASONS,
     STATUS_PAUSED,
 )
@@ -37,8 +33,8 @@ ACTION_CONTINUE = "continue"
 ACTION_CHANGE_PLAN = "change_plan"
 ACTION_ABORT = "abort"
 ACTION_FOLLOW_UP = "follow_up"
-ACTION_TAKE_OVER = "take_over"  # ``responsible.take_over``
-_FAILED_ACTION_DECISIONS = frozenset({"retry_action", "adopt_branch", "new_branch"})  # ``action_failures.DECISIONS``
+ACTION_TAKE_OVER = "take_over"
+_FAILED_ACTION_DECISIONS = frozenset({"retry_action", "adopt_branch", "new_branch"})
 
 
 def _number_input(name: str, label: str, maximum: int) -> dict[str, Any]:
@@ -81,6 +77,11 @@ async def _pause_actions(db: AsyncSession, run: WorkflowRun) -> list[dict[str, A
             "default": options[0] if options else "", "required": True}})
         actions.append({"key": ACTION_CHANGE_PLAN, "label": "Change the plan", "input": None})
         return actions
+    if run.pause_reason == PAUSE_NEEDS_APPROVAL:
+        label = "Approve the change plan" if paused_at.get("kind") == "plan" else f"Approve {paused_at.get('path')}"
+        actions.append({"key": ACTION_CONTINUE, "label": label, "input": NOTE_INPUT})
+        actions.append({"key": ACTION_CHANGE_PLAN, "label": "Change the plan", "input": None})
+        return actions
     if run.pause_reason == PAUSE_PIPELINE_NOT_FOR_HEAD:
         # The push found no green pipeline for its tree, also after one re-run: continue runs the pipeline again.
         actions.append({"key": ACTION_CONTINUE, "label": "Run the pipeline again", "input": None})
@@ -91,7 +92,7 @@ async def _pause_actions(db: AsyncSession, run: WorkflowRun) -> list[dict[str, A
         actions.append({"key": ACTION_CONTINUE, "label": "Re-check the test evidence", "input": None})
         actions.append({"key": ACTION_CHANGE_PLAN, "label": "Change the plan", "input": None})
         return actions
-    if run.pause_reason == PAUSE_LOOP_LIMIT:
+    if run.pause_reason in ROUND_LIMIT_REASONS:
         # The failure card: retry with more iterations, re-clarify, stop; findings out of scope → follow-up.
         headroom = loop_headroom(run, await loop_ceiling(db))
         if headroom:
@@ -125,7 +126,10 @@ async def available_actions(
         # person.
         offered = await authored_decider(db, run) or is_responsible(run, user)
         return await decision_actions(db, run, user=user) if offered else []
-    actions = await _pause_actions(db, run) if run.status == STATUS_PAUSED else []
+    from .runtime_target.seat_required import seat_paused
+
+    # A seat pause goes on only where the run executes: the runtime action below takes it over.
+    actions = await _pause_actions(db, run) if run.status == STATUS_PAUSED and not seat_paused(run) else []
     actions += await decision_actions(db, run, user=user)
     from .responsible import take_over_action
 
@@ -139,7 +143,7 @@ async def available_actions(
     if run.workflow_kind == KIND_PHASED:  # a phased run's runtime steps (``workspace.prepare``, phases) run there
         from .stalled_action import retry_step_action
 
-        if retry := await retry_step_action(db, run):  # a platform action whose request died (``stalled_action``)
+        if retry := await retry_step_action(db, run):
             actions.append(retry)
         actions.append(await _runtime_action(db, run, user))
     actions.append({"key": ACTION_ABORT, "label": "Abort the run", "input": dict(REASON_INPUT), "tone": "danger"})
@@ -148,19 +152,31 @@ async def available_actions(
 
 
 async def _runtime_action(db: AsyncSession, run: WorkflowRun, user: User | None) -> dict[str, Any]:
-    """Where the run executes, switched explicitly (``runtime_target.switch``): the requester's choices."""
+    from .runtime_target.seat_required import ACTION_LABEL, seat_paused, takeover_default
     from .runtime_target.switch import ACTION_CHANGE_RUNTIME
     from .runtime_target.target import KIND_SERVER, option_key, stored_target, target_options
 
     current = stored_target(run) or {"kind": KIND_SERVER}
     options = await target_options(db, user=user) if user is not None else []
-    return {"key": ACTION_CHANGE_RUNTIME, "label": "Change where the run executes",
+    takeover = await takeover_default(db, run, options) if seat_paused(run) else None
+    return {"key": ACTION_CHANGE_RUNTIME, "label": ACTION_LABEL if takeover else "Change where the run executes",
             "input": {"name": "runtime_target", "kind": "runtime_target", "label": "Run on", "options": options,
-                      "default": option_key(current)}}
+                      "default": takeover or option_key(current)}}
+
+
+async def _approve_scope(db: AsyncSession, run: WorkflowRun, user: User) -> None:
+    # Continue on a needs_approval pause is the person's approval: the plan, or the path joins the scope.
+    if run.status != "paused" or run.pause_reason != PAUSE_NEEDS_APPROVAL:
+        return
+    from .plan_scope import approve
+
+    approved = dict(dict(run.node_state or {}).get("pause") or {})
+    approve(run, approved, user_id=user.id)
+    record_event(db, run, "plan_scope_approved", node_id=run.current_node_id, actor_id=user.id,
+                 detail={key: approved.get(key) for key in ("kind", "path", "classes")})
 
 
 async def perform_action(db: AsyncSession, run: WorkflowRun, *, user: User, body: dict[str, Any]) -> None:
-    """Apply an action with its current access check, including for direct service callers."""
     from .access import require_run_action
 
     action = str(body.get("action") or "").strip()
@@ -176,6 +192,7 @@ async def perform_action(db: AsyncSession, run: WorkflowRun, *, user: User, body
             _record_po_answer(run, note, user_id=user.id, replaces=body.get("replaces"))
             await _note_po_answer(db, run, note, user, "pause")
         k = body.get("k", 1)
+        await _approve_scope(db, run, user)
         await continue_run(db, run, user=user, k=k, is_admin=await is_global_admin(db, user.id))
     elif action == ACTION_CHANGE_PLAN:
         # The person's reason reaches the re-entered phase like a continue's (e.g. back to
@@ -207,7 +224,6 @@ async def perform_action(db: AsyncSession, run: WorkflowRun, *, user: User, body
         if not await is_global_admin(db, user.id):
             raise WorkflowRunError("admin_only", "Only a platform admin waives hands-on scenarios.", 403)
         from .hands_on.waiver import EVENT_WAIVED, waive
-        from .records import record_event
 
         scenarios = body.get("scenarios") if isinstance(body.get("scenarios"), list) else []
         reason = str(body.get("reason") or "")

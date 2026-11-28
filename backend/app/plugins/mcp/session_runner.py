@@ -1,13 +1,4 @@
-"""One live MCP client connection, held open by its own task.
-
-``stdio_client``, ``sse_client`` and ``streamable_http_client`` are async context managers, and the
-SDK's ``ClientSession`` only starts its receive loop in ``__aenter__``: the transport and the session
-must both be entered before ``initialize()``.
-
-Both contexts use anyio cancel scopes, which must be exited by the task that entered them;
-connect and disconnect run in different request tasks. So one task per connection enters
-the transport and the session, initializes, reports ready and then waits for ``stop``.
-"""
+"""One live MCP client connection, held open by its own task."""
 
 from __future__ import annotations
 
@@ -21,8 +12,6 @@ STOP_TIMEOUT_SECONDS = 10.0
 
 
 class McpSessionRunner:
-    """Opens ``open_streams()`` and a session on it in a dedicated task; :meth:`stop` closes both."""
-
     def __init__(
         self,
         name: str,
@@ -39,7 +28,6 @@ class McpSessionRunner:
         self.session: Any = None
 
     async def start(self, timeout: float) -> Any:
-        """Connect and initialize within ``timeout``; returns the live session or raises the failure."""
         self._task = asyncio.create_task(self._run(), name=f"mcp-session:{self.name}")
         try:
             await asyncio.wait_for(self._ready.wait(), timeout=timeout)
@@ -70,7 +58,6 @@ class McpSessionRunner:
             self._ready.set()
 
     async def stop(self) -> None:
-        """Leave the session and the transport (ends a stdio process) from the task that entered them."""
         self._stop.set()
         task = self._task
         if task is None or task.done():

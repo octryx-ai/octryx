@@ -20,7 +20,6 @@ from tests.quota_governance_support import _add_usage, _make_policy, _make_sessi
 
 @pytest.mark.asyncio
 async def test_weekly_policy_uses_weekly_limit(db: AsyncSession, auth_user):
-    """A weekly policy should use weekly_token_limit, not daily_token_limit."""
     sess = await _make_session(db, user_id=str(auth_user.id))
     await _make_policy(
         db,
@@ -29,11 +28,9 @@ async def test_weekly_policy_uses_weekly_limit(db: AsyncSession, auth_user):
         weekly_token_limit=1000,   # tight weekly limit
         daily_token_limit=None,    # daily limit not set
     )
-    # Record usage close to the weekly limit
     await _add_usage(db, session_id=sess.id, user_id=str(auth_user.id),
                      tokens_in=900, tokens_out=0)
 
-    # Now attempt a request that would exceed the weekly limit
     with pytest.raises(BudgetLimitExceededError) as exc_info:
         await enforce_budget_limits(
             db,
@@ -50,7 +47,6 @@ async def test_weekly_policy_uses_weekly_limit(db: AsyncSession, auth_user):
 
 @pytest.mark.asyncio
 async def test_monthly_policy_uses_monthly_limit(db: AsyncSession, auth_user):
-    """A monthly policy should use monthly_token_limit."""
     sess = await _make_session(db, user_id=str(auth_user.id))
     await _make_policy(
         db,
@@ -89,7 +85,6 @@ async def test_agent_chain_policy_blocks_on_chain_usage(db: AsyncSession, auth_u
         agent_chain_id=chain_id,
         daily_request_limit=2,
     )
-    # Record 2 usage events attributed to this chain
     for _ in range(2):
         await _add_usage(db, session_id=sess.id, user_id=str(auth_user.id),
                          agent_chain_id=chain_id)
@@ -119,12 +114,10 @@ async def test_agent_chain_policy_does_not_block_other_chain(db: AsyncSession, a
         agent_chain_id=chain_id,
         daily_request_limit=2,
     )
-    # Use up the quota for chain_id
     for _ in range(2):
         await _add_usage(db, session_id=sess.id, user_id=str(auth_user.id),
                          agent_chain_id=chain_id)
 
-    # But other_chain_id should NOT be blocked
     await enforce_budget_limits(
         db,
         session_id=sess.id,
@@ -174,7 +167,7 @@ async def test_flow_policy_blocks_on_flow_usage(db: AsyncSession, auth_user):
 
 @pytest.mark.asyncio
 async def test_record_usage_event_stores_attribution(db: AsyncSession, auth_user):
-    from app.agent.core.execution_support import record_usage_event
+    from app.agent.runtime.execution_support import record_usage_event
 
     sess = await _make_session(db, user_id=str(auth_user.id))
     chain_id = _uid()

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 
 def get_presentation_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for the presentation composer."""
     return {
         "create_presentation": {
             "type": "function",

@@ -1,24 +1,4 @@
-"""The next phase of a Server run starts by itself.
-
-A device thread gets the next phase's turn from ``octryx.continuation``; a Server chat thread only advances with the
-next chat message, so an unattended Server run would stand still at every phase. So when a run whose explicit runtime
-target is the Server enters a phase, the platform starts the phase's turn on the run's main chat thread itself:
-
-- the pass is marked ``pending`` (``context.server_continuation``: node, entry) when the phase is entered;
-- the turn starts after the commit when the thread is idle, or after the thread's running turn ended (the turn whose
-  report advanced the run) — the turn runner calls :func:`server_turn_ended`;
-- the claim is ``pending`` → ``started`` under the run lock and committed before the turn is sent, so a pass gets at
-  most one platform turn; the turn runs as the thread's owner (the requester) with the platform's prompt;
-- a platform turn of the current pass that fails pauses the run ``runtime_failed`` (``server_turn_failed``): nothing
-  would drive it again.
-
-A phase with an explicit ``config.model`` runs its turn on the active runtime target that serves that model
-(``runtime_target_id``, an explicit choice the turn's gates still judge); no such target, or a target the Workspace
-refuses, leaves the turn on the thread's runtime (the refusal is the event ``run_turn_model_refused``).
-
-Only ``running`` runs at a phase with an explicit Server target continue; a terminal or device run, an Action-started
-run (its Action re-drives it) and a run without a stored target are untouched.
-"""
+"""The next phase of a Server run starts by itself."""
 
 from __future__ import annotations
 
@@ -38,7 +18,7 @@ STATE_PENDING = "pending"
 STATE_STARTED = "started"
 EVENT_STARTED = "server_continuation_started"
 EVENT_REFUSED = "server_continuation_refused"
-EVENT_MODEL_REFUSED = "run_turn_model_refused"  # the device continuation's event for the same case
+EVENT_MODEL_REFUSED = "run_turn_model_refused"
 CODE_TURN_FAILED = "server_turn_failed"
 _AFTER_COMMIT_KEY = "workflow_server_continuation"
 
@@ -72,12 +52,11 @@ async def _drives_itself(db: AsyncSession, run: WorkflowRun, thread: Session | N
     if dict(run.context or {}).get("fixture"):
         return False  # an acceptance fixture (``attention.fixtures``) never costs a model turn
     if isinstance(dict(thread.metadata_ or {}).get("execution_target"), dict):
-        return False  # a device thread: ``octryx.continuation`` drives it
+        return False
     return not await is_action_started(db, run)
 
 
 async def phase_entered_on_server(db: AsyncSession, run: WorkflowRun, node: Any) -> None:
-    """``run`` entered the phase ``node``: mark the pass and start its turn once the thread is idle."""
     from .records import main_session_id
 
     thread_id = await main_session_id(db, run)
@@ -106,7 +85,6 @@ def _drop_pending(sync_session: Any) -> None:
 
 
 def schedule_continuation(session_id: str, *, session_factory=None) -> None:
-    """Start the thread's pending continuation in the background (no-op without a running event loop)."""
     import asyncio
 
     from ..chat_turn_background import schedule_chat_turn_background_task
@@ -121,11 +99,6 @@ def schedule_continuation(session_id: str, *, session_factory=None) -> None:
 
 
 async def phase_runtime_target_id(db: AsyncSession, model: str) -> str | None:
-    """The active runtime target serving ``model`` (its id exactly, else a provider-prefixed id such as
-    ``anthropic.claude-haiku-5-5`` on Bedrock), first by priority; ``None`` when none does.
-
-    Without it, on the server every phase ran on the thread's runtime, so a
-    phase's model (Haiku for the builders) was never used there."""
     from ..control_plane_service import get_runtime_targets
 
     wanted = str(model or "").strip()
@@ -140,8 +113,6 @@ async def phase_runtime_target_id(db: AsyncSession, model: str) -> str | None:
 
 
 async def _claim(db: AsyncSession, session_id: str) -> tuple[WorkflowRun, Session, str, str | None] | None:
-    """Claim the pending pass of the thread's run; the run, thread, prompt and the phase model's runtime target id
-    (``None``: the thread's runtime), or ``None``."""
     from .graph import graph_for_run
     from .octryx.continuation_prompts import _prompt
     from .octryx.turn_settings import turn_phase_model
@@ -152,13 +123,13 @@ async def _claim(db: AsyncSession, session_id: str) -> tuple[WorkflowRun, Sessio
     if thread is None or run is None or _marker(run).get("state") != STATE_PENDING:
         return None
     if thread.status == "running":
-        return None  # the thread's turn is still running: it starts this one when it ends
+        return None
     run = await lock_run(db, run)
     marker = _marker(run)
     if marker.get("state") != STATE_PENDING:
         return None
     if not _current_pass(run, marker):
-        _set_marker(run, None)  # paused, waiting or moved on: nothing continues this pass
+        _set_marker(run, None)
         return None
     node = (await graph_for_run(db, run)).nodes[str(marker["node_id"])]
     _set_marker(run, {**marker, "state": STATE_STARTED})
@@ -166,7 +137,6 @@ async def _claim(db: AsyncSession, session_id: str) -> tuple[WorkflowRun, Sessio
 
 
 async def start_pending_turn(session_id: str, *, session_factory=None) -> None:
-    """Start the platform's turn for the thread's pending pass (claimed and committed first)."""
     from ...db import core as db_core
     from ..session.message_dispatch import send_session_message
     from ..session.turn_refusals import TurnRefusal
@@ -236,17 +206,12 @@ async def _refused(db: AsyncSession, run_id: str, reason: str) -> None:
 
 
 async def server_turn_ended(session_id: str, *, failed: bool, session_factory=None) -> None:
-    """A chat turn of ``session_id`` ended: a failed platform turn pauses its run, a pending pass starts."""
     from ...db import core as db_core
     from .limits import pause_run
     from .records import WorkflowRunError, active_run_for_session, lock_run
     from .states import PAUSE_RUNTIME_FAILED
 
     factory = session_factory or db_core.async_session_factory
-    from .teamwork.server_items import turn_ended as item_turn_ended
-
-    if await item_turn_ended(session_id, failed=failed, session_factory=factory):
-        return  # a parallel_work item's session: its scheduler decides (retry once, failed, or the next item)
     async with factory() as db:
         run = await active_run_for_session(db, session_id)
         marker = _marker(run) if run is not None else {}

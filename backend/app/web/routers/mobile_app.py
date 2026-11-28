@@ -1,13 +1,4 @@
-"""Octryx Mobile, the Home Screen web app: its page, manifest and service worker under ``/m``.
-
-- ``GET /m``, ``/m/``, ``/m/pair``, ``/m/confirm`` (the Mac's browser confirms a phone): the app's one HTML page
-  (``static/chat/m/index.html``, built by Vite). It needs no login to load: the app signs itself in with its own
-  phone credential (``/api/v1/mobile/session``) or shows how to connect. ``no-store``, like the chat page.
-- ``GET /m/manifest.webmanifest``: name, icons, ``start_url``/``scope`` ``/m/``, standalone.
-- ``GET /m/sw.js``: a minimal service worker (scope ``/m/``): it caches nothing and answers a failed page load
-  with a short offline notice (the platform is only reachable over the VPN). It also shows the platform's
-  notifications (Web Push), sets the app icon's badge and opens the entry a notification is about.
-"""
+"""Octryx Mobile, the Home Screen web app: its page, manifest and service worker under ``/m``."""
 
 from __future__ import annotations
 

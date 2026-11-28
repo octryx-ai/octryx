@@ -1,14 +1,4 @@
-"""Community layer (tier 3): cluster the graph and summarize each cluster.
-
-Detection is deterministic: connected components over active edges, with large
-components split by hub (highest-degree) nodes so clusters stay readable. At
-team-instance scale this matches Leiden's intent without a native dependency;
-swapping in Leiden later only changes ``detect_communities``.
-
-Reports: a deterministic structural summary is always written; when a governed
-``generate`` callable is provided (summarize role), an LLM community report
-replaces it. Community summaries are embedded for tier-3 retrieval.
-"""
+"""Community layer: cluster the graph and summarize each cluster."""
 
 from __future__ import annotations
 

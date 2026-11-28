@@ -1,24 +1,4 @@
-"""Recorded Coding quality-gate evidence.
-
-The local_tests, lint, dependency_audit, trivy_security_scan and ci_status gates are decided only
-from structured records that name their gate explicitly and carry an explicit outcome:
-
-- gate results on Work Item audit events (``gate_results_json`` entries ``{key, status}``), except
-  ``quality_gate_evaluation`` snapshots and the CI-finding mirror events (read from the findings);
-- native ``WorkCicdFinding`` rows with ``status == "current"`` (``stale_ignored`` is excluded on
-  every path): ``event_status`` decides ``ci_status``; explicit entries in the row's
-  ``gate_results_json`` decide other known gates;
-- a ``failed``/``policy_blocked`` ``local_validation`` or ``ci_cd`` stage keeps its blocking signal
-  (a completed stage never supplies a pass).
-
-Command, title, body, summary and plan text never select a gate or decide an outcome. Plans and
-Change Unit command lists are intent. Outcomes come from an exact status token; anything else
-(pending, completed, approved, merged, malformed) is inconclusive for the gate it names. Records are
-collapsed only when a stable producer identity proves the same check run: the same CI provider
-configuration, job, branch and commit (a rerun of that build; the latest wins, and a timestamp tie
-keeps every tied record). Every other record (a missing identity part, entries inside one record,
-operator results) is kept, so one passing check never erases a different or unidentified failed one.
-"""
+"""Recorded Coding quality-gate evidence."""
 
 from __future__ import annotations
 
@@ -69,7 +49,6 @@ class RecordedGateEvidence:
 
 
 async def load_native_ci_findings(db: AsyncSession, work_item_id: str) -> list[WorkCicdFinding]:
-    """All native CI findings of the item (one query); stale rows are filtered when read."""
     return list(
         (
             await db.execute(
@@ -184,8 +163,7 @@ def _text(value: Any) -> str:
 
 
 def _ci_run_identity(finding: Any) -> tuple[str, ...] | None:
-    """The producer-owned identity of one CI check run: provider configuration, job, branch and
-    commit. Builds of the same tuple are reruns of that check; any missing part means no identity."""
+    # Builds of the same tuple are reruns of that check; any missing part means no identity.
     parts = (
         _text(finding.provider_config_id),
         _text(finding.job_name),
@@ -213,19 +191,17 @@ def _collect_failed_stages(stages: list[Any], evidence: RecordedGateEvidence) ->
 
 
 def _effective_records(records: list[GateRecord]) -> list[GateRecord]:
-    """Collapse only records with the same stable identity to the latest; keep everything else.
-
-    A record without a recorded time cannot be ordered and is kept; records tied at the latest time
-    are all kept, so a tie never lets a pass hide a failure."""
     latest: dict[tuple[str, ...], list[GateRecord]] = {}
     kept: list[GateRecord] = []
     for record in records:
+        # Only a stable producer identity proves the same check run; anything else is kept
         if record.identity is None or not record.recorded_at:
             kept.append(record)
             continue
         current = latest.get(record.identity)
         if current is None or record.recorded_at > current[0].recorded_at:
             latest[record.identity] = [record]
+        # A tie keeps every tied record, so a pass never hides a failure
         elif record.recorded_at == current[0].recorded_at:
             current.append(record)
     return kept + [record for group in latest.values() for record in group]
@@ -241,7 +217,6 @@ def evaluate_recorded_gate(
     *,
     planned_checks: int,
 ) -> tuple[str, str, dict[str, Any]]:
-    """Return (status, reason, evidence) for one recorded gate."""
     label = GATE_LABELS[key]
     records = _effective_records([record for record in evidence.records if record.gate == key])
     failed = [record for record in records if record.outcome == "fail"]
@@ -268,7 +243,6 @@ def evaluate_recorded_gate(
 
 
 def recorded_test_records(evidence: RecordedGateEvidence) -> list[dict[str, Any]]:
-    """Recorded local test and lint results for the PR summary; plans are never listed here."""
     local = [record for record in evidence.records if record.gate in {"local_tests", "lint"}]
     return [
         {"gate": record.gate, "source": record.source, "outcome": record.outcome, **record.ref}

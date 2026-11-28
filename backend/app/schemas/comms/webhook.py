@@ -19,7 +19,6 @@ class WebhookCreate(BaseModel):
 
 
 def _mask_secret(secret: str) -> str:
-    """Return a masked version of the secret — first 4 and last 4 chars visible."""
     if not secret or len(secret) < 12:
         return "***"
     return f"{secret[:4]}{'*' * (len(secret) - 8)}{secret[-4:]}"

@@ -1,18 +1,4 @@
-"""Sync the Model catalog from its providers: refresh, flag vanished models, propose new ones.
-
-``sync_catalog`` asks every active provider that supports model listing for its models:
-
-- a listed model with a catalog row is refreshed (context length, governed pricing, ``last_synced_at``) and its
-  "gone upstream" flag is cleared; display name, capabilities, clearance and the enabled switch are the admin's and
-  are never touched;
-- a row the provider listed before (``last_synced_at`` set) and no longer lists is flagged ``upstream_gone_at``
-  (:func:`flag_vanished_models`, shared with the per-provider sync) and never silently kept as healthy;
-- a listed model without a row is only *proposed*; ``add_selected`` creates the chosen ones, **inactive**.
-
-For the governed LiteLLM gateway the alias catalog in the provider configuration is the list (no network call): an
-alias without a row is proposed even before its alias entry is admitted, so it can be cleared in the catalog.
-Nothing here enables a model.
-"""
+"""Sync the Model catalog from its providers: refresh, flag vanished models, propose new ones."""
 
 from __future__ import annotations
 
@@ -23,7 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...agent.providers import infer_provider_runtime, provider_supports_model_sync
+from ...agent.providers import provider_supports_model_sync
 from ...models import LLMModel, LLMProvider
 from ...time_utils import utc_now
 from ..admin.governance.admin_config_audit_service import record_admin_config_audit
@@ -44,7 +30,6 @@ BuildKwargs = Callable[..., Any]
 
 
 def flag_vanished_models(models: Iterable[LLMModel], seen_ids: set[str]) -> int:
-    """Flag rows the provider listed before and lists no more; clear the flag of listed rows."""
     now, flagged = utc_now(), 0
     for model in models:
         if model.model_id in seen_ids:
@@ -131,9 +116,7 @@ def _summary_row(provider: LLMProvider, model: LLMModel, usage) -> dict[str, Any
 
 
 async def sync_catalog(db: AsyncSession, *, build_kwargs: BuildKwargs, actor_id: str) -> dict[str, Any]:
-    """``POST /api/v1/admin/model-catalog/sync``. Flushes, the caller commits."""
     states, proposals, flagged = [], [], 0
-    seen_bedrock = False
     for provider in await _syncable_providers(db):
         try:
             listed = await _upstream(db, provider, build_kwargs)
@@ -149,23 +132,16 @@ async def sync_catalog(db: AsyncSession, *, build_kwargs: BuildKwargs, actor_id:
             else:
                 proposals.append(_proposal(provider, item))
         flagged += flag_vanished_models(rows.values(), set(by_id))
-        seen_bedrock |= bool(by_id) and infer_provider_runtime(driver=provider.driver)[
-            "driver"] == "bedrock_api"
         states.append({"provider_id": provider.id, "provider": provider_label(provider), "state": STATE_SYNCED,
                        "listed": len(by_id)})
-    if seen_bedrock:
-        from ..provider.bedrock_pricing import sync_bedrock_model_pricing
-
-        await sync_bedrock_model_pricing(db)
     await db.flush()
     record_admin_config_audit(db, actor_user_id=actor_id, action=AUDIT_SYNCED, resource_type="model_catalog",
-                              resource_id="catalog", before=None, after=None,
+                              resource_id="catalog", project_id=None, before=None, after=None,
                               details={"providers": states, "proposed": len(proposals), "flagged_gone": flagged})
     return {"providers": states, "new": proposals, **await catalog_attention(db)}
 
 
 async def catalog_attention(db: AsyncSession) -> dict[str, Any]:
-    """The rows the sync drawer lists: gone upstream, and gateway models without an alias."""
     usage = await load_usage(db)
     rows = (
         await db.execute(select(LLMProvider, LLMModel).join(LLMModel, LLMModel.provider_id == LLMProvider.id))
@@ -180,7 +156,6 @@ async def catalog_attention(db: AsyncSession) -> dict[str, Any]:
 async def add_selected(
     db: AsyncSession, *, selected: list[dict[str, str]], build_kwargs: BuildKwargs, actor_id: str
 ) -> list[str]:
-    """Create the chosen proposals as **inactive** rows; ids the provider does not list are skipped."""
     wanted: dict[str, set[str]] = {}
     for item in selected:
         wanted.setdefault(str(item.get("provider_id") or ""), set()).add(str(item.get("model_id") or ""))
@@ -210,13 +185,12 @@ async def add_selected(
             created.append(model.id)
     await db.flush()
     record_admin_config_audit(db, actor_user_id=actor_id, action=AUDIT_ADDED, resource_type="model_catalog",
-                              resource_id="catalog", before=None, after={"created": created},
+                              resource_id="catalog", project_id=None, before=None, after={"created": created},
                               details={"requested": len(selected)})
     return created
 
 
 async def add_alias_for(db: AsyncSession, *, model_id: str, actor_id: str) -> tuple[LLMProvider, LLMModel]:
-    """"Add to catalog" for a gateway model without an alias: create the alias; the model stays not enabled."""
     provider, model = await load_row(db, model_id)
     if not is_gateway(provider):
         raise ModelCatalogError(ERROR_NOT_GATEWAY)
@@ -225,7 +199,7 @@ async def add_alias_for(db: AsyncSession, *, model_id: str, actor_id: str) -> tu
     model.is_active = False
     create_alias(provider, model)
     record_admin_config_audit(db, actor_user_id=actor_id, action=AUDIT_ALIAS_ADDED, resource_type="model_catalog_model",
-                              resource_id=model.id, before=None, after={"alias": model.model_id},
+                              resource_id=model.id, project_id=None, before=None, after={"alias": model.model_id},
                               details={"provider_id": provider.id})
     await db.flush()
     return provider, model

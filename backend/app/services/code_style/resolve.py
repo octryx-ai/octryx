@@ -1,14 +1,4 @@
-"""The style that applies, field by field, with where each value comes from.
-
-Levels from the most specific: repository → Workspace → installation → built in; within each level the language's
-own value before the level's general one. The most specific value wins per field (``comments``, ``layout`` and
-``naming`` per key inside them); ``exclude`` adds up over all levels, each entry with its source, so a repository
-never loses the installation's generated-code rules by adding its own.
-
-``rules`` (the free-text team rules) add up too, from the installation down to the repository, each line once: a
-level only adds to the central rules, never replaces them (a rule an
-``@octryx ignore`` proposal adds to a repository must never drop the Workspace's or installation's rules).
-"""
+"""The style that applies, field by field, with where each value comes from."""
 
 from __future__ import annotations
 
@@ -22,7 +12,6 @@ _NESTED = ("comments", "layout", "naming", "formatter", "linter", "l10n", "diagr
 
 
 def _candidates(levels: dict[str, dict[str, Any]], language: str | None) -> list[tuple[str, dict[str, Any]]]:
-    """``(source, fields)`` from the most specific."""
     out: list[tuple[str, dict[str, Any]]] = []
     for level in LEVELS:
         profile = BUILT_IN if level == "built_in" else dict(levels.get(level) or {})
@@ -34,7 +23,6 @@ def _candidates(levels: dict[str, dict[str, Any]], language: str | None) -> list
 
 
 def effective(levels: dict[str, dict[str, Any]], language: str | None = None) -> dict[str, Any]:
-    """``{field: {"value": ..., "source": ...}}``; nested fields per key, ``exclude`` as all entries with sources."""
     candidates = _candidates(levels, language)
     out: dict[str, Any] = {}
     for field in FIELDS:
@@ -73,7 +61,6 @@ def effective(levels: dict[str, dict[str, Any]], language: str | None = None) ->
 
 
 def flat(view: dict[str, Any]) -> dict[str, Any]:
-    """The resolved values without their sources (what the checks and the contract use)."""
     out: dict[str, Any] = {}
     for field, item in view.items():
         if field in ("exclude", "include"):  # each row keeps its level: the most specific one decides (check.py)

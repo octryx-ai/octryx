@@ -52,8 +52,6 @@ def test_the_stop_facts_carry_the_counts_only_when_the_phase_has_a_code_style(tm
 
 
 def test_the_base_s_long_functions_of_a_modified_file_go_up_too(tmp_path):
-    """A function already over its limit at the base only warns unless it grows; the server needs
-    its size at the base."""
     root, _base = _repo(tmp_path)
     long_body = "\n".join(f"    v{i} = {i}" for i in range(70))
     (root / "keep.py").write_text(f"def run_s2():\n{long_body}\n")

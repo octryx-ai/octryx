@@ -1,12 +1,5 @@
 # ruff: noqa: E501
-"""Voice enrollment flow orchestration for Teams calls.
-
-The pure enrollment logic (command detection, session state machine, beep
-generation, instruction texts) lives in ``app.services.speaker.voice_enrollment``.
-This module owns the Teams-call-specific orchestration around it: playing
-instructions and beeps through the Graph API, recording the voice sample,
-and enrolling the speaker from the recorded audio.
-"""
+"""Voice enrollment flow orchestration for Teams calls."""
 
 from __future__ import annotations
 
@@ -25,10 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 def is_enrollment_active(call_id: str) -> bool:
-    """Check if a voice enrollment session is active for this call.
-
-    Used by TeamsPlugin to avoid auto-restarting recordings during enrollment.
-    """
     from ...services.speaker.voice_enrollment import get_enrollment_session
 
     return get_enrollment_session(call_id) is not None
@@ -42,14 +31,6 @@ async def start_enrollment_flow(
     https_base: str,
     db: AsyncSession,
 ) -> None:
-    """Start the voice enrollment flow: play instructions + beep, then record voice sample.
-
-    Flow:
-    1. Play TTS instruction: asking the person to speak after the beep
-    2. Play a beep tone
-    3. Start a longer recording (15s, relaxed silence timeouts)
-    4. The next recording will be handled by handle_enrollment_sample
-    """
     import sys as _sys
 
     from ...plugins import plugin_manager
@@ -123,10 +104,6 @@ async def handle_enrollment_sample(
     https_base: str,
     db: AsyncSession,
 ) -> None:
-    """Process the voice enrollment sample: extract embedding and enroll the speaker.
-
-    Called when a recording completes and there's an active enrollment session.
-    """
     import sys as _sys
 
     from ...plugins import plugin_manager

@@ -1,29 +1,4 @@
-"""A run's hard limits at the model gateway: no model above the run's, no work past its cost budget.
-
-Example (a Haiku phase): the session started its three subagents
-with ``model: "sonnet"``; the session settings mapped that alias to claude-opus-5-5, so 80 of 110 calls ran on Opus
-and the story cost $4.35 against the same-time plain Claude Code control's $0.83. A setting in the session
-is not a limit: the session can name any model. The gateway sees every model request of a run-bound session (seat
-and governed route, Claude Code and Codex), so the limits hold here, whatever the session does.
-
-**Model ceiling.** The run's models are the explicit ``model`` values in its workflow's node configs plus its runtime
-target's model; the ceiling is the most expensive of them (tier: haiku < sonnet < opus). A request for a model above
-the ceiling, or for a model of unknown tier that is none of the run's models, is **mapped** to the current phase's
-model (else the ceiling). Mapping, not refusing: Claude Code turns a 4xx on a subagent's or its own helper call
-(title, compaction, small-fast model) into a failed subagent, and the lead starts it again with the same arguments;
-a mapped call simply runs at the phase's price and its answer names the model that ran. The first mapping of each
-model is a run event (``model_guard_mapped``). A cheaper model (Claude Code's own small-fast helpers) passes.
-
-**Cost budget.** The run's spend is its sessions' **real API cost** (``usage_events.cost``); a seat call costs the
-platform nothing and never pauses a run (API cost and a seat's API equivalent stay strictly apart, and there are
-no artificial limits that cut a run off; otherwise a run paused at "$4.16 (list price)" on seat calls
-that cost $0). The seat calls' list-price equivalent is still measured (``list_cost_usd`` in the run's usage) and,
-once it reaches the budget, recorded once as a warning event (``budget_seat_equivalent``) — shown, never enforced.
-The budget is the run's ``cost_usd`` budget (workflow or Work item) and otherwise :data:`DEFAULT_RUN_BUDGET_USD`
-(about three times a measured epic-delivery story, $1.0-1.2). Reaching it pauses the run ``budget_limit`` (the attention
-queue pushes it to the phone; "Continue with more budget" raises it) and every further model request of its
-sessions is refused with the reason, so the turn ends instead of working on unbilled.
-"""
+"""A run's hard limits at the model gateway: no model above the run's, no work past its cost budget."""
 
 from __future__ import annotations
 
@@ -45,12 +20,11 @@ DEFAULT_RUN_BUDGET_USD = 4.0
 BUDGET_CEILING_FACTOR = 3
 SPEND_CACHE_SECONDS = 10.0
 _TIERS = (("haiku", 1), ("sonnet", 2), ("opus", 3))
-# Codex's models on the person's ChatGPT seat (a guard that compared them with the Claude phase model
-# sent claude-haiku-5-5 to ChatGPT and every Codex seat turn failed). Their own ranking; never mixed with Claude's.
+# Codex's models on the person's ChatGPT seat, ranked on their own and never mixed with Claude's.
 _CODEX_TIERS = (("luna", 1), ("terra", 2), ("sol", 3), ("astra", 4))
 ENGINE_CODEX = "codex"
-# USD per million tokens (input, output), list price; cache read 0.1x and cache write 1.25x the input price. Haiku 5.5
-# above a 100K-token prompt is charged at the long-context tier (claude-api skill, 2026-10).
+# USD per million tokens (input, output), list price; cache read 0.1x and cache write 1.25x the input price.
+# Haiku 5.5 above a 100K-token prompt is charged at the long-context tier.
 _PRICES = {"haiku": (0.10, 0.50), "sonnet": (2.00, 10.00), "opus": (4.00, 20.00),
            # OpenAI list prices from public aggregators (no official page found): luna and sol; terra
            # and astra are not published there and count conservatively as sol and twice sol.
@@ -65,7 +39,6 @@ def _is_codex(model: str) -> bool:
 
 
 def model_tier(model: str) -> int | None:
-    """A Claude model's tier (haiku < sonnet < opus); ``None`` for anything else, Codex's models included."""
     name = str(model or "").lower()
     if _is_codex(name):
         return None
@@ -73,7 +46,6 @@ def model_tier(model: str) -> int | None:
 
 
 def codex_tier(model: str) -> int | None:
-    """A Codex model's tier (luna < terra < sol < astra); ``None`` for anything else."""
     name = str(model or "").lower()
     if not _is_codex(name):
         return None
@@ -87,11 +59,6 @@ def _family(model: str) -> str | None:
 
 
 def list_cost(model: str, *, tokens_in: int, tokens_out: int, cache_read: int = 0, cache_write: int = 0) -> float:
-    """One call's cost at list price; 0 for a model of unknown family (its platform cost counts instead).
-
-    A model with a dated list price (``budget/list_prices.json``, the official tables) is priced there, per call and
-    tier (``budget/api_equivalent``), the same figure the seat's API equivalent shows. The family table below only
-    covers a model the list does not name yet."""
     from ...budget.api_equivalent import api_equivalent_usd
 
     listed = api_equivalent_usd(model, {"input_tokens": tokens_in, "output_tokens": tokens_out,
@@ -119,14 +86,11 @@ def _models_in(value: Any) -> list[str]:
 
 @dataclass(frozen=True)
 class RunModels:
-    allowed: frozenset[str]   # every model the run names
-    ceiling: str              # the most expensive of them ("" without any)
-    phase: str                # the current phase's own model ("" when it names none)
+    allowed: frozenset[str]
+    ceiling: str
+    phase: str
 
     def replacement(self, requested: str, *, engine: str = "") -> str | None:
-        """The model to run instead of ``requested``, ``None`` when it may run as asked. On the Codex path
-        (``engine`` codex) only within Codex's own models: the ceiling is the run's most expensive Codex model, a
-        Codex model above it runs on it; without a Codex model in the run there is no mapping (only the budget)."""
         requested = str(requested or "").strip()
         if engine == ENGINE_CODEX:
             codex = [model for model in self.allowed if codex_tier(model) is not None]
@@ -144,7 +108,6 @@ class RunModels:
 
 
 def run_models(nodes: dict[str, Any], current_node_id: str | None, target_model: str = "") -> RunModels:
-    """The run's models from its graph's node configs (``nodes``: id → node with ``config``) and its target."""
     named = [model for node in nodes.values() for model in _models_in(dict(getattr(node, "config", None) or {}))]
     if target_model:
         named.append(target_model)
@@ -174,8 +137,6 @@ async def _models_for(db: AsyncSession, run: WorkflowRun) -> RunModels:
 
 async def _with_class_models(db: AsyncSession, run: WorkflowRun, nodes: dict[str, Any],
                              target_model: str) -> dict[str, Any]:
-    """The nodes with each phase's (and team role's) seat model written as its ``model`` when it names none: since
-    the phase pins became model classes (``seat_models``) the run's models include its class defaults."""
     from types import SimpleNamespace
 
     from ..graph import NODE_PHASE
@@ -193,7 +154,7 @@ async def _with_class_models(db: AsyncSession, run: WorkflowRun, nodes: dict[str
         config = dict(getattr(node, "config", None) or {})
         if getattr(node, "kind", NODE_PHASE) == NODE_PHASE:
             config = resolved(config)
-        roles = config.get("roles")  # a team's parallel work node: each role's item session
+        roles = config.get("roles")
         if isinstance(roles, dict):
             config["roles"] = {key: resolved(dict(role)) if isinstance(role, dict) else role
                                for key, role in roles.items()}
@@ -202,12 +163,10 @@ async def _with_class_models(db: AsyncSession, run: WorkflowRun, nodes: dict[str
 
 
 async def run_spend(db: AsyncSession, run: WorkflowRun) -> float:
-    """The run's real API cost since it started (``usage_events.cost``; a seat call is 0)."""
     return (await run_costs(db, run))[0]
 
 
 async def run_costs(db: AsyncSession, run: WorkflowRun) -> tuple[float, float]:
-    """``(api cost, list-price equivalent)`` of the run's sessions' model usage since it started."""
     cached = _spend_cache.get(run.id)
     if cached is not None and time.monotonic() - cached[0] < SPEND_CACHE_SECONDS:
         return cached[1]
@@ -225,7 +184,7 @@ async def run_costs(db: AsyncSession, run: WorkflowRun) -> tuple[float, float]:
         if _seat(provider, source):
             listed_total += priced  # costs the platform nothing: shown as the API equivalent, never enforced
         else:
-            api += float(cost or 0) or priced  # a governed call: its recorded cost, else its list price
+            api += float(cost or 0) or priced
     _spend_cache[run.id] = (time.monotonic(), (api, listed_total))
     return api, listed_total
 
@@ -250,7 +209,7 @@ def _paused_for_budget(run: WorkflowRun) -> bool:
 @dataclass(frozen=True)
 class GuardResult:
     body: dict[str, Any]
-    refusal: str = ""   # a refusal reason; the call must not run
+    refusal: str = ""
     hint: str = ""
 
 
@@ -293,9 +252,7 @@ async def _note_mapping(db: AsyncSession, run: WorkflowRun, requested: str, mode
 
 async def guard_model_call(db: AsyncSession, session_id: str, body: dict[str, Any],
                            field: str = "model", *, engine: str = "") -> GuardResult:
-    """The body to send for a run-bound session's model request (its model mapped down when needed), or a refusal
-    when the run's budget is used up. A session outside a run passes unchanged. ``engine`` codex: the Codex path,
-    where only Codex's own models are compared (a Claude model never lands on it)."""
+    # On the Codex path only Codex's own models are compared, so a Claude model never lands on it.
     from ..records import active_run_for_session
 
     run = await active_run_for_session(db, session_id)
@@ -324,7 +281,6 @@ def _budget_hint(budget: float) -> str:
 
 
 async def _note_seat_equivalent(db: AsyncSession, run: WorkflowRun, equivalent: float, budget: float) -> None:
-    """Once per run: the seat calls' list-price equivalent reached the budget (a warning; the run goes on)."""
     from ..records import lock_run, record_event
 
     run = await lock_run(db, run)
