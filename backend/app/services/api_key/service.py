@@ -12,6 +12,8 @@ from ...db.touch import touch_if_stale
 from ...models import APIKey, Role, User, UserRole
 from ...time_utils import ensure_utc, utc_now, utc_now_aware
 from ..access_control import require_visible_workspace
+from ..data_access import as_viewer
+from ..data_access.machine_principal import integration_owner
 from ..security_permissions import user_has_permission
 from ..security_scope_contract import allowed_api_key_scopes
 
@@ -131,7 +133,10 @@ async def authenticate_api_key(db: AsyncSession, raw_key: str) -> tuple[User, AP
     token = str(raw_key or "").strip()
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-    entry = (await db.execute(select(APIKey).where(APIKey.key_hash == _hash_api_key(token)))).scalar_one_or_none()
+    owner = await integration_owner(db, APIKey, _hash_api_key(token), owner_column="user_id", key_column="key_hash")
+    # The key is read as its own user: a key bound to a Workspace that user can no longer see is no key.
+    with as_viewer(owner.user_id):
+        entry = (await db.execute(select(APIKey).where(APIKey.key_hash == _hash_api_key(token)))).scalar_one_or_none()
     if not entry:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
     if entry.revoked_at is not None:

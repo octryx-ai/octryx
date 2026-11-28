@@ -1,22 +1,4 @@
-"""Relay of LiteLLM's Anthropic Messages responses to the client.
-
-Streaming: server-sent events are split incrementally and every event is
-forwarded with the bytes it arrived with, except
-
-- ``message_start``, whose ``message.model`` is rewritten to the Octryx
-  alias (the upstream model group is never shown to the client), and
-- ``error``, whose upstream message is replaced by a fixed gateway message (the
-  Anthropic error ``type`` is kept so the client's retry logic still works).
-
-Before anything is forwarded the served model is checked: ``message_start`` must
-come first (pings may precede it) and must name the admitted model group or one
-of the alias' declared ``served_model_ids``. Anything else is a refusal while
-the client has received nothing yet.
-
-The relay observes usage (``message_start`` and ``message_delta``), the stop
-reason, a bounded copy of the assistant text and the ``tool_use`` blocks, for
-usage accounting and the transcript.
-"""
+"""Relay of LiteLLM's Anthropic Messages responses to the client."""
 
 from __future__ import annotations
 
@@ -57,8 +39,6 @@ PING_EVENT = b'event: ping\ndata: {"type": "ping"}\n\n'
 
 
 class RelayRefused(Exception):  # noqa: N818 - a refusal value carried as an exception
-    """The upstream answer violates the served-model or stream contract."""
-
     def __init__(self, state: str, reason: str, *, upstream_error_type: str = ""):
         super().__init__(reason)
         self.state = state
@@ -100,20 +80,14 @@ class Observation:
 
 
 def _loggable_model_id(value: str) -> str:
-    """The served model id for the operator log: narrow charset and bounded, else a marker."""
-
     if value and len(value) <= 120 and all(ch.isalnum() or ch in "._:-/@" for ch in value):
         return value
     return "<unprintable>"
 
 
+# A refusal logs the observed id (narrow charset only): declaring it in the alias' served_model_ids is the operator's
+# explicit fix.
 def model_match(entry: AliasEntry, served_model: Any) -> str:
-    """How the served model relates to the admitted alias; empty = not admitted.
-
-    A refusal logs the observed id (narrow charset only), because declaring it in
-    the alias' ``served_model_ids`` is the operator's explicit fix.
-    """
-
     value = served_model.strip() if isinstance(served_model, str) else ""
     if value and value == entry.model_group:
         return MODEL_MATCH_GROUP
@@ -136,8 +110,6 @@ def gateway_error_event(error_type: str) -> bytes:
 
 
 class SseRelay:
-    """Incremental SSE relay for one streamed response."""
-
     _PARSED = frozenset({"message_start", "message_delta", "message_stop", "content_block_start",
                          "content_block_delta", "error"})
 
@@ -165,8 +137,6 @@ class SseRelay:
         return out
 
     def finish(self) -> list[bytes]:
-        """Flush a trailing event that ended without a blank line."""
-
         raw, self._buffer = self._buffer, b""
         return self._handle(raw) if raw.strip() else []
 
@@ -238,8 +208,6 @@ class SseRelay:
 
 
 def relay_json_message(entry: AliasEntry, body: Any, observation: Observation) -> dict[str, Any]:
-    """Non-streaming: check and rewrite the model, observe usage and content."""
-
     if not isinstance(body, Mapping):
         raise RelayRefused(GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION, REASON_RESPONSE_NOT_JSON)
     observation.add_usage(body.get("usage"))

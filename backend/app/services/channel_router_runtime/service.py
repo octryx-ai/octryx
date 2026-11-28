@@ -15,12 +15,7 @@ POLL_INTERVAL = 0.1  # seconds between full plugin poll sweeps
 
 
 class ChannelMessageRouter(ChannelTurnsMixin, ChannelSessionsMixin):
-    """
-    Background service that:
-    1. Polls every active ChannelPlugin for inbound messages.
-    2. Finds or creates a persistent DB session per (channel_instance, sender_id) pair.
-    3. Runs run_agent() on the message and sends the response back via the plugin.
-    """
+    """Background service that: 1."""
 
     def __init__(self):
         self._task: asyncio.Task | None = None
@@ -69,7 +64,6 @@ class ChannelMessageRouter(ChannelTurnsMixin, ChannelSessionsMixin):
         plugin,
         msg: dict,
     ) -> bool:
-        """Check if this message is a reply to a proactive conversation and handle it."""
         try:
             from ..proactive_teams.reply_handler import check_proactive_reply, process_proactive_reply
 
@@ -89,7 +83,6 @@ class ChannelMessageRouter(ChannelTurnsMixin, ChannelSessionsMixin):
             return False
 
     async def _handle_approval_command(self, db, content: str, sender_user_id: str | None) -> str | None:
-        """Handle channel approval commands (``approval_commands.py``) and return the reply when matched."""
         return await handle_approval_command(db, content, sender_user_id, session_factory=self._session_factory)
 
 

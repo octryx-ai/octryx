@@ -106,14 +106,22 @@ export function collectRuntimeErrors(page) {
   return runtimeErrors;
 }
 
-// A fresh e2e database has no chats; specs that need some start them through the chat's own send route.
+// A fresh e2e database has no chats; specs that need some create titled threads without a turn (the e2e stack has
+// no server runner to answer one).
 export async function seedChats(page, count) {
   await ensureSignedIn(page);
   for (let index = 0; index < count; index += 1) {
-    const answer = await page.evaluate(async (prompt) => {
-      const response = await fetch("/chat/api/send", { method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt }) });
-      return { status: response.status, text: (await response.text()).slice(0, 300) };
+    const answer = await page.evaluate(async (title) => {
+      const headers = { "Content-Type": "application/json" };
+      const created = await fetch("/api/v1/sessions", { method: "POST", credentials: "same-origin", headers,
+        body: JSON.stringify({}) });
+      if (!created.ok) {
+        return { status: created.status, text: (await created.text()).slice(0, 300) };
+      }
+      const { id } = await created.json();
+      const renamed = await fetch(`/chat/api/sessions/${id}/rename`, { method: "POST", credentials: "same-origin",
+        headers, body: JSON.stringify({ title }) });
+      return { status: renamed.status, text: (await renamed.text()).slice(0, 300) };
     }, `e2e seed chat ${index + 1}`);
     expect(answer.status, answer.text).toBeLessThan(300);
   }

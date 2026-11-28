@@ -14,11 +14,8 @@ from .verdict import (
     SPEC_REVIEW_RULE,
 )
 
-# Without this, a reviewer had ``cook-mode-opened.png`` with the German heading "ingredients (for 2
-# servings)" above nothing and passed the story with no finding; a sidebar that stopped mid-page was "low" and went
-# through the automatic accept; flat peach blocks passed where the spec meant the card's visual anchor. So the screens
-# are judged as the product the spec describes (its Look and feel list, LF1, LF2, ...), layout breakage is a visible
-# defect, and a missed look check is high: it carries the product owner's design decision and blocks the accept.
+# The screens are judged as the product the spec describes: layout breakage is a visible defect, and a missed look
+# check is high because it carries the product owner's design decision.
 SCREENS_RULE = (
     "Screenshots of the built app, taken by its system tests, follow the text as images, each after its file name. "
     "First read the specification's UI and design section: its Look and feel list (checks LF1, LF2, ...), how it "
@@ -46,8 +43,7 @@ SCREENS_RULE = (
     "itself. Never read colours or contrast ratios off an image and compute with them: the tests compute those.")
 
 
-#: The provider's own limit of images in one request (Claude on Bedrock: 20). Not a cut: more screenshots are
-#: looked at in batches of this size (otherwise 32 screenshots were refused by both runtimes).
+#: The provider's limit of images in one request (Claude on Bedrock: 20); more screenshots go in batches, not a cut.
 IMAGES_PER_REQUEST = 20
 SCREEN_NOTES_RULE = (
     "This call shows the screenshots (batch {batch} of {batches}) with the work item, the specification's UI and "
@@ -73,13 +69,7 @@ SCREEN_NOTES_FOLLOW_UP = ("All {count} screenshots were looked at in batches; th
 
 async def _answer_with_screens(model: Any, system: str, task: str, screens: list[Any], screens_task: str = "",
                                *, follow_up: bool = False) -> Any:
-    """The verdict, with the screenshots looked at first.
-
-    The screenshots go in calls of their own, with only what judging a screen needs (``screens_task``: the work
-    item, the specification's UI and design sections, the product owner's answers, the task list), in batches of
-    :data:`IMAGES_PER_REQUEST`; the verdict call is text only and gets the change and every note. Each call stays
-    small: when every review call carried change and images together, it was above the 100K price tier
-    (×5) and none of it was cached; the reviews cost as much as two stories' building."""
+    # Small separate calls keep each request below the higher price tier and cacheable.
     if not screens:
         return await model.answer(system=system, user=task)
     import json
@@ -110,9 +100,7 @@ async def _answer_with_screens(model: Any, system: str, task: str, screens: list
     return summed
 
 
-# Every reviewer call stays below this many prompt tokens: the 100K price tier (Haiku 5.5 ×5 above it,
-# ``model.PRICE_TIERS``) with room for the answer's own share of the context. Otherwise 11 of
-# 13 story reviews of a run were 111K-153K tokens in, uncached, because the verdict call carried the whole change.
+# Every reviewer call stays below this many prompt tokens: the 100K price tier, with room for the answer.
 CALL_TOKENS = 90_000
 CHARS_PER_TOKEN = 3  # a cautious estimate for code and diffs (live: ~3.3 characters per Haiku token)
 MIN_PART_CHARS = 30_000  # a frame larger than the budget still leaves each part room for real content
@@ -135,8 +123,6 @@ def _tokens(*texts: str) -> int:
 
 
 def change_parts(diff: str, size: int) -> list[str]:
-    """The change in parts of at most ``size`` characters: whole files where they fit, a larger file in line-bounded
-    pieces. Nothing is left out: the parts together are the change."""
     files = [chunk for chunk in re.split(r"(?m)^(?=diff --git )", diff) if chunk]
     pieces: list[str] = []
     for chunk in files:
@@ -157,10 +143,7 @@ def change_parts(diff: str, size: int) -> list[str]:
 
 
 async def read_in_parts(model: Any, system: str, review: Any) -> tuple[str, Any]:
-    """``(verdict task, usage of the part calls)``: the review's own task when it fits one call below
-    :data:`CALL_TOKENS`; else the change is read part by part (each call with the frame, never above the budget) and
-    the verdict task is the frame with every part's notes instead of the change (``None`` usage when one call
-    fits). Each call carries the same frame first, so its prefix stays cached across the parts."""
+    # Each call carries the same frame first, so its prefix stays cached across the parts.
     if not review.frame or _tokens(system, review.task) <= CALL_TOKENS:
         return review.task, None
     import json
@@ -195,16 +178,12 @@ NOTES_KEY = "screen_notes"
 
 
 def _summed(first: Any, second: Any) -> Any:
-    """The second answer, carrying the usage of both calls (one review attempt)."""
     from .model import ReviewAnswer, summed_usage
 
     return ReviewAnswer(second.answer, summed_usage(first.usage, second.usage))
 
 
 async def _two_stage_spec_review(model: Any, setup: Any, review: Any, system: str) -> Any:
-    """Stage 1 lists every checklist candidate and answer point without judging; stage 2 judges them (one verdict).
-
-    The usage of both calls is recorded as one review attempt."""
     import json
 
     from ...content_security.untrusted_fence import fenced_untrusted, new_fence

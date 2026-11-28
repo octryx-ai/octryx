@@ -20,10 +20,13 @@ from app.services.workflow_runs.binding import RUN_RESOLUTION_KEY, record_phase_
 from app.services.workflow_runs.review.runner import run_due_reviews
 from app.services.workflow_runs.specification.lineage import canonicalize_output, take_output_provenance
 from tests.phased_workflow_fixtures import publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_definition_support import specification_definition
 from tests.specification_producer_support import SPEC, enter, producer, put
 from tests.workflow_artefact_review_support import PASS
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def headers(user):

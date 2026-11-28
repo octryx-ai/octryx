@@ -9,7 +9,8 @@ container import path unless it is excluded from the build context.
 What is true is that importing it does nothing: every module here depends only on the standard library, and an import
 reads no file, resolves no dependency, opens no socket and writes nothing.
 
-``tests/test_pydantic_ai_removed.py`` rejects ``pydantic-ai-slim`` in the declarations and the lock graph.
+``tests/repo_contracts/test_pydantic_ai_removed.py`` rejects ``pydantic-ai-slim`` in the declarations and the lock
+graph.
 """
 
 from .harness_boundary import Violation, format_violations, scan_boundary

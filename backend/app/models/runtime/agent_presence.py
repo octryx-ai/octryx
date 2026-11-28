@@ -1,27 +1,15 @@
-"""Presence and allowance of one governed coding-client session (agent coordination board).
-
-One row per launcher session key (the UI shows one entry per person and device: ``device_key``),
-created when ``octryx-claude`` registers the session at launch
-(``POST /api/v1/agent-gateway/sessions/register``) for either profile:
-
-- ``governed``: model traffic through the platform's LiteLLM data plane; presence without allowance;
-- ``seat``: model traffic through the gateway to Anthropic with the user's **own** subscription login.
-  The row then also holds the session-bound seat credential, **as a SHA-256 hash only**, its expiry
-  and the OAuth grant that registered it. The allowance fields are written from the upstream
-  ``anthropic-ratelimit-unified-*`` response headers of the session's own seat calls.
-
-The subscription token itself is never stored anywhere; it only travels through the seat route.
-"""
+"""Presence and allowance of one governed coding-client session (agent coordination board)."""
 
 from __future__ import annotations
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class AgentPresence(Base):
+class AgentPresence(WorkspaceBound, Base):
     __tablename__ = "agent_presence"
     __table_args__ = (
         Index("ix_agent_presence_project_last_seen", "project_id", "last_seen_at"),
@@ -37,7 +25,6 @@ class AgentPresence(Base):
     profile = Column(String(20), nullable=False)
     client = Column(String(40), nullable=False)
     client_version = Column(String(40), nullable=True)
-    # One presence entry per person and device (``agent_gateway.presence_devices``), set when the session registers.
     device_key = Column(String(32), nullable=False)
     # The registered device (user_devices.id) when the login is a device grant; no FK, history survives revoke.
     device_id = Column(String(36), nullable=True)
@@ -53,9 +40,9 @@ class AgentPresence(Base):
     allowance_updated_at = Column(DateTime, nullable=True)
     seat_credential_hash = Column(String(64), nullable=True)
     seat_credential_expires_at = Column(DateTime, nullable=True)
-    # Freeze 3c: when the session's use first reached the handoff trigger in the current crossing (cleared below it).
+    # When the session's use first reached the handoff trigger in the current crossing (cleared below it).
     handoff_crossing_at = Column(DateTime, nullable=True)
-    # Freeze 3c "Hand over now": an admin asked this session to hand over (cleared by the session's next handoff).
+    # An admin asked this session to hand over ("Hand over now"); cleared by the session's next handoff.
     handoff_requested_at = Column(DateTime, nullable=True)
     seat_grant_id = Column(String(36), nullable=True)
     seat_oauth_client_id = Column(String(64), nullable=True)

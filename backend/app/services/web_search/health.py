@@ -1,15 +1,4 @@
-"""Provider health for the governed web search: quarantine on anomalies, and a canary probe.
-
-A provider that answers a domain-restricted query with a result outside the restriction is not
-behaving like a search API any more (a bot page, a hijacked answer, a changed contract). Its answer
-is discarded as a whole and the provider is quarantined for :data:`QUARANTINE_SECONDS`; search is
-``unavailable`` until then, or until a canary probe passes.
-
-The canary is a fixed query restricted to one known documentation host. It passes when the provider
-returns at least one result and every result is on that host and clear of the blocklist.
-
-The quarantine is process-local: each API process learns it on its own first anomaly.
-"""
+"""Provider health for the governed web search: quarantine on anomalies, and a canary probe."""
 
 from __future__ import annotations
 
@@ -58,7 +47,6 @@ def host_within(host: str, domains: list[str]) -> bool:
 
 
 async def canary(config: ProviderConfig, *, client_factory: Callable[..., Any] = httpx.AsyncClient) -> dict[str, Any]:
-    """Probe the provider with the fixed canary query; quarantines or releases it."""
     try:
         hits = await search_provider(
             config,

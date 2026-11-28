@@ -1,9 +1,4 @@
-"""The catalog read model: list rows with filters and header counts, the detail of one skill, versions.
-
-List filters are explicit fields, never a guess: ``q`` (substring of name, description or tag), ``category_id``
-(the category and its children), ``tag``, ``state`` (``published`` | ``draft`` | ``in_review`` | ``update`` |
-``retired``), ``surface`` (``platform_chat`` | ``octryx_claude``), ``source_id``, ``kind``.
-"""
+"""The catalog read model: list rows with filters and header counts, the detail of one skill, versions."""
 
 from __future__ import annotations
 

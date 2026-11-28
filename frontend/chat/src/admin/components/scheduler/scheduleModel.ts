@@ -1,9 +1,4 @@
-// Guided scheduler authoring and the save gate.
-//
-// The stored value stays one cron string with APScheduler semantics. Guided modes compile to
-// cron with weekday *names* only, so the numeric Monday = 0 rule is never involved. A stored
-// expression opens in a guided mode only when compiling it back gives the exact same string;
-// anything else (numeric weekdays, ranges, steps) opens as Custom, byte-for-byte.
+// Guided modes emit weekday names only, so the numeric Monday = 0 rule never applies; anything that does not round-trip exactly opens as Custom.
 
 export const MINUTE_STEPS = [5, 10, 15, 20, 30] as const;
 export const HOUR_STEPS = [1, 2, 3, 4, 6, 8, 12] as const;
@@ -35,7 +30,6 @@ export const MODE_LABELS: Record<ScheduleMode, string> = {
   custom: "Custom cron expression",
 };
 
-// Starting values when the admin switches to a guided mode; never applied silently.
 export const MODE_DEFAULTS: Record<
   Exclude<ScheduleMode, "custom">,
   GuidedSchedule
@@ -57,7 +51,6 @@ function clock(time: string): [number, number] | null {
   return hour < 24 && minute < 60 ? [hour, minute] : null;
 }
 
-// Runs of three or more consecutive days become a range (mon-fri), shorter runs a list.
 function weekdayField(days: Weekday[]): string {
   const indexes = WEEKDAYS.map((_, index) => index).filter((index) =>
     days.includes(WEEKDAYS[index]),
@@ -76,7 +69,6 @@ function weekdayField(days: Weekday[]): string {
   return parts.join(",");
 }
 
-/** The cron string for a guided choice, or "" while the choice is incomplete. */
 export function compileGuided(schedule: GuidedSchedule): string {
   switch (schedule.mode) {
     case "minutes":
@@ -148,7 +140,6 @@ function candidate(expression: string): GuidedSchedule | null {
   return days ? { mode: "weekdays", days, time } : null;
 }
 
-/** The guided form for a stored expression, or Custom unless it round-trips exactly. */
 export function recognizeSchedule(expression: string): GuidedSchedule {
   const guided = candidate(expression);
   return guided && compileGuided(guided) === expression
@@ -156,19 +147,11 @@ export function recognizeSchedule(expression: string): GuidedSchedule {
     : { mode: "custom" };
 }
 
-/** Before the admin picks how often a new scheduler runs: nothing is selected or compiled. */
 export type ScheduleChoice = GuidedSchedule | { mode: "unset" };
 
-/**
- * The first view of the schedule fields. A blank (new) form asks the admin to choose a
- * frequency, with no default schedule and no raw cron; a stored expression is recognized
- * (guided on an exact round-trip, else Custom verbatim).
- */
 export function initialSchedule(expression: string): ScheduleChoice {
   return expression === "" ? { mode: "unset" } : recognizeSchedule(expression);
 }
-
-// ---- preview contract (POST /admin/chat/api/panel/schedulers/preview) ------------------------
 
 export type ScheduleRun = {
   at_utc: string;
@@ -195,13 +178,12 @@ export type SchedulePreviewState =
 
 export type ScheduleSubmitGate = {
   canSubmit: boolean;
-  /** Only a new or changed expression is sent; an unchanged one is omitted so it is never rewritten. */
+  // An unchanged expression is omitted so it is never rewritten.
   sendCron: boolean;
   blocker: string | null;
   notice: string | null;
 };
 
-/** Whether the form may be saved, for the exact expression in the form. */
 export function scheduleSubmitGate(
   storedCron: string | null,
   formCron: string,
@@ -261,7 +243,7 @@ const MONTH_NAMES = [
   "Dec",
 ];
 
-/** "Mon 5 Oct 2026, 09:00 (UTC+02:00)" from the server's local ISO time, independent of the browser zone. */
+// Independent of the browser zone.
 export function formatRunTime(localIso: string): string {
   const match =
     /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.exec(

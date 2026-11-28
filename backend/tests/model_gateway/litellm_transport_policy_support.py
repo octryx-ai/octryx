@@ -20,8 +20,6 @@ PROXY_URL = f"https://{PROXY_HOST}:3128"
 
 
 def private_ca_bundle(directory: Path, *, name: str = "ca.pem") -> Path:
-    """Write a real one-certificate CA bundle, so trust is checked, not mocked."""
-
     return write_ca_bundle(directory / name)
 
 
@@ -31,8 +29,6 @@ def resolve(endpoint_url: str, section: dict[str, Any]):
     return resolve_transport_policy(endpoint=validation.endpoint, section=section)
 
 
-# --- Cluster-internal plaintext (shared data-platform LiteLLM) ---------------
-#
 # One narrow widening of the plaintext rule: an ``http`` endpoint whose host is a
 # fully qualified Kubernetes Service name, on the host allowlist, with the
 # operator's node-encryption attestation, on the direct path only.
@@ -58,12 +54,6 @@ def cluster_section(**overrides: Any) -> dict[str, Any]:
 
 
 def cluster_denial(endpoint_url: str, section: dict[str, Any]) -> tuple[str, str]:
-    """Build the config and return ``(gateway_state, denial_reason)`` of the refusal.
-
-    Readiness has to report the same code, so the admin surface and the runtime
-    boundary never disagree about why the provider cannot run.
-    """
-
     with pytest.raises(LiteLLMGatewayError) as excinfo:
         build_gateway_config(
             endpoint_url=endpoint_url,

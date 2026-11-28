@@ -14,11 +14,7 @@ type DesignerDocument = {
   } | null;
 };
 
-/**
- * Which content of `agentId` an Action run executes, read from the same endpoint the
- * Agents page uses. Every reply is tagged with the agent it answers and an older reply is
- * dropped, so a slow answer for a previously chosen agent never stands in for the current one.
- */
+// Replies are tagged with their agent so a slow answer for a previously chosen agent is dropped.
 export function useAgentExecutionSource(agentId: string) {
   const [lookup, setLookup] = useState<ExecutionLookup>({ status: "idle" });
   const [attempt, setAttempt] = useState(0);

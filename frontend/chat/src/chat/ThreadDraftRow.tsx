@@ -1,7 +1,3 @@
-/**
- * The one ephemeral row of a new chat: nothing is stored until the first message, and pressing
- * "New chat" again returns to this draft instead of adding another row.
- */
 export function ThreadDraftRow({ onSelect }: { onSelect: () => void }) {
   return (
     <div className="thread-node" role="treeitem" aria-selected="true">

@@ -1,14 +1,4 @@
-"""App servers a run turn started stop when the turn ends; nothing the turn did not start is touched.
-
-An app server or ``python -m http.server`` a session started would otherwise keep listening after its turn, holding
-ports the next run's app wants.
-
-Children of ``claude`` are re-parented once it exits, so neither the process tree nor a process group finds them
-afterwards (Claude Code's Bash tool starts its own groups). What every one of them keeps is the environment: the
-launcher gives each run turn a mark (:data:`MARK_ENV`, a fresh random value) and, after the turn, stops exactly the
-processes that are still listening on a TCP port **and** carry this turn's mark. A process without it (another turn,
-another session, anything the person started) is never signalled.
-"""
+"""App servers a run turn started stop when the turn ends; nothing the turn did not start is touched."""
 
 from __future__ import annotations
 
@@ -24,6 +14,7 @@ from collections.abc import Callable, Iterable, Mapping
 
 logger = logging.getLogger(__name__)
 
+# Children of ``claude`` are re-parented once it exits; only this environment mark still finds them.
 MARK_ENV = "OCTRYX_TURN_MARK"
 GRACE_SECONDS = 5.0
 
@@ -33,7 +24,6 @@ def new_mark() -> str:
 
 
 def listening_pids() -> set[int]:
-    """Processes of this user listening on a TCP port (``lsof``; empty when it is missing)."""
     try:
         out = subprocess.run(["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fp"], capture_output=True, text=True,
                              timeout=30, check=False).stdout
@@ -43,7 +33,6 @@ def listening_pids() -> set[int]:
 
 
 def environment_of(pid: int) -> str:
-    """The process's environment as text (``/proc`` on Linux, ``ps -E`` on macOS); empty when unreadable."""
     if sys.platform.startswith("linux"):
         try:
             with open(f"/proc/{pid}/environ", "rb") as handle:
@@ -73,7 +62,6 @@ def _alive(pid: int) -> bool:
 
 
 def command_of(pid: int) -> str:
-    """The process's command line (``ps``); empty when it is gone."""
     try:
         return subprocess.run(["ps", "-ww", "-o", "command=", "-p", str(pid)], capture_output=True, text=True,
                               timeout=10, check=False).stdout.strip()[:300]
@@ -84,9 +72,6 @@ def command_of(pid: int) -> str:
 def stop_leftovers(mark: str, *, pids: Callable[[], Iterable[int]] = listening_pids,
                    environment: Callable[[int], str] = environment_of, grace: float = GRACE_SECONDS,
                    record: Callable[[dict], object] | None = None) -> list[int]:
-    """Stop the listening processes that carry ``mark`` (TERM, KILL after ``grace``); the pids it stopped. Each one
-    is logged with its command and the turn's mark, and handed to ``record``, so every SIGTERM it sends is
-    traceable."""
     if not mark:
         return []
     own = os.getpid()

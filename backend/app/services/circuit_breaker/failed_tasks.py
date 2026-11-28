@@ -128,12 +128,7 @@ async def escalate_failed_task_run_decision(
     runtime_stopped: bool = False,
     content_blocked: bool = False,
 ) -> tuple[FailedTaskRun, TaskFailureDecision]:
-    """The failure decision.
-
-    ``admission_refused`` is set only by the caller's typed refusal handlers, ``reply_contract_violation``
-    only by the checked-reply verdict, ``runtime_stopped`` only by the run's recorded stop
-    and ``content_blocked`` only by the turn's typed content-refusal class; all four are terminal.
-    """
+    """The failure decision."""
     terminal_status = None
     if content_blocked is True:
         terminal_status = FAILED_TASK_CONTENT_BLOCKED_STATUS

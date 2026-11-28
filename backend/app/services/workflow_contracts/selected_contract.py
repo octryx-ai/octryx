@@ -1,30 +1,4 @@
-"""One contract per selected workflow, the same on the strategy and the loop path.
-
-:func:`build_selected_workflow_contract` is the only builder of a selected workflow's contract
-for a turn. ``resolve_execution_strategy`` and the standard loop setup (``_loop_setup``) call it
-with the turn's routing resolution, so a selection yields one contract whichever path reads it.
-
-Precedence, applied by :func:`apply_selected_definition` to the family builder's output when a
-workflow-run phase is selected (its inline definition, ``source=db``, ``status=matched``):
-
-1. **Builder output is the base.** The family builder reads the definition's configured contract
-   (``selected_workflow_analysis``) and interprets the fields it owns (the knowledge query
-   style). Its derived parameters (topic, evidence contract, phases, ``workflow_variant``, ...)
-   are kept; on a key both carry, the builder's value stands.
-2. **Consumed fields stay with the builder.** A configured field the family builder consumes
-   (:data:`CONSUMED_DEFINITION_FIELDS`) is never copied back: the builder's result, a value or
-   its deliberate absence (a refused value), is the contract.
-3. **Other configured fields are carried through** unchanged (``allowed_tools``,
-   ``source_steps``, ``when_to_use``, ``routing_intent``, ...).
-4. **Definition governance wins** over the builder: :data:`DEFINITION_GOVERNED_FIELDS`.
-5. **Provenance from the routing resolution** is set last: ``workflow_class``,
-   ``workflow_contract_source`` (``db_routing_policy``), ``workflow_routing_policy_id``,
-   ``workflow_routing_policy_version_id``, ``workflow_routing_policy_matched_group_id``.
-
-The definition's tool policy and safety constraints are not contract fields: they stay on the
-routing resolution, where the tool surface (``run_context_tool_policy.apply_routing_tool_policy``)
-and the strategy (``resolve_workflow_routing_policy_intent_override``) read them.
-"""
+"""One contract per selected workflow, the same on the strategy and the loop path."""
 
 from __future__ import annotations
 
@@ -68,7 +42,6 @@ def is_matched_db_definition(routing_resolution: Any) -> bool:
 
 
 def apply_selected_definition(built_contract: dict[str, Any] | None, routing_resolution: Any) -> dict[str, Any]:
-    """The builder's contract with the selected DB definition's fields, by the module's precedence."""
     contract = dict(built_contract or {})
     if not contract or not is_matched_db_definition(routing_resolution):
         return contract
@@ -101,11 +74,6 @@ def build_selected_workflow_contract(
     capability_type: str | None = None,
     workflow_decisions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """The contract of the workflow ``routing_resolution`` selects, or ``{}`` without a selection.
-
-    ``workflow_decisions`` (the session's recorded closed decisions) reach the family builder the
-    same way on every path.
-    """
     contract = build_task_workflow_contract(
         user_message,
         request_analysis=selected_workflow_analysis(

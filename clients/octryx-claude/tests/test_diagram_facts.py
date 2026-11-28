@@ -1,5 +1,3 @@
-"""The app's draw.io diagrams at the end of a changing phase: exported, checked against the code."""
-
 from __future__ import annotations
 
 import base64
@@ -87,7 +85,6 @@ def test_the_cli_exports_the_png_next_to_the_readme(tmp_path):
 
 
 def test_an_export_that_ends_without_its_png_is_tried_once_more(tmp_path, monkeypatch):
-    """The draw.io CLI now and then ends without the PNG on a busy machine; the next attempt writes it."""
     calls = []
 
     def run(argv, **_kwargs):

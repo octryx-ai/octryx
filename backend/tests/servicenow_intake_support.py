@@ -1,8 +1,4 @@
-"""Fixtures for the ServiceNow intake tests: a Workspace with a ServiceNow connection against the stub.
-
-The stub (``servicenow_stub_support.StubInstance``) answers the password grant and the record listings; writes
-(work notes) are recorded here. Every ServiceNow client's egress transport is the stub; no network.
-"""
+"""Fixtures for the ServiceNow intake tests: a Workspace with a ServiceNow connection against the stub."""
 
 from __future__ import annotations
 
@@ -24,8 +20,6 @@ def incident(index: int, state: str, **extra) -> dict:
 
 
 class WritingStub(StubInstance):
-    """The ServiceNow stub plus recorded work-note writes (``PATCH`` table API, ``POST`` scripted path)."""
-
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.writes: list[tuple[str, str, dict]] = []

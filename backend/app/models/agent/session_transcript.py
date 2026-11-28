@@ -1,13 +1,4 @@
-"""A stored piece of an octryx-claude session's full transcript (behind a Workspace switch).
-
-With the Workspace's ``session_transcripts`` switch on, the launcher uploads its Claude Code transcript lines in
-batches (``POST /agent-gateway/sessions/transcript``). One batch is one row here and one gzip JSON-lines object in
-the artifact store (filesystem locally, the artifact bucket on a cluster): ``stream`` is ``main`` for the session's own
-transcript or ``agent-<id>`` for a subagent's, ``first_line``..``last_line`` the batch's line numbers in that
-stream's file. ``(project_id, claude_session_id, stream, first_line)`` is unique, so a batch sent again after a
-reconnect is acknowledged without being stored twice. Rows and objects go after the Workspace's retention
-(``services/session_transcripts/retention``).
-"""
+"""A stored batch of an octryx-claude session's transcript (behind a Workspace switch)."""
 
 from __future__ import annotations
 
@@ -16,6 +7,7 @@ import secrets
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -23,7 +15,7 @@ def transcript_chunk_pk() -> str:
     return f"stc_{secrets.token_hex(10)}"
 
 
-class SessionTranscriptChunk(Base):
+class SessionTranscriptChunk(WorkspaceBound, Base):
     __tablename__ = "session_transcript_chunks"
     __table_args__ = (
         UniqueConstraint("project_id", "claude_session_id", "stream", "first_line",

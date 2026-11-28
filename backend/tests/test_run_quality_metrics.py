@@ -1,6 +1,5 @@
-"""Run quality counters (services/observability/run_quality_metrics.py): a person's action on a run, a Stop
-refused as not done by check type, red-before and fail-fast per
-pipeline report, device reconnects and devices online. Counted in memory at the event, never by a database query."""
+"""Run quality counters: a person's action on a run, refused Stops by check type, red-before and fail-fast,
+device reconnects and devices online; counted in memory at the event, never by a database query."""
 
 from __future__ import annotations
 
@@ -19,9 +18,12 @@ from app.services.workflow_runs.octryx.stop import run_stop
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import admin_user
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_code_limits import STYLE, _call
 from tests.workflow_run_octryx_continuation_support import _device_run
 from tests.workflow_run_octryx_support import ROOT, _bound_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +52,7 @@ async def test_a_persons_action_on_a_run_counts_once_it_is_done_and_a_refused_on
     await db.commit()
     path = f"/api/v1/workflow-runs/{run.id}/emergency-stop"
     assert (await client.post(path, json={"reason": " "}, headers=bearer(admin.id))).status_code == 422
-    assert _interventions() == {}  # refused: no action happened
+    assert _interventions() == {}
     assert (await client.post(path, json={"reason": "leaking secrets"}, headers=bearer(admin.id))).status_code == 200
     assert _interventions() == {"emergency_stop": 1}
     [labels] = run_quality_metrics.INTERVENTIONS.series
@@ -69,7 +71,7 @@ async def test_a_stop_refused_as_not_done_counts_by_the_failed_checks_type(db):
     too_big = {"workflow_run_facts": {"sizes": {"files": {"pay/totals.py": 512}, "functions": []}}}
     blocked = await run_stop(db, session=gateway, hook_input=too_big, tool_calls=rows, test_prefixes=(("pytest",),))
     assert blocked["state"] == "blocked"
-    assert not run_quality_metrics.STOP_NOT_DONE.series  # counted at the commit, not before
+    assert not run_quality_metrics.STOP_NOT_DONE.series
     await db.commit()
     assert run_quality_metrics.STOP_NOT_DONE.series == {(str(run.workflow_key), STYLE_CHECK): 1}
 
@@ -79,7 +81,7 @@ def test_red_before_and_fail_fast_skips_per_pipeline_report():
                                                       "commands": [{"command": "pytest", "exit_code": 1},
                                                                    {"command": "e2e", "skipped": "not run"}]})
     run_quality_metrics.pipeline_reported("bug-fix", {"state": "green", "unproven": []})
-    run_quality_metrics.pipeline_reported("docs", {"state": "green"})  # no red-before asked for
+    run_quality_metrics.pipeline_reported("docs", {"state": "green"})
     assert run_quality_metrics.RED_BEFORE.series == {("bug-fix", "unproven"): 1, ("bug-fix", "proven"): 1,
                                                      ("docs", "not_required"): 1}
     assert run_quality_metrics.PIPELINE_SKIPPED.series == {("bug-fix",): 1}
@@ -97,14 +99,13 @@ class _Connection:
 async def test_devices_online_and_reconnects_come_from_the_hub():
     hub = DeviceHub()
     await hub.attach(_Connection("d1"))
-    await hub.attach(_Connection("d2", healthy=False))  # attached, but its tick stopped succeeding
+    await hub.attach(_Connection("d2", healthy=False))
     assert run_quality_metrics.online_lines(hub)[-1] == "octryx_devices_online 1"
-    await hub.attach(_Connection("d1"))  # the same device again while its old socket is attached
+    await hub.attach(_Connection("d1"))
     assert run_quality_metrics.DEVICE_RECONNECTS.series == {(): 1}
 
 
 def test_the_token_labels_never_read_the_database():
-    """The token profile's labels come from the run in memory, not a query per turn."""
     source = Path(token_metrics.__file__).read_text(encoding="utf-8")
     assert "select(" not in source and ".execute(" not in source
     source = Path(run_quality_metrics.__file__).read_text(encoding="utf-8")

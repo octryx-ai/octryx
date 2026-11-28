@@ -1,13 +1,4 @@
-"""``octryx-claude l10n-merge <arb|gettext> <feature pattern> <target pattern>`` (translations live per
-feature, ``<feature>/l10n/<lang>.<ext>``; where the tool knows one file per language, as Flutter's gen-l10n and
-gettext do, the features' files are merged per language before generating).
-
-Patterns use ``<lang>`` (and ``*`` for the feature folder), e.g. ``lib/features/*/l10n/<lang>.arb`` →
-``lib/l10n/app_<lang>.arb``. The merged file is marked generated (ARB: ``@@x-generated``; gettext: a header comment)
-and must never be edited by hand: the platform warns when it changes without its feature files. A key defined by two
-features is an error (keys are unique per feature: the feature is their prefix). Run it in the repository's setup
-(``.octryx/environment.json``) before ``flutter gen-l10n`` or ``msgfmt``.
-"""
+"""``octryx-claude l10n-merge``: merge per-feature translation files into one file per language."""
 
 from __future__ import annotations
 
@@ -70,7 +61,6 @@ def merge_po(paths: list[Path], source: str) -> tuple[str, list[str]]:
 
 
 def merge(root: Path, fmt: str, features: str, target: str) -> list[str]:
-    """Write one merged file per language; returns the duplicate keys (an error)."""
     problems: list[str] = []
     for locale, paths in sorted(_files(root, features).items()):
         out = root / target.replace("<lang>", locale)

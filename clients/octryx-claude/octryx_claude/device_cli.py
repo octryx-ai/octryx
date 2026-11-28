@@ -1,24 +1,4 @@
-"""``octryx-claude device …``: run chat requests from the platform on this device.
-
-    octryx-claude device enable [--name NAME] [--folder PATH]... [--parallel N] [--no-service]
-    octryx-claude device disable
-    octryx-claude device status
-    octryx-claude device pause | resume
-    octryx-claude device folders [list | add PATH [--yes] | remove PATH]
-    octryx-claude device parallel N
-    octryx-claude device logs [-f] [-n N]
-    octryx-claude device run              (the background service loop; the OS unit calls it)
-
-``enable`` needs the normal login (``octryx-claude login``): it registers the device to that user, stores the
-device credential (D1, no web-session requirement) and installs the background service for this OS
-(``device_service``). Run again on an enabled device, it adds new ``--folder`` entries and rewrites and reloads the
-service unit (new keys after an update), while no job runs. Messages carry fixed reason codes only; tokens are
-never printed.
-
-Folders: ``enable --folder`` and ``folders add`` check real access first in this process and then, when the
-service runs, from the service itself (``device_folder_access``): a folder macOS blocks for the background service
-is refused with ``device_folder_not_accessible`` and the next step in plain words.
-"""
+"""``octryx-claude device …``: run chat requests from the platform on this device."""
 
 from __future__ import annotations
 
@@ -69,9 +49,8 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
     context = actions.add_parser("context", help="the context size Mac turns compact at (100000-300000 tokens)")
     context.add_argument("tokens", nargs="?", type=int)
     run = actions.add_parser("run", help="the background service loop (the OS service calls it)")
-    run.add_argument("--sandbox", action="store_true",
-                     help="inside a platform sandbox: enroll for its run, clone through the git gateway, serve, exit "
-                          "when idle")
+    run.add_argument("--runner", action="store_true",
+                     help="as a platform server runner: join the pool with the installation's join secret, serve")
 
 
 def run_device_command(args: argparse.Namespace, state: LocalState) -> int:
@@ -98,10 +77,10 @@ def run_device_command(args: argparse.Namespace, state: LocalState) -> int:
         return run_router(args, state)
     if command == "context":
         return run_context(args, state)
-    if getattr(args, "sandbox", False):
-        from .sandbox import main as sandbox_main  # noqa: PLC0415
+    if getattr(args, "runner", False):
+        from .runner import main as runner_main  # noqa: PLC0415
 
-        return sandbox_main()
+        return runner_main()
     from .device_runtime import run_service
 
     return run_service(state)

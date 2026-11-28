@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -156,7 +157,9 @@ class EngineeringKnowledgePackItem(Base):
     source = relationship("EngineeringKnowledgePackSource", back_populates="items")
 
 
-class EngineeringKnowledgePackAssignment(Base):
+class EngineeringKnowledgePackAssignment(WorkspaceBound, Base):
+    __workspace_owners__ = {"repository_id": "code_repositories"}
+    __workspace_column__ = "workspace_id"
     __tablename__ = "engineering_knowledge_pack_assignments"
     __table_args__ = (
         Index("ix_engineering_knowledge_pack_assignments_scope", "scope_type", "scope_id"),
@@ -384,7 +387,9 @@ class EngineeringKnowledgeFederationSyncRun(Base):
     package_record = relationship("EngineeringKnowledgeFederationPackage", back_populates="sync_runs")
 
 
-class EngineeringKnowledgeGraphNode(Base):
+class EngineeringKnowledgeGraphNode(WorkspaceBound, Base):
+    __workspace_owners__ = {"repository_id": "code_repositories"}
+    __workspace_column__ = "workspace_id"
     __tablename__ = "engineering_knowledge_graph_nodes"
     __table_args__ = (
         UniqueConstraint(
@@ -443,7 +448,9 @@ class EngineeringKnowledgeGraphNode(Base):
     repository = relationship("CodeRepository", foreign_keys=[repository_id])
 
 
-class EngineeringKnowledgeGraphAlias(Base):
+class EngineeringKnowledgeGraphAlias(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"node_id": "engineering_knowledge_graph_nodes"}
     __tablename__ = "engineering_knowledge_graph_aliases"
     __table_args__ = (
         UniqueConstraint(
@@ -470,7 +477,9 @@ class EngineeringKnowledgeGraphAlias(Base):
     node = relationship("EngineeringKnowledgeGraphNode", back_populates="aliases")
 
 
-class EngineeringKnowledgeGraphEdge(Base):
+class EngineeringKnowledgeGraphEdge(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"source_node_id": "engineering_knowledge_graph_nodes"}
     __tablename__ = "engineering_knowledge_graph_edges"
     __table_args__ = (
         UniqueConstraint(

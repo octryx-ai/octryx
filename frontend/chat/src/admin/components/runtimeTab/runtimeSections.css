@@ -1,5 +1,5 @@
-/* Runtime register pages: labelled groups, the effective-mode
-   line and the compression filter table.
+/* Runtime register pages: labelled groups and the effective-mode
+   line.
    Tokens only (design guide 3, 5, 9). */
 
 .runtime-explainer {
@@ -51,51 +51,4 @@
 .runtime-execution__mode-line {
   color: var(--text);
   font-size: var(--ds-text-md);
-}
-
-.runtime-filter-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-
-.runtime-filter-bar__search {
-  flex: 1 1 16rem;
-  max-width: 24rem;
-}
-
-.runtime-filter-bar__reset {
-  margin-left: auto;
-}
-
-.runtime-compression__table td {
-  vertical-align: top;
-}
-
-.runtime-compression__limits {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.75rem;
-}
-
-.runtime-compression__limit {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  color: var(--muted);
-  font-size: var(--ds-text-xs);
-}
-
-.runtime-compression__limit-input {
-  width: 6rem;
-  min-height: 1.6rem;
-  padding: 0.25rem 0.5rem;
-}
-
-.runtime-table__compact-btn {
-  min-height: 1.4rem;
-  padding: 0.25rem 0.5rem;
-  font-size: var(--ds-text-2xs);
 }

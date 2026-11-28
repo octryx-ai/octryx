@@ -1,25 +1,4 @@
-"""The live status of one release, read from Jira now, never from stored knowledge.
-
-"What is the status of 2.4.20" changes by the hour, so it is not answered from the release-notes
-sources (``jira_releases.py``) but queried live, through the same governed connection and the same
-explicit configuration:
-
-1. **Product mapping.** The Workspace's Jira connector whose release configuration maps a project to
-   the product (``releases.products``). None is ``needs_configuration``
-   (``release_product_not_configured``); two are ``needs_configuration``
-   (``release_product_ambiguous``): the product never resolves by guessing.
-2. **Connection.** The Workspace's own Jira tool connection, and the project must lie inside its
-   allowlist (``scope_not_allowed``), exactly as for the sync.
-3. **Version.** The project's versions, matched by their normalized name
-   (``jira_release_config.release_version``, with the configured prefixes). No match is
-   ``not_found``.
-4. **Issues.** The version's fixVersion issues (with the connector's JQL filter), bounded: counts
-   per status category, and the open issues whose priority is a configured blocker priority.
-   Issues with an issue security level are not counted and never listed, as in the sync.
-
-Only ``GET`` is used (``http.SourceReader``): this can never write to Jira. Every failure is a
-fixed state and reason; no response body, URL of a failed call, or credential is returned.
-"""
+"""The live status of one release, read from Jira now, never from stored knowledge."""
 
 from __future__ import annotations
 
@@ -148,7 +127,6 @@ def _field_name(fields: dict, key: str) -> str:
 async def jira_release_status(
     db: AsyncSession, *, project_id: str, product: object, version: object, transport=None
 ) -> dict[str, object]:
-    """The live status of ``product`` ``version`` in the Workspace's Jira. ``transport`` is for tests."""
     if type(product) is not str or not product.strip():
         return _state(STATE_INVALID_REQUEST)
     product_key = product.strip().lower()
@@ -194,7 +172,6 @@ def _status(
     base: str, config: ReleaseConfig, project_key: str, product_key: str, wanted: str, jira_version: dict,
     jql: str, issues: list, listing_complete: bool,
 ) -> dict[str, object]:
-    """The ``ok`` answer: counts per status category and the open blockers of the readable issues."""
     readable = [(key, fields) for key, fields in issues if fields.get("security") is None]
     counts, blockers = _tally(readable, config, base)
     return _state(

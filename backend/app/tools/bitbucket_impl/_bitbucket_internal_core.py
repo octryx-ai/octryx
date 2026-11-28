@@ -8,17 +8,15 @@ from typing import Any
 from urllib.parse import quote, urlsplit, urlunsplit
 
 import httpx
-from sqlalchemy import select
 
-from app.services.atlassian_auth_modes import BITBUCKET, SCHEME_BASIC, declared_mode
-from app.services.atlassian_auth_validation import mode_credential_fields
+from app.services.connector_auth.atlassian_modes import BITBUCKET, SCHEME_BASIC, declared_mode
+from app.services.connector_auth.atlassian_validation import mode_credential_fields
 from app.tools.context import ToolContext
 
-from ...models import Project
-from ...services.atlassian_auth import AtlassianCredential, credential_auth, resolve_credential
+from ...services.connector_auth.atlassian import AtlassianCredential, credential_auth, resolve_credential
+from ...services.connector_auth.oidc_client_credentials import OidcTokenError
+from ...services.connector_auth.oidc_token_cache import access_token
 from ...services.git_http_auth import bearer_header_env, without_credentials
-from ...services.oidc_client_credentials import OidcTokenError
-from ...services.oidc_token_cache import access_token
 from ...services.source_control import redact_source_control_text
 from ..connectors.credential_boundary import connector_secret_value
 from ._bitbucket_cloud import GIT_USERNAME as CLOUD_GIT_USERNAME
@@ -47,10 +45,6 @@ def _bitbucket_base_url(context: ToolContext) -> str:
 
 
 async def _bitbucket_auth_config(context: ToolContext) -> dict[str, Any]:
-    """The connection's config with the secret of its ``bitbucket_auth_mode`` resolved inside the connector boundary.
-
-    Without a mode nothing is resolved: :func:`resolve_credential` then finds no credential (needs configuration).
-    """
     config = dict(context.project_config or {})
     mode = declared_mode(BITBUCKET, config)
     if mode is None:
@@ -64,13 +58,10 @@ async def _bitbucket_auth_config(context: ToolContext) -> dict[str, Any]:
 
 
 async def _bitbucket_credential(context: ToolContext) -> AtlassianCredential | None:
-    """The resolved credential of a Server/Data Center connection (``None``: incomplete or unknown mode)."""
     return resolve_credential(BITBUCKET, await _bitbucket_auth_config(context))
 
 
 async def _bitbucket_http_auth(context: ToolContext) -> httpx.Auth | tuple[str, str] | None:
-    """The ``httpx`` auth of the connection: ``(username, secret)`` for Basic, else a Bearer access
-    token or the OpenID Connect grant's Bearer (renewed and retried once on a 401)."""
     credential = await _bitbucket_credential(context)
     if credential is None:
         return None
@@ -80,7 +71,6 @@ async def _bitbucket_http_auth(context: ToolContext) -> httpx.Auth | tuple[str, 
 
 
 async def _bitbucket_credentials_async(context: ToolContext) -> tuple[str, str] | None:
-    """``(username, secret)`` of a Basic sign-in (``basic``, ``cloud_api_token``); ``None`` otherwise."""
     credential = await _bitbucket_credential(context)
     if credential is None or credential.scheme != SCHEME_BASIC:
         return None
@@ -138,8 +128,6 @@ def _redact_bitbucket_git_output(context: ToolContext, text: str) -> str:
 
 
 def _require_connection_host(context: ToolContext, remote) -> None:
-    """The token goes only to the connection's own host (review fix 2): bitbucket.org for Bitbucket Cloud, the
-    configured host and port for Server/Data Center. A working copy whose remote points elsewhere gets nothing."""
     if cloud_context(context):
         expected = ("https", "bitbucket.org", None)
     else:
@@ -166,14 +154,6 @@ def _write_bitbucket_git_askpass_script() -> Path:
 
 
 async def _bitbucket_git_auth_env_async(context: ToolContext, remote_url: str) -> dict[str, str] | None:
-    """The environment of a Git command against the connection's host, carrying its credential.
-
-    Basic sign-ins (``basic``, Bitbucket Cloud) answer Git's prompts through the askpass script from
-    environment variables. A Bearer sign-in (``bearer_pat``, ``oidc_client_credentials``) sends
-    ``Authorization: Bearer <token>`` as ``http.<origin>/.extraHeader`` through ``GIT_CONFIG_*`` environment
-    variables (``services/git_http_auth.py``). The token is never in argv, the remote URL or a file. A Server/Data
-    Center repository with its own Git token (``_bitbucket_repository_token.py``) gets that token as the Bearer.
-    """
     split = urlsplit(str(remote_url or ""))
     if split.scheme.lower() not in {"http", "https"}:
         return None
@@ -218,8 +198,6 @@ async def _run_git(
     timeout_sec: int = 90,
     env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
-    """``(exit code, stdout, stderr)``; a transient failure of a git network step is tried again with a backoff
-    (``connectors.git_errors.run_with_retry``)."""
     from ..connectors.git_errors import run_with_retry
 
     return await run_with_retry(_run_git_once, command, cwd=cwd, timeout_sec=timeout_sec, env=env)
@@ -391,59 +369,3 @@ def _commit_summary(commit: dict[str, Any]) -> dict[str, Any]:
         "author_email": author.get("emailAddress"),
         "author_timestamp": commit.get("authorTimestamp"),
     }
-
-
-async def _resolve_project_for_sync(context: ToolContext, params: dict[str, Any]) -> Project | None:
-    if context.db is None:
-        return None
-    requested_project_id = str(params.get("project_id") or "").strip()
-    if requested_project_id:
-        project = await context.db.get(Project, requested_project_id)
-        if project:
-            return project
-        result = await context.db.execute(select(Project).where(Project.name == requested_project_id))
-        project = result.scalar_one_or_none()
-        if project:
-            return project
-    configured_project_id = str(context.project_config.get("project_id") or "").strip()
-    if configured_project_id:
-        project = await context.db.get(Project, configured_project_id)
-        if project:
-            return project
-    project_ids = context.project_ids or []
-    if len(project_ids) == 1:
-        return await context.db.get(Project, project_ids[0])
-    return None
-
-
-def _interesting_repo_paths(paths: list[str]) -> list[str]:
-    interesting: list[str] = []
-    seen: set[str] = set()
-    patterns = (
-        "readme.md",
-        ".md",
-        "chart.yaml",
-        "values.yaml",
-        "values.yml",
-        "pom.xml",
-        "build.gradle",
-        "build.gradle.kts",
-        "dockerfile",
-        ".tf",
-        ".ini",
-        ".yaml",
-        ".yml",
-    )
-    for path in paths:
-        lowered = path.lower()
-        if not lowered:
-            continue
-        if not any(token in lowered for token in patterns):
-            continue
-        if path in seen:
-            continue
-        seen.add(path)
-        interesting.append(path)
-        if len(interesting) >= 40:
-            break
-    return interesting

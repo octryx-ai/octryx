@@ -1,9 +1,4 @@
-"""A confirmed test that was only reformatted on the device is intact.
-
-The edit guard lets a layout-only Edit of a confirmed test through (``format_only``); an intact check that
-compared the file's bytes would then fail the green gate with "changed on the device after it was confirmed" and
-cost the run turns and compactions. Both use one fingerprint (``format_only.program_fingerprint``) of the text
-the launcher sends along with its digest."""
+"""A confirmed test that was only reformatted on the device is intact."""
 
 from __future__ import annotations
 
@@ -14,8 +9,11 @@ import pytest
 from app.services.workflow_runs.octryx.facts import record_facts
 from app.services.workflow_runs.octryx.format_only import same_program
 from app.services.workflow_runs.test_runs import confirmed_test_drift
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_octryx_hardening import _confirmed
 from tests.workflow_run_octryx_support import CONFIRMED
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CONFIRMED_TEXT = ("import unittest\n\n\nclass TotalsTest(unittest.TestCase):\n"
                   "    def test_half_up(self):\n        self.assertEqual(round_half_up(2.5), 3)\n")

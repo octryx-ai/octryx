@@ -1,10 +1,5 @@
-"""Registers the read-only Confluence, Jira, ServiceNow, Kubernetes and AWS tools on the Knowledge MCP server.
-
-The schemas mirror the chat definitions (``tools/definitions/confluence.py``, ``jira.py``,
-``connectors.py``, ``knowledge_source_updates.py``); none has a ``project_id``: the Workspace is the
-connection's. Every call runs through ``run_governed_mcp_tool`` (``mcp_connector_tools`` adds the
-chat's connector gates). The Kubernetes and AWS reads are registered by ``mcp_infra_registration``.
-"""
+"""Registers the read-only Confluence, Jira, ServiceNow, Kubernetes and AWS tools on the Knowledge MCP server. No schema
+has a ``project_id``: the Workspace is the connection's."""
 
 from __future__ import annotations
 

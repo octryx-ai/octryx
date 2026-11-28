@@ -12,7 +12,7 @@
   justify-content: space-between;
   margin-bottom: 0.75rem;
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 
@@ -90,7 +90,7 @@
 
 .task-item__name {
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 
@@ -113,7 +113,7 @@
 
 .task-item__badge {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   padding: 0.25rem 0.5rem;
   border-radius: var(--ds-radius-md);
   border: 1px solid var(--border-strong);
@@ -171,7 +171,7 @@
   justify-content: space-between;
   padding: 0.5rem 0.75rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -211,7 +211,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .task-run__spinner {

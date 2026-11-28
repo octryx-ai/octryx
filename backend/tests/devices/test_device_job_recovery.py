@@ -1,6 +1,5 @@
-"""Device job recovery: a restarted service's turns and stalled turns end as failed with
-the job back to idle; the owner's chat approval as the change confirmation on their own device; the device grant's
-workflow scopes."""
+"""Device job recovery: restarted and stalled turns end as failed with the job back to idle; the owner's chat approval
+confirms changes on their own device; the device grant's workflow scopes."""
 
 from __future__ import annotations
 
@@ -72,7 +71,7 @@ async def test_a_turn_without_events_for_the_stale_time_fails_and_the_job_goes_i
     job = await _running(db, user, device, session, handlers, connection)
 
     await _age(db, job, 5)
-    assert await fail_stalled_turns(db, device_id=device.id) == []  # within the default 10 minutes
+    assert await fail_stalled_turns(db, device_id=device.id) == []
     await _age(db, job, 11)
     db.add(DeviceJobApproval(request_id="r1", job_id=job.id, owner_user_id=user.id, tool="Bash",
                              expires_at=utc_now() + timedelta(minutes=5)))
@@ -127,7 +126,7 @@ async def test_on_the_owners_device_the_chat_approval_confirms_writes_and_is_aud
     assert answer["decision"] == "ask" and answer["reason"] == "device_chat_confirmation"
     assert (await ask(_hook("Bash", command="git push origin main")))["reason"] == "capability_deliver_required"
     assert (await ask(_hook("Edit", file_path="/etc/hosts")))["reason"] == "outside_device_job_folder"
-    assert (await ask(_hook("Bash", cwd="/tmp", command="touch x"))) is None  # not the job's folder
+    assert (await ask(_hook("Bash", cwd="/tmp", command="touch x"))) is None
     # A login that is not a device grant, or another denial, keeps the capability rule.
     await gateway_login_token(db, user)
     assert await chat_confirmed_change(db, session=launcher, grant_id=None, hook_input=_hook("Bash", command="x"),
@@ -136,7 +135,6 @@ async def test_on_the_owners_device_the_chat_approval_confirms_writes_and_is_aud
     assert await chat_confirmed_change(db, session=launcher, grant_id=device.grant_id,
                                        hook_input=_hook("Bash", command="rm -rf /"), denial=destructive) is None
 
-    # The owner allows the asked command in the chat: audited as a confirmed change with the owner as approver.
     await handlers.stream_event(db, connection, {"type": "approval_request", "stream": job.id, "seq": 2, "body": {
         "approval_id": "req-1", "tool": "Bash", "input_preview": "touch notes.txt"}})
     approval = (await db.execute(select(DeviceJobApproval).where(DeviceJobApproval.job_id == job.id))).scalar_one()
@@ -146,7 +144,6 @@ async def test_on_the_owners_device_the_chat_approval_confirms_writes_and_is_aud
     assert [(row.resource_id, row.details["tool"], row.details["approver_user_id"], row.details["via"])
             for row in confirmed] == [(job.id, "Bash", user.id, "allow_once")]
 
-    # An edit inside the folder asks; after "Allow edits for this job" it is allowed, and audited.
     assert (await ask(_hook("Edit", file_path=f"{FOLDER}/a.py")))["decision"] == "ask"
     approval.status = "allowed_job_edits"
     approval.decided_at = utc_now()
@@ -156,7 +153,6 @@ async def test_on_the_owners_device_the_chat_approval_confirms_writes_and_is_aud
     assert len((await db.execute(select(AuditLog).where(
         AuditLog.action == "device.job.change_confirmed"))).scalars().all()) == 2
 
-    # The Workspace setting off: the change-workflow rule applies again.
     async def off(db, workspace_id, key):
         return False
 
@@ -167,15 +163,13 @@ async def test_on_the_owners_device_the_chat_approval_confirms_writes_and_is_aud
 
 def test_the_device_grant_carries_the_workflow_scopes_of_the_login_only():
     login = ["model:invoke", "knowledge:read", "knowledge:write", "workflow:read", "workflow:execute", "work:manage"]
-    assert device_grant_scopes(login) == ["device:connect", "knowledge:read", "model:invoke", "workflow:execute",
-                                          "workflow:read"]
+    assert device_grant_scopes(login) == ["device:connect", "knowledge:read", "knowledge:write", "model:invoke",
+                                          "workflow:execute", "workflow:read"]
     assert "workflow:read" not in device_grant_scopes(["model:invoke"])
 
 
 @pytest.mark.asyncio
 async def test_a_turn_waiting_on_a_launcher_step_gets_longer_before_it_counts_as_stalled(db, monkeypatch):
-    """The CI pipeline runs before the device accepts the turn and sends no event, so a pipeline longer than
-    10 minutes must not end as stalled and pause its run: a launcher step gets 45 minutes."""
     from app.services.devices import job_recovery
 
     user = await user_named(db, "device-owner")
@@ -192,6 +186,6 @@ async def test_a_turn_waiting_on_a_launcher_step_gets_longer_before_it_counts_as
 
     monkeypatch.setattr(job_recovery, "_launcher_step", at_pipeline)
     await _age(db, job, 20)
-    assert await fail_stalled_turns(db, device_id=device.id) == []  # the pipeline still runs
+    assert await fail_stalled_turns(db, device_id=device.id) == []
     await _age(db, job, 50)
     assert [stalled.id for stalled in await fail_stalled_turns(db, device_id=device.id)] == [job.id]

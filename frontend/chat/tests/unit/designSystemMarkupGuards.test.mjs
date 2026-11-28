@@ -67,10 +67,7 @@ test("raw values read as words: gateway, research, workflow checks", () => {
   assert.equal(checkTypeLabel("brand_new_check"), "Brand new check");
 });
 
-test("Platform › Advanced and the check editor show no raw seed list or bare JSON", () => {
-  const grounding = read("admin/components/runtimeTab/RuntimeEvidenceGroundingSection.tsx");
-  assert.doesNotMatch(grounding, /seed list:/);
-  assert.match(grounding, /agentTypeWords/);
+test("the check editor shows no bare JSON", () => {
   const inspector = read("admin/components/agentsWorkflows/canvas/StepsInspector.tsx");
   assert.match(inspector, /Technical details/);
   assert.match(inspector, /checkTypeLabel\(item\)/);

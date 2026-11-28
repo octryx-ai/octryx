@@ -15,10 +15,6 @@ def _iso(value: Any) -> str | None:
 
 def serialize_device(device: UserDevice, *, owner_view: bool, live: Mapping[str, Any] | None = None,
                      needs_login: bool = False, login_expires_at: Any = None) -> dict[str, Any]:
-    """The device as its owner sees it; ``owner_view=False`` (admins) leaves the folders out.
-
-    ``needs_login``: an offline device whose credential can no longer mint tokens (it renews itself with its key;
-    while it does not, the owner sees it needs ``octryx-claude device enable``)."""
     live = live or {}
     payload: dict[str, Any] = {
         "id": device.id,

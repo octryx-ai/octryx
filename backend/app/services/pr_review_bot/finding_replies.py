@@ -1,14 +1,4 @@
-"""A person's answer in a finding's thread reaches the next pass.
-
-Otherwise a reply such as "coupons are applied by the checkout service, never in order_total" is kept as a
-correction only, and the next incremental pass repeats the finding word for word. So the reply is remembered on
-the open finding of the pull request's last posted pass (``open_findings[].replies``, the last
-``verdict.MAX_REPLIES``); ``incremental.seed`` hands it to the follow-up review, which answers ``withdrawn`` unless it
-names new evidence (``convergence.FOLLOW_UP_RULE``).
-
-Only a person counts, by the same rule as a correction (``corrections.sources.pr_comment``): no command, none of
-the bot's own posts, an author linked to an active human with a role in the Workspace. Each comment once.
-"""
+"""A person's answer in a finding's thread reaches the next pass."""
 
 from __future__ import annotations
 
@@ -37,7 +27,6 @@ async def _person(db: AsyncSession, project_id: str, event: CommentEvent) -> boo
 
 
 async def remember(db: AsyncSession, project_id: str, event: CommentEvent) -> bool:
-    """Keep ``event`` on the open finding whose thread it answers; whether it was kept (the caller commits)."""
     from .ignore import last_posted
 
     if not event.inline or not event.body.strip():

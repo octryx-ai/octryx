@@ -61,35 +61,12 @@ class JenkinsClient:
         return _normalize_build(job_name, data)
 
     async def queued_build_number(self, queue_url: str) -> str | None:
-        """The build a queue item (``trigger_build``'s ``queue_url``) started; ``None`` while it is still queued."""
         match = re.search(r"/queue/item/(\d+)/?$", urlparse(str(queue_url or "")).path)
         if match is None:
             raise JenkinsClientError("not a Jenkins queue item URL")
         data = await self._get_json(f"/queue/item/{match.group(1)}/api/json")
         number = dict(data.get("executable") or {}).get("number")
         return str(number) if number is not None else None
-
-    async def get_logs(self, job_name: str, build_number: str | int, *, max_chars: int = 20000) -> dict[str, Any]:
-        text = await self._get_text(f"{_job_path(job_name)}/{quote(str(build_number), safe='')}/consoleText")
-        return {
-            "job_name": job_name,
-            "build_number": str(build_number),
-            "truncated": len(text) > max_chars,
-            "text": text[:max_chars],
-        }
-
-    async def get_artifacts(self, job_name: str, build_number: str | int) -> dict[str, Any]:
-        data = await self._get_json(f"{_job_path(job_name)}/{quote(str(build_number), safe='')}/api/json")
-        artifacts = [
-            {
-                "file_name": str(item.get("fileName") or item.get("file_name") or ""),
-                "relative_path": str(item.get("relativePath") or item.get("relative_path") or ""),
-                "display_path": str(item.get("displayPath") or item.get("display_path") or ""),
-            }
-            for item in data.get("artifacts") or []
-            if isinstance(item, dict)
-        ]
-        return {"job_name": job_name, "build_number": str(build_number), "artifacts": artifacts}
 
     async def get_test_report(self, job_name: str, build_number: str | int) -> dict[str, Any]:
         data = await self._get_json(f"{_job_path(job_name)}/{quote(str(build_number), safe='')}/testReport/api/json")
@@ -109,20 +86,6 @@ class JenkinsClient:
         queue_url = response.headers.get("location") or response.headers.get("Location")
         return {"job_name": job_name, "queued": response.status_code in {200, 201, 202, 303}, "queue_url": queue_url}
 
-    async def rerun_build(self, job_name: str, build_number: str | int) -> dict[str, Any]:
-        current = await self.get_build_status(job_name, build_number)
-        parameters = _extract_parameters(current.get("raw_actions") or [])
-        result = await self.trigger_build(job_name, parameters=parameters or None)
-        return {**result, "source_build_number": str(build_number), "parameters": parameters}
-
-    async def cancel_build(self, job_name: str, build_number: str | int) -> dict[str, Any]:
-        response = await self._request("POST", f"{_job_path(job_name)}/{quote(str(build_number), safe='')}/stop")
-        return {
-            "job_name": job_name,
-            "build_number": str(build_number),
-            "cancelled": response.status_code in {200, 201, 202, 302, 303},
-        }
-
     async def _get_json(self, path: str, *, params: dict[str, Any] | None = None) -> dict[str, Any]:
         response = await self._request("GET", path, params=params)
         try:
@@ -130,10 +93,6 @@ class JenkinsClient:
         except ValueError as exc:
             raise JenkinsClientError("Jenkins returned non-JSON response", status_code=response.status_code) from exc
         return data if isinstance(data, dict) else {}
-
-    async def _get_text(self, path: str) -> str:
-        response = await self._request("GET", path)
-        return response.text
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
         url = f"{self._base_url}{path}"
@@ -222,17 +181,3 @@ def _result_to_status(value: Any) -> str:
     if result == "aborted":
         return "cancelled"
     return "unknown"
-
-
-def _extract_parameters(actions: list[Any]) -> dict[str, Any]:
-    for action in actions:
-        if not isinstance(action, dict):
-            continue
-        parameters = action.get("parameters")
-        if isinstance(parameters, list):
-            return {
-                str(item.get("name")): item.get("value")
-                for item in parameters
-                if isinstance(item, dict) and item.get("name")
-            }
-    return {}

@@ -24,7 +24,7 @@ class ApprovalResponse(BaseModel):
     reason: str | None
     created_at: str
     resolved_at: str | None
-    # The decider's note; ``reason`` stays the reason the approval was requested for (observability O2).
+    # The decider's note; ``reason`` stays the reason the approval was requested for.
     decision_note: str | None = None
     # Only for an approval that resumed a chat's phased workflow start.
     workflow_start: WorkflowStartOutcome | None = None

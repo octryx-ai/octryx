@@ -1,19 +1,4 @@
-"""The closed run capability classes and their deterministic projections.
-
-A run's capability class is the one execution contract a turn runs under:
-
-- ``read_only``: answer and investigate; the security analyzer applies the diagnosis
-  command rules.
-- ``change``: edit files in the session workspace, run builds and tests; compound or
-  redirecting shell commands (their working directory stays confined to the session
-  workspace) are allowed, while destructive patterns, secret access and guardrail
-  rules stay governed by exec policy.
-- ``deliver``: additionally push, open pull requests, and write to external systems.
-
-Some consumers read ``capability_type`` (diagnosis/change) and an agent mode
-key; both are projected from the class here so no consumer decides from the
-request's ``agent_type`` for a governed run.
-"""
+"""The closed run capability classes and their deterministic projections."""
 
 from __future__ import annotations
 
@@ -48,7 +33,6 @@ def normalize_capability_class(value: Any) -> str | None:
 
 
 def capability_covers(run_class: str, required_class: str) -> bool:
-    """Whether a run of ``run_class`` may use something that needs ``required_class``."""
     run_rank = _CAPABILITY_RANK.get(run_class)
     required_rank = _CAPABILITY_RANK.get(required_class)
     return run_rank is not None and required_rank is not None and required_rank <= run_rank
@@ -66,12 +50,6 @@ def run_agent_mode(
     requested_mode_key: str,
     requested_mode_capability: str,
 ) -> str:
-    """The agent mode a governed run executes in.
-
-    A workflow run always takes the class's mode: the request's ``agent_type`` does
-    not decide anything there. Outside a workflow a requested mode is kept only when
-    its own capability fits inside the class; otherwise the class's mode replaces it.
-    """
     default_mode = _WORKFLOW_RUN_AGENT_MODE[capability_class]
     if workflow_run or not requested_mode_key:
         return default_mode
@@ -81,7 +59,6 @@ def run_agent_mode(
 
 
 def run_capability_state(context: Any) -> dict[str, Any] | None:
-    """The frozen run capability state on a tool context, or ``None`` when absent."""
     state = getattr(context, "run_capability", None)
     return state if isinstance(state, dict) else None
 

@@ -1,9 +1,6 @@
 import { readJson } from "../../admin/utils/adminPanelHelpers";
 import type { WorkItem } from "./workItemTypes";
 
-// Closing a Work Item (POST /work-items/{id}/close): in the source when write-back is set up, otherwise here only.
-// The confirmation says where it closes before anything is sent; the result sentence says what happened.
-
 export type WorkItemCloseResult = {
   closed: boolean;
   mode: "source_transition" | "local_only" | "already_closed" | string;
@@ -25,10 +22,7 @@ export function sourceName(item: Pick<WorkItem, "source_type">): string {
   return String(item.source_type || "").trim().toLowerCase() === "servicenow" ? "ServiceNow" : "Jira";
 }
 
-/**
- * Whether closing writes to the source: the detail's `close_mode` (source_transition | local_only), else a
- * `write_back.enabled`; null when this server does not tell before the close.
- */
+/** null when this server does not tell before the close. */
 export function writeBackKnown(item: WorkItem): boolean | null {
   const extra = item as WorkItem & { close_mode?: unknown; write_back?: { enabled?: unknown } | null };
   if (extra.close_mode === "source_transition") return true;
@@ -37,7 +31,6 @@ export function writeBackKnown(item: WorkItem): boolean | null {
   return typeof value === "boolean" ? value : null;
 }
 
-/** The confirmation's sentence: where the item will be closed. */
 export function closeWhereText(item: WorkItem): string {
   const source = sourceName(item);
   const writeBack = writeBackKnown(item);
@@ -46,7 +39,6 @@ export function closeWhereText(item: WorkItem): string {
   return `Closes ${item.source_key} in ${source} when write-back is set up for it; otherwise here only, and ${source} is not changed.`;
 }
 
-/** The sentence after a successful close. */
 export function closeResultText(item: Pick<WorkItem, "source_key" | "source_type">, result: WorkItemCloseResult): string {
   const key = result.source_key || item.source_key;
   const source = sourceName(item);
@@ -58,7 +50,6 @@ export function closeResultText(item: Pick<WorkItem, "source_key" | "source_type
   return `${key} closed here; ${source} was not changed.`;
 }
 
-/** The sentence for a refused close, by its fixed code; the server's own sentence otherwise. */
 export function closeRefusalText(failure: unknown): string {
   const code = (failure as { code?: unknown } | null)?.code;
   if (typeof code === "string" && CLOSE_REFUSALS[code]) return CLOSE_REFUSALS[code];

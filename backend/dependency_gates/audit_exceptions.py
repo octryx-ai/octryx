@@ -9,7 +9,7 @@ is indistinguishable from a finding nobody looked at, and it stays green long af
 This registry is the other half of that flag. Every ID the script ignores has an entry here naming the affected
 distribution, why no release fixes it, why the vulnerable code path is not reached by this product, what would
 invalidate that, and the decision itself in words. The key is the advisory ID (CVE, GHSA or PYSEC), never an internal
-reference. `backend/tests/test_dependency_audit_exceptions.py` enforces both directions: an
+reference. `backend/tests/repo_contracts/test_dependency_audit_exceptions.py` enforces both directions: an
 unrecorded ignore fails, and a recorded exception the script no longer uses fails as stale.
 
 Offline: it reads the script as text and imports nothing. A reachability claim is an argument about the *current*

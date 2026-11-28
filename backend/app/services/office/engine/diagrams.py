@@ -43,7 +43,6 @@ def _centered(draw: Any, center_x: float, y: float, text: str, font: Any, fill: 
 
 
 def flow_png(steps: list[dict[str, str]], path: str | Path, *, width: int = 1200, height: int = 260) -> Path:
-    """Boxes left to right with arrows between them; returns the written PNG path."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     image = Image.new("RGB", (width, height), "#FFFFFF")

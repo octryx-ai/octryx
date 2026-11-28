@@ -1,9 +1,4 @@
-"""Auto-extracted router module: chat_api_v1.
-
-Thin delegation layer over ``app.services.tts``. Handlers translate HTTP concerns
-(admin auth, request/response envelopes) and defer all TTS orchestration to the
-shared service so the ``/chat/api/v1/tts/*`` surface stays a one-service path.
-"""
+"""The ``/chat/api/v1/tts`` routes: a thin delegation layer over ``app.services.tts``."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response

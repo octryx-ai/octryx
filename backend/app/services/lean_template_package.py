@@ -1,8 +1,5 @@
-"""OOXML package helpers of the lean template builder: namespaces, relationships, slide order.
-
-Importing this module registers the presentation namespaces with ElementTree, so
-serialized parts keep their usual prefixes.
-"""
+"""OOXML package helpers of the lean template builder: namespaces, relationships, slide order. Importing it registers
+the presentation namespaces with ElementTree."""
 
 from __future__ import annotations
 
@@ -29,7 +26,6 @@ _NAMESPACES = {
 for _prefix, _uri in _NAMESPACES.items():
     ET.register_namespace(_prefix, _uri)
 
-# Additional namespaces commonly found in presentations
 _EXTRA_NS = {
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
     "p14": "http://schemas.microsoft.com/office/powerpoint/2010/main",
@@ -45,7 +41,6 @@ for _prefix, _uri in _EXTRA_NS.items():
 
 
 def _serialize_xml_with_ns(root: ET.Element, default_ns: str) -> bytes:
-    """Serialize XML with correct default namespace (no ns0: prefix)."""
     data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     # Fix ns0: prefix issue: replace 'xmlns:ns0="URI"' with 'xmlns="URI"' and 'ns0:' with ''
     prefixed_decl = f'xmlns:ns0="{default_ns}"'.encode()
@@ -69,7 +64,6 @@ IMAGE_REL_TYPES = {
 
 
 def _read_rels(zf: zipfile.ZipFile, rels_path: str) -> list[dict[str, str]]:
-    """Parse a .rels file and return list of {Id, Type, Target} dicts."""
     if rels_path not in zf.namelist():
         return []
     root = ET.fromstring(zf.read(rels_path))
@@ -84,7 +78,6 @@ def _read_rels(zf: zipfile.ZipFile, rels_path: str) -> list[dict[str, str]]:
 
 
 def _resolve_target(base_dir: str, target: str) -> str:
-    """Resolve a relationship Target relative to base_dir into a zip path."""
     if target.startswith("/"):
         return target.lstrip("/")
     parts = base_dir.rstrip("/").split("/")
@@ -97,8 +90,6 @@ def _resolve_target(base_dir: str, target: str) -> str:
 
 
 def _collect_media_refs(zf: zipfile.ZipFile, xml_path: str) -> set[str]:
-    """Return set of media zip-paths referenced by xml_path via its .rels file.
-    Collects ALL targets under ppt/media/ regardless of relationship type."""
     base_dir = str(Path(xml_path).parent)
     stem = Path(xml_path).name
     rels_path = f"{base_dir}/_rels/{stem}.rels"
@@ -113,7 +104,6 @@ def _collect_media_refs(zf: zipfile.ZipFile, xml_path: str) -> set[str]:
 
 
 def _get_slide_order(zf: zipfile.ZipFile) -> list[str]:
-    """Return slide zip-paths in presentation order."""
     pres = ET.fromstring(zf.read("ppt/presentation.xml"))
     rels = {
         r["Id"]: r["Target"] for r in _read_rels(zf, "ppt/_rels/presentation.xml.rels") if r["Type"] == SLIDE_REL_TYPE
@@ -132,10 +122,6 @@ def _get_slide_order(zf: zipfile.ZipFile) -> list[str]:
 
 
 def _build_layout_to_example_slide(zf: zipfile.ZipFile) -> dict[str, int]:
-    """
-    Returns {slideLayout_stem: best_slide_1_based_index}.
-    Picks the slide with the FEWEST shapes for each layout (cleanest example).
-    """
     slides_in_order = _get_slide_order(zf)
     layout_to_slides: dict[str, list[tuple[int, int]]] = defaultdict(list)  # layout → [(slide_idx_1based, shape_count)]
 
@@ -145,7 +131,6 @@ def _build_layout_to_example_slide(zf: zipfile.ZipFile) -> dict[str, int]:
             if "slideLayout" in rel.get("Target", ""):
                 m = re.search(r"(slideLayout\d+)", rel["Target"])
                 if m:
-                    # Count shapes
                     try:
                         root = ET.fromstring(zf.read(slide_path))
                         count = len(root.findall(f".//{{{NS_P}}}sp"))
@@ -157,7 +142,6 @@ def _build_layout_to_example_slide(zf: zipfile.ZipFile) -> dict[str, int]:
 
 
 def _clear_text_in_xml(data: bytes) -> bytes:
-    """Empty all <a:t> text nodes in slide XML while preserving structure."""
     try:
         root = ET.fromstring(data)
         for node in root.findall(f".//{{{NS_A}}}t"):

@@ -1,10 +1,4 @@
-"""Renew, read and release platform process liveness leases (runtime robustness R1).
-
-A process is *live* exactly while its lease row exists and ``expires_at`` lies in the
-future of the database clock. Every instant is read from the database that stores
-the row (``database_now``), so replicas with skewed system clocks agree on which
-process is live. Callers own the transaction: nothing here commits.
-"""
+"""Renew, read and release platform process liveness leases (runtime robustness R1)."""
 
 from __future__ import annotations
 
@@ -27,7 +21,6 @@ EXPIRED_LEASE_RETENTION = timedelta(days=1)
 
 
 async def renew_process_lease(db: AsyncSession, *, ttl: timedelta = PROCESS_LEASE_TTL) -> str:
-    """Install or extend this process's lease and return its process id."""
     process_id = current_process_id()
     now = await database_now(db)
     renewed = await db.execute(
@@ -44,7 +37,6 @@ async def renew_process_lease(db: AsyncSession, *, ttl: timedelta = PROCESS_LEAS
 
 
 async def release_process_lease(db: AsyncSession) -> None:
-    """Drop this process's lease on a clean shutdown."""
     await db.execute(
         delete(RuntimeProcessLease)
         .where(RuntimeProcessLease.id == current_process_id())
@@ -53,7 +45,6 @@ async def release_process_lease(db: AsyncSession) -> None:
 
 
 async def live_process_ids(db: AsyncSession, candidates: Iterable[str]) -> frozenset[str]:
-    """The subset of ``candidates`` whose lease has not expired on the database clock."""
     wanted = sorted({candidate for candidate in candidates if candidate})
     if not wanted:
         return frozenset()
@@ -65,7 +56,6 @@ async def live_process_ids(db: AsyncSession, candidates: Iterable[str]) -> froze
 
 
 async def prune_expired_process_leases(db: AsyncSession, *, retention: timedelta = EXPIRED_LEASE_RETENTION) -> int:
-    """Delete leases that expired longer than ``retention`` ago; returns the count."""
     now = await database_now(db)
     pruned = await db.execute(
         delete(RuntimeProcessLease)

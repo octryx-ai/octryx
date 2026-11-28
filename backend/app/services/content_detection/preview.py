@@ -1,10 +1,4 @@
-"""The detector preview: what the detectors find in a sample text, shown as the model would see it.
-
-The sample is synthetic text an admin types into the builder or the detector drawer. It is answered in this
-request and dropped: never stored, logged or audited. The answer is the counts, the masked rendering and the
-text cut into plain and found parts (each found part with its detector and placeholder), so the UI can
-highlight the hits in the admin's own text.
-"""
+"""The detector preview: what the detectors find in a sample text, as the model would see it."""
 
 from __future__ import annotations
 
@@ -22,7 +16,6 @@ MAX_PREVIEW_CHARS = 20_000
 
 def preview(text: str, detectors: DetectorSet, *, mask: Iterable[str] | None = None,
             style: str | None = None) -> dict[str, Any]:
-    """``mask``: the detectors to mask (default: every detector that found something)."""
     sample = text[:MAX_PREVIEW_CHARS]
     examination = examine_text(sample, SOURCE_PROMPT, detectors)
     report = examination.report

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 def get_prometheus_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for prometheus tools."""
     return {
         "query_prometheus": {
             "type": "function",

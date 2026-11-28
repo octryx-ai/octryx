@@ -1,19 +1,4 @@
-"""A workflow run's change plan, drafted on the server from the test contract its phase submitted.
-
-The clarify phase of a run is read-only and its agent holds no ``work:manage``: it submits the test contract as
-data (``workflow_runs/phase_outputs``) and the run's ``work.draft_change_plan`` step calls :func:`draft_run_plan`.
-The plan is a normal versioned change plan of the Work item (the same table, lock, supersede rule and audit as
-``change_plans.generate_change_plan``), created for the run's requester, with the run's identity in its evidence:
-
-- each criterion keeps its tests (``tests``, each with its role in ``test_roles``: new / regression) and its command
-  (``validation_commands``); the command is an enforceable entry of the validation plan, so the acceptance-coverage
-  gate sees it;
-- a manual-only criterion has no command (``manual_only`` with its reason): the person who confirms the plan takes
-  it over explicitly (``human_verified_criteria``, recorded in the decision);
-- idempotent per contract: an open plan already drafted from the same contract hash for the same run — or for an
-  earlier, ended run of the same Work item (succession) — is returned as it is; another contract supersedes the open
-  plans and becomes the next version.
-"""
+"""A workflow run's change plan, drafted on the server from the test contract its phase submitted."""
 
 from __future__ import annotations
 
@@ -30,7 +15,6 @@ PLAN_SOURCE = "workflow_run_test_contract"
 
 
 def plan_rows(contract: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """``(acceptance_criteria, validation_plan)`` of a recorded test contract."""
     criteria: list[dict[str, Any]] = []
     validation: list[dict[str, Any]] = []
     for criterion in contract.get("criteria") or []:
@@ -53,7 +37,6 @@ def plan_rows(contract: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict
 
 async def _drafted_open_plan(db: AsyncSession, item_id: str, run_ids: list[str],
                              contract_hash: str) -> WorkChangePlan | None:
-    """The newest open plan drafted from ``contract_hash`` by one of ``run_ids`` (this run first, then earlier ones)."""
     rows = (await db.execute(select(WorkChangePlan).where(
         WorkChangePlan.work_item_id == item_id, WorkChangePlan.status.in_(OPEN_PLAN_STATUSES),
     ).order_by(WorkChangePlan.version.desc()))).scalars().all()
@@ -69,13 +52,10 @@ async def draft_run_plan(
     db: AsyncSession, *, item: WorkItem, requester: User, run_id: str, node_id: str, envelope: dict[str, Any],
     earlier_run_ids: list[str] | None = None,
 ) -> WorkChangePlan:
-    """The Work item's open change plan for the run's recorded test contract ``envelope`` (created or reused).
-
-    ``earlier_run_ids``: the ended runs of the same item (newest first) whose still-open plan of the *same* contract
-    is adopted instead of a new version; a decided plan is never adopted (its confirmation was the earlier run's)."""
     contract = dict(envelope.get("record") or {})
     contract_hash = str(envelope.get("hash") or "")
     await lock_work_item_for_plan_write(db, item.id)
+    # Idempotent per contract, also for the item's earlier ended runs
     existing = await _drafted_open_plan(db, item.id, [run_id, *(earlier_run_ids or [])], contract_hash)
     if existing is not None:
         return existing
@@ -99,6 +79,7 @@ async def draft_run_plan(
     db.add(row)
     await db.flush()
     db.add(AuditLog(user_id=requester.id, action="secure_work.change_plan_drafted_by_run", resource_type="work_item",
+                    project_id=item.project_id,
                     resource_id=item.id, details={"source_key": item.source_key, "change_plan_id": row.id,
                                                   "version": version, "status": status, "workflow_run_id": run_id,
                                                   "test_contract_hash": contract_hash}))

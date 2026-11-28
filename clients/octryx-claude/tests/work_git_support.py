@@ -12,7 +12,6 @@ RUN_BRANCH = "feature/CHEF-3-search"
 
 
 def _main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, str]:
-    """The story's integration copy on the run's branch; the base commit."""
     config = tmp_path / "gitconfig"
     config.write_text("[user]\n  name = t\n  email = t@example.test\n[commit]\n  gpgsign = false\n")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(config))

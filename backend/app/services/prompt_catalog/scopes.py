@@ -8,8 +8,6 @@ SCOPE_REFUSED = "prompt_scope_invalid"
 
 
 class PromptScopeError(ValueError):
-    """A scope that is not one of the closed shapes."""
-
     code = SCOPE_REFUSED
 
 

@@ -1,9 +1,6 @@
-import { useRef } from "react";
-
 import { useAdminBootstrapUserApproval } from "./useAdminBootstrapUserApproval";
 import { useAdminConnectorManagement } from "./useAdminConnectorManagement";
 import { useAdminMcpManagement } from "./useAdminMcpManagement";
-import { useAdminModeScenarioForms } from "./useAdminModeScenarioForms";
 import { useAdminProjectDesignTrace } from "./useAdminProjectDesignTrace";
 import { useAdminProjectQualityCore } from "./useAdminProjectQualityCore";
 import { useAdminProviderManagement } from "./useAdminProviderManagement";
@@ -11,7 +8,6 @@ import { useAdminRuntimeManagement } from "./useAdminRuntimeManagement";
 import { useAdminTabLoader } from "./useAdminTabLoader";
 import { useAdminTaskWorkflow } from "./useAdminTaskWorkflow";
 import type { ReadJsonFn } from "./useAdminTabLoader.types";
-import type { AdminTab } from "../types/adminPanelTypes.governance";
 
 type ContainerControllersParams = {
   onApprovalStateChanged?: (sessionId?: string | null) => void;
@@ -19,8 +15,6 @@ type ContainerControllersParams = {
   setProviders: (value: any[]) => void;
   setLoadingTab: (value: boolean) => void;
   setTabError: (value: string | null) => void;
-  // Lets setup-guide actions open another page of the same area.
-  setTab?: (tab: AdminTab) => void;
   users: any[];
   setUsers: (value: any[]) => void;
   agentForms: Record<string, any>;
@@ -31,9 +25,7 @@ type ContainerControllersParams = {
   corpIdentity: Record<string, any>;
   createUserState: Record<string, any>;
   knowledgeState: Record<string, any>;
-  localBootstrapState: Record<string, any>;
   mcpState: Record<string, any>;
-  modeScenarioState: Record<string, any>;
   officeTemplates: Record<string, any>;
   projectState: Record<string, any>;
   providerState: Record<string, any>;
@@ -55,7 +47,6 @@ export function useAdminPanelContainerControllers(
     setProviders: params.setProviders,
     setLoadingTab: params.setLoadingTab,
     setTabError: params.setTabError,
-    setTab: params.setTab,
     users: params.users,
     setUsers: params.setUsers,
     readJson: params.readJson,
@@ -68,9 +59,7 @@ export function useAdminPanelContainerControllers(
     ...params.corpIdentity,
     ...params.createUserState,
     ...params.knowledgeState,
-    ...params.localBootstrapState,
     ...params.mcpState,
-    ...params.modeScenarioState,
     ...params.officeTemplates,
     ...params.projectState,
     ...params.providerState,
@@ -81,24 +70,12 @@ export function useAdminPanelContainerControllers(
     ...params.workflowState,
   };
 
-  const loadLocalBootstrapStateRef = useRef<() => Promise<void>>(
-    async () => {},
-  );
-  const loadSetupGuideRef = useRef<() => Promise<void>>(async () => {});
-
-  const loadTab = useAdminTabLoader({
-    ...baseParams,
-    loadLocalBootstrapState: () => loadLocalBootstrapStateRef.current(),
-    loadSetupGuide: () => loadSetupGuideRef.current(),
-  } as any);
+  const loadTab = useAdminTabLoader(baseParams as any);
 
   const bootstrapControllers = useAdminBootstrapUserApproval({
     ...baseParams,
     loadTab,
   } as any);
-  loadLocalBootstrapStateRef.current =
-    bootstrapControllers.loadLocalBootstrapState;
-  loadSetupGuideRef.current = bootstrapControllers.loadSetupGuide;
 
   const mcpControllers = useAdminMcpManagement({
     ...baseParams,
@@ -113,13 +90,7 @@ export function useAdminPanelContainerControllers(
     resetProjectDesignTraceForm: projectQualityCore.resetProjectDesignTraceForm,
   } as any);
 
-  const modeScenarioControllers = useAdminModeScenarioForms(baseParams as any);
-  const providerManagement = useAdminProviderManagement({
-    ...baseParams,
-    loadLocalBootstrapState: bootstrapControllers.loadLocalBootstrapState,
-    loadSetupGuide: bootstrapControllers.loadSetupGuide,
-    refreshBootstrapContext: bootstrapControllers.refreshBootstrapContext,
-  } as any);
+  const providerManagement = useAdminProviderManagement(baseParams as any);
   const connectorControllers = useAdminConnectorManagement(baseParams as any);
   const runtimeManagement = useAdminRuntimeManagement(baseParams as any);
   const taskWorkflowControllers = useAdminTaskWorkflow({
@@ -132,7 +103,6 @@ export function useAdminPanelContainerControllers(
     connectorControllers,
     loadTab: loadTab as (tab: string) => Promise<void>,
     mcpControllers,
-    modeScenarioControllers,
     projectDesignTrace,
     projectQualityCore,
     providerManagement,

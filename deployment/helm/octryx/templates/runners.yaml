@@ -1,0 +1,196 @@
+{{- if .Values.runners.enabled }}
+{{- $fullname := include "octryx.fullname" . -}}
+{{- $secret := include "octryx.secretName" . -}}
+{{- $host := required "host is required (the public hostname, without https://)" .Values.host -}}
+{{- $runner := required "set images.runner.repository to the runner image you built and pushed (docker/runner)" .Values.images.runner.repository -}}
+# The runners' only way to the platform: the api's port with the platform's own Host (docker/runner/README.md).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $fullname }}-runner-gateway
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+data:
+  nginx.conf: |
+    worker_processes 1;
+    pid /tmp/nginx.pid;
+    error_log stderr warn;
+    events { worker_connections 1024; }
+    http {
+      access_log off;
+      client_body_temp_path /tmp/client_temp;
+      proxy_temp_path /tmp/proxy_temp;
+      fastcgi_temp_path /tmp/fastcgi_temp;
+      uwsgi_temp_path /tmp/uwsgi_temp;
+      scgi_temp_path /tmp/scgi_temp;
+      map $http_upgrade $connection_upgrade {
+        default upgrade;
+        "" close;
+      }
+      server {
+        listen 8000;
+        client_max_body_size 64m;
+        location / {
+          proxy_pass http://{{ $fullname }}-api:80;
+          proxy_http_version 1.1;
+          proxy_set_header Host {{ $host }};
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
+          proxy_read_timeout 3600s;
+          proxy_buffering off;
+        }
+      }
+    }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-runner-gateway
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "octryx.selector" (dict "root" . "component" "runner-gateway") | nindent 4 }}
+  ports: [{name: http, port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-runner-gateway
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner-gateway") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "octryx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: runner-gateway
+      annotations:
+        checksum/config: {{ toJson (list $fullname $host) | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext: {{- include "octryx.podSecurity" . | nindent 8 }}
+      containers:
+        - name: gateway
+          image: {{ include "octryx.image" .Values.images.runnerGateway }}
+          command: ["nginx", "-g", "daemon off;"]
+          securityContext: {{- include "octryx.containerSecurity" . | nindent 12 }}
+            runAsUser: 101
+            runAsGroup: 101
+            readOnlyRootFilesystem: true
+          ports: [{name: http, containerPort: 8000}]
+          readinessProbe:
+            tcpSocket: {port: http}
+            periodSeconds: 10
+          resources: {{- toYaml .Values.resources.runnerGateway | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/nginx/nginx.conf, subPath: nginx.conf, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: {{ $fullname }}-runner-gateway}
+        - {name: tmp, emptyDir: {sizeLimit: 256Mi}}
+---
+# Server runners: Codex sessions in pods of their own. Root only hands the writable places to their owners
+# (docker/runner/entry.sh); the launcher keeps SETUID/SETGID, the agent's account nothing.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullname }}-runner
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.runners.replicas }}
+  selector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "octryx.labels" . | nindent 8 }}
+        app.kubernetes.io/component: runner
+    spec:
+      {{- with .Values.runners.runtimeClassName }}
+      runtimeClassName: {{ . | quote }}
+      {{- end }}
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        seccompProfile: {type: RuntimeDefault}
+        # The join secret's file belongs to the launcher's group; the agent's account is not in it.
+        fsGroup: 10001
+      containers:
+        - name: runner
+          image: {{ include "octryx.image" .Values.images.runner }}
+          imagePullPolicy: {{ .Values.images.runner.pullPolicy }}
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["CHOWN", "FOWNER", "FSETID", "SETUID", "SETGID"]
+          env:
+            - {name: OCTRYX_BASE_URL, value: "http://{{ $fullname }}-runner-gateway:8000"}
+            - {name: OCTRYX_RUNNER_RUNTIME, value: {{ .Values.runners.runtimeClassName | quote }}}
+          resources: {{- toYaml .Values.resources.runner | nindent 12 }}
+          volumeMounts:
+            - {name: join, mountPath: /run/secrets/octryx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+            - {name: workspace, mountPath: /workspace}
+            - {name: state, mountPath: /var/lib/octryx}
+      volumes:
+        - name: join
+          secret:
+            secretName: {{ $secret }}
+            items: [{key: RUNNER_JOIN_SECRET, path: runner-join}]
+            defaultMode: 0440
+        - {name: tmp, emptyDir: {sizeLimit: {{ .Values.runners.storage.tmp }}}}
+        - {name: workspace, emptyDir: {sizeLimit: {{ .Values.runners.storage.workspace }}}}
+        # The device credential lives here: in memory, gone with the pod.
+        - {name: state, emptyDir: {medium: Memory, sizeLimit: {{ .Values.runners.storage.state }}}}
+{{- if .Values.runners.networkPolicy.enabled }}
+---
+# A runner reaches its gateway and the cluster DNS, nothing else; nothing reaches a runner.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-runner
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress: []
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner-gateway") | nindent 14 }}
+      ports: [{protocol: TCP, port: 8000}]
+    {{- include "octryx.dnsEgress" . | nindent 4 }}
+---
+# The gateway takes the runners' calls and passes them to the api's port only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $fullname }}-runner-gateway
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner-gateway") | nindent 6 }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {{- include "octryx.selector" (dict "root" . "component" "runner") | nindent 14 }}
+      ports: [{protocol: TCP, port: 8000}]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels: {{- include "octryx.selector" (dict "root" . "component" "api") | nindent 14 }}
+      ports: [{protocol: TCP, port: 8000}]
+    {{- include "octryx.dnsEgress" . | nindent 4 }}
+{{- end }}
+{{- end }}

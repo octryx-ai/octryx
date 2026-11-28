@@ -1,17 +1,12 @@
-"""Response contract: what the gateway serves is checked before it is accepted.
-
-The pinned contract covers the model group, the HTTP state, redirects, usage,
-and cost. A response whose price or token usage cannot be established is
-discarded rather than billed silently at zero, and no response body, header, or
-transport text ever reaches an error message.
-"""
+"""Response contract: a gateway response whose price or usage cannot be established is discarded, never billed at
+zero, and no response text reaches an error message."""
 
 from __future__ import annotations
 
 import httpx
 import pytest
 
-from app.agent.core.runtime.runtime_errors import (
+from app.agent.runtime.runtime_errors import (
     CLASSIFICATION_SOURCE_EXPLICIT,
     NON_FALLBACKABLE_RUNTIME_ERROR_CLASSES,
     RUNTIME_ERROR_FALLBACK_VIOLATION,
@@ -39,7 +34,7 @@ from tests.model_gateway.conftest import (
     verified_admission,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 # A body that would leak the virtual key, the tenant, and the upstream error
@@ -81,7 +76,6 @@ async def test_response_naming_another_model_group_is_a_fallback_violation(build
     assert error.gateway_state == GATEWAY_STATE_FALLBACK_VIOLATION
     assert classify_runtime_error(error).error_class == RUNTIME_ERROR_FALLBACK_VIOLATION
     assert classify_runtime_error(error).source == CLASSIFICATION_SOURCE_EXPLICIT
-    # The response content is discarded, never surfaced through the error.
     assert "gateway answer" not in str(error)
     assert "some-other-group" not in str(error)
     assert error.__cause__ is None and error.__context__ is None
@@ -112,15 +106,6 @@ async def test_http_failures_map_to_fixed_states_without_leaking_the_body(build_
 
 
 async def test_a_redirected_chat_endpoint_is_a_pre_dispatch_configuration_state(build_gateway_client) -> None:
-    """A 3xx is a pinned endpoint pointing elsewhere: refused, never followed.
-
-    The response carries a *valid* chat body, so a code path that accepted
-    redirect content would return an answer here. It must not: nothing was
-    served by the admitted endpoint, the ``Location`` header names a host the
-    allowlist never approved, and the state stays fallbackable because no
-    billable request succeeded.
-    """
-
     observed: dict[int, tuple[str, str]] = {}
 
     for status in REDIRECT_STATUSES:
@@ -133,10 +118,8 @@ async def test_a_redirected_chat_endpoint_is_a_pre_dispatch_configuration_state(
         error = excinfo.value
         observed[status] = (error.gateway_state, error.denial_reason)
         assert error.status_code == status
-        # The redirect was not followed: exactly one request, to the pinned host.
         assert len(gateway.chat_requests) == 1
         assert gateway.chat_requests[0].url.host == httpx.URL(BASE_URL).host
-        # Neither the redirect target nor the response content is surfaced.
         for leak in (REDIRECT_TARGET, "redirected.attacker.test", "gateway answer", "Location"):
             assert leak not in str(error)
             assert leak not in str(error.evidence())

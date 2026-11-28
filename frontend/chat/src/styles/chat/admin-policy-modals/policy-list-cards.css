@@ -91,43 +91,6 @@
   font-size: var(--ds-text-md);
 }
 
-.agent-card__prompt-block {
-  margin-bottom: 1rem;
-}
-
-.agent-card__prompt-block pre,
-.agent-prompt-pre {
-  margin: 0;
-  padding: 0.75rem 1rem;
-  border-radius: var(--ds-radius-md);
-  background: var(--surface-overlay-strong) !important;
-  border: 1px solid var(--border-strong) !important;
-  color: var(--muted-strong) !important;
-  font-family:
-    "IBM Plex Mono", "SFMono-Regular", Consolas, monospace !important;
-  font-size: var(--ds-text-xs) !important;
-  line-height: 1.55;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow: auto;
-}
-
-.agent-card__prompt-block pre {
-  background: var(--surface-overlay-strong) !important;
-}
-
-.knowledge-templates {
-  display: grid;
-  gap: 1rem;
-}
-
-.knowledge-template-card {
-  border: 1px solid var(--border-strong);
-  border-radius: var(--ds-radius-lg);
-  background: var(--surface-overlay);
-  padding: 0.75rem;
-}
-
 .knowledge-template-card__header {
   display: flex;
   justify-content: space-between;
@@ -137,7 +100,7 @@
 }
 
 .knowledge-template-card__title {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 

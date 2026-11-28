@@ -48,7 +48,6 @@ def _rrf(*rankings: list[str]) -> list[str]:
 
 
 async def ranked_edge_uuids(driver, runtime: EvidenceRuntime, query: str, group: str, limit: int) -> list[str]:
-    """The graph's full-text and vector edge search inside the group, fused by rank."""
     vector = (await runtime.embedding.embedder.embed([query], EmbeddingPurpose.QUERY))[0]
     return _rrf(*await driver.ranked_edges(query, group, vector, limit))
 
@@ -60,11 +59,6 @@ async def _cited(db, authorized, order, rows: dict[str, dict[str, Any]], episode
 async def cited_facts(
     db, authorized, order, rows: dict[str, dict[str, Any]], episode_span, version_of
 ) -> list[tuple[str, ChangeFact]]:
-    """``(uuid, fact)`` for every fact of ``order`` that resolves to a citation its reader may open.
-
-    A fact is cited from its first supporting span in ``episode_span``; its version is the one
-    ``version_of`` gives its revision, else the citation's own.
-    """
     first_span = {}
     for uuid in order:
         supporting = [episode_span[episode] for episode in rows[uuid]["episodes"] or () if episode in episode_span]

@@ -1,15 +1,4 @@
-"""A size class lays one phase into a later one: ``"merge": {"<phase>": "<later phase>"}``.
-
-after, and: a small bug spent a whole turn on its reproduction and then
-went back and forth when an existing test asserted the bug, because the fix phase may change no test. With
-``"merge": {"reproduce": "fix"}`` the run never enters the first phase: it is skipped (``node_skipped`` with
-``merged_into``), and so is every step on the way to the second one. A platform action's skip duty
-(``platform_actions.action_skipped``) waits until the merged phase submits the first one's output. A gate on the
-way is not judged: the class's ``red_on_base`` proves the reproduction on the base commit in the pipeline instead.
-The run's graph gives the second phase both definitions (:func:`merged_graph`): both texts in order, and the tools,
-output, checks and paths of both, so the agent writes the failing test and the fix in one turn. The schema allows
-this only between two phases whose way holds nothing but platform actions and gates, and only with ``red_on_base``.
-"""
+"""A size class lays one phase into a later one: ``"merge": {"<phase>": "<later phase>"}``."""
 
 from __future__ import annotations
 
@@ -41,7 +30,6 @@ def _union(first: list[Any] | None, second: list[Any] | None) -> list[Any]:
 
 
 def merged_config(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
-    """The second phase's config with the first one's work in front of it."""
     config, earlier = dict(second), dict(first)
     policy, before = dict(config.get("tool_policy") or {}), dict(earlier.get("tool_policy") or {})
     allow = _union(before.get("allowlist"), policy.get("allowlist"))
@@ -64,11 +52,7 @@ def merged_config(first: dict[str, Any], second: dict[str, Any]) -> dict[str, An
 
 
 def merged_paths(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
-    """What either phase may change, the merged one may (otherwise the fix
-    phase's ``protect_confirmed_tests`` refused every test file, so the reproduction of a merged turn could never
-    be written). A phase that names no write paths writes anywhere, so the union does too. The second phase's
-    protection of the confirmed tests stays, but only for the tests the platform confirmed (``write_tests``): the
-    agent writes its failing test freely and cannot weaken it once it is confirmed, also in the same turn."""
+    # Only the confirmed tests stay protected: the agent writes its failing test freely but cannot weaken it later.
     from ..path_rules import PROTECT_CONFIRMED_TESTS, WRITE_TESTS
 
     paths = dict(second)
@@ -82,12 +66,11 @@ def merged_paths(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any
     if any(protects):
         paths[PROTECT_CONFIRMED_TESTS] = True
         if not all(protects) or first.get(WRITE_TESTS) is True:
-            paths[WRITE_TESTS] = True  # the phase without the protection wrote tests
+            paths[WRITE_TESTS] = True
     return paths
 
 
 def merged_graph(graph: Any, run: WorkflowRun) -> Any:
-    """``graph`` with each merged phase holding both definitions (the run's class decides)."""
     from ..graph import NODE_PHASE, PhasedNode
 
     for source, target in merges(run).items():
@@ -99,8 +82,6 @@ def merged_graph(graph: Any, run: WorkflowRun) -> Any:
 
 
 def landing(run: WorkflowRun, graph: Any, node_id: str) -> str:
-    """The node a run sent back to ``node_id`` works in: a phase its class merges into a later one is that one, a
-    step its class skips is the one its success leads to (a refusal's ``change_plan`` names the workflow's node)."""
     from ..graph import PASSED, SUCCEEDED
 
     skips = set(dict(dict(run.context or {}).get(CLASS_CONTEXT) or {}).get("skips") or [])
@@ -118,7 +99,6 @@ def landing(run: WorkflowRun, graph: Any, node_id: str) -> str:
 
 
 async def entered(db: AsyncSession, run: WorkflowRun, node: Any) -> tuple[bool, Any]:
-    """``(True, route)`` when the merge decides the node just entered; ``(False, None)`` for its usual work."""
     from ..graph import NODE_GATE, NODE_PHASE, NODE_PLATFORM_ACTION, PASSED, SUCCEEDED
 
     context = dict(run.context or {})
@@ -131,7 +111,7 @@ async def entered(db: AsyncSession, run: WorkflowRun, node: Any) -> tuple[bool, 
         return True, None
     if not state or state.get("inside"):
         if state and node.id != state.get("to"):
-            run.context = {key: value for key, value in context.items() if key != CONTEXT}  # the merge is over
+            run.context = {key: value for key, value in context.items() if key != CONTEXT}
         return False, None
     if node.id == state.get("to"):
         run.context = {**context, CONTEXT: {**state, "inside": True}}
@@ -148,8 +128,6 @@ async def entered(db: AsyncSession, run: WorkflowRun, node: Any) -> tuple[bool, 
 
 
 async def output_recorded(db: AsyncSession, run: WorkflowRun, graph: Any, node: Any) -> None:
-    """The merged phase submitted the first one's output: the skipped actions on the way now do their duty, and the
-    submitted reproduction becomes the confirmed tests (:func:`confirm_in_turn`)."""
     from ..platform_actions import action_skipped
 
     context = dict(run.context or {})
@@ -165,14 +143,7 @@ async def output_recorded(db: AsyncSession, run: WorkflowRun, graph: Any, node: 
 
 
 async def confirm_in_turn(db: AsyncSession, run: WorkflowRun) -> None:
-    """The merged phase's reproduction is confirmed when it is submitted, from the tests it names.
-
-    Without this, the skipped reproduce check confirmed only
-    tests the newest recorded run showed failing, but a merged turn's runs are recorded when the turn ends, after the
-    submission; nothing was confirmed and the ``green`` gate failed on "no confirmed tests" at every turn's end until
-    the class escalated. Here the submitted tests are bound (a newer submission in the same merge rebinds), and their
-    red is the class's ``red_on_base``: the pipeline after the phase runs them on the base commit and stays red unless
-    each fails there, so ``tests_green`` need not have seen them fail inside the turn (``RED_ON_BASE_PENDING``)."""
+    # A merged turn's test runs are recorded only after the submission, so the submitted tests are bound here.
     from ..confirmation_payloads import reproduction_roles
     from ..phase_outputs import recorded_output
     from ..test_runs import RED_ON_BASE_PENDING, confirm_tests, confirmed_tests, snapshot_confirmed_tests

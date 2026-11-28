@@ -1,13 +1,4 @@
-"""PR review bot, pure parts: webhook payloads read on all three platforms, the review as the pull request shows it.
-
-- an opened or pushed pull request becomes one event (GitHub, Bitbucket Cloud, Server/Data Center); a closed one,
-  a review or an unrelated event is none; a fork and a draft are named;
-- a finding on a diff line is an inline comment (GitHub with a one-click suggestion, Bitbucket with a code block);
-  a finding outside the diff goes into the summary with its file and line, since GitHub refuses the whole review
-  for one comment off the diff (422);
-- the reviewer's ``suggestion`` / ``start_line`` / ``walkthrough`` are optional extras: a malformed one is dropped,
-  never the verdict, and a verdict without them records.
-"""
+"""PR review bot, pure parts: webhook payloads read on all three platforms, the review as the pull request shows it."""
 
 from __future__ import annotations
 
@@ -112,15 +103,13 @@ def test_findings_on_diff_lines_are_inline_with_a_suggestion_and_the_rest_sit_in
         ("pay/totals.py", 7, 6), ("pay/new.py", 1, 0)]
     assert "```suggestion\n    rounded = int(subtotal + 0.5)\n    return rounded\n```" in post.comments[0].body
     assert post.summary.startswith(MARKER) and "## Octryx review: changes requested" in post.summary
-    assert "`pay/rates.py:30` | Keep rates in sync." in post.summary  # off the diff: in the summary, not lost
+    assert "`pay/rates.py:30` | Keep rates in sync." in post.summary
     assert "| `pay/totals.py` | Rounds the subtotal before returning it. | +2 −1 |" in post.summary
     assert "| `pay/new.py` | added | +2 −0 |" in post.summary and "claude-haiku-5-5 (company route)" in post.summary
-    # ``inform`` (the default): the status informs and never blocks the team's merge; ``gate`` fails it.
     assert (post.state, post.description) == (
         "success", "Informational: 2 finding(s) to look at: 1 high · 1 medium · 1 low")
     gated = build_post(REVIEW, parse_diff(DIFF), provider="github", facts={"sha": SHA, "status_policy": "gate"})
     assert (gated.state, gated.description) == ("failure", "2 blocking finding(s): 1 high · 1 medium · 1 low")
-    # Without a blocking finding the lows are still counted (not just "No blocking findings")
     lows = build_post({"verdict": "pass", "summary": "", "findings": [REVIEW["findings"][2]]}, parse_diff(DIFF),
                       provider="github", facts={"sha": SHA})
     assert (lows.state, lows.description) == ("success", "No blocking findings · 1 low")
@@ -164,4 +153,4 @@ def test_suggestion_and_walkthrough_are_optional_extras_of_the_verdict():
     assert kept.walkthrough == ()
     plain = {"verdict": "changes", "summary": "x", "findings": [{"severity": "high", "file": "a.py", "line": 3,
                                                                   "fix": "y"}]}
-    assert parse_verdict(plain).to_dict() == plain  # a record without the extras is unchanged
+    assert parse_verdict(plain).to_dict() == plain

@@ -1,14 +1,4 @@
-"""Which scanners run on a pull request, and how the device calls them (tool runner).
-
-The scanners are data (``stacks.json`` ``general.scanners`` plus a stack's own ``scanners``, the same id replaces):
-each is a pinned launcher tool, its ``kind`` (:data:`.scan_findings.KINDS`), its ``args`` with the placeholders
-``{root}`` (the unpacked changed files), ``{report}`` (the SARIF file it writes) and ``{rules}`` (the shipped rule
-folder), and ``when`` it runs: ``always`` or ``manifests`` (only if a dependency manifest or lock file changed).
-
-Rule sets travel as their own archive next to the files (``rule_entries``), never mixed into the scanned tree; each
-``rule_sources`` entry names its license, and only sources whose license allows redistribution in an OSS product are
-shipped (:data:`OSS_LICENSES`). Pure apart from reading the rule files of this package.
-"""
+"""Which scanners run on a pull request, and how the device calls them (tool runner)."""
 
 from __future__ import annotations
 
@@ -24,7 +14,6 @@ _SERVICES = Path(__file__).resolve().parent.parent
 
 
 def scanners(stacks: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    """Every configured scanner, the general ones first; a stack's entry with the same id replaces it."""
     data = stacks or stack_data.built_in()
     found: dict[str, dict[str, Any]] = {}
     rows = list(dict(data.get("general") or {}).get("scanners") or [])
@@ -41,7 +30,6 @@ def _manifest_names(stacks: dict[str, Any] | None, entry: dict[str, Any]) -> set
 
 
 def selected(paths: list[str], stacks: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-    """The scanners for a pull request that changed ``paths`` (none when it changed no file)."""
     if not paths:
         return []
     names = {PurePosixPath(path).name for path in paths}
@@ -50,14 +38,11 @@ def selected(paths: list[str], stacks: dict[str, Any] | None = None) -> list[dic
 
 
 def command(entry: dict[str, Any], *, root: str, report: str, rules: str = "") -> list[str]:
-    """The argument list after the tool, its placeholders filled; never through a shell."""
     values = {"{root}": root, "{report}": report, "{rules}": rules}
     return [values.get(str(arg), str(arg)) for arg in entry.get("args") or []]
 
 
 def rule_entries(entry: dict[str, Any]) -> tuple[list[tuple[str, bytes]], list[str]]:
-    """The scanner's rule files as archive entries ``(source name/file, bytes)``, and a note per source left out
-    (a license not in :data:`OSS_LICENSES`, or a path outside this installation's services)."""
     files: list[tuple[str, bytes]] = []
     notes: list[str] = []
     for source in entry.get("rule_sources") or []:

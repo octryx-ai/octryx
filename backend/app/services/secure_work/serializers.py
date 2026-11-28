@@ -223,6 +223,8 @@ def serialize_pull_request(row: WorkPullRequest) -> dict[str, Any]:
         "build_status": row.build_status,
         "mergeability": row.mergeability,
         "linked_jira_keys": list(row.linked_jira_keys_json or []),
+        "session_id": row.session_id,
+        "run_id": row.run_id,
         "mismatches": list(row.mismatch_json or []),
         "raw_summary": dict(row.raw_summary_json or {}),
         "source_created_at": iso(row.source_created_at),

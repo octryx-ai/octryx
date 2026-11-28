@@ -1,23 +1,4 @@
-"""A chat's writes are confirmed once per request, as one plan.
-
-Confirming every chat write per call (``tool_approval_gate`` rules ``chat_connector_write`` and
-``chat_platform_write``) costs one card per issue for an Epic with its stories, and the agent cannot prepare work to
-finish on its own. With a plan the person sees what is written, how and where, confirms once, and the agent then
-works on its own branch without asking again.
-
-So a chat turn first proposes one plan (``propose_write_plan``): every intended write with its fields, and the scope
-it works in. The person confirms it once (an ordinary session approval whose change preview has kind ``write_plan``).
-From then on the gate admits every write the plan covers, without asking: its tool is listed, its connection is one
-the plan named for that tool, and every target the call names (project, issue, space, page, repository, branch, pull
-request, work item, recipient, ...) is in the plan's scope, was named by a listed write, or was created by a write of
-this plan. Anything else gets a clear answer naming the next step (propose the plan, or amend it with that write),
-never a dead end, so a weak model (Gemma) finds its way.
-
-The plan is bound to the session and to the request (the turn's user message): it survives the turn's own approval
-pauses and expires with the next request. The hard-deny list is never widened: Workspace deny lists, Command safety's
-hard deny and the classification policy refuse before this gate is asked. A trusted role needs no
-plan. Workflow runs are unchanged: no ``chat_connector_writes``, no plan.
-"""
+"""A chat's writes are confirmed once per request, as one plan."""
 
 from __future__ import annotations
 
@@ -77,7 +58,6 @@ def _values(value: Any) -> list[str]:
 
 
 def call_targets(params: dict[str, Any] | None) -> list[tuple[str, str]]:
-    """The (kind, value) targets a write's arguments name, in argument order."""
     targets: list[tuple[str, str]] = []
     for key, value in (params or {}).items():
         kind = TARGET_PARAMS.get(str(key))
@@ -87,14 +67,12 @@ def call_targets(params: dict[str, Any] | None) -> list[tuple[str, str]]:
 
 
 def is_chat_plan_write(tool_name: str, context: Any) -> bool:
-    """A write the chat's plan governs: a connector or platform write, or an outbound message, from a chat turn."""
     name = str(tool_name or "").strip()
     return (chat_connector_write_permitted(name, context) or chat_platform_write_needs_confirmation(name, context)
             or (name in OUTBOUND_MESSAGE_DEFINITION_NAMES and chat_connector_writes_enabled(context)))
 
 
 def trusted_skips_plan(tool_name: str) -> bool:
-    """A trusted role needs no plan, except for an outbound message."""
     return str(tool_name or "").strip() not in OUTBOUND_MESSAGE_DEFINITION_NAMES
 
 
@@ -102,12 +80,10 @@ def trusted_skips_plan(tool_name: str) -> bool:
 
 
 def current_request(metadata: dict[str, Any] | None) -> str:
-    """The request in flight: the turn's user message (kept across the turn's approval pauses)."""
     return str((metadata or {}).get(_CURRENT_TURN_KEY) or "").strip()
 
 
 def active_plan(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The confirmed plan of the request in flight, or ``None`` (none, or it belongs to an earlier request)."""
     plan = (metadata or {}).get(PLAN_METADATA_KEY)
     request = current_request(metadata)
     if not isinstance(plan, dict) or not request or plan.get("user_message_id") != request:
@@ -132,7 +108,6 @@ def _in_scope(value: str, scope: set[str]) -> bool:
 
 def uncovered(plan: dict[str, Any] | None, tool_name: str, params: dict[str, Any] | None,
               connection: str = "") -> list[str]:
-    """Why ``plan`` does not cover this call (empty: covered)."""
     if plan is None:
         return ["no confirmed plan"]
     name = str(tool_name or "").strip()
@@ -149,7 +124,6 @@ def uncovered(plan: dict[str, Any] | None, tool_name: str, params: dict[str, Any
 
 
 def plan_entry(write: dict[str, Any]) -> dict[str, Any]:
-    """What the plan record keeps of a confirmed write."""
     from ..secret_masking import SEALED_KEY
 
     entry = {"tool": write.get("tool"), "connection": write.get("connection") or None,
@@ -160,7 +134,6 @@ def plan_entry(write: dict[str, Any]) -> dict[str, Any]:
 
 
 def merged_plan(current: dict[str, Any] | None, proposal: dict[str, Any], *, confirmed_by: str) -> dict[str, Any]:
-    """The plan after confirming ``proposal``: an amendment adds to the request's plan, a new request replaces it."""
     same_request = current is not None and current.get("user_message_id") == proposal.get("user_message_id")
     base = dict(current) if same_request else {"plan_id": proposal.get("plan_id"), "writes": [], "scope": [],
                                                  "created": []}
@@ -180,7 +153,6 @@ def new_plan_id() -> str:
 
 
 def plan_view(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The active plan for the chat UI (``writePlan`` in the selected session), or ``None``."""
     plan = active_plan(metadata)
     if plan is None:
         return None
@@ -201,9 +173,6 @@ async def _session(db: Any, session_id: str | None) -> Any:
 
 
 async def trusted_for_chat(db: Any, user_id: str | None, workspace_id: str | None) -> bool:
-    """Whether the person holds a trusted role in this Workspace (role model).
-
-    Until ``work_role_model`` exists on this branch nobody is trusted, so every chat write needs a plan."""
     try:
         from ..work_role_model.effective import effective_permission  # type: ignore[import-not-found]
     except ImportError:
@@ -217,7 +186,7 @@ async def trusted_for_chat(db: Any, user_id: str | None, workspace_id: str | Non
 
 
 def _connection(tool_name: str, params: dict[str, Any], project_config: Any) -> str:
-    from ..tool_approval_previews import _connection_label
+    from ..tool_approval.previews import _connection_label
 
     return _connection_label(tool_name, params, project_config)
 
@@ -239,27 +208,31 @@ def _plan_refusal(tool_name: str, params: dict[str, Any], plan: dict[str, Any] |
 
 
 async def plan_decision(tool_name: str, params: dict[str, Any], context: Any) -> dict[str, Any] | None:
-    """``None`` when the call may run (trusted role, or covered by the confirmed plan); else the model's next step."""
     session = await _session(getattr(context, "db", None), getattr(context, "session_id", None))
     workspace_id = getattr(session, "project_id", None) or next(iter(getattr(context, "project_ids", None) or []),
                                                                 None)
     if trusted_skips_plan(tool_name) and await trusted_for_chat(context.db, context.user_id, workspace_id):
         return None
+    from ..ai_marking import with_markers, without_markers
+
+    # The plan was confirmed without the agent marker line; it is matched without it and kept on the write.
+    clean, lines = without_markers(params)
     plan = active_plan(getattr(session, "metadata_", None) if session is not None else None)
-    plan = _with_real_fields(plan, tool_name, params)
-    reasons = uncovered(plan, tool_name, params, _connection(tool_name, params, context.project_config))
+    plan = _with_real_fields(plan, tool_name, clean)
+    params.update(with_markers(clean, lines))  # a masked value passed back runs with the real one
+    reasons = uncovered(plan, tool_name, clean, _connection(tool_name, clean, context.project_config))
     if reasons:
-        return _plan_refusal(tool_name, params, plan, reasons)
+        return _plan_refusal(tool_name, clean, plan, reasons)
     from ..change_preview import record_approval_ref
     from .chat_write_plan_match import match_plan_write
 
-    match = match_plan_write(plan, tool_name, params)
+    match = match_plan_write(plan, tool_name, clean)
     if match.refusal is not None:
         return match.refusal
     if match.filled:
         # In place: the registry dispatches this very dict, so the write runs with the confirmed fields.
         params.clear()
-        params.update(match.fields)
+        params.update(with_markers(match.fields, lines))
     admitted = getattr(context, "chat_write_plan_calls", None)
     if isinstance(admitted, set):
         mark = plan_call_mark(tool_name, params)
@@ -274,10 +247,6 @@ async def plan_decision(tool_name: str, params: dict[str, Any], context: Any) ->
 
 
 def _with_real_fields(plan: dict[str, Any] | None, tool_name: str, params: dict[str, Any]) -> dict[str, Any] | None:
-    """The plan with its confirmed writes' real fields (unsealed), and the call's masked values put back.
-
-    The model saw the masked plan; a call that passes a masked value back runs with the real one the person
-    confirmed. Nothing here is stored: the session keeps only the masked fields and the seal (secret_masking)."""
     if plan is None:
         return None
     from ..secret_masking import real_fields, restore_masked_values
@@ -299,7 +268,6 @@ def plan_call_mark(tool_name: str, params: Any) -> str:
 
 
 def created_values(result: Any) -> list[str]:
-    """What a write's result says it created (issue key, page or work-item id, branch)."""
     if not isinstance(result, dict) or result.get("error"):
         return []
     found: list[str] = []
@@ -311,10 +279,6 @@ def created_values(result: Any) -> list[str]:
 
 async def record_plan_created(tool_name: str, params: dict[str, Any], result: Any,
                               context: Any) -> dict[str, Any] | None:
-    """After a plan-admitted write: what it created is in scope for the rest of the request (own items, own branch).
-
-    Returns the note for the write's result when the plan filled fields the call left out (``filled_from_plan``), so
-    the model reports what was really written."""
     admitted = getattr(context, "chat_write_plan_calls", None)
     mark = plan_call_mark(tool_name, params)
     if not isinstance(admitted, set) or mark not in admitted:
@@ -342,7 +306,6 @@ async def record_plan_created(tool_name: str, params: dict[str, Any], result: An
 
 
 async def activate_confirmed_plan(db: Any, *, session: Any, approval_id: str, confirmed_by: str) -> bool:
-    """On approval of a ``write_plan`` change preview: the plan (or amendment) becomes the request's active plan."""
     from sqlalchemy import select
 
     from ...models import ChangePreview
@@ -371,15 +334,6 @@ def _write_call(write: dict[str, Any]) -> str:
 
 
 def confirmed_plan_note(metadata: dict[str, Any] | None) -> str | None:
-    """The system note of a turn that runs under a confirmed plan: perform its writes, do not propose it again.
-
-    Confirming the plan restarts the turn from the person's message; without a note the model sees no trace of the
-    confirmation and proposes the same plan again (answered "Already confirmed"), then writes: 4-6 model calls for one
-    ticket where a lean client needs one. The note names the confirmed writes and what the plan
-    already created, so the restarted turn calls the write tools directly and never repeats a write that ran.
-    A restarted turn may also search the ticket again before commenting (one more model call carrying the whole
-    prompt); the confirmed fields already hold the key, so the note says so.
-    """
     plan = active_plan(metadata)
     if plan is None:
         return None
@@ -401,28 +355,8 @@ def plan_covers_all(plan: dict[str, Any] | None, writes: Iterable[dict[str, Any]
                                     for write, connection in zip(writes, connections, strict=True))
 
 
-__all__ = [
-    "CODE_AMENDMENT_REQUIRED",
-    "CODE_PLAN_REQUIRED",
-    "PLAN_KIND",
-    "PLAN_METADATA_KEY",
-    "PLAN_POLICY",
-    "PROPOSE_WRITE_PLAN",
-    "TARGET_PARAMS",
-    "activate_confirmed_plan",
-    "active_plan",
-    "call_targets",
-    "confirmed_plan_note",
-    "created_values",
-    "current_request",
-    "is_chat_plan_write",
-    "merged_plan",
-    "new_plan_id",
-    "plan_covers_all",
-    "plan_decision",
-    "plan_view",
-    "record_plan_created",
-    "trusted_for_chat",
-    "trusted_skips_plan",
-    "uncovered",
-]
+__all__ = ["CODE_AMENDMENT_REQUIRED", "CODE_PLAN_REQUIRED", "PLAN_KIND", "PLAN_METADATA_KEY", "PLAN_POLICY",
+           "PROPOSE_WRITE_PLAN", "TARGET_PARAMS", "activate_confirmed_plan", "active_plan", "call_targets",
+           "confirmed_plan_note", "created_values", "current_request", "is_chat_plan_write", "merged_plan",
+           "new_plan_id", "plan_covers_all", "plan_decision", "plan_view", "record_plan_created", "trusted_for_chat",
+           "trusted_skips_plan", "uncovered"]

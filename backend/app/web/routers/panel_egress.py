@@ -1,11 +1,5 @@
-"""Admin panel: the private-host allowlist for on-prem connections.
-
-Admin-only. ``GET`` lists every allowlistable connection type with its ``host:port`` entries;
-``PUT`` replaces the entries of one type after validation and records the audit row
-``egress.private_hosts.updated`` (``services/outbound_egress/private_hosts.py``). A refused
-entry answers 400 with ``state = private_host_entry_refused``, a fixed ``reason`` and the
-index of the refused entry; nothing is stored.
-"""
+"""Admin panel: the private-host allowlist for on-prem connections. Admin-only; a ``PUT`` is validated and audited, and
+a refused entry stores nothing."""
 
 from __future__ import annotations
 

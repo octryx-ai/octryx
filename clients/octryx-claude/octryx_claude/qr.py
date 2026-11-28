@@ -1,12 +1,4 @@
-"""A small QR code encoder (ISO/IEC 18004, byte mode, error correction level M, versions 1-20), no dependencies.
-
-It draws the pairing code of ``octryx-claude mobile pair`` in the terminal and in the pet. Only what a URL needs is
-implemented: one byte-mode segment, level M, the smallest version that fits. The structure follows Project Nayuki's
-reference implementation; ``tests/test_qr.py`` compares the matrices with the ``segno`` library module by module.
-
-:func:`encode` returns the module matrix (``rows[y][x]``, ``True`` = dark) without the quiet zone;
-:func:`terminal_lines` renders it with half blocks (two module rows per text line) inside a 2-module quiet zone.
-"""
+"""A small QR code encoder (ISO/IEC 18004, byte mode, error correction level M, versions 1-20), no dependencies."""
 
 from __future__ import annotations
 
@@ -217,7 +209,6 @@ class _Matrix:
                     self.dark[y][x] = not self.dark[y][x]
 
     def penalty(self) -> int:
-        """ISO penalty rules 1, 2 and 4 (rule 3, finder-like runs, only fine-tunes the choice)."""
         score, size, dark = 0, self.size, self.dark
         for lines in (dark, [list(col) for col in zip(*dark, strict=True)]):
             for line in lines:
@@ -260,10 +251,8 @@ def encode(text: str, *, mask: int | None = None) -> list[list[bool]]:
     return best[1]
 
 
+# Light modules are drawn as blocks: dark-on-light on a dark terminal, and phone cameras read the inverse too.
 def terminal_lines(rows: list[list[bool]], *, quiet: int = 4) -> list[str]:
-    """Half blocks, two module rows per text line. Light modules (and the quiet zone) are drawn as blocks in the
-    terminal's text colour and dark modules are left as background: on the usual dark terminal that is the normal
-    dark-on-light code; phone cameras also read the inverted one a light terminal shows."""
     size = len(rows)
     total = size + 2 * quiet
 

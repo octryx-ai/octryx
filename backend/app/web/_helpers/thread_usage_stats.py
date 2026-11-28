@@ -40,7 +40,6 @@ def _empty_thread_usage_stats() -> dict:
 
 
 async def _usage_event_facts(db: AsyncSession, session_ids: list[str]) -> tuple[Any, list[Any], UsageEvent | None]:
-    """Usage event totals, the per-model breakdown (costliest first) and the newest usage event."""
     usage_row = (
         await db.execute(
             select(
@@ -84,7 +83,6 @@ async def _count_for_sessions(db: AsyncSession, model: Any, session_ids: list[st
 
 
 async def _message_counts(db: AsyncSession, session_ids: list[str]) -> Any:
-    """Messages, user messages and assistant messages."""
     return (
         await db.execute(
             select(

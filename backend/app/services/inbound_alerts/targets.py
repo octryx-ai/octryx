@@ -1,22 +1,4 @@
-"""Which service an alert is about: the Workspace's alert targets.
-
-A Workspace lists its alert targets in ``Project.config["alert_targets"]``::
-
-    [{"id": "checkout", "service": "checkout",
-      "match": {"source_type": "alertmanager", "labels": {"namespace": "shop", "service": "checkout"}},
-      "kubernetes": {"namespace": "shop", "connection_id": null},
-      "logs": {"selector": "{namespace=\"shop\",app=\"checkout\"}"},
-      "metrics": {"selector": "{namespace=\"shop\",service=\"checkout\"}"},
-      "ci": {"jenkins_jobs": ["checkout-deploy"]},
-      "servicenow": {"cmdb_ci": "checkout"},
-      "required_families": ["kubernetes", "logs", "metrics"],
-      "lookback_minutes": 30, "reopen_window_minutes": 60}]
-
-Matching is exact string equality on the alert's common labels (and the source type when the target names
-one); never a regex, never the title, summary or annotations, which whoever reaches the webhook writes.
-Every matcher label must be present and equal. More than one matching target is ambiguous, and the config is
-read fail-closed: one invalid entry makes the whole list invalid, so a typo never silently widens a match.
-"""
+"""Which service an alert is about: the Workspace's alert targets."""
 
 from __future__ import annotations
 
@@ -68,7 +50,6 @@ class AlertTarget:
     reopen_window_minutes: int = DEFAULT_REOPEN_WINDOW_MINUTES
 
     def as_context(self) -> dict:
-        """JSON-safe; what the run carries as ``context.alert_target`` and what the tools scope to."""
         return {
             "id": self.id,
             "service": self.service,
@@ -99,7 +80,6 @@ class TargetMatch:
 
 
 def alert_match_labels(alert: NormalizedAlert) -> dict[str, str]:
-    """The labels a target matches on: the payload's common labels, else the first alert's."""
     labels = alert.common_labels or alert.labels
     return {str(key): str(value) for key, value in (labels or {}).items() if isinstance(value, str)}
 
@@ -239,7 +219,6 @@ def _target(entry: Any, index: int, errors: list[str]) -> AlertTarget | None:
 
 
 def parse_alert_targets(raw: Any) -> tuple[list[AlertTarget], list[str]]:
-    """The valid targets and every error; fail-closed: with any error the caller treats the list as invalid."""
     if raw is None:
         return [], []
     if not isinstance(raw, list):
@@ -260,7 +239,6 @@ def parse_alert_targets(raw: Any) -> tuple[list[AlertTarget], list[str]]:
 
 
 async def workspace_alert_targets(db: AsyncSession, project_id: str) -> tuple[list[AlertTarget], list[str]]:
-    """The Workspace's own ``Project.config`` only: no defaults, no inheritance, nothing an alert can supply."""
     project = await db.get(Project, project_id) if project_id else None
     config = project.config if project is not None and isinstance(project.config, dict) else {}
     return parse_alert_targets(config.get(CONFIG_KEY))

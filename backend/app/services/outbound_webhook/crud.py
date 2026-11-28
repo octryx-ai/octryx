@@ -16,17 +16,13 @@ from ...time_utils import utc_now
 from ..outbound_egress import CONNECTION_OUTBOUND_WEBHOOK, connection_rule
 from ..outbound_egress.target_check import check_connection_target
 from ..outbound_url_policy import REASON_UNRESOLVABLE_HOST, OutboundURLPolicyError
+from ..project.private_workspace import hidden_private_ids
 from ..secret import encrypt_secret
 from .catalog import _normalize_event_types
 from .serialization import serialize_outbound_webhook, serialize_outbound_webhook_delivery
 
 
 async def _require_admitted_url(url: str) -> None:
-    """Refuse a receiver URL the outbound egress rule refuses (SSRF guard at save time).
-
-    A host that does not resolve yet is accepted here; every delivery is checked again (and
-    pinned) by the egress transport, so a later DNS answer cannot reach a refused address.
-    """
     try:
         await check_connection_target(url, connection_rule(CONNECTION_OUTBOUND_WEBHOOK))
     except OutboundURLPolicyError as refused:
@@ -39,11 +35,21 @@ def _hash_secret(secret: str) -> str:
     return hashlib.sha256(secret.encode("utf-8")).hexdigest()
 
 
-async def list_outbound_webhooks(db: AsyncSession) -> list[dict[str, Any]]:
+async def _load(db: AsyncSession, webhook_id: str, viewer_id: str) -> OutboundWebhook:
+    row = await db.get(OutboundWebhook, webhook_id)
+    if row is None or row.project_id in await hidden_private_ids(db, viewer_id):
+        raise HTTPException(status_code=404, detail="Outbound webhook not found")
+    return row
+
+
+async def list_outbound_webhooks(db: AsyncSession, *, viewer_id: str) -> list[dict[str, Any]]:
+    hidden = await hidden_private_ids(db, viewer_id)
     rows = (
         (
             await db.execute(
-                select(OutboundWebhook).order_by(
+                select(OutboundWebhook)
+                .where(OutboundWebhook.project_id.is_(None) | OutboundWebhook.project_id.not_in(hidden))
+                .order_by(
                     OutboundWebhook.name.asc(),
                     OutboundWebhook.created_at.desc(),
                 )
@@ -58,12 +64,17 @@ async def list_outbound_webhooks(db: AsyncSession) -> list[dict[str, Any]]:
 async def list_outbound_webhook_deliveries(
     db: AsyncSession,
     *,
+    viewer_id: str,
     status_filter: str | None = None,
     webhook_id: str | None = None,
     limit: int = 100,
 ) -> list[dict[str, Any]]:
+    hidden = await hidden_private_ids(db, viewer_id)
+    hidden_webhooks = select(OutboundWebhook.id).where(OutboundWebhook.project_id.in_(hidden))
     stmt = (
         select(OutboundWebhookDelivery)
+        .where(OutboundWebhookDelivery.project_id.is_(None) | OutboundWebhookDelivery.project_id.not_in(hidden),
+               OutboundWebhookDelivery.webhook_id.not_in(hidden_webhooks))
         .order_by(OutboundWebhookDelivery.created_at.desc())
         .limit(max(1, min(limit, 500)))
     )
@@ -118,11 +129,10 @@ async def update_outbound_webhook(
     db: AsyncSession,
     *,
     webhook_id: str,
+    viewer_id: str,
     payload: dict[str, Any],
 ) -> dict[str, Any]:
-    row = await db.get(OutboundWebhook, webhook_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Outbound webhook not found")
+    row = await _load(db, webhook_id, viewer_id)
     if "name" in payload:
         row.name = str(payload.get("name") or "").strip()
     if "url" in payload:
@@ -156,10 +166,8 @@ async def update_outbound_webhook(
     return serialized
 
 
-async def delete_outbound_webhook(db: AsyncSession, *, webhook_id: str) -> dict[str, Any]:
-    row = await db.get(OutboundWebhook, webhook_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Outbound webhook not found")
+async def delete_outbound_webhook(db: AsyncSession, *, webhook_id: str, viewer_id: str) -> dict[str, Any]:
+    row = await _load(db, webhook_id, viewer_id)
     await db.delete(row)
     await db.commit()
     return {"status": "deleted", "id": webhook_id}

@@ -1,6 +1,5 @@
 // The designer's side panel content for the selection: one box, an arrow, a group or several boxes.
 import { SidePanel } from "../../../../../layout/SidePanel";
-import type { PhasedView } from "../phasedWorkflowModel";
 import { EdgeInspector } from "./inspector/EdgeInspector";
 import { kindName } from "./inspector/labels";
 import { nodeConfigIssues } from "./inspector/nodeIssues";
@@ -13,11 +12,11 @@ import { renameGroup } from "./modelGroups";
 import type { DefEdge, DefNode, DesignerCatalog } from "./types";
 
 export function designerSidePanel({
-  node, edge, group, selectedNodes, model, catalog, view, busy, dirty, currentGroups, change, closePanel,
+  node, edge, group, selectedNodes, model, catalog, busy, dirty, currentGroups, change, closePanel,
   copySelection, deleteSelection, groupSelection, ungroup, onOpenPhase,
 }: {
   node: DefNode | null; edge: DefEdge | undefined; group: DesignGroup | null; selectedNodes: DefNode[];
-  model: DesignModel; catalog: DesignerCatalog; view: PhasedView; busy: boolean; dirty: boolean;
+  model: DesignModel; catalog: DesignerCatalog; busy: boolean; dirty: boolean;
   currentGroups: DesignGroup[];
   change: (update: (current: DesignModel) => DesignModel, key?: string) => void;
   closePanel: () => void; copySelection: () => void; deleteSelection: () => void; groupSelection: () => void;
@@ -47,7 +46,6 @@ export function designerSidePanel({
           </>
         )}>
         <NodeInspector node={node} nodes={model.nodes} edges={model.edges} catalog={catalog} editable={!busy}
-          workflowKey={view.key}
           issues={nodeConfigIssues(node, model.nodes, catalog)}
           onChange={(patch) => change((current) => updateNode(current, node.id, patch), `node:${node.id}`)}
           onRoute={(when, target) => change((current) => route(current, node.id, when, target))} />

@@ -5,31 +5,6 @@ from __future__ import annotations
 # ruff: noqa: E501
 
 SESSION_DEFINITIONS: dict[str, dict] = {
-    "get_context_from_subthreads": {
-        "type": "function",
-        "function": {
-            "name": "get_context_from_subthreads",
-            "description": "Collect a compact context summary from child sessions spawned from the current session.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "parent_session_id": {
-                        "type": "string",
-                        "description": "Optional parent session id. Defaults to the current session and may only point to the current session.",
-                    },
-                    "session_ids": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                        "description": "Optional subset of child session ids to include.",
-                    },
-                    "include_tool_names": {
-                        "type": "boolean",
-                        "description": "Whether to include the unique tools each child session used.",
-                    },
-                },
-            },
-        },
-    },
     "web_fetch": {
         "type": "function",
         "function": {

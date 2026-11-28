@@ -3,7 +3,7 @@
   position: relative;
   width: 2.2rem;
   height: 1.2rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;

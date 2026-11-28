@@ -1,6 +1,5 @@
 """The folder's git for the run preparation (``workspace_prep``): the repository check, catching up with the
-platform's commit and what an earlier run left in the folder.
-"""
+platform's commit and what an earlier run left in the folder."""
 
 from __future__ import annotations
 
@@ -22,11 +21,12 @@ _SCP = re.compile(r"^(?:[^@/\s]+@)?(?P<host>[A-Za-z0-9.-]+):(?P<path>(?!/)[^\s]+
 _HOST_ALIASES = {"api.github.com": "github.com", "api.bitbucket.org": "bitbucket.org"}
 
 
-def _git(root: Path, *args: str) -> subprocess.CompletedProcess | None:
+def _git(root: Path, *args: str, env: dict[str, str] | None = None,
+         timeout: float = GIT_TIMEOUT) -> subprocess.CompletedProcess | None:
     try:
         return subprocess.run([*SAFE_GIT, *args], cwd=root, capture_output=True, text=True, errors="replace",
-                              timeout=GIT_TIMEOUT, check=False, stdin=subprocess.DEVNULL,
-                              env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
+                              timeout=timeout, check=False, stdin=subprocess.DEVNULL,
+                              env={**os.environ, **(env or {}), "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
                                    "LC_ALL": "C"})
     except (OSError, subprocess.SubprocessError):
         return None
@@ -41,7 +41,6 @@ def _out(done: subprocess.CompletedProcess | None) -> str:
 
 
 def origin_url(root: Path) -> str:
-    """The folder's ``origin`` remote without any user info (a token in a URL never leaves the device)."""
     url = _out(_git(root, "remote", "get-url", "origin"))
     if "://" in url:
         parts = urlsplit(url)
@@ -66,7 +65,6 @@ def _host_and_path(url: str) -> tuple[str, str]:
 
 
 def repository_refusal(root: Path, expected: dict[str, Any] | None) -> str:
-    """Why the folder is not the run's repository ("" when it is, or the run names no repository to compare)."""
     if not isinstance(expected, dict) or not expected.get("hosts") or not expected.get("path"):
         return ""
     url = origin_url(root)
@@ -83,10 +81,6 @@ def _has_commit(root: Path, head: str) -> bool:
 
 
 def _catch_up(root: Path, head: str | None) -> str:
-    """Bring a local branch that is behind the platform's commit up to it; why not ("" when it is fine).
-
-    : a second run on the same Work item found its branch from the first run still at the old base;
-    origin could not be fetched from the device, so the run built on a master without the new system tests."""
     if not head or not _has_commit(root, head):
         return ""
     current = _out(_git(root, "rev-parse", "HEAD"))
@@ -106,8 +100,6 @@ _RUN_BRANCH = re.compile(r"^(feature|bugfix|docs|chore|fix|hotfix)/[A-Z][A-Z0-9]
 
 
 def _stash_run_leftovers(root: Path, branch: str) -> str:
-    """Set the leftovers of an earlier run's branch aside in a named stash (nothing is lost; ``git stash list``
-    shows it); the stash message, or ``""`` when stashing failed."""
     message = f"{LEFTOVERS} {branch} {time.strftime('%Y-%m-%dT%H:%M:%S')}"
     done = _git(root, "stash", "push", "--include-untracked", "-m", message)
     return message if _ok(done) else ""
@@ -122,8 +114,6 @@ def _names(done: subprocess.CompletedProcess | None) -> set[str]:
 
 
 def _in_head(root: Path, stash: str) -> bool:
-    """Whether every file a leftovers stash holds is at HEAD with the same content (tracked and untracked parts):
-    the earlier run's edits reached this branch through the platform's push."""
     changed = _names(_git(root, "diff", "--name-only", "-z", "--no-renames", f"{stash}^1", stash))
     if changed & _names(_git(root, "diff", "--name-only", "-z", "--no-renames", stash, "HEAD")):
         return False
@@ -134,9 +124,6 @@ def _in_head(root: Path, stash: str) -> bool:
 
 
 def drop_pushed_leftovers(root: Path) -> list[str]:
-    """Drop the leftovers stashes whose files are all on the branch now (the stashed branch was pushed and this
-    story builds on it); the others stay, so leftovers stashes do not pile up story after story. The dropped stash
-    messages."""
     listing = _git(root, "stash", "list", "--format=%H %gs")
     entries = [line.split(" ", 1) for line in _out(listing).splitlines() if " " in line]
     dropped = []
@@ -156,9 +143,6 @@ def _item_worktrees(root: Path) -> list[Path]:
 
 
 def _platform_only(root: Path, head: str, branch: str) -> list[str]:
-    """The commits of ``branch`` beyond ``head`` when every one on its first-parent line is the platform's own (the
-    work-plan and merge commits of an earlier run) and none of them is on ``origin`` already; ``[]`` otherwise
-    (none, a person's commit among them, or pushed work the device knows of)."""
     done = _git(root, "log", "--first-parent", "--format=%H %an", f"{head}..refs/heads/{branch}")
     rows = [line.split(" ", 1) for line in _out(done).splitlines() if " " in line] if _ok(done) else []
     if not rows or any(author != PLATFORM_AUTHOR for _, author in rows):
@@ -172,14 +156,6 @@ def _platform_only(root: Path, head: str, branch: str) -> list[str]:
 
 
 def discard_earlier_run(root: Path, branch: str, head: str | None) -> dict[str, Any]:
-    """Clean what an earlier run of this branch left on the device, before a new run's first git work: its item
-    worktrees, its ``<branch>--<key>`` branches and the platform's local commits on the run branch (reset to the
-    commit the platform knows the branch at: pushed, or the base). Nothing is lost: the old tip stays under
-    ``refs/octryx/leftovers/``, uncommitted files in a named stash.
-
-    A rerun of an aborted story must not inherit its ``.octryx-items`` worktrees, item branches and work-plan commits
-    into the change and the PR. The platform says when the run has no git work of its own on the device yet
-    (``preparation.run_commits_on_device: false``); only then is anything here an earlier run's."""
     cleaned: dict[str, Any] = {}
     worktrees = _item_worktrees(root)
     for path in worktrees:

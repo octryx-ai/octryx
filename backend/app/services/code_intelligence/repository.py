@@ -72,8 +72,6 @@ OWNED_CONFIG_KEYS = ("pr_review_bot", "pr_review_bot_state")
 
 
 async def update_code_repository(db: AsyncSession, repository_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """Only the fields the caller sent change (the panel sends ``exclude_unset``); a field left out keeps its value
-    instead of falling back to the create defaults (a provider back to ``local``)."""
     repo = await get_code_repository(db, repository_id)
     owned = {key: value for key, value in dict(repo.config_json or {}).items() if key in OWNED_CONFIG_KEYS}
     normalized = _normalize_repository_payload({**_current_fields(repo), **payload})

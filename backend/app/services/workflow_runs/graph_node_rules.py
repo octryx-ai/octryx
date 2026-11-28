@@ -28,8 +28,6 @@ from .states import OUTCOMES
 
 
 def _error(code: str, message: str, *, node_id: str | None = None, edge_id: str | None = None) -> dict[str, str]:
-    """One validation problem; ``node_id`` / ``edge_id`` name the box or arrow it concerns, so the designer can
-    select it. The ``code`` is stable; the message is plain words for the person drawing the workflow."""
     error = {"code": code, "message": message}
     if node_id:
         error["node_id"] = node_id
@@ -136,7 +134,7 @@ def _node_errors(node: PhasedNode, graph: PhasedGraph) -> list[dict[str, str]]:
     if node.kind == NODE_OUTCOME and _text(config.get("outcome")) not in OUTCOMES:
         return [_error("outcome_value", f"{name}: choose how the workflow ends ({', '.join(sorted(OUTCOMES))}).")]
     if node.kind == NODE_OUTCOME:
-        from .triage_routing import routing_errors  # a triage's routes by type
+        from .triage_routing import routing_errors
 
         return routing_errors(node)
     if node.kind == NODE_PLATFORM_ACTION and _text(config.get("action")):

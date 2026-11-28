@@ -1,12 +1,4 @@
-"""The conversation digest of a linked external CLI session, for the work-item handover context.
-
-``session_ingest`` renders an external session's redacted transcript digest as the ``Message`` rows
-of its platform shadow session (``agent_type="external_agent"``) and keeps the summary in the
-session metadata. The handover reads it from there.
-
-The lookup is bounded to the work item's own project: a session of another project never becomes
-handover context.
-"""
+"""The conversation digest of a linked external CLI session, for the work-item handover context."""
 
 from __future__ import annotations
 
@@ -26,7 +18,6 @@ async def linked_session_digest(
     client_session_id: str,
     tail_chars: int,
 ) -> dict[str, str] | None:
-    """``summary`` and the transcript tail of the shadow session of ``client_session_id``, if any."""
     if not project_id or not client_session_id:
         return None
     session = (

@@ -1,5 +1,3 @@
-// The closed values a node's exits route on, as the backend has them (workflow_runs/graph.py route_values);
-// null: one unconditional exit. The edge panel offers exactly these for "when", the condition panel for its options.
 import type { DefNode, DesignerCatalog } from "../types";
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
@@ -11,14 +9,12 @@ const FIXED: Record<string, string[] | null> = {
   user_confirmation: ["confirmed", "changed", "stopped"],
   approval: ["approved", "rejected"],
   platform_action: ["succeeded", "failed"],
-  // Teamwork: every item merged, or something failed, blocked or conflicted and the coordinator plans again.
   parallel_work: ["done", "replan"],
 };
 const SUBJECT_ROUTES: Record<string, string[]> = {
   functional_acceptance: ["accepted", "not_testable_yet", "rejected"],
 };
 
-/** The route value of a decision's fallback arrow (taken when no listed result matched). */
 export const OTHERWISE = "otherwise";
 
 export function exitValues(node: DefNode, catalog: DesignerCatalog): string[] | null {
@@ -36,15 +32,12 @@ export function exitValues(node: DefNode, catalog: DesignerCatalog): string[] | 
   return node.type in FIXED ? FIXED[node.type] : null;
 }
 
-/** The results a condition can branch on when it looks at ``node``: its exit values, or for an agent step the
- * "possible results" it declares (``config.result_values``). */
 export function resultValues(node: DefNode, catalog: DesignerCatalog): string[] {
   if (node.type === "phase") return list(node.config?.result_values);
   if (node.type === "decision" || node.type === "outcome") return [];
   return exitValues(node, catalog) ?? [];
 }
 
-/** The nodes a condition can look at: every node with results to branch on (not another condition). */
 export function routableSources(nodes: DefNode[], self: string, catalog: DesignerCatalog): DefNode[] {
   return nodes.filter((node) => node.id !== self && resultValues(node, catalog).length > 0);
 }

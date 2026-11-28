@@ -61,8 +61,6 @@ async def test_the_seat_counts_as_limited_until_its_reset_and_a_later_success_cl
 
 @pytest.mark.asyncio
 async def test_a_successful_turn_whose_summary_names_a_limit_does_not_count_as_the_seats_limit(db):
-    """An implement summary listing "recipe limit reached: 1000" does not move the run off its seat. Only a
-    failed turn carries the account's limit answer."""
     admin = await admin_user(db)
     device, _ = await device_with_grant(db, admin)
     project = await enable_device_runs(db)
@@ -81,8 +79,6 @@ async def test_a_successful_turn_whose_summary_names_a_limit_does_not_count_as_t
     await db.flush()
     assert await seat_limited_until(db, device.id, now=now) == now + UNKNOWN_RESET  # a failed limit answer still counts
 
-
-# --- structured signals only, per engine -----------------------------------------------------------------------------
 
 async def _seat_job(db, job_id: str, *, engine: str | None = None):
     admin = await admin_user(db)

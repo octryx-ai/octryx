@@ -13,6 +13,7 @@ from app.services.mcp_workflow_run_tools import mcp_submit_definition_of_ready
 from app.services.workflow_runs.octryx.stop import run_stop
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     DEVICE_SCOPES,
     PREFIXES,
@@ -22,6 +23,8 @@ from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     _run_with_session,
     _server_pipeline,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 # --- A: the Definition of Ready over MCP, within the phase ----------------------------------------------------------
 

@@ -75,7 +75,6 @@ _TOPIC_FILLER_WORDS = frozenset(
 
 
 def _topic_has_content(topic: str) -> bool:
-    """A topic names something: at least one word of three or more letters that is not a filler word."""
     return any(
         len(word) >= 3 and word.lower() not in _TOPIC_FILLER_WORDS
         for word in re.findall(r"[^\W\d_][\w.-]*", topic)
@@ -83,14 +82,12 @@ def _topic_has_content(topic: str) -> bool:
 
 
 def _without_parameters(text: str) -> str:
-    """The request text without a save instruction and without artifact file paths."""
     cleaned = _TOPIC_SAVE_CLAUSE_PATTERN.sub("", text)
     cleaned = _TOPIC_PATH_TOKEN_PATTERN.sub("", cleaned)
     return re.sub(r"\s+", " ", cleaned).strip(" .,:;!?")
 
 
 def infer_topic_capture(user_message: str) -> str:
-    """The captured subject of the request, or ``""`` when no capture names anything."""
     text = _without_parameters(str(user_message or "").strip())
     for pattern in _TOPIC_CAPTURE_PATTERNS:
         match = pattern.search(text)
@@ -107,12 +104,6 @@ def infer_topic_capture(user_message: str) -> str:
 
 
 def infer_topic(user_message: str) -> str:
-    """The request's subject, extracted as a parameter (never a routing decision).
-
-    A capture that names nothing (e.g. "the" from "about the benefits of ...") is skipped; when no
-    capture names anything, the topic is the request itself without its save instruction and file
-    paths, bounded, instead of a single guessed word.
-    """
     captured = infer_topic_capture(user_message)
     if captured:
         return captured
@@ -127,9 +118,3 @@ def infer_topic(user_message: str) -> str:
     return "knowledge"
 
 
-def topic_terms(topic: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-z0-9]{3,}", str(topic or "").lower())
-        if token not in _TOPIC_STOPWORDS
-    }

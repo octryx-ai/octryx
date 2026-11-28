@@ -1,9 +1,4 @@
-"""The product owner's work in the Studio: one change at a time, each an audited run event (who, when, what).
-
-State lives on the run (``context.spec_studio.state``) and survives a new artefact version: answers, comments and
-verdicts are keyed by the artefact's ids. A change the artefact does not know (an unknown question, a colour that
-is not #RRGGBB) is refused, so the state never drifts from what the Studio shows.
-"""
+"""The product owner's work in the Studio: one change at a time, each an audited run event (who, when, what)."""
 
 from __future__ import annotations
 
@@ -23,7 +18,7 @@ VERDICTS = ("ok", "change")
 
 
 class StudioChangeError(ValueError):
-    """A change the Studio refuses, with the reason shown to the product owner."""
+    pass
 
 
 def studio(run: Any) -> dict[str, Any]:
@@ -72,7 +67,7 @@ def _design(artefact: dict[str, Any], state: dict[str, Any], change: dict[str, A
         if _text(change["direction"]) not in ids:
             raise StudioChangeError("Unknown design direction.")
         before, state["direction"] = state.get("direction"), _text(change["direction"])
-        state["tokens"] = {}  # a new direction starts from its own colours, as in the prototype
+        state["tokens"] = {}
         return "design:direction", before, state["direction"]
     if "radius" in change:
         radius = change["radius"]
@@ -101,7 +96,6 @@ def _design(artefact: dict[str, Any], state: dict[str, Any], change: dict[str, A
 
 
 def _reason(state: dict[str, Any], change: dict[str, Any]) -> tuple[str, Any, Any]:
-    """Why the spec deviates from the Corporate Identity at ``path`` (empty text removes the reason)."""
     path, text = _text(change.get("path")), _text(change.get("text"))
     if not path or len(text) > 1000:
         raise StudioChangeError("A reason needs the deviation's path and at most 1000 characters.")
@@ -172,9 +166,6 @@ def _acceptance(artefact: dict[str, Any], state: dict[str, Any], change: dict[st
 def apply_change(run: Any, artefact: dict[str, Any], change: dict[str, Any], *, by: str,
                  base_screens: tuple[str, ...] = (), frozen: bool = False,
                  corporate: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Apply one change to the run's Studio state and return the audit detail ``{op, target, from, to, by}``.
-
-    ``base_screens``: a feature's context screens of the approved app, which may carry comments too."""
     if frozen:
         raise StudioChangeError("This version is approved and frozen.")
     state = current_state(run)

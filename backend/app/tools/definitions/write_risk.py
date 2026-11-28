@@ -1,26 +1,10 @@
-"""Closed tables of tool definitions whose canonical risk is ``write``.
-
-``get_tool_definition_metadata`` resolves every tool named here (plus the
-change-only workspace tools) to ``risk="write"``: approval-required, audited and
-state-mutating. A tool that is not listed here and is not an admin tool resolves
-to ``read``, so a tool that changes anything must be listed explicitly.
-
-The tables group by who owns the mutated state, because the run capability a tool
-needs (``tools/capability_requirements.py``) follows from that owner.
-
-``BROWSER_READ_DEFINITION_NAMES`` is the one read table: it records the explicit
-read decision for the browser tools that do not change remote state, so every
-browser tool is classified. It does not feed ``WRITE_RISK_DEFINITION_NAMES``.
-"""
+"""Closed tables of tool definitions whose canonical risk is ``write``."""
 
 from __future__ import annotations
 
-# Connector-owned tools (owner type ``connector``): external writes through a
-# configured connector. Their capability requirement is ``deliver`` by owner type,
-# and each one needs an exact-name ``high_risk_grants`` entry.
+# Connector-owned external writes: ``deliver`` by owner type, and each needs an exact-name ``high_risk_grants`` entry.
 CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
     {
-        # Atlassian
         "add_confluence_comment",
         "add_issues_to_sprint",
         "add_jira_comment",
@@ -34,7 +18,6 @@ CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
         "transition_jira_ticket",
         "update_confluence_page",
         "update_jira_ticket",
-        # Source control hosting
         "commit_and_push_github_repository_branch",
         "commit_and_push_gitlab_repository_branch",
         "commit_and_push_repository_branch",
@@ -57,18 +40,16 @@ CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
         "update_github_issue",
         "update_github_pull_request",
         "update_gitlab_merge_request",
-        # Cloud compute and delivery: start/stop mutates cloud state on every provider.
+        # start/stop mutates cloud state on every provider.
         "invoke_aws_lambda",
         "start_aws_codepipeline_execution",
         "start_aws_ec2_instances",
         "start_azure_vm",
         "stop_aws_ec2_instances",
         "stop_azure_vm",
-        # CI pipelines (GitHub Actions, GitLab CI)
         "cancel_pipeline",
         "retry_job",
         "trigger_workflow",
-        # Deployment and infrastructure as code
         "apply",
         "rollback",
         "rollback_app",
@@ -77,12 +58,9 @@ CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
         "upgrade",
         # Terraform workspace select/new (``workspace new`` creates remote backend state)
         "workspace_select",
-        # Container registries
         "delete_tag",
-        # Secrets
         "renew_lease",
         "revoke_token",
-        # Incident management and status pages
         "acknowledge",
         "create_incident",
         "escalate",
@@ -90,7 +68,6 @@ CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
         "resolve_incident",
         "update_component_status",
         "update_incident",
-        # Ticketing, calendars, dashboards
         "create_issue",
         "create_meeting",
         "create_snapshot",
@@ -99,10 +76,8 @@ CONNECTOR_WRITE_DEFINITION_NAMES = frozenset(
     }
 )
 
-# Browser automation (built-in owner, ``tools/browser.py``). Every browser tool is
-# classified here, one way or the other, and ``tests/test_browser_tool_risk.py``
-# pins the full list. Navigation, reading, screenshots and closing the local
-# browser session do not change remote state: read.
+# Every browser tool is classified here, one way or the other (``tests/tools/misc/test_browser_tool_risk.py``).
+# Navigation, reading, screenshots and closing the local browser session do not change remote state.
 BROWSER_READ_DEFINITION_NAMES = frozenset(
     {
         "browser_close",
@@ -112,9 +87,7 @@ BROWSER_READ_DEFINITION_NAMES = frozenset(
     }
 )
 
-# Page interactions can change remote state on an external site (a click submits,
-# typing fills a form and ``submit`` sends it, a key press triggers a handler):
-# an external write.
+# Page interactions can change remote state on an external site (a click submits a form): an external write.
 BROWSER_WRITE_DEFINITION_NAMES = frozenset(
     {
         "browser_click",
@@ -125,7 +98,7 @@ BROWSER_WRITE_DEFINITION_NAMES = frozenset(
 
 # Outward-facing messages to a person outside the session (a Teams direct message). Every send needs a
 # person's approval bound to its exact parameters, whatever the approval policy says
-# (``services/tool_approval_gate``: rule ``outbound_message``, never exempt, no standing rule).
+# (``services/tool_approval/gate``: rule ``outbound_message``, never exempt, no standing rule).
 OUTBOUND_MESSAGE_DEFINITION_NAMES = frozenset(
     {
         "ask_reporter_via_teams",
@@ -159,9 +132,7 @@ BUILT_IN_INTERNAL_WRITE_DEFINITION_NAMES = frozenset(
         "bootstrap_workspace_repository",
         "cancel_runtime_process",
         # Git worktrees, commits and merges in the workflow run's working copy.
-        "delegate_slices",
         "edit_workspace_file",
-        "merge_slices",
         # Writes the session's episode as a Workspace Knowledge source revision (needs ``change``).
         "knowledge_episode_summary",
         "memory_remember",

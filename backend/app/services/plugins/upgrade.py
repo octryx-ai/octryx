@@ -1,21 +1,4 @@
-"""Upgrade (and rollback) of an installed plugin: a different package of the same plugin in the same place.
-
-plugins mostly come with the Octryx image (``image.py``), so image version = plugin version and a
-rollback is an image rollback. Both are this one step: whatever package is installed, the objects of the install move
-to it.
-
-- An object both packages bring is updated in place and keeps its id: a skill gets a new published version (the
-  previous one is retired), a workflow a new published version, a role and its functions their new name, description,
-  tools and function list, an MCP server its new URL. Unchanged content (same digest) gets no new version.
-- An object only the new package brings is created, as on install.
-- An object only the old package brought is switched off and kept (``dropped``): its skill version retired, its
-  workflow, role or MCP server inactive. Nothing is deleted; a later version that brings it again switches it back on.
-- The UI bundle is replaced, the settings stay. A disabled install stays disabled.
-
-Refused (``conflicts``): a name the new package brings that belongs to something else, an open draft of one of the
-plugin's skills (an admin's edit is never overwritten), and an install of this plugin in another place that shares
-its skills (skills are global; upgrade it there first or remove that install).
-"""
+"""Upgrade (and rollback) of an installed plugin: a different package of the same plugin in the same place."""
 
 from __future__ import annotations
 
@@ -49,9 +32,6 @@ def _mine(row: PluginInstall) -> dict[tuple[str, str], dict[str, Any]]:
 
 async def conflicts(db: AsyncSession, row: PluginInstall, package: PluginPackage, *,
                     kinds: set[str] | None = None) -> list[dict[str, Any]]:
-    """What stands in the way of moving ``row`` to ``package`` (empty = it can). ``kinds`` limits the check to those
-    objects (the image moves its shared part and each Workspace's part separately, all in one start, so another
-    install of the plugin is never in the way there)."""
     from ..skill_catalog.lifecycle import open_version
 
     mine, found = _mine(row), []
@@ -104,7 +84,6 @@ def _brings(package: PluginPackage) -> list[tuple[str, str]]:
 
 
 def changes(row: PluginInstall, package: PluginPackage) -> dict[str, list[dict[str, str]]]:
-    """What the upgrade adds, keeps (updated where its content changed) and switches off, as ``{kind, key}``."""
     mine = {key for key, item in _mine(row).items() if not item.get("dropped")}
     new = _brings(package)
 
@@ -119,11 +98,6 @@ def changes(row: PluginInstall, package: PluginPackage) -> dict[str, list[dict[s
 async def apply(db: AsyncSession, row: PluginInstall, package: PluginPackage, *, user: User, source: dict[str, Any],
                 consent: str, granted: dict[str, Any], findings: dict[str, list[dict[str, Any]]],
                 kinds: set[str] | None = None, refs: list[dict[str, Any]] | None = None) -> PluginInstall:
-    """Move ``row`` to ``package`` (the caller checked ``conflicts`` and the consent); flushes, the caller commits.
-
-    ``kinds`` moves only those objects (``skill``, ``mcp_server``, ``workflow``, ``role`` with its functions, ``ui``);
-    the others stay as they are. ``refs`` replaces the objects the install shares with another one (``created:
-    False``): a Workspace's activation of an image plugin refers to the image's skills and MCP servers."""
     manifest, mine = package.manifest, _mine(row)
 
     def moves(kind: str) -> bool:
@@ -170,6 +144,7 @@ async def apply(db: AsyncSession, row: PluginInstall, package: PluginPackage, *,
     row.updated_by, row.updated_at = user.id, utc_now()
     await switch_contributions(db, row, row.status == STATUS_ACTIVE, actor_id=user.id)
     db.add(AuditLog(user_id=user.id, action=AUDIT_UPGRADED, resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": manifest.id, "from_version": previous["version"], "version": manifest.version,
                              "scope": row.scope, "workspace_id": workspace_id, "package_digest": package.digest,
                              "previous_package_digest": previous["package_digest"], "consent_digest": consent,

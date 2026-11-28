@@ -62,12 +62,6 @@ async def _exec_policy_analyzer(
 
 
 def _shell_composition(command: str) -> str | None:
-    """Why a shell command string is not one simple command (``None`` when it is).
-
-    Shell expansion on the ORIGINAL text is judged first, so an expansion that also splits the command
-    (process substitution, ``$(…)``) is reported as an expansion: in an enforced read-only run that is a
-    final capability refusal, not an approvable "compound" review.
-    """
     expansion = shell_expansion_refusal(command)
     if expansion is not None:
         return expansion
@@ -98,9 +92,6 @@ def _composed_finding(composition: str, config: dict[str, Any]) -> SecurityAnaly
 
 
 def _kubectl_rule_args(tool_name: str, tokens: list[str]) -> list[str]:
-    """The kubectl arguments the rule judges: without the binary, and for the platform's ``run_kubectl``
-    without the Workspace prefix the tool places itself (``--kubeconfig``/``--context``/``-n``; the
-    tool refuses those flags in the agent's own arguments before this rule runs)."""
     args = list(tokens[1:])
     if tool_name == "run_kubectl":
         while len(args) >= 2 and args[0] in ("--kubeconfig", "--context", "-n"):
@@ -117,15 +108,6 @@ def _diagnosis_rule_finding(
     *,
     kubectl_context_selectable: bool = False,
 ) -> SecurityAnalyzerFinding:
-    """The read-only (diagnosis) command rules of the execution policy.
-
-    Contract: ``allow`` only for one simple read command. A string runs through a shell, so its
-    composition (operators, pipes, redirects, substitutions) and the configured risk operators are
-    checked first, on every path, before any kubectl or command rule. An argv list runs without a
-    shell: its tokens are literal arguments (no operator check), kubectl's argv is judged by its own
-    rules, and every other argv gets the same invocation and closed option rules as a string segment.
-    Git subcommands are admitted by name only (no option table): not a read-only guarantee.
-    """
     shell = isinstance(command, str)
     composition = _shell_composition(command) if shell else None
     operator = shell and any(item in command_text for item in config["shell_risk_operators"])
@@ -234,12 +216,6 @@ def _diagnosis_rule_finding(
 def read_only_command_finding(
     command: str, config: dict[str, Any], *, kubectl_context_selectable: bool = False
 ) -> SecurityAnalyzerFinding:
-    """The read-only (diagnosis) command rules for one shell command, outside a tool run.
-
-    The agent gateway's PreToolUse check uses this for a client's Bash call, so a governed external
-    client and a platform run classify commands by the same closed rules. ``allow`` is a read;
-    anything else is a mutation or an unclassified command.
-    """
     command_text, tokens = _command_text_and_tokens(command)
     # A shell command string: composition first, then kubectl's read-only rules or the command rules.
     return _diagnosis_rule_finding("run_cli_command", command, command_text, tokens, config,

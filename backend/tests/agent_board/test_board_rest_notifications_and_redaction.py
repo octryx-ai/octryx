@@ -36,11 +36,10 @@ async def test_notifications_are_deduplicated_and_resolved(client, db, team):  #
     assert (await _decide(client, request["id"], team.ben, option="yes")).status_code == 200
     [resolved] = await _notifications(db, team.ben)
     assert resolved.is_read is True and resolved.read_at is not None
-    assert (await _get(client, "/action-needed", team.ben)).json()["count"] == 0  # answered: no longer needed
+    assert (await _get(client, "/action-needed", team.ben)).json()["count"] == 0
     await _get(client, "/action-needed", team.ben)
     assert len(await _notifications(db, team.ben)) == 1
 
-    # Cleared without an answer (redacted): the next poll resolves it.
     other = await team.post(db, kind="decision_request", body="Deploy?", to_user_id=team.ben)
     await _get(client, "/action-needed", team.ben)
     row = await db.get(AgentBoardMessage, other["id"])
@@ -61,7 +60,6 @@ async def test_no_notification_when_in_app_notifications_are_off(client, db, tea
 
 @pytest.mark.asyncio
 async def test_redacting_a_decided_request_blanks_its_decision_everywhere(client, db, team):  # noqa: F811
-    """The chosen option and text never outlive the redaction of their request."""
     request = await team.post(db, kind="decision_request", body="Pick one", options=["alpha-sensitive", "beta"],
                               to_user_id=team.ben)
     decided = await _decide(client, request["id"], team.ben, option="alpha-sensitive", text="text-sensitive")
@@ -102,7 +100,6 @@ async def test_a_redacted_undecided_request_keeps_no_cascade(client, db, team): 
 
 @pytest.mark.asyncio
 async def test_a_missing_workspace_is_404_for_everyone_including_platform_admins(client, db, team):  # noqa: F811
-    """Never a 500 and never a 200 for an id that names no Workspace."""
     item = await seed_item(db, team.ws, "BRD-1")
     await db.commit()
     for user_id in (team.platform_admin, team.owner):
@@ -116,11 +113,10 @@ async def test_a_missing_workspace_is_404_for_everyone_including_platform_admins
 
 @pytest.mark.asyncio
 async def test_a_request_redacted_before_the_cascade_still_hides_its_decision(client, db, team):  # noqa: F811
-    """A redacted row that keeps its decision's option: the envelope hides it regardless."""
     request = await team.post(db, kind="decision_request", body="Pick", options=["legacy-option"], to_user_id=team.ben)
     await _decide(client, request["id"], team.ben, option="legacy-option", text="legacy-text")
     row = await db.get(AgentBoardMessage, request["id"])
-    row.body, row.options, row.redacted_at = "", [], row.created_at  # an old redaction, no cascade
+    row.body, row.options, row.redacted_at = "", [], row.created_at
     await db.commit()
     root = (await _get(client, f"/messages/{request['id']}/thread", team.owner)).json()["root"]
     assert (root["decided"]["option"], root["decided"]["text"]) == (None, None)

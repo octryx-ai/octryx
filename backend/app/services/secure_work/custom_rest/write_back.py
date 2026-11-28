@@ -1,22 +1,4 @@
-"""Write-back of a Work state to a Custom REST source: a ``TrackerStateSyncDriver`` bound to one write operation.
-
-The same double opt-in as Jira (``jira_state_sync``): the workflow's ``sync_policy.sync_mode`` is
-``execute`` **and** the target state's mapping sets ``sync_back`` with a ``source_status``.
-The intake names the write operation of the same definition and its ``arguments``/``body`` templates; ``{source_key}``,
-``{source_id}``, ``{target_status}`` and ``{to_state}`` are filled from the item and the transition.
-
-Who writes, and when:
-
-- a **person's** state change (the UI apply with its confirmed preview, or the Close action) writes as that person:
-  the write operation's grants decide with the person's roles, and its data scope applies, exactly like a
-  ``rest__`` tool call of theirs, through the same executor and audit row;
-- an **unattended** transition (a workflow run, a sync, an event) never writes: the write is recorded as
-  ``proposed`` on the state event and the source stays as it is until a person applies it (the unattended-run rule
-  of: a run no person started writes externally only after a person decides).
-
-Tracker first, local state second: a refused or failed write raises, the item stays in its state, the refusal is on
-the timeline (``transition_outcome``).
-"""
+"""Write-back of a Work state to a Custom REST source, bound to one write operation."""
 
 from __future__ import annotations
 
@@ -40,13 +22,11 @@ CODE_NOT_CONFIGURED = "write_back_not_configured"
 
 
 def will_write(item: WorkItem, workflow: WorkItemWorkflowDefinition, sync_preview: Mapping[str, Any]) -> bool:
-    """Whether applying this preview writes to the source: execute mode, ``sync_back`` and a target status."""
     return (str(item.source_type or "") == SOURCE_TYPE and executes(workflow.sync_policy_json, item)
             and bool(sync_preview.get("sync_back")) and bool(sync_preview.get("target_status")))
 
 
 def write_effects(item: WorkItem, preview: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """What the apply writes: the status (the person confirms exactly this, ``transition_preview``)."""
     sync_preview = dict(preview.get("jira_sync_preview") or {})
     if not sync_preview.get("will_mutate_jira"):
         return []
@@ -55,7 +35,6 @@ def write_effects(item: WorkItem, preview: Mapping[str, Any]) -> list[dict[str, 
 
 
 def render(template: Any, values: Mapping[str, str]) -> Any:
-    """The template with every ``{name}`` of :data:`config.TEMPLATE_KEYS` filled; other text stays as written."""
     if isinstance(template, str):
         rendered = template
         for name, value in values.items():
@@ -89,14 +68,13 @@ async def _platform_roles(db: AsyncSession, user_id: str) -> list[str]:
 
 async def execute_custom_rest_state_sync(db: AsyncSession, *, item: WorkItem, workflow: WorkItemWorkflowDefinition,
                                          preview: dict[str, Any]) -> dict[str, Any] | None:
-    """Write the mapped status through the intake's write operation; ``None`` when the configuration keeps it
-    local, ``{status: proposed}`` for an unattended transition."""
     sync_preview = dict(preview.get("jira_sync_preview") or {})
     await load_item_intake(db, item)
     if not will_write(item, workflow, sync_preview):
         return None
     target = str(sync_preview["target_status"])
     applied_by = dict(preview.get("applied_by") or {})
+    # Only a transition a person decided writes, as that person; any other is proposed and awaits a person
     if not applied_by.get("person") or not applied_by.get("user_id"):
         return {"executed": False, "status": STATUS_PROPOSED, "reason": "awaits_person", "target_status": target}
     definition, operation, write_back = await _write_target(db, item)

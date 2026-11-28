@@ -21,7 +21,7 @@
 .page-header__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
@@ -30,7 +30,7 @@
   margin: 0;
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0;
 }
 

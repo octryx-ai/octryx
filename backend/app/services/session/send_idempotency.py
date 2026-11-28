@@ -1,10 +1,4 @@
-"""A repeated chat send never starts a second turn.
-
-The chat composer sends one ``idempotency_key`` per draft message and reuses it on a retry or a
-double Enter. Before a turn is prepared, the send path looks up a user message with that key in a
-session the same user owns; if there is one, the send answers that session instead of creating a
-new thread (or a second turn in the same thread). Keys of other users never match.
-"""
+"""A repeated chat send never starts a second turn."""
 
 from __future__ import annotations
 

@@ -1,9 +1,5 @@
 import type { AdminProjectQuality } from "../../types/projectQualityTypes";
 
-// One Workspaces-list row (central configuration, UX review "Workspace list in the new style"): name with its
-// badges and description as tooltip, the Workspace's class, members, problems and last change. Agent templates and
-// design readiness left the list; a row opens the Workspace page. Class, members and the change time are read when
-// the list payload carries them (class / member_count / updated_at); the list shows "—" otherwise.
 export const WORKSPACE_LIST_COLUMN_LABELS = {
   workspace: "Name",
   class: "Class",
@@ -25,7 +21,6 @@ export type WorkspaceListRow = {
   id: string;
   name: string;
   badges: string[];
-  // Whitespace-collapsed text for the clamped line; the full text goes in `title`.
   description: string;
   descriptionTitle: string;
   isActive: boolean;
@@ -44,7 +39,6 @@ type WorkspaceRowSource = Pick<AdminProjectQuality, "id" | "name" | "description
     updated_at?: unknown;
   };
 
-/** The words for a classification level ("confidential" → "Confidential"). */
 export function classLabelOf(level: string): string {
   return CLASS_LABELS[level] ?? level.replace(/^./, (char) => char.toUpperCase());
 }
@@ -54,8 +48,6 @@ function classOf(project: WorkspaceRowSource): string {
   return raw ? classLabelOf(raw) : "—";
 }
 
-// Each active Workspace's classification level and where it came from (GET /api/v1/admin/data-classification/policy/
-// workspaces, platform admins): `workspace` its own, `instance_default` the default, `unset` none.
 export type WorkspaceClasses = Record<string, { level: string | null; source: string }>;
 
 export function readWorkspaceClasses(payload: unknown): WorkspaceClasses {
@@ -69,11 +61,6 @@ export function readWorkspaceClasses(payload: unknown): WorkspaceClasses {
   return classes;
 }
 
-/**
- * The Class cell (UI check C7: "—" stood in every row). A known level in words; "Not set" with Set class
- * when the Workspace has none; Show class when the level cannot be read here (no admin view of the levels, or an
- * archived Workspace). Never a bare dash.
- */
 export type WorkspaceClassCell = { label: string; title: string; action: "set" | "show" | null };
 
 export function workspaceClassCell(row: Pick<WorkspaceListRow, "id" | "classLabel" | "isActive">,
@@ -112,7 +99,6 @@ export function workspaceListRow(project: WorkspaceRowSource): WorkspaceListRow 
   };
 }
 
-/** Problems per Workspace id from one admin problems answer (both severities; acknowledged ones are already left out). */
 export function problemCountsByWorkspace(
   problems: ReadonlyArray<{ severity: string; workspace: { id: string } | null }>,
 ): Record<string, { total: number; problem: number }> {

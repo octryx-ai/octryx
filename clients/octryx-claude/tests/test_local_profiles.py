@@ -1,12 +1,4 @@
-"""Claude Code profiles outside octryx (P6b/P6c, Alice), client side.
-
-- discovery finds ``~/.claude``, ``~/.claude-*`` and shell-assigned config dirs, never octryx's own;
-- nothing is read before the person connects a profile; names are short and unique;
-- the report lists the connected profiles' recent sessions with folder, redacted title and last answer;
-- ``~/.claude`` is reached by unsetting ``CLAUDE_CONFIG_DIR``; no platform credential reaches the profile;
-- a take-over offer runs only for a connected profile, only the session it resumes as it exists there, only in the
-  folder that session ran in, without octryx's settings, gateway or strict MCP config.
-"""
+"""Claude Code profiles outside octryx, client side."""
 
 from __future__ import annotations
 

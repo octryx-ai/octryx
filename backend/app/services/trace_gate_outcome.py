@@ -1,11 +1,5 @@
-"""Explicit gate outcomes in canonical traces.
-
-A turn blocked by the execution gate or the runtime-readiness gate never reaches a
-model. The gate that blocks it adds an explicit ``gate_outcome`` entry to the
-persisted raw output. Trace persistence reads only that entry, never a provider-name
-string, and records the run as ``blocked`` with a ``gate`` root span. It does not
-record a successful ``llm`` span named "agent turn".
-"""
+"""Explicit gate outcomes in canonical traces. Trace persistence reads only the ``gate_outcome`` entry, never a
+provider-name string."""
 
 from __future__ import annotations
 
@@ -20,7 +14,6 @@ _GATE_TEXT_MAX_CHARS = 300
 
 
 def gate_outcome_marker(*, gate: str, label: str, status: str, reason: str) -> dict[str, Any]:
-    """Return the raw-output entry a gate adds when it blocks a turn before any model call."""
     return {
         GATE_OUTCOME_KEY: {
             "gate": str(gate or "").strip(),
@@ -33,8 +26,6 @@ def gate_outcome_marker(*, gate: str, label: str, status: str, reason: str) -> d
 
 @dataclass(frozen=True, slots=True)
 class TraceRootShape:
-    """How the canonical trace records the turn's root span and run status."""
-
     status: str
     span_type: str
     span_suffix: str
@@ -43,11 +34,6 @@ class TraceRootShape:
 
 
 def resolve_trace_root_shape(output_payload: Mapping[str, Any]) -> TraceRootShape:
-    """Return the root span shape for a persisted turn outcome.
-
-    An explicit gate marker makes the run ``blocked`` with a ``gate`` span. Otherwise the
-    turn was a model turn: ``error`` when the output carries an error, else ``success``.
-    """
     outcome = output_payload.get(GATE_OUTCOME_KEY)
     gate = str(outcome.get("gate") or "").strip() if isinstance(outcome, Mapping) else ""
     if gate:

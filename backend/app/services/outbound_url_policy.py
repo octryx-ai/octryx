@@ -1,31 +1,4 @@
-"""The platform's outbound URL policy: where a server-side HTTP call may go.
-
-Every target is checked after DNS resolution, and again on every redirect hop, so a
-hostname that resolves to (or redirects to) a refused address is refused too. Two
-explicit scopes exist:
-
-* ``public_only`` (the default): refuses loopback, link-local (cloud metadata),
-  unspecified, private (RFC 1918, RFC 6598 shared space, IPv6 ULA) and the named
-  metadata hosts. Web fetches, Source Sync and the Atlassian and SCM tools use it.
-* ``no_pod_local``: refuses only what can never be a legitimate integration target,
-  i.e. the pod's own loopback services (the object store, LiteLLM, the credentials sidecar),
-  link-local and cloud metadata addresses (including AWS ``fd00:ec2::/32``) and the
-  unspecified address. Connectors whose systems normally live inside the private
-  network (Vault, Argo CD, Kubernetes, a self-hosted registry) use it.
-
-IPv4 addresses embedded in IPv6 (mapped ``::ffff:a.b.c.d``, 6to4, NAT64) are checked as
-the IPv4 address they reach. A host that does not resolve is refused. Two exact
-``host:port`` widenings exist, each owned by a caller that governs it:
-
-* ``allow_hosts``: local Confluence/Jira/SCM stubs (settings-gated, literal loopback
-  ``host:port`` only, ``app/loopback_stub_policy.py``);
-* ``private_hosts``: the admin-governed on-prem allowlist of a connection
-  (``services/outbound_egress/private_hosts.py``). A listed target may reach the private
-  network, never the pod-local or metadata ranges.
-
-:func:`check_outbound_target` returns the checked addresses, so a caller can connect to
-exactly those (``services/outbound_egress/pinned_transport.py``) instead of resolving again.
-"""
+"""The platform's outbound URL policy: where a server-side HTTP call may go."""
 
 from __future__ import annotations
 
@@ -34,6 +7,8 @@ import ipaddress
 import socket
 from dataclasses import dataclass
 from urllib.parse import urlsplit
+
+from .outbound_url_types import AddressClass, EgressScope
 
 EGRESS_SCOPE_PUBLIC_ONLY = "public_only"
 EGRESS_SCOPE_NO_POD_LOCAL = "no_pod_local"
@@ -77,8 +52,6 @@ REASON_UNRESOLVABLE_HOST = "unresolvable_host"
 
 
 class OutboundURLPolicyError(ValueError):
-    """Raised when an outbound target violates the policy; ``reason`` is a fixed code."""
-
     def __init__(self, message: str, *, reason: str = REASON_BLOCKED_ADDRESS) -> None:
         super().__init__(message)
         self.reason = reason
@@ -104,7 +77,7 @@ def _is_blocked_hostname(hostname: str) -> bool:
 
 
 def _reached_addresses(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> list[ipaddress._BaseAddress]:
-    """The address itself plus the IPv4 address an IPv6 transition form actually reaches."""
+    # IPv6 transition forms are checked by the IPv4 address they actually reach.
     addresses: list[ipaddress._BaseAddress] = [ip]
     if ip.version == 6:
         embedded = ip.ipv4_mapped or ip.sixtofour
@@ -120,8 +93,8 @@ ADDRESS_CLASS_PRIVATE = "private"
 ADDRESS_CLASS_PUBLIC = "public"
 
 
-def classify_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
-    """``pod_local`` (never a target), ``private`` (the private network) or ``public``."""
+def classify_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> AddressClass:
+    # ``pod_local`` is never a target.
 
     def _in(networks: tuple) -> bool:
         return any(
@@ -138,11 +111,10 @@ def classify_address(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
 
 
 def is_blocked_hostname(hostname: str) -> bool:
-    """A name that always means the pod itself or a metadata service."""
     return _is_blocked_hostname(str(hostname or "").strip().lower().rstrip("."))
 
 
-def _refusal_for(ip: ipaddress._BaseAddress, scope: str, private_admitted: bool) -> str | None:
+def _refusal_for(ip: ipaddress._BaseAddress, scope: EgressScope, private_admitted: bool) -> str | None:
     address_class = classify_address(ip)
     if address_class == ADDRESS_CLASS_POD_LOCAL:
         return REASON_BLOCKED_ADDRESS
@@ -167,8 +139,6 @@ async def _resolve_hostname_ips(hostname: str, port: int | None) -> set[ipaddres
 
 @dataclass(frozen=True)
 class CheckedTarget:
-    """A target the policy admitted, with every address it was checked against."""
-
     hostname: str
     port: int
     addresses: tuple[str, ...]
@@ -185,11 +155,8 @@ async def check_outbound_target(
     allow_hosts: frozenset[str] = frozenset(),
     private_hosts: frozenset[str] = frozenset(),
 ) -> CheckedTarget:
-    """Resolve ``url`` once and return the admitted addresses, else raise :class:`OutboundURLPolicyError`.
-
-    Every resolved address must pass; one refused address refuses the target, so a caller that
-    connects to any of the returned addresses reaches only checked ones.
-    """
+    # Transports must connect to the returned addresses: a second DNS lookup could substitute unchecked ones. Outside
+    # ``allow_hosts``, every address passes the filter, and one refused address refuses the whole target.
     if scope not in _SCOPES:
         raise OutboundURLPolicyError("Unknown outbound URL policy scope", reason=REASON_BLOCKED_HOST)
     hostname, port = _normalized_target(url)
@@ -229,11 +196,10 @@ async def _resolved_or_refused(hostname: str, port: int) -> set[ipaddress._BaseA
 async def validate_outbound_url(
     url: str,
     *,
-    scope: str = EGRESS_SCOPE_PUBLIC_ONLY,
+    scope: EgressScope = EGRESS_SCOPE_PUBLIC_ONLY,
     allow_hosts: frozenset[str] = frozenset(),
     private_hosts: frozenset[str] = frozenset(),
 ) -> str:
-    """Return ``url`` when the policy admits it, else raise :class:`OutboundURLPolicyError`."""
     await check_outbound_target(url, scope=scope, allow_hosts=allow_hosts, private_hosts=private_hosts)
     return url
 

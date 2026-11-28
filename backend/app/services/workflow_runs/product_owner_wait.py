@@ -1,23 +1,4 @@
-"""A confirmation the platform prepares but never gives: ``config.auto_accept: "product_owner"``.
-
-Wait for the product owner in the Studio by default; ``auto_accept=review_passed`` only as an
-explicit opt-in (benchmarks/unattended runs). While waiting, the product owner is notified and the run is visible as
-"waiting for spec approval".
-
-The node revises like ``review_passed`` (the review's findings and the Spec Studio's open points go back to the agent
-within ``auto_revise``), but where ``review_passed`` would confirm, the run waits for the product owner:
-
-- ``waiting.reason`` is ``spec_approval`` when the run has a Spec Studio (``product_owner_approval`` otherwise), so the
-  run card, the run lists and the Inbox say what it waits for;
-- the person responsible for the run (else the person who started it) gets one notification with the Studio's
-  address, once per wait;
-- event ``waiting_for_product_owner`` with why the platform would have accepted (or why it stopped revising).
-
-A benchmark or an unattended run opts into ``review_passed``: on the node (its workflow copy in the designer), or for
-a whole Workspace with the setting ``spec_approval: "review_passed"`` (``PUT /api/v1/projects/{id}/config``, audited
-like every Workspace setting). A Workspace copy of the workflow needs a second admin to publish (four-eyes); the
-setting does not, and the workflow stays the shipped one.
-"""
+"""A confirmation the platform prepares but never gives: ``config.auto_accept: "product_owner"``."""
 
 from __future__ import annotations
 
@@ -40,7 +21,6 @@ WORKSPACE_OPT_IN = "Workspace setting spec_approval: review_passed"
 
 
 def normalize_spec_approval(value: Any) -> str:
-    """The Workspace setting's value (the project-config owner hook); ``ValueError`` for anything else."""
     found = str(value or "").strip()
     if found not in SPEC_APPROVAL_VALUES:
         raise ValueError(f"spec_approval: one of {', '.join(SPEC_APPROVAL_VALUES)}")
@@ -48,7 +28,6 @@ def normalize_spec_approval(value: Any) -> str:
 
 
 async def workspace_accepts_review(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Whether the run's Workspace opted out of the product owner wait (benchmarks, unattended runs)."""
     if not run.project_id:
         return False
     from ...models import Project
@@ -59,7 +38,6 @@ async def workspace_accepts_review(db: AsyncSession, run: WorkflowRun) -> bool:
 
 
 def studio_address(run_id: str) -> str:
-    """The Spec Studio of a run in the web client (``frontend/chat/src/chat/specStudio/specStudioAddress.ts``)."""
     return f"/chat?area=work&work_view=spec_studio&run_id={run_id}"
 
 
@@ -81,7 +59,6 @@ def _text(run: WorkflowRun, studio: bool, why: str) -> tuple[str, str]:
 
 
 async def wait_for_product_owner(db: AsyncSession, run: WorkflowRun, node: Any, *, why: str = "") -> bool:
-    """Mark the wait and tell the product owner, once per wait. Always ``False``: the run does not move."""
     state = dict(run.node_state or {})
     waiting = dict(state.get("waiting") or {})
     if waiting.get("product_owner_notified"):

@@ -1,13 +1,5 @@
-"""``@octryx fix [claude|codex] [note]`` and ``@octryx write tests [claude|codex] [note]``: which findings,
-whether the run may start, and the start in the background (``fix.start_fix``).
-
-- in a finding's thread: that finding (of the pull request's last posted pass); in the conversation: every open
-  blocking finding of that pass (``write tests`` needs none);
-- refused with one answer when the workflow is switched off (``fix.switched_off``), ``fix.refusal`` names a reason
-  or a ``fix`` has nothing to fix;
-- the engine is the person's default (choosing one per command is not offered yet); a named other
-  engine is answered with that note.
-"""
+"""``@octryx fix [claude|codex] [note]`` and ``@octryx write tests [claude|codex] [note]``: which findings, whether the
+run may start, and the start in the background (``fix.start_fix``)."""
 
 from __future__ import annotations
 

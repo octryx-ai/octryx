@@ -32,7 +32,6 @@ async def resolve_create_fields(
     fields: dict[str, Any],
     cloud: bool,
 ) -> tuple[dict[str, Any] | None, str]:
-    """Swap asked names for what the project has: ``(refusal, resolved issue type)``; ``fields`` is updated."""
     project_key = ticket.project_key
     resolved_issue_type = await _jira_resolve_issue_type_name(
         client,
@@ -80,7 +79,6 @@ async def _resolve_priority_and_versions(
     priority: str,
     fix_versions: list[Any] | None,
 ) -> None:
-    """Priority by its Jira name, fix versions as version references; ``None`` versions are left alone."""
     if priority:
         resolved_priority = await _jira_resolve_priority_name(
             client,
@@ -126,7 +124,6 @@ async def resolve_update_fields(
     ticket_id: str,
     cloud: bool,
 ) -> dict[str, Any] | None:
-    """Swap asked names in ``fields`` for what the ticket's project has; a refusal when an assignee is unknown."""
     ticket_project_key = str(ticket_id).split("-", 1)[0].upper()
     if params.get("assignee") is not None:
         error = await _resolve_update_assignee(
@@ -162,7 +159,6 @@ async def _resolve_update_assignee(
     assignee_value: str,
     cloud: bool,
 ) -> dict[str, Any] | None:
-    """The new assignee as an account (Cloud) or user name; an empty value unassigns."""
     if assignee_value and cloud:
         account_id = await _jira_resolve_cloud_assignee(
             client,

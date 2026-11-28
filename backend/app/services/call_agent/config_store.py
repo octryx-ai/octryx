@@ -13,12 +13,7 @@ async def get_call_agent_config(
     project_id: str,
     channel_id: str | None = None,
 ) -> CallAgentConfigModel | None:
-    """
-    Get CallAgentConfig for a project/channel.
-
-    If channel_id is provided, looks for channel-specific config first,
-    then falls back to project-level config.
-    """
+    """Get CallAgentConfig for a project/channel."""
     # Try channel-specific first
     if channel_id:
         result = await db.execute(

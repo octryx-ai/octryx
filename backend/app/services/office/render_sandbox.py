@@ -1,22 +1,4 @@
-"""One LibreOffice conversion, hardened: no network, minimal environment, locked-down profile, bounded.
-
-Stdlib only and no ``app.*`` import: the render sidecar (``render_server.py``) runs this module in a
-container without network, and the API runs it locally only behind a no-network wrapper.
-
-Defences, each independent of the others:
-
-* **No network.** A conversion runs either where the process has no network interface at all (the render
-  sidecar, ``network_mode: none``; verified by :func:`only_loopback`) or wrapped by a no-network sandbox
-  (Linux ``unshare --net`` in a fresh user namespace, macOS ``sandbox-exec`` denying IP traffic). Where
-  neither exists, :func:`isolation_prefix` is ``None`` and there is no render (``office_preview_unavailable``).
-* **No API environment.** The child sees ``PATH``, ``HOME``, ``LANG`` and ``TMPDIR`` only (:func:`minimal_env`).
-* **Locked-down profile.** Every call gets a fresh LibreOffice profile whose ``registrymodifications.xcu``
-  (:func:`profile_xcu`) disables macros at the highest security level, disables active content (OLE, DDE),
-  sets link updates to never for Writer and Calc and blocks untrusted referer links.
-* **Bounded.** OOXML only, a size cap, two concurrent conversions with fast rejection, CPU/file-size/core
-  rlimits, a timeout, and the whole process group killed on timeout *and* cancellation (``soffice`` is a
-  launcher; ``soffice.bin`` must not outlive the call).
-"""
+"""One LibreOffice conversion, hardened: no network, minimal environment, locked-down profile, bounded."""
 
 from __future__ import annotations
 
@@ -75,7 +57,6 @@ def libreoffice_binary() -> str | None:
 
 
 def only_loopback(interfaces: list[str] | None = None) -> bool:
-    """True when the process sees no network interface but loopback (a ``network_mode: none`` container)."""
     names = interfaces if interfaces is not None else [name for _, name in socket.if_nameindex()]
     return all(name == "lo" or name.startswith("lo") and name[2:].isdigit() for name in names)
 
@@ -97,7 +78,6 @@ def _unshare_works() -> bool:
 
 
 def isolation_prefix() -> list[str] | None:
-    """The command prefix that takes the network away, ``[]`` where there is none to take, or ``None``."""
     if os.environ.get(SIDECAR_ENV) == SIDECAR_NETWORK_NONE:
         return [] if only_loopback() else None
     system = platform.system()
@@ -119,12 +99,6 @@ def _item(path: str, prop: str, value: str) -> str:
 
 
 def profile_xcu() -> str:
-    """The per-call ``registrymodifications.xcu``.
-
-    Link update values follow each module's own schema: Writer ``0`` always / ``1`` on request / ``2`` never;
-    Calc ``0`` always / ``1`` never / ``2`` on request. Impress has no link-update setting; its linked
-    content is covered by ``DisableActiveContent`` and the missing network.
-    """
     scripting = "/org.openoffice.Office.Common/Security/Scripting"
     items = [
         _item(scripting, "MacroSecurityLevel", "3"),
@@ -151,7 +125,6 @@ def write_profile(profile_dir: Path) -> Path:
 
 
 def minimal_env(home: Path) -> dict[str, str]:
-    """Nothing of the caller's environment but a fixed PATH: no secrets, proxies or credentials."""
     return {
         "PATH": "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
         "HOME": str(home),
@@ -169,7 +142,6 @@ def _limit_resources() -> None:  # pragma: no cover - runs in the child between 
 
 
 def kill_group(process: asyncio.subprocess.Process) -> None:
-    """SIGKILL the conversion's whole process group (launcher, oosplash and soffice.bin)."""
     try:
         os.killpg(process.pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
@@ -208,8 +180,6 @@ async def convert(
     prefix: list[str] | None | str = "auto",
     timeout_sec: float = RENDER_TIMEOUT_SEC,
 ) -> bytes:
-    """Convert one OOXML document; ``prefix`` is the no-network wrapper (``"auto"``: :func:`isolation_prefix`;
-    ``None``: there is none, refuse)."""
     check_request(suffix, len(data), fmt)
     wrapper = isolation_prefix() if prefix == "auto" else prefix
     soffice = binary or libreoffice_binary()

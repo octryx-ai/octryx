@@ -1,12 +1,4 @@
-"""Speaker Diarization & Identification Service.
-
-Uses pyannote.audio for:
-1. Speaker diarization (who spoke when)
-2. Speaker embedding extraction (voice fingerprint)
-3. Speaker identification (match against enrolled profiles)
-
-Speaker profiles are stored per-project in the database.
-"""
+"""Speaker Diarization & Identification Service."""
 
 from __future__ import annotations
 
@@ -44,13 +36,11 @@ _HF_TOKEN: str | None = os.environ.get("HF_TOKEN")
 
 
 def set_hf_token(token: str) -> None:
-    """Set the HuggingFace token for pyannote model access."""
     global _HF_TOKEN
     _HF_TOKEN = token
 
 
 def _get_diarization_pipeline():
-    """Lazy-load the pyannote diarization pipeline."""
     if np is None or torch is None:
         raise RuntimeError(
             "numpy and torch are required for speaker diarization. Install with: pip install octryx[speaker]"
@@ -71,7 +61,6 @@ def _get_diarization_pipeline():
 
 
 def _get_embedding_model():
-    """Lazy-load the speaker embedding model."""
     if np is None or torch is None:
         raise RuntimeError(
             "numpy and torch are required for speaker embedding. Install with: pip install octryx[speaker]"
@@ -92,8 +81,6 @@ def _get_embedding_model():
 
 @dataclass
 class SpeakerSegment:
-    """A segment with speaker identification."""
-
     start_sec: float
     end_sec: float
     speaker_label: str  # "SPEAKER_00", "SPEAKER_01" or enrolled name
@@ -103,8 +90,6 @@ class SpeakerSegment:
 
 @dataclass
 class DiarizationResult:
-    """Result of speaker diarization on an audio segment."""
-
     segments: list[SpeakerSegment] = field(default_factory=list)
     num_speakers: int = 0
     embeddings: dict[str, np.ndarray] = field(default_factory=dict)  # label -> embedding
@@ -112,8 +97,6 @@ class DiarizationResult:
 
 @dataclass
 class SpeakerProfile:
-    """Enrolled speaker profile with voice embedding."""
-
     name: str
     embedding: np.ndarray  # 256-dim vector
     project_id: str
@@ -128,7 +111,6 @@ _PROFILES_FILE = Path(__file__).resolve().parent.parent.parent.parent / "data" /
 
 
 def _persist_profiles() -> None:
-    """Save all speaker profiles to a JSON file for persistence across restarts."""
     import json
 
     try:
@@ -151,7 +133,6 @@ def _persist_profiles() -> None:
 
 
 def _load_profiles() -> None:
-    """Load speaker profiles from JSON file on startup."""
     import json
 
     global _speaker_profiles
@@ -180,16 +161,6 @@ _load_profiles()
 
 
 def enroll_speaker(name: str, audio_bytes: bytes, project_id: str) -> SpeakerProfile:
-    """Enroll a speaker by extracting their voice embedding from audio.
-
-    Args:
-        name: The speaker's name (e.g., "Alice", "Bob")
-        audio_bytes: WAV audio of the speaker talking (~10s recommended)
-        project_id: Project this speaker belongs to
-
-    Returns:
-        SpeakerProfile with extracted embedding
-    """
     embedding_model = _get_embedding_model()
 
     # Convert bytes to the format pyannote expects
@@ -230,7 +201,6 @@ def enroll_speaker(name: str, audio_bytes: bytes, project_id: str) -> SpeakerPro
 
 
 def get_enrolled_speakers(project_id: str) -> list[SpeakerProfile]:
-    """Get all enrolled speakers for a project."""
     return _speaker_profiles.get(project_id, [])
 
 
@@ -239,16 +209,6 @@ def identify_speaker(
     project_id: str,
     threshold: float = 0.55,
 ) -> str | None:
-    """Match a speaker embedding against enrolled profiles.
-
-    Args:
-        embedding: The voice embedding to identify
-        project_id: Project to search profiles in
-        threshold: Cosine similarity threshold (0.55 = fairly confident)
-
-    Returns:
-        Speaker name if match found, None otherwise
-    """
     profiles = _speaker_profiles.get(project_id, [])
     if not profiles:
         return None
@@ -272,16 +232,6 @@ async def diarize_audio(
     project_id: str | None = None,
     num_speakers: int | None = None,
 ) -> DiarizationResult:
-    """Run speaker diarization on audio.
-
-    Args:
-        audio_bytes: WAV audio bytes
-        project_id: If provided, attempts to match speakers to enrolled profiles
-        num_speakers: If known, helps diarization accuracy
-
-    Returns:
-        DiarizationResult with speaker segments and embeddings
-    """
     import asyncio
 
     # Run in thread pool since pyannote is CPU-intensive
@@ -294,7 +244,6 @@ def _diarize_sync(
     project_id: str | None = None,
     num_speakers: int | None = None,
 ) -> DiarizationResult:
-    """Synchronous diarization (runs in thread pool)."""
     pipeline = _get_diarization_pipeline()
     embedding_model = _get_embedding_model()
 
@@ -397,7 +346,6 @@ def _diarize_sync(
 
 
 def _load_audio(audio_bytes: bytes) -> tuple[torch.Tensor, int]:
-    """Load WAV bytes into a torch tensor."""
     buf = io.BytesIO(audio_bytes)
     with wave.open(buf, "rb") as wf:
         sample_rate = wf.getframerate()
@@ -417,7 +365,6 @@ def _load_audio(audio_bytes: bytes) -> tuple[torch.Tensor, int]:
 
 
 def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-    """Compute cosine similarity between two embeddings."""
     norm_a = np.linalg.norm(a)
     norm_b = np.linalg.norm(b)
     if norm_a == 0 or norm_b == 0:

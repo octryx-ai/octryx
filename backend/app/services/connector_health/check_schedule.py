@@ -1,10 +1,4 @@
-"""When a connection is due for its next background check (automation V1).
-
-The worker wakes up every minute but checks a connection only when it is due: every 5 minutes
-while it works, and with exponential backoff while it fails (10, 20, 40 minutes, at most one
-hour), so a broken connection is not hammered once a minute and its log stays readable.
-``no_test`` counts as working: a connector without a test is never "failing".
-"""
+"""When a connection is due for its next background check (automation V1)."""
 
 from __future__ import annotations
 
@@ -22,7 +16,6 @@ _FAILURE_LOOKBACK = 6
 
 
 def next_check_delay_seconds(consecutive_failures: int) -> int:
-    """5 min while working; doubled per consecutive failure, capped at one hour."""
     failures = max(0, int(consecutive_failures))
     return min(HEALTH_CHECK_MAX_SECONDS, HEALTH_CHECK_BASE_SECONDS * (2 ** min(failures, 8)))
 
@@ -35,7 +28,6 @@ def is_check_due(last_checked: datetime | None, consecutive_failures: int, now: 
 
 
 async def consecutive_failures(db: AsyncSession, connector_name: str, project_id: str | None = None) -> int:
-    """How many of the latest checks failed in a row (bounded lookback)."""
     statuses = (
         await db.execute(
             select(ConnectorHealthLog.status)
@@ -69,7 +61,6 @@ async def check_due(
 
 
 def next_check_at(last_checked: datetime | None, consecutive_failures_count: int) -> datetime | None:
-    """The time of the next check, for display; ``None`` when it runs on the next tick."""
     if last_checked is None:
         return None
     return ensure_utc(last_checked) + timedelta(seconds=next_check_delay_seconds(consecutive_failures_count))

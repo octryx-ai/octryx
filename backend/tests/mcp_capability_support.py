@@ -1,13 +1,4 @@
-"""Shared fixtures for the mirrored MCP capability governance suites.
-
-The governance contract is tested from four angles — mirror writes
-(``test_mcp_capability_mirror``), dispatch and discovery decisions
-(``test_mcp_capability_dispatch``), approval identity
-(``test_mcp_capability_approval``), and admin edits
-(``test_mcp_capability_admin_write``) — and they all need the same workspace,
-session, fake MCP client, and mirror helpers. They live here so each suite
-carries only its own assertions.
-"""
+"""Shared fixtures for the mirrored MCP capability governance suites (mirror, dispatch, approval, admin write)."""
 
 from __future__ import annotations
 
@@ -21,7 +12,7 @@ from app.models import McpServerRegistration, Project, User, WorkspaceCapability
 from app.models import Session as AgentSession
 from app.plugins.mcp.models import MCPTool
 from app.services.mcp_capability_catalog import mirror_mcp_server_capabilities
-from app.services.mcp_capability_policy import mcp_capability_binding_key
+from app.services.mcp_governance.capability_policy import mcp_capability_binding_key
 from app.tools.context import ToolContext
 
 SERVER = "demo"
@@ -51,8 +42,6 @@ __all__ = [
 
 
 class RecordingMcpManager:
-    """Fake MCP client that records every remote dispatch attempt."""
-
     def __init__(self, tools: list[MCPTool] | None = None) -> None:
         self._tools = list(tools or [])
         self.calls: list[tuple[str, str, dict]] = []
@@ -91,7 +80,6 @@ class RecordingMcpManager:
 
 
 def install_mcp_manager(monkeypatch, manager: RecordingMcpManager) -> RecordingMcpManager:
-    """Point every lazy ``mcp_client_manager`` import at the recording fake."""
     monkeypatch.setattr("app.plugins.mcp.client.mcp_client_manager", manager)
     return manager
 
@@ -112,14 +100,11 @@ def mcp_tool(name: str, description: str = "", properties: dict | None = None) -
 
 @dataclass(frozen=True, slots=True)
 class McpWorkspace:
-    """One workspace plus the session identity its tool contexts run under."""
-
     project: Project
     user: User
     session: AgentSession
 
     def context(self, db, *, approval_policy: dict | None = None) -> ToolContext:
-        """A chat-turn context: the active project comes from ``project_config``."""
         project_config: dict[str, Any] = {
             "project_id": self.project.id,
             "mcp_policy": {"enabled_servers": [SERVER]},
@@ -136,13 +121,6 @@ class McpWorkspace:
         )
 
     def flow_context(self, db) -> ToolContext:
-        """A ToolContext exactly as the flow/DAG and flow-evidence owners build it.
-
-        ``services/flow_orchestration/dag/tool_node.py`` and
-        ``services/flow_orchestration/flow_evidence.py`` pass the caller's single
-        project through ``project_ids`` and hand the raw project config through,
-        which carries ``mcp_policy`` but no ``project_id``.
-        """
         return ToolContext(
             user_id=self.user.id,
             project_ids=[self.project.id],
@@ -153,7 +131,6 @@ class McpWorkspace:
         )
 
     def unverifiable_context(self, db, *, project_ids: list[str]) -> ToolContext:
-        """A context with no project id, or several competing ones."""
         return ToolContext(
             user_id=self.user.id,
             project_ids=project_ids,
@@ -188,7 +165,6 @@ async def mirror_tools(
     *,
     server_name: str = SERVER,
 ) -> dict[str, Any]:
-    """Mirror tool names (or ready-made ``MCPTool`` objects) for one workspace."""
     await register_mcp_server(db, workspace, server_name=server_name)
     return await mirror_mcp_server_capabilities(
         db,
@@ -199,7 +175,6 @@ async def mirror_tools(
 
 
 async def register_mcp_server(db, workspace: McpWorkspace, *, server_name: str = SERVER) -> McpServerRegistration:
-    """Persist the active registry prerequisite without creating mirror history."""
     existing = (
         await db.execute(
             select(McpServerRegistration).where(

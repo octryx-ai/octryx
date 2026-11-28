@@ -1,18 +1,4 @@
-"""Explicit rollback ownership for entity types that have a dedicated revision API.
-
-The generic ``EntityVersion`` path keeps recording audit snapshots for every
-supported entity type, and listing those snapshots stays unchanged. *Restoring*
-one of them is a different thing: it is a governed write onto a live aggregate.
-Where an aggregate owns a fail-closed revision boundary, that boundary is the
-only writer allowed to perform the restore — the generic path would otherwise
-reapply a raw snapshot with no validation, no Workspace authorization of the
-target scope, and no revision lineage.
-
-This is an explicit, service-owned state rather than a string check in the
-route: the transport calls one assertion, the assertion consults
-``ROLLBACK_DELEGATIONS``, and the caller receives a stable machine-readable
-conflict naming the API that does own the restore.
-"""
+"""Explicit rollback ownership for entity types that have a dedicated revision API."""
 
 from __future__ import annotations
 
@@ -63,12 +49,7 @@ def rollback_delegation_for(entity_type: str) -> RollbackDelegation | None:
 
 
 def assert_rollback_not_delegated(entity_type: str) -> None:
-    """Raise the stable conflict when *entity_type* is restored elsewhere.
-
-    Called before the generic path reads a version row or touches a live row, so
-    a delegated entity type can never be mutated here and the answer does not
-    depend on whether the requested version happens to exist.
-    """
+    """Raise the stable conflict when *entity_type* is restored elsewhere."""
     delegation = rollback_delegation_for(entity_type)
     if delegation is None:
         return

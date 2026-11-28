@@ -1,7 +1,4 @@
-"""One question round per epic, a design system, and a reviewer that sees the screens.
-
-Without them, a product owner answers dozens of questions over the spec and the story rounds, and a text-only
-reviewer passes stories while screens are missing from the navigation."""
+"""One question round per epic, a design system, and a reviewer that sees the screens."""
 
 from __future__ import annotations
 
@@ -18,6 +15,9 @@ from app.services.workflow_runs.review import screens
 from app.services.workflow_runs.review.model import user_content
 from app.services.workflow_runs.review.reviewer_agent import ReviewerSetup, order_review_runtimes
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
 
@@ -37,7 +37,7 @@ def test_the_review_nodes_model_goes_first_also_when_the_author_used_it():
                           author_model="claude-haiku-5-5")
     assert order_review_runtimes([gemma, haiku], setup) == ([gemma, haiku], False)
     assert order_review_runtimes([gemma, haiku], setup, model="claude-haiku-5-5") == ([haiku, gemma], True)
-    assert order_review_runtimes([gemma], setup, model="claude-haiku-5-5") == ([gemma], False)  # not admitted
+    assert order_review_runtimes([gemma], setup, model="claude-haiku-5-5") == ([gemma], False)
 
 
 def test_screenshots_are_kept_per_pass_outside_the_tree_and_shown_with_their_names(tmp_path):
@@ -149,7 +149,6 @@ async def test_review_findings_go_back_to_the_agent_twice_before_the_product_own
 
 @pytest.mark.asyncio
 async def test_the_chosen_review_model_rides_on_a_provider_the_workspace_routes_to(db):
-    """config.model reaches the review even when only another model's runtime target is active."""
     import uuid
 
     from app.models import LLMModel, LLMProvider
@@ -166,11 +165,10 @@ async def test_the_chosen_review_model_rides_on_a_provider_the_workspace_routes_
     [haiku] = await _chosen_model_runtimes(db, [gemma], "claude-haiku-5-5")
     assert (haiku["model"], haiku["base_url"], haiku["supports_vision"], haiku["use_case_tags"]) == (
         "claude-haiku-5-5", "x", True, [])
-    assert await _chosen_model_runtimes(db, [gemma], "claude-opus-5-5") == []  # not active in the catalog
+    assert await _chosen_model_runtimes(db, [gemma], "claude-opus-5-5") == []
 
 
 def test_a_long_review_stays_a_verdict_and_nothing_in_it_is_cut():
-    """No artificial limits: a story of 32 tasks may well have more than 30 findings."""
     from app.services.workflow_runs.review.model import answer_tokens
     from app.services.workflow_runs.review.verdict import parse_verdict
 
@@ -184,7 +182,6 @@ def test_a_long_review_stays_a_verdict_and_nothing_in_it_is_cut():
 
 @pytest.mark.asyncio
 async def test_more_screenshots_than_a_request_takes_are_looked_at_in_batches():
-    """32 screenshots, Claude on Bedrock takes 20 per request; nothing is dropped."""
     from app.services.workflow_runs.review.model import ReviewAnswer, ReviewUsage
     from app.services.workflow_runs.review.reading import IMAGES_PER_REQUEST, _answer_with_screens
 
@@ -211,7 +208,7 @@ async def test_more_screenshots_than_a_request_takes_are_looked_at_in_batches():
     assert answered.answer["verdict"] == "pass" and answered.usage.tokens_in == 25
     calls.clear()
     await _answer_with_screens(Model(), "sys", "task", shots[:5], "lean task")
-    assert [len(names) for _s, _u, names in calls] == [5, 0]  # notes first, then the text-only verdict
+    assert [len(names) for _s, _u, names in calls] == [5, 0]
 
 
 def test_the_screens_task_carries_the_specs_ui_and_design_sections_whole(tmp_path):
@@ -229,7 +226,6 @@ def test_the_screens_task_carries_the_specs_ui_and_design_sections_whole(tmp_pat
 @pytest.mark.asyncio
 @pytest.mark.parametrize("severity, accepted", [("medium", True), ("high", False)])
 async def test_a_spec_revised_twice_without_a_high_finding_is_accepted(db, tmp_path, severity, accepted):
-    """A spec review can find dozens of new precision points; the stories decide them."""
     from app.services.workflow_runs.review.runner import run_due_reviews
     from tests.test_ticket_delivery import _definition as delivery
     from tests.test_workflow_run_pause import _turn
@@ -256,7 +252,6 @@ async def test_a_spec_revised_twice_without_a_high_finding_is_accepted(db, tmp_p
         await db.refresh(run)
     assert (run.status == "completed") is accepted
     assert (run.node_state.get("waiting", {}).get("subject") == "decisions") is not accepted
-
 
 
 def test_a_product_owners_answer_starts_a_new_round_of_automatic_revisions():

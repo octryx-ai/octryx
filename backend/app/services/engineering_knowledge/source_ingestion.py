@@ -1,8 +1,4 @@
-"""Ingest one Engineering Knowledge source into the pack archive and its database row.
-
-Spec types, the acquisition plan, the source audit and the fetch/archive helpers live in the
-``source_ingestion_*`` modules; this module keeps the ingest flow and the names other code imports.
-"""
+"""Ingest one Engineering Knowledge source into the pack archive and its database row."""
 
 from __future__ import annotations
 
@@ -40,8 +36,6 @@ DEFAULT_MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 
 @dataclass(slots=True)
 class _ArchivedSource:
-    """What archiving the payload produced; the metadata-only defaults apply when nothing was fetched."""
-
     source_audit: EngineeringKnowledgeSourceAudit
     checksum: str | None = None
     raw_path: str | None = None
@@ -111,7 +105,6 @@ async def _acquire_payload(
     allow_network: bool,
     max_download_bytes: int,
 ) -> tuple[bytes | None, str, dict[str, str]]:
-    """Read the source bytes; ``None`` means an http source kept as metadata only (no network)."""
     parsed_uri = urlsplit(spec.source_uri)
     if parsed_uri.scheme in {"http", "https"}:
         if allow_network:

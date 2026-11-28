@@ -1,9 +1,4 @@
-"""``memory_recall``: what earlier sessions of this Workspace remember, never as source evidence.
-
-Returns the user's own personal memories and the Workspace's memories, each with its state, author
-class and session provenance. The answer is marked ``kind: memory`` and ``not_source_evidence``; it has
-no ``source_url`` and no ``cite_as``, so a memory cannot be copied into an answer as a citation.
-"""
+"""``memory_recall``: what earlier sessions of this Workspace remember, never as source evidence."""
 
 from __future__ import annotations
 

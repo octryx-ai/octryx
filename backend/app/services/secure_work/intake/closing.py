@@ -1,9 +1,5 @@
-"""Closing work items because their record closed at the source, for every pipeline source.
-
-One owner, so a Custom REST intake closes items exactly like the ServiceNow one: a state event with the source as its
-``source`` (``_locally_transitioned`` tells such an event from a person's transition), ``sync_state``
-``closed_at_source``, and the record's status kept as ``source_status``.
-"""
+"""Closing work items because their record closed at the source, for every pipeline source. One owner, so every source
+closes items the same way: a state event, ``closed_at_source`` and the record's status as ``source_status``."""
 
 from __future__ import annotations
 
@@ -19,8 +15,6 @@ LOOKUP_CHUNK = 500
 
 async def close_item(db: AsyncSession, item: WorkItem, user: User, reason: str, status: str | None = None, *,
                      source_type: str) -> bool:
-    """Move ``item`` to ``done`` with a state event (``False`` when it already is); ``status`` is the record's
-    state at the source, kept as ``source_status`` either way."""
     if status:
         item.source_status = status[:120]
     if item.work_state == "done":
@@ -33,8 +27,6 @@ async def close_item(db: AsyncSession, item: WorkItem, user: User, reason: str, 
 
 async def close_changed(db: AsyncSession, *, row: WorkItemSyncConfig, instance: str, changed: Changed,
                         seen: set[str], user: User, dry_run: bool, source_type: str, label: str) -> int:
-    """Close this intake's items (in its Workspace) whose record closed since the last sync and was not in the open
-    listing (``seen``); in a dry run, count them."""
     wanted = [source_id for source_id in changed.closed if source_id not in seen]
     closed = 0
     for start in range(0, len(wanted), LOOKUP_CHUNK):

@@ -1,6 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { AdminProvider, AdminToolCatalogEntry, AdminUser } from "../types/adminPanelTypes.usersProviders";
-import type { AdminScenarioProfile } from "../types/adminPanelTypes.governance";
 import type { AdminProjectQuality } from "../types/projectQualityTypes";
 import {
   DEFAULT_PAGINATION_LIMIT,
@@ -39,21 +38,16 @@ function normalizePaginatedPayload<T>(
 type LoadProvidersTabDataArgs = {
   readJson: ReadJsonFn;
   setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
-  loadLocalBootstrapState: () => Promise<void>;
-  loadSetupGuide: () => Promise<void>;
 };
 
 export async function loadProvidersTabData({
   readJson,
   setProviders,
-  loadLocalBootstrapState,
-  loadSetupGuide,
 }: LoadProvidersTabDataArgs) {
   const providerData = await readJson<AdminProvider[]>(
     "/admin/chat/api/panel/providers",
   );
   setProviders(providerData);
-  await Promise.all([loadLocalBootstrapState(), loadSetupGuide()]);
 }
 
 export async function loadUsersTabData(
@@ -82,15 +76,5 @@ export async function loadToolCatalogTabData(
     "/admin/chat/api/panel/tool-catalog",
   );
   setToolCatalog(data);
-}
-
-export async function loadScenariosTabData(
-  readJson: ReadJsonFn,
-  setScenarioProfiles: Dispatch<SetStateAction<AdminScenarioProfile[]>>,
-) {
-  const data = await readJson<AdminScenarioProfile[]>(
-    "/admin/chat/api/panel/scenarios",
-  );
-  setScenarioProfiles(data);
 }
 

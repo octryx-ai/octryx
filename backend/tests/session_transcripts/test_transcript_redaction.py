@@ -1,10 +1,4 @@
-"""The platform redacts transcripts itself, on storing and on reading, never relying on the launcher.
-
-An ``.env`` read with ``STRIPE_KEY=sk_live_…`` and the ``{"password": …}`` output of
-``aws secretsmanager get-secret-value`` must never reach the store unredacted. Both cases, and
-one case per rule of ``scripts/transcript_secrets.py``, are checked on the way in (``POST …/sessions/transcript``)
-and on the way out (a raw object planted in the store, then ``GET /session-transcripts/{id}``).
-"""
+"""The platform redacts transcripts itself, on storing and on reading, never relying on the launcher."""
 
 from __future__ import annotations
 

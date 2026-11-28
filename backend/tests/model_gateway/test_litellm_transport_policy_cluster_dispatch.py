@@ -29,7 +29,7 @@ from tests.model_gateway.litellm_transport_policy_support import (
     cluster_section,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
@@ -63,8 +63,6 @@ def test_the_cluster_internal_mode_needs_the_operator_attestation() -> None:
 
 
 def test_the_cluster_internal_mode_is_direct_only() -> None:
-    """The virtual key travels in clear, so no egress hop may carry it further."""
-
     for proxy in (
         {"mode": "governed_proxy", "url": PROXY_URL, "host_allowlist": [PROXY_HOST]},
         {"mode": "governed_proxy", "url": f"http://{PROXY_HOST}:3128", "host_allowlist": [PROXY_HOST]},
@@ -86,8 +84,6 @@ def test_the_cluster_internal_mode_is_direct_only() -> None:
 
 
 def test_a_hand_built_cluster_internal_policy_with_a_proxy_builds_no_client() -> None:
-    """Structural backstop behind ``_resolve_proxy`` in ``httpx_client_kwargs``."""
-
     policy = TransportPolicy(
         tls=TlsTrustPolicy(
             TLS_MODE_PLAINTEXT_CLUSTER_INTERNAL,

@@ -1,3 +1,18 @@
-/* Flow builder panels, editor bar, details, run dock toggle, operations, inspector column and empty state. */
-@import "./flowBuilderPanelSections.css";
-@import "./flowBuilderEditorLayout.css";
+/* The editor's canvas column and its side panel column. */
+.flow-builder__canvas-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  border-bottom: 0;
+  background: radial-gradient(circle at 20% 20%, rgba(125, 211, 252, 0.05), transparent 32%),
+    var(--panel-strong);
+}
+
+.flow-builder__layout--editor {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "main inspector";
+}
+
+.flow-builder__layout--editor .flow-builder__main {
+  grid-column: 1;
+}

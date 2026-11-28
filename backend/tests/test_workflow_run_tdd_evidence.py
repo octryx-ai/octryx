@@ -19,6 +19,9 @@ from app.services.workflow_runs.gateway_tests import record_gateway_tests
 from app.services.workflow_runs.records import new_chat_session, start_run
 from app.services.workflow_runs.test_runs import confirm_tests, gate_fields, snapshot_confirmed_tests
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PYTEST_RED = """tests/test_totals.py::test_rounds_half_up FAILED
 tests/test_totals.py::test_zero PASSED
@@ -121,20 +124,9 @@ async def _turn(db, session, output: str, *, green: bool) -> None:
 
 
 async def phase_turn_with_history(db, session_id, resolution, history):
-    from app.agent.loops.response._loop_workflow_checks import handle_workflow_checks_guard
-    from app.services.prompt_catalog import prompt_set_scope, seed_prompt_set
-    from app.services.workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
+    from tests.phase_turn_support import finish_phase_turn
 
-    async def persist_turn_trace(**_kwargs):
-        return None
-
-    with prompt_set_scope(seed_prompt_set()):
-        await handle_workflow_checks_guard(
-            db=db, session_id=session_id, runtime={"provider_name": "test"}, response={"usage": {}},
-            request_messages=[], messages=[], context_snapshot={}, runtime_attempts=[], runtime_settings={},
-            usage_model="m", content="Done.", tool_calls=None, has_followup_steps=False, sub_agent_depth=0,
-            request_analysis={ROUTING_RESOLUTION_KEY: resolution}, turn_tool_history=history,
-            persist_turn_trace=persist_turn_trace)
+    await finish_phase_turn(db, session_id, resolution, history)
 
 
 @pytest.mark.asyncio
@@ -157,7 +149,7 @@ async def test_a_phased_run_goes_red_then_green_on_the_confirmed_tests(db, tmp_p
     await _turn(db, session, PYTEST_RED, green=False)
     assert run.current_node_id == "impl" and gate_fields(run)["red_seen"] is True
 
-    # The forge (review finding 1): after red, the confirmed test is weakened; the suite turns "green".
+    # The forge: after red, the confirmed test is weakened; the suite turns "green".
     confirmed = test_file.read_text()
     test_file.write_text("def test_rounds_half_up():\n    assert True\n")
     await _turn(db, session, PYTEST_GREEN, green=True)
@@ -173,7 +165,6 @@ async def test_a_phased_run_goes_red_then_green_on_the_confirmed_tests(db, tmp_p
 
 @pytest.mark.asyncio
 async def test_tests_corrected_in_the_red_loop_are_the_ones_frozen_for_green(db, tmp_path):
-    """Live S3.2: the first red run pinned a file the Red loop then corrected; green could never pass."""
     admin = await admin_user(db)
     key = await publish_phased(db, _tdd_definition())
     workspace_id = await run_workspace(db, admin)
@@ -229,7 +220,6 @@ async def test_octryx_test_calls_of_a_bound_session_become_test_runs(db):
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

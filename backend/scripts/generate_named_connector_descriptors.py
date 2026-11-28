@@ -10,7 +10,7 @@ Usage (from the repository root or ``backend/``):
     backend/.venv/bin/python backend/scripts/generate_named_connector_descriptors.py          # write
     backend/.venv/bin/python backend/scripts/generate_named_connector_descriptors.py --check  # exit 1 on drift
 
-``tests/test_named_connections_descriptor_fixture.py`` runs the check in the backend suite.
+``tests/services/admin/test_named_connections_descriptor_fixture.py`` runs the check in the backend suite.
 """
 
 from __future__ import annotations

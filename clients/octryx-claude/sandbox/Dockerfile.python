@@ -1,8 +1,0 @@
-# syntax=docker/dockerfile:1
-# octryx-sandbox-python: sandbox-base + uv + pytest. uv honours UV_INDEX_URL, pip PIP_INDEX_URL.
-ARG BASE_IMAGE=octryx-sandbox-base
-FROM ${BASE_IMAGE}
-USER root
-RUN pip install --no-cache-dir "uv==0.5.11" "pytest==8.3.4"
-ENV UV_CACHE_DIR=/tmp/home/.cache/uv
-USER 10001

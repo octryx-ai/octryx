@@ -1,12 +1,4 @@
-"""What a transition apply leaves behind, applied or refused.
-
-- **Applied with a Jira write-back:** the item takes Jira's resulting status and the labels that were
-  really added right away, so the board and the detail show the truth before the next sync.
-- **Refused:** a refused UI apply (409: stale preview, deactivated workflow, Jira changed since the sync,
-  issue outside the allowlist, or a transition Jira does not offer) is recorded as a state event with
-  ``source: "transition_refused"`` and an audit row ``secure_work.transition_refused``. They are written in
-  their own commit, because the request rolls back. Nothing else is written: the item keeps its state.
-"""
+"""What a transition apply leaves behind, applied or refused."""
 
 from __future__ import annotations
 
@@ -24,7 +16,6 @@ MAX_DETAIL_CHARS = 1000
 
 
 def record_write_back(item: WorkItem, result: dict[str, Any] | None) -> None:
-    """Keep Jira's resulting status and the applied labels on the item."""
     if not isinstance(result, dict) or not result.get("executed"):
         return
     status = result.get("resulting_status")
@@ -54,7 +45,7 @@ async def record_refused_transition(
     reason: str | None,
     refusal: HTTPException,
 ) -> None:
-    """Record a refused apply as a timeline event and an audit row, in its own commit."""
+    # Committed on its own, so the record survives the refused apply.
     detail = _detail(refusal)
     db.add(WorkItemStateEvent(
         work_item_id=item.id,
@@ -73,9 +64,11 @@ async def record_refused_transition(
         action=AUDIT_REFUSED,
         resource_type="work_item",
         resource_id=item.id,
+        project_id=item.project_id,
         details={"source_key": item.source_key, "workflow_id": workflow.id, "from_state": item.work_state,
                  "to_state": to_state, "refusal_code": detail["code"]},
     ))
+    # Its own commit: the request rolls back
     await db.commit()
 
 

@@ -77,7 +77,7 @@
   color: var(--text);
   padding: 0 0.75rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -101,7 +101,7 @@
 .coding-audit-list dt {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -115,7 +115,7 @@
 .coding-audit-metric dd {
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .coding-audit__section {
@@ -166,7 +166,7 @@
 .coding-audit-gate span {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 

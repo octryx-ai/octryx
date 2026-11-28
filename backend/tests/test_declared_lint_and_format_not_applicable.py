@@ -14,8 +14,11 @@ from tests.declared_lint_and_format_only_support import (  # noqa: F401
     _started,
 )
 from tests.phased_workflow_fixtures import PHASE, admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.workflow_run_review_support import PASS, ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 # (c) not applicable is no failure ------------------------------------------------------------------------------------
 

@@ -1,20 +1,4 @@
-"""A phase's path rules join the workspace write decision.
-
-A phase may declare ``workflow_contract.path_rules.write``: the only paths its turns may change (e.g. a
-"tests first" phase writes test paths only). The coding agent's edit and patch tools already ask one
-decision for every write (``coding_policy_runtime.enforce_workspace_path_policy``); while the session
-follows a phased run whose current node is such a phase, a path outside the patterns is blocked there.
-
-``path_rules.protect_confirmed_tests: true`` (TDD fix / implement phases) blocks every write to a test file a person
-confirmed (``test_runs.snapshot_confirmed_tests``); such a phase changes only existing non-test, non-config files and
-creates new files only under its ``path_rules.create`` patterns (``protected_paths``, an allow-list). A write to a
-confirmed test file whose new content the tool states passes only when it is formatting only — the same Python
-syntax tree (``format_only``; e.g. a CI lint fix in the confirmed test file). git's own files and
-environments are never written in any phase.
-
-Shell tools (``bash``, CLI and validation commands) write paths no decision sees, so a phase with path rules may not
-offer them: refused at publish (``graph``) and denied in the phase's tool policy at runtime.
-"""
+"""A phase's path rules join the workspace write decision."""
 
 from __future__ import annotations
 
@@ -43,7 +27,6 @@ def phase_write_patterns(config: dict[str, Any]) -> list[str]:
 
 
 def phase_create_patterns(config: dict[str, Any]) -> list[str]:
-    """Where a phase that protects the confirmed tests may create new files (``path_rules.create``)."""
     return [str(item).strip() for item in _rules(config).get("create") or [] if str(item or "").strip()]
 
 
@@ -52,7 +35,6 @@ def protects_confirmed_tests(config: dict[str, Any]) -> bool:
 
 
 def writes_tests(config: dict[str, Any]) -> bool:
-    """Every test file but the confirmed ones stays writable under ``protect_confirmed_tests`` (a merged phase)."""
     return _rules(config).get(WRITE_TESTS) is True
 
 
@@ -72,11 +54,7 @@ def _outcome(run: Any, node: Any, path: str, reason: str) -> dict[str, Any]:
 async def _protected_writes(db: AsyncSession, session_id: str | None, run: Any, paths: list[str], *,
                             protect_tests: bool, create: list[str], tests_free: bool = False,
                             proposed: dict[str, str] | None = None) -> list[tuple[str, str]]:
-    """``(path, kind)`` of the paths (relative to the turn's tool root) the phase never lets change.
-
-    Each path is resolved (symlinks, ``..``) and taken relative to the working copy it is in — the run's own, a
-    slice's worktree (the child edits its own) or the session's workspace — then compared case-folded
-    (``protected_paths``)."""
+    # Resolved (symlinks, ..) against the working copy the path is in, then compared case-folded.
     from pathlib import Path
 
     from ...models import Session
@@ -95,7 +73,6 @@ async def _protected_writes(db: AsyncSession, session_id: str | None, run: Any, 
     session = await db.get(Session, session_id) if session_id else None
     if session is None:
         return []
-    # The root the turn's tools wrote relative to: the run's working copy on the server, else the session's folder.
     root = await phase_rules_root(db, session, run) or Path(
         str(await resolve_session_workspace_root(db, session))).resolve()
     context = dict(run.context or {})
@@ -147,7 +124,6 @@ def blocked_paths(paths: list[str], patterns: list[str]) -> list[str]:
 
 async def phase_path_outcomes(db: AsyncSession, session_id: str | None, paths: list[str], *,
                               proposed: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    """The phase's blocking outcomes for ``paths``; ``proposed`` maps a path to the content the write leaves."""
     run = await active_run_for_session(db, session_id)
     if run is None or run.workflow_kind != KIND_PHASED or run.status != STATUS_RUNNING:
         return []

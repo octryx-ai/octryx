@@ -1,9 +1,4 @@
-"""Proposed checks: a repeated correction becomes a check a person approves.
-
-``rules`` holds the four-eyes decision (pure); ``store`` keeps the proposals and ``stub`` serves
-fixtures instead while ``settings.check_proposals_stub`` is on. The signature store calls
-:func:`signature_updated` after it changed a signature, in the capture's transaction.
-"""
+"""Proposed checks: a repeated correction becomes a check a person approves."""
 
 from __future__ import annotations
 

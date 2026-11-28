@@ -4,9 +4,13 @@ import uuid
 
 from sqlalchemy import select
 
-from app.models import ControlPlaneRuntimeTarget, LLMProvider
-from app.models.runtime.provider_oauth_config import ProviderOAuthConfig
+from app.models import ControlPlaneRuntimeTarget
 from app.services.control_plane_service import upsert_runtime_target
+from app.services.model_gateway.litellm.readiness import READINESS_REASON_VIRTUAL_KEY_NOT_CONFIGURED
+from tests.model_gateway.conftest import ALIAS, gateway_provider
+
+#: The readiness reason of a gateway target without its virtual key.
+KEY_MISSING = READINESS_REASON_VIRTUAL_KEY_NOT_CONFIGURED
 
 
 async def _clear_runtime_targets(db):
@@ -15,23 +19,16 @@ async def _clear_runtime_targets(db):
     await db.flush()
 
 
-async def _bedrock_target(db, *, credentials_configured: bool, model_id: str = "anthropic.claude-sonnet-4-6"):
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="bedrock",
-        driver="bedrock_api",
-        display_name=f"Bedrock {uuid.uuid4().hex[:6]}",
-        auth_mode="aws_credentials",
-        aws_region="eu-central-1",
-        default_model_id=model_id,
-        is_global=True,
-        is_active=True,
-    )
+def restore_key(provider) -> None:
+    provider.api_key_secret_ref = str(uuid.uuid4())
+
+
+async def _gateway_target(db, *, credentials_configured: bool, model_id: str = ALIAS):
+    provider = gateway_provider(display_name=f"Gateway {uuid.uuid4().hex[:6]}", default_model_id=model_id,
+                                is_global=True,
+                                api_key_secret_ref=str(uuid.uuid4()) if credentials_configured else None)
     db.add(provider)
     await db.flush()
-    if credentials_configured:
-        db.add(ProviderOAuthConfig(provider_id=provider.id, aws_static_credentials_configured=True))
-        await db.flush()
     target = await upsert_runtime_target(db, provider=provider, model_id=model_id, make_primary=True, is_active=True)
     await db.commit()
     return provider, target

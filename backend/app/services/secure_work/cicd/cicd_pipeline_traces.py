@@ -95,6 +95,7 @@ async def record_work_item_cicd_pipeline_trace(
             action="secure_work.cicd_pipeline_trace_recorded",
             resource_type="secure_work_cicd",
             resource_id=trace.id,
+            project_id=item.project_id,
             details={
                 "work_item_id": item.id,
                 "provider_config_id": trace.provider_config_id,

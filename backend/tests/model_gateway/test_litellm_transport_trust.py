@@ -1,13 +1,4 @@
-"""Trust boundary of the governed transport.
-
-1. the bundle-validation cache is keyed by the bytes read, never by a ``stat`` taken before the read, so a
-   same-size CA rotation applied with ``cp -p``/``rsync -a``/``install -p`` (same size and mtime) takes effect and
-   the evidence attests the new bundle;
-2. the proxy's own TLS leg is governed: ``plaintext_loopback`` plus an ``https`` governed proxy is refused, never
-   ``verify=False``, so the ``CONNECT`` tunnel carrying the virtual key never opens to an unverified peer.
-
-Both are decided here, not in the fixture: no socket is opened by these tests.
-"""
+"""Trust boundary of the governed transport."""
 
 from __future__ import annotations
 
@@ -66,13 +57,6 @@ def subjects_of(context: ssl.SSLContext) -> list[str]:
 
 
 def write_same_size_bundle(path: Path, *, common_name: str, size: int) -> None:
-    """Rewrite ``path`` with a different CA padded to exactly ``size`` bytes.
-
-    Trailing newlines after ``END CERTIFICATE`` are ignored by the parser and
-    covered by the digest, which is what makes a byte-identical *length* possible
-    without weakening the test.
-    """
-
     scratch = path.parent / f".{path.name}.scratch"
     write_ca_bundle(scratch, common_name=common_name)
     material = scratch.read_bytes()
@@ -81,18 +65,7 @@ def write_same_size_bundle(path: Path, *, common_name: str, size: int) -> None:
     path.write_bytes(material + b"\n" * (size - len(material)))
 
 
-# --- Bundle-validation cache identity ---------------------------------------
-
-
 def test_a_same_size_same_mtime_rotation_is_revalidated_not_served_from_cache(tmp_path) -> None:
-    """The cache identity must describe the bytes that were actually read.
-
-    Reproduced before the fix: the identity came from a ``stat`` taken before the
-    read (path, mtime, size), so restoring the mtime of a same-size replacement
-    hit the cache and returned the retired anchor's count, digest and trust
-    store.
-    """
-
     bundle = tmp_path / "ca.pem"
     write_ca_bundle(bundle, common_name=GENUINE_CA)
     original_size = bundle.stat().st_size
@@ -119,8 +92,6 @@ def test_a_same_size_same_mtime_rotation_is_revalidated_not_served_from_cache(tm
 
 
 def test_an_unchanged_bundle_is_still_served_from_the_validation_cache(tmp_path) -> None:
-    """The identity may not be so strict that every resolution re-reads the file."""
-
     bundle = tmp_path / "ca.pem"
     write_ca_bundle(bundle, common_name=GENUINE_CA)
     tls = {"mode": "private_ca_bundle", "ca_bundle_path": str(bundle)}
@@ -134,12 +105,7 @@ def test_an_unchanged_bundle_is_still_served_from_the_validation_cache(tmp_path)
     assert first.tls.ssl_context() is second.tls.ssl_context()
 
 
-# --- The proxy's own TLS leg -------------------------------------------------
-
-
 def test_an_https_proxy_without_a_validated_trust_store_is_refused() -> None:
-    """``plaintext_loopback`` plus an https proxy never produces verify=False."""
-
     section = governed_proxy_section(
         HTTPS_PROXY_URL,
         host_allowlist=["127.0.0.1"],
@@ -191,8 +157,6 @@ def test_a_plaintext_proxy_hop_has_no_tls_leg_to_trust() -> None:
 
 
 def test_no_admitted_combination_ever_verifies_a_proxy_leg_with_verify_false(tmp_path) -> None:
-    """The invariant, swept over every admissible transport combination."""
-
     bundle = write_ca_bundle(tmp_path / "ca.pem", common_name=GENUINE_CA)
     combinations: list[tuple[str, dict[str, Any], Any]] = [
         (BASE_URL, public_bundle_tls(), None),
@@ -222,13 +186,6 @@ def test_no_admitted_combination_ever_verifies_a_proxy_leg_with_verify_false(tmp
 
 
 def test_a_hand_built_policy_cannot_tunnel_through_an_unverified_proxy() -> None:
-    """The structural backstop behind the admission rule.
-
-    ``resolve_transport_policy`` refuses the combination, so this constructs it
-    directly: the client arguments themselves must refuse rather than hand httpx
-    ``verify=False`` for a TLS proxy leg.
-    """
-
     policy = TransportPolicy(
         tls=TlsTrustPolicy(TLS_MODE_PLAINTEXT_LOOPBACK, "", 0, ""),
         proxy=GovernedProxy("governed_proxy", "https", PROXY_HOST, 3128, tls_trust_source=""),

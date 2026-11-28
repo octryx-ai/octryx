@@ -1,6 +1,5 @@
-"""The structural shell parser of the device's hard-deny list (``run_shell``), a copy of the server's
-``agent_gateway.command_match`` (stdlib only, no I/O): a command's segments, nested shells and substitutions
-included, and heredoc bodies that are data."""
+"""The structural shell parser of the device's hard-deny list, a copy of the server's
+``agent_gateway.command_match`` (stdlib only, no I/O)."""
 
 from __future__ import annotations
 
@@ -57,7 +56,6 @@ def _strip_heredoc_bodies(command: str, *, keep_shell_input: bool = False) -> st
 
 
 def without_data_heredocs(command: str) -> str:
-    """The command without the bodies of its heredocs that are data; a body a shell reads stays."""
     return _strip_heredoc_bodies(str(command or ""), keep_shell_input=True)
 
 
@@ -146,7 +144,6 @@ def _parse(command: str, depth: int) -> list[Segment] | None:
 
 
 def command_segments(command: str) -> list[Segment] | None:
-    """The normalized simple-command segments of a shell command, or ``None`` if unparseable."""
     text = str(command or "")
     if len(without_data_heredocs(text)) > MAX_COMMAND_CHARS:
         return None

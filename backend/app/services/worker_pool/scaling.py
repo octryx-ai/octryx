@@ -9,16 +9,10 @@ from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import selectinload
 
-from app.services.worker_pool.serialization import (
-    build_worker_deployment_manifest,
-    build_worker_hpa_manifest,
-    serialize_pool_config,
-)
 from app.services.worker_pool.state import get_or_create_worker_pool_config, record_capacity_snapshot
 
-from ...models import AgentWorker, Project, TaskQueueEntry, WorkerDomainExpertise
+from ...models import AgentWorker, Project, TaskQueueEntry
 from ...time_utils import ensure_utc, utc_now, utc_now_aware
 
 logger = logging.getLogger(__name__)
@@ -99,64 +93,6 @@ async def evaluate_pool_scaling(db: AsyncSession, *, project_id: str) -> dict[st
         "current_workers": int(config.current_workers or 0),
         "action": action,
         "reason": reason,
-    }
-
-
-async def build_project_worker_manifests(
-    db: AsyncSession, *, project_id: str, current_user, require_admin
-) -> dict[str, Any]:
-    await require_admin(db, current_user)
-    config = await get_or_create_worker_pool_config(db, project_id)
-    workers = (
-        (
-            await db.execute(
-                select(AgentWorker)
-                .options(selectinload(AgentWorker.runtime_state))
-                .where(AgentWorker.project_id == project_id, AgentWorker.is_active.is_(True))
-                .order_by(AgentWorker.created_at.asc())
-            )
-        )
-        .scalars()
-        .all()
-    )
-    expertise_rows = (
-        (
-            await db.execute(
-                select(WorkerDomainExpertise).where(
-                    WorkerDomainExpertise.worker_id.in_([worker.id for worker in workers] or [""])
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    expertise_by_worker: dict[str, list[str]] = {}
-    for row in expertise_rows:
-        expertise_by_worker.setdefault(row.worker_id, []).append(row.domain)
-    manifests = []
-    for worker in workers:
-        domains = sorted(set(expertise_by_worker.get(worker.id, []))) or ["any"]
-        max_parallel = int(worker.runtime_state.max_parallel_tasks if worker.runtime_state else 1)
-        manifests.append(
-            {
-                "worker_id": worker.id,
-                "deployment": build_worker_deployment_manifest(
-                    worker=worker,
-                    domains=domains,
-                    max_parallel_tasks=max_parallel,
-                ),
-                "hpa": build_worker_hpa_manifest(
-                    worker_id=worker.id,
-                    min_replicas=max(1, int(config.min_workers or 1)),
-                    max_replicas=max(1, int(config.max_workers or 1)),
-                    average_queue_depth=max(1, int(config.hpa_target_queue_depth or 5)),
-                ),
-            }
-        )
-    return {
-        "project_id": project_id,
-        "pool_config": serialize_pool_config(config),
-        "manifests": manifests,
     }
 
 

@@ -1,0 +1,83 @@
+{
+  "about": "One act, two engine shapes. The launcher tests (clients/octryx-claude/tests/test_engine_conformance.py) assert both shapes reach the platform as the same normalised request; the backend tests (backend/tests/conformance/test_engine_conformance.py) assert the platform decides them the same. Paths are relative to the run's working copy, written into cwd at test time. expect.reason is the platform's reason; expect.pause the run's pause reason after the call (null: not paused).",
+  "accepted_differences": {
+    "ask_is_deny_on_codex": "Codex hooks know only allow and deny; the launcher turns a platform 'ask' into a deny (codex_hook_input.without_ask).",
+    "updated_input_dropped_on_codex": "The platform's corrected input (updated_input) runs in Claude Code; Codex runs the call as written (hook_outputs._rewritten).",
+    "patch_split_per_file": "Codex apply_patch (tool or shell) becomes one Write/Edit per file with only file_path and codex_patch; Claude Code's Edit carries old/new strings. The platform decides on tool and path.",
+    "view_image_is_read": "Codex view_image is decided as a Read of the image path.",
+    "mcp_server_name": "Codex names the platform MCP server octryx_knowledge (no '-'); the launcher maps it to octryx-knowledge.",
+    "stop_deferred_on_codex": "Codex's Stop hook only saves its input; the driver replays it after the turn and reads the verdict itself (same /sessions/verification body, later).",
+    "approvals_via_app_server": "Codex's own approval requests (command, file change) go through the app-server to the person's chat decide, not to tool-check.",
+    "usage_source": "Claude Code usage comes from its transcript; Codex usage from app-server tokenUsage events.",
+    "exec_evidence": "A Codex code-mode exec is recorded from its inner calls (codex_exec_evidence).",
+    "fail_open_hook_guard": "Codex runs a call whose hook fails, so its guard lets a call run only on an explicit allow.",
+    "unknown_model_state": "Codex names an unknown model codex_error_modelNotFound; Claude Code has no named state for it (accepted, no new state)."
+  },
+  "scenarios": [
+    {
+      "id": "read_a_source_file",
+      "claude": {"tool_name": "Read", "tool_input": {"file_path": "src/app.py"}},
+      "codex": {"tool_name": "Bash", "tool_input": {"command": "cat src/app.py"}},
+      "same_request": false,
+      "expect": {"decision": "allow", "reason": "no_rule_matched", "pause": null}
+    },
+    {
+      "id": "write_a_planned_source_file",
+      "claude": {"tool_name": "Edit", "tool_input": {"file_path": "src/app.py", "old_string": "VALUE = 0", "new_string": "VALUE = 1"}},
+      "codex": {"tool_name": "apply_patch", "tool_input": {"command": "*** Begin Patch\n*** Update File: src/app.py\n@@\n-VALUE = 0\n+VALUE = 1\n*** End Patch"}},
+      "same_request": true,
+      "expect": {"decision": "allow", "reason": "no_rule_matched", "pause": null}
+    },
+    {
+      "id": "write_via_shell_patch",
+      "claude": {"tool_name": "Edit", "tool_input": {"file_path": "src/app.py", "old_string": "VALUE = 0", "new_string": "VALUE = 1"}},
+      "codex": {"tool_name": "Bash", "tool_input": {"command": "apply_patch <<'PATCH'\n*** Begin Patch\n*** Update File: src/app.py\n@@\n-VALUE = 0\n+VALUE = 1\n*** End Patch\nPATCH"}},
+      "same_request": true,
+      "expect": {"decision": "allow", "reason": "no_rule_matched", "pause": null}
+    },
+    {
+      "id": "migration_without_a_plan_needs_approval",
+      "claude": {"tool_name": "Write", "tool_input": {"file_path": "backend/alembic/versions/0002_add.py", "content": "x = 1\n"}},
+      "codex": {"tool_name": "apply_patch", "tool_input": {"command": "*** Begin Patch\n*** Add File: backend/alembic/versions/0002_add.py\n+x = 1\n*** End Patch"}},
+      "same_request": true,
+      "expect": {"decision": "deny", "reason": "needs_approval", "pause": "needs_approval"}
+    },
+    {
+      "id": "write_outside_the_approved_plan_needs_approval",
+      "setup": {"change_plan": {"parts": ["Docs"], "paths": ["src/**"]}},
+      "claude": {"tool_name": "Write", "tool_input": {"file_path": "docs/NOTES.md", "content": "x\n"}},
+      "codex": {"tool_name": "apply_patch", "tool_input": {"command": "*** Begin Patch\n*** Add File: docs/NOTES.md\n+x\n*** End Patch"}},
+      "same_request": true,
+      "expect": {"decision": "deny", "reason": "needs_approval", "pause": "needs_approval"}
+    },
+    {
+      "id": "git_internals_are_protected",
+      "claude": {"tool_name": "Write", "tool_input": {"file_path": ".git/config", "content": "x\n"}},
+      "codex": {"tool_name": "apply_patch", "tool_input": {"command": "*** Begin Patch\n*** Add File: .git/config\n+x\n*** End Patch"}},
+      "same_request": true,
+      "expect": {"decision": "deny", "reason": "protected_path", "pause": null}
+    },
+    {
+      "id": "platform_mcp_tool_name",
+      "claude": {"tool_name": "mcp__octryx-knowledge__knowledge_search", "tool_input": {"query": "totals"}},
+      "codex": {"tool_name": "mcp__octryx_knowledge__knowledge_search", "tool_input": {"query": "totals"}},
+      "same_request": true,
+      "expect": {"decision": "allow", "reason": "no_rule_matched", "pause": null}
+    },
+    {
+      "id": "unknown_mcp_tool_follows_the_setting",
+      "setup": {"tool_defaults": {"unknown_tools": "deny"}},
+      "claude": {"tool_name": "mcp__other__lookup", "tool_input": {"q": "x"}},
+      "codex": {"tool_name": "mcp__other__lookup", "tool_input": {"q": "x"}},
+      "same_request": true,
+      "expect": {"decision": "deny", "reason": "tool_not_classified", "pause": null}
+    },
+    {
+      "id": "an_image_is_read",
+      "claude": {"tool_name": "Read", "tool_input": {"file_path": "docs/shot.png"}},
+      "codex": {"tool_name": "view_image", "tool_input": {"path": "docs/shot.png"}},
+      "same_request": true,
+      "expect": {"decision": "allow", "reason": "no_rule_matched", "pause": null}
+    }
+  ]
+}

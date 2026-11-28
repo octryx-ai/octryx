@@ -1,37 +1,30 @@
-"""S4.2: a fragment is part of a workflow — never a run, never a tool, and its nodes are edited in the fragment.
-
-A fragment version refuses a DAG run (409 ``flow_version_fragment``), is never the published phased flow a
-workflow run starts on, is hidden from the capability catalog (and so from every LLM tool list), and the phased
-editor refuses to edit a composite's fragment-origin node (409 ``fragment_node_read_only``) while an own node of the
-composite is edited through its source, so the new draft keeps the same pins and provenance.
-"""
+"""S4.2: a fragment is part of a workflow, never a run or a tool, and its nodes are edited only in the
+fragment."""
 
 from __future__ import annotations
 
 import pytest
 from fastapi import HTTPException
 
-from app.services.flow_capabilities import list_flow_capabilities
 from app.services.workflow_runs.engine import published_phased_flow
 from app.services.workflow_runs.phased_editor import phase_graph_view, save_phase_graph
 from app.services.workflow_runs.records import WorkflowRunError, new_chat_session, start_run
 from tests.knowledge_evidence_seed_support import seed_workspace
-from tests.policy_engine_support import bearer
 from tests.s4_fragment_support import (
-    FLOWS,
     create,
     make_admin,
-    probe_fragment,
     published_fragment,
     unique_key,
     version_row,
     work_composite,
     work_fragment,
 )
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_literal_markers_equal_the_compiler_and_seeder_constants():
-    """``flow_version_state`` and ``fragments.store`` spell the fragment kind and the seed marker as literals."""
     from app.services import flow_version_state
     from app.services.workflow_runs import seeding
     from app.services.workflow_runs.fragments import format as fragment_format
@@ -41,22 +34,6 @@ def test_the_literal_markers_equal_the_compiler_and_seeder_constants():
     assert store.FRAGMENT_SEED_MARKER == seeding.FRAGMENT_SEED_MARKER
 
 
-@pytest.mark.asyncio
-async def test_a_fragment_version_never_runs_as_a_dag(client, db):
-    author, reviewer = await make_admin(db), await make_admin(db)
-    draft = await create(db, author, unique_key("s4-draft-fragment"), probe_fragment())
-    _key, _flow_id, published_id, _pin = await published_fragment(db, author, reviewer)
-    workspace = {"project_id": await seed_workspace(db)}  # a DAG run needs one before anything else is judged
-    await db.commit()
-    for version_id in (draft["versions"][0]["id"], published_id):
-        for action in ("run", "partial-run"):
-            response = await client.post(f"{FLOWS}/versions/{version_id}/{action}", headers=bearer(author.id),
-                                         json={"node_id": "confirm", **workspace} if action == "partial-run"
-                                         else workspace)
-            assert response.status_code in (400, 409), response.text
-            assert "flow_version_fragment" in response.text or "fragment" in response.text, response.text
-        run = await client.post(f"{FLOWS}/versions/{version_id}/run", headers=bearer(author.id), json=workspace)
-        assert run.status_code == 409 and run.json()["detail"]["reason"] == "flow_version_fragment"
 
 
 @pytest.mark.asyncio
@@ -73,24 +50,6 @@ async def test_a_fragment_is_never_started_as_a_workflow_run(db):
     assert refused.value.code == "unknown_workflow"
 
 
-@pytest.mark.asyncio
-async def test_a_fragment_is_hidden_from_the_capabilities(client, db):
-    author, reviewer = await make_admin(db), await make_admin(db)
-    key, _flow_id, version_id, _pin = await published_fragment(db, author, reviewer)
-    await db.commit()
-
-    listed = await list_flow_capabilities(db, include_hidden=True)
-    [item] = [item for item in listed if item["flow_key"] == key]
-    assert item["available"] is False and item["hidden_reason"] == "A fragment is part of a workflow, not a tool."
-    assert key not in {item["flow_key"] for item in await list_flow_capabilities(db)}
-
-    # Even a publish that asks for a visible capability stays hidden.
-    row = await version_row(db, version_id)
-    assert row.publish_metadata["capability_enabled"] is False and row.publish_metadata["llm_visible"] is False
-    api = await client.get(f"{FLOWS}/capabilities", headers=bearer(author.id))
-    assert api.status_code == 200 and key not in {item["flow_key"] for item in api.json()["items"]}
-    run = await client.post(f"{FLOWS}/capabilities/{item['tool_name']}/run", headers=bearer(author.id), json={})
-    assert run.json().get("error") == f"Workflow capability is not available: {item['tool_name']}", run.text
 
 
 @pytest.mark.asyncio

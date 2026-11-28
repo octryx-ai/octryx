@@ -1,14 +1,5 @@
-"""What a project soft delete deactivates beyond the project row itself.
-
-A soft-deleted project (``is_active = false``) keeps its rows, so everything bound to it must be
-switched off explicitly or it would keep acting: the project's Knowledge source connectors are
-paused with their schedule off (``knowledge/sources/sync/removal.py``, audited per connector).
-
-The resolution paths refuse anything scoped to an inactive project on their own
-(``project_activity.py``), so this cascade is the durable state, not the only guard. It runs in the
-caller's transaction; the route commits. The project deletion itself is audited here with the ids
-it deactivated.
-"""
+"""What a project soft delete deactivates beyond the project row itself. Rows are kept, so everything bound to the
+project is switched off explicitly."""
 
 from __future__ import annotations
 

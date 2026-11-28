@@ -1,12 +1,4 @@
-"""Where each level of the style lives, and reading them together.
-
-- installation: ``SystemConfig["code_style"]`` (JSON);
-- Workspace: ``Project.config["code_style"]``;
-- repository: ``CodeRepository.config_json["coding_setup"]["code_style"]``.
-
-A level without a ``code_style`` of its own is empty (its parent decides). A stored value that does not validate is
-ignored (the level falls back to its parent), never raised at a run.
-"""
+"""Where each level of the style lives, and reading them together."""
 
 from __future__ import annotations
 
@@ -58,9 +50,10 @@ async def levels(db: AsyncSession, *, project: Project | None, record: CodeRepos
             "repository": repository_profile(record)}
 
 
-def _audit(db: AsyncSession, actor_id: str, level: str, resource_id: str, profile: dict[str, Any]) -> None:
+def _audit(db: AsyncSession, actor_id: str, level: str, resource_id: str, profile: dict[str, Any], *,
+           project_id: str | None = None) -> None:
     db.add(AuditLog(user_id=actor_id, action=AUDIT_ACTION, resource_type=f"code_style_{level}",
-                    resource_id=resource_id, details={"profile": profile}))
+                    resource_id=resource_id, project_id=project_id, details={"profile": profile}))
 
 
 async def set_installation_profile(db: AsyncSession, value: Any, *, actor_id: str) -> dict[str, Any]:
@@ -68,8 +61,7 @@ async def set_installation_profile(db: AsyncSession, value: Any, *, actor_id: st
 
     profile = normalize_profile(value, "installation")
     await set_system_config_value(db, key=INSTALLATION_KEY, value=json.dumps(profile) if profile else None,
-                                  description="The installation's code style", updated_by=actor_id,
-                                  record_prompt_revision=False)
+                                  description="The installation's code style")
     _audit(db, actor_id, "installation", INSTALLATION_KEY, profile)
     await db.flush()
     return profile
@@ -79,7 +71,7 @@ async def set_workspace_profile(db: AsyncSession, project: Project, value: Any, 
     profile = normalize_profile(value, "workspace")
     project.config = {**dict(project.config or {}), CONFIG_KEY: profile}
     flag_modified(project, "config")
-    _audit(db, actor_id, "workspace", project.id, profile)
+    _audit(db, actor_id, "workspace", project.id, profile, project_id=project.id)
     await db.flush()
     return profile
 
@@ -91,7 +83,7 @@ async def set_repository_profile(db: AsyncSession, record: CodeRepository, value
     config["coding_setup"] = {**dict(config.get("coding_setup") or {}), CONFIG_KEY: profile}
     record.config_json = config
     flag_modified(record, "config_json")
-    _audit(db, actor_id, "repository", record.id, profile)
+    _audit(db, actor_id, "repository", record.id, profile, project_id=record.project_id)
     await db.flush()
     return profile
 

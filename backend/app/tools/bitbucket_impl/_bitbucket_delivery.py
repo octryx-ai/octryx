@@ -1,14 +1,4 @@
-"""Bitbucket delivery tools on both deployments: a pull request comment and the build statuses of a commit.
-
-- ``add_bitbucket_pull_request_comment`` posts text on a pull request named by ``pr_id`` or by its source branch
-  (``from_branch``: the open pull request of that branch). A write: the repository must allow pull request
-  operations for the Workspace, like creating one.
-- ``get_bitbucket_build_statuses`` reads the build statuses Bitbucket stores for ``commit`` (or the head commit of
-  ``branch``): Bitbucket Pipelines and any other reporter. States: ``SUCCESSFUL``, ``FAILED``, ``INPROGRESS``,
-  ``STOPPED``. Server/Data Center reads ``/rest/build-status/1.0``; Cloud reads ``commit/<sha>/statuses`` and, with
-  ``include_test_reports``, each Pipelines build's per-test results (``test_cases``); a test report that cannot be
-  read is named on its status (``test_report_error``), the build state still counts.
-"""
+"""Bitbucket delivery tools on both deployments: a pull request comment and the build statuses of a commit."""
 
 from __future__ import annotations
 
@@ -98,8 +88,6 @@ class AddBitbucketPullRequestComment:
 
 async def _attach_test_cases(context: ToolContext, project_key: str, repo_slug: str,
                              statuses: list[dict[str, Any]]) -> None:
-    """Each Pipelines build's per-test results on its status; a refused report read never hides the build state
-    (it is named on the status as ``test_report_error``; otherwise one step's 404 stalled the CI watch)."""
     for status in statuses:
         if number := cloud_ops.pipeline_number(str(status.get("url") or "")):
             try:

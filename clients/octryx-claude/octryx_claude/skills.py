@@ -1,21 +1,5 @@
-"""Catalog skills for a governed session (WP 2.1): a per-session, read-only plugin passed with --plugin-dir.
-
-At every start the launcher
-
-1. reads ``GET /skills/manifest`` (the effective skills of this Workspace for this user);
-2. fetches every blob it does not have yet (``GET /skills/blobs/{sha256}``), re-hashes it and checks each skill's
-   bundle digest; any mismatch refuses the session (``skill_bundle_digest_mismatch``) — fail closed, like the hooks;
-3. checks that every delivered ``SKILL.md`` carries only allowlisted frontmatter keys (the platform already
-   rebuilt it; a key outside the allowlist refuses the session: ``skill_frontmatter_not_allowed``);
-4. writes ``<home parent>/octryx-skill-plugins/<session>/octryx/`` (files 0444, folders 0555): the plugin
-   manifest and ``skills/<name>/…``. It never writes to ``~/.claude*`` or into the repository, and it lives outside
-   the launcher state root, so the credential deny rules stay whole.
-
-If the platform cannot be reached, or answers without a manifest, the session starts without catalog skills and
-the start line says so (``skills_unavailable``, decision D4): skills never carry permissions. MCP server entries of
-the manifest are returned for the session's MCP config (``--strict-mcp-config`` ignores plugin MCP files).
-The plugin folder is removed at ``SessionEnd`` and folders of earlier sessions are swept at the next start.
-"""
+"""Catalog skills for a governed session as a per-session, read-only plugin (``--plugin-dir``), verified fail closed.
+The plugin lives outside the launcher state root, so the credential deny rules stay whole."""
 
 from __future__ import annotations
 
@@ -56,7 +40,6 @@ _FRONTMATTER = re.compile(r"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)", re
 
 
 class SkillDeliveryRefusedError(Exception):
-    """The session is not started: a delivered skill failed verification. ``code`` is fixed."""
 
     def __init__(self, code: str, detail: str = "") -> None:
         super().__init__(code)
@@ -80,7 +63,7 @@ class SkillDelivery:
 
 
 def plugin_root(state: LocalState) -> Path:
-    """Next to the state root, never inside it (the state root stays fully denied to the agent)."""
+    # The state root stays fully denied to the agent.
     return state.root.parent / PLUGINS_DIR
 
 
@@ -95,7 +78,6 @@ def _safe_relative(path: str) -> bool:
 
 
 def bundle_digest(files: list[dict[str, Any]]) -> str:
-    """Same digest as the platform: sha256 over ``path NUL sha256 LF`` in path order."""
     hasher = hashlib.sha256()
     for entry in sorted(files, key=lambda item: item["path"]):
         hasher.update(f"{entry['path']}\0{entry['sha256']}\n".encode())
@@ -165,7 +147,6 @@ def remove_plugin(state: LocalState, session_key: str) -> None:
 
 
 def sweep(state: LocalState, *, keep: str, now: float | None = None) -> list[str]:
-    """Remove plugin folders of earlier sessions older than :data:`SWEEP_AFTER_SECONDS`."""
     root = plugin_root(state)
     removed: list[str] = []
     if not root.is_dir():
@@ -212,7 +193,6 @@ def _servers(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def prepare(state: LocalState, context: SessionContext, *, http: httpx.Client) -> SkillDelivery:
-    """Fetch, verify and materialize this session's catalog skills; raises :class:`SkillDeliveryRefusedError`."""
     sweep(state, keep=context.session_key)
     result: PlatformResult = call_control_plane(state, context, "GET", "/skills/manifest", http=http,
                                                 timeout=MANIFEST_TIMEOUT)

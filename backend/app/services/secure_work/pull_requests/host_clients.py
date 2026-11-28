@@ -1,12 +1,4 @@
-"""Read a pull request from its host on the target's resolved connection (read only).
-
-One client per deployment: ``read`` → ``HostRead`` (the mapped pull request and its head commit's build status; a
-failed build read is reported in ``build_error`` and never fails the pull request read).
-
-Bitbucket Server/Data Center: REST 1.0 (``pull-requests/{id}``, build status ``/rest/build-status/1.0/commits/{sha}``).
-Bitbucket Cloud: REST 2.0 (``pullrequests/{id}``, ``commit/{sha}/statuses``). GitHub: ``pulls/{n}`` and its
-reviews, the combined ``commits/{sha}/status``.
-"""
+"""Read a pull request from its host on the target's resolved connection (read only)."""
 
 from __future__ import annotations
 
@@ -35,6 +27,7 @@ from .host_target import (
     PullRequestHostError,
     host_error,
 )
+from .stored_types import BuildStatus
 
 _HOSTS = {DEPLOYMENT_SERVER: "Bitbucket", DEPLOYMENT_CLOUD: "Bitbucket Cloud", DEPLOYMENT_GITHUB: "GitHub"}
 
@@ -42,7 +35,7 @@ _HOSTS = {DEPLOYMENT_SERVER: "Bitbucket", DEPLOYMENT_CLOUD: "Bitbucket Cloud", D
 @dataclass(slots=True)
 class HostRead:
     pull_request: HostPullRequest
-    build_status: str | None = None
+    build_status: BuildStatus | None = None
     build_error: PullRequestHostError | None = None
 
 
@@ -50,7 +43,7 @@ class PullRequestHost(Protocol):
     async def read(self, target: HostTarget) -> HostRead: ...
 
 
-async def _build(target: HostTarget, read_states) -> tuple[str | None, PullRequestHostError | None]:
+async def _build(target: HostTarget, read_states) -> tuple[BuildStatus | None, PullRequestHostError | None]:
     try:
         return aggregate_build_status(await read_states()), None
     except HostStateError as error:

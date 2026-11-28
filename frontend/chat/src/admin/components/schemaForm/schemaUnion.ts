@@ -1,5 +1,4 @@
-// oneOf / anyOf variant handling. Discriminator-aware; otherwise a structural match
-// (JSON type + const properties), never a guess on free values.
+// Never a guess on free values: the discriminator, else a structural match (JSON type + const properties).
 import { newEntryValue } from "./schemaDefaults";
 import { humanizeKey, isRecord, normalizeField, resolveRef, unionVariants } from "./schemaResolve";
 import type { JsonSchema } from "./schemaFormTypes";
@@ -8,7 +7,6 @@ export interface UnionVariant {
   index: number;
   branch: JsonSchema;
   label: string;
-  /** Discriminator value selecting this variant, when the union is discriminated. */
   tag: string | undefined;
 }
 
@@ -32,7 +30,6 @@ function branchTag(root: JsonSchema, branch: JsonSchema, property: string | unde
   return typeof tag === "string" ? tag : undefined;
 }
 
-/** All variants of a union schema with display labels. */
 export function unionVariantList(root: JsonSchema, schema: JsonSchema): UnionVariant[] {
   const variants = unionVariants(schema) ?? [];
   const property = discriminatorProperty(schema);
@@ -77,11 +74,6 @@ function structurallyMatches(root: JsonSchema, branch: JsonSchema, value: unknow
   });
 }
 
-/**
- * Pick the union branch that `value` belongs to. Discriminated unions select by
- * the discriminator property (via `mapping` or the branch's const); others by
- * the first structural match. Returns null when nothing matches or value is unset.
- */
 export function pickOneOfBranch(
   root: JsonSchema,
   schema: JsonSchema,
@@ -100,10 +92,6 @@ export function pickOneOfBranch(
   return match ? { index: match.index, branch: match.branch } : null;
 }
 
-/**
- * Value after the user picks `branch`: the branch skeleton (consts filled),
- * keeping previous values of properties the new branch also declares.
- */
 export function switchUnionVariant(root: JsonSchema, branch: JsonSchema, previous: unknown): unknown {
   const next = newEntryValue(root, branch);
   if (!isRecord(next) || !isRecord(previous) || !isRecord(branch.properties)) return next;

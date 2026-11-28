@@ -1,17 +1,4 @@
-"""The Work source registry: ``source_type`` -> its :class:`~.protocol.WorkIntakeSource`.
-
-Entries are static data (type, label, scheduler task type, module) and the implementation is imported on first
-use: the scheduler, the analysis runner and the item connection resolve a source without importing every
-source's HTTP client, and no import cycle runs through this module (the implementations import the services
-that import the registry).
-
-Scheduler task types: every source keeps the task type its stored tasks carry (``secure_work_jira_sync``,
-``secure_work_servicenow_sync``); a new source uses :data:`GENERIC_SYNC_TASK_TYPE` whose task names the intake
-(``config.sync_config_id``) and is dispatched by the intake's own ``source_type``.
-
-An unknown source type is refused, never guessed: ``item_scope_key`` must never treat an unknown non-Jira item as
-a ServiceNow record, so a third source's write-back would have been bound to a ServiceNow table name.
-"""
+"""The Work source registry: ``source_type`` -> its :class:`~.protocol.WorkIntakeSource`."""
 
 from __future__ import annotations
 
@@ -59,7 +46,6 @@ def entry_of(source_type: object) -> SourceEntry | None:
 
 
 def source_for(source_type: object) -> Any | None:
-    """The implementation of ``source_type``; ``None`` for an unknown type."""
     entry = entry_of(source_type)
     if entry is None:
         return None
@@ -70,7 +56,6 @@ def source_for(source_type: object) -> Any | None:
 
 
 def require_source(source_type: object, *, field: str = "source_type") -> Any:
-    """The implementation, or 422 naming the known types."""
     source = source_for(source_type)
     if source is None:
         raise HTTPException(status_code=422, detail={
@@ -80,12 +65,10 @@ def require_source(source_type: object, *, field: str = "source_type") -> Any:
 
 
 def sync_task_types() -> frozenset[str]:
-    """Every task type the scheduler hands to ``intake/scheduled``: each source's own and the generic one."""
     return frozenset({GENERIC_SYNC_TASK_TYPE, *(entry.task_type for entry in _ENTRIES.values())})
 
 
 def entry_for_task_type(task_type: object) -> SourceEntry | None:
-    """The source whose own task type this is (``None`` for the generic type: the intake decides)."""
     return next((entry for entry in _ENTRIES.values()
                  if entry.task_type == task_type and entry.task_type != GENERIC_SYNC_TASK_TYPE), None)
 

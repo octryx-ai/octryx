@@ -4,16 +4,14 @@ from typing import Any
 
 import httpx
 
+from ...services.error_facts import error_text
 from ..core.base import ChannelPlugin
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramPlugin(ChannelPlugin):
-    """
-    Telegram Bot API plugin for Octryx.
-    Uses long polling to receive messages.
-    """
+    """Telegram Bot API plugin for Octryx."""
 
     INBOUND_POLLING = True
 
@@ -62,11 +60,13 @@ class TelegramPlugin(ChannelPlugin):
             if not data.get("ok"):
                 raise Exception(f"Failed to get bot info: {data}")
             logger.info(f"Telegram plugin initialized as @{data['result']['username']}")
-        except Exception:
-            logger.exception("Failed to initialize Telegram plugin")
+        except Exception as exc:
+            # An httpx error names the request URL, and the Bot API carries the token in its path.
+            failure = error_text("telegram_start_failed", exc)
+            logger.warning("Failed to initialize Telegram plugin: %s", failure)
             await self._http_client.aclose()
             self._http_client = None
-            raise
+            raise RuntimeError(failure) from None
 
         # Start the polling task (only where inbound runs: the background-worker process)
         if not self.inbound_enabled:
@@ -95,11 +95,7 @@ class TelegramPlugin(ChannelPlugin):
         logger.info("Telegram plugin shut down")
 
     async def send_message(self, target: str, content: str, **kwargs) -> bool:
-        """
-        Send a message to a target (user_id, chat_id, etc.) via Telegram.
-        Target can be a user ID, group chat ID, or channel ID.
-        Returns True if successful, False otherwise.
-        """
+        """Send a message to a target (user_id, chat_id, etc.) via Telegram."""
         if not self._http_client:
             logger.error("Telegram plugin: not initialized")
             return False
@@ -123,15 +119,11 @@ class TelegramPlugin(ChannelPlugin):
                 logger.error(f"Failed to send Telegram message: {data}")
                 return False
         except Exception as e:
-            logger.exception(f"Error sending Telegram message to {target}: {e}")
+            logger.warning("Error sending Telegram message to %s: %s", target, error_text("telegram_send_failed", e))
             return False
 
     async def receive_message(self) -> dict[str, Any] | None:
-        """
-        Receive a message from the Telegram plugin's internal queue.
-        Returns a dict with sender_id, content, target, timestamp, and raw payload.
-        Returns None if no message is available.
-        """
+        """Receive a message from the Telegram plugin's internal queue."""
         try:
             # Non-blocking get
             message = self._message_queue.get_nowait()
@@ -209,7 +201,6 @@ class TelegramPlugin(ChannelPlugin):
         }
 
     async def _polling_loop(self) -> None:
-        """Background task to poll for updates from Telegram."""
         logger.info("Telegram polling loop started")
         while True:
             try:
@@ -247,11 +238,10 @@ class TelegramPlugin(ChannelPlugin):
                 logger.info("Telegram polling loop cancelled")
                 break
             except Exception as e:
-                logger.exception(f"Error in Telegram polling loop: {e}")
+                logger.warning("Error in Telegram polling loop: %s", error_text("telegram_poll_failed", e))
                 await asyncio.sleep(5)  # Wait before retrying
 
     async def _process_update(self, update: dict[str, Any]) -> None:
-        """Process a single update from Telegram."""
         # We only care about message updates for now
         if "message" not in update:
             return
@@ -296,7 +286,6 @@ class TelegramPlugin(ChannelPlugin):
         logger.debug(f"Telegram message queued from {sender_id} in chat {chat_id}")
 
     def _is_sender_allowed(self, sender_id: str, chat_type: str) -> bool:
-        """Check if the sender is allowed based on the plugin's configuration."""
         # If the bot is in a group/supergroup/channel, we might allow all members?
         # But we have the dmPolicy for private chats and groupPolicy for groups?
         # However, our config only has dmPolicy and allowFrom for now.

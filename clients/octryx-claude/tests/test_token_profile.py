@@ -1,7 +1,3 @@
-"""The turn's token profile from its transcript (see where tokens could be saved): each call once,
-the full size of every tool result (the job event keeps 4 KB), digests instead of inputs, and parts below the
-platform's event limit."""
-
 from __future__ import annotations
 
 import json

@@ -1,13 +1,5 @@
-"""The sandboxed document parser port (``Parser``).
-
-The API process never parses a PDF or an Office document. It hands the bytes to a parser that
-runs in its own container without any network, and reads back a structured document. The port
-is asynchronous on purpose: a 400-page specification takes minutes, far longer than one bounded
-outbox run, so a run *submits* once and later runs *poll* the same task.
-
-Failures are a closed taxonomy with fixed reasons, like the embedding port. Nothing the sandbox
-answers — an error body, a stack trace, a file name — is carried out of the adapter.
-"""
+"""The sandboxed document parser port (``Parser``). The API process never parses a PDF or Office document; nothing the
+sandbox answers leaves the adapter."""
 
 from __future__ import annotations
 
@@ -27,8 +19,6 @@ class ParserState(StrEnum):
 
 
 class ParserError(Exception):
-    """A parser failure with a fixed state and a fixed reason token; never server text."""
-
     def __init__(self, state: ParserState, reason: str) -> None:
         super().__init__(f"parser {state.value}: {reason}")
         self.state = state
@@ -45,8 +35,6 @@ class TaskStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ParserIdentity:
-    """Who parsed a revision: recorded on the revision at registration, verified at parse time."""
-
     name: str
     version: str
     sandbox: str
@@ -58,25 +46,19 @@ class ParserIdentity:
 
 
 class DocumentParser(Protocol):
-    """A sandboxed parser. Implementations own their transport and map every failure."""
-
     @property
     def identity(self) -> ParserIdentity: ...
 
     async def submit(
         self, data: bytes, media_type: str, *, do_ocr: bool = True, page_range: tuple[int, int] | None = None
     ) -> str:
-        """Start parsing; returns the sandbox's opaque task reference.
-
-        ``do_ocr`` and ``page_range`` are per-request options (the OCR choice, ``ocr_choice.py``): OCR off for
-        a born-digital PDF, and a page range for the cheap text-layer probe.
-        """
+        pass
 
     async def poll(self, task_ref: str) -> TaskStatus:
-        """Where the task is now."""
+        pass
 
     async def result(self, task_ref: str) -> dict[str, Any]:
-        """The parsed document of a successful task (a DoclingDocument as JSON)."""
+        pass
 
 
 __all__ = ["DocumentParser", "ParserError", "ParserIdentity", "ParserState", "TaskStatus"]

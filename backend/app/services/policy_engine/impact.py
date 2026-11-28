@@ -1,16 +1,4 @@
-"""What would this policy block? Generated bench questions for a builder model.
-
-From a :class:`builder_model.PolicyModel`, :func:`generate` derives up to three questions that the policy must
-block (one per action group it touches) and one control question that it must leave alone, in the shape of the
-test bench (``test_bench.parse_question``): a real Workspace that satisfies the where-part, a member of the chosen
-role/group/user (not a platform admin when admins are excepted), and a resource built from the blocks (a tool of
-the chosen connector on the chosen connection, an alias outside the exceptions, a command with the program,
-arguments and option, a path matching the first pattern, a remote model of a class below the limit).
-
-:func:`impact` answers them with the bench against the working draft with this policy in it (the "candidate"
-set) and runs the saved test cases against the same candidate. Nothing is executed or stored; "Save as test case"
-uses the existing ``POST /tests``. Deterministic: the same model and entities give the same questions.
-"""
+"""What would this policy block?"""
 
 from __future__ import annotations
 
@@ -69,7 +57,6 @@ async def _admins(db: AsyncSession) -> set[str]:
 
 
 async def _principal(db: AsyncSession, model: PolicyModel) -> str | None:
-    """A user the who-part matches (a member of the first role/group, the first user); ``None``: anyone."""
     who = model.who
     if who.mode == "users":
         candidates = list(who.items)
@@ -95,8 +82,6 @@ async def _principal(db: AsyncSession, model: PolicyModel) -> str | None:
 
 def _tool(model: PolicyModel, *, writes: bool | None = None, logs: bool | None = None,
           connector: bool = True) -> str | None:
-    """The first tool with fixed facts (no argument-dependent tool) inside the policy's tools and connectors;
-    ``connector=False``: the first tool of no connector."""
     families = set(model.what.families)
     for tool in tool_items():
         family = tool["connector_family"]
@@ -212,7 +197,6 @@ def _remote_questions(model: PolicyModel, ws: str, user: str | None) -> list[dic
 
 
 async def generate(db: AsyncSession, model: PolicyModel) -> dict[str, Any]:
-    """``{"workspace", "user_id", "examples": [...], "notes": [...]}`` — the questions, not yet answered."""
     workspace = await _workspace(db, model)
     notes: list[str] = []
     if workspace is None:
@@ -250,7 +234,6 @@ async def generate(db: AsyncSession, model: PolicyModel) -> dict[str, Any]:
 
 
 async def candidate_text(db: AsyncSession, model: PolicyModel, original_id: str | None) -> CustomText:
-    """The working version's custom set with this policy in it (replacing ``original_id`` or its own @id)."""
     row = await working_version(db)
     text = str(row.policies_text or "") if row is not None else ""
     split = split_statements(text)

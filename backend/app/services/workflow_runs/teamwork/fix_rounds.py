@@ -7,16 +7,13 @@ from typing import Any
 from ..records import record_event
 from . import ROUTE_REPLAN
 
-EVENT_FIX = "work_pipeline_fix"  # a red pipeline turned into targeted fix items (``teamwork.fixes``)
-EVENT_REVIEW_FIX = "work_review_fix"  # the review's findings turned into targeted fix items
-FIXED_REVIEW_KEY = "fixed_review"  # context.work: the product owner's answers (their count) already turned into fixes
-FIXED_KEY = "fixed_pipeline"  # context.work: the red pipeline report (its ``reported_at``) already turned into fixes
+EVENT_FIX = "work_pipeline_fix"
+EVENT_REVIEW_FIX = "work_review_fix"
+FIXED_REVIEW_KEY = "fixed_review"
+FIXED_KEY = "fixed_pipeline"
 
 
 def review_to_fix(run: Any, graph: Any, node_id: str, work: dict[str, Any]) -> dict[str, Any] | None:
-    """The review's findings the run came back with from the product owner's decision (its ``changed`` loop), not yet
-    turned into fixes: ``{"findings", "marker"}``; ``{"findings": [], ...}`` for a person's own answer (the
-    coordinator plans with it)."""
     from ..graph import NODE_CONFIRMATION
     from ..review.verdict import BLOCKING_SEVERITIES, verdict_from_record
 
@@ -37,7 +34,6 @@ def review_to_fix(run: Any, graph: Any, node_id: str, work: dict[str, Any]) -> d
 
 
 def _fix_review(db: Any, run: Any, work: dict[str, Any], review: dict[str, Any]) -> list[str]:
-    """Reopen only the items owning the files of the review's findings; the findings no item owns."""
     from .fixes import assign_review, reopen_for_fixes
 
     work[FIXED_REVIEW_KEY] = review["marker"]
@@ -53,7 +49,6 @@ def _fix_review(db: Any, run: Any, work: dict[str, Any], review: dict[str, Any])
 
 
 def red_pipeline(run: Any, graph: Any, node_id: str, work: dict[str, Any]) -> dict[str, Any] | None:
-    """The red pipeline the run came back from to this node (its ``failed`` loop), not yet turned into fixes."""
     from ..graph import NODE_PLATFORM_ACTION
     from ..pipeline import ACTION, STATE_RED, state
 
@@ -68,8 +63,6 @@ def red_pipeline(run: Any, graph: Any, node_id: str, work: dict[str, Any]) -> di
 
 
 def _fix_red_pipeline(db: Any, run: Any, work: dict[str, Any], red: dict[str, Any]) -> list[str]:
-    """Reopen only the items that own what failed (``teamwork.fixes``); the failures no item owns (the coordinator
-    re-plans with them)."""
     from .fixes import assign, reopen_for_fixes
 
     fixes, unassigned = assign(dict(work.get("items") or {}), red)

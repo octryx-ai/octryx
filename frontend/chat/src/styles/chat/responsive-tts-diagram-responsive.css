@@ -16,9 +16,6 @@
 }
 
 @media (max-width: 980px) {
-  .corp-identity-panel {
-    grid-template-columns: 1fr;
-  }
 
   .corp-identity-detail__header {
     flex-direction: column;

@@ -1,10 +1,5 @@
-"""Platform feature switch for custom branding.
-
-Branding is governed by server configuration only (``BRANDING_ENABLED``,
-default off). While it is off, reads return the built-in defaults and writes
-refuse with the ``branding_disabled`` code; stored branding is left untouched
-and simply not applied.
-"""
+"""Platform feature switch for custom branding. Off by default (``BRANDING_ENABLED``): reads return the defaults and
+writes refuse with ``branding_disabled``."""
 
 from __future__ import annotations
 

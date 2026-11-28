@@ -17,7 +17,7 @@
 .trace-drawer__body::-webkit-scrollbar-thumb,
 .tool-card pre::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--muted) 20%, transparent);
   background-clip: content-box;
 }

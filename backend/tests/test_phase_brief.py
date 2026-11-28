@@ -50,7 +50,6 @@ def test_every_brief_text_is_a_catalog_key():
 
 
 def test_the_system_test_is_named_as_its_own_call_before_the_agent_starts():
-    """A system test inside a longer command must not run in the sandbox, where it hangs."""
     environment = {"source": "environment_file", "test": "flutter test", "app_folder": "app",
                    "system_test": "python3 system_test/run_system_test.py"}
     brief = phase_brief(None, _contract({}, environment))

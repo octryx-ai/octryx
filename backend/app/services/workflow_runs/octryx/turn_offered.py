@@ -11,7 +11,6 @@ _OFFERED_KEY = "workflow_continuation_offered"
 
 
 async def _offered_after_commit(db: AsyncSession, job_id: str) -> None:
-    """An open chat shows the offered turn at once, like a typed device message (``turn_offered`` after commit)."""
     from app.services.devices.job_state import serialize_job
 
     from ....models import DeviceJob

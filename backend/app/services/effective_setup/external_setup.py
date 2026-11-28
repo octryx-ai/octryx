@@ -1,10 +1,4 @@
-"""Effective setup for an octryx-claude session (Claude Code over MCP).
-
-Claude Code keeps its own system prompt and loop. What Octryx contributes is
-read from the same functions the MCP surface and the hooks use: the server instructions
-(prompt catalog, Workspace scope), the workflow selection, the skill manifest filter (surface
-``octryx_claude``) and the capability gate rules.
-"""
+"""Effective setup for an octryx-claude session (Claude Code over MCP)."""
 
 from __future__ import annotations
 
@@ -18,14 +12,17 @@ from ..prompt_catalog import resolve_prompt_set
 from ..skill_catalog.effective import candidates
 from ..skill_catalog.extension import SURFACE_OCTRYX_CLAUDE
 from ..workflow_routing.explicit_selection import resolve_explicit_workflow_selection
-from .chat_setup import APPROVALS_TAB, PROMPT_TEXTS_TAB, SKILLS_TAB, TOOLS_TAB
 from .parts import (
+    APPROVALS_TAB,
     PART_AGENT,
     PART_APPROVALS,
     PART_INSTRUCTIONS,
     PART_SKILLS,
     PART_SYSTEM_TEXTS,
     PART_TOOLS,
+    PROMPT_TEXTS_TAB,
+    SKILLS_TAB,
+    TOOLS_TAB,
     SetupPart,
     budget,
     tokens_of,
@@ -57,7 +54,6 @@ async def _instructions_text_part(db: AsyncSession, *, project_id: str | None) -
 
 
 async def _workflow_resolution(db: AsyncSession, *, project_id: str | None, clean_key: str) -> dict[str, Any]:
-    """The explicit selection of ``clean_key`` (none for no workflow)."""
     if not clean_key or clean_key == "none":
         return {}
     return await resolve_explicit_workflow_selection(db, workflow_key=clean_key, project_id=project_id)

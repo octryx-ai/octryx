@@ -1,18 +1,5 @@
-"""Team delivery v2 on a device, end to end.
-
-The real seed, the real scheduler and device executor, the real device job chain (``apply_event`` → continuation →
-``job_ended``), the gateway's bindings, contracts and Stop hook, and the launcher's own git and preparation code in a
-real repository: the coordinator's plan, four items (three side by side, one after them; two with long keys),
-each item's worktree prepared on its own branch, its result, its merge back into the
-story's folder, the run's change, and the pipeline after the merge.
-
-Two failure modes, each pinned:
-
-- ``octryx:frontend-shell`` (21 characters) must fit ``WorkflowRunSession.role``, else registration fails with 500
-  → ``registration_refused``;
-- an item must not be marked failed at its first Stop with failing checks while its agent goes on, else the run goes
-  back to the plan under it, its session gets the plan phase's contract and Stop, and its turn end pauses the run.
-"""
+"""Team delivery v2 on a device, end to end with the real seed, scheduler, device job chain, gateway and
+launcher git code in a real repository."""
 
 from __future__ import annotations
 
@@ -25,6 +12,7 @@ from app.models import DeviceJob, WorkflowRunSession
 from app.services.devices.job_events import apply_event
 from app.services.devices.job_state import ACTIVE_STATUSES
 from app.services.workflow_runs.teamwork import WORK_KEY, device_work_state, item_order, scheduler
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.teamwork_device_support import _gateway_session, _hub, admitted  # noqa: F401 - fixtures
 from tests.teamwork_rehearsal_support import (  # noqa: F401
     _DEVICE_RUN,
@@ -39,7 +27,7 @@ from tests.teamwork_rehearsal_support import (  # noqa: F401
 )
 from tests.test_team_delivery import actions  # noqa: F401 - ``actions`` is a fixture
 
-pytestmark = pytest.mark.usefixtures("admitted", "_hub", "agent_checks_pass")
+pytestmark = [pytest.mark.usefixtures("admitted", "_hub", "agent_checks_pass"), pytest.mark.usefixtures("scripted_pool")]
 
 
 @_DEVICE_RUN
@@ -145,9 +133,6 @@ async def test_an_items_session_never_follows_the_runs_phase_and_its_end_never_p
 @_DEVICE_RUN
 @pytest.mark.asyncio
 async def test_an_items_agent_submits_its_result_over_mcp_and_only_its_own_session_may(db, tmp_path):
-    """An item agent's submit_phase_result must not be refused ``outside_phase_tools`` ("the run is still on node
-    `work` with phase null") while its Stop asks for it, until the loop limit pauses the run. The MCP tools read the
-    run's contract, not the calling session's: an item's session works under its item's phase."""
     from app.services.mcp_workflow_run_tools import PHASE_OUTPUT_MCP_HANDLERS, mcp_workflow_run_status
     from app.services.workflow_runs.octryx.attach import bind_device_session
     from app.services.workflow_runs.octryx.stop import run_stop

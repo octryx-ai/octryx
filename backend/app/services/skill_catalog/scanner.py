@@ -1,30 +1,4 @@
-"""Security review of a skill version: a deterministic scanner plus a human reviewer.
-
-Runs on every draft save and import; the result is the version's ``security_report["findings"]``. Each finding
-has a stable ``id``, a ``rule``, a ``severity`` (``high`` | ``medium`` | ``info``), a ``file``/``line`` when it
-points at text, its ``effect`` on delivery, and two flags the lifecycle enforces:
-
-- ``acknowledge``: a high finding must be acknowledged by the reviewer to publish
-  (``skill_findings_unacknowledged``);
-- ``blocks``: no acknowledgement clears it; publish is refused until it is removed (secrets).
-
-Rules (fixed patterns, no scoring and no prompt-injection heuristics — the reviewer reads the rendered skill):
-
-- ``script``: executable file (``scripts/``, extension, shebang, exec bit) — high; withheld unless the version
-  allows scripts (running one is still a governed Bash call);
-- ``shell_injection``: ``!`cmd``` or a ```` ```! ```` block in Markdown — high; never executed (Claude Code
-  setting ``disableSkillShellExecution``);
-- ``execution_frontmatter`` (``allowed-tools``, ``hooks``, ``model``, …) — medium; ``other_frontmatter`` — info;
-  both stripped on delivery;
-- ``network`` (``curl``, ``wget``, URLs, ``Invoke-WebRequest``, ``requests.``, ``fetch(``) in scripts — medium;
-- ``changing_command`` (``kubectl apply/delete/…``, ``helm install/upgrade/…`` without ``--dry-run=client``,
-  ``terraform apply/destroy/…``) — medium in scripts, info in instructions; runs only as a governed tool call;
-- ``extra_frontmatter``: a non-SKILL.md Markdown file with its own frontmatter — info; a reference file;
-- ``secret``: credential material (``model_gateway.inbound.secret_scan``) — high, blocks publishing;
-- ``licence_missing`` — high, blocks publishing (the allowlist itself is checked at publish);
-- MCP entries: ``mcp_local_process`` (medium), ``mcp_image_tag`` (medium), ``mcp_credential_passthrough``
-  (high until mapped to a named connection), ``mcp_outbound`` (info).
-"""
+"""Security review of a skill version: a deterministic scanner plus a human reviewer."""
 
 from __future__ import annotations
 
@@ -157,7 +131,6 @@ def summary(findings: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def new_findings(draft: list[dict[str, Any]], published: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Findings of the draft that the published version does not have (the update review's "new findings")."""
     known = {item["id"] for item in published}
     return [item for item in draft if item["id"] not in known]
 

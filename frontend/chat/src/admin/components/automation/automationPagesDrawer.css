@@ -1,19 +1,4 @@
 /* Automation pages: explain box, flow, drawer sections, copy and status boxes, toolbar, phone breakpoint, choices, links and panel layer. */
-.automation-explain {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--ds-radius-lg);
-  background: var(--surface-overlay);
-  font-size: var(--ds-text-sm);
-  color: var(--muted-strong);
-}
-
-.automation-explain p {
-  margin: 0;
-}
 
 .automation-flow {
   display: flex;
@@ -113,24 +98,6 @@
   margin-bottom: 0.5rem;
 }
 
-@media (max-width: 760px) {
-  .automation-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .automation-row {
-    flex-wrap: wrap;
-  }
-}
-
-.connector-danger-zone {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-
 .automation-choice {
   display: inline-flex;
   align-items: center;
@@ -141,17 +108,6 @@
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
   background: var(--accent-soft);
   color: var(--text);
-}
-
-.automation-link {
-  font-size: var(--ds-text-xs);
-  color: var(--accent);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-.automation-link:hover {
-  text-decoration: underline;
 }
 
 /* A side panel opened from inside a SettingsDrawer (z-index 1100) must lie above it. */

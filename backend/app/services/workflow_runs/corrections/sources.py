@@ -1,13 +1,4 @@
-"""The sources of corrections, each called where its event happens (contract: Settings, ``sources``).
-
-- ``review_fixed``: the findings a follow-up review answered as fixed (``review/runner.review_one``);
-- ``review_change_request``: a confirmation answered "change" with a reason that is not an answer to the agent's
-  questions, and a functional acceptance rejected with a reason (``hitl_decisions``, ``documentation/acceptance``);
-- ``pr_comment``: a person's pull request comment that is no ``@octryx`` command (``pr_review_bot/webhook``);
-- ``pipeline_cause``: the causes of a red pipeline (``pipeline.record_report``);
-- ``refused_call``: a refusal the next allowed call answered (``run_memory.denial_answered``);
-- ``revert`` (stage 1b): not captured yet, it needs the repository's history.
-"""
+"""The sources of corrections, each called where its event happens (contract: Settings, ``sources``)."""
 
 from __future__ import annotations
 
@@ -56,9 +47,8 @@ async def refused_call(db: Any, run: WorkflowRun, reason: str, refused: str, wor
 
 
 async def pr_comment(db: Any, project_id: str, event: Any) -> None:
-    """A person's comment on a pull request of a repository the Workspace connected: its author is an SCM account
-    linked to an active human with a role in the Workspace, its body none of the bot's own posts. The app is the
-    repository root (a comment names no run)."""
+    """A person's comment on a pull request of a connected repository, by a linked Workspace member and not one of the
+    bot's own posts."""
     import re
 
     from ...access_control import get_project_role_for_user

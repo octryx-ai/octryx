@@ -1,9 +1,4 @@
-"""Ontology: the entity and relation types the extractor is allowed to produce.
-
-A curated, deterministic default set is the backbone. A project may override it
-via ``project.config['knowledge_ontology']`` (a governed, reviewable override —
-LLM prompt auto-tuning proposals feed into this rather than mutating it directly).
-"""
+"""Ontology: the entity and relation types the extractor is allowed to produce."""
 
 from __future__ import annotations
 
@@ -66,12 +61,8 @@ def resolve_ontology(project: Any = None) -> dict[str, list[str]]:
 async def resolve_active_ontology(
     db: Any, *, project_id: str | None = None, project: Any = None
 ) -> dict[str, list[str]]:
-    """Resolve the ontology, preferring the ACTIVE versioned row for the scope.
-
-    Order: active `knowledge_ontology_versions` row → project config override →
-    curated defaults. Draft versions (e.g. auto-tuning proposals) are ignored
-    until explicitly activated — the review gate.
-    """
+    """Resolve the ontology: active versioned row, then project config override, then curated defaults. Drafts are
+    ignored."""
     from sqlalchemy import select
 
     from ...models import KnowledgeOntologyVersion

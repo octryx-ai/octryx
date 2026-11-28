@@ -107,7 +107,7 @@
 
 .workflow-run-steps__step--active {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workflow-run-steps__step--active .workflow-run-steps__dot {
@@ -117,7 +117,7 @@
 
 .workflow-run-steps__step--problem {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workflow-run-steps__step--problem .workflow-run-steps__dot {

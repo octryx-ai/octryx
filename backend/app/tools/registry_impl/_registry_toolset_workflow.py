@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from app.tools.client_parity_tools import CLIENT_RUN_TOOLS
 from app.tools.code_impl._code_edit import EditFileTool, MultiEditFileTool
 from app.tools.code_impl._code_patch import ApplyPatchTool
 from app.tools.code_impl._code_search import GlobFilesTool, GrepTool
@@ -55,6 +54,7 @@ from app.tools.secure_work_impl._work_lifecycle_tools import (
     WorkItemTakeoverStatusTool,
     WorkItemTransitionTool,
 )
+from app.tools.session_platform_tools import SESSION_PLATFORM_TOOLS
 from app.tools.session_tools import PlanExitTool, TodoReadTool, TodoWriteTool
 from app.tools.specification_outputs import (
     SubmitIdeaFrameTool,
@@ -62,8 +62,8 @@ from app.tools.specification_outputs import (
     SubmitResearchPlanTool,
     SubmitSpecTool,
 )
-from app.tools.sub_agent import GetContextFromSubthreadsTool, SpawnSubAgentTool
 from app.tools.workflow_outputs import (
+    SubmitChangePlanTool,
     SubmitDefinitionOfReadyTool,
     SubmitFeatureDocumentationTool,
     SubmitIncidentHypothesisTool,
@@ -74,14 +74,9 @@ from app.tools.workflow_outputs import (
     SubmitTestContractTool,
     SubmitWorkPlanTool,
 )
-from app.tools.workflow_slices import DelegateSlicesTool, MergeSlicesTool
 from app.tools.workflow_tools import ListAvailableWorkflowsTool, SelectWorkflowTool, StartWorkflowTool
 
 TOOL_CLASSES_WORKFLOW = [
-    SpawnSubAgentTool,
-    GetContextFromSubthreadsTool,
-    DelegateSlicesTool,
-    MergeSlicesTool,
     GetRunAlert,
     SubmitDefinitionOfReadyTool,
     SubmitTestContractTool,
@@ -90,6 +85,7 @@ TOOL_CLASSES_WORKFLOW = [
     SubmitFeatureDocumentationTool,
     SubmitPhaseResultTool,
     SubmitWorkPlanTool,
+    SubmitChangePlanTool,
     SubmitStoryPlanTool,
     SubmitSpecStudioTool,
     SubmitIdeaFrameTool,
@@ -151,8 +147,8 @@ TOOL_CLASSES_WORKFLOW = [
     WorkItemReleaseTool,
     WorkItemTakeoverRequestTool,
     WorkItemTakeoverStatusTool,
-    # The client's workflow-run, approval and task tools in the chat (gap B group 3)
-    *CLIENT_RUN_TOOLS,
+    # The session's workflow-run, approval, task and Knowledge tools (also on the session MCP endpoint)
+    *SESSION_PLATFORM_TOOLS,
     # Proactive Teams
     AskReporterViaTeams,
 ]

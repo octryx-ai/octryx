@@ -1,8 +1,4 @@
-"""Reading Cedar's EST (``cedarpy.policies_to_json_str``) for the builder's parse.
-
-Small, strict accessors: each raises :class:`RefusedError` on any shape the builder never renders, so the caller
-treats the statement as hand-written instead of guessing.
-"""
+"""Reading Cedar's EST (``cedarpy.policies_to_json_str``) for the builder's parse."""
 
 from __future__ import annotations
 
@@ -11,7 +7,7 @@ from typing import Any
 
 
 class RefusedError(Exception):
-    """The statement is not in a shape the builder renders."""
+    pass
 
 
 def path(node: Any) -> tuple[str, ...]:
@@ -64,9 +60,6 @@ def op(node: Any) -> tuple[str, Any]:
 
 
 class Found:
-    """Collects block values from the conjuncts. A block seen twice keeps the last value: the re-rendered text then
-    differs from the original and the parse refuses it, like every other shape the renderer never writes."""
-
     def __init__(self) -> None:
         self.values: dict[str, Any] = {}
 

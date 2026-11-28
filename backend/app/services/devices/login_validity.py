@@ -1,12 +1,4 @@
-"""How long a device login stays valid: one platform setting for paired phones and Macs.
-
-``system_config`` key ``devices.login_validity``, written as ``<n>h`` or ``<n>d`` (``12h``, ``1d``, ``90d``).
-Bounds: at least one hour, at most 365 days. "Never expires" does not exist. Without a stored value it is 90 days.
-
-The validity counts from when the device was registered (a Mac: ``device enable``; a phone: its pairing). It is
-read on every check, so shortening it takes effect at once for every device. After it, a Mac's credential can
-no longer mint or renew tokens (``device enable`` again) and a phone must be paired again.
-"""
+"""How long a device login stays valid: one platform setting for paired phones and Macs."""
 
 from __future__ import annotations
 
@@ -29,7 +21,6 @@ _PATTERN = re.compile(r"^([1-9][0-9]{0,4})([hd])$")
 
 
 def parse_validity(text: object) -> timedelta | None:
-    """``timedelta`` for ``<n>h`` / ``<n>d`` within the bounds, else ``None``."""
     match = _PATTERN.match(str(text or "").strip().lower())
     if match is None:
         return None
@@ -59,7 +50,6 @@ def login_expires_at(created_at: datetime, validity: timedelta) -> datetime:
 
 
 async def set_login_validity(db: AsyncSession, *, value: object, actor_id: str) -> str:
-    """Store a new validity (audited) and return it normalized; raises ``ValueError`` (fixed reason) otherwise."""
     if parse_validity(value) is None:
         raise ValueError(REASON_VALIDITY_INVALID)
     normalized = str(value).strip().lower()

@@ -1,12 +1,4 @@
-"""``octryx-plugin.yaml``: what a plugin package brings, checked without a database (also by the validate CLI).
-
-A package brings content without code (skills, workflows, roles with their functions) and may connect an
-MCP server the plugin's team runs (URL). Its ``server`` and ``ui`` (pages, tiles, tabs, phone) sections are
-validated and recorded on the install.
-
-Every refusal is ``{code, message, path}``; nothing is guessed (YAML ``safe_load``, closed key sets). The
-reading itself is ``manifest_parse.parse_manifest``; this module holds the model and the field checks.
-"""
+"""``octryx-plugin.yaml``: what a plugin package brings, checked without a database (also by the validate CLI)."""
 
 from __future__ import annotations
 
@@ -123,7 +115,6 @@ def _list(raw: Any, path: str, issues: list[dict[str, str]]) -> list[Any]:
 
 
 def package_path(value: Any, path: str, issues: list[dict[str, str]]) -> str | None:
-    """A relative path inside the package (no ``..``, no absolute path)."""
     text = str(value or "").strip().strip("/") if isinstance(value, str) else ""
     normal = posixpath.normpath(text) if text else ""
     if not text or normal.startswith("..") or text.startswith("/") or "\\" in text or normal == ".":

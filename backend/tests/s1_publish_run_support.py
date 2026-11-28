@@ -33,18 +33,12 @@ from app.services.workflow_runs.phase_outputs import output_hash
 from app.services.workflow_runs.records import lock_run
 from tests.s1_publish_cloud_support import PARENT, SITE, SPACE_KEY, FakeCloudV2
 
-# The Confluence Cloud REST v2 fake and its faults live in ``s1_publish_cloud_support``.
-
-
 DOCUMENTATION = {"title": "Totals", "what": "Shows the totals.", "why": "Users asked for it.",
                  "how_to_use": "Open the report.", "notes": ""}
 
 
 class Crash(BaseException):  # noqa: N818 - a simulated process death, not an error the code may handle
-    """A simulated process death: no ``except Exception`` can catch it."""
-
-
-# --- the run ---------------------------------------------------------------------------------------------------
+    ...
 
 
 async def documented_run(db, *, parent: str = PARENT, url: str = SITE) -> WorkflowRun:
@@ -110,7 +104,6 @@ async def reserve(db, run: WorkflowRun, fake: FakeCloudV2, *, entry: int = 1):
 
 async def confirm(db, run: WorkflowRun, intent, *, body: str | None = None, action: str = "confirmed",
                   approve: bool = True) -> WorkflowRunDecision:
-    """Card (b): the exact body (with the reserved marker) confirmed, then bound to the intent."""
     output = recorded_output(run)
     body = body if body is not None else card_body(run, intent.marker)
     payload = {"subject": "publication", "title": intent.title, "body": body, "marker": intent.marker,
@@ -134,7 +127,6 @@ async def confirm(db, run: WorkflowRun, intent, *, body: str | None = None, acti
 
 async def publish(db, run: WorkflowRun, fake: FakeCloudV2, *, entry: int = 1, worker: str | None = None,
                   reconcile: bool = False):
-    """The engine's activation of the publish node: claim the run, run the action, commit."""
     await lock_run(db, run)
     run.current_node_id, run.node_state = "publish_docs", {"entry": entry}
     handler = reconcile_publication_intent if reconcile else publish_documentation_v2
@@ -144,7 +136,6 @@ async def publish(db, run: WorkflowRun, fake: FakeCloudV2, *, entry: int = 1, wo
 
 
 async def crashed(db, call) -> None:
-    """Run ``call`` until it dies with :class:`Crash`; whatever it had not committed is lost."""
     try:
         await call
     except Crash:
@@ -154,7 +145,6 @@ async def crashed(db, call) -> None:
 
 
 async def published_ready(db, fake: FakeCloudV2, **run_options):
-    """A run with a reserved and approved create intent."""
     run = await documented_run(db, **run_options)
     intent = await reserve(db, run, fake)
     await confirm(db, run, intent)

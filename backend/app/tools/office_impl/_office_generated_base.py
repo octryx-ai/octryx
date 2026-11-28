@@ -21,12 +21,6 @@ def office_script_failure(
     exit_code: int | None = None,
     exc: BaseException | None = None,
 ) -> dict[str, Any]:
-    """A generated Office build script failed: fixed facts only.
-
-    The script's stdout/stderr and exception messages can carry internal paths, template
-    content or credentials, so the result keeps the closed code, the exit status and the
-    exception class name.
-    """
     facts = [code]
     result: dict[str, Any] = {"error_code": code, "exit_code": exit_code, "script_path": str(script_path)}
     if exit_code is not None:
@@ -38,21 +32,14 @@ def office_script_failure(
 
 
 def office_script_env(script_dir: Path) -> dict[str, str]:
-    """A scrubbed environment: no API secrets, credentials, proxies or PYTHONPATH reach the script."""
     return {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": str(script_dir), "LANG": "C.UTF-8"}
 
 
 def office_script_command(script_path: Path) -> list[str]:
-    """Isolated mode (``-I``): no script directory, no user site, no PYTHON* variables on ``sys.path``, so a
-    workspace file named like a library (``docx.py``) cannot shadow it. The script adds the engine itself."""
     return [sys.executable, "-I", str(script_path)]
 
 
 async def run_office_script(script_path: Path, *, timeout_sec: int) -> tuple[dict[str, Any] | None, str, str]:
-    """Run a generated script with the backend interpreter (where python-docx/python-pptx/openpyxl live).
-
-    Returns ``(failure, stdout, stderr)``: a failure keeps fixed facts only; the printed result is redacted.
-    """
     try:
         proc = await asyncio.create_subprocess_exec(
             *office_script_command(script_path),
@@ -75,7 +62,6 @@ async def run_office_script(script_path: Path, *, timeout_sec: int) -> tuple[dic
 
 
 async def office_validation(output_path: Path) -> dict[str, Any]:
-    """The engine's validation of a built document: ``valid`` plus its issues, or a closed failure."""
     result = await asyncio.to_thread(office_engine.validate, output_path)
     if result.get("error"):
         return {"valid": False, "error_code": result.get("error_code")}

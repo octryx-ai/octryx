@@ -1,18 +1,4 @@
-"""``workflow_action_request``: Jira, pull request and CI on the server for an octryx-claude session.
-
-The device holds no Jira, SCM or CI credential; during a run its SCM and Jira clients are denied
-(``tool_policy``). The agent asks the platform instead, which runs a typed action of the closed catalog
-(``platform/catalog``) for the run, on the Workspace's named connections, through the governed dispatch (tool
-approval gate, audit) as the run's requester:
-
-- only while the run is at a phase, and only an action whose class the phase has (``ci.status`` reads in any
-  phase; Jira and SCM writes need a ``deliver`` phase);
-- params are the catalog's closed set; a raw Jira status is refused (the write-back mapping moves states);
-- **idempotent per pass**: the same action with the same params in the same pass of the phase returns the
-  recorded outcome (``context.action_ledger``) instead of acting twice;
-- a tool approval the gate holds answers ``approval_pending`` with the platform link; the grant is consumed when
-  the agent asks again.
-"""
+"""``workflow_action_request``: Jira, pull request and CI on the server for an octryx-claude session."""
 
 from __future__ import annotations
 
@@ -55,7 +41,7 @@ async def request_action(db: AsyncSession, run: WorkflowRun, *, action: str, par
     if errors:
         return {"state": "invalid_request", "reason": errors[0]["code"], "message": errors[0]["message"]}
     run = await lock_run(db, run)
-    contract = await run_contract(db, run, principal=principal, session=session)  # an item's: its own phase
+    contract = await run_contract(db, run, principal=principal, session=session)
     phase = contract.get("phase")
     if run.status != STATUS_RUNNING or phase is None:
         return {"state": "denied", "reason": "run_not_at_phase", "message": contract_summary(contract)}

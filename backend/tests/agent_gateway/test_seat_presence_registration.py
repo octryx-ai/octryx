@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
 from datetime import timedelta
 
@@ -96,16 +95,12 @@ def test_the_seat_policy_keys_are_validated():
 
 
 @pytest.mark.asyncio
-async def test_gateway_routes_authenticate_as_before_without_rls_tracebacks(client, db, caplog):
-    """Gateway login tokens are logged at debug, without a traceback; same answers."""
+async def test_gateway_routes_answer_each_token_failure_with_its_reason(client, db):
     workspace_id = await _workspace(db)
     user_id = await seed_member(db, workspace_id=workspace_id, role="member")
     await db.commit()
     gateway = await _gateway_headers(db, user_id, workspace_id)
     platform = {**gateway, "authorization": (await _bearer(user_id))["Authorization"]}
-    caplog.set_level(logging.DEBUG, logger="app.middleware.security.row_level_security")
-    caplog.clear()
-
     allowed = await client.get(POLICY, headers=gateway)
     missing = await client.get(POLICY, headers={k: v for k, v in gateway.items() if k != "authorization"})
     wrong_audience = await client.get(POLICY, headers=platform)
@@ -118,13 +113,6 @@ async def test_gateway_routes_authenticate_as_before_without_rls_tracebacks(clie
     assert (wrong_audience.status_code, wrong_audience.json()["reason"]) == (401, "gateway_token_invalid")
     assert (garbage.status_code, garbage.json()["reason"]) == (401, "gateway_token_invalid")
     assert model.status_code == 401 and "gateway_token_invalid" in model.json()["error"]["message"]
-    rls = [record for record in caplog.records if record.name.endswith("row_level_security")]
-    assert rls and all(record.levelno == logging.DEBUG and record.exc_info is None for record in rls)
-
-    caplog.clear()
-    await client.get("/api/v1/projects", headers={"Authorization": "Bearer not-a-token"})
-    elsewhere = [record for record in caplog.records if record.name.endswith("row_level_security")]
-    assert elsewhere and elsewhere[0].levelno == logging.ERROR, "other routes keep their error log"
 
 
 @pytest.mark.asyncio

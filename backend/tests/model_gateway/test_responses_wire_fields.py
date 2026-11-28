@@ -1,12 +1,4 @@
-"""Both public Responses relays read the whole request they forward (owner decision 24.11.).
-
-``/openai`` (governed, LiteLLM upstream) and the Codex seat (ChatGPT upstream) forward the client's own Responses
-body, so the gateway's scan (``content_routing.gateway``) reads that body as one text, never the governance view: the
-tool declarations (names, descriptions, parameter schemas, a namespace's inner tools), the response-format
-configuration, every field of a part, re-sent history (call outputs, readable reasoning fields). Only the values
-under the opaque key list are not read — by key, wherever they are, without validating their content (README
-"Sensitive content handling": the threat model is accidental leakage, not a deliberately evasive client).
-"""
+"""Both public Responses relays read the whole request they forward."""
 
 from __future__ import annotations
 
@@ -25,9 +17,9 @@ from tests.model_gateway.model_gateway_openai_responses_support import responses
 from .test_inbound_anthropic_gateway import AWS_KEY_LOOKALIKE
 
 SECRET_TEXT = f"use key {AWS_KEY_LOOKALIKE}"
-# Credential assignments (a gateway kind, C12F-08) past a detector's candidate limit: the scan cannot finish.
+# Credential assignments (a gateway kind) past a detector's candidate limit: the scan cannot finish.
 UNFINISHED = " ".join(f"password=Value{index}x" for index in range(5200))
-SECRET = "secret_detected_in_prompt"
+MASKED = "masked"  # sent, with the credential masked (the default for credentials, WP-C3)
 UNFINISHED_SCAN = "content_scan_unfinished"
 
 
@@ -91,17 +83,17 @@ def _extra_top_level_field(body: dict[str, Any]) -> None:
     body["metadata"] = {"note": SECRET_TEXT}
 
 
-REFUSED: dict[str, tuple[Callable[[dict[str, Any]], None], str]] = {
-    "tool-description": (_tool_description, SECRET),
-    "namespace-tool-description": (_namespace_tool, SECRET),
-    "parameter-schema": (_parameter_schema, SECRET),
-    "response-format-schema": (_response_format, SECRET),
+READ: dict[str, tuple[Callable[[dict[str, Any]], None], str]] = {
+    "tool-description": (_tool_description, MASKED),
+    "namespace-tool-description": (_namespace_tool, MASKED),
+    "parameter-schema": (_parameter_schema, MASKED),
+    "response-format-schema": (_response_format, MASKED),
     "unfinished-tool-description": (_unfinished_tool, UNFINISHED_SCAN),
-    "history-part-field": (_history_part_field, SECRET),
-    "history-call-output": (_history_call_output, SECRET),
-    "history-call-arguments": (_history_call_arguments, SECRET),
-    "history-reasoning-summary": (_reasoning_summary, SECRET),
-    "extra-top-level-field": (_extra_top_level_field, SECRET),
+    "history-part-field": (_history_part_field, MASKED),
+    "history-call-output": (_history_call_output, MASKED),
+    "history-call-arguments": (_history_call_arguments, MASKED),
+    "history-reasoning-summary": (_reasoning_summary, MASKED),
+    "extra-top-level-field": (_extra_top_level_field, MASKED),
 }
 #: The opaque key list applies by key alone, wherever the key is: these are forwarded unread (no validation).
 OPAQUE_BY_KEY: dict[str, Callable[[dict[str, Any]], None]] = {
@@ -122,32 +114,38 @@ def _with_opaque_state(body: dict[str, Any]) -> dict[str, Any]:
 
 
 def _case(body: dict[str, Any], name: str) -> tuple[dict[str, Any], str]:
-    mutate, reason = REFUSED[name]
+    mutate, outcome = READ[name]
     changed = json.loads(json.dumps(body))
     mutate(changed)
-    return changed, reason
+    return changed, outcome
+
+
+def _read(response, upstream: list, outcome: str, reason: Callable[[Any], str]) -> None:
+    if outcome == MASKED:
+        assert response.status_code == 200, response.text
+        (sent,) = upstream
+        assert AWS_KEY_LOOKALIKE not in sent.content.decode(), "the field was read: its credential is masked"
+    else:
+        assert (response.status_code, reason(response)) == (400, outcome), response.text
+        assert upstream == []
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("name", sorted(REFUSED))
-async def test_openai_refuses_a_forwarded_field_with_a_secret_or_an_unfinished_scan(client, responses_setup,  # noqa: F811
-                                                                                   name):
+@pytest.mark.parametrize("name", sorted(READ))
+async def test_openai_reads_every_forwarded_field(client, responses_setup, name):  # noqa: F811
     fake, build = responses_setup
-    body, reason = _case(openai_support._body(), name)
+    body, outcome = _case(openai_support._body(), name)
     response = await client.post(openai_support.ROUTE, json=body, headers=await build())
-    assert response.status_code == 400 and response.json()["error"]["code"] == reason, response.text
-    assert fake.requests == []
+    _read(response, fake.requests, outcome, lambda answer: answer.json()["error"]["code"])
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("name", sorted(REFUSED))
-async def test_the_codex_seat_refuses_a_forwarded_field_with_a_secret_or_an_unfinished_scan(client, db, chatgpt,  # noqa: F811
-                                                                                           name):
+@pytest.mark.parametrize("name", sorted(READ))
+async def test_the_codex_seat_reads_every_forwarded_field(client, db, chatgpt, name):  # noqa: F811
     _workspace_id, _user, gateway, credential = await _codex_session(client, db)
-    body, reason = _case(codex_seat_support._body(), name)
+    body, outcome = _case(codex_seat_support._body(), name)
     response = await client.post(codex_seat_support.ROUTE, json=body, headers=_headers(gateway, credential))
-    assert (response.status_code, _reason(response)) == (400, reason), response.text
-    assert chatgpt.requests == []
+    _read(response, chatgpt.requests, outcome, _reason)
 
 
 @pytest.mark.asyncio

@@ -1,26 +1,5 @@
-"""Structured graph builds: requested per Workspace, claimed with a lease, run in bounded slices.
-
-A build names the layers to (re)build. :func:`request_build` merges a request into the Workspace's
-pending build, so repeated clicks or several source syncs never queue duplicates; a manual request
-makes the merged build manual. The merge is a conditional ``UPDATE`` on ``state = pending``: a build
-a runner claimed in between is never changed, the request then starts a new pending build.
-
-A manual request for a Workspace whose source-sync refresh is **running** takes that build over
-instead of queuing behind it (:func:`request_build`): the running build becomes manual with the
-merged layers. The projection worker hands a cooperative build back after every slice (lease ends
-now), so the manual runner claims it as soon as the slice in flight commits; nothing waits for a
-lease to expire.
-
-Who runs a build depends on its trigger: a source-sync refresh is cooperative (the projection worker
-claims one due build per tick, :func:`run_next_build` with :data:`COOPERATIVE_TRIGGERS`, and runs
-one slice of it), a manual build has its own runner (``build_runner.py``) that runs short slices
-back to back. A slice (``build_slice.py``) extracts per layer what the ledger does not hold yet and
-then links; the next slice continues where the ledger says. No step calls a model.
-
-A source sync requests only the layers its connector kind feeds (:func:`sync_layers`).
-
-The report holds counts and fixed warning tokens only, never source text or values.
-"""
+"""Structured graph builds: requested per Workspace, claimed with a lease, run in bounded slices. Repeated requests
+merge and never queue duplicates."""
 
 from __future__ import annotations
 
@@ -61,7 +40,7 @@ MAX_MERGE_ATTEMPTS = 5
 
 
 class StructuredBuildRequestError(ValueError):
-    """The request names no layer, or a layer the profile does not know."""
+    pass
 
 
 def normalize_layers(layers: object) -> list[str]:
@@ -73,11 +52,6 @@ def normalize_layers(layers: object) -> list[str]:
 
 
 async def _merge_target(db: AsyncSession, project_id: str, trigger: str) -> tuple[str, str, str, list[str]] | None:
-    """The build a request merges into, as read now: ``(id, state, trigger, layers)``.
-
-    A manual request takes over the Workspace's running source-sync refresh, so it never queues
-    behind it; otherwise (and for any other request) the Workspace's pending build.
-    """
     rows = (
         await db.execute(
             select(
@@ -137,7 +111,6 @@ async def request_build(
 
 
 async def has_built(db: AsyncSession, project_id: str) -> bool:
-    """Whether the Workspace ever asked for a structured graph (source syncs refresh only those)."""
     found = await db.execute(
         select(KnowledgeStructuredBuild.id).where(KnowledgeStructuredBuild.project_id == project_id).limit(1)
     )
@@ -145,13 +118,6 @@ async def has_built(db: AsyncSession, project_id: str) -> bool:
 
 
 def sync_layers(profile: StructuredProfile, connector_kind: str | None) -> list[str]:
-    """The layers a sync of ``connector_kind`` can change, from the profile's connector kinds.
-
-    Configuration kinds feed the configuration layer, operations kinds (ServiceNow, Jira, the
-    Kubernetes inventory) the operations layer; any other kind brings documents and refreshes the
-    manual layer (PDF manuals) and the operations layer. An unknown sync (``None``) refreshes every
-    layer.
-    """
     if connector_kind is None:
         return list(LAYERS)
     layers = set()
@@ -165,7 +131,6 @@ def sync_layers(profile: StructuredProfile, connector_kind: str | None) -> list[
 
 
 async def refresh_after_sync(db: AsyncSession, project_id: str, connector_kind: str | None = None) -> None:
-    """A completed source sync refreshes the affected layers of a Workspace that has a structured graph."""
     if await has_built(db, project_id):
         try:
             layers = sync_layers(await workspace_profile(db, project_id), connector_kind)
@@ -185,11 +150,6 @@ def _due(now):
 async def claim_next_build(
     db: AsyncSession, *, worker_id: str, triggers: tuple[str, ...] | None = None, lease_seconds: float = LEASE_SECONDS
 ) -> str | None:
-    """Claim the oldest due build (of ``triggers`` only, when given) whose Workspace runs no other build.
-
-    The lease is how long the build stays the claimer's without a renewal; a claimer that dies
-    (a restart) leaves it ``running`` until then, after which the next claim resumes it.
-    """
     now = utc_now()
     due = _due(now) if triggers is None else and_(_due(now), KnowledgeStructuredBuild.trigger.in_(triggers))
     candidates = (
@@ -222,7 +182,6 @@ async def claim_next_build(
 
 
 async def hand_back(db: AsyncSession, build_id: str, worker_id: str) -> None:
-    """End this worker's lease now, so the next claim resumes the build (a takeover's runner at once)."""
     await db.execute(
         update(KnowledgeStructuredBuild)
         .where(
@@ -236,11 +195,7 @@ async def hand_back(db: AsyncSession, build_id: str, worker_id: str) -> None:
 
 
 async def fail_build(db: AsyncSession, build_id: str, worker_id: str | None = None) -> str:
-    """A slice raised: roll back and fail the build with the fixed token (never the error text).
-
-    With ``worker_id`` only while that worker still holds the build: a slice that lost its lease
-    never fails the build its new owner runs.
-    """
+    # A fixed token, never the error text; a slice that lost its lease never fails its new owner's build.
     await db.rollback()
     logger.warning("Structured knowledge graph build failed: build=%s", build_id)
     held = [] if worker_id is None else [KnowledgeStructuredBuild.claimed_by == worker_id[:120]]
@@ -260,7 +215,6 @@ async def run_next_build(
     worker_id: str,
     triggers: tuple[str, ...] | None = None,
 ) -> str | None:
-    """Claim and run one slice of the next due build, then hand it back; a failure fails it with a fixed token."""
     async with session_factory() as db:
         build_id = await claim_next_build(db, worker_id=worker_id, triggers=triggers)
         if build_id is None:

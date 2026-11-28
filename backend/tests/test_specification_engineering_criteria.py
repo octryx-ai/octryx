@@ -13,7 +13,10 @@ from app.services.knowledge.access.source_acl import restrict_source
 from app.services.workflow_runs.contract_coverage import check_contract_coverage, structured_criteria
 from app.services.workflow_runs.specification.engineering_contract import accepted_spec_criteria
 from tests.contract_coverage_support import FILE, NEW, REGRESSION, _base_copy, _clarify
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_specification_handoff_authority import accepted_spec_case
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SPEC_CRITERIA = [
     {"id": "AC7", "story_ids": ["ST1"], "given": "An admitted source", "when": "I view the claim",
@@ -180,7 +183,6 @@ async def test_legacy_public_structured_criteria_tuple_and_dor_behavior_remain(d
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

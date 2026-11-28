@@ -1,9 +1,8 @@
-"""Serialization and manifest helpers for worker pool APIs."""
+"""Serialization helpers for worker pool APIs."""
 
 from typing import Any
 
 from ...models import (
-    AgentWorker,
     TaskRoutingRule,
     WorkerCapacityLog,
     WorkerDomainExpertise,
@@ -91,56 +90,4 @@ def serialize_routing_rule(row: TaskRoutingRule) -> dict[str, Any]:
         "target_config": dict(row.target_config or {}),
         "is_active": bool(row.is_active),
         "created_at": row.created_at.isoformat() if row.created_at else None,
-    }
-
-
-def build_worker_deployment_manifest(
-    *, worker: AgentWorker, domains: list[str], max_parallel_tasks: int
-) -> dict[str, Any]:
-    return {
-        "apiVersion": "apps/v1",
-        "kind": "Deployment",
-        "metadata": {"name": f"octryx-worker-{worker.id[:8]}"},
-        "spec": {
-            "replicas": 1,
-            "template": {
-                "spec": {
-                    "containers": [
-                        {
-                            "name": "worker",
-                            "image": "octryx/worker:latest",
-                            "env": [
-                                {"name": "WORKER_ID", "value": worker.id},
-                                {"name": "WORKER_ROLE", "value": worker.role},
-                                {"name": "WORKER_DOMAINS", "value": ",".join(domains)},
-                                {"name": "WORKER_MAX_PARALLEL", "value": str(max_parallel_tasks)},
-                            ],
-                        }
-                    ]
-                }
-            },
-        },
-    }
-
-
-def build_worker_hpa_manifest(
-    *, worker_id: str, min_replicas: int, max_replicas: int, average_queue_depth: int
-) -> dict[str, Any]:
-    return {
-        "apiVersion": "autoscaling/v2",
-        "kind": "HorizontalPodAutoscaler",
-        "metadata": {"name": f"octryx-worker-{worker_id[:8]}-hpa"},
-        "spec": {
-            "minReplicas": min_replicas,
-            "maxReplicas": max_replicas,
-            "metrics": [
-                {
-                    "type": "External",
-                    "external": {
-                        "metric": {"name": "octryx_queue_depth"},
-                        "target": {"type": "AverageValue", "averageValue": str(average_queue_depth)},
-                    },
-                }
-            ],
-        },
     }

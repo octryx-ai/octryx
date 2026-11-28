@@ -1,26 +1,4 @@
-"""Agent metrics for Prometheus and Grafana: counters and histograms of what agents do (``octryx_*``).
-
-Counted where the facts are written, once they are committed:
-
-- An ORM hook sees the rows a flush writes (LLM usage, tool calls, turns, sessions, approvals, workflow runs) and
-  keeps what to count on the database session; ``after_commit`` counts it, a rollback forgets it. Rows written
-  with a Core ``update()`` pass through no hook: those writers call :func:`on_commit` themselves (approvals).
-- LLM requests and their duration come from the provider wrapper (``agent/providers/base.py``); seat calls never
-  pass it, so their recorded ``usage_events`` row is the request (route ``gateway`` or ``device_report``, with the
-  duration the seat recorder passes in :func:`seat_call`).
-- Workflow run events and device jobs: :mod:`workflow_metrics`.
-
-Counters live in this process and start at zero after a restart, which ``rate()`` and ``increase()`` handle. API
-and worker each serve what they counted; Grafana sums over both. What runs now (runs, device jobs, sessions,
-approvals) is held by :mod:`live_state`. Nothing here reads the database (metrics never go through
-the database).
-
-Label values are bounded: a metric keeps at most ``MAX_SERIES`` label sets, further ones are counted under
-``other``. No counter label carries a run, session or user id; a Workspace is shown by the name this process has
-seen loaded, else its id.
-
-This module imports only SQLAlchemy and the standard library: ``db/core.py`` installs the hooks at import.
-"""
+"""Agent metrics for Prometheus and Grafana: counters and histograms of what agents do (``octryx_*``)."""
 
 from __future__ import annotations
 
@@ -61,10 +39,9 @@ APPROVAL_SECONDS = (10, 60, 300, 900, 3600, 14400, 86400, 259200)
 
 FINISHED_RUN_STATUSES = frozenset({"completed", "stopped", "failed"})
 
-# Which way a model call went (label ``route``): the person's seat through the gateway or reported by the device
-# (Codex admit/report), the independent review, an engine runtime chain, or a governed platform model.
-ROUTE_GATEWAY, ROUTE_DEVICE_REPORT, ROUTE_REVIEW, ROUTE_ENGINE_CHAIN, ROUTE_GOVERNED = (
-    "gateway", "device_report", "review", "engine_chain", "governed")
+# Which way a model call went (label ``route``): the person's seat through the gateway, the independent review, an
+# engine runtime chain, or a governed platform model.
+ROUTE_GATEWAY, ROUTE_REVIEW, ROUTE_ENGINE_CHAIN, ROUTE_GOVERNED = ("gateway", "review", "engine_chain", "governed")
 SEAT_COST_SOURCE = "seat_subscription"
 REVIEW_DISPATCH_OWNER = "workflow_run_review"
 ENGINE_CHAIN_DISPATCH_OWNER = "engine_runtime_chain"
@@ -73,8 +50,8 @@ _SEAT_CALL: contextvars.ContextVar[tuple[str, float | None] | None] = contextvar
     "octryx_seat_call", default=None)
 
 
-LLM_REQUESTS = Counter("octryx_llm_requests_total", "LLM requests by provider, model, route (gateway, device_report,"
-                       " review, engine_chain, governed) and outcome (ok, error, timeout, cancelled)",
+LLM_REQUESTS = Counter("octryx_llm_requests_total", "LLM requests by provider, model, route (gateway, review,"
+                       " engine_chain, governed) and outcome (ok, error, timeout, cancelled)",
                        ("provider", "model", "route", "outcome"))
 LLM_SECONDS_METRIC = Histogram("octryx_llm_request_duration_seconds", "LLM request duration in seconds",
                                ("provider", "model", "route"), LLM_SECONDS)
@@ -98,8 +75,6 @@ SEAT_USAGE_LIST_USD = Counter(
 SEAT_USAGE_UNPRICED = Counter(
     "octryx_seat_usage_unpriced_total", "Seat calls whose model has no list price (no API equivalent), by provider and"
     " model", ("provider", "model"))
-SEAT_ADMITS = Counter("octryx_seat_admit_total", "Seat calls the device asked to send (Codex admit), by engine,"
-                      " outcome (admitted, refused) and reason", ("engine", "outcome", "reason"))
 TOOL_CALLS = Counter("octryx_tool_calls_total", "Agent tool calls by tool and status", ("tool", "status"))
 TOOL_DURATION = Histogram("octryx_tool_call_duration_seconds", "Agent tool call duration in seconds", ("tool",),
                           TOOL_SECONDS)
@@ -121,7 +96,7 @@ APPROVAL_WAIT = Histogram("octryx_approval_wait_seconds", "Time from approval re
 
 METRICS: tuple[_Metric, ...] = (LLM_REQUESTS, LLM_SECONDS_METRIC, LLM_TOKENS, LLM_COST, TOOL_CALLS, TOOL_DURATION,
                                 TURNS, SESSIONS, RUNS_STARTED, RUNS_FINISHED, RUN_DURATION, APPROVALS_REQUESTED,
-                                APPROVALS_DECIDED, APPROVAL_WAIT, SEAT_ADMITS, SEAT_USAGE_LIST_USD,
+                                APPROVALS_DECIDED, APPROVAL_WAIT, SEAT_USAGE_LIST_USD,
                                 SEAT_USAGE_UNPRICED, LLM_USAGE_EVENTS, UNATTRIBUTED,
                                 *workflow_metrics.METRICS, *platform_metrics.METRICS, *knowledge_metrics.METRICS,
                                 *review_bot_metrics.METRICS, *maintenance_metrics.METRICS, *hands_on_metrics.METRICS,
@@ -130,7 +105,6 @@ METRICS: tuple[_Metric, ...] = (LLM_REQUESTS, LLM_SECONDS_METRIC, LLM_TOKENS, LL
 
 
 def reset() -> None:
-    """Tests: start every metric empty."""
     for metric in METRICS:
         metric.series.clear()
     workflow_metrics.reset()
@@ -155,7 +129,6 @@ def record_llm_request(provider: str, model: str, outcome: str, seconds: float, 
 
 @contextmanager
 def seat_call(route: str, seconds: float | None) -> Iterator[None]:
-    """Around the write of one seat call: its ``usage_events`` row counts as a request of ``route``."""
     token = _SEAT_CALL.set((route, seconds))
     try:
         yield
@@ -163,24 +136,11 @@ def seat_call(route: str, seconds: float | None) -> Iterator[None]:
         _SEAT_CALL.reset(token)
 
 
-def record_seat_upstream_error(provider: str, model: str, route: str, seconds: float | None) -> None:
-    """A seat call the upstream answered with an error: relayed, never recorded as usage, still a request."""
-    LLM_REQUESTS.inc(provider=provider, model=model, route=route, outcome="error")
-    if seconds is not None:
-        LLM_SECONDS_METRIC.observe(seconds, provider=provider, model=model, route=route)
-
-
-def record_seat_admit(engine: str, outcome: str, reason: str = "") -> None:
-    SEAT_ADMITS.inc(engine=engine, outcome=outcome, reason=reason or "none")
-
-
 def seat_pseudonym(user_id: Any, provider: Any) -> str:
-    """The label of a person's seat account on one provider: a short hash, never a name or an address."""
     return hashlib.sha256(f"{user_id or ''}:{provider or ''}".encode()).hexdigest()[:10]
 
 
 def usage_route(row: Any) -> str:
-    """The ``route`` of a ``usage_events`` row."""
     if row.dispatch_owner == REVIEW_DISPATCH_OWNER:
         return ROUTE_REVIEW
     if row.dispatch_owner == ENGINE_CHAIN_DISPATCH_OWNER:
@@ -200,21 +160,15 @@ _ENGINE_OF_PROVIDER = {"anthropic": ENGINE_CLAUDE_CODE, "anthropic_seat": ENGINE
 
 
 def usage_engine(provider: str | None) -> str:
-    """The engine of a usage row's provider: the Claude or Codex seat (or its API), else a governed platform model."""
     return _ENGINE_OF_PROVIDER.get(str(provider or "").lower(), ENGINE_GOVERNED)
 
 
 def usage_run(row: Any) -> str:
-    """The run a usage row belongs to, from memory only (its writer's context, the request's, else the run this
-    process knows its session works for); ``""`` outside a run."""
     context = dict(attribution.of(row) or attribution.current() or {})
     return str(context.get("run") or dict(live_state.run_context(row.session_id) or {}).get("run") or "")
 
 
 def usage_attribution(row: Any, route: str, session: Any = None) -> dict[str, str]:
-    """``engine``, ``role`` and ``workspace`` of a usage row, from memory only: the context its writer
-    attached, else the request's (:mod:`attribution`), else the run this process knows the session works for; the
-    Workspace of a call outside a run is its chat session's, when that session is in the writer's identity map."""
     context = dict(attribution.of(row) or attribution.current() or {})
     if not context.get("run"):
         context.update(live_state.run_context(row.session_id) or {})
@@ -237,9 +191,6 @@ def usage_attribution(row: Any, route: str, session: Any = None) -> dict[str, st
 
 
 def _tool_context(session: Any, session_id: Any) -> tuple[dict[str, str], str]:
-    """Run context (workflow, phase, workspace) and engine of a tool call, from memory only: the request's
-    attribution, else the run this process knows the session works for, else (outside a run) the chat session's
-    Workspace; the engine of the session's model calls."""
     context = dict(attribution.current() or {})
     if context.get("run"):
         context = {**live_state.run_details(context["run"]), **context}
@@ -268,7 +219,6 @@ def _seconds(start: datetime | None, end: datetime | None) -> float | None:
 
 
 def approval_decided(approval: Any) -> Callable[[], None]:
-    """What to count for a decided approval (counted on commit by the caller via :func:`on_commit`)."""
     status, wait = str(approval.status or "unknown"), _seconds(approval.created_at, approval.resolved_at)
     approval_id = approval.id
 
@@ -282,7 +232,6 @@ def approval_decided(approval: Any) -> Callable[[], None]:
 
 
 def on_commit(db: Any, count: Callable[[], None]) -> None:
-    """Count ``count`` when ``db``'s transaction commits; a rollback drops it."""
     session = getattr(db, "sync_session", db)
     session.info.setdefault(_PENDING, []).append(count)
 
@@ -450,7 +399,6 @@ def install() -> None:
 # ---- rendering ------------------------------------------------------------------------------------------------------
 
 def _workspace_renamer(metric: _Metric) -> Callable[[tuple[str, ...]], tuple[str, ...]]:
-    """Workspace ids become the names this process has seen (``live_state``); an unseen one stays its id."""
     if "workspace" not in metric.labels:
         return lambda key: key
     index = metric.labels.index("workspace")
@@ -464,7 +412,6 @@ def _workspace_renamer(metric: _Metric) -> Callable[[tuple[str, ...]], tuple[str
 
 
 def render() -> list[str]:
-    """Every counter and histogram, then the live gauges: all from memory, no database query."""
     lines: list[str] = []
     for metric in METRICS:
         lines.extend(metric.render(_workspace_renamer(metric)))

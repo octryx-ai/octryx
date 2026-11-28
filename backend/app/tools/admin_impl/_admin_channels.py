@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.services.error_facts import error_text
 from app.tools.context import ToolContext
 
 from ._admin_common import _require_admin, _require_admin_or_operator, _resolve_channel, _resolve_project_id
@@ -82,6 +83,7 @@ class AdminCreateChannelTool:
 
         from ...plugins import plugin_manager
         from ...services.channel_config import ChannelConfigService
+        from ...services.channel_config.credentials import CHANNEL_START, channel_runtime_config
 
         channel = await ChannelConfigService.create(
             context.db,
@@ -93,15 +95,11 @@ class AdminCreateChannelTool:
         )
         status = "stopped"
         try:
-            reload_config = dict(config)
-            reload_config["enabled"] = enabled
-            reload_config["__channel_id"] = str(channel.id)
-            reload_config["__channel_name"] = channel.name
-            reload_config["__channel_project_id"] = channel.project_id
-            await plugin_manager.reload_channel(str(channel.id), channel.plugin_id, reload_config)
+            await plugin_manager.reload_channel(str(channel.id), channel.plugin_id, await channel_runtime_config(
+                context.db, channel, purpose=CHANNEL_START))
             status = plugin_manager.get_channel_status(str(channel.id))
         except Exception as exc:
-            status = f"error: {exc}"
+            status = f"error: {error_text('channel_start_failed', exc)}"
 
         return {
             "status": "created",
@@ -140,9 +138,10 @@ class AdminUpdateChannelTool:
 
         from ...plugins import plugin_manager
         from ...services.channel_config import ChannelConfigService
+        from ...services.channel_config.credentials import CHANNEL_START, channel_runtime_config, stored_config
         from ...services.channel_config.secret_fields import mask_channel_config
 
-        config = json.loads(channel.config or "{}") if isinstance(channel.config, str) else dict(channel.config or {})
+        config = stored_config(channel.config)
         changes: list[str] = []
         if params.get("config") is not None:
             next_config = params.get("config") or {}
@@ -191,15 +190,11 @@ class AdminUpdateChannelTool:
 
         status = "stopped"
         try:
-            reload_config = dict(updated.config or {})
-            reload_config["enabled"] = updated.enabled
-            reload_config["__channel_id"] = str(updated.id)
-            reload_config["__channel_name"] = updated.name
-            reload_config["__channel_project_id"] = updated.project_id
-            await plugin_manager.reload_channel(str(updated.id), updated.plugin_id, reload_config)
+            await plugin_manager.reload_channel(str(updated.id), updated.plugin_id, await channel_runtime_config(
+                context.db, updated, purpose=CHANNEL_START))
             status = plugin_manager.get_channel_status(str(updated.id))
         except Exception as exc:
-            status = f"error: {exc}"
+            status = f"error: {error_text('channel_start_failed', exc)}"
 
         if params.get("name") is not None:
             changes.append(f"name → {updated.name}")

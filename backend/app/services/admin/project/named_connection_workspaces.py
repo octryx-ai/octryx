@@ -1,10 +1,4 @@
-"""Every Workspace's connections of one connector, for the global list (Automation → Connectors).
-
-The global list shows the global scope only; a Workspace's own accounts were visible only inside that Workspace.
-This overview lists, read-only, per active Workspace: its named connections and its own default connection (a Workspace
-connector entry with its own target). Per entry: Workspace id and name, connection id and name, bound keys
-(a default: its allowlist keys) and the unit's non-secret fields. Never a secret value or a ``*_secret_ref``.
-"""
+"""Every Workspace's connections of one connector, for the global list (Automation → Connectors)."""
 
 from __future__ import annotations
 
@@ -28,7 +22,6 @@ def _default_keys(tool: str, config: dict[str, Any]) -> list[str]:
 
 
 async def workspace_connections(db: AsyncSession, tool: str) -> list[dict[str, Any]]:
-    """Named and own default connections of ``tool`` in every Workspace, by Workspace name then connection name."""
     usable = descriptor_of(tool).usable_field
     names = dict((await db.execute(select(Project.id, Project.name).where(Project.is_active.is_(True), Project.access_mode != "private"))).all())
     listed: list[dict[str, Any]] = []
@@ -63,8 +56,6 @@ async def workspace_connections(db: AsyncSession, tool: str) -> list[dict[str, A
 
 
 async def workspace_connection_counts(db: AsyncSession) -> dict[str, int]:
-    """How many Workspace connections each named-connection connector has (Automation → Connectors shows a card for a
-    connector that has some, even without a global entry)."""
     from ...named_connections.descriptors import DESCRIPTORS
 
     counts = {tool: len(await workspace_connections(db, tool)) for tool in DESCRIPTORS}
@@ -72,7 +63,6 @@ async def workspace_connection_counts(db: AsyncSession) -> dict[str, int]:
 
 
 async def with_workspace_connection_counts(db: AsyncSession, connectors: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The global connector list, each with ``workspace_connections`` (its count of Workspace connections)."""
     counts = await workspace_connection_counts(db)
     return [{**connector, "workspace_connections": counts.get(str(connector.get("tool_name") or ""), 0)}
             for connector in connectors]

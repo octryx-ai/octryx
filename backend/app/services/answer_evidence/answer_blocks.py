@@ -1,15 +1,4 @@
-"""The statement blocks of a markdown answer: what the answer evidence guard requires a citation on.
-
-The answer is split by its markdown structure only:
-
-- every list item (with its continuation lines) is one block; every table data row is one block;
-- every other run of non-blank lines is a paragraph block;
-- headings, horizontal rules, table header and separator rows, and fenced code are not blocks.
-
-A block is a *statement* when it has at least :data:`MIN_STATEMENT_WORDS` words of visible text
-and does not end with ``:`` (it introduces what follows) or ``?`` (it asks). A statement must
-carry a source link. The meaning of the text is never read.
-"""
+"""The statement blocks of a markdown answer: what the answer evidence guard requires a citation on."""
 
 from __future__ import annotations
 
@@ -32,15 +21,12 @@ _WORD = re.compile(r"[^\W_]+(?:[-'.][^\W_]+)*")
 
 @dataclass(frozen=True, slots=True)
 class AnswerBlock:
-    """One block and where it sits: ``last_line`` is the index of its last line in the answer's lines."""
-
     text: str
     last_line: int
     kind: str  # "paragraph" | "item" | "row"
 
 
 def answer_block_spans(text: str) -> list[AnswerBlock]:
-    """The answer's blocks in order, with their position and kind (see the module docstring for the split)."""
     lines = str(text or "").splitlines()
     blocks: list[AnswerBlock] = []
     current: list[str] = []
@@ -81,12 +67,10 @@ def answer_block_spans(text: str) -> list[AnswerBlock]:
 
 
 def answer_blocks(text: str) -> list[str]:
-    """The answer's blocks in order (see the module docstring for the split)."""
     return [block.text for block in answer_block_spans(text)]
 
 
 def answer_text_outside_code(text: str) -> str:
-    """The answer without fenced code: the text whose links count."""
     kept: list[str] = []
     in_fence = False
     for line in str(text or "").splitlines():
@@ -103,7 +87,6 @@ def _visible_text(block: str) -> str:
 
 
 def asks_or_introduces(block: str) -> bool:
-    """A block ending with ``?`` (a question back) or ``:`` (it introduces what follows), or without text."""
     tail = _visible_text(block).strip().rstrip("*_` ").strip()
     return not tail or tail.endswith((":", "?"))
 

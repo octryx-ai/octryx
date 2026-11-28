@@ -1,10 +1,4 @@
-"""Observability → Runs: every run of every source, read from ``turn_traces`` + ``tool_calls`` (O1).
-
-A run is the set of ``turn_traces`` rows whose summaries (``turn_trace_summaries``) share a ``run_key``. The list
-groups and filters in SQL over a bounded window and pages server-side; it never loads trace JSON. Tool counts come
-from ``tool_calls`` of the run (the same rows the chat shows), cost from ``usage_events`` (the one cost source). The
-run's outcome is its newest row's outcome.
-"""
+"""Observability → Runs: every run of every source, read from ``turn_traces`` + ``tool_calls`` (O1)."""
 
 from __future__ import annotations
 
@@ -164,7 +158,6 @@ def _failed_count():
 
 
 async def _tool_counts(db: AsyncSession, rows: list[Any], since: datetime) -> dict[str, tuple[int, int]]:
-    """Tool calls per run: in-app by request id, gateway by session within the window (device runs: none)."""
     result: dict[str, tuple[int, int]] = {}
     requests = _keys(rows, "req:")
     if requests:
@@ -190,7 +183,6 @@ async def _tool_counts(db: AsyncSession, rows: list[Any], since: datetime) -> di
 
 
 async def _costs(db: AsyncSession, rows: list[Any], since: datetime) -> dict[str, dict[str, Any]]:
-    """Cost per run from ``usage_events``: in-app by request id, gateway by session within the window."""
     state = cost_state_expression()
     sums: dict[str, float] = defaultdict(float)
     states: dict[str, set[str]] = defaultdict(set)
@@ -223,7 +215,6 @@ async def _costs(db: AsyncSession, rows: list[Any], since: datetime) -> dict[str
 
 
 async def run_metrics(db: AsyncSession, *, window_hours: int = DEFAULT_WINDOW_HOURS) -> dict[str, Any]:
-    """Runs per outcome and measured run durations in the window (for ``/metrics``), all from SQL."""
     since = utc_now() - timedelta(hours=window_hours)
     statement, grouped, _outcome = _runs_statement(since)
     runs = statement.subquery()

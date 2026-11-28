@@ -1,16 +1,4 @@
-"""The review's scan on a review seat's device (tool runner; ``devices/tool_jobs``).
-
-- :func:`offer_scan` (in ``pr_review.prepare``, after the context): the scanners chosen for the changed files
-  (``scanners.selected``) run as one tool job on a device of the review seats (the team's, then the author's): the
-  changed files of the reviewed head as the archive ``files`` (from the server's checkout, ``build_from_git``), the
-  rule sets as ``rules``; every scanner writes SARIF. It never waits and never fails the review: no scanner, no file
-  or no device is a footer note.
-- :func:`read_scan` (in ``pr_review.publish``, minutes later): the job's SARIF reports as findings
-  (``scan_findings``); a job still running, timed out or failed, a scanner the device lacks, files left out of the
-  archive: notes for the footer.
-
-The server never runs the pull request's code and the device runs only pinned static scanners on it.
-"""
+"""The review's scan on a review seat's device (tool runner; ``devices/tool_jobs``)."""
 
 from __future__ import annotations
 
@@ -54,7 +42,6 @@ def _steps(chosen: list[dict[str, Any]], with_rules: bool) -> list[dict[str, Any
 
 
 async def offer_scan(db: AsyncSession, run: WorkflowRun, *, root: str, head: str, diff: str) -> dict[str, Any]:
-    """The ``scan`` fact: ``{job_id, scanners, skipped}`` once offered, else ``{notes}``."""
     from ..devices import tool_jobs, tree_archive
     from ..engineering_knowledge import stacks as stack_data
 
@@ -100,7 +87,6 @@ def _reports(offered: dict[str, Any], steps: list[dict[str, Any]], result: ScanR
 
 
 async def read_scan(db: AsyncSession, offered: dict[str, Any]) -> dict[str, Any]:
-    """The ``scan`` facts for the post: ``{findings, tools, dropped, notes}``."""
     from ..devices.tool_jobs import result as job_result
 
     notes = list(offered.get("notes") or [])

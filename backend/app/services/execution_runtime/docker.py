@@ -45,7 +45,6 @@ async def _kill_named_container(
     container_name: str,
     subprocess_exec_factory: Callable[..., Awaitable[Any]],
 ) -> None:
-    """``docker kill`` the run's container, bounded; ``--rm`` then removes it."""
     try:
         killer = await subprocess_exec_factory(
             docker_binary,
@@ -72,7 +71,6 @@ def _docker_command(
     config: ExecutionRuntimeConfig,
     mounts: list[ExecutionRuntimeMount] | None,
 ) -> list[str]:
-    """The full ``docker run`` argument vector of one command."""
     docker_command = [
         docker_binary,
         "run",

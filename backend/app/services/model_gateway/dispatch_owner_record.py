@@ -1,7 +1,4 @@
-"""The record type and modes of the provider-dispatch owner inventory (:mod:`.dispatch_owners`).
-
-The modes are described in the inventory's module documentation.
-"""
+"""The record type and modes of the provider-dispatch owner inventory (dispatch_owners)."""
 
 from __future__ import annotations
 
@@ -16,15 +13,6 @@ DISPATCH_MODES = (DISPATCH_MODE_AUTHORITY, DISPATCH_MODE_ADMITTED, DISPATCH_MODE
 
 @dataclass(frozen=True, slots=True)
 class DispatchOwner:
-    """One registered provider-dispatch owner.
-
-    ``module`` is where the owner dispatches. ``boundary_module`` is set when the
-    admission call itself was extracted into a focused module (the dispatching file
-    being an oversized one); it is where the structural gate looks for the boundary
-    call, and it counts as part of this owner for the "no unregistered dispatcher"
-    rule.
-    """
-
     key: str
     category: str
     module: str
@@ -37,8 +25,6 @@ class DispatchOwner:
 
     @property
     def admission_module(self) -> str:
-        """The module that must reach the admission boundary."""
-
         return self.boundary_module or self.module
 
     @property

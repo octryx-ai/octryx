@@ -1,9 +1,4 @@
-"""The survey-coverage slide of the AWS deck planner.
-
-How complete the collection itself was, stated the way the AWS diagram
-legends state it: every service that was read only partially, skipped or
-failed is a bullet and an explicit marker, never a silent omission.
-"""
+"""The survey-coverage slide of the AWS deck planner."""
 
 from __future__ import annotations
 
@@ -82,7 +77,6 @@ def _add_service_gaps(
 
 
 def coverage_draft(summary: dict[str, Any], aws_snapshot: dict[str, Any]) -> SlideDraft:
-    """How complete the collection itself was — the diagram-legend principle."""
     draft = SlideDraft(
         title="Survey coverage",
         source="service_summary (services_*, warning_count)",

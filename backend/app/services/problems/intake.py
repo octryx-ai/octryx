@@ -1,9 +1,4 @@
-"""``intake`` problems: active ticket intakes (``work_item_sync_configs``) whose last sync did not complete.
-
-``last_sync_status`` ``failed`` is a problem, ``blocked`` (refused by policy) needs attention. ``since``/``count``
-are the ``work_item_sync_runs`` in that status after the last run in another state, inside the window; the title
-names an ``error`` code of that series when the runs recorded one.
-"""
+"""``intake`` problems: active ticket intakes (``work_item_sync_configs``) whose last sync did not complete."""
 
 from __future__ import annotations
 
@@ -20,7 +15,6 @@ _REPORTED = (STATUS_FAILED, STATUS_BLOCKED)
 
 
 async def _series(db: AsyncSession, ctx: CollectContext, config_ids: list[str]) -> dict[str, tuple]:
-    """``config -> (first, last, count, error)`` of the failed or blocked runs after the last other run."""
     run = WorkItemSyncRun
     last_other = (select(run.sync_config_id, func.max(run.created_at).label("other_at"))
                   .where(run.sync_config_id.in_(config_ids), run.status.not_in(_REPORTED))

@@ -1,18 +1,4 @@
-"""``@octryx`` commands in pull request comments.
-
-A comment whose line starts with ``@octryx <command>`` reaches :func:`handle_comment` from a webhook
-(``webhook``) or from the sync's poll (``sync``; a local installation gets no webhook). Each comment is acted on
-once (``bot_state.first_time``) and always answered in the pull request:
-
-- ``review full``: a full review of the current head, also of one reviewed before (no incremental pass);
-- ``pause`` / ``resume``: no review starts for this pull request until it is resumed (webhook and sync);
-- anything else: the list of commands.
-
-Who may: a person whose linked account (Profile → Linked accounts) is the commenter, a member of the Workspace, with
-write access to the repository (GitHub ``admin`` / ``maintain`` / ``write``). Where the platform does not tell
-(Bitbucket: only a repository admin may read permissions), a Workspace admin or owner. Anybody else gets one answer
-and nothing runs. The bot's own texts never start a line with ``@octryx``, so it never answers itself.
-"""
+"""``@octryx`` commands in pull request comments."""
 
 from __future__ import annotations
 
@@ -53,7 +39,6 @@ class Command:
 
 
 def parse_command(body: str) -> Command | None:
-    """The first ``@octryx`` line of a comment; ``None`` when no line starts with the mention."""
     match = _LINE.search(body or "")
     if match is None:
         return None
@@ -67,7 +52,6 @@ def parse_command(body: str) -> Command | None:
 
 async def authorized(db: AsyncSession, project_id: str, event: CommentEvent,
                      permission: Callable[[str], Awaitable[str]]) -> tuple[str, str]:
-    """``(Octryx user id, '')`` or ``('', why not)``."""
     from ..access_control import get_project_role_for_user
     from .seat_choice import linked_users
 
@@ -91,9 +75,6 @@ async def authorized(db: AsyncSession, project_id: str, event: CommentEvent,
 
 @dataclass(slots=True)
 class Reply:
-    """How the answer reaches the pull request (``comment_poll``): ``post(text, event)`` in the command's thread or
-    the conversation; ``send(arguments, commit=...)`` any other post-tool arguments for the pull request."""
-
     post: Callable[[str, CommentEvent], Awaitable[Any]]
     send: Callable[..., Awaitable[Any]] | None = None
 
@@ -101,7 +82,6 @@ class Reply:
 async def handle_comment(db: AsyncSession, project_id: str, record: CodeRepository, event: CommentEvent,
                          pr: PullRequestEvent | None, *, permission: Callable[[str], Awaitable[str]],
                          reply: Reply) -> str:
-    """Act on one comment; its outcome (``no_command``, ``seen``, ``refused``, ``closed`` or the command)."""
     command = parse_command(event.body)
     if command is None:
         return "no_command"
@@ -148,7 +128,6 @@ async def handle_comment(db: AsyncSession, project_id: str, record: CodeReposito
 
 
 async def _explain(db: AsyncSession, project_id: str, pr: PullRequestEvent, event: CommentEvent, question: str) -> None:
-    """The explain run, in the background: its step asks the model and answers in the thread."""
     from .ignore import last_posted
 
     run = await last_posted(db, project_id, event.repository, event.pr_id)

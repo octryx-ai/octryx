@@ -90,9 +90,6 @@ def normalize_workspace_execution_view(value: Any) -> dict[str, Any] | None:
 
 
 async def _written_once(db: AsyncSession, write: Callable[[], Awaitable[Any]]) -> Any:
-    """``write`` in a savepoint; when a parallel request already wrote the same rows (a unique constraint refuses
-    ours), the savepoint is rolled back and theirs count: the caller re-reads. The first page of a fresh install
-    loads a Workspace twice at once (otherwise the second load answered 500)."""
     try:
         async with db.begin_nested():
             result = await write()
@@ -109,7 +106,6 @@ async def _load_workspace_with_composition(
     ensure_foundation: bool = True,
     retry: bool = True,
 ) -> Project | None:
-    """``retry``: after a parallel request won the runtime bindings' insert, read once more (not again and again)."""
     normalized_workspace_id = str(workspace_id or "").strip()
     if not normalized_workspace_id:
         return None

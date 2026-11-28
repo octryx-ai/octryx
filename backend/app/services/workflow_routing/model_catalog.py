@@ -1,11 +1,4 @@
-"""Model-side workflow catalog: compact, bounded list of published definitions.
-
-Progressive disclosure: the model sees a one-liner
-catalog of the published workflow definitions every turn and may select one
-via the ``select_workflow`` meta tool. The catalog describes, the model
-decides, the runtime gates guarantee — there is no intent classifier, and the
-user's explicit ``workflow_key`` selection always takes precedence.
-"""
+"""Model-side workflow catalog: compact, bounded list of published definitions."""
 
 from __future__ import annotations
 
@@ -41,9 +34,6 @@ async def build_model_workflow_catalog(
     *,
     project_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Compact catalog entries, deterministically sorted and bounded. What people are not offered is not offered to the
-    model either (``run_admission.phased_catalog.hidden_from_people``): a test fixture and a workflow
-    a pull request starts (its Start box says so; the PR review bot starts it from a webhook, its sync or a comment)."""
     definitions = await list_published_workflow_definitions(db, project_id=project_id)
     catalog = [
         {
@@ -63,7 +53,6 @@ async def build_model_workflow_catalog(
 
 
 def render_model_workflow_catalog_prompt(catalog: list[dict[str, Any]]) -> str:
-    """Render the catalog as a compact system-prompt section ('' when empty)."""
     entries = [entry for entry in catalog or [] if str(entry.get("workflow_key") or "").strip()]
     if not entries:
         return ""

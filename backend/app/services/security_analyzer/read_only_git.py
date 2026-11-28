@@ -1,24 +1,4 @@
-"""The git read forms a read-only path admits, as CLOSED per-subcommand option tables.
-
-Admitting git by subcommand name (``diagnosis_git_subcommands``) would let ``git remote add …``, ``git branch
-probe`` or ``git log --output=out`` reach the runtime on a read-only path, although the Assistant outside a run and
-``read_only`` phases are strictly read-only. So the words after ``git`` are parsed like the other read commands
-(``read_only_options``):
-
-- **global options** before the subcommand: only ``--no-pager`` and ``-C <dir>``; ``-c`` (config, e.g.
-  ``core.pager``/``diff.external``), ``--exec-path``, ``-p``/``--paginate``, ``--git-dir``, ``--work-tree``,
-  ``--config-env`` and every other one are refused;
-- **subcommand**: one of the admitted names that also has a table here (an admitted name without a table is
-  refused, as for ``BOUND_READ_COMMANDS``); aliases never match (git does not let an alias shadow these builtins);
-- **options and operands**: the subcommand's closed table with arity; exact long names only (a prefix is refused);
-  no ``--output``, ``--ext-diff``, ``--textconv`` or other write/execute option; ``branch`` takes name operands only
-  as ``--list`` patterns (``git branch probe`` creates a branch); ``remote`` admits only listing (``-v``),
-  ``show [-n] <name>`` and ``get-url [--push|--all] <name>``.
-
-Everything else fails closed. The tables cover the forms the read-only phases and the Assistant use to inspect a
-repository (status, diffs, history, refs, remotes); a missing form is a refusal, never a guess. Read-only paths
-only: a ``change``/``deliver`` capability is never judged by these rules.
-"""
+"""The git read forms a read-only path admits, as CLOSED per-subcommand option tables."""
 
 from __future__ import annotations
 
@@ -101,7 +81,6 @@ def _table(table: OptionTable) -> Callable[[Sequence[str]], bool]:
 
 
 def _branch(args: Sequence[str]) -> bool:
-    """Listing only: a name operand creates a branch unless ``--list``/``-l`` makes it a pattern."""
     parsed = _parse(_BRANCH, args)
     if parsed is None:
         return False
@@ -110,7 +89,6 @@ def _branch(args: Sequence[str]) -> bool:
 
 
 def _remote(args: Sequence[str]) -> bool:
-    """``git remote [-v]``, ``git remote show [-n] <name>``, ``git remote get-url [--push|--all] <name>``."""
     if all(arg in ("-v", "--verbose") for arg in args):
         return True
     verb, rest = args[0], list(args[1:])
@@ -136,7 +114,6 @@ BOUND_GIT_SUBCOMMANDS: frozenset[str] = frozenset(_SUBCOMMANDS)
 
 
 def _split_globals(args: Sequence[str]) -> tuple[str, list[str]] | None:
-    """``(subcommand, its words)`` after the admitted global options, ``None`` for any other global option."""
     index = 0
     while index < len(args) and args[index].startswith("-"):
         if args[index] == "--no-pager":
@@ -151,7 +128,6 @@ def _split_globals(args: Sequence[str]) -> tuple[str, list[str]] | None:
 
 
 def git_read_refusal(args: Sequence[str], admitted: Iterable[str]) -> str | None:
-    """``None`` when ``git <args>`` is an admitted, closed read form; else ``GIT_READ_REFUSED`` (fail closed)."""
     split = _split_globals([str(arg) for arg in args])
     if split is None:
         return GIT_READ_REFUSED

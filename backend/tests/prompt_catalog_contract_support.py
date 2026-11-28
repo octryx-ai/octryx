@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.models import User
 from tests.prompt_catalog_publish_support import publish_reviewed
 
-KEY = "system.skill_discovery"  # standard risk, no placeholders
+KEY = "run.device.system_prompt"  # standard risk, no placeholders
 
 
 async def _admin(db) -> User:

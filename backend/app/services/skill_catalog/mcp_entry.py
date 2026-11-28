@@ -1,18 +1,4 @@
-"""MCP server entries: plugins that bring an MCP server instead of a SKILL.md.
-
-The official ``terraform`` entry of Anthropic's marketplace is exactly this: ``.claude-plugin/plugin.json`` plus
-``.mcp.json`` with one stdio server started by ``docker run``. The catalog keeps the two files verbatim as the
-version's bundle and derives a **launch spec**:
-
-- ``server`` (the server key), ``command``, ``args``, ``env_names``; ``env_values`` keeps only literal values
-  written in the upstream file (no ``${…}``);
-- ``image`` — the container image when the command is ``docker run`` — and ``image_digest``, recorded at review
-  (``sha256:…``); sessions start the image by digest, so a tag move upstream never changes what runs;
-- ``passthrough`` — variables the upstream spec takes from the user's shell (``${TFE_TOKEN}``); they are never
-  passed through: each must be mapped to a named connection (``env_connections``) or stays unset.
-
-Only stdio servers are entries; a remote (http/sse) server is a connector, not a catalog entry.
-"""
+"""MCP server entries: plugins that bring an MCP server instead of a SKILL.md."""
 
 from __future__ import annotations
 
@@ -43,7 +29,6 @@ def _servers(document: Any) -> dict[str, Any]:
 
 
 def servers_in_plugin(files: dict[str, str]) -> dict[str, dict[str, Any]]:
-    """Server key → raw spec from ``.mcp.json`` and ``plugin.json`` (inline ``mcpServers``)."""
     found: dict[str, dict[str, Any]] = {}
     for path in (MCP_FILE, PLUGIN_MANIFEST):
         if path not in files:
@@ -100,8 +85,6 @@ def launch_spec(server: str, raw: dict[str, Any]) -> dict[str, Any]:
 
 
 def normalize_launch_spec(value: Any, *, upstream: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The reviewed launch spec: upstream fields are fixed; ``image_digest`` and ``env_connections`` are set
-    at review."""
     if not isinstance(value, dict) or not str(value.get("server") or ""):
         raise SkillCatalogError("skill_mcp_launch_spec_invalid", 422)
     base = dict(upstream or value)
@@ -128,7 +111,6 @@ def normalize_launch_spec(value: Any, *, upstream: dict[str, Any] | None = None)
 
 
 def delivered_server(spec: dict[str, Any], resolved_env: dict[str, str]) -> dict[str, Any]:
-    """The ``.mcp.json`` server entry a session receives: image by digest, env only from named connections."""
     args = list(spec.get("args") or [])
     image, digest = spec.get("image"), spec.get("image_digest")
     if image and digest:

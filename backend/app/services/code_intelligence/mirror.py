@@ -1,18 +1,4 @@
-"""A shallow mirror of each Workspace repository for its code graph.
-
-The code graph indexes a repository's working copy (``CodeRepository.repo_root``). For a repository with a remote,
-the platform keeps its own mirror: ``git clone --depth 1 --single-branch --branch <default branch>`` under
-``code_mirror_root`` (setting ``OCTRYX_CODE_MIRROR_ROOT``; on the Mac an external SSD, never the system disk), one
-folder per repository (``<root>/<project id>/<repository id>``). An update fetches the default branch with depth 1
-and resets the mirror to it; nothing else is ever checked out or written there.
-
-- The credential is the Workspace connection's, reaching Git through its environment only (the providers' askpass
-  or header env, as their tools clone): never in argv, the remote URL or a file.
-- Without a mirror root the platform keeps no mirror (``mirror_disabled``); a repository without a remote
-  (``provider: local``) keeps its own ``repo_root``.
-- The mirror's size, head and last fetch are kept on the repository (``config_json.mirror``) and shown in the
-  admin's code graph status.
-"""
+"""A shallow mirror of each Workspace repository for its code graph."""
 
 from __future__ import annotations
 
@@ -66,10 +52,6 @@ async def _git(argv: list[str], *, cwd: Path | None = None, env: dict[str, str] 
 
 
 async def _auth_env(db: AsyncSession, repo: CodeRepository) -> dict[str, str] | None:
-    """The Workspace connection's Git environment for the repository's provider (``None``: anonymous). A connection
-    that refuses to send its credential to the remote (another host) is a :class:`MirrorError`
-    ``credential_refused``, so a Bitbucket repository whose remote is not the connection's host cannot make the
-    whole backfill answer 500."""
     try:
         return await _provider_auth_env(db, repo)
     except ValueError as error:
@@ -112,8 +94,6 @@ def _size(path: Path) -> int:
 
 
 async def ensure_mirror(db: AsyncSession, repo: CodeRepository) -> dict[str, Any]:
-    """Clone or update the repository's mirror and point ``repo_root`` at it; the mirror's record. Raises
-    :class:`MirrorError` (``mirror_disabled``, ``no_remote``, ``clone_failed``, ``fetch_failed``)."""
     target = mirror_path(repo)
     if target is None:
         raise MirrorError("mirror_disabled", "no code_mirror_root is set")
@@ -147,7 +127,6 @@ async def ensure_mirror(db: AsyncSession, repo: CodeRepository) -> dict[str, Any
 
 
 def mirror_status(repo: CodeRepository) -> dict[str, Any] | None:
-    """The admin's view of the mirror (path, bytes, head, last fetch); ``None`` without one."""
     record = dict(repo.config_json or {}).get(MIRROR_KEY)
     return dict(record) if isinstance(record, dict) else None
 

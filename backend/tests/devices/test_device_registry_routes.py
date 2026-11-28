@@ -40,7 +40,7 @@ async def test_register_returns_the_device_credential_once_and_lists_for_the_own
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
     assert body["credential"]["audience"] == DEVICE_AUDIENCE
-    assert set(body["credential"]["scopes"]) == {"device:connect", "model:invoke", "knowledge:read"}
+    assert set(body["credential"]["scopes"]) == {"device:connect", "model:invoke", "knowledge:read", "knowledge:write"}
     device_id = body["device"]["id"]
     assert device_id.startswith("dev_")
     assert (await db.get(OAuthGrant, (await db.get(UserDevice, device_id)).grant_id)).device_id == device_id
@@ -162,8 +162,6 @@ async def test_admins_see_devices_without_folders_and_revoke_with_a_reason(clien
 
 @pytest.mark.asyncio
 async def test_a_retry_after_a_lost_answer_takes_its_own_entry_over_with_a_proven_key(client, db):
-    """The server may register the device while the launcher's answer times out, so the retry meets its own entry
-    as device_name_taken. A retry signed with the same device key is the same device."""
     from app.services.devices.registration_retry import registration_payload
     from tests.devices.device_support import new_key_pair
 
@@ -179,14 +177,14 @@ async def test_a_retry_after_a_lost_answer_takes_its_own_entry_over_with_a_prove
     proof = base64.urlsafe_b64encode(private.sign(registration_payload("Test device", public))).decode().rstrip("=")
     _other_private, other_public = new_key_pair()
     assert (await _register(client, token, public_key=other_public, key_proof=proof)).json()["reason"] == \
-        "device_name_taken"  # another key with a borrowed proof
+        "device_name_taken"
 
     retried = await _register(client, token, public_key=public, key_proof=proof, folders=["/home/sample/src/one"])
     assert retried.status_code == 201, retried.text
     assert retried.json()["device"]["id"] == device_id
     devices = (await db.execute(select(UserDevice).where(UserDevice.owner_user_id == owner.id))).scalars().all()
     assert [d.id for d in devices] == [device_id] and devices[0].folders == ["/home/sample/src/one"]
-    assert (await _refresh(client, lost_refresh, DEVICE_AUDIENCE)).status_code != 200  # the lost credential is dead
+    assert (await _refresh(client, lost_refresh, DEVICE_AUDIENCE)).status_code != 200
     fresh = await _refresh(client, retried.json()["credential"]["refresh_token"], DEVICE_AUDIENCE)
     assert fresh.status_code == 200
     audit = (await db.execute(select(AuditLog).where(AuditLog.action == "device.registration_retried"))).scalars()

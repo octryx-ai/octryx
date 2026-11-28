@@ -1,9 +1,4 @@
-"""The usage records and transcript messages of an ingested external agent session.
-
-``mcp_external_session`` owns the ingest; this module normalizes the per-model
-usage records, writes them as ``UsageEvent`` rows priced by the platform, renders
-the redacted digest as messages, and links the session to the Work item it names.
-"""
+"""The usage records and transcript messages of an ingested external agent session."""
 
 from __future__ import annotations
 
@@ -91,12 +86,7 @@ _MAX_MESSAGE_CHARS = 20_000
 
 
 def _digest_to_turns(digest: str) -> list[tuple[str, str]]:
-    """Parse the '[USER]/[ASSISTANT]' digest back into (role, text) turns.
-
-    The digest is already redacted client-side, so persisting it as messages
-    puts no secrets into the message store - it renders the session as a
-    real, browsable thread.
-    """
+    # The digest is redacted client-side, so persisting it puts no secrets into the message store.
     parts = _ROLE_MARKER.split(str(digest or ""))
     turns: list[tuple[str, str]] = []
     marks = iter(parts[1:])  # drop anything before the first role marker
@@ -116,8 +106,6 @@ async def _persist_session_messages(
     provider: str,
     is_reingest: bool,
 ) -> int:
-    """Render the ingested conversation as Message rows so the session is a
-    browsable chat thread (replaced wholesale on re-ingest)."""
     if is_reingest:
         await db.execute(delete(Message).where(Message.session_id == session.id))
     turns = _digest_to_turns(digest)[:_MAX_MESSAGES]
@@ -139,7 +127,6 @@ async def _persist_session_messages(
 async def _link_work_item(
     db: AsyncSession, *, user: User, client_session_id: str, work_item_key: str
 ) -> dict[str, Any] | None:
-    """Link the session to the Work item it names, best effort; ``None`` when it names none."""
     work_item_link: dict[str, Any] | None = None
     if work_item_key and client_session_id:
         # Session names its task: the digest becomes handover context in

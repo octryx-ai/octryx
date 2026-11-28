@@ -37,8 +37,6 @@ _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$")
 
 
 class EvaluationInputError(ValueError):
-    """A frozen input is invalid; ``problems`` lists every reason, nothing is scored."""
-
     def __init__(self, problems: list[str]) -> None:
         super().__init__("; ".join(problems))
         self.problems = problems
@@ -65,7 +63,6 @@ def is_finite_number(value: Any) -> bool:
 
 
 def parse_timestamp(value: Any) -> datetime | None:
-    """An ISO-8601 timestamp with an explicit offset, else ``None``."""
     if not isinstance(value, str):
         return None
     try:
@@ -81,8 +78,6 @@ def normalize_query(text: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceRef:
-    """One evidence alternative: an exact key, or a span of an exact revision content."""
-
     evidence_key: str | None = None
     source_id: str | None = None
     content_sha256: str | None = None

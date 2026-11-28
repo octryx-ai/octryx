@@ -24,7 +24,6 @@ from .device_work_state import (
 
 
 def _role_node(node: PhasedNode, item: dict[str, Any]) -> PhasedNode:
-    """The item's phase for the run settings (permission mode, governed model): its role template and model."""
     roles = dict(dict(node.config or {}).get("roles") or {})
     template = dict(roles.get(str(item.get("role") or "")) or {})
     model = str(item.get("model") or template.get("model") or "")
@@ -48,7 +47,6 @@ def _prompt(run: WorkflowRun, item: dict[str, Any], *, resumed: bool, conflicts:
 
 
 async def _bound_prompt(db: AsyncSession, run: WorkflowRun, item: dict[str, Any], **kwargs: Any) -> str:
-    """:func:`_prompt` with the run's catalog texts (its workflow's and Workspace's versions)."""
     from ..run_texts import run_texts
 
     async with run_texts(db, run):
@@ -56,8 +54,7 @@ async def _bound_prompt(db: AsyncSession, run: WorkflowRun, item: dict[str, Any]
 
 
 async def _open_item_thread(db: AsyncSession, run: WorkflowRun, key: str, plan_version: Any) -> Session | None:
-    """The open thread of ``key`` in this plan version, if one exists: the guard that an item never gets a second
-    one, whatever its stored ``session_id`` says."""
+    # Guards against a second thread per item, whatever the stored session_id says.
     from sqlalchemy import select
 
     threads = (await db.execute(
@@ -73,7 +70,6 @@ async def _open_item_thread(db: AsyncSession, run: WorkflowRun, key: str, plan_v
 
 async def _item_thread(db: AsyncSession, run: WorkflowRun, item: dict[str, Any], main: Session,
                        target: dict[str, Any]) -> Session:
-    """The item's own chat thread (reused when it already has one), bound to the run as role ``item``."""
     plan_version = work_of(run).get("plan_version")
     thread = await db.get(Session, str(item.get("session_id") or "")) if item.get("session_id") else None
     thread = thread or await _open_item_thread(db, run, item["id"], plan_version)
@@ -98,9 +94,6 @@ async def _item_thread(db: AsyncSession, run: WorkflowRun, item: dict[str, Any],
 
 
 def _refusal(started: Any, session_id: str | None = None) -> dict[str, Any]:
-    """The item's fields when its turn could not start: it stays ``pending`` with its thread (the next start reuses
-    it). Device busy, offline or paused: the next ``advance``; any other reason counts as a refused start
-    (``scheduler.count_refusal``: a bounded retry, then ``failed``)."""
     from ..runtime_target.device_wait import WAITABLE_REASONS
 
     kept = {"session_id": session_id} if session_id else {}
@@ -150,7 +143,6 @@ async def _start_item_thread(db: AsyncSession, run: WorkflowRun, item: dict[str,
 
 
 def _retry_suffix(item: dict[str, Any]) -> str:
-    """A start after a refused one is a new turn (the refused job's idempotency key would return that job)."""
     refusals = int(item.get("start_refusals") or 0)
     return f":r{refusals}" if refusals else ""
 
@@ -167,7 +159,6 @@ def sessions_key(node_id: str, key: str) -> str:
 
 
 async def _start_sequential(db: AsyncSession, run: WorkflowRun, item: dict[str, Any]) -> dict[str, Any]:
-    """The item in the main folder on the main thread: its own fresh session (resumed when reopened)."""
     from app.services.devices.job_state import ACTIVE_STATUSES
 
     from ...devices.chat_turn import DeviceTurnStarted, start_device_turn
@@ -181,7 +172,7 @@ async def _start_sequential(db: AsyncSession, run: WorkflowRun, item: dict[str, 
         return {"status": "failed", "reason": "the run's main thread no longer runs on a device"}
     busy = await thread_job(db, main.id)
     if busy is not None and busy.status in ACTIVE_STATUSES:
-        return {"status": "pending", "reason": "device_busy"}  # one at a time on the main thread
+        return {"status": "pending", "reason": "device_busy"}
     entry = dict(dict(dict(run.context or {}).get(SESSIONS_KEY) or {}).get(sessions_key(node.id, item["id"])) or {})
     resume = await _session_here(db, entry, target)
 

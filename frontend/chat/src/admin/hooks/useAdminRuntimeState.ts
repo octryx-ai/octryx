@@ -1,16 +1,10 @@
-// Runtime admin state: runtimes, compression, execution, workspace, security, limits and planner drafts.
+// Runtime admin state: runtimes, execution, workspace, security, limits and planner drafts.
 import { useState } from "react";
 import { DEFAULT_RUNTIME_SETTINGS } from "../config/adminPanelDefaults";
-import type { AdminRuntime, AdminRuntimeSettings, AdminToolResultCompressor, AdminToolResultCompressionLog, RuntimePanelSection } from "../types/adminPanelTypes.runtimeCorp";
-
-type CompressorDraft = { strategy: string; config: Record<string, unknown>; is_active: boolean };
+import type { AdminRuntime, AdminRuntimeSettings, RuntimePanelSection } from "../types/adminPanelTypes.runtimeCorp";
 
 function useRuntimeCoreState() {
   const [runtimes, setRuntimes] = useState<AdminRuntime[]>([]);
-  const [toolResultCompressors, setToolResultCompressors] = useState<AdminToolResultCompressor[]>([]);
-  const [toolResultCompressionLogs, setToolResultCompressionLogs] = useState<AdminToolResultCompressionLog[]>([]);
-  const [toolResultCompressorDrafts, setToolResultCompressorDrafts] = useState<Record<string, CompressorDraft>>({});
-  const [toolResultCompressionSaving, setToolResultCompressionSaving] = useState<string | null>(null);
   const [runtimeFormProvider, setRuntimeFormProvider] = useState("");
   const [runtimeFormModel, setRuntimeFormModel] = useState("");
   const [runtimeFormPrimary, setRuntimeFormPrimary] = useState(false);
@@ -28,9 +22,7 @@ function useRuntimeCoreState() {
     useState<AdminRuntimeSettings["execution_runtime_docker_network_mode"]>("none");
   const [runtimeExecutionAllowHostFallback, setRuntimeExecutionAllowHostFallback] = useState(false);
   return {
-    runtimes, setRuntimes, toolResultCompressors, setToolResultCompressors, toolResultCompressionLogs,
-    setToolResultCompressionLogs, toolResultCompressorDrafts, setToolResultCompressorDrafts,
-    toolResultCompressionSaving, setToolResultCompressionSaving, runtimeFormProvider, setRuntimeFormProvider,
+    runtimes, setRuntimes, runtimeFormProvider, setRuntimeFormProvider,
     runtimeFormModel, setRuntimeFormModel, runtimeFormPrimary, setRuntimeFormPrimary, runtimeFormLoading,
     setRuntimeFormLoading, runtimeFormError, setRuntimeFormError, showAddRuntime, setShowAddRuntime,
     runtimeSettings, setRuntimeSettings, runtimeGlobalOutputDraft, setRuntimeGlobalOutputDraft,
@@ -71,8 +63,6 @@ function useRuntimeSecurityLimitsState() {
   const [runtimeLlmSecurityDenyThresholdDraft, setRuntimeLlmSecurityDenyThresholdDraft] = useState("80");
   const [runtimeSecurityAnalyzerChainDraft, setRuntimeSecurityAnalyzerChainDraft] =
     useState("exec_policy, secret_access, command_guardrail");
-  const [runtimeDefaultCompletionDraft, setRuntimeDefaultCompletionDraft] = useState("4096");
-  const [runtimeExtendedCompletionDraft, setRuntimeExtendedCompletionDraft] = useState("8192");
   const [runtimeApproxCharsDraft, setRuntimeApproxCharsDraft] = useState("4");
   const [runtimeTraceMaxStringDraft, setRuntimeTraceMaxStringDraft] = useState("16000");
   const [runtimeTraceMaxListDraft, setRuntimeTraceMaxListDraft] = useState("200");
@@ -82,33 +72,24 @@ function useRuntimeSecurityLimitsState() {
   const [runtimeSessionCostLimitDraft, setRuntimeSessionCostLimitDraft] = useState("5");
   const [runtimeRequestCostLimitDraft, setRuntimeRequestCostLimitDraft] = useState("1.5");
   const [runtimeCostScopeProjectId, setRuntimeCostScopeProjectId] = useState("");
-  const [runtimeCacheTtlDraft, setRuntimeCacheTtlDraft] = useState("300");
-  const [runtimeToolsCacheTtlDraft, setRuntimeToolsCacheTtlDraft] = useState("120");
   return {
     runtimeLlmSecurityTimeoutDraft, setRuntimeLlmSecurityTimeoutDraft, runtimeLlmSecurityReviewThresholdDraft,
     setRuntimeLlmSecurityReviewThresholdDraft, runtimeLlmSecurityDenyThresholdDraft,
     setRuntimeLlmSecurityDenyThresholdDraft, runtimeSecurityAnalyzerChainDraft, setRuntimeSecurityAnalyzerChainDraft,
-    runtimeDefaultCompletionDraft, setRuntimeDefaultCompletionDraft,
-    runtimeExtendedCompletionDraft, setRuntimeExtendedCompletionDraft, runtimeApproxCharsDraft,
+    runtimeApproxCharsDraft,
     setRuntimeApproxCharsDraft, runtimeTraceMaxStringDraft, setRuntimeTraceMaxStringDraft, runtimeTraceMaxListDraft,
     setRuntimeTraceMaxListDraft, runtimeTraceMaxDictDraft, setRuntimeTraceMaxDictDraft, runtimeScriptOutputDraft,
     setRuntimeScriptOutputDraft, runtimeRequestTimeoutDraft, setRuntimeRequestTimeoutDraft,
     runtimeSessionCostLimitDraft, setRuntimeSessionCostLimitDraft, runtimeRequestCostLimitDraft,
-    setRuntimeRequestCostLimitDraft, runtimeCostScopeProjectId, setRuntimeCostScopeProjectId, runtimeCacheTtlDraft,
-    setRuntimeCacheTtlDraft, runtimeToolsCacheTtlDraft, setRuntimeToolsCacheTtlDraft,
+    setRuntimeRequestCostLimitDraft, runtimeCostScopeProjectId, setRuntimeCostScopeProjectId,
   };
 }
 
-function useRuntimePlannerPanelState() {
-  const [runtimeToolPlannerTraceCallEnabled, setRuntimeToolPlannerTraceCallEnabled] = useState(false);
-  const [runtimeToolPlannerMaxTokensDraft, setRuntimeToolPlannerMaxTokensDraft] = useState("900");
-  const [runtimeToolPlannerTimeoutDraft, setRuntimeToolPlannerTimeoutDraft] = useState("30");
+function useRuntimePanelState() {
   const [runtimePanelSection, setRuntimePanelSection] = useState<RuntimePanelSection>("priority");
   const [editingRuntimeTags, setEditingRuntimeTags] = useState<string | null>(null);
   const [runtimeTagsInput, setRuntimeTagsInput] = useState("");
   return {
-    runtimeToolPlannerTraceCallEnabled, setRuntimeToolPlannerTraceCallEnabled, runtimeToolPlannerMaxTokensDraft,
-    setRuntimeToolPlannerMaxTokensDraft, runtimeToolPlannerTimeoutDraft, setRuntimeToolPlannerTimeoutDraft,
     runtimePanelSection, setRuntimePanelSection, editingRuntimeTags, setEditingRuntimeTags, runtimeTagsInput,
     setRuntimeTagsInput,
   };
@@ -119,6 +100,6 @@ export function useAdminRuntimeState() {
     ...useRuntimeCoreState(),
     ...useRuntimeWorkspaceState(),
     ...useRuntimeSecurityLimitsState(),
-    ...useRuntimePlannerPanelState(),
+    ...useRuntimePanelState(),
   };
 }

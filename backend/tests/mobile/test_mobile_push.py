@@ -1,11 +1,4 @@
-"""Octryx Mobile: notifications on the paired phone.
-
-- the message is encrypted as RFC 8291 says: the phone (here a receiver built from the RFC) decrypts it; the VAPID
-  header is an ES256 JWT for the push service's origin, verifiable with the public key the phone subscribed with;
-- only HTTPS endpoints of known push services are accepted (no request to an arbitrary address);
-- the sweep notifies each new entry once, by the phone's rules, never on the first look, never in quiet hours, with
-  the "needs you" count as badge and a link to the entry; a gone subscription is deleted, a revoked phone gets none.
-"""
+"""Octryx Mobile: notifications on the paired phone."""
 
 # ruff: noqa: F811  (the shared ``configured`` fixture is imported, then requested by name)
 from __future__ import annotations
@@ -116,7 +109,7 @@ async def test_a_phone_subscribes_sets_rules_and_unsubscribes(client, db, config
     assert done.status_code == 200 and done.json()["subscribed"]
     assert done.json()["rules"] == {"needs_you": True, "problem": True, "done": True}
     rules = await client.put("/api/v1/mobile/push", json={"rules": {"problem": False}}, headers=phone)
-    assert rules.json()["rules"] == {"needs_you": True, "problem": False, "done": True}  # the rest stays
+    assert rules.json()["rules"] == {"needs_you": True, "problem": False, "done": True}
     assert (await client.delete("/api/v1/mobile/push", headers=phone)).json()["subscribed"] is False
 
 
@@ -151,13 +144,13 @@ async def test_the_sweep_notifies_each_new_entry_once_by_the_rules(client, db, c
     assert [(item["title"], item["url"], item["badge"]) for item in sent] == [
         ("Needs you", "/m/#item=a:2", 2), ("Problem", "/m/#item=w:1", 2)]  # done is off by default
     assert sent[0]["urgency"] == "high" and sent[0]["body"] == "Approve: deploy · Acme Orders"
-    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0  # never twice
+    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0
 
     queue["items"] = [*queue["items"], _entry("a:3")]
     queue["quiet"] = {"active": True}
-    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0  # quiet hours: silent
+    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0
     queue["quiet"] = {"active": False}
-    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0  # and it stays silent after
+    assert await push.sweep_subscription(db, row, http=None, sender=sender) == 0
 
     queue["items"] = [*queue["items"], *[_entry(f"b:{n}") for n in range(5)]]
     sent.clear()
@@ -205,7 +198,7 @@ async def test_a_gone_subscription_is_deleted_and_a_revoked_phone_gets_nothing(c
         raise AssertionError("a revoked phone must get nothing")
 
     assert await push.sweep_subscription(db, row, http=None, sender=never) == 0
-    assert (await db.execute(select(MobilePushSubscription))).scalars().all() == []  # and it is gone
+    assert (await db.execute(select(MobilePushSubscription))).scalars().all() == []
 
 
 @pytest.mark.asyncio
@@ -237,4 +230,4 @@ async def test_another_user_can_never_take_over_a_phones_subscription(client, db
     row = (await db.execute(select(MobilePushSubscription).where(
         MobilePushSubscription.mobile_device_id == bob_phone.id).execution_options(populate_existing=True))
            ).scalar_one()
-    assert row.endpoint == APPLE  # Bob's subscription is untouched
+    assert row.endpoint == APPLE

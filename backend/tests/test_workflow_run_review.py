@@ -1,9 +1,5 @@
-"""The independent reviewer of a workflow run.
-
-The reviewer sees only server-read facts (never the author's conversation), answers a closed verdict, cannot
-act; ``review_passed`` decides together with the deterministic evidence checks; findings go back to the fix phase
-within *n*; no verdict pauses the run; a verdict for a run that moved on counts for nothing.
-"""
+"""The independent reviewer of a workflow run sees only server-read facts and answers a closed verdict;
+no verdict pauses the run, and a verdict for a run that moved on counts for nothing."""
 
 from __future__ import annotations
 
@@ -18,8 +14,11 @@ from app.services.workflow_runs.phase_contract import phase_definition
 from app.services.workflow_runs.review.runner import run_due_reviews
 from app.services.workflow_runs.review.verdict import parse_verdict
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.workflow_run_review_support import CHANGES, PASS, ScriptedReviewer, _reviewed_definition, _started
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_verdict_schema_is_closed():
@@ -105,7 +104,6 @@ async def test_no_verdict_pauses_and_a_verdict_for_a_run_that_moved_on_counts_fo
 
 @pytest.mark.asyncio
 async def test_one_answer_without_a_verdict_is_asked_again_and_the_second_decides(db, tmp_path):
-    """A model that answers prose is asked again instead of pausing the run until a person presses continue."""
     from sqlalchemy import select
 
     from app.models import UsageEvent
@@ -153,8 +151,6 @@ async def test_the_reviewer_reads_ticket_and_change_as_fenced_untrusted_data(db,
 
 @pytest.mark.asyncio
 async def test_a_review_without_a_verdict_is_retried_by_itself_before_it_pauses(db, tmp_path):
-    """model_unavailable and invalid_verdict are often transient, so a pause for a person is mostly solved by
-    pressing continue. The review asks again after 1, 3 and 6 minutes, then pauses."""
     from datetime import timedelta
 
     from app.services.workflow_runs.review import runner

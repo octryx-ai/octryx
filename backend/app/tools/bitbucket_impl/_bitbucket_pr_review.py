@@ -1,16 +1,4 @@
-"""Bitbucket tools of the PR review bot on both deployments (concept §7).
-
-- ``list_bitbucket_pull_request_heads``: every open pull request of a repository with its head commit, branches,
-  draft flag and the source repository (a fork's differs), page by page;
-- ``post_bitbucket_pull_request_review``: the summary comment (found again by its marker and edited in place), the
-  inline comments and the build status ``octryx-review`` of the head commit (``INPROGRESS`` while the review runs,
-  then ``SUCCESSFUL`` or ``FAILED``).
-
-Server/Data Center: comments are found in the pull request's activities and edited with their ``version``; an
-inline comment is anchored with ``{path, line, lineType, fileType: TO}``; the status goes to
-``/rest/build-status/1.0/commits/<sha>``. Cloud: ``_bitbucket_cloud_review``. Both need a status ``url``: the run's
-page when the platform has one, else the pull request's own page.
-"""
+"""Bitbucket tools of the PR review bot on both deployments (concept §7)."""
 
 from __future__ import annotations
 

@@ -9,8 +9,7 @@ import { StatusLabel } from "../../../layout/StatusLabel";
 import { CatalogSwitch } from "../modelCatalog/CatalogSwitch";
 import { ActionMenu, type ActionMenuItem } from "../workflowSurfaces/ActionMenu";
 import "../modelCatalog/modelCatalog.css";
-import { ProvidersLocalBootstrapCard } from "./ProvidersLocalBootstrapCard";
-import { ProviderAuthSection } from "./ProviderAuthSection";
+import { ProviderLiteLlmGatewaySection } from "./ProviderLiteLlmGatewaySection";
 import { connectionView } from "./providerConnection";
 import { LITELLM_GATEWAY_DRIVER } from "./litellmGatewayTypes";
 import type { ProviderTabCtx } from "./types";
@@ -106,7 +105,6 @@ function ProviderPanel({ ctx, open, menuItems, footerSlot, onFooterSlot, onClose
   onFooterSlot: (slot: HTMLElement | null) => void;
   onClose: () => void;
 }) {
-  const { handlePullProviderModel, handleRefreshProviderHealth, handleStartLocalRuntime, handleStopLocalRuntime, localBootstrap } = ctx;
   return (
     <SidePanel
       title={open.display_name || "Provider"}
@@ -126,28 +124,7 @@ function ProviderPanel({ ctx, open, menuItems, footerSlot, onFooterSlot, onClose
     >
       <PanelFooterSlotContext.Provider value={footerSlot}>
       <div className="provider-connection__body">
-        <ProviderAuthSection ctx={ctx} provider={open} />
-        {open.driver === "ollama" ? (
-          <>
-            <div className="model-catalog__row-group">
-              <button type="button" className="admin-panel__action-btn" onClick={() => void handleStartLocalRuntime(open.id)}>
-                Start runtime
-              </button>
-              <button type="button" className="admin-panel__action-btn" onClick={() => void handleStopLocalRuntime(open.id)}>
-                Stop runtime
-              </button>
-              <button type="button" className="admin-panel__action-btn" onClick={() => void handleRefreshProviderHealth(open.id)}>
-                Check health
-              </button>
-              <button type="button" className="admin-panel__action-btn"
-                onClick={() => void handlePullProviderModel(open.id,
-                  open.bootstrap_role === "default_anchor" ? localBootstrap?.model_id || "gemma4" : "gemma4")}>
-                Pull model
-              </button>
-            </div>
-            <ProvidersLocalBootstrapCard ctx={ctx} />
-          </>
-        ) : null}
+        {open.driver === LITELLM_GATEWAY_DRIVER ? <ProviderLiteLlmGatewaySection ctx={ctx} provider={open} /> : null}
       </div>
       </PanelFooterSlotContext.Provider>
     </SidePanel>

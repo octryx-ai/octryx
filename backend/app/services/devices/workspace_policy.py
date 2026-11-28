@@ -1,8 +1,4 @@
-"""A Workspace's opt-in for device runs: ``agent_gateway_policy.device_runs`` (default off).
-
-Stored like ``seat_mode``: merged into the validated gateway policy through the governed project-config path
-with an ``AuditLog`` row. Turning it off stops the Workspace's running device turns.
-"""
+"""A Workspace's opt-in for device runs: ``agent_gateway_policy.device_runs`` (default off)."""
 
 from __future__ import annotations
 
@@ -27,7 +23,6 @@ AUDIT_ACTION = "admin.agent_gateway.device_runs_updated"
 
 
 async def workspace_device_runs(db: AsyncSession, workspace_id: str | None) -> dict[str, Any] | None:
-    """The effective section; ``None`` when the Workspace's gateway policy cannot be read (device runs off)."""
     if not workspace_id:
         return None
     loaded = await load_workspace_policy(db, workspace_id)
@@ -35,13 +30,11 @@ async def workspace_device_runs(db: AsyncSession, workspace_id: str | None) -> d
 
 
 async def workspace_device_limits(db: AsyncSession, workspace_id: str | None) -> dict[str, Any]:
-    """``{approval_timeout_s, max_job_minutes, allow_job_edit_scope}`` for jobs of ``workspace_id``."""
     section = await workspace_device_runs(db, workspace_id) or DEFAULTS
     return {key: section[key] for key in ("approval_timeout_s", "max_job_minutes", "allow_job_edit_scope")}
 
 
 async def set_workspace_device_runs(db: AsyncSession, *, project: Project, patch: Any, actor_id: str) -> dict[str, Any]:
-    """Merge ``patch`` into the stored section; raises ``DeviceRunsPolicyError``. Flushes."""
     path = f"{AGENT_GATEWAY_POLICY_CONFIG_KEY}.{DEVICE_RUNS_KEY}"
     changes = normalize_device_runs(patch, path)
     config = project.config if isinstance(project.config, dict) else {}
@@ -74,7 +67,6 @@ async def set_workspace_device_runs(db: AsyncSession, *, project: Project, patch
 
 
 async def workspace_device_setting(db: AsyncSession, workspace_id: str | None, key: str) -> Any:
-    """One effective key of the section; the default when the policy cannot be read."""
     section = await workspace_device_runs(db, workspace_id) or DEFAULTS
     return section.get(key, DEFAULTS[key])
 

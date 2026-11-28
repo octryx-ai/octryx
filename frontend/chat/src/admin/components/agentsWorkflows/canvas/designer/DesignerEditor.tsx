@@ -110,7 +110,7 @@ function DesignerWorkspace({ editor, view, onOpenPhase }: { editor: DesignerEdit
   const menuNode = menu ? findNode(model, menu.id) : undefined;
   const closePanel = () => selectOnly([]);
   const panel = designerSidePanel({
-    node, edge, group, selectedNodes, model, catalog, view, busy, dirty, currentGroups, change, closePanel,
+    node, edge, group, selectedNodes, model, catalog, busy, dirty, currentGroups, change, closePanel,
     copySelection, deleteSelection, groupSelection, ungroup, onOpenPhase,
   });
 

@@ -25,7 +25,6 @@ _SAVED_SCRIPT_REQUIRED_SANDBOX_MODE = "hard"
 
 
 def _enforce_docker_for_saved_script(project_config: dict[str, Any] | None) -> dict[str, Any]:
-    """Force Docker provider for saved script execution to prevent host-code injection."""
     config = dict(project_config or {})
     config.setdefault("execution_runtime_provider", _SAVED_SCRIPT_REQUIRED_PROVIDER)
     config.setdefault("execution_runtime_sandbox_mode", _SAVED_SCRIPT_REQUIRED_SANDBOX_MODE)

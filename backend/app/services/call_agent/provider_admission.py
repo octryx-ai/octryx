@@ -1,15 +1,4 @@
-"""Admitted provider resolution for the CallAgent dispatch owner.
-
-CallAgent is a registered ``admitted`` dispatch owner: it may only build a
-provider client for a runtime target its own Workspace admits. The Workspace is
-the CallAgent configuration row's ``project_id``, so neither the caller nor the
-``model`` argument can name a project.
-
-Kept out of ``service.py`` (already well over the file-size target) because this
-is a boundary concern rather than call-flow logic: the resolution order, the
-per-target refusal and the typed denial all belong together and are testable on
-their own.
-"""
+"""Admitted provider resolution for the CallAgent dispatch owner."""
 
 from __future__ import annotations
 
@@ -33,15 +22,6 @@ async def resolve_admitted_provider(
     configured_model: str | None,
     model: str | None = None,
 ) -> tuple[Any, str]:
-    """Return the first admitted ``(client, model)`` for this CallAgent.
-
-    A target the Workspace's ``model_policy`` refuses is skipped rather than
-    raised on, so a policy gap on one runtime cannot hide a target the Workspace
-    *is* allowed to use. When no target survives, the last refusal is raised as
-    :class:`DispatchAdmissionDeniedError` — distinguishable from "no runtime is
-    configured at all", which stays a ``RuntimeError``.
-    """
-
     # Imported at call time: the control-plane and provider packages pull large
     # dependency graphs, and the call-flow tests substitute them here.
     from ...agent.providers import get_provider

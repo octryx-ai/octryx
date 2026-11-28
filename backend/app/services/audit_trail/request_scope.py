@@ -1,11 +1,4 @@
-"""Did this request already write a domain audit event? (O5: one event per change.)
-
-The request middleware opens a scope before the route runs. A mapper listener marks the scope whenever an
-``audit_log`` row other than the middleware's own (``resource_type == "api"``) is inserted while the request runs, so
-the middleware writes its generic ``METHOD path`` row only for requests without a domain event (no double login or
-device events). The scope is a mutable holder in a context variable: the route runs in a copied context, and both
-see the same holder.
-"""
+"""Did this request already write a domain audit event?"""
 
 from __future__ import annotations
 

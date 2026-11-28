@@ -1,6 +1,6 @@
 import uuid
 
-from app.agent.engine.messages._engine_message_helpers import _trim_messages_to_budget
+from app.agent.runtime.message_helpers import _trim_messages_to_budget
 from app.services.tool_artifact.summary import (
     build_tool_artifact_envelope,
     parse_tool_artifact_envelope,

@@ -1,13 +1,4 @@
-"""The Cedar principal for a user (platform roles and identity groups as parents), cached briefly.
-
-Roles are the platform roles (``user_roles``); ``platform_admin`` is the ``admin`` role, the same rule as
-``access_control._user_is_admin``. Groups are the active identity groups. A lookup failure yields the user
-without roles or groups: the principal only narrows (custom ``forbid`` policies), it never grants.
-
-A live enforcement point loads the principal with :func:`load_principal_isolated`: the role and group queries
-run in their own session, so a failing statement (which aborts a PostgreSQL transaction) never reaches the
-caller's transaction.
-"""
+"""The Cedar principal for a user (platform roles and identity groups as parents), cached briefly."""
 
 from __future__ import annotations
 
@@ -82,7 +73,6 @@ async def load_principal(
 async def load_principal_isolated(
     user_id: str | None, *, session_id: str | None = None, metadata: Mapping[str, Any] | None = None
 ) -> tuple[EntityRef, list[dict[str, Any]]]:
-    """:func:`load_principal` in its own database session; never raises (the user without roles or groups)."""
     from ...db import core as db_core
 
     try:
@@ -94,7 +84,6 @@ async def load_principal_isolated(
 
 
 async def load_session_metadata_isolated(session_id: str) -> Mapping[str, Any] | None:
-    """The session's metadata (profile, client) in its own database session; ``None`` when it cannot be read."""
     from ...db import core as db_core
     from ...models import Session
 

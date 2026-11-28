@@ -1,6 +1,5 @@
-"""What an image plugin brings and may do, in a few plain lines for the Workspace's plugin list (no
-review, a short readable list). The backend writes them so the UI never guesses: ``{key, text, params}``, the
-key for translation, the text in English."""
+"""What an image plugin brings and may do, in a few plain lines for the Workspace's plugin list (no review, a short
+readable list)."""
 
 from __future__ import annotations
 
@@ -43,8 +42,6 @@ def summary(manifest: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def needs_settings(schema: dict[str, Any] | None, row) -> bool:
-    """The plugin has required settings and they were never saved in this Workspace (saving checks them all, secrets
-    included, so once saved they are complete)."""
     if not (schema or {}).get("required"):
         return False
     return row is None or getattr(row, "settings_json", None) is None

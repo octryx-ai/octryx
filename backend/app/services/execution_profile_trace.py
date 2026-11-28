@@ -2,12 +2,6 @@
 
 from __future__ import annotations
 
-import math
-from collections.abc import Mapping
-from typing import Any
-
-from .redaction_policy import redact_secret_payload
-
 # Trace projection: every turn trace records which profile was
 # in effect. Whitelisted scalar fields only: the envelope also carries the
 # workflow contract and requirement tool lists, which do not belong in trace
@@ -58,40 +52,3 @@ _TRACE_NESTED_FIELDS = {
 _TRACE_TEXT_MAX_CHARS = 300
 
 
-def _trace_scalar(value: Any) -> str | int | float | bool | None:
-    if isinstance(value, float) and not math.isfinite(value):
-        # NaN/inf are not valid JSON (PostgreSQL JSONB rejects them).
-        return None
-    if value is None or isinstance(value, bool | int | float):
-        return value
-    if isinstance(value, str):
-        text = value.strip()
-        return text[:_TRACE_TEXT_MAX_CHARS] if text else None
-    return None
-
-
-def _trace_fields(source: Any, fields: tuple[str, ...]) -> dict[str, Any]:
-    if not isinstance(source, Mapping):
-        return {}
-    projected: dict[str, Any] = {}
-    for name in fields:
-        value = _trace_scalar(source.get(name))
-        if value is not None:
-            projected[name] = value
-    return projected
-
-
-def execution_profile_trace_summary(profile: Any) -> dict[str, Any] | None:
-    """Return the bounded, redacted trace projection of a persisted profile, or None.
-
-    Redacted here as well as by the trace layer: the turn trace stores its
-    context snapshot without a redaction pass.
-    """
-    if not isinstance(profile, Mapping) or not str(profile.get("status") or "").strip():
-        return None
-    summary = _trace_fields(profile, _TRACE_PROFILE_FIELDS)
-    for key, fields in _TRACE_NESTED_FIELDS.items():
-        nested = _trace_fields(profile.get(key), fields)
-        if nested:
-            summary[key] = nested
-    return redact_secret_payload(summary)

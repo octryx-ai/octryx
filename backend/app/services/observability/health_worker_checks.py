@@ -1,6 +1,5 @@
 """The background workers' part of the platform health checks: a worker's task, the scheduler and its task queue
-dispatcher (read from the objects in this process, no I/O).
-"""
+dispatcher (read from the objects in this process, no I/O)."""
 
 from __future__ import annotations
 
@@ -38,7 +37,6 @@ STOPPED_MESSAGES = {
     "retention_worker": "Retention worker stopped unexpectedly",
     "outbound_webhook_worker": "Outbound webhook worker stopped unexpectedly",
     "analytics_worker": "Analytics worker stopped unexpectedly",
-    "prefetch_worker": "Prefetch worker stopped unexpectedly",
     "worker_monitor_worker": "Worker monitor worker stopped unexpectedly",
     "worker_agenda_worker": "Worker agenda worker stopped unexpectedly",
     "worker_report_worker": "Worker report worker stopped unexpectedly",
@@ -56,7 +54,6 @@ WORKER_COMPONENTS = (
     "outbound_webhook_worker",
     "connector_health_worker",
     "analytics_worker",
-    "prefetch_worker",
     "worker_monitor_worker",
     "worker_agenda_worker",
     "worker_report_worker",
@@ -68,7 +65,6 @@ WORKER_COMPONENTS = (
 
 
 def scheduler_checks(task_scheduler: Any) -> dict[str, dict[str, Any]]:
-    """The scheduler and its task queue dispatcher."""
     checks: dict[str, dict[str, Any]] = {}
     scheduler_started = time.perf_counter()
     scheduler_obj = getattr(task_scheduler, "scheduler", None)

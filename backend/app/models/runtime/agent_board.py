@@ -1,22 +1,15 @@
-"""The agent message board of the agent coordination board.
-
-``agent_board_message`` is append-only: questions, answers, infos, conflicts, handoff requests and decision
-requests between agents and people of one Workspace. An admin redaction blanks ``body`` and ``options`` and
-keeps the row as a tombstone (``redacted_at``/``redacted_by``). A ``decision`` answers one
-``decision_request`` (its ``reply_to``); the partial unique index ``uq_agent_board_one_decision`` keeps it to
-exactly one, so two people deciding at once have one winner. ``agent_board_ack`` records who has read a
-message: a user, or an agent identity by its hash.
-"""
+"""The message board of the agent coordination board."""
 
 from __future__ import annotations
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, Text, UniqueConstraint, text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class AgentBoardMessage(Base):
+class AgentBoardMessage(WorkspaceBound, Base):
     __tablename__ = "agent_board_message"
     __table_args__ = (
         Index(
@@ -61,7 +54,9 @@ class AgentBoardMessage(Base):
     claim_id = Column(String(36), nullable=True)
 
 
-class AgentBoardAck(Base):
+class AgentBoardAck(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"message_id": "agent_board_message"}
     __tablename__ = "agent_board_ack"
     __table_args__ = (
         UniqueConstraint("message_id", "recipient_kind", "recipient_ref", name="uq_agent_board_ack_recipient"),

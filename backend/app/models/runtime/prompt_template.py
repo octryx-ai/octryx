@@ -1,22 +1,4 @@
-"""Governed prompt catalog records.
-
-Every agent-facing prompt text (system prompts, mode and phase instructions, loop
-guard and reminder texts, evidence and citation rules, summarizer prompts) is
-catalog data. Code holds only the seed (``services/prompt_catalog/seeds``).
-
-A :class:`PromptTemplate` names one catalog key at one scope: ``global``, a
-``workspace`` override or an ``agent_definition`` override. ``scope_key`` is the
-unique, portable spelling of the scope (``global``, ``workspace:<id>``,
-``agent_definition:<id>``), so a key exists at most once per scope.
-
-Its text lives in append-only :class:`PromptTemplateVersion` rows. A version's
-``body`` and ``digest`` never change after insert; an edit is a new draft version.
-Versions share the governed lifecycle and immutability guard of the other
-registries (``draft -> in_review -> published -> retired``): ``in_review`` is used
-only by high-risk keys, whose publication needs a four-eyes approval. At most one
-version per template is ``published`` (partial unique index). No column carries a
-server default; the catalog services write every value.
-"""
+"""Governed prompt catalog records: templates per scope and their append-only versions."""
 
 from __future__ import annotations
 
@@ -39,6 +21,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from .governed_revision import (
     DIGEST_LENGTH,
@@ -72,7 +55,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class PromptTemplate(Base):
+class PromptTemplate(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_scope__ = ("scope_type", (PROMPT_SCOPE_WORKSPACE,), "scope_id")
     __tablename__ = "prompt_templates"
     __table_args__ = (
         UniqueConstraint("key", "scope_key", name="uq_prompt_templates_key_scope"),
@@ -139,7 +124,7 @@ class PromptTemplateVersion(Base):
 
 
 def _guard_immutable_body(_mapper, _connection, target) -> None:
-    """A version's text, digest and identity never change: an edit is a new version."""
+    # A version's text, digest and identity never change: an edit is a new version.
     state = inspect(target)
     if any(state.attrs[name].history.has_changes() for name in _IMMUTABLE_COLUMNS):
         raise ImmutableRevisionError("prompt_version_body_immutable")

@@ -1,7 +1,7 @@
 import { AdminHeaderActions } from "./AdminHeaderSlot";
 import { AddProviderForm } from "./providerTab/AddProviderForm";
+import { ModelRoutesSection } from "./providerTab/modelRoutes/ModelRoutesSection";
 import { ProvidersList } from "./providerTab/ProvidersList";
-import { ProvidersSetupGuideCard } from "./providerTab/ProvidersSetupGuideCard";
 import type { ProviderTabCtx } from "./providerTab/types";
 import "./modelCatalog/modelCatalog.css";
 
@@ -20,15 +20,15 @@ export function AdminProvidersTab({ ctx }: AdminProvidersTabProps) {
       <AdminHeaderActions>
         <button
           type="button"
-          className="admin-panel__action-btn admin-panel__action-btn--primary"
+          className="admin-panel__action-btn"
           onClick={() => setShowAddProvider(true)}
           data-testid="provider-add"
         >
           Add provider
         </button>
       </AdminHeaderActions>
-      <ProvidersSetupGuideCard ctx={ctx} />
       <AddProviderForm ctx={ctx} />
+      <ModelRoutesSection />
       <ProvidersList ctx={ctx} />
     </div>
   );

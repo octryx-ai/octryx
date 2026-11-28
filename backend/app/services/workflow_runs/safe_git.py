@@ -1,13 +1,4 @@
-"""git on a working copy an agent writes, without running anything that working copy configures (review fix).
-
-The platform runs git in working copies its agents change (the run's own, a slice's worktree), so every call ignores
-the repository's executable configuration: no hooks, no fsmonitor, no external diff or textconv driver, no pager,
-no system configuration; diffs are always text, so a ``-diff`` attribute hides no change from the reviewer. A run's
-phases never write ``.git/`` or ``.gitattributes`` (``protected_paths``). Commits use a fixed platform identity.
-
-The change of a working copy is its **tree** (``git add -A`` + ``git write-tree``): what the reviewer reviewed and
-what the platform pushes are compared by that hash (``platform/scm.push``).
-"""
+"""git on a working copy an agent writes, without running anything that working copy configures."""
 
 from __future__ import annotations
 
@@ -28,7 +19,7 @@ TIMEOUT = 120
 logger = logging.getLogger(__name__)
 
 
-def _env(base: Mapping[str, str] | None = None) -> dict[str, str]:
+def git_env(base: Mapping[str, str] | None = None) -> dict[str, str]:
     from ..execution_runtime.server_env import with_git_hardening
 
     # The command-line configuration of ``server_env`` too: it wins over a planted ``.git/config``.
@@ -38,14 +29,10 @@ def _env(base: Mapping[str, str] | None = None) -> dict[str, str]:
 
 async def git(cwd: Path | str, *args: str, stdin: bytes | None = None,
               env: Mapping[str, str] | None = None) -> tuple[int, str, str]:
-    """``(exit code, stdout, stderr)``; an unavailable git or a timeout is exit code 1.
-
-    ``env``: the whole environment of a command that talks to the remote (the connection's Git
-    auth, ``workspace/origin_auth.py``, which carries the credential as ``GIT_CONFIG_*`` or an askpass, never in
-    argv or a URL); ``None`` is this process's environment."""
+    # Credentials travel in env (GIT_CONFIG_* or askpass), never in argv or a URL.
     try:
         process = await asyncio.create_subprocess_exec(
-            "git", *SAFE_CONFIG, *IDENTITY, *args, cwd=str(cwd), env=_env(env),
+            "git", *SAFE_CONFIG, *IDENTITY, *args, cwd=str(cwd), env=git_env(env),
             stdin=asyncio.subprocess.PIPE if stdin is not None else asyncio.subprocess.DEVNULL,
             stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
         stdout, stderr = await asyncio.wait_for(process.communicate(stdin), timeout=TIMEOUT)
@@ -56,9 +43,7 @@ async def git(cwd: Path | str, *args: str, stdin: bytes | None = None,
 
 @cache
 def os_junk_excludes() -> tuple[str, ...]:
-    """Pathspec excludes for the operating system's own files (``.DS_Store``, ``Thumbs.db``, ...): the launcher's list
-    (``octryx_claude/os_junk.json``, shipped with the image), so the device's tree and the platform's leave out the
-    same files. Without it nothing is left out, and the log says so."""
+    # The launcher's list, so the device's tree and the platform's leave out the same files.
     from ..octryx_client.artifact import default_client_dir  # noqa: PLC0415
 
     path = default_client_dir() / "octryx_claude" / "os_junk.json"
@@ -73,8 +58,6 @@ def os_junk_excludes() -> tuple[str, ...]:
 
 
 async def staged_tree(cwd: Path | str) -> str:
-    """The working copy's whole change staged, as its tree hash ('' when git failed); the operating system's own
-    files stay out, as on the device (otherwise Finder's ``.DS_Store`` made the trees differ)."""
     if (await git(cwd, "add", "-A", "--", ".", *os_junk_excludes()))[0] != 0:
         return ""
     code, out, _err = await git(cwd, "write-tree")
@@ -82,7 +65,6 @@ async def staged_tree(cwd: Path | str) -> str:
 
 
 async def staged_change(cwd: Path | str, base: str) -> tuple[str, str]:
-    """``(diff against base, tree)`` of the working copy including new files; ``("", "")`` when git failed."""
     tree = await staged_tree(cwd)
     if not tree:
         return "", ""
@@ -96,8 +78,7 @@ async def tree_of(cwd: Path | str, ref: str) -> str:
 
 
 async def patch_tree(cwd: Path | str, base: str, patch: str) -> str:
-    """The tree of ``base`` plus ``patch``, built in a throwaway index (the working copy and its index stay
-    untouched, only objects are written); '' when the base is unknown or the patch does not apply."""
+    # A throwaway index: the working copy and its index stay untouched.
     import tempfile
 
     if not base or not patch.strip():
@@ -116,7 +97,6 @@ async def patch_tree(cwd: Path | str, base: str, patch: str) -> str:
 
 
 async def apply_patch(cwd: Path | str, base: str, patch: str) -> str:
-    """Make the working copy exactly ``base`` plus ``patch`` (staged); '' or why it did not apply."""
     if (await git(cwd, "reset", "-q", "--hard", base))[0] != 0:
         return f"the working copy has no commit {base[:12]}"
     await git(cwd, "clean", "-fdq")
@@ -125,4 +105,5 @@ async def apply_patch(cwd: Path | str, base: str, patch: str) -> str:
     return "" if code == 0 else (err.strip().splitlines() or ["the patch does not apply"])[-1][:300]
 
 
-__all__ = ["DIFF", "apply_patch", "git", "patch_tree", "staged_change", "staged_tree", "tree_of"]
+__all__ = ["DIFF", "SAFE_CONFIG", "apply_patch", "git", "git_env", "patch_tree", "staged_change", "staged_tree",
+           "tree_of"]

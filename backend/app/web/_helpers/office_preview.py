@@ -1,9 +1,4 @@
-"""The Office part of ``/chat/api/artifact-preview``: structural HTML in-process, or a LibreOffice render.
-
-``format=html`` (default) is the engine's HTML preview; ``format=pdf|png`` is the exact layout rendered by
-LibreOffice, or a page that names the explicit state (``office_preview_unavailable``, ``office_render_failed``)
-when it cannot be rendered — the link opens in its own browser tab, so the answer must read as a page.
-"""
+"""The Office part of ``/chat/api/artifact-preview``: structural HTML in-process, or a LibreOffice render."""
 
 from __future__ import annotations
 

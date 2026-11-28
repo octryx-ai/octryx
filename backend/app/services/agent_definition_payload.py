@@ -1,28 +1,11 @@
-"""Execution payload form of an Agent Definition.
-
-One owner for the dict shape the agent runtime executes against, so the same
-payload can be produced from two explicitly different sources:
-
-* the live ``AgentDefinition`` / ``AgentStep`` rows (authoring state), and
-* a published :class:`~app.models.agent.agent_definition_revision.AgentDefinitionRevision`
-  snapshot (the governed contract).
-
-The builders live in a service module (``app/web/_helpers/control_plane.py`` binds them
-to private names for the web context) because the scheduler and the execution-resolution service must
-not import from ``app.web``.
-
-The payload is camelCase because it is also the panel's agent payload; the key
-set is a stable API contract and is not changed here. :func:`payload_from_snapshot`
-produces the identical key set from a revision snapshot, so a consumer cannot
-tell the two sources apart by shape — only by the explicit resolution metadata
-the caller attaches.
-"""
+"""Execution payload form of an Agent Definition."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from ..models import AgentDefinition, AgentStep
+from .agent_definition_types import AgentPayload, AgentStepPayload
 from .agent_reply_contract import live_row_reply_contract, snapshot_reply_contract
 from .agent_tool_surface_contract import live_row_tool_surface, snapshot_tool_surface
 from .prompt_catalog import render_prompt
@@ -33,7 +16,6 @@ EXECUTION_MODES = frozenset({CODING_DELIVERY_EXECUTION_MODE})
 
 
 def build_agent_execution_prompt(agent: dict[str, Any]) -> str:
-    """The Agent Blueprint text of a selected agent definition (catalog keys ``context.agent.*``)."""
     lines = [
         render_prompt(
             "context.agent.execution_preamble",
@@ -66,7 +48,7 @@ def build_agent_execution_prompt(agent: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def serialize_agent_step_payload(step: AgentStep) -> dict[str, Any]:
+def serialize_agent_step_payload(step: AgentStep) -> AgentStepPayload:
     return {
         "id": step.id,
         "position": step.position,
@@ -80,8 +62,8 @@ def serialize_agent_step_payload(step: AgentStep) -> dict[str, Any]:
     }
 
 
-def serialize_agent_definition_payload(agent: AgentDefinition) -> dict[str, Any]:
-    payload = {
+def serialize_agent_definition_payload(agent: AgentDefinition) -> AgentPayload:
+    payload: AgentPayload = {
         "id": agent.id,
         "name": agent.name,
         "description": agent.description or "",
@@ -122,19 +104,10 @@ def payload_from_snapshot(
     group_name: str = "",
     live_step_ids_by_position: dict[int, str] | None = None,
     builtin_key: str = "",
-) -> dict[str, Any]:
-    """Build the execution payload from a revision snapshot.
-
-    A snapshot deliberately carries no row ids or timestamps (that is what makes
-    its checksum stable), so two identifiers are supplied by the caller:
-    *definition_id*, and *live_step_ids_by_position* for step ids. A position
-    with no live step yields ``""`` rather than a synthesized id, because an
-    invented id would resolve to nothing. Nothing in ``app/agent`` reads a step
-    id from this payload; the field keeps the payload the same shape as the
-    live-row serializer's.
-    """
+) -> AgentPayload:
+    # A position with no live step yields an empty id: an invented one would resolve to nothing.
     step_ids = live_step_ids_by_position or {}
-    payload = {
+    payload: AgentPayload = {
         "id": definition_id,
         "name": str(snapshot_definition.get("name") or ""),
         "description": str(snapshot_definition.get("description") or ""),
@@ -171,7 +144,7 @@ def payload_from_snapshot(
 
 def _step_payload_from_snapshot(
     step: dict[str, Any], step_ids_by_position: dict[int, str]
-) -> dict[str, Any]:
+) -> AgentStepPayload:
     position = int(step.get("position") or 0)
     return {
         "id": step_ids_by_position.get(position, ""),
@@ -186,8 +159,8 @@ def _step_payload_from_snapshot(
     }
 
 
-def _apply_execution_mode(payload: dict[str, Any], execution_mode: Any) -> None:
-    """The explicit execution mode: never derived from the agent's name."""
+def _apply_execution_mode(payload: AgentPayload, execution_mode: Any) -> None:
+    # Never derived from the agent's name.
     mode = str(execution_mode or "").strip()
     if mode in EXECUTION_MODES:
         payload["executionMode"] = mode

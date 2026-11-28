@@ -41,7 +41,6 @@ def _seed_node(key: str, node_id: str) -> dict:
 
 
 def _one_phase(key: str, phase_id: str, gate_id: str | None = None) -> dict:
-    """The seed's own phase (and the gate after it) between a start and an outcome."""
     nodes = [{"id": "start", "type": "start"}, _seed_node(key, phase_id)]
     edges = [{"id": "1", "source_node_id": "start", "target_node_id": phase_id}]
     after = phase_id
@@ -59,7 +58,6 @@ def _one_phase(key: str, phase_id: str, gate_id: str | None = None) -> dict:
 
 async def _device_session(db, user: User, workspace_id: str, *, run_id: str = "", root: str = ROOT
                           ) -> tuple[Session, str]:
-    """A device job's gateway session: bound to the run its job carries, the job folder as repository root."""
     key = str(uuid.uuid4())
     identity = GatewayIdentity(user=user, grant_id="device-grant", oauth_client_id="octryx", workspace_id=workspace_id,
                                session_key=key, work_item_key="", workflow_run_id=run_id)
@@ -93,7 +91,6 @@ def _caller(user: User, workspace_id: str, key: str | None) -> McpCaller:
 
 async def _native(db, gateway: Session, tool: str, tool_input: dict, *, cwd: str = ROOT, hook: str | None = "PostToolUse",
                   transcript: bool = True) -> list[ToolCall]:
-    """One native tool call as the server records it: the PostToolUse hook and/or the proxied transcript."""
     tool_use_id = f"toolu_{uuid.uuid4().hex[:12]}"
     if hook:
         await record_tool_execution(db, session=gateway, hook_input={
@@ -125,7 +122,6 @@ def _mcp_row(gateway: Session, tool: str, *, excerpt: str = "{}", ok: bool = Tru
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

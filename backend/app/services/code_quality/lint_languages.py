@@ -26,14 +26,11 @@ WhichFn = Callable[[str], str | None]
 
 
 def _kept_report(text: str | None) -> str:
-    """A lint/formatter/SAST report is a product result the agent reads: redacted, then bounded."""
     return truncate(redact_process_output(text or ""), max_chars=3000)
 
 
 @dataclass
 class LintRun:
-    """One lint/format pass: runs checks in order and collects their results."""
-
     config: dict[str, Any]
     repo_root: Path
     auto_fix: bool

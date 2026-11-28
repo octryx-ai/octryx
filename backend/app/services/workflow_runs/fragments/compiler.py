@@ -1,19 +1,4 @@
-"""The fragment compiler: a composite source and its pinned fragments become one ordinary phased graph.
-
-``compile_composite`` is pure and deterministic. For each reference node, in source order:
-
-1. the reference node is replaced, at its index, by the fragment's nodes in fragment order; each id becomes
-   ``namespace + id`` and the node-id-valued config keys (``node_refs``) are renamed the same way; everything else
-   (config, gate checks, decider, agent, reminders) is copied verbatim;
-2. a ``{"fragment_edges": "<ref>"}`` marker in the source edge list is replaced by the fragment's edges in fragment
-   order (without a marker they are appended); their ids and local ends are namespaced, a ``target_port`` becomes
-   the composite node the reference maps that port to; source edges into the reference lead to the namespaced entry;
-3. definition-level keys (``execution_kind``, ``plan_node``, ``failure_policy``, ``budget``) come from the source.
-
-The compiler is order-preserving, so a source whose fragment is a verbatim cut of a graph compiles back to exactly
-that graph (``tests/test_s4_sf5_equivalence.py``). Every refusal is
-collected into one :class:`~.format.FragmentError`.
-"""
+"""The fragment compiler: a composite source and its pinned fragments become one ordinary phased graph."""
 
 from __future__ import annotations
 
@@ -156,7 +141,7 @@ def _instance_edges(ref: FragmentRef, item: ResolvedFragment,
                 out[key] = ref.namespace + _text(value)
             elif key == "target_port":
                 target = ref.ports.get(_text(value), "")
-                out["target_node_id"] = entries.get(target, target)  # a port into another reference: its entry
+                out["target_node_id"] = entries.get(target, target)
             else:
                 out[key] = copy.deepcopy(value)
         compiled.append((out, _text(edge.get("id"))))
@@ -266,7 +251,6 @@ def _check_compiled(definition: dict[str, Any], refs: list[FragmentRef],
 
 def compile_parts(source: dict, resolved: Mapping[str, ResolvedFragment]
                   ) -> tuple[Composition | None, list[dict[str, str]]]:
-    """The composition (``None`` when the source cannot be compiled) and every refusal (shared with validation)."""
     try:
         refs = fragment_refs(source)
     except FragmentError as exc:
@@ -283,7 +267,6 @@ def compile_parts(source: dict, resolved: Mapping[str, ResolvedFragment]
 
 
 def compile_composite(source: dict, resolved: Mapping[str, ResolvedFragment]) -> Composition:
-    """The compiled composite; ``resolved`` is keyed by the reference node id. Raises :class:`FragmentError`."""
     composition, errors = compile_parts(source, resolved)
     if errors or composition is None:
         raise FragmentError(errors)
@@ -291,7 +274,6 @@ def compile_composite(source: dict, resolved: Mapping[str, ResolvedFragment]) ->
 
 
 def composition_settings(composition: Composition, source: dict) -> dict:
-    """The ``runtime_settings["composition"]`` block of a composite version (written once, at create)."""
     return {
         "schema": COMPOSITION_SCHEMA,
         "source": copy.deepcopy(source),
@@ -304,11 +286,6 @@ def composition_settings(composition: Composition, source: dict) -> dict:
 
 
 def resolve_seed_fragments(source: dict, fragment_seeds: list[dict[str, Any]]) -> dict[str, ResolvedFragment]:
-    """The seed path (no database): each reference resolved by ``(key, checksum)`` among the shipped fragment seeds.
-
-    A seed entry is ``{key, name, description, definition}`` (optionally ``version``, default 1). The version id is
-    the reference's own (or ``""``); the seeder records the real one when it stores the composite.
-    """
     errors: list[dict[str, str]] = []
     resolved: dict[str, ResolvedFragment] = {}
     for ref in fragment_refs(source):

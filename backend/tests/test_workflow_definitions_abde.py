@@ -1,9 +1,5 @@
-"""DevOps workflows A (triage), B (feature delivery), D (review & PR), E (incident) as seeds.
-
-The seeds publish with their loop defaults and the deploy phase behind four-eyes; A's Definition of Ready is the
-clarification gate (no regex); the deploy actions use the Workspace's deploy job only; D posts the
-independent reviewer's verdict on the ticket after a person confirms.
-"""
+"""DevOps workflows A (triage), B (feature delivery), D (review & PR) and E (incident) as seeds, with the
+deploy phase behind four-eyes."""
 
 from __future__ import annotations
 
@@ -22,8 +18,11 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from app.services.workflow_runs.watch import ci_params, watch_target
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import admin_user, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.test_workflow_run_platform_actions import FakeTools, _item
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 KEYS = ["bug-fix-reproduction", "jira-intake-triage", "feature-delivery-tdd", "incident-analysis"]
 

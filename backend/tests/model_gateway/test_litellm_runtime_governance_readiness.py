@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.agent.core.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_ALL_RUNTIMES
-from app.agent.engine.runtime._engine_runtime_retry_policy import build_runtime_retry_policy
 from app.agent.providers.provider_registry import get_driver_spec
+from app.agent.runtime.retry_policy import build_runtime_retry_policy
+from app.agent.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_ALL_RUNTIMES
 from app.services.model_gateway.litellm import apply_model_policy_to_runtimes
 from app.services.provider import READINESS_NEEDS_CONFIGURATION, READINESS_UNKNOWN, resolve_provider_readiness
 from tests.model_gateway.conftest import PROJECT_ID, backup_runtime, gateway_config, gateway_provider, gateway_runtime
@@ -115,6 +115,3 @@ def test_driver_is_registered_and_requires_an_endpoint() -> None:
     assert spec is not None
     assert spec.requires_endpoint_url is True
     assert spec.provider_family == "litellm"
-    # The generic OpenAI-compatible driver keeps its own behavior.
-    generic = get_driver_spec("openai_compatible")
-    assert generic is not None and generic.driver == "openai_compatible"

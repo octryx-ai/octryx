@@ -17,7 +17,6 @@ from .s1_graph import facts
 
 
 def pending_banner(as_of: str, link: str, run_id: str) -> str:
-    """The page's own statement when it is published while (a) is pending (immutable for this version)."""
     return (f"<p><strong>Functional acceptance pending as of {escape(as_of)}.</strong> This version was published "
             "before the functional acceptance was recorded; a later acceptance is a separate, dated decision on "
             f'workflow run <a href="{escape(link, quote=True)}">{escape(run_id)}</a> and does not change this '
@@ -31,7 +30,6 @@ def _later(*values: Any) -> str:
 
 
 async def _final_output(db: AsyncSession, run: WorkflowRun) -> dict[str, Any] | None:
-    """The newest ``feature_documentation``, only when a final (post-merge) documentation phase recorded it."""
     from ..graph import graph_for_run
     from .page import recorded_output
 
@@ -55,7 +53,6 @@ def _diff(before: str, after: str) -> list[str]:
 
 
 async def publication_payload(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
-    """Card (b): the exact page body (with the reserved marker), target, audience and the (a) state it states."""
     from ....tools._confluence_storage import normalize_storage_content
     from ....tools.confluence import storage_sha256
     from ...project.service import get_project_config

@@ -11,10 +11,10 @@ from sqlalchemy.orm import selectinload
 from ....models import AgentDefinition, AgentGroup, Project
 from ...agent_mode import list_agent_modes, serialize_agent_mode
 from ...agent_visibility import agent_access
+from ...project.private_workspace import foreign_private_filter
 
 
 async def list_agent_definitions(db: AsyncSession, *, user_id: str) -> list[AgentDefinition]:
-    """Every agent the user may see: own, Workspace-shared, global and built-in."""
     access = await agent_access(db, user_id)
     result = await db.execute(
         select(AgentDefinition)
@@ -33,7 +33,8 @@ async def build_agent_builder_meta(
     thinking_levels: list[str],
     tool_options: list[str],
 ) -> dict[str, Any]:
-    projects = (await db.execute(select(Project).order_by(Project.name.asc()))).scalars().all()
+    projects = (await db.execute(
+        select(Project).where(foreign_private_filter(user_id)).order_by(Project.name.asc()))).scalars().all()
     agent_groups = (
         (
             await db.execute(

@@ -1,15 +1,4 @@
-"""The sensitive categories a conversation already contained: ``principal.sensitive``, sticky until cleared.
-
-Keyed by the session (gateway shadow session or chat session) and the client's conversation id: Claude Code
-sends ``x-claude-code-session-id`` and gives a cleared conversation (``/clear``) a new one, so it starts empty; a
-chat conversation is its session (``CHAT_CONVERSATION``). After a request was sent (allowed or repaired), the
-categories it contained are added; a routed conversation also keeps its route target, so the next calls are
-routed again even without new findings, and the Agents area shows "governed until /clear".
-
-Reads and writes use their own database session: a failure never touches the caller's transaction. A failed
-read is "nothing sensitive yet" and is logged; it cannot widen anything, because the current request is still
-scanned and decided on its own content.
-"""
+"""The sensitive categories a conversation already contained: principal.sensitive, sticky until cleared."""
 
 from __future__ import annotations
 
@@ -35,7 +24,6 @@ _KEY = re.compile(r"^[A-Za-z0-9._:-]{1,100}$")
 
 
 def conversation_key(headers: Mapping[str, str]) -> str:
-    """The client's conversation id when well-formed, else the whole session is one conversation."""
     value = str(headers.get(CLAUDE_SESSION_HEADER) or "")
     return value if _KEY.match(value) else SESSION_WIDE
 
@@ -63,7 +51,7 @@ async def load_state(session_id: str | None, key: str) -> ConversationState:
     try:
         async with db_core.async_session_factory() as db:
             row = await _row(db, session_id, key)
-    except Exception:  # noqa: BLE001 - see the module doc
+    except Exception:  # noqa: BLE001 - "nothing sensitive yet": the request is still decided on its own content
         logger.warning("content_conversation_state_read_failed", exc_info=True)
         return EMPTY_STATE
     if row is None:
@@ -73,7 +61,6 @@ async def load_state(session_id: str | None, key: str) -> ConversationState:
 
 async def remember(session_id: str | None, key: str, report: ScanReport, *, policy_id: str | None = None,
                    decision_id: str | None = None, route_to: str = "") -> None:
-    """Add this request's categories and detector counts (nothing to add and no route: no write)."""
     if not session_id or (not report.categories and not route_to):
         return
     from ...db import core as db_core
@@ -101,7 +88,6 @@ async def remember(session_id: str | None, key: str, report: ScanReport, *, poli
 
 
 async def latest_by_session(db: AsyncSession, session_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
-    """The newest conversation state per session (the Agents badge): categories, counts, since, policy, route."""
     wanted = [item for item in session_ids if item]
     if not wanted:
         return {}

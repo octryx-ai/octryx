@@ -1,9 +1,4 @@
-"""Every pause goes on the way it names (``detail.resume.kind``), or the decision is refused: never a silent "running".
-
-A ``continue`` on an ``action_failed`` pause (resume kind ``retry_action``) must not fall into ``_resume``'s
-fallback, which sets the run running at the pause node while nothing ever enters the failed ``scm.create_branch``
-step again.
-"""
+"""Every pause goes on the way it names (``detail.resume.kind``), or the decision is refused: never a silent "running"."""
 
 from __future__ import annotations
 
@@ -18,8 +13,11 @@ from app.services.workflow_runs.pause import RESUME_KINDS, _resume
 from app.services.workflow_runs.platform import scm
 from app.services.workflow_runs.records import WorkflowRunError
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import _run as start
 from tests.workflow_run_succession_support import BRANCH, Tools, _origin
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SERVICES = Path(__file__).resolve().parents[1] / "app" / "services"
 _RESUME_KIND = re.compile(r'"resume"\s*:\s*\{\s*"kind"\s*:\s*([^,}]+)')
@@ -36,8 +34,6 @@ def _calls(text: str, start_at: int) -> str:
 
 
 def test_every_pause_source_names_a_resume_kind_that_resume_knows():
-    """A guard over the code: every ``"resume": {"kind": ...}`` literal (also both sides of a conditional) is in
-    ``RESUME_KINDS``, and every ``pause_run`` call names a resume."""
     seen: set[str] = set()
     missing: list[str] = []
     for path in SERVICES.rglob("*.py"):

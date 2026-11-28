@@ -21,14 +21,12 @@ _CALL_DEBUG_PATTERN = (
 
 def _grep_call_log(call_id: str | None) -> subprocess.CompletedProcess:
     if call_id and call_id.strip():
-        # Filter by specific call_id — get ALL lines mentioning this call
         return subprocess.run(
             ["grep", "-F", call_id.strip(), _CALL_LOG_FILE],
             capture_output=True,
             text=True,
             timeout=10,
         )
-    # General call debug filter
     return subprocess.run(
         [
             "grep",
@@ -44,13 +42,11 @@ def _grep_call_log(call_id: str | None) -> subprocess.CompletedProcess:
 
 
 def read_call_log_lines(call_id: str | None, bounded_limit: int) -> list[str]:
-    """The last call-debug lines of the uvicorn log, redacted; a single explanatory line when it cannot be read."""
     try:
         result = _grep_call_log(call_id)
         # The matched log lines are what the admin call-debug view shows: kept, redacted.
         output = redact_process_output(result.stdout).strip()
         lines = output.split("\n") if output else []
-        # Return last N lines
         return lines[-bounded_limit:]
     except FileNotFoundError:
         return ["Log file not found: /tmp/uvicorn.log"]
@@ -69,7 +65,6 @@ def _history_query(session_model: Any, search_term: str, bounded_limit: int) -> 
     )
     if not search_term:
         return query
-    # Search in metadata JSON (call_id, caller name) and session id
     return (
         select(session_model)
         .where(session_model.agent_type == "teams_call")
@@ -104,7 +99,6 @@ def _stored_call_info(sess: Any, call_states: dict) -> dict | None:
         "segments": meta.get("transcript_segments", 0),
         "status": sess.status or "unknown",
     }
-    # If still live, get fresher data from memory
     if state:
         info["segments"] = len(state.segments)
         info["caller_name"] = getattr(state, "caller_display_name", "") or info["caller_name"]
@@ -145,7 +139,6 @@ async def load_call_history(
     search_term: str,
     bounded_limit: int,
 ) -> list[dict]:
-    """Recent stored calls plus live calls that have no stored session yet, newest live calls first."""
     calls_info: list[dict] = []
     result = await db.execute(_history_query(session_model, search_term, bounded_limit))
     for sess in result.scalars().all():
@@ -153,7 +146,6 @@ async def load_call_history(
         if info is not None:
             calls_info.append(info)
 
-    # Also add live calls that might not have a DB session yet
     for call_id, state in call_states.items():
         already_listed = any(c["call_id"] == call_id for c in calls_info)
         if not already_listed and _live_call_matches(call_id, state, search_term):

@@ -100,7 +100,6 @@ def _match_record(
 def _source_matches(
     source: Any, *, workspace_root: Path, bundle_root: Path, document_id: str, tokens: set[str]
 ) -> list[tuple[int, dict[str, Any]]] | None:
-    """The scored chunks of one source's parsed text; ``None`` when the source is not inspected at all."""
     if not isinstance(source, dict):
         return None
     source_id = str(source.get("id") or "").strip()

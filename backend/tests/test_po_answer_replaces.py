@@ -22,7 +22,7 @@ def test_a_replacing_answer_hides_the_replaced_ones_from_the_review_and_keeps_th
 
 
 def test_the_action_request_accepts_replaces():
-    from app.api.routes._workflow_run_http import RunActionRequest
+    from app.api.routes.workflows._workflow_run_http import RunActionRequest
 
     body = RunActionRequest(action="continue", reason="new decision", replaces=[1, 2])
     assert body.replaces == [1, 2]

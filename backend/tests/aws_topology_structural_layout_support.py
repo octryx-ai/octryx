@@ -121,8 +121,6 @@ def _assert_no_sibling_overlap(xml: str) -> None:
 
 
 def _multi_region_topology():
-    """Two VPCs in two regions, connected by a peering connection; one
-    regional service per region."""
     return {
         "account_id": "123456789012",
         "region": "eu-central-1",

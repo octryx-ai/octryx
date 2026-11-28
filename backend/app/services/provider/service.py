@@ -16,7 +16,6 @@ from ...schemas.operations.provider import ModelResponse, ProviderCreate, Provid
 from ...services.control_plane.provider_auth import provider_secret_scope
 from ...services.secret import set_secret_value
 from ...time_utils import utc_now
-from .bedrock_pricing import sync_bedrock_model_pricing
 from .driver_policy import require_supported_driver
 from .model_sync import (
     apply_model_sync_provider_metadata,
@@ -112,8 +111,6 @@ async def sync_provider_models(
             total_models=total_models,
             active_models=active_models,
         )
-        if infer_provider_runtime(driver=provider.driver)["driver"] == "bedrock_api":
-            response["pricing"] = await sync_bedrock_model_pricing(db)
     apply_model_sync_provider_metadata(provider, response, checked_at=utc_now())
     await db.commit()
     return response
@@ -140,7 +137,7 @@ async def _provider_model_counts(db: AsyncSession, *, provider_id: str) -> tuple
 
 
 def _build_provider(body: ProviderCreate, *, driver: str) -> LLMProvider:
-    # VULN-31: api_key is NOT set on the model — stored encrypted via set_secret_value instead
+    # api_key never lands on the row; the caller stores it encrypted as a secret.
     runtime = infer_provider_runtime(
         name=body.name,
         driver=driver,
@@ -148,7 +145,7 @@ def _build_provider(body: ProviderCreate, *, driver: str) -> LLMProvider:
         runtime_kind=body.runtime_kind,
         auth_mode=body.auth_mode,
     )
-    return LLMProvider(
+    provider = LLMProvider(
         id=str(uuid.uuid4()),
         name=runtime["name"],
         provider_family=runtime["provider_family"],
@@ -164,6 +161,8 @@ def _build_provider(body: ProviderCreate, *, driver: str) -> LLMProvider:
         is_global=body.is_global,
         project_id=body.project_id,
     )
+    provider.config_json = dict(body.config_json or {}) or None
+    return provider
 
 
 async def _list_active_models(db: AsyncSession, *, provider_id: str) -> Sequence[LLMModel]:

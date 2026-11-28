@@ -1,20 +1,4 @@
-"""Activation qualification and its evidence.
-
-What the gate has to establish before ``litellm_gateway`` may be enabled in a
-shared environment:
-
-- the content-logging/callback posture is admitted only when neither prompts nor
-  credentials can be retained, and a declaration never counts as live proof;
-- every admitted alias reports integral prompt/completion usage, settles its
-  declared cost contract, names the governed model group, and has its
-  ``model_info.supports_*`` capabilities backed by the catalog;
-- each mismatch case is *refused*, with the expected state and no leakage;
-- a required check that never ran leaves the gate closed;
-- the report can only be written under the allowlisted evidence path, and
-  never with a secret-shaped key or value — while the closed host-shaped fields
-  still admit the deployment's own hostnames, which can contain a credential
-  prefix as a substring (``nonprod`` carries ``sk-``).
-"""
+"""Activation qualification and its evidence."""
 
 from __future__ import annotations
 
@@ -145,8 +129,6 @@ def chat_response(model_group: str, **overrides: Any) -> dict[str, Any]:
 
 
 class ScriptedGateway:
-    """LiteLLM-compatible fake that answers per requested model group."""
-
     def __init__(self, *, catalog: dict[str, Any] | None = None, chat: dict[str, dict[str, Any]] | None = None):
         self.catalog = CATALOG if catalog is None else catalog
         self.chat = chat or {}
@@ -184,8 +166,6 @@ PLATFORM_GATEWAY_POSTURE = {
 }
 
 
-# --- Fail-closed qualification ----------------------------------------------
-
 FAIL_CLOSED_CASES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
     (
         FAIL_CLOSED_MODEL_GROUP_MISMATCH,
@@ -212,9 +192,6 @@ FAIL_CLOSED_CASES: tuple[tuple[str, str, str, dict[str, Any]], ...] = (
         {"usage": {"prompt_tokens": 10, "completion_tokens": 2, "cost": 0.01}},
     ),
 )
-
-
-# --- Report and evidence -----------------------------------------------------
 
 
 async def full_report(*, evidence_origin: str, live_posture: bool = False):

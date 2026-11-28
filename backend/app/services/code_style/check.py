@@ -1,31 +1,5 @@
-"""The platform's own judgement of a change against the resolved code style, from the facts the
-launcher counts for the changed files (``octryx_claude.run_contract.sizes``): never the engine's lint script, never
-the agent's word.
-
-Rules (``rule`` ids in each finding):
-
-- ``max_lines_per_file`` / ``tests_max_lines``: a **new** file over its limit, a file the change **grows past** the
-  limit, or one **already over it that grows** is an error; a file that was already over the limit and does not grow
-  is a warning (touched legacy files only warn);
-- ``max_function_lines``: a function over the limit (Python; Dart and TypeScript once a parser counts them);
-- ``naming``: a new file whose name does not match the language's file pattern;
-- ``layout``: a new file of a language with layout patterns outside them;
-- ``todo_requires_ticket``: a TODO / FIXME line without the ticket pattern;
-- ``no_commented_code``: a block of commented-out code.
-
-Which files a rule judges is data (``built_in.json`` and the levels above it), never a list in this module:
-
-=================================  ====================================================================
-``exclude`` row (``glob``)         the file is not judged (generated, l10n, documentation, scaffold, ...)
-``exclude`` row with ``keep``      not judged, except by the rules named in ``keep`` (a stylesheet keeps
-                                   ``max_line_length``)
-``include`` glob                   judged after all, against an exclude of a less specific level
-two levels match                   the most specific level decides: repository > Workspace >
-                                   installation > built in; a language's own rows before its level's
-                                   general ones
-the same level has both            ``include`` wins
-=================================  ====================================================================
-"""
+"""The platform's own judgement of a change against the resolved code style, from the facts the launcher counts for the
+changed files (``octryx_claude.run_contract.sizes``): never the engine's lint script, never the agent's word."""
 
 from __future__ import annotations
 
@@ -45,9 +19,6 @@ def _matches(path: str, patterns: list[str]) -> bool:
 
 
 def app_relative(path: str, roots: list[str]) -> str:
-    """``path`` from the app's own folder: an app in a subfolder (``coffee/flutter/claude/test/x_test.dart``) is
-    matched from its first layout root (``test/x_test.dart``). Unchanged when
-    no root occurs in it."""
     parts = path.split("/")
     for index in range(len(parts)):
         rest = "/".join(parts[index:])
@@ -57,22 +28,17 @@ def app_relative(path: str, roots: list[str]) -> str:
 
 
 def style_for(path: str, style: dict[str, Any]) -> dict[str, Any]:
-    """The resolved style of ``path``'s language (``style``: ``{general, languages}`` from the contract)."""
     language = language_of(path)
     return dict(dict(style.get("languages") or {}).get(language) or style.get("general") or {})
 
 
 def _rank(source: Any) -> tuple[int, int]:
-    """How specific a row's level is (lower wins): repository before Workspace before installation before built in,
-    and within a level its language's own rows before the general ones."""
     text = str(source or "built_in")
     level = text.split(".")[0]
     return (LEVELS.index(level) if level in LEVELS else len(LEVELS), 0 if ".languages." in text else 1)
 
 
 def _excluded(path: str, rules: dict[str, Any], rule: str) -> bool:
-    """Whether ``rule`` skips ``path``: the most specific level with a matching ``include`` or ``exclude`` row
-    decides, an ``include`` winning a tie; an exclude row that names ``rule`` in its ``keep`` does not count for it."""
     best: tuple[tuple[int, int], bool] | None = None
     for kind in ("include", "exclude"):
         for row in rules.get(kind) or []:
@@ -103,9 +69,6 @@ def _line_findings(path: str, lines: int, before: int | None, rules: dict[str, A
 
 
 def _function_finding(path: str, name: str, lines: int, limit: int, before: int | None) -> Finding:
-    """A function over its limit: an error when it is new, was within the limit or grew; a warning when it was
-    already over the limit before the change and did not grow (old debt the agent even
-    shrank must not hold the story red)."""
     if before is not None and before > limit and lines <= before:
         return Finding("max_function_lines", path, f"function {name} has {lines} lines (max {limit}); it had {before} "
                        "before this change", severity="warning")
@@ -113,7 +76,6 @@ def _function_finding(path: str, name: str, lines: int, limit: int, before: int 
 
 
 def _new_file_findings(path: str, rules: dict[str, Any]) -> list[Finding]:
-    """A new file's name against the language's file pattern and its place against the layout."""
     found: list[Finding] = []
     naming = dict(rules.get("naming") or {})
     if naming.get("file") and not re.search(str(naming["file"]), basename(path)):
@@ -128,7 +90,6 @@ def _new_file_findings(path: str, rules: dict[str, Any]) -> list[Finding]:
 
 
 def findings(style: dict[str, Any], sizes: Any) -> list[Finding]:
-    """Every finding of the change, errors and warnings."""
     if not isinstance(sizes, dict) or not style:
         return []
     files = sizes.get("files") if isinstance(sizes.get("files"), dict) else {}

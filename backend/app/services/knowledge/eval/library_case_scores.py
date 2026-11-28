@@ -23,7 +23,6 @@ UNRESOLVED_SKIP_STATES = frozenset({"classification_unresolved"})
 
 
 def _hybrid_entry(states: Any) -> tuple[str, Any] | None:
-    """``("answered", components)``, ``("whole", state)`` or ``None`` when it fits neither contract shape."""
     if not isinstance(states, dict) or not all(isinstance(value, str) for value in states.values()):
         return None
     if set(states) == HYBRID_COMPONENTS:
@@ -34,7 +33,6 @@ def _hybrid_entry(states: Any) -> tuple[str, Any] | None:
 
 
 def classify_availability(record: dict[str, Any], case: Case) -> dict[str, Any]:
-    """complete / partial / error / malformed against the actual response contract, keeping the raw states."""
     raw = {"mode_states": record.get("mode_states"), "workspace_states": record.get("workspace_states")}
     if record.get("response_state") != "ok":
         return {"class": "error", "raw": raw}
@@ -81,7 +79,6 @@ def _corpus_verification(case: Case, inventory: EvidenceInventory | None) -> dic
 def _resolve_groups(
     groups: list[list[dict[str, Any]]], case: Case, judged: dict[str, dict[str, Any]], manifest: Manifest
 ) -> dict[str, Any]:
-    """One resolution per identity: every count, coverage and rank of the case uses this same label."""
     counts = dict.fromkeys(("relevant", "partial", "irrelevant", "excluded_leak", "unjudged"), 0)
     full_prelabeled: set[str] = set()
     full_judged: set[str] = set()

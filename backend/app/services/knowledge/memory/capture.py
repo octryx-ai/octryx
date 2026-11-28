@@ -1,15 +1,4 @@
-"""Capture: an explicit "remember this" becomes a human-stated memory item.
-
-The text is the user's statement as the agent passes it; the item records the session and the turn
-it came from and the user who stated it. Scope defaults to personal. Workspace memory is team memory
-and needs the authoring role. Consolidation is by content: restating an active memory in the same
-scope does not create a second item; a human restating an unreviewed (``observed``) memory confirms
-it ("confirmed by repetition").
-
-Automatic capture at turn end (``auto_capture``) writes through the same function as
-``model_inferred``: a model never confirms anything, so an inferred restatement of an active memory
-is ``already_known`` and leaves its state alone.
-"""
+"""Capture: an explicit "remember this" becomes a human-stated memory item. A model never confirms anything."""
 
 from __future__ import annotations
 
@@ -54,8 +43,7 @@ _MAX_REF_CHARS = 64
 
 @dataclass(frozen=True, slots=True)
 class MemoryProvenance:
-    """Where a statement was made: server-owned values of the run, never model arguments."""
-
+    # Server-owned values of the run, never model arguments.
     user_id: str
     session_id: str | None = None
     turn_ref: str | None = None
@@ -109,7 +97,6 @@ async def _existing_item(
     db: AsyncSession, *, project_id: str, digest: str, scope: str, owner: str | None, product: str | None,
     now: datetime,
 ) -> KnowledgeMemoryItem | None:
-    """The newest recallable item with the same text in the same scope, owner and product."""
     return (
         await db.execute(
             select(KnowledgeMemoryItem)
@@ -143,7 +130,6 @@ async def remember(
     expires_in_days: object = None,
     author_class: MemoryAuthorClass = MemoryAuthorClass.HUMAN_STATED,
 ) -> CaptureResult:
-    """Record what the user stated, or refuse with a fixed reason. Flushes; the caller commits."""
     if author_class not in (MemoryAuthorClass.HUMAN_STATED, MemoryAuthorClass.MODEL_INFERRED):
         raise MemoryRefusedError("invalid_request")
     author_class = MemoryAuthorClass(author_class)

@@ -1,11 +1,4 @@
-"""One human sentence per error code a connection's uses record (the detail's ``recent_errors``, ``state_reason``).
-
-Runs store fixed codes (``knowledge_source_sync_runs.reason``, ``work_item_sync_runs.error``,
-``connector_health_log.status``); the connection page shows ``{code, message}`` where ``message`` comes from this
-table, never from a source system's text. An unknown code reads "The <use> sync failed (<code>)." - never empty.
-The runtime state of a connection (``named_connections/runtime_state.py``) takes its ``state_reason`` from
-:data:`RUNTIME_SENTENCES`.
-"""
+"""One human sentence per error code a connection's uses record (the detail's ``recent_errors``, ``state_reason``)."""
 
 from __future__ import annotations
 
@@ -55,7 +48,6 @@ RUNTIME_SENTENCES: dict[str, str] = {
 
 
 def sentence(code: object, use: str) -> str:
-    """The sentence of ``code`` for a ``use``; the generic one for an unknown or empty code."""
     text = " ".join(str(code or "").split())[:80]
     return SENTENCES.get(text) or f"The {use} sync failed ({text or 'unknown'})."
 

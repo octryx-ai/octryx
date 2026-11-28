@@ -1,24 +1,5 @@
-"""Strict allowlist rendering of an untrusted HTML original for display (stdlib only).
-
-The repository has no HTML sanitizer dependency (no bleach, nh3, or html5lib), so this
-module rebuilds the document from the standard-library tokenizer instead of filtering
-the input string. Nothing from the input is copied through as markup: every tag that
-is emitted is one of :data:`ALLOWED_TAGS`, every attribute one of
-:data:`ALLOWED_ATTRIBUTES`, and every text node and attribute value is re-escaped.
-
-- ``script``, ``style``, ``iframe``, ``object``, ``svg``, forms and the document head
-  are dropped together with their content;
-- unknown tags are unwrapped: their text stays, the tag does not;
-- no ``style``, ``class``, ``id`` or ``on*`` attribute exists in the allowlist;
-- a link keeps only an absolute ``http``/``https``/``mailto`` target and always opens
-  in a new context without referrer; images are dropped (their source is an
-  authenticated or tracking URL the viewer must not fetch);
-- comments, doctype, processing instructions and CDATA are dropped;
-- nesting is bounded and every opened tag is closed, so the output is well-formed.
-
-The same pass extracts the plain text (block elements become line breaks), which is
-what the revision diff compares.
-"""
+"""Strict allowlist rendering of an untrusted HTML original for display (stdlib only). Nothing from the input is copied
+through as markup."""
 
 from __future__ import annotations
 
@@ -171,7 +152,6 @@ def _plain(chunks: list[str]) -> str:
 
 
 def render_html_view(source: str) -> HtmlView:
-    """Sanitized display HTML and the plain text of one untrusted HTML document."""
     renderer = _Renderer()
     renderer.feed(source)
     renderer.close()

@@ -43,7 +43,7 @@ async def test_after_linking_the_retried_step_adds_the_reviewer_or_applies_the_a
     assert (await scm.open_pr(db, run, {})).ok
     pr = dict(next(arguments for tool, arguments in calls if tool == "create_bitbucket_pull_request"))
     assert (pr["reviewers"], pr["requester"]) == ([ACCOUNT], ACCOUNT)
-    assert "search_jira_users" not in [tool for tool, _ in calls]  # a linked account needs no email lookup
+    assert "search_jira_users" not in [tool for tool, _ in calls]
     assert run.pull_request["reviewers"] == [ACCOUNT] and "reviewer_skipped" not in run.pull_request
 
     author = await _cloud_run(db, admin)
@@ -55,14 +55,11 @@ async def test_after_linking_the_retried_step_adds_the_reviewer_or_applies_the_a
     unknown = await _cloud_run(db, admin)
     _scripted(monkeypatch, {"id": 10, "url": "https://bitbucket.org/acme/payments/pull-requests/10",
                             "status": "created", "reviewers_unresolved": [ACCOUNT]})
-    assert (await scm.open_pr(db, unknown, {})).ok  # the SCM does not know the linked account: still not blocked
+    assert (await scm.open_pr(db, unknown, {})).ok
     assert unknown.pull_request["reviewer_skipped"] == "requester_unresolved"
 
 
 async def test_a_pull_request_github_already_has_is_adopted_and_a_long_body_is_bounded(db, monkeypatch):
-    """A restart between GitHub's create and the run's commit makes the retry create again; GitHub answers 422
-    "A pull request already exists" and the step must not fail although the PR exists. And a body over GitHub's
-    65,536 characters (review notes, open findings) is refused."""
     from app.services.workflow_runs.platform.dispatch import ToolOutcome
 
     admin = await admin_user(db)
@@ -92,8 +89,6 @@ async def test_a_pull_request_github_already_has_is_adopted_and_a_long_body_is_b
 
 
 async def test_a_story_whose_base_branch_was_deleted_starts_from_the_default_branch(db, monkeypatch):
-    """When the story before was merged and GitHub deleted its branch, creating the next story's branch from it
-    answers 404; the epic chain must not stop."""
     from app.services.workflow_runs.platform.dispatch import ToolOutcome
 
     admin = await admin_user(db)

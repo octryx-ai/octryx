@@ -1,20 +1,4 @@
-"""Presence per person and device: the device key, the read-model collapse, retention and removal.
-
-Storage stays one ``agent_presence`` row per launcher session (the session key carries the seat credential,
-claims and handoffs). What a person sees is one entry per **person and device**:
-
-- **device key** (:func:`device_key_for`): a registered device's grant (``OAuthGrant.device_id``) is that device;
-  any other login is its launcher installation, i.e. the OAuth client the installation registered for itself
-  (``octryx-claude`` registers one client per installation). Stored as ``sha256(user | kind:value)[:32]``, so
-  the key never names the client id and is unique per person.
-- **collapse** (:func:`collapse_entries`): rows newest first; an entry shows its newest running session (else its
-  newest session), with how many of its sessions are still running (``sessions``).
-- **retention** (:data:`PRESENCE_RETENTION`): a session that stopped, or was not seen, more than seven days ago
-  is never listed (:func:`retained`) and is deleted by :func:`expire_presence` (the workflow-run sweep).
-- **removal** (:func:`remove_presence_entry`): a person removes their own entry; a Workspace admin/owner or a
-  platform admin may remove anyone's. Every session row of the entry is deleted (a running seat session loses
-  its credential with it) and the removal is audited (``agent_gateway.presence.removed``).
-"""
+"""Presence per person and device: the device key, the read-model collapse, retention and removal."""
 
 from __future__ import annotations
 
@@ -42,7 +26,6 @@ def _key(user_id: str, identity: str) -> str:
 
 
 async def device_key_for(db: AsyncSession, identity: GatewayIdentity) -> str:
-    """The stored person-and-device key of a registering session."""
     grant = await db.get(OAuthGrant, identity.grant_id) if identity.grant_id else None
     if grant is not None and grant.device_id:
         return _key(identity.user.id, f"device:{grant.device_id}")
@@ -52,13 +35,11 @@ async def device_key_for(db: AsyncSession, identity: GatewayIdentity) -> str:
 
 
 async def registered_device_id(db: AsyncSession, identity: GatewayIdentity) -> str | None:
-    """The registered device of the session's login (its grant), or ``None`` for a plain OAuth client."""
     grant = await db.get(OAuthGrant, identity.grant_id) if identity.grant_id else None
     return grant.device_id if grant is not None and grant.device_id else None
 
 
 async def device_names(db: AsyncSession, device_ids: Iterable[str | None]) -> dict[str, str]:
-    """``user_devices.id -> name`` for the given ids (one query)."""
     from ...models.security.device import UserDevice
 
     wanted = sorted({device_id for device_id in device_ids if device_id})
@@ -69,12 +50,10 @@ async def device_names(db: AsyncSession, device_ids: Iterable[str | None]) -> di
 
 
 def entry_id(row: AgentPresence) -> str:
-    """The entry a row belongs to: its device key (set when the session registers)."""
     return str(row.device_key)
 
 
 def retained(now: datetime) -> Any:
-    """SQL condition: rows still listed (stopped or last seen within :data:`PRESENCE_RETENTION`)."""
     cutoff = now - PRESENCE_RETENTION
     # Both branches are NULL-free, so NOT(retained) in the sweep is never NULL (SQL three-valued logic).
     return or_(
@@ -84,7 +63,6 @@ def retained(now: datetime) -> Any:
 
 
 def collapse_entries(rows: Iterable[Sequence[Any]]) -> list[tuple[Sequence[Any], int]]:
-    """``(newest row tuple, running sessions)`` per entry, in the given (newest-first) order."""
     shown: dict[str, Sequence[Any]] = {}
     running: dict[str, int] = {}
     for result in rows:
@@ -97,7 +75,6 @@ def collapse_entries(rows: Iterable[Sequence[Any]]) -> list[tuple[Sequence[Any],
 
 
 async def expire_presence(db: AsyncSession, *, now: datetime | None = None) -> int:
-    """Delete presence rows past retention; returns how many. Commits."""
     now = now or utc_now()
     result = await db.execute(delete(AgentPresence).where(not_(retained(now))))
     count = int(result.rowcount or 0)
@@ -110,7 +87,6 @@ async def expire_presence(db: AsyncSession, *, now: datetime | None = None) -> i
 async def remove_presence_entry(
     db: AsyncSession, *, project_id: str, entry: str, actor_id: str, may_remove_others: bool
 ) -> int:
-    """Delete every session row of one entry; 0 when the caller sees no such entry. Audited; flushes."""
     statement = select(AgentPresence).where(
         AgentPresence.project_id == project_id,
         AgentPresence.device_key == entry,
@@ -128,6 +104,7 @@ async def remove_presence_entry(
         action=REMOVE_AUDIT_ACTION,
         resource_type="agent_presence",
         resource_id=entry,
+        project_id=project_id,
         details={"workspace_id": project_id, "owner_user_id": owner_id, "sessions": len(rows),
                  "running_sessions": sum(1 for row in rows if row.stopped_at is None),
                  "by_other": owner_id != actor_id},

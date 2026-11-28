@@ -16,7 +16,6 @@ async def _ingest_libraries(
     db: AsyncSession, *, project_id: str | None, record: dict[str, Any], repo_node: Any, repository: str,
     source_ref: str,
 ) -> tuple[int, int]:
-    """``(nodes, edges)`` written for the record's dependencies."""
     nodes = edges = 0
     # Libraries: one node per (ecosystem, name) shared across all repositories.
     seen_libraries: set[str] = set()

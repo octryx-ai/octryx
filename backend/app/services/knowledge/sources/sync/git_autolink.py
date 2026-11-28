@@ -1,32 +1,10 @@
-"""Link a ``git_repository`` source saved without a connection to the one connection that can read it.
-
-The repository forms (Work › Repositories, Knowledge › Add source) have no connection picker, so a private
-``github.com`` repository may be saved without ``connection_id``; read anonymously, it would end ``source_not_found``.
-A source without a link is therefore resolved against the Workspace's connections:
-
-- **candidates** (:func:`git_connection_candidates`): the connections available in the Workspace, active, with their
-  ``knowledge`` use on and the repository path inside that use's scope (``linked_use.deviation_refusal``, as a linked
-  read checks it) - for a Bitbucket connection also inside its bound repositories, the keys the Bitbucket route plan
-  already reads an unlinked ``bitbucket.org`` source with (one bound elsewhere stays refused) -, that carry a
-  credential (a GitHub connection without a token reads anonymously - linking it changes
-  nothing) and serve the repository's host: a GitHub connection on ``api.github.com`` for ``github.com``, a Bitbucket
-  Cloud connection for ``bitbucket.org``, a Bitbucket Data Center connection whose URL is the source's ``host_base``;
-- exactly one: the source is linked to it through the configure path (``git_bitbucket.bind_repository_scope``) and the
-  link is audited (``knowledge_source.connection_auto_linked``: Workspace, connector key, connection id, repository
-  path - never a URL with a credential or a secret);
-- several: refused with ``connection_choice_required`` and the candidates (id, name, type), never a guess;
-- none: unchanged (a public repository, read anonymously).
-
-Saving (``service.configure_connector``) and the start of a run (``service_run.run_connector``, for a source still
-unbound: no candidate at save, or its connection deleted) both use :func:`auto_link_connection`; an explicit
-``connection_id`` never comes here.
-"""
+"""Link a ``git_repository`` source saved without a connection to the one connection that can read it."""
 
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import BITBUCKET, is_bitbucket_cloud
+from app.services.connector_auth.atlassian_modes import BITBUCKET, is_bitbucket_cloud
 
 from .....models import AuditLog, ConnectorNamedConnection
 from ....github_url import normalize_github_api_base_url
@@ -45,15 +23,12 @@ _FIELDS = ("fetch_mode", "ref", "include_globs", "exclude_globs", "max_files", "
 
 
 class ConnectionChoiceRequiredError(ConnectorError):
-    """Several connections could read the repository; ``candidates`` are ``{id, name, type}`` only."""
-
     def __init__(self, candidates: list[dict[str, str]]) -> None:
         super().__init__(REASON_CONNECTION_CHOICE_REQUIRED)
         self.candidates = candidates
 
 
 def _target(scope: dict) -> tuple[str, str, str | None] | None:
-    """``(connection type, repository path, Data Center base)`` of a stored remote scope, else ``None``."""
     if not scope.get("remote") or scope.get("fetch_mode") != FETCH_REMOTE_GIT:
         return None
     if scope.get(HOST_KIND) == HOST_BITBUCKET_DATACENTER:
@@ -71,8 +46,6 @@ def _target(scope: dict) -> tuple[str, str, str | None] | None:
 
 
 def _binds(row: ConnectorNamedConnection, tool: str, path: str) -> bool:
-    """A Bitbucket connection binds the repository (itself or its project/workspace); GitHub: its knowledge scope
-    decides alone."""
     if tool != BITBUCKET:
         return True
     descriptor = descriptor_of(tool)
@@ -91,7 +64,6 @@ def _serves(tool: str, config: dict, base: str | None) -> bool:
 
 async def git_connection_candidates(db: AsyncSession, project_id: str,
                                     scope: dict | None) -> list[ConnectorNamedConnection]:
-    """The connections an unlinked source of ``scope`` could be linked to (module doc), by name."""
     target = _target(dict(scope or {}))
     if target is None:
         return []
@@ -107,7 +79,6 @@ def describe_candidates(rows: list[ConnectorNamedConnection]) -> list[dict[str, 
 
 
 async def auto_link_connection(db: AsyncSession, project_id: str, scope: dict | None) -> str | None:
-    """The one candidate's id; ``None`` without any; :class:`ConnectionChoiceRequiredError` for several."""
     rows = await git_connection_candidates(db, project_id, scope)
     if len(rows) > 1:
         raise ConnectionChoiceRequiredError(describe_candidates(rows))
@@ -115,14 +86,11 @@ async def auto_link_connection(db: AsyncSession, project_id: str, scope: dict | 
 
 
 def unlinked_scope(repository_url: object) -> dict:
-    """The remote part of the scope an unlinked source of ``repository_url`` gets (a known public host); an invalid or
-    unknown URL is :class:`InvalidEvidenceRequestError`, as on save."""
     location = parse_repository_url(repository_url, known_host_only=True)
     return {"remote": location.url, "fetch_mode": FETCH_REMOTE_GIT}
 
 
 def link_fields(scope: dict) -> dict:
-    """The configure fields of a validated unlinked scope, for ``bind_repository_scope`` with the found connection."""
     return {"repository_url": scope.get("remote"), **{name: scope.get(name) for name in _FIELDS}}
 
 
@@ -132,6 +100,7 @@ def record_auto_link(db: AsyncSession, *, actor_id: str, project_id: str, connec
     db.add(AuditLog(
         user_id=actor_id, action=AUTO_LINK_AUDIT_ACTION, resource_type="knowledge_source_connector",
         resource_id=connector_id,
+        project_id=project_id,
         details={"workspace_id": project_id, "connector_key": connector_key, "connection_id": connection_id,
                  "repository": target[1] if target else None},
     ))

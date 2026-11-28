@@ -1,12 +1,4 @@
-"""The one prompt resolver: Workspace > workflow > global published > seed.
-
-``resolve_prompt_set`` reads every published version of the three scopes that apply
-to a turn in one query and picks, per key, the most specific one. A key with no
-published version at any scope resolves to its code seed, recorded as source
-``seed``. A published body that no longer fits its key's placeholder contract (for
-example after a release narrowed the variables) is not skipped in favour of a less
-specific scope: the key is refused when it is rendered.
-"""
+"""The one prompt resolver: Workspace > workflow > global published > seed."""
 
 from __future__ import annotations
 
@@ -51,7 +43,6 @@ def seed_prompt(spec: PromptKeySpec) -> ResolvedPrompt:
 
 @lru_cache(maxsize=1)
 def _seed_prompts() -> Mapping[str, ResolvedPrompt]:
-    """Every key at its seed, computed once (the registry is fixed for the process)."""
     return frozen_prompts({key: seed_prompt(spec) for key, spec in prompt_key_registry().items()})
 
 

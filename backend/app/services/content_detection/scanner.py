@@ -1,29 +1,4 @@
-"""Scan texts with a detector set inside a size and time budget.
-
-A request is a list of :class:`Segment` (text + source: system, prompt, tool_result, document, history). The
-scan runs the enabled built-in detectors and the custom detectors of the policy-set version over each segment
-and returns a :class:`ScanReport`:
-
-- ``to_cedar()``: the ``ContentScan`` record of ``context.content`` (scanned, complete, detected, categories,
-  findings, sources);
-- ``summary()``: what the decision log stores (detector × count × confidence, categories, sources, size, time) —
-  never values, spans or hashes;
-- ``findings``: the spans per segment, in memory only, for the masker.
-
-Budget (:class:`ScanBudget`): at most ``max_chars`` of text per request and a hard ``deadline_ms``. A report
-that is not ``complete`` has exactly one of two reasons, and :class:`ScanReport` refuses any other combination:
-
-- ``unfinished``: readable text was not fully examined — over the size budget, a detector over its candidate limit,
-  or the deadline passed (also when it passed during the last detector: its findings may be cut short);
-- ``unreadable`` (and not ``unfinished``): only content the detectors cannot read (an image, a base64 document) was
-  left out — the explicit media exemption.
-
-The scan never decides what happens then: the callers that send or release text do (``content_security.transport``,
-``content_routing.body_masking`` withhold unfinished text, the gateway's secret check refuses it), and Workspace
-policies decide on ``complete``.
-
-:data:`ENFORCEMENT_BUDGET` is the budget of every scan that decides what is sent or released.
-"""
+"""Scan texts with a detector set inside a size and time budget."""
 
 from __future__ import annotations
 
@@ -36,6 +11,7 @@ from typing import Protocol
 from .builtin import CandidateLimitError, find_builtin
 from .findings import Finding
 from .platform_detectors import find_platform
+from .stored_types import ScanSummary
 from .vocabulary import BUILTIN_DETECTOR_IDS, CONFIDENCE_HIGH, CONFIDENCE_MEDIUM, DetectorInfo, builtin_detector
 
 DEFAULT_MAX_CHARS = 2_000_000
@@ -43,8 +19,6 @@ DEFAULT_DEADLINE_MS = 50.0
 
 
 class CustomMatcher(Protocol):
-    """A compiled custom detector (``custom_detectors``)."""
-
     id: str
     category: str
     info: DetectorInfo
@@ -72,8 +46,6 @@ class Segment:
 
 @dataclass(frozen=True, slots=True)
 class DetectorSet:
-    """The detectors a scan runs: built-in ids and compiled custom detectors."""
-
     builtin: frozenset[str] = BUILTIN_DETECTOR_IDS
     custom: tuple[CustomMatcher, ...] = ()
     # Digest of the published detector definitions (the launcher verifies it); empty for the built-ins only.
@@ -111,7 +83,6 @@ class ScanReport:
             raise ValueError("an incomplete scan is unfinished unless it only left out unreadable media")
 
     def restricted_to(self, detector_ids: frozenset[str]) -> ScanReport:
-        """The same scan with only the findings of ``detector_ids`` (the published detectors of a draft scan)."""
         findings = tuple(tuple(item for item in segment if item.detector in detector_ids) for segment in self.findings)
         sources = tuple(sorted({source for source, found in zip(self.segment_sources, findings, strict=False)
                                 if found}))
@@ -136,7 +107,6 @@ class ScanReport:
         return sum(len(segment) for segment in self.findings)
 
     def to_cedar(self) -> dict[str, object]:
-        """``context.content`` (Cedar ``ContentScan``)."""
         return {
             "scanned": self.scanned,
             "complete": self.complete,
@@ -146,8 +116,7 @@ class ScanReport:
             "sources": list(self.sources),
         }
 
-    def summary(self) -> dict[str, object]:
-        """The decision-log ``content`` field: names and counts only."""
+    def summary(self) -> ScanSummary:
         confidence: dict[str, str] = {}
         for finding in self.all_findings():
             if confidence.get(finding.detector) != CONFIDENCE_HIGH:
@@ -180,7 +149,6 @@ def _find(text: str, detectors: DetectorSet) -> list[Finding]:
 
 def scan(segments: Sequence[Segment], detectors: DetectorSet | None = None,
          budget: ScanBudget | None = None) -> ScanReport:
-    """Scan ``segments`` in order; stops (incomplete) at the size or time budget. Never raises on content."""
     detectors = detectors or DetectorSet()
     budget = budget or ScanBudget()
     started = time.perf_counter()
@@ -226,7 +194,6 @@ def scan_text(text: str, source: str, detectors: DetectorSet | None = None,
 
 
 def merge_reports(reports: Iterable[ScanReport]) -> ScanReport:
-    """One report for several scans (for example the system prompt and the newest turn scanned apart)."""
     items = list(reports)
     if not items:
         return EMPTY_SCAN

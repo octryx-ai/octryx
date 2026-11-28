@@ -19,9 +19,6 @@ async def _llm_risk_runtime() -> tuple[dict[str, Any], str]:
     return {**gateway_runtime(), "provider_id": None}, "LiteLLM Gateway"
 
 
-# --- risk analysis ----------------------------------------------------------
-
-
 async def test_llm_risk_reports_the_admission_state_as_a_review_finding(db: AsyncSession, monkeypatch):
     from app.services.security_analyzer import llm_risk
 
@@ -50,19 +47,9 @@ async def test_llm_risk_reports_the_admission_state_as_a_review_finding(db: Asyn
     assert finding.details["dispatch_owner"] == "security_analyzer_llm_risk"
 
 
-# --- engine-mediated owners --------------------------------------------------
-
-
 async def test_an_engine_mediated_owner_records_a_zero_dispatch_attempt(db: AsyncSession):
-    """The secure-work worker hands the admitted chain to the engine.
-
-    Their contract is the annotated list: the refused gateway target must never be
-    constructed, the admitted target must serve, and the refusal must survive into
-    the runtime attempts with its reason, evidence and ``dispatched=false``.
-    """
-
-    from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
-    from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
+    from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
+    from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
     from app.services.model_gateway.dispatch_admission import admit_runtimes_for_dispatch
 
     from .conftest import MESSAGES, RecordingRuntimeFactory, backup_runtime
@@ -91,9 +78,6 @@ async def test_an_engine_mediated_owner_records_a_zero_dispatch_attempt(db: Asyn
     assert denied and denied[0]["dispatched"] is False
     assert denied[0]["admission_reason"] == "model_alias_not_granted_for_project"
     assert denied[0]["admission_evidence"]["dispatch_owner"] == "secure_work_plan_worker"
-
-
-# --- sub-agent / call-agent -------------------------------------------------
 
 
 async def test_call_agent_raises_the_typed_denial_and_builds_no_client(db: AsyncSession, monkeypatch):

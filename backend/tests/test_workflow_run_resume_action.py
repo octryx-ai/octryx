@@ -10,8 +10,9 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.knowledge_evidence_seed_support import seed_member, seed_workspace
 from tests.phased_workflow_fixtures import publish_phased
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 DEFINITION = {
     "execution_kind": "phased",

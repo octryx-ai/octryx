@@ -1,21 +1,4 @@
-"""A repository for runs, added through a connection.
-
-Work › Repositories › "Add a repository for runs": the Workspace's GitHub, GitLab or Bitbucket connection, the
-repository (``owner/repo``), its base branch, the rights a run has in it and, optionally, its test command. One path
-for the demo seed and for real use.
-
-- :func:`detect` reads what the repository holds through the connection: whether it exists, and its apps (every
-  ``.octryx/environment.json``). GitHub (and GitHub Enterprise, and the local fake GitHub) is read
-  through its tree API; for GitLab and Bitbucket the apps are found when the first run prepares the repository
-  (the launcher's preparation report, ``workspace/run_app.remember_apps``).
-- :func:`add` writes the record: provider and clone URL from the connection, the rights (read, branch, write and pull
-  request on by default, each can be switched off), the apps and the coding setup. A connection that is already bound
-  to repositories gets this one bound too; an unbound connection already serves the Workspace, and binding it would
-  take it away from the Workspace's other repositories (the binding dialog's warning), so it stays unbound.
-
-The record's ``repo_root`` is its clone URL: there is no server checkout, and code navigation stays off (``index``
-false) until the repository is bound to a Knowledge source or a launcher uploads it.
-"""
+"""A repository for runs, added through a connection."""
 
 from __future__ import annotations
 
@@ -61,7 +44,6 @@ def _branch(raw: Any) -> str:
 
 
 async def connections(db: AsyncSession, workspace_id: str) -> list[dict[str, Any]]:
-    """The Workspace's code connections a run repository can use: ``[{id, name, connector, bound_scopes}]``."""
     listed = []
     for connector in CONNECTORS:
         for row in await workspace_connections(db, workspace_id, connector):
@@ -84,7 +66,6 @@ async def connections(db: AsyncSession, workspace_id: str) -> list[dict[str, Any
 
 async def _connection(db: AsyncSession, workspace_id: str,
                       connection_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    """``(listing entry, effective config with its secret)`` of one of the Workspace's code connections."""
     entry = next((row for row in await connections(db, workspace_id) if row["id"] == connection_id), None)
     if entry is None:
         raise _refused("connection_not_found",
@@ -96,7 +77,6 @@ async def _connection(db: AsyncSession, workspace_id: str,
 
 
 def clone_url(connector: str, config: dict[str, Any], repository: str) -> str:
-    """The repository's clone URL as the connection names its host."""
     if connector == "github":
         web = github_web_base_url(config.get("github_url")) or "https://github.com"
         return f"{web}/{repository}.git"
@@ -109,7 +89,6 @@ def clone_url(connector: str, config: dict[str, Any], repository: str) -> str:
 
 
 async def _github_tree(config: dict[str, Any], repository: str, branch: str) -> list[str] | None:
-    """The repository's file paths at ``branch`` (``None`` when the repository or branch does not exist)."""
     api = normalize_github_api_base_url(config.get("github_url"))
     headers = {"Accept": "application/vnd.github+json"}
     if config.get("github_token"):
@@ -126,7 +105,6 @@ async def _github_tree(config: dict[str, Any], repository: str, branch: str) -> 
 
 
 async def detect(db: AsyncSession, workspace_id: str, body: dict[str, Any]) -> dict[str, Any]:
-    """What the repository holds: ``{exists, apps, apps_found_at}`` (``exists`` ``None``: not checked here)."""
     entry, config = await _connection(db, workspace_id, str(body.get("connection_id") or ""))
     repository, branch = _repository(body.get("repository")), _branch(body.get("base_branch"))
     if entry["connector"] != "github":
@@ -150,7 +128,6 @@ def _rights(raw: Any) -> dict[str, bool]:
 
 
 async def add(db: AsyncSession, *, user: User, workspace_id: str, body: dict[str, Any]) -> CodeRepository:
-    """The Workspace's run repository through a connection (see the module doc); 409 when it exists already."""
     from ...code_intelligence.repository import create_code_repository
 
     entry, config = await _connection(db, workspace_id, str(body.get("connection_id") or ""))
@@ -178,6 +155,7 @@ async def add(db: AsyncSession, *, user: User, workspace_id: str, body: dict[str
     if test:
         await save_setup(db, user=user, repo=repo, payload={"test_commands": [test], "pr_target_branch": branch})
     db.add(AuditLog(user_id=user.id, action="code_repository.run_repository_added", resource_type="code_repository",
+                    project_id=repo.project_id,
                     resource_id=repo.id, details={"workspace_id": workspace_id, "repository": repository,
                                                   "connection_id": entry["id"], "rights": _rights(body.get("rights")),
                                                   "apps": len(apps), "test_command": bool(test)}))

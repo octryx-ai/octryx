@@ -9,7 +9,7 @@ from fastapi import HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...channel_config import ChannelConfigService
-from ...channel_config.secret_fields import merge_channel_secrets
+from ...channel_config.credentials import CHANNEL_START, channel_runtime_config
 from ...error_facts import error_text
 from ._admin_channel_common import audit_channel, channel_webhook_url, serialize_channel_config
 
@@ -103,12 +103,8 @@ async def create_channel(
 
     status = "stopped"
     try:
-        reload_config = dict(config)
-        reload_config["enabled"] = enabled
-        reload_config["__channel_id"] = str(cfg.id)
-        reload_config["__channel_name"] = cfg.name
-        reload_config["__channel_project_id"] = cfg.project_id
-        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id, reload_config)
+        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id,
+                                            await channel_runtime_config(db, cfg, purpose=CHANNEL_START))
         status = plugin_manager.get_channel_status(str(cfg.id))
     except Exception as exc:
         logger.warning(
@@ -126,14 +122,10 @@ async def create_channel(
     return {**serialize_channel_config(request, cfg, plugin_manager=plugin_manager), "status": status}
 
 
-async def _reload_saved_channel(plugin_manager: Any, cfg: Any, *, config: dict[str, Any], enabled: bool) -> str:
+async def _reload_saved_channel(db: AsyncSession, plugin_manager: Any, cfg: Any) -> str:
     try:
-        reload_config = dict(config)
-        reload_config["enabled"] = enabled
-        reload_config["__channel_id"] = str(cfg.id)
-        reload_config["__channel_name"] = cfg.name
-        reload_config["__channel_project_id"] = cfg.project_id
-        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id, reload_config)
+        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id,
+                                            await channel_runtime_config(db, cfg, purpose=CHANNEL_START))
         status = plugin_manager.get_channel_status(str(cfg.id))
     except Exception as exc:
         logger.warning(
@@ -161,28 +153,18 @@ async def update_channel(
     enabled = bool(body.get("enabled", False))
     config = body.get("config", {})
 
-    existing = await ChannelConfigService.get(db, channel_id)
-    if existing is None:
-        raise HTTPException(status_code=404, detail="Channel not found")
-    # A save without a secret (or with it empty) keeps the stored credential.
-    config = merge_channel_secrets(
-        config or {},
-        existing.config or {},
-        plugin_manager.get_plugin_info(existing.plugin_id).get("config_fields", []),
-    )
-
     cfg = await ChannelConfigService.update(
         db,
         channel_id,
         name=name,
         project_id=project_id,
         enabled=enabled,
-        config=config,
+        config=config or {},
     )
     if cfg is None:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    status = await _reload_saved_channel(plugin_manager, cfg, config=config, enabled=enabled)
+    status = await _reload_saved_channel(db, plugin_manager, cfg)
 
     await audit_channel(
         db,
@@ -228,13 +210,9 @@ async def reload_channel(
     if cfg is None:
         raise HTTPException(status_code=404, detail="Channel not found")
 
-    reload_config = dict(cfg.config)
-    reload_config["enabled"] = cfg.enabled
-    reload_config["__channel_id"] = str(cfg.id)
-    reload_config["__channel_name"] = cfg.name
-    reload_config["__channel_project_id"] = cfg.project_id
     try:
-        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id, reload_config)
+        await plugin_manager.reload_channel(str(cfg.id), cfg.plugin_id,
+                                            await channel_runtime_config(db, cfg, purpose=CHANNEL_START))
         status = plugin_manager.get_channel_status(str(cfg.id))
     except Exception as exc:
         raise HTTPException(

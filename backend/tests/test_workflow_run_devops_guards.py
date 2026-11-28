@@ -1,11 +1,4 @@
-"""DevOps workflows: protected confirmed tests, the chat test gate, watch claims, CI on the pushed commit and the sweep.
-
-Confirmed tests are protected from the fix phase (path rule, no shell), shell calls count in chat's test gate,
-the watch poller records only under the run claim, CI is judged on the pushed commit, held failure-path side
-effects make the run wait, a branch is created once, test alerts move no run, structured test reports win and the
-sweep claims only due runs. (The forge case itself — a weakened confirmed test fails the green gate — is in
-``test_workflow_run_tdd_evidence``.)
-"""
+"""DevOps workflows: protected confirmed tests, the chat test gate, watch claims, CI on the pushed commit and the sweep."""
 
 from __future__ import annotations
 
@@ -35,9 +28,12 @@ from app.services.workflow_runs.test_runs import ci_state_of_head, confirm_tests
 from app.services.workflow_runs.watch_events import WatchEvent
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import PHASE, admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_failure_path import _with_policy
 from tests.test_workflow_run_pause import _turn
 from tests.test_workflow_run_platform_actions import FakeTools, _item, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _protected_phase_definition(*, allow_shell: bool = False) -> dict:
@@ -57,7 +53,6 @@ def _protected_phase_definition(*, allow_shell: bool = False) -> dict:
 
 @pytest.mark.asyncio
 async def test_a_fix_phase_refuses_writes_to_confirmed_tests_and_never_offers_a_shell(db):
-    """Finding 1: the confirmed test file is blocked in the fix phase; bash is refused at publish and runtime."""
     errors = validate_phased_definition(_protected_phase_definition(allow_shell=True))["errors"]
     assert "path_rules_with_shell" in {error["code"] for error in errors}
     seed = json.loads(
@@ -77,7 +72,7 @@ async def test_a_fix_phase_refuses_writes_to_confirmed_tests_and_never_offers_a_
     (root / "tests").mkdir(parents=True, exist_ok=True)
     (root / "tests" / "test_rounding.py").write_text("def test_half_up():\n    assert True\n")
     (root / "pay").mkdir(exist_ok=True)
-    (root / "pay" / "totals.py").write_text("x = 1\n")  # an existing module: the fix phase changes it
+    (root / "pay" / "totals.py").write_text("x = 1\n")
     confirm_tests(run, ["tests/test_rounding.py::test_half_up"])
     await snapshot_confirmed_tests(db, run)
 
@@ -93,7 +88,6 @@ def _uses(*entries: tuple[str, dict, dict]) -> list[dict]:
 
 
 def test_shell_edits_are_changes_and_shell_test_commands_are_test_runs_in_chat():
-    """Finding 2."""
     green = {"returncode": 0, "stdout": "tests/test_a.py::test_x PASSED"}
     edit = ("edit_workspace_file", {}, {})
     sed = ("bash", {"command": "sed -i s/1/2/ pay/totals.py"}, {"returncode": 0, "stdout": ""})
@@ -108,7 +102,6 @@ def test_shell_edits_are_changes_and_shell_test_commands_are_test_runs_in_chat()
 
 
 def test_a_structured_report_wins_over_printed_failure_lines():
-    """Finding 9: a printed FAILED line cannot fake another test's failure."""
     printed = "FAILED tests/test_a.py::test_real - boom\nFAILED tests/test_b.py::test_fake - fake symptom\n"
     run = run_from_tool("run_test_suite", {"stdout": printed, "exit_code": 1,
                                                 "failed_tests": ["tests/test_a.py::test_real"]}, source="chat")
@@ -117,14 +110,13 @@ def test_a_structured_report_wins_over_printed_failure_lines():
              '</testcase></testsuite>')
     from app.services.workflow_checks.test_output import parse
 
-    report = parse(junit)  # the report decides: its one case, unresolved without its file; no printed line counts
+    report = parse(junit)
     assert report.results == {} and [item["raw"] for item in report.unresolved] == ["t.real"]
     assert parse_test_output(junit) == {}
 
 
 @pytest.mark.asyncio
 async def test_the_poller_records_ci_only_under_the_claim_and_never_overwrites_a_concurrent_change(db, monkeypatch):
-    """Findings 3 and 10: the read runs unclaimed; recording claims the current run (nothing is overwritten)."""
     definition = {"execution_kind": "phased",
                   "nodes": [{"id": "start", "type": "start"},
                             {"id": "ci", "type": "watch", "label": "CI", "config": {"conditions": ["ci.succeeded"]}},
@@ -150,14 +142,13 @@ async def test_the_poller_records_ci_only_under_the_claim_and_never_overwrites_a
     run.status, run.node_state = "waiting", {**run.node_state, "waiting": {"since": utc_now().isoformat()}}
     run.waiting_kind = "waiting_for_reply"
     await db.commit()
-    await sweep_waiting_runs(db)  # nothing due: the run is not claimed
+    await sweep_waiting_runs(db)
     await db.refresh(run)
-    assert run.state_version == version  # untouched by the sweep
+    assert run.state_version == version
 
 
 @pytest.mark.asyncio
 async def test_ci_is_judged_on_the_pushed_commit_only(db, monkeypatch):
-    """Finding 4."""
     tools = FakeTools(monkeypatch, {
         "commit_and_push_github_repository_branch": [{"status": "pushed", "head_commit": "new-sha"}],
         "list_github_action_runs": [{"workflow_runs": [
@@ -172,8 +163,7 @@ async def test_ci_is_judged_on_the_pushed_commit_only(db, monkeypatch):
     run.context = {**run.context, "local_path": "/nonexistent", "ci": {"state": "succeeded", "sha": "old-sha"}}
 
     assert (await scm.push(db, run, {})).ok
-    assert run.context["head_sha"] == "new-sha" and "ci" not in run.context  # an earlier round's CI is gone
-    # Only the lint workflow ran for the pushed commit; naming the test workflow waits for it.
+    assert run.context["head_sha"] == "new-sha" and "ci" not in run.context
     assert (await ci.read_ci_status(db, run, {})).state == "succeeded"
     assert (await ci.read_ci_status(db, run, {"workflow": "tests"})).state == "running"
     assert ci_state_of_head({"head_sha": "new-sha", "ci": {"state": "succeeded", "sha": "old-sha"}}) is None
@@ -181,7 +171,7 @@ async def test_ci_is_judged_on_the_pushed_commit_only(db, monkeypatch):
 
     target = {"repository": "github:acme/pay", "branch": "bugfix/PAY-1-x", "head_sha": "new-sha"}
     event = WatchEvent("ci.succeeded", "github", "acme/pay", branch="bugfix/PAY-1-x", sha="new-sha", workflow="lint")
-    assert not watch.matches(event, target)  # one workflow's success is not the commit's
+    assert not watch.matches(event, target)
     assert watch.matches(event, {**target, "workflow": "lint"})
     assert watch.matches(WatchEvent("ci.failed", "github", "acme/pay", branch="bugfix/PAY-1-x", sha="new-sha"), target)
     assert not watch.matches(WatchEvent("ci.failed", "github", "acme/pay", branch="bugfix/PAY-1-x", sha="old-sha"),
@@ -203,7 +193,6 @@ def _pending(approval: Approval) -> dict:
 
 @pytest.mark.asyncio
 async def test_a_held_round_comment_and_a_held_follow_up_make_the_run_wait_and_the_grant_goes_on(db, monkeypatch):
-    """Finding 5: no orphaned approval — the run waits, the grant performs the side effect and the run goes on."""
     admin = await admin_user(db)
     tools = FakeTools(monkeypatch, {})
     item = await _item(db)
@@ -211,7 +200,7 @@ async def test_a_held_round_comment_and_a_held_follow_up_make_the_run_wait_and_t
     session_id = await main_session_id(db, run)
     first = await _approval(db, run)
     tools.answers["add_jira_comment"] = [_pending(first), {"status": "created"}]
-    await _turn(db, session_id, ["knowledge_search"])  # round 1 fails: its comment waits for the approval
+    await _turn(db, session_id, ["knowledge_search"])
     assert (run.status, run.waiting_kind, run.current_node_id) == ("waiting", "awaiting_tool_approval", "work")
     await decide_pending_approval(db, approval_id=first.id, resolved_by=admin.id, status="approved")
     assert (run.status, run.current_node_id) == ("running", "work")
@@ -219,16 +208,15 @@ async def test_a_held_round_comment_and_a_held_follow_up_make_the_run_wait_and_t
 
     second = await _approval(db, run)
     tools.answers["create_jira_ticket"] = [_pending(second), {"ticket_id": "PAY-950", "status": "created"}]
-    await _turn(db, session_id, ["knowledge_search"])  # at the limit: paused, its follow-up waits
+    await _turn(db, session_id, ["knowledge_search"])
     assert (run.status, run.waiting_kind) == ("waiting", "awaiting_tool_approval")
     await decide_pending_approval(db, approval_id=second.id, resolved_by=admin.id, status="approved")
     assert (run.status, run.pause_reason, run.context["follow_up_issue"]) == ("paused", "loop_limit", "PAY-950")
-    assert tools.tools().count("create_jira_ticket") == 2  # the held call and its granted rerun, one issue
+    assert tools.tools().count("create_jira_ticket") == 2
 
 
 @pytest.mark.asyncio
 async def test_a_branch_is_created_once_when_preparing_the_working_copy_waits(db, monkeypatch):
-    """Finding 7."""
     from tests.agent_definition_revision_fixtures import make_project
 
     project = await make_project(db)
@@ -246,7 +234,6 @@ async def test_a_branch_is_created_once_when_preparing_the_working_copy_waits(db
 
 @pytest.mark.asyncio
 async def test_a_test_alert_on_a_jira_change_source_moves_no_run(db, monkeypatch):
-    """Finding 8."""
     from app.services.inbound_alerts import trigger
     from tests.agent_definition_revision_fixtures import make_project
 

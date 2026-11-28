@@ -1,9 +1,4 @@
-"""Health rows of the things outside the process: connections, syncs, providers.
-
-Each function returns rows ``{component, status, since, last_check, detail, link}`` with the closed status
-vocabulary ``ok · degraded · failing · unknown · disabled``. A row whose last check is older than its staleness
-limit is ``unknown``, never ``ok``. Queries are bounded (latest state per item, a one-hour provider window).
-"""
+"""Health rows of the things outside the process: connections, syncs, providers."""
 
 from __future__ import annotations
 
@@ -51,7 +46,6 @@ def _stale(checked: datetime | None, limit: timedelta, now: datetime) -> bool:
 
 
 async def _streak_start(db: AsyncSession, item: ConnectorHealth) -> tuple[datetime | None, int]:
-    """When the current status began (first log row after the last row with another status) and its length."""
     same = and_(ConnectorHealthLog.connector_name == item.connector_name,
                 ConnectorHealthLog.project_id == (item.project_id or ""))
     last_other = (await db.execute(select(func.max(ConnectorHealthLog.checked_at)).where(
@@ -113,7 +107,6 @@ def _percentile(values: list[int], share: float) -> int | None:
 
 
 async def provider_rows(db: AsyncSession, now: datetime) -> list[dict[str, Any]]:
-    """Per provider and model, last hour: calls, failures, p50/p95 step latency (summary columns only)."""
     since = now - PROVIDER_WINDOW
     samples: dict[tuple[str, str], list[int]] = defaultdict(list)
     calls: dict[tuple[str, str], int] = defaultdict(int)

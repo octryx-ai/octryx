@@ -1,29 +1,4 @@
-"""The inbound OpenAI Responses gateway for Codex (``POST /api/v1/model-gateway/openai/v1/responses``).
-
-Codex (``wire_api = "responses"``) started through the launcher points its provider ``base_url`` at
-``<platform>/api/v1/model-gateway/openai/v1``. A call runs the Anthropic route's pipeline (``service``) in the
-same order, with the same refusals and reasons, only in the OpenAI error shape:
-
-0. (after step 1) the Workspace must allow the Codex engine (``agent_gateway.engines``), else
-   ``denied/engine_not_allowed_in_workspace``;
-1. gateway identity, shadow session, bounded body read (a Responses body: ``model`` and ``input``), presence,
-   admission (``declares_tools`` from ``tools``), the phase agent's model and the device-loop guard
-   (``service.admitted_request``);
-2. content governance on the payload that is sent (namespace tools flattened, ``responses_namespaces``; model and
-   output cap as in step 4): the gateway's content decision (``content_routing.gateway_plan``: the whole payload
-   read as one text, each tool output as one text) — the fixed rules, the Workspace's content handling (``secrets``
-   and ``credential_assignment``: ``refuse`` or ``report``) and Cedar, exactly as for a Messages call. It refuses or
-   the payload goes on unchanged; the Anthropic-shaped view (``openai_view``) never decides, it is only the budget
-   estimate, the context-size log and the transcript;
-3. the daily and platform budgets on the view (``service.budget_refusal``);
-4. dispatch to LiteLLM's ``/v1/responses`` of exactly the payload the content decision read: the flattened body
-   with ``model`` replaced by the alias' model group and the effective output cap (:func:`responses_payload`,
-   built before the scan). No client header is forwarded; the virtual key is the only credential (``upstream``);
-5. the relay (``responses_stream``), which checks the served model, rewrites it to the alias, replaces upstream
-   errors with fixed text and records usage, cost and transcript like the Anthropic route.
-
-``GET .../v1/models`` lists what the Workspace admits (``model_routes.governed_models``) in the OpenAI list shape.
-"""
+"""The inbound OpenAI Responses gateway for Codex (POST /api/v1/model-gateway/openai/v1/responses)."""
 
 from __future__ import annotations
 
@@ -56,7 +31,7 @@ from .responses_stream import (
     ResponsesSseRelay,
     relay_json_response,
 )
-from .service import admitted_request, content_plan, log_context_size
+from .service import admitted_request, governed_plan, log_context_size
 from .transcript import GatewayCallRecord
 from .upstream import RESPONSES_PATH, build_upstream_client, send_upstream
 
@@ -98,8 +73,8 @@ async def handle_responses(request: Request, db: AsyncSession) -> Response:
     flattened, names = flatten_request(limited)
     view = anthropic_view(limited)
     log_context_size(view, session_id=session_id)
-    plan = await content_plan(db, request=request, body=responses_payload(flattened, admitted), identity=identity,
-                              admitted=admitted)
+    plan, admitted = await governed_plan(db, request=request, identity=identity, session_id=session_id,
+                                         admitted=admitted, build=lambda target: responses_payload(flattened, target))
     if plan.refusal is not None:
         return _refused(plan.refusal)
     outcome = gateway_outcome(request)
@@ -116,17 +91,15 @@ _LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "host.docker.internal
 
 
 def local_upstream(base_url: object) -> bool:
-    """A model served on this machine (llama.cpp and the like), not a provider or a company gateway."""
     from urllib.parse import urlsplit
 
     host = (urlsplit(str(base_url or "")).hostname or "").lower()
     return host in _LOCAL_HOSTS or host.endswith(".local")
 
 
+# The alias' answer budget when the client sends none (Codex never does), at least the floor a local reasoning model
+# needs (it stops mid-thought below about 8k).
 def responses_payload(flattened: Mapping[str, Any], admitted: InboundAdmission) -> dict[str, Any]:
-    """The payload a governed Responses call sends (and the content decision reads): the flattened body with the
-    alias' answer budget when the client sends none (Codex never does), the floor of a local reasoning model (it
-    stops mid-thought below about 8k) and ``model`` replaced by the alias' model group."""
     payload = dict(flattened)
     if "max_output_tokens" not in payload and admitted.entry.max_output_tokens:
         payload["max_output_tokens"] = admitted.entry.max_output_tokens
@@ -141,8 +114,6 @@ async def _dispatch(
     headers: Mapping[str, str], *, identity: GatewayIdentity, session_id: str, payload: bytes, stream: bool,
     names: NamespaceMap, view: Mapping[str, Any], admitted: InboundAdmission, outcome: GatewayOutcome,
 ) -> Response:
-    """``payload`` (the plan's bytes of the scanned payload; ``names`` restores the answer's calls) to the admitted
-    alias."""
     context = client_context(headers, CODEX_CONTEXT_HEADERS)
 
     def make_record(observation: Observation, request_id: str, duration_ms: int, refused: str) -> GatewayCallRecord:
@@ -173,7 +144,6 @@ async def _dispatch(
 
 
 async def handle_openai_list_models(request: Request, db: AsyncSession) -> Response:
-    """The Workspace's admitted aliases in the OpenAI list shape (no ``created``: an alias has no release date)."""
     models = await governed_models(request, db, render=openai_error_response)
     if isinstance(models, Response):
         return models

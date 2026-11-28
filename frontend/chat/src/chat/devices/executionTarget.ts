@@ -19,6 +19,16 @@ export type ExecutionTarget =
     };
 
 export const SERVER_TARGET: ExecutionTarget = { kind: "server" };
+// The device id the platform records for a turn on the server runners (``devices.runner_pool.POOL_DEVICE_ID``).
+export const POOL_DEVICE_ID = "pool";
+
+export function runsOnOwnDevice(target: ExecutionTarget): boolean {
+  return target.kind === "device" && target.deviceId !== POOL_DEVICE_ID;
+}
+
+export function runOnLabel(target: ExecutionTarget, deviceName?: string | null): string {
+  return runsOnOwnDevice(target) ? `Run on: ${deviceName || "your device"}` : "Run on: Server";
+}
 const NEW_THREAD = "__new__";
 const targets = new Map<string, ExecutionTarget>();
 const listeners = new Set<() => void>();

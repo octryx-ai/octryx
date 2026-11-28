@@ -1,26 +1,4 @@
-"""Translate between an Agent Definition and a visual Agent Designer document.
-
-The Agent Designer (the static, network-free PySpur fork) edits a graph
-document ``{name, description, definition: {nodes, links, test_inputs, spur_type}}``.
-An Octryx Agent Definition is a definition plus an *ordered* list of steps.
-This module is the only place where one becomes the other, and it is pure: no I/O,
-no session, no model access.
-
-Contract (designer document -> definition):
-
-- exactly one ``InputNode`` and one ``OutputNode``;
-- every other node is a step node (``SingleLLMCallNode`` or ``AgentNode``); any
-  other node type is refused with ``unsupported_node_type`` rather than dropped;
-- the links form one simple path Input -> step... -> Output that visits every node
-  exactly once (``graph_not_linear`` otherwise), and no node is nested in a group;
-- a step node becomes a step: title -> ``name``, ``system_message`` -> ``instructions``.
-  Its designer-only fields (coordinates, user message, generation settings) are kept
-  under ``step_config["designer"]`` so the next load shows the same canvas.
-
-The model a step runs on is *not* taken from the designer's model picker: runtime
-selection stays with the governed Runtime Priority. Refusals carry a stable ``code``
-and the offending node ids only; no prompt text is echoed.
-"""
+"""Translate between an Agent Definition and a visual Agent Designer document."""
 
 from __future__ import annotations
 
@@ -58,7 +36,6 @@ from .document_model import (
 
 
 def _linear_order(nodes: dict[str, dict[str, Any]], links: list[Any]) -> list[str] | None:
-    """Return node ids from Input to Output if the links form one simple path."""
     successor: dict[str, str] = {}
     predecessors: dict[str, int] = {}
     for link in links:
@@ -84,7 +61,6 @@ def _linear_order(nodes: dict[str, dict[str, Any]], links: list[Any]) -> list[st
 
 
 def _indexed_nodes(document: Any) -> tuple[dict[str, dict[str, Any]], list[Any]]:
-    """The document's nodes by id and its links; a malformed shape refuses at once."""
     if not isinstance(document, dict) or not isinstance(document.get("definition"), dict):
         raise DesignerDocumentError([DesignerIssue("malformed_document")])
     if _json_size(document) > _MAX_DOCUMENT_BYTES:
@@ -142,7 +118,6 @@ def _node_issues(document: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> 
 
 
 def definition_from_document(document: Any) -> DesignerDefinition:
-    """Validate a designer document and translate it; raise with every issue found."""
     nodes, links = _indexed_nodes(document)
     issues = _node_issues(document, nodes)
     if issues:
@@ -175,10 +150,6 @@ def definition_from_document(document: Any) -> DesignerDefinition:
 
 
 def document_from_definition(*, name: str, description: str, steps: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build the designer document for a definition's ordered, enabled-or-not steps.
-
-    Each ``steps`` item carries ``id``, ``name``, ``instructions`` and ``step_config``.
-    """
     nodes: list[dict[str, Any]] = [
         {
             "id": INPUT_NODE_ID,

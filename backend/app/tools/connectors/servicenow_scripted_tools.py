@@ -1,15 +1,4 @@
-"""The ServiceNow incident and change tools on the instance's Scripted REST API.
-
-With ``servicenow_api_style=scripted`` the incident and change tools page through the configured paths
-(``services/servicenow_scripted.py``) instead of the Table API, and the generic table tools answer the coded
-``servicenow_table_api_disabled``: they never fall back to the Table API. A query filter is refused, never
-silently dropped. Failures are closed codes; no response body, secret or token is returned.
-
-With the connector's record limit (``servicenow_assignment_groups``/``servicenow_services``,
-``services/servicenow_record_limit.py``) the listing keeps only records inside it (client-side: the endpoint
-lists what it lists), paging on up to
-:data:`MAX_SCANNED_PER_CALL` records to fill the requested limit; ``total`` is then not reported.
-"""
+"""The ServiceNow incident and change tools on the instance's Scripted REST API."""
 
 from __future__ import annotations
 
@@ -17,8 +6,9 @@ from typing import Any
 
 import httpx
 
-from app.services.oidc_client_credentials import OidcTokenError
+from app.services.connector_auth.oidc_client_credentials import OidcTokenError
 from app.services.outbound_egress import CONNECTION_SERVICENOW, egress_transport
+from app.services.servicenow_connector_types import ScriptedError, ScriptedListing
 from app.services.servicenow_record_limit import record_in_limit, record_limit
 from app.services.servicenow_scripted import (
     CODE_ENDPOINT_NOT_CONFIGURED,
@@ -38,20 +28,18 @@ from .common import _limit, _string
 MAX_SCANNED_PER_CALL = 2000
 
 
-def _coded(code: str, message: str | None = None) -> dict[str, Any]:
+def _coded(code: str, message: str | None = None) -> ScriptedError:
     return {"error": message or f"{code}: {MESSAGES[code]}", "code": code}
 
 
 def table_api_disabled() -> dict[str, Any]:
-    """The answer of a generic table tool on a Scripted REST connection."""
     return _coded(CODE_TABLE_API_DISABLED)
 
 
 async def list_scripted(
     context: ToolContext, table: str, list_key: str, params: dict, *, base: str, headers: dict[str, str],
     auth: httpx.Auth | None,
-) -> dict[str, Any]:
-    """Page the configured endpoint of ``table`` up to the requested limit; normalised records with links."""
+) -> ScriptedListing:
     if _string(params.get("query")):
         return _coded(CODE_QUERY_UNSUPPORTED)
     try:

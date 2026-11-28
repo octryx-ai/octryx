@@ -12,6 +12,14 @@ from ..models.security.compliance_audit import (
     OUTCOME_ALLOWED,
     OUTCOME_BLOCKED,
 )
+from .mcp_audit_vocabulary import (
+    ACTION_CONNECTED,
+    ACTION_CONNECTION_FAILED,
+    ACTION_DELETED,
+    ACTION_DISCONNECTED,
+    BLOCK_RUNTIME_NAME_CONFLICT,
+    connect_blocked,
+)
 from .mcp_server_registry import _audit_change, get_scoped_registration, mcp_server_readiness
 from .mcp_server_registry_config import registration_is_connected, runtime_registration_id
 
@@ -36,7 +44,7 @@ async def connect_mcp_server(
             db,
             registration=registration,
             actor_user_id=actor_user_id,
-            action=f"connect_blocked:{readiness.reason}",
+            action=connect_blocked(readiness.reason),
             event_type=AUDIT_CONNECTOR_ACCESS,
             outcome=OUTCOME_BLOCKED,
         )
@@ -49,7 +57,7 @@ async def connect_mcp_server(
             db,
             registration=registration,
             actor_user_id=actor_user_id,
-            action="connect_blocked:runtime_name_conflict",
+            action=connect_blocked(BLOCK_RUNTIME_NAME_CONFLICT),
             event_type=AUDIT_CONNECTOR_ACCESS,
             outcome=OUTCOME_BLOCKED,
         )
@@ -66,7 +74,7 @@ async def connect_mcp_server(
         db,
         registration=registration,
         actor_user_id=actor_user_id,
-        action="connected" if connected else "connection_failed",
+        action=ACTION_CONNECTED if connected else ACTION_CONNECTION_FAILED,
         event_type=AUDIT_CONNECTOR_ACCESS,
         outcome=OUTCOME_ALLOWED if connected else OUTCOME_BLOCKED,
     )
@@ -95,7 +103,7 @@ async def disconnect_mcp_server(
         db,
         registration=registration,
         actor_user_id=actor_user_id,
-        action="disconnected",
+        action=ACTION_DISCONNECTED,
         event_type=AUDIT_CONNECTOR_ACCESS,
     )
     await db.commit()
@@ -116,7 +124,7 @@ async def delete_mcp_server(
         await mcp_client_manager.disconnect(registration.name)
     if owns_runtime:
         mcp_client_manager.unregister_server(registration.name)
-    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action="deleted")
+    await _audit_change(db, registration=registration, actor_user_id=actor_user_id, action=ACTION_DELETED)
     await db.delete(registration)
     await db.commit()
     return {"name": registration.name, "deleted": True}

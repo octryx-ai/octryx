@@ -1,12 +1,5 @@
-"""An adopted branch without own commits starts at the current default-branch head.
-
-An adopted ``feature/BRD-8-…`` branch can sit at an older commit than main. Here:
-
-- an adopted empty branch behind main is fast-forwarded on the remote before ``workspace.prepare`` — through the
-  provider's governed push tool without a commit — and recorded as ``branch_fast_forwarded`` (old/new head); end to
-  end with the real GitHub tool against the stubbed provider, B then prepares that commit and reaches Clarify;
-- an adopted branch with its own commits is never moved; how far it is behind main is on the run card.
-"""
+"""An adopted branch without own commits is fast-forwarded to the default-branch head before ``workspace.prepare``;
+one with its own commits is never moved."""
 
 from __future__ import annotations
 
@@ -21,6 +14,7 @@ from app.services.workflow_runs.platform import dispatch as dispatch_module
 from app.services.workflow_runs.platform.dispatch import read_outcome
 from app.services.workflow_runs.views import run_view
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import _settle, _workspace, systems  # noqa: F401
 from tests.workflow_run_succession_support import (
     BRANCH,
@@ -34,11 +28,12 @@ from tests.workflow_run_succession_support import (
     _start,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 B_KEY = "feature-delivery-tdd"
 
 
 def _advance_main(seed: Path, work: Path) -> str:
-    """Someone merges to main after the branch was created."""
     _git(seed, "checkout", "-q", "main")
     (seed / ".gitignore").write_text(".venv/\n")
     _git(seed, "add", "-A")
@@ -49,7 +44,6 @@ def _advance_main(seed: Path, work: Path) -> str:
 
 
 def _pushing(tools: Tools, monkeypatch) -> None:
-    """The provider's push tool, as the real ones do it for ``push_only``: a plain (never forced) push."""
     scripted = dispatch_module.dispatch_tool
 
     async def dispatch(db, run, tool, arguments, *, capability_class, workspace_root=None):
@@ -74,7 +68,7 @@ async def _first_run_left(db, monkeypatch, tmp_path, *, own_commit: bool):
     first = await _start(db, key, item)
     head = _remote_branch(seed, work, _name(item), foreign_commit=own_commit)
     if own_commit:
-        first.context = {**first.context, "pushed_commits": [head]}  # the earlier run's own commit
+        first.context = {**first.context, "pushed_commits": [head]}
     await perform_action(db, first, user=await admin_user(db), body={"action": "abort", "reason": "restart"})
     return seed, work, key, item, head
 
@@ -91,7 +85,7 @@ async def test_an_adopted_empty_branch_behind_main_is_fast_forwarded_on_the_remo
     pushes = [args for tool, args in tools.calls if args.get("push_only")]
     assert [(args["branch_name"], args["local_path"]) for args in pushes] == [(_name(item), str(work))]
     assert tools.calls[-1][0] == "commit_and_push_github_repository_branch"
-    assert _git(seed, "ls-remote", "origin", f"refs/heads/{_name(item)}").split()[0] == main  # the remote moved
+    assert _git(seed, "ls-remote", "origin", f"refs/heads/{_name(item)}").split()[0] == main
     assert second.context["branch_fast_forwarded"] == {"branch": _name(item), "old": old, "new": main,
                                                        "base_branch": "main"}
     assert second.context["branch_adoption"]["head"] == main and second.context["base_sha"] == main
@@ -110,7 +104,7 @@ async def test_an_adopted_branch_with_own_commits_is_never_moved_and_reports_beh
     second = await _start(db, key, item)
     assert second.status == "waiting" and second.context["branch_adoption"]["commits"] == [own]
     assert not [args for _tool, args in tools.calls if args.get("push_only")]
-    assert _git(seed, "ls-remote", "origin", f"refs/heads/{_name(item)}").split()[0] == own  # untouched
+    assert _git(seed, "ls-remote", "origin", f"refs/heads/{_name(item)}").split()[0] == own
     assert "branch_fast_forwarded" not in second.context
     adoption = (await run_view(db, second, access="write", user=await admin_user(db)))["adopted"]["branch"]
     assert (adoption["behind_base"], adoption["base_branch"]) == (1, "main")
@@ -144,18 +138,17 @@ async def test_b_fast_forwards_its_adopted_branch_through_the_github_tool_before
     assert view["current_node"]["id"] == "clarify", view
     second = await db.get(WorkflowRun, second_id)
     await db.refresh(second)
-    assert _git(bare, "rev-parse", f"refs/heads/{branch}") == main  # the provider's branch was fast-forwarded
+    assert _git(bare, "rev-parse", f"refs/heads/{branch}") == main
     assert second.context["branch_fast_forwarded"] == {"branch": branch, "old": old, "new": main,
                                                        "base_branch": second.context["branch_fast_forwarded"]
                                                        ["base_branch"]}
-    assert second.context["workspace_preparation"]["spec"]["head"] == main  # every runtime prepares that commit
+    assert second.context["workspace_preparation"]["spec"]["head"] == main
     events = (await client.get(f"/api/v1/workflow-runs/{second_id}/events", headers=auth_headers)).json()["events"]
     assert [event["detail"]["new"] for event in events if event["kind"] == "branch_fast_forwarded"] == [main]
 
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

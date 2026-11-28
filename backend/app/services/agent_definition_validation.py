@@ -1,25 +1,5 @@
-"""Fail-closed validation of an Agent Definition revision snapshot.
-
-Publishing a revision decides which tools the agent runtime may use
-(``steps[].allowed_tools``), which Workspace the definition belongs to, and
-which runtime target it dispatches to. None of those may be accepted as
-authority straight from the snapshot, so this module resolves every reference
-against persisted rows or the tool registry and refuses anything it cannot
-account for.
-
-Explicitly *not* reused here: ``app.services.agent_mode.resolve_agent_mode``
-silently substitutes a default mode for an unknown key. A revision must never
-publish a silently remapped agent type, so agent types are checked against the
-shipped run-mode keys here instead (modes are code-defined labels).
-:func:`publishable_agent_type_keys` is that authority, and the live
-Agent Definition write paths consume it too (through
-``app.services.agent_mode.require_agent_mode``), so a definition cannot be
-stored with a type this module would refuse to publish.
-
-Every issue is a typed code plus the offending identifier. Validation never
-embeds exception text, prompt content, or configuration values, so a validation
-result can be returned to an administrator and stored without leaking secrets.
-"""
+"""Fail-closed validation of an Agent Definition revision snapshot. No reference is taken as authority from the
+snapshot: each is resolved again."""
 
 from __future__ import annotations
 
@@ -48,7 +28,6 @@ MAX_NAME_LENGTH = 200
 
 
 async def publishable_agent_type_keys(db: AsyncSession) -> frozenset[str]:
-    """The shipped run-mode keys (modes are code-defined labels, not a table)."""
     from .agent_mode import known_agent_mode_keys
 
     del db
@@ -64,11 +43,6 @@ async def _reference_exists(db: AsyncSession, model: Any, row_id: str) -> bool:
 async def validate_definition_snapshot(
     db: AsyncSession, snapshot: dict[str, Any]
 ) -> ValidationResult:
-    """Validate a snapshot produced by ``build_definition_snapshot``.
-
-    Returns the full ordered issue list rather than stopping at the first
-    failure, so an administrator can fix a revision in one pass.
-    """
     if not isinstance(snapshot, dict):
         return _result([ValidationIssue("malformed_snapshot", "snapshot")])
 
@@ -91,7 +65,7 @@ async def validate_definition_snapshot(
 
 
 def _validate_reply_contract(definition: dict[str, Any]) -> list[ValidationIssue]:
-    """An absent key is text; a present value must be a valid contract, never read as text."""
+    # A present value must be a valid contract, never read as text.
     if REPLY_CONTRACT_FIELD not in definition:
         return []
     try:
@@ -102,7 +76,7 @@ def _validate_reply_contract(definition: dict[str, Any]) -> list[ValidationIssue
 
 
 def _validate_tool_surface(definition: dict[str, Any], steps: list[Any]) -> list[ValidationIssue]:
-    """An absent key is ``governed``; an unknown value or No tools with tool-using steps is refused."""
+    # An unknown value, or no tools with tool-using steps, is refused.
     if TOOL_SURFACE_FIELD not in definition:
         return []
     try:
@@ -173,17 +147,7 @@ async def _validate_group_scope(
     group_reference: Any,
     definition_project_id: str | None,
 ) -> list[ValidationIssue]:
-    """Resolve ``group_id`` as a scoped reference, not merely as an existing row.
-
-    An :class:`AgentGroup` carries its own nullable ``project_id``. Existence
-    alone would let a published definition attach itself to a group in another
-    Workspace (or to a Workspace-assigned group while the definition itself is
-    private owner-scope state), which is exactly the kind of cross-scope binding
-    publication is supposed to refuse. The group's Workspace must therefore
-    match the definition's Workspace exactly, including the "both unassigned"
-    case. Unassigned group plus Workspace definition is a mismatch, not a
-    tolerated default: an unassigned group is private authoring state.
-    """
+    # The group's Workspace must match exactly: an unassigned group on a Workspace definition is a cross-scope binding.
     if group_reference is None:
         return []
     group_id = str(group_reference).strip()

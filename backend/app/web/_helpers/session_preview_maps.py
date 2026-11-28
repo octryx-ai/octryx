@@ -15,7 +15,6 @@ async def _content_by_session(
     role: str | None,
     newest_first: bool,
 ) -> dict[str, str]:
-    """The first (or newest) message content per session; with a role, only non-empty messages of that role."""
     order_by = (
         (Message.created_at.desc(), Message.id.desc()) if newest_first else (Message.created_at.asc(), Message.id.asc())
     )
@@ -41,7 +40,6 @@ async def _load_session_preview_maps(
     db: AsyncSession,
     session_ids: list[str],
 ) -> tuple[dict[str, int], dict[str, str], dict[str, str], dict[str, str]]:
-    """Message count, first user message, last message and last assistant message per session."""
     if not session_ids:
         return {}, {}, {}, {}
 

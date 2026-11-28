@@ -1,7 +1,4 @@
-"""Admin panel routes for a Workspace's composition: view, diagnostics, binding, policy and assignment controls.
-
-Included by ``panel_projects_c.router``.
-"""
+"""Admin panel routes for a Workspace's composition: view, diagnostics, binding, policy and assignment controls."""
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse

@@ -63,7 +63,6 @@ BENIGN_DESCRIPTION = "The checkout API returns 5xx for more than 5% of requests.
 
 
 def _payload(*, hostile: bool, namespace: str = "shop") -> dict:
-    """An Alertmanager v0.34 webhook body (``version: "4"``) with one firing alert."""
     name = HOSTILE_NAME if hostile else "HighErrorRate"
     labels = {"alertname": name, "namespace": namespace, "service": "checkout", "severity": "critical"}
     annotations = {"summary": BENIGN_SUMMARY, "description": BENIGN_DESCRIPTION}

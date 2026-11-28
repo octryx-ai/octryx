@@ -127,7 +127,7 @@ test("action card header: status dot, badges, last run and the row actions, in a
 
 test("limits and budgets: the limit rows, overrides, technical limits, budget periods and the save button", async () => {
   const srv = server((call) => {
-    if (call.url.endsWith("/runtime-settings")) return { status: 200, body: { agent_session_cost_limit_usd: 0, default_completion_tokens: 4096 } };
+    if (call.url.endsWith("/runtime-settings")) return { status: 200, body: { agent_session_cost_limit_usd: 0, max_output_tokens_default: 4096 } };
     if (call.url.endsWith("/limits/overview")) {
       return { status: 200, body: {
         gateway_daily_baseline_usd: 5, workspace_overrides: { agent_session_cost_limit_usd: [{ workspace_id: "p-1", name: "Alpha", value: "3" }] },
@@ -145,7 +145,7 @@ test("limits and budgets: the limit rows, overrides, technical limits, budget pe
   assert.ok(overrides.length >= 1);
   await act(async () => overrides[0].props.onClick());
   assert.equal(byId(view.root, "limit-overrides").length, 1);
-  assert.equal(digest(view), "6a2226ceeaaeadd18eae6599d800dfa71ec9102a5b3e1d62be84baca2d5e2ff5");
+  assert.equal(digest(view), "cf381a1866d8a130c2f2c2d8bf0991e215b973f88185cb1a8bca55a28b9494ba");
 });
 
 // --- Agent step form ------------------------------------------------------------------------------------------------
@@ -200,12 +200,12 @@ test("schedulers: header action, status bar, the table with its columns and menu
 
 test("admin panel shell: sidebar groups with an open entry's sub-pages, the header and the body, with and without close", async () => {
   const shell = (props) => mount("admin/components/AdminPanelShell.tsx", "AdminPanelShell", {
-    tab: "scenarios", setTab: noop, currentTabLabel: "Scenarios", area: "workflows", children: createElement("main", null, "page"),
+    tab: "workflowDesigner", setTab: noop, currentTabLabel: "Workflow designer", area: "workflows", children: createElement("main", null, "page"),
     externalNav: [{ key: "repos", label: "Repositories", group: "Workflows", onSelect: noop, icon: null }], ...props,
   });
   const workflows = await shell({});
   assert.ok(workflows.root.findAll((node) => node.props.className === "admin-panel__tab-group" && typeof node.type === "string").length > 1);
-  assert.equal(digest(workflows), "604c95752de162102093b175623598f171db01e980473bba72991517116993bd");
+  assert.equal(digest(workflows), "42eb11f1436ae9b1f82047f4862eeb7030831aee628a27152785ae24df24b3d9");
   const admin = await shell({ area: "admin", tab: "adminConnections", currentTabLabel: "Connections", onClose: noop });
   assert.equal(admin.root.findAll((node) => node.props["aria-label"] === "Close settings" && node.type === "button").length, 1);
   assert.equal(digest(admin), "0d296b965c43b7313da11a8fb3a6ed58ebef62957c88a292059b1c4deb6b6801");

@@ -116,8 +116,6 @@ async def _find_or_provision_user(
     provider: IdentityProvider,
     resolved_claims: Any,
 ) -> tuple[User, UserIdentity]:
-    """The user linked to the provider's subject; without one, a new user and identity when the provider
-    provisions users automatically (403 otherwise)."""
     identity = (
         await db.execute(
             select(UserIdentity).where(
@@ -194,7 +192,6 @@ async def _apply_access_mappings(
     provider: IdentityProvider,
     external_groups: list[str],
 ) -> tuple[list[str], list[str]]:
-    """Grant the mapped roles and groups, then refuse the sign-in when the user may not log in."""
     assigned_roles = await _apply_group_role_mapping(
         db,
         user=user,

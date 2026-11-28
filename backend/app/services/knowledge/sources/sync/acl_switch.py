@@ -1,20 +1,5 @@
-"""The Workspace switch ``knowledge_source_acl.enforce``: read it, change it (audited), and what it would release.
-
-Why an endpoint: the live test of a Custom REST Knowledge source dry-ran fine and
-then synced nothing, correctly, because the Workspace did not enforce source ACLs and so withheld every restricted
-item (``acl_sync``: ``restricted_acl``). The switch lived only in ``Project.config`` with no way to turn it on.
-
-- **who**: a platform admin only (the route checks it). Turning it on lets restricted items into the Workspace's
-  Knowledge, readable by the members their source admits; that is a platform decision, not an author's.
-- **what changes**: only the flag. Nothing is re-synced here: each source's next run ingests what it withheld for
-  ``restricted_acl`` (the restriction stored first, ``acl_sync.apply_item_acl``). Turning it off withholds and
-  retires them on the next run; retrieval filters a restricted source in any case (``access/source_acl``).
-- **the count**: the items the Workspace's sources currently withhold for ``restricted_acl`` and still list
-  (``run_report.current_withheld``), a count and nothing else. It is an upper bound: an item whose restriction its
-  source cannot expand (a Jira security level) stays withheld after the switch.
-- **audit**: every change, with actor, Workspace, old and new value, the reason and that count. Saving the value it
-  already has changes nothing and records nothing.
-"""
+"""The Workspace switch ``knowledge_source_acl.enforce``: read it, change it (audited), and what it would release. Only
+a platform admin changes it."""
 
 from __future__ import annotations
 
@@ -37,7 +22,6 @@ RELEASE_NOTE = ("Each source's next sync ingests these items with their restrict
 
 
 async def withheld_restricted_items(db: AsyncSession, project_id: str) -> int:
-    """How many items the Workspace's sources withhold for ``restricted_acl`` and still list (a count only)."""
     rows = (await db.execute(select(KnowledgeSourceConnector).where(
         KnowledgeSourceConnector.project_id == project_id))).scalars().all()
     total = 0
@@ -47,7 +31,6 @@ async def withheld_restricted_items(db: AsyncSession, project_id: str) -> int:
 
 
 async def enforcement_state(db: AsyncSession, project_id: str) -> dict[str, Any]:
-    """The switch and the count of withheld restricted items it would let in (0 while it is already on)."""
     enforce = await acl_enforcement_enabled(db, project_id)
     withheld = await withheld_restricted_items(db, project_id)
     return {"workspace_id": project_id, "enforce": enforce, "withheld_restricted_items": withheld,
@@ -56,7 +39,6 @@ async def enforcement_state(db: AsyncSession, project_id: str) -> dict[str, Any]
 
 async def set_enforcement(db: AsyncSession, *, project_id: str, enforce: bool, reason: str, actor_id: str,
                           dry_run: bool) -> dict[str, Any]:
-    """Change the switch (audited, committed) or, with ``dry_run``, only answer what the change would do."""
     state = await enforcement_state(db, project_id)
     before = state["enforce"]
     changed = before != enforce

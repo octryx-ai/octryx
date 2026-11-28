@@ -2,7 +2,7 @@
 
 .coding-detail__title {
   color: var(--muted-strong);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .coding-detail__header .work-badge {
@@ -111,7 +111,7 @@
 }
 
 .coding-step__title {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-size: var(--ds-text-md);
   white-space: nowrap;
 }

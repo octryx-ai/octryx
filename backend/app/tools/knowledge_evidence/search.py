@@ -1,27 +1,4 @@
-"""``knowledge_search``: hybrid, cited retrieval over the governed Workspace evidence.
-
-The platform's one Knowledge search: the chat, sub-agents, workflows and the Knowledge MCP
-(``services/mcp_governed_knowledge``) all run this class, so there is one schema and one behavior.
-
-Read-only and bounded: lexical and (when the Instance has an embedding space) vector evidence,
-fused and floored by ``services/knowledge/retrieval/hybrid.py``. Every passage carries its citation,
-source title, openable ``source_url`` and structured locator; ``mode_states`` says which modes
-answered, so a lexical-only answer is visible as such.
-
-**Graph facts** (``facts``, always present). The cited facts the Workspace graphs hold behind the
-hits, plus one hop of related facts ranked by the query
-(``services/knowledge/retrieval/graph_expansion.py``). Each fact carries its kind, text, version,
-``via`` (``hit`` or ``related``), the evidence key of the span it was extracted from, its
-``source_url`` and a ready ``cite_as`` link. Its ``state`` says when there is nothing to expand
-(``no_hits``), when the hits were never extracted (``not_extracted``), when no graph is configured
-(``needs_configuration``), or when the graph did not answer in time (``timeout``); it never fails
-the search.
-
-**Typed change facts.** Only when the caller names exactly one product and a version is the
-``knowledge_changes`` read added under ``changes``: the product's cited change facts up to that
-version, ranked against the query. Its state is reported as is (``no_sources``, ``not_extracted``,
-``needs_configuration``, ...) and never fails the search.
-"""
+"""``knowledge_search``: hybrid, cited retrieval over the governed Workspace evidence."""
 
 from __future__ import annotations
 
@@ -47,12 +24,6 @@ FACTS_BUDGET_BYTES = 3000
 
 
 def _bounded_limit(raw: object) -> int:
-    """The documented ``1-MAX_TOOL_RESULT_LIMIT`` bound, enforced rather than clamped.
-
-    An absent limit is the default. Anything else outside the documented bound — 500, 0,
-    ``"many"`` — raises, so the model is told its argument was refused instead of silently
-    receiving a different number of passages than it asked for.
-    """
     if raw is None:
         return DEFAULT_TOOL_RESULT_LIMIT
     # Exact ``int``: ``True`` is not a result count, and a numeric string is not an integer.

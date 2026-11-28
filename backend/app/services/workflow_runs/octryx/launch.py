@@ -1,25 +1,4 @@
-"""An octryx-claude session started for a Work item follows that item's run from the first prompt.
-
-- **At launch** (``POST sessions/register`` with ``X-Octryx-Work-Item``): the session attaches to the item's
-  active run under the same rule as ``workflow_select`` (``attach.attach``: the run's Workspace, requester, Work item
-  owner or admin). The answer carries the run contract, so the terminal shows the run banner before Claude Code
-  starts. A refusal (unknown item, no right to act, ``run_followed_elsewhere`` while another octryx session works on
-  the run — only an explicit ``workflow_select(run_id)`` takes it over) never refuses the launch: the session simply
-  follows no run.
-- **At the first prompt** (``POST sessions/prompt``) of a session whose item has no active run: the server proposes a
-  workflow from the Work item and the prompt with the chat's proposal classifier (``workflow_routing.proposal``).
-  A proposed (phased) workflow is a proposal the user confirms through ``workflow_select`` → ``workflow_confirm``
-  (Claude Code's permission prompt). A phased run never starts by itself. The proposal is asked once per session.
-- **At every later prompt** a bound session gets its current contract, so a decision taken in the platform since the
-  last hook reaches the terminal before the model answers.
-
-- **A device job's session** (``X-Octryx-Workflow-Run`` at registration): it follows the run its job carries
-  from registration, under the same attach rule (:func:`device_run_answer`); the answer carries the contract, and a
-  refusal refuses the registration with the attach reason (the device rejects the turn), so the agent never has to
-  call ``workflow_select`` itself.
-
-A session without a Work item and without a run is untouched: every function answers ``{}`` for it.
-"""
+"""An octryx-claude session started for a Work item follows that item's run from the first prompt."""
 
 from __future__ import annotations
 
@@ -31,7 +10,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from ....models import Session, User
 from ...content_security.untrusted_fence import untrusted_section
 from ..records import WorkflowRunError, active_run_for_session
-from .attach import active_run_of_item, attach, work_item_in_workspace
+from .attach import active_run_of_item, attach, take_over, work_item_in_workspace
 from .contract import run_contract, session_principal
 
 PROPOSAL_METADATA = "run_proposal"
@@ -43,7 +22,6 @@ STATE_NONE = "none"
 
 async def launch_answer(db: AsyncSession, *, session: Session, user: User, workspace_id: str,
                         work_item_key: str) -> dict[str, Any]:
-    """What the registration answer adds for a session started with a Work item."""
     if not work_item_key:
         return {}
     item = await work_item_in_workspace(db, work_item_key, workspace_id)
@@ -60,7 +38,7 @@ async def launch_answer(db: AsyncSession, *, session: Session, user: User, works
                                         "message": "Another octryx session follows this run; take it over with "
                                                    "workflow_select(run_id) if you mean to."}}
     try:
-        run = await attach(db, gateway_session=session, user=user, workspace_id=workspace_id, run=run)
+        run = await take_over(db, gateway_session=session, user=user, workspace_id=workspace_id, run=run)
     except WorkflowRunError as error:
         return {"workflow_run_attach": {"state": "denied", "reason": error.code, "message": str(error)}}
     return {"workflow_run_attach": {"state": "attached"},
@@ -69,7 +47,6 @@ async def launch_answer(db: AsyncSession, *, session: Session, user: User, works
 
 async def device_run_answer(db: AsyncSession, *, session: Session, user: User, workspace_id: str,
                             run_id: str, job_id: str = "") -> dict[str, Any]:
-    """The registration answer of a device job's session: bound to the run its job carries, or why not."""
     from ....models import WorkflowRun
 
     run = await active_run_for_session(db, session.id)
@@ -84,7 +61,6 @@ async def device_run_answer(db: AsyncSession, *, session: Session, user: User, w
 
 
 async def _followed_elsewhere(db: AsyncSession, run: Any, session: Session) -> bool:
-    """Whether another session is the run's active octryx session (a terminal or a device job working on it)."""
     from sqlalchemy import select
 
     from ....models import WorkflowRunSession
@@ -127,7 +103,6 @@ async def _propose(db: AsyncSession, *, session: Session, workspace_id: str, ite
 
 async def prompt_answer(db: AsyncSession, *, session: Session, workspace_id: str, work_item_key: str,
                         prompt: str) -> dict[str, Any]:
-    """The prompt hook's answer: the bound run's contract, or once the first prompt's workflow proposal."""
     run = await active_run_for_session(db, session.id)
     if run is not None:
         return {"workflow_run": await run_contract(db, run, principal=await session_principal(db, session))}

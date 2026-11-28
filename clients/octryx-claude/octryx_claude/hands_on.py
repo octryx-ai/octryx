@@ -1,13 +1,5 @@
-"""The run's hands-on test on the device (the platform's ``workflow_runs.hands_on``): when the platform waits for it,
-the launcher starts the built app with the environment file's ``serve`` and runs the platform's scenarios in Chrome
-before any agent starts, outside Claude Code's sandbox (like the CI pipeline), then reports
-``POST /sessions/hands_on`` with each scenario's result and uploads its screenshots.
-
-- an app the file declares without a UI (no ``serve``, ``system_test`` or ``browser``): ``skipped``;
-- a UI without ``serve``, an invalid file, a failed setup, an app that does not answer on its URL, no Playwright or no
-  Chrome: ``unavailable`` with what to do (the platform routes it red back to the building agent);
-- otherwise ``ran`` with the scenarios' results.
-"""
+"""The run's hands-on test on the device: start the built app, run the platform's scenarios in Chrome outside
+Claude Code's sandbox and report each scenario's result with its screenshots."""
 
 from __future__ import annotations
 
@@ -56,8 +48,6 @@ def pending(contract: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def worker_count(workers: dict[str, Any] | None, scenarios: int, cores: int | None = None) -> int:
-    """How many scenarios run at once: one per ``cores_per_worker`` of this device's cores, at most ``max`` and the
-    number of scenarios, at least 1 (platform data ``general.hands_on_workers``; without it one at a time)."""
     settings = dict(workers or {})
     per, most = settings.get("cores_per_worker"), settings.get("max")
     if not (type(per) is int and per >= 1 and type(most) is int and most >= 1):
@@ -68,9 +58,6 @@ def worker_count(workers: dict[str, Any] | None, scenarios: int, cores: int | No
 def run_scenarios(scenarios: list[dict[str, Any]], base_url: str, channel: str | None, shots: Path,
                   budget: float = 0, workers: int = 1, start_seconds: int = 0,
                   settle: dict[str, int] | None = None) -> tuple[list[dict[str, Any]], str]:
-    """``(results, problem)``: every scenario's result in the scenarios' order, or no results and why the browser is
-    unavailable. With ``workers`` > 1 the scenarios run side by side, each worker with its own Playwright and every
-    scenario in its own browser profile (the depth stays, the time goes)."""
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401, PLC0415
     except ImportError:
@@ -108,10 +95,10 @@ def run_scenarios(scenarios: list[dict[str, Any]], base_url: str, channel: str |
     return ordered, ""
 
 
+# Playwright's sync API belongs to the thread that started it.
 def _run_share(scenarios: list[dict[str, Any]], share: list[int], base_url: str, channel: str | None, shots: Path,
                budget: float, started: float, start_seconds: int = 0,
                settle: dict[str, int] | None = None) -> tuple[dict[int, dict[str, Any]], str]:
-    """One worker's scenarios on its own Playwright (Playwright's sync API belongs to the thread that started it)."""
     from playwright.sync_api import sync_playwright  # noqa: PLC0415
 
     from .hands_on_browser import START_SECONDS, BrowserUnavailableError, run_scenario  # noqa: PLC0415
@@ -134,8 +121,6 @@ def _run_share(scenarios: list[dict[str, Any]], share: list[int], base_url: str,
 
 
 def _declared_ui(view: dict[str, Any], root: Path, body: dict[str, Any]) -> dict[str, Any]:
-    """The environment file's UI (``environment``, ``serve``, ``folder``), or the report when there is none to test
-    (a report has a ``state``)."""
     from . import environment_file  # noqa: PLC0415
 
     pointer = view.get("environment_file") if isinstance(view.get("environment_file"), dict) else {}
@@ -154,8 +139,6 @@ def _declared_ui(view: dict[str, Any], root: Path, body: dict[str, Any]) -> dict
 
 
 def _url_refusal(body: dict[str, Any], url: str, locked: bool) -> dict[str, Any] | None:
-    """The report when the pass cannot use the serve URL: another pass kept its lock, or something else answers
-    there; ``None`` when the URL is free for the app this pass starts."""
     if not locked:
         return {**body, "state": "unavailable", "code": DEVICE_BUSY,
                 "problem": f"another hands-on test on this device kept "
@@ -175,7 +158,6 @@ def _url_refusal(body: dict[str, Any], url: str, locked: bool) -> dict[str, Any]
 
 def _run_pass(view: dict[str, Any], serve: dict[str, Any], process: Any, scenarios: list[dict[str, Any]],
               channel: str | None, shots: Path, budget: float, began: float) -> tuple[list[dict[str, Any]], str]:
-    """Run the scenarios against the started app, then stop it (``LAST_END`` says how it ended)."""
     try:
         parallel = serve.get("parallel") is not False  # the repository's opt-out (environment file)
         return run_scenarios(scenarios, serve["url"], channel, shots, budget,
@@ -188,7 +170,6 @@ def _run_pass(view: dict[str, Any], serve: dict[str, Any], process: Any, scenari
 
 
 def execute(view: dict[str, Any], root: Path) -> tuple[dict[str, Any], Path | None]:
-    """The report body for the pending pass (without uploading), and the folder holding its screenshots."""
     from . import environment_file  # noqa: PLC0415
     from .pipeline_commands import _env  # noqa: PLC0415
 
@@ -257,7 +238,6 @@ def _upload(post: Any, view: dict[str, Any], shots: Path | None, body: dict[str,
 
 def run_for_session(state: LocalState, context: SessionContext, contract: dict[str, Any] | None, folder: str, *,
                     http: Any) -> dict[str, Any] | None:
-    """Run the pending hands-on test, report it and return the answered contract; the contract unchanged otherwise."""
     view = pending(contract)
     if view is None:
         return contract

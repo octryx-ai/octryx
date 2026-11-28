@@ -1,28 +1,4 @@
-"""The run contract v2 an octryx-claude session follows: the run's current state as data.
-
-``workflow_run_status`` serves it and every hook answer of a bound session carries it, so the model always sees
-the **current** phase, never the one at selection time:
-
-- ``run``: id, workflow, version, status, current node, its pass (``entry``);
-- ``phase`` (while the run is at a phase): its agent (``agent``: key, name, version, instructions, digest),
-  capability class, tools (allow/deny), path rules with the confirmed test files they protect, the phase's checks,
-  its instructions, the findings carried back to it, the recorded artefacts it consumes (``inputs``) and the output
-  it submits (``output``: kind and tool), and its device continuation
-  (``pending`` / ``started`` / ``refused`` with the reason — a refused one is not retried by itself);
-- ``loop``: the iteration *i* of *n* of the loops that lead back into the current node;
-- ``waiting`` / ``paused``: what the run waits for or why it paused, with the link to the platform;
-- ``decision``: who decides it (``decisions.pending_decision``): a requester decision (user confirmation
-  or conversation, a pause) is ``in_terminal`` with its payload, payload hash and actions — the user may take it in
-  the terminal (``workflow_decide`` + Claude Code's permission prompt) or in the platform; a four-eyes approval or a
-  tool approval is platform only; a watched state, the reviewer or a sub-workflow is decided by nobody;
-- ``next``: what the following gate needs;
-- ``facts``: what the launcher reports at its hooks (confirmed test digests, the change as a diff);
-- ``preparation``: the run's branch and the repository's runtime environment (setup, path, probes) the launcher
-  prepares its folder for, and the pass it reports for while ``workspace.prepare`` waits (``state: pending``);
-- ``digest``: changes whenever any of the above changes (the launcher shows a changed contract once).
-
-The contract describes; it never grants. Every decision is taken again on the server at each hook.
-"""
+"""The run contract v2 an octryx-claude session follows: the run's current state as data."""
 
 from __future__ import annotations
 
@@ -61,7 +37,6 @@ def run_link(run: WorkflowRun, session_id: str | None) -> str | None:
 
 
 def environment_file_note(environment: Any) -> str:
-    """What a building agent is told when the repository record points at an environment file; ``""`` otherwise."""
     from ..workspace.spec import ENVIRONMENT_FILE_FORMAT
 
     if not isinstance(environment, dict) or not environment.get("environment_file"):
@@ -71,7 +46,6 @@ def environment_file_note(environment: Any) -> str:
 
 
 def environment_file_rule(capability_class: str, environment: Any) -> dict[str, Any] | None:
-    """The ``environment_file`` part of a changing phase's contract, or ``None``."""
     from .system_tests import CHANGING
 
     note = environment_file_note(environment) if capability_class in CHANGING else ""
@@ -80,7 +54,6 @@ def environment_file_rule(capability_class: str, environment: Any) -> dict[str, 
 
 
 def _next(graph: Any, node: Any) -> list[str]:
-    """What the gate after the current phase checks (the descriptions), so the agent knows what counts."""
     following = [graph.nodes[edge.target] for edge in graph.exits(node.id) if edge.target in graph.nodes]
     return [str(check.get("description") or check.get("type") or "")
             for gate in following if gate.kind == NODE_GATE
@@ -88,7 +61,7 @@ def _next(graph: Any, node: Any) -> list[str]:
 
 
 async def session_principal(db: AsyncSession, session: Any) -> Any:
-    """The authenticated launcher Session's own active human (a hook's actual caller), never the run's requester."""
+    # The hook's actual caller, never the run's requester.
     from ..work_roles import active_human
 
     user_id = str(getattr(session, "user_id", None) or "")
@@ -96,7 +69,6 @@ async def session_principal(db: AsyncSession, session: Any) -> Any:
 
 
 async def _work_item(db: AsyncSession, run: WorkflowRun) -> dict[str, Any] | None:
-    """The run's Work item as the agent needs it: key, title, type and the description with its criteria."""
     from ....models.runtime.secure_work import WorkItem
 
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
@@ -108,7 +80,6 @@ async def _work_item(db: AsyncSession, run: WorkflowRun) -> dict[str, Any] | Non
 
 
 def _session_node(run: WorkflowRun, session: Any, graph: Any) -> tuple[Any, Any, Any, bool]:
-    """``(node, item, idle, woken)``: the node the session works under, its teamwork item, idle reason and wake."""
     from ..teamwork import work_of
     from ..teamwork.item_sessions import (
         coordinator_wake_of,
@@ -136,7 +107,6 @@ def _session_node(run: WorkflowRun, session: Any, graph: Any) -> tuple[Any, Any,
 
 async def _base_contract(db: AsyncSession, run: WorkflowRun, graph: Any, node: Any, session: Any, *,
                          state: dict[str, Any], link: str | None, idle: Any) -> dict[str, Any]:
-    """The run, its link, phase, loops, gate, facts, Work item, preparation, pipeline and hands-on test."""
     from ..teamwork.item_sessions import item_preparation
     from .browser import phase_allows_browser
     from .research import research_min_sources
@@ -156,11 +126,9 @@ async def _base_contract(db: AsyncSession, run: WorkflowRun, graph: Any, node: A
         "next": _next(graph, node) if node is not None and node.kind == NODE_PHASE and idle is None else [],
         "waiting": None, "paused": None,
         "facts": {"base_sha": dict(run.context or {}).get("base_sha") or None},
-        # a platform Work item has no ticket key; the agent searched the spec for "T11" and
-        # never saw the item's acceptance criteria. The run's Work item is part of its contract.
+        # A platform Work item has no ticket key, so the run's Work item is part of its contract.
         "work_item": await _work_item(db, run),
-        # What the launcher prepares in its folder before the agent starts (``workspace.preparation``).
-        "preparation": item_preparation(run, session, contract_view(run)),  # an item's: its own branch
+        "preparation": item_preparation(run, session, contract_view(run)),
         "pipeline": pipeline_view(run),
         "hands_on": hands_on_view(run),
     }
@@ -169,7 +137,6 @@ async def _base_contract(db: AsyncSession, run: WorkflowRun, graph: Any, node: A
 
 async def _with_run_extras(db: AsyncSession, run: WorkflowRun, contract: dict[str, Any], *, item: Any, idle: Any,
                            woken: bool) -> None:
-    """Test wording, launcher texts, the environment pin and the teamwork parts (idle, git work, item, wake)."""
     from ..teamwork.item_sessions import item_contract
     from ..teamwork.work_git import contract_view as work_git_view
 
@@ -178,7 +145,6 @@ async def _with_run_extras(db: AsyncSession, run: WorkflowRun, contract: dict[st
     if contract["pipeline"] is not None:
         from ..run_texts import launcher_texts
 
-        # The launcher's texts around a red pipeline, from the prompt catalog (run.launcher.*).
         contract["prompt_texts"] = await launcher_texts(db, run)
     from ..workspace.contract_pin import view as pin_view
 
@@ -187,7 +153,6 @@ async def _with_run_extras(db: AsyncSession, run: WorkflowRun, contract: dict[st
     if idle is not None:
         contract["item_idle"] = idle  # the item's session ends its turn; its work stays in its folder
     if item is None and idle is None and (git_work := work_git_view(run)) is not None:
-        # The git work the main thread's launcher runs before any agent (teamwork: item worktrees, merges).
         contract["work_git"] = git_work
     if item is not None and contract["phase"] is not None:
         contract["phase"]["work_item"] = await item_contract(db, run, item)
@@ -197,7 +162,6 @@ async def _with_run_extras(db: AsyncSession, run: WorkflowRun, contract: dict[st
 
 
 async def run_contract(db: AsyncSession, run: WorkflowRun, *, principal=None, session=None) -> dict[str, Any]:
-    """``session``: the session the contract is for; a teamwork item's session sees its item as its phase."""
     from ..records import main_session_id
 
     graph = await graph_for_run(db, run)
@@ -214,17 +178,13 @@ async def run_contract(db: AsyncSession, run: WorkflowRun, *, principal=None, se
         _for_codex(contract)
     from .compact_view import DETAIL_PATHS, PATHS_KEY
 
-    contract[PATHS_KEY] = list(DETAIL_PATHS)  # what the launcher leaves out of the agent's view (``compact_view``)
+    contract[PATHS_KEY] = list(DETAIL_PATHS)
     contract["digest"] = "sha256:" + sha256(json.dumps(contract, sort_keys=True, default=str).encode()).hexdigest()
     return contract
 
 
-#: ``config.brief: "plain"`` (epic-delivery): the session is plain Claude Code with a plain brief; the platform adds no
-#: way of working of its own to the contract.
 PLAIN_BRIEF = "plain"
-# Otherwise the Engineer agent's "write the tests first, implement the smallest change that makes them pass, and
-# split larger work into slices" reaches the story session through the contract; a session then started one
-# subagent and waited 745 s for it, where plain Claude Code ran backend and frontend in parallel.
+# The Engineer agent's way of working stays out of a plain story session.
 
 
 def plain_brief(node: Any) -> bool:
@@ -232,7 +192,6 @@ def plain_brief(node: Any) -> bool:
 
 
 def plain_agent(agent: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The phase agent with the short instructions of a plain session (its key, name and version stay)."""
     if not isinstance(agent, dict):
         return agent
     instructions = _text("plain_agent")
@@ -253,7 +212,6 @@ def _where(contract: dict[str, Any], link: str | None) -> str:
 
 
 def contract_summary(contract: dict[str, Any]) -> str:
-    """One short line for a hook answer or the terminal: the phase, the loop, or what the run waits for."""
     run = contract.get("run") or {}
     if contract.get("item_idle"):
         return (f"{contract['item_idle']} End your turn now: your work stays in your folder and the coordinator "
@@ -273,8 +231,7 @@ def contract_summary(contract: dict[str, Any]) -> str:
                 f"{prep.get('branch')}): start octryx-claude again in the repository folder; it prepares the folder "
                 "before the agent starts.")
     if phase:
-        # Only the loops the run took (: "The reproduce check could not run: back to reproduce 1/3" for a loop
-        # never taken read as the reason the agent was back).
+        # Only the loops the run took: a loop never taken would read as the reason the agent is back.
         loops = "; ".join(f"{loop['title']} {loop['iteration']}/{loop['of']}" for loop in contract.get("loop") or []
                           if int(loop.get("iteration") or 1) > 1)
         return (f"Workflow run {run.get('workflow_key')}: phase '{phase['title']}' ({phase['capability_class']})"

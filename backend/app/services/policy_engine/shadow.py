@@ -1,32 +1,4 @@
-"""Cedar next to the existing decision: compare, count, record — and in shadow mode never decide.
-
-:func:`shadow_decision` is called by each enforcement point *after* it has made its own (legacy) decision. It
-returns a :class:`PolicyComparison` for the caller's information only; the enforcement points in shadow mode
-ignore it, so a Cedar defect, an engine error or a slow evaluation can never change a live decision. Every
-exception inside is caught and counted as ``error``.
-
-Outcomes:
-
-- ``match``: Cedar and the legacy decision agree (counted, not stored);
-- ``mismatch``: they disagree and the baseline is responsible (a translator, schema or engine defect);
-- ``custom_policy``: Cedar denies only because of published custom ``forbid`` policies while the baseline
-  alone agrees with the legacy allow — the intended effect of a custom policy, not a defect;
-- ``error``: the evaluation failed or reported an error (Cedar fails closed: deny).
-
-A published custom set that no longer parses (``runtime.custom_invalid``) does not turn every decision into a
-denial: the decision is evaluated on the baseline alone, the custom policies fall back to shadow (they are not
-applied at all), and :func:`custom_fallback_counters` counts every such decision for the status view.
-
-Repeated questions (the tool listing asks the same question for every tool on every turn) are memoised per
-runtime snapshot, so they cost a dictionary lookup and a non-match is recorded once, not on every turn.
-
-In ``enforce`` mode the enforcement points apply :func:`enforced_denial` on top of their own decision.
-
-While a draft exists, :func:`_draft_blocking` also evaluates the baseline plus the draft for every allowed decision
-and the draft policies that would deny are counted (``draft_shadow``, policy UX G8) — informational only: nothing of
-the live comparison, its outcome or its counters depends on it. It runs on the decision path, so its cost is measured
-as its own metric (:func:`draft_latency_summary`); ``latency_summary`` stays the live comparison's.
-"""
+"""Cedar next to the existing decision: compare, count, record — and in shadow mode never decide."""
 
 from __future__ import annotations
 
@@ -88,8 +60,6 @@ class PolicyComparison:
 
 @dataclass(frozen=True, slots=True)
 class EnforcedDenial:
-    """Cedar denies what the existing check allowed, and the instance enforces Cedar."""
-
     policy_ids: tuple[str, ...]
     decision_id: str | None
 
@@ -101,13 +71,6 @@ class EnforcedDenial:
 
 
 def enforced_denial(legacy_allowed: bool, comparison: PolicyComparison | None) -> EnforcedDenial | None:
-    """What an enforcement point applies on top of its own decision in ``enforce`` mode.
-
-    Only in ``enforce`` mode and only when Cedar denies what the existing check allowed: Cedar never widens
-    (a Cedar allow of a legacy denial stays denied and is logged as a mismatch). When Cedar could not be evaluated
-    at all (``cedar_allowed`` ``None``: engine unavailable or a defect) the existing check is the fallback; an
-    evaluation that ran and reported errors denies (fail closed).
-    """
     if comparison is None or comparison.mode != MODE_ENFORCE or not legacy_allowed:
         return None
     if comparison.cedar_allowed is None or comparison.cedar_allowed:
@@ -141,7 +104,6 @@ def _outcome(legacy: LegacyDecision, evaluation: Evaluation, query: PointQuery, 
 
 
 def _draft_blocking(query: PointQuery, legacy: LegacyDecision, runtime: PolicyRuntime) -> tuple[str, ...]:
-    """The draft policies that would deny a request the existing check allowed (G8). Never raises."""
     if not runtime.draft_text or not legacy.allowed:
         return ()
     started = time.perf_counter()
@@ -178,7 +140,6 @@ def _remember(key: Hashable, value: tuple[PolicyComparison, PointQuery | None]) 
 def shadow_decision(
     point: str, legacy: LegacyDecision, query: Callable[[], PointQuery], *, memo_key: Hashable | None = None
 ) -> PolicyComparison | None:
-    """Evaluate Cedar for a decision already made; ``None`` when the engine is off. Never raises."""
     runtime = current_runtime()
     if runtime.mode == MODE_OFF:
         return None
@@ -223,12 +184,10 @@ def _count(point: str, comparison: PolicyComparison) -> None:
 
 
 def custom_fallback_counters() -> dict[str, int]:
-    """``{point: count}`` of decisions evaluated without the (unparseable) published custom set."""
     return dict(sorted(_FALLBACKS.items()))
 
 
 def decision_counters() -> dict[str, dict[str, int]]:
-    """``{point: {outcome: count}}`` since the process started (the metrics counter)."""
     counters: dict[str, dict[str, int]] = {}
     for (point, outcome), count in sorted(_COUNTERS.items()):
         counters.setdefault(point, dict.fromkeys(OUTCOMES, 0))[outcome] = count
@@ -236,7 +195,6 @@ def decision_counters() -> dict[str, dict[str, int]]:
 
 
 def latency_summary(window: deque[int] | None = None) -> dict[str, float | int]:
-    """p50/p95 of the live comparison (default) or of ``window``."""
     samples = sorted(_LATENCIES if window is None else window)
     if not samples:
         return {"samples": 0, "p50_ms": 0.0, "p95_ms": 0.0}
@@ -248,7 +206,6 @@ def latency_summary(window: deque[int] | None = None) -> dict[str, float | int]:
 
 
 def draft_latency_summary() -> dict[str, float | int]:
-    """p50/p95 of the draft evaluation (G8) on top of the live comparison; no samples without a draft."""
     return latency_summary(_DRAFT_LATENCIES)
 
 

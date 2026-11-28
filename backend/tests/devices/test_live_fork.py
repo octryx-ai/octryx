@@ -1,10 +1,4 @@
-"""Continue a *copy* of a running Claude Code session from the phone.
-
-Only the owner's own device, only a session listed right now and idle (a fork beside a working session would be a
-second writer in its folder), only one the Mac offers for take-over. The copy is a new Mac chat "Fork of <name>":
-its first turn resumes the session with ``fork_session`` (the original keeps its transcript), every turn asks before
-it writes, and the next message continues the fork, never the original.
-"""
+"""Continue a *copy* of a running Claude Code session from the phone."""
 
 from __future__ import annotations
 
@@ -80,7 +74,7 @@ async def test_no_fork_of_a_working_unlisted_foreign_or_not_offered_session(clie
 
     await _listed(db, device_id, status="busy")
     assert (await fork()).json()["reason"] == "session_busy"
-    await _listed(db, device_id, session_id="1a2b3c4d-1111-2222-3333-444455556666")  # not offered for take-over
+    await _listed(db, device_id, session_id="1a2b3c4d-1111-2222-3333-444455556666")
     assert (await fork()).json()["reason"] == "takeover_not_allowed_on_device"
     await _listed(db, device_id)
     assert (await fork(peer="uds:/tmp/cc-socks/1.sock")).json()["reason"] == "session_not_running"
@@ -102,7 +96,7 @@ async def test_a_fork_thread_id_must_be_a_fork_of_that_session(client, db, monke
                               json={"message": "plain take-over"})
     assert plain.status_code == 201
     refused = await client.post(f"/api/v1/mobile/local-sessions/{local_id}/messages", headers=_web(user),
-                                json={"message": "x", "thread_id": plain.json()["thread_id"]})  # not a fork
+                                json={"message": "x", "thread_id": plain.json()["thread_id"]})
     assert refused.status_code == 404 and refused.json()["reason"] == "local_session_not_found"
 
 

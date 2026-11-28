@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...db import get_db
+from ...http_multipart_route import SelfAuthenticatedFormRoute
 from ...http_security import clear_auth_cookies, set_auth_cookies
 from ...services.auth import first_admin
 from ...services.auth.login_mode import (
@@ -22,12 +23,12 @@ from ...services.oidc import (
 from .._context import templates
 from .._helpers.auth import validate_browser_origin_headers
 
-router = APIRouter()
+router = APIRouter(route_class=SelfAuthenticatedFormRoute)
 
 
 
 def _safe_next_path(raw: str | None) -> str | None:
-    """Only same-origin relative paths are honored as post-login targets."""
+    # Only same-origin relative paths are honored as post-login targets.
     value = str(raw or "").strip()
     if value.startswith("/") and not value.startswith("//") and "\\" not in value:
         return value

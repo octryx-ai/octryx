@@ -18,12 +18,8 @@ CHAT_THREAD_GROUP_PAGE_SIZE = 20
 
 
 def _sidebar_thread_filter() -> tuple[Any, ...]:
-    """Only chats belong in the chat sidebar: an explicit chat origin, and something to show.
-
-    Machine sessions (gateway, MCP, analysis, webhooks, channels, …) carry their own origin. A chat
-    session with neither a title nor a user message (a failed first send) stays stored but is not
-    listed — it would only render as an empty "New thread" row.
-    """
+    # A chat with neither a title nor a user message (a failed first send) is not listed: it would only render as an
+    # empty row.
     has_user_message = (
         select(Message.id).where(Message.session_id == AgentSession.id, Message.role == "user").exists()
     )

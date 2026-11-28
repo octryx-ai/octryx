@@ -1,13 +1,4 @@
-"""Octryx Mobile "live": the Claude Code sessions running on a person's device and their messages.
-
-- ``device_live_snapshots``: one row per device, the last list of running sessions the device reported
-  (``services/devices/live``). Only the device's owner reads it.
-- ``live_messages``: what the owner sent to one of those sessions (``out``) and what came back (``in``). An ``out``
-  row is ``pending`` until the channel takes it to the device (``sent``), then ``delivered``, ``altered`` (the
-  relay changed the text: not delivered as written) or ``failed``.
-- ``live_attachments``: a picture attached to an ``out`` message, kept only until the device settled
-  the message, then deleted; ``live_messages.attachment_count`` keeps how many there were.
-"""
+"""Octryx Mobile live: the Claude Code sessions running on a person's device and their messages."""
 
 from __future__ import annotations
 

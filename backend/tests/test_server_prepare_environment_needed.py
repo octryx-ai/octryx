@@ -1,11 +1,4 @@
-"""On the server, ``workspace.prepare`` prepares a test environment only for a workflow that builds or tests.
-
-A workflow without a build or test step (spec writing, triage) gets its branch prepared and its environment reported
-``not_needed``: the readiness probes of a repository's declared Python test would only meet the server-build guard
-and pause the run ``environment_not_ready`` (the demo's spec writing stopped there). A workflow that builds or tests
-still runs the probes, and on the server the guard still refuses them; such a workflow is refused at start anyway
-(``test_workflow_run_server_build_lock``).
-"""
+"""On the server, ``workspace.prepare`` prepares a test environment only for a workflow that builds or tests."""
 
 from __future__ import annotations
 
@@ -23,13 +16,15 @@ from app.services.workflow_runs.workspace.spec import probes
 from tests.devices.device_support import device_with_grant, enable_device_runs
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import PHASE, admin_user, phased_definition, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FOLDER = "/Users/dev/work/pay"
 PYTHON_TESTS = {"probes": probes({"test": "python3 -m unittest"})}
 
 
 def _repository(root: Path) -> Path:
-    """A working copy on ``main`` with one commit, its tests declared as ``python3 -m unittest``."""
     root.mkdir()
     for argv in (["init", "-q", "-b", "main"], ["config", "user.email", "t@example.test"], ["config", "user.name", "t"]):
         subprocess.run(["git", *argv], cwd=root, check=True)
@@ -70,7 +65,7 @@ async def test_spec_writing_on_the_server_skips_the_environment_of_a_repository_
 
     assert report["branch"]["state"] in READY_BRANCH_STATES, report["branch"]
     assert report["environment"]["state"] == "not_needed"
-    assert report["environment"]["probes"] == []  # nothing ran, nothing met the server-build guard
+    assert report["environment"]["probes"] == []
     assert decide(report).ok
 
 

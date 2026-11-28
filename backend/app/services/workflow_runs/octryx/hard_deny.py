@@ -28,14 +28,10 @@ _WRITE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
 def _outside(path: str) -> bool:
-    """A path that names something outside the work folder (absolute, the home folder, or up from it)."""
     return path.startswith(("/", "~")) or ".." in path.split("/") or path in ("*", ".", "./")
 
 
-# A write to the app under test on this machine: every URL is loopback and no file is read into the request.
-# Example: ``curl -s -X PUT http://127.0.0.1:$P/api/profile`` (the session checking
-# its own API's 405 and 413 answers) was refused as an upload. A file sent anywhere (``-d @x``, ``-T``, ``-F f=@x``)
-# stays refused, loopback included.
+# A write to the app under test on loopback is allowed; a file sent anywhere stays refused, loopback included.
 _LOOPBACK_HOST = re.compile(r"^(?:https?://)?(?:127\.0\.0\.1|localhost|\[::1\])(?:[:/?#]\S*)?$", re.IGNORECASE)
 _HOST_LIKE = re.compile(r"^(?:[a-z][a-z0-9+.-]*://\S+|localhost(?:[:/?#]\S*)?|\[[0-9a-fA-F:]+\](?:[:/?#]\S*)?|"
                         r"[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+(?::[^/\s]*)?(?:/\S*)?)$", re.IGNORECASE)
@@ -72,11 +68,7 @@ def _hard_segment(segment: Segment) -> str | None:
 
 
 def hard_denied(command: str) -> str | None:
-    """Why ``command`` never runs in a workflow run's phase (the short hard-deny list), or ``None``.
-
-    The text a heredoc writes into a file is data (``command_match.without_data_heredocs``). Otherwise
-    ``cat > src/kitchen-helper/paths.py <<'EOF' ... return Path(env) ... EOF`` was refused
-    as an environment dump (``(env)``); a body a shell reads is still checked."""
+    # A heredoc body written into a file is data; a body a shell reads is still checked.
     text = without_data_heredocs(command or "")
     if _CREDENTIAL_FILE.search(text):
         return "it reads a credential file"

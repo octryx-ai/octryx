@@ -1,18 +1,10 @@
 """A turn's runtime comes from one explicit source and stays stable for every iteration."""
 
-import json
-import uuid
 from types import SimpleNamespace
 
 import pytest
-from sqlalchemy import select
 
-import app.agent.core.context.run_context as run_context_module
-import app.agent.engine as engine_module
 import app.services.session.turn_runtime_selection as selection_module
-from app.agent.engine import run_agent
-from app.agent.loops.request._loop_request_routing import prepare_runtime_routing
-from app.models import Project, Session, User
 from app.services.model_selection.gates import CatalogModel, WorkspaceScope
 from app.services.model_selection.snapshot import SelectionSnapshot
 from app.services.session.turn_refusals import TurnRefusalState, TurnRefusedError
@@ -26,7 +18,6 @@ from app.services.workflow_routing.platform_selection import (
     platform_workflow_selection_resolution,
 )
 from app.services.workflow_runs.seeding import phased_seeds
-from tests.run_capability_support import DECLARED_CHANGE_RUN
 
 SONNET = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 NOVA = "amazon.nova-2-lite-v1:0"
@@ -180,95 +171,5 @@ def test_the_coding_workflows_declare_their_model_capability():
     assert platform["workflow_contract"]["required_model_capability"] == "coding"
 
 
-def test_iteration_routing_never_reorders_the_turns_runtimes(monkeypatch):
-    from app.agent.loops.request import _loop_request_routing
-
-    monkeypatch.setattr(_loop_request_routing, "coding_discipline_for_role", lambda **kwargs: "edit")
-    monkeypatch.setattr(_loop_request_routing, "reasoning_task_type_for_turn", lambda **kwargs: "code_generation")
-    monkeypatch.setattr(_loop_request_routing, "reasoning_stage_for_turn", lambda **kwargs: "execute")
-    runtimes = [{"model": SONNET}, {"model": NOVA}]
-    routing = prepare_runtime_routing(
-        runtimes=runtimes,
-        capability_type="change",
-        context_plan=None,
-        request_analysis={},
-        current_step=None,
-        current_step_for_runtime=None,
-        step_tool_history=[{"tool_name": "write_workspace_file", "success": True}],
-        _model_role_for_current_subtask=lambda **kwargs: "code_generation",
-    )
-    assert routing["current_runtimes"] == runtimes
-    assert routing["current_coding_discipline"] == "edit"
 
 
-@pytest.mark.asyncio
-async def test_a_follow_up_iteration_after_a_tool_result_keeps_the_turns_runtime(db, monkeypatch, tmp_path):
-    # After a tool result the "edit" discipline must not reroute the turn
-    # from its priority-1 runtime to a configured/benchmarked weak model.
-    admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
-    project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
-    (tmp_path / "calculator.py").write_text("def divide(a, b):\n    return a / b\n", encoding="utf-8")
-    session = Session(
-        id=str(uuid.uuid4()),
-        user_id=admin.id,
-        project_id=project.id,
-        agent_type="coding",
-        status="running",
-        metadata_={**DECLARED_CHANGE_RUN, "workspace_root": str(tmp_path)},
-    )
-    db.add(session)
-    await db.commit()
-
-    runtimes = [
-        {"provider_name": "bedrock", "model": SONNET, "priority": 1},
-        {"provider_name": "bedrock", "model": NOVA, "priority": 2},
-    ]
-    responses = [
-        {
-            "content": "",
-            "tool_calls": [
-                {
-                    "id": "write",
-                    "function": {
-                        "name": "write_workspace_file",
-                        "arguments": json.dumps({"path": "calculator.py", "content": "def divide(a, b):\n    return a / b\n"}),
-                    },
-                }
-            ],
-            "model": SONNET,
-            "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
-        },
-        {"content": "Done.", "tool_calls": None, "model": SONNET, "usage": {"prompt_tokens": 5, "completion_tokens": 1}},
-    ]
-    first_models: list[str] = []
-
-    async def fake_runtimes(_db, runtime_target_id=None):
-        return runtimes
-
-    async def fake_chat(*, runtimes, messages, tools, max_tokens=4096, reasoning_effort=None):
-        first_models.append(runtimes[0]["model"])
-        return (responses.pop(0) if responses else responses_done()), runtimes[0]
-
-    def responses_done():
-        return {"content": "Done.", "tool_calls": None, "model": SONNET, "usage": {}}
-
-    async def settings_with_discipline_models(_db):
-        # An admin-configured weak edit model must not reroute any "edit" iteration.
-        return {"edit_model": NOVA, "test_fix_model": NOVA, "discipline_routing_mode": "manual_first"}
-
-    monkeypatch.setattr(engine_module, "resolve_control_plane_runtimes", fake_runtimes)
-    monkeypatch.setattr(engine_module, "_chat_with_runtime_fallback", fake_chat)
-    monkeypatch.setattr(run_context_module, "get_agent_runtime_settings", settings_with_discipline_models)
-
-    async for _event in run_agent(
-        session_id=session.id,
-        user_message="Change divide in calculator.py.",
-        user_id=admin.id,
-        project_id=project.id,
-        agent_type="coding",
-        db=db,
-    ):
-        pass
-
-    assert len(first_models) >= 2, "the turn must iterate after the tool result"
-    assert set(first_models) == {SONNET}

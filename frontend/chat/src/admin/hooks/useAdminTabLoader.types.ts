@@ -2,8 +2,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { AdminAgentMode, PanelAgent } from "../types/adminPanelTypes.agents";
 import type { AdminChannelRow as AdminChannel } from "../components/channelTypes";
 import type { AdminConnector, AdminDatabaseConnector, AdminDatabaseTool, AdminModel, AdminProvider, AdminToolCatalogEntry, AdminUser } from "../types/adminPanelTypes.usersProviders";
-import type { AdminCorpIdentityListResponse, AdminRuntime, AdminRuntimeSettings, AdminToolResultCompressor, AdminToolResultCompressionLog } from "../types/adminPanelTypes.runtimeCorp";
-import type { AdminScenarioProfile } from "../types/adminPanelTypes.governance";
+import type { AdminCorpIdentityListResponse, AdminRuntime, AdminRuntimeSettings } from "../types/adminPanelTypes.runtimeCorp";
 import type { MCPCatalogEntry, MCPServer } from "../components/mcpTypes";
 import type {
   AdminChannelDeliveryLogRow as AdminChannelDeliveryLog,
@@ -61,8 +60,6 @@ export type UseAdminTabLoaderArgs = {
   readJson: ReadJsonFn;
   setLoadingTab: Dispatch<SetStateAction<boolean>>;
   setTabError: Dispatch<SetStateAction<string | null>>;
-  loadLocalBootstrapState: () => Promise<void>;
-  loadSetupGuide: () => Promise<void>;
   setUsers: Dispatch<SetStateAction<AdminUser[]>>;
   setAdminProjects: Dispatch<SetStateAction<AdminProjectQuality[]>>;
   setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
@@ -71,29 +68,10 @@ export type UseAdminTabLoaderArgs = {
   setDatabaseConnectors: Dispatch<SetStateAction<AdminDatabaseConnector[]>>;
   setDatabaseTools: Dispatch<SetStateAction<AdminDatabaseTool[]>>;
   setDatabaseToolForm: Dispatch<SetStateAction<DatabaseToolFormPayload>>;
-  setScenarioProfiles: Dispatch<SetStateAction<AdminScenarioProfile[]>>;
   refreshAgentsPanel: () => Promise<void>;
   providers: AdminProvider[];
   setRuntimes: Dispatch<SetStateAction<AdminRuntime[]>>;
   setRuntimeSettings: Dispatch<SetStateAction<AdminRuntimeSettings>>;
-  setToolResultCompressors: Dispatch<
-    SetStateAction<AdminToolResultCompressor[]>
-  >;
-  setToolResultCompressionLogs: Dispatch<
-    SetStateAction<AdminToolResultCompressionLog[]>
-  >;
-  setToolResultCompressorDrafts: Dispatch<
-    SetStateAction<
-      Record<
-        string,
-        {
-          strategy: string;
-          config: Record<string, unknown>;
-          is_active: boolean;
-        }
-      >
-    >
-  >;
   setRuntimeGlobalOutputDraft: Dispatch<SetStateAction<string>>;
   setRuntimeDefaultModelDraft: Dispatch<SetStateAction<string>>;
   setRuntimeAuthOidcOnlyDraft: Dispatch<SetStateAction<boolean>>;
@@ -124,8 +102,6 @@ export type UseAdminTabLoaderArgs = {
   setRuntimeLlmSecurityReviewThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeLlmSecurityDenyThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSecurityAnalyzerChainDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeDefaultCompletionDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeExtendedCompletionDraft: Dispatch<SetStateAction<string>>;
   setRuntimeApproxCharsDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxStringDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxListDraft: Dispatch<SetStateAction<string>>;
@@ -134,11 +110,6 @@ export type UseAdminTabLoaderArgs = {
   setRuntimeRequestTimeoutDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSessionCostLimitDraft: Dispatch<SetStateAction<string>>;
   setRuntimeRequestCostLimitDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolsCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTraceCallEnabled: Dispatch<SetStateAction<boolean>>;
-  setRuntimeToolPlannerMaxTokensDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTimeoutDraft: Dispatch<SetStateAction<string>>;
   tasks: PanelTaskRow[];
   setSchedulers: Dispatch<SetStateAction<PanelScheduler[]>>;
   setTasks: Dispatch<SetStateAction<PanelTaskRow[]>>;

@@ -16,7 +16,6 @@ CONFIRM = "/api/v1/mobile/pairings/{}/confirm"
 
 
 async def _mac_headers(db, user, *, scopes=None) -> dict[str, str]:
-    """The Mac's octryx-claude login, tied to a live web login (as an interactive login is)."""
     from app.models import RefreshToken
     from app.services.agent_gateway.contract import GATEWAY_AUDIENCE
     from app.services.oauth_provider import mint_access_token
@@ -39,7 +38,6 @@ async def _mac_headers(db, user, *, scopes=None) -> dict[str, str]:
 
 
 def _browser(user) -> dict[str, str]:
-    """The person's signed-in browser on the Mac: the web session cookie (and the harness's same-origin header)."""
     from app.services.auth import create_access_token
 
     return {"cookie": f"access_token={create_access_token(user.id)}"}
@@ -60,7 +58,6 @@ def _cookie_header(response) -> str:
 
 
 async def _paired_phone(client, db, username: str = "mobile-owner"):
-    """A user, their Mac login headers and a fully paired phone's cookies."""
     user = await user_named(db, username)
     mac = await _mac_headers(db, user)
     created = await client.post(PAIRINGS, headers=mac)

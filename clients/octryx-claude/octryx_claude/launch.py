@@ -1,10 +1,5 @@
 """The launcher: one governed Claude Code session through Octryx.
-
-Everything is per session: the model env and headers here, the generated settings and MCP config
-(``launch_settings``), the OS sandbox (``launch_sandbox``) and the process argv and environment lists
-(``launch_process``). ``CLAUDE_CONFIG_DIR`` points at the octryx state, so ``~/.claude`` and plain ``claude``
-are never touched.
-"""
+``CLAUDE_CONFIG_DIR`` points at the octryx state, so ``~/.claude`` and plain ``claude`` are never touched."""
 
 from __future__ import annotations
 
@@ -57,7 +52,6 @@ API_KEY_HELPER_TTL_MS = 10 * 60 * 1000
 
 def custom_headers(session_key: str, workspace_id: str, work_item: str, seat_credential: str = "",
                    workflow_run: str = "") -> str:
-    """``ANTHROPIC_CUSTOM_HEADERS``: newline-separated ``Name: value`` pairs."""
     lines = [f"{HEADER_SESSION}: {session_key}", f"{HEADER_WORKSPACE}: {workspace_id}"]
     if work_item:
         lines.append(f"{HEADER_WORK_ITEM}: {work_item}")
@@ -69,13 +63,11 @@ def custom_headers(session_key: str, workspace_id: str, work_item: str, seat_cre
 
 
 def valid_seat_credential(value: object) -> bool:
-    """A credential as the platform mints it (URL-safe base64); anything else is never put into a header."""
     return isinstance(value, str) and bool(_SEAT_CREDENTIAL.match(value))
 
 
 def model_env(*, base_url: str, session_key: str, workspace_id: str, work_item: str,
               aliases: Mapping[str, str], seat_credential: str = "", workflow_run: str = "") -> dict[str, str]:
-    """The model env of the child. With ``seat_credential`` the session runs the ``seat`` profile."""
     main = str(aliases.get("main") or DEFAULT_ALIASES["main"])
     small = str(aliases.get("small_fast") or DEFAULT_ALIASES["small_fast"])
     opus = str(aliases.get("opus") or DEFAULT_ALIASES["opus"])
@@ -109,8 +101,6 @@ def model_env(*, base_url: str, session_key: str, workspace_id: str, work_item: 
 
 
 def run_attribution(model: str, contract: Mapping[str, Any] | None) -> dict[str, str]:
-    """Claude Code's commit attribution for a workflow run's session: the AI-output trailers (EU AI Act Art. 50(2),
-    ) instead of Claude Code's own; pull requests are written by the platform, which marks them."""
     run = dict((contract or {}).get("run") or {}) if isinstance((contract or {}).get("run"), Mapping) else {}
     key = re.sub(r"[^A-Za-z0-9._-]", "", str(run.get("ticket_key") or run.get("id") or ""))[:40]
     name = re.sub(r"[^A-Za-z0-9._:/-]", "", str(model or "unknown"))[:80] or "unknown"

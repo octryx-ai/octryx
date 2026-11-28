@@ -22,8 +22,6 @@ ScriptGenerator = Callable[..., str]
 
 @dataclass(frozen=True)
 class DeckTarget:
-    """The deck to build and the full template whose example slides it clones."""
-
     resolved: Path
     source_potx: Path
     orig_slides: int
@@ -31,8 +29,6 @@ class DeckTarget:
 
 @dataclass(frozen=True)
 class DeckBuild:
-    """One finished build: the script, the slides it was built from and their layout check."""
-
     script_path: Path
     clone_order: list[int]
     slides: list[dict[str, Any]]
@@ -42,7 +38,6 @@ class DeckBuild:
 
 
 def parse_slides_param(params: dict) -> tuple[dict[str, Any] | None, list[Any]]:
-    """``(error, slides)``; slides may arrive as a JSON string (LLMs sometimes pass structured params as strings)."""
     slides = params.get("slides")
     if isinstance(slides, str):
         try:
@@ -55,7 +50,6 @@ def parse_slides_param(params: dict) -> tuple[dict[str, Any] | None, list[Any]]:
 
 
 def source_potx_for(detail: dict[str, Any], template_path: Path) -> Path:
-    """The full source POTX of the profile, else the resolved template itself."""
     profile_root = str(detail.get("profile_root") or "").strip()
     source_potx: Path | None = None
     if profile_root:
@@ -70,7 +64,6 @@ def source_potx_for(detail: dict[str, Any], template_path: Path) -> Path:
 async def _run_script(
     generate: ScriptGenerator, target: DeckTarget, slide_specs: list[dict[str, Any]]
 ) -> tuple[dict[str, Any] | None, Path, list[int], str, str]:
-    """Generate, write and run one build script: ``(failure, script_path, clone_order, stdout, stderr)``."""
     clone_order: list[int] = []
     for slide in slide_specs:
         if not isinstance(slide, dict):
@@ -95,7 +88,6 @@ async def _run_script(
 async def build_deck(
     generate: ScriptGenerator, target: DeckTarget, checked_slides: list[dict[str, Any]]
 ) -> tuple[dict[str, Any] | None, DeckBuild | None]:
-    """Build once; when text overflows, rebuild once from more aggressively shortened slides."""
     failure, script_path, clone_order, stdout_text, stderr_text = await _run_script(generate, target, checked_slides)
     if failure:
         return failure, None

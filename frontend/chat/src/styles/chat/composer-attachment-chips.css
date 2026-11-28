@@ -29,7 +29,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -52,11 +52,11 @@
   align-items: center;
   justify-content: center;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-hover);
   color: var(--text);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .composer-attachments__list {
@@ -74,11 +74,6 @@
   border-radius: var(--ds-radius-xl);
   border: 1px solid var(--border);
   background: var(--surface-overlay-strong);
-}
-
-.composer-attachment-chip--status {
-  color: var(--muted);
-  font-size: var(--ds-text-sm);
 }
 
 .composer-attachment-chip__icon {
@@ -120,22 +115,17 @@
   white-space: nowrap;
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
-}
-
-.composer-attachment-chip__label small {
-  color: var(--muted);
-  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-strong);
 }
 
 .composer-attachment-chip__remove {
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   line-height: 1;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   padding: 0.5rem 0.5rem;
 }
 

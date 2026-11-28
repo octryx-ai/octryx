@@ -1,5 +1,3 @@
-"""S4: the Stop-hook handoff nudge (once per change, never a loop) and the takeover-decision guard."""
-
 from __future__ import annotations
 
 import io
@@ -102,7 +100,6 @@ def test_a_bash_call_to_a_takeover_decision_is_denied_locally(state, monkeypatch
 
 
 def test_an_offer_nudges_once_with_its_own_line():
-    """judge-s4 F1: an offered agent is told once; it decides itself whether to request the item."""
     offer = _verified([{"work_item_key": "BRD-6", "marker": "offer:c1:2026-10-06T10:00:00Z", "kind": "offer"},
                        {"work_item_key": "BRD-7", "marker": "c2:-:0", "kind": "update"}])
     output, nudged = board_hints.with_handoff_nudge(None, offer, nudged=[])
@@ -110,3 +107,18 @@ def test_an_offer_nudges_once_with_its_own_line():
         ["BRD-6"])}
     assert "work_item_takeover_request" in board_hints.offer_line(["BRD-6"])
     assert board_hints.with_handoff_nudge(None, offer, nudged=nudged) == (None, nudged)
+
+
+def test_under_the_codex_guard_a_platform_allow_is_stated(state, monkeypatch, capsys):
+    monkeypatch.setenv("OCTRYX_BASE_URL", BASE_URL)
+    monkeypatch.setenv("OCTRYX_SESSION_KEY", KEY)
+    monkeypatch.setenv("OCTRYX_WORKSPACE_ID", "ws-1")
+    monkeypatch.setattr(pre_tool_use_hook, "call_control_plane", lambda *args, **kwargs:
+                        PlatformResult("ok", body={"decision": "allow"}, status_code=200))
+    hook_input = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_input": {"command": "git status"}}
+    for guarded, expected in (("", ""), ("1", "allow")):
+        monkeypatch.setenv("OCTRYX_CODEX_GUARDED", guarded)
+        monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode())))
+        assert pre_tool_use_hook.run_pre_tool_use(state, httpx.Client()) == 0
+        out = capsys.readouterr().out
+        assert (json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else "") == expected

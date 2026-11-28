@@ -11,8 +11,11 @@ from app.services.workflow_runs.specification.lineage import resolve_spec_snapsh
 from app.tools.context import ToolContext
 from app.tools.specification_outputs import SubmitResearchBriefTool
 from tests.phased_workflow_fixtures import publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_definition_support import specification_definition
 from tests.specification_producer_support import producer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio

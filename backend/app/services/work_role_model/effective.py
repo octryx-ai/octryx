@@ -1,12 +1,4 @@
-"""The effective permission of one person in one Workspace: the union of every work role that applies to them.
-
-A role applies through an active assignment in the Workspace to the person, to an active platform identity group they
-belong to, or to an SSO group / SSO role claim value of their last sign-in (read from the identity provider at every
-sign-in, ``oidc.service``; who is in an SSO group stays in the identity provider).
-
-The grant is computed once per request (chat turn, MCP listing/call, decision) and checked synchronously afterwards
-(``grant_checks``). Nothing here narrows anything while the Workspace switch ``role_based_tools`` is off.
-"""
+"""The effective permission of one person in one Workspace: the union of every work role that applies to them."""
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -45,8 +37,6 @@ class HeldRole:
 
 @dataclass(frozen=True)
 class SubjectFacts:
-    """What assignments can match for one person: their id, platform groups and SSO claim values per provider."""
-
     user_id: str
     group_ids: frozenset[str] = frozenset()
     sso_groups: frozenset[tuple[str, str]] = frozenset()  # (provider_id, value)
@@ -64,7 +54,6 @@ class WorkRoleGrant:
 
     @property
     def unrestricted(self) -> bool:
-        """Switch off, or a platform admin (platform admins keep their access)."""
         return not self.enforced or self.platform_admin
 
     @property
@@ -81,7 +70,6 @@ class WorkRoleGrant:
 
     @property
     def write_connections(self) -> frozenset[str] | None:
-        """``None``: every connection; else the union of the delivery roles' selected connections."""
         if self.unrestricted or any(role.delivery_connections == DELIVERY_ALL for role in self.roles):
             return None
         return frozenset(cid for role in self.roles for cid in role.connection_ids)
@@ -124,7 +112,6 @@ def _values(raw: object) -> list[str]:
 
 
 async def subject_facts(db: AsyncSession, user_ids: Iterable[str]) -> dict[str, SubjectFacts]:
-    """Facts for many people in two queries (decider resolution reads a whole Workspace)."""
     ids = sorted(set(user_ids))
     if not ids:
         return {}
@@ -213,14 +200,12 @@ def _held_for(facts: SubjectFacts, assignments: list[WorkRoleAssignment], roles:
 
 async def held_roles_by_user(db: AsyncSession, workspace_id: str, user_ids: Iterable[str]
                              ) -> dict[str, tuple[HeldRole, ...]]:
-    """The roles each of ``user_ids`` holds in the Workspace (ignores the switch: deciders, admin preview)."""
     assignments, roles = await _workspace_roles(db, workspace_id)
     facts = await subject_facts(db, user_ids)
     return {uid: _held_for(item, assignments, roles) for uid, item in facts.items()}
 
 
 async def effective_permission(db: AsyncSession, user_id: str | None, workspace_id: str | None) -> WorkRoleGrant:
-    """The person's grant in the Workspace. Without a Workspace or user nothing is narrowed."""
     if not user_id or not workspace_id:
         return WorkRoleGrant(workspace_id=workspace_id, user_id=user_id)
     from ..admin.governance.admin_access_service import is_global_admin
@@ -234,9 +219,6 @@ async def effective_permission(db: AsyncSession, user_id: str | None, workspace_
 
 async def members_with(db: AsyncSession, workspace_id: str | None, *, role_key: str | None = None,
                        function_key: str | None = None, user_ids: Iterable[str]) -> tuple[str, ...]:
-    """Who among ``user_ids`` holds the role key or the function in the Workspace (``role:``/``function:`` deciders).
-
-    The switch does not matter here: a decider policy is authored explicitly."""
     if not workspace_id:
         return ()
     held = await held_roles_by_user(db, workspace_id, user_ids)

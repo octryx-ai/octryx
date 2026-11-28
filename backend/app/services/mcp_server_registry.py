@@ -1,9 +1,4 @@
-"""Workspace-scoped MCP server registry and governed connection lifecycle.
-
-This module holds the scoped lookup, the audit record and the readiness check; registration writes live in
-``mcp_server_registry_writes``, connect/disconnect/delete in ``mcp_server_registry_connections`` and the listings in
-``mcp_server_registry_queries``.
-"""
+"""Workspace-scoped MCP server registry and governed connection lifecycle."""
 
 from __future__ import annotations
 
@@ -27,8 +22,9 @@ from ..models.security.compliance_audit import (
 from ..plugins.mcp.models import MCPServerConfig
 from .compliance_audit.service import create_audit_record
 from .mcp_access_policy import mcp_server_access_decision
+from .mcp_audit_vocabulary import READINESS_MISSING_SECRET, READINESS_SERVER_INACTIVE, RESOURCE_TYPE
 from .mcp_capability_decisions import decide_mcp_capability
-from .mcp_capability_policy import load_mcp_capability_index, normalized_mcp_server_name
+from .mcp_governance.capability_policy import load_mcp_capability_index, normalized_mcp_server_name
 from .mcp_server_registry_config import resolved_runtime_config
 
 _OWNER_SCOPES = {MCP_OWNER_PLATFORM, MCP_OWNER_WORKSPACE}
@@ -95,7 +91,7 @@ async def get_scoped_registration(
     name: str,
     workspace_id: str,
 ) -> McpServerRegistration:
-    """Return only registrations visible to this Workspace, hiding cross-Workspace rows."""
+    # Cross-Workspace rows are hidden.
     await _require_workspace(db, workspace_id)
     registration = (await db.execute(_registration_query(name, workspace_id))).scalars().first()
     if registration is None:
@@ -116,7 +112,7 @@ async def _audit_change(
         db,
         event_type=event_type,
         outcome=outcome,
-        resource_type="mcp_server_registration",
+        resource_type=RESOURCE_TYPE,
         resource_id=registration.id,
         resource_name=registration.name,
         actor_user_id=actor_user_id,
@@ -144,11 +140,7 @@ async def get_registration_by_id(db: AsyncSession, registration_id: str) -> McpS
 
 
 async def _server_capability_state(db: AsyncSession, *, workspace_id: str, server_name: str) -> str:
-    """Whether any of the server's tools is usable here; informational, it never blocks a connection.
-
-    A connection lists the server's catalog so an admin can mirror and enable its tools; every tool call is
-    still decided per capability (``mcp_capability_decisions``), and an unbound tool is denied.
-    """
+    # Informational, never blocks a connection: every tool call is still decided per capability.
     index = await load_mcp_capability_index(db, workspace_id=workspace_id)
     normalized = normalized_mcp_server_name(server_name)
     for (server, tool_name), _capability in index.capabilities.items():
@@ -167,12 +159,12 @@ async def mcp_server_readiness(
     registration = await get_scoped_registration(db, name=name, workspace_id=workspace_id)
     workspace = await _require_workspace(db, workspace_id)
     if not registration.is_active:
-        return registration, McpServerReadiness(False, "server_inactive", "not_evaluated")
+        return registration, McpServerReadiness(False, READINESS_SERVER_INACTIVE, "not_evaluated")
     access = mcp_server_access_decision(registration.name, workspace.config)
     if not access.allowed:
         return registration, McpServerReadiness(False, access.reason, "not_evaluated")
     capability_state = await _server_capability_state(db, workspace_id=workspace_id, server_name=registration.name)
     config = await resolved_runtime_config(db, registration=registration, catalog=catalog)
     if config is None:
-        return registration, McpServerReadiness(False, "missing_or_invalid_secret_reference", capability_state)
+        return registration, McpServerReadiness(False, READINESS_MISSING_SECRET, capability_state)
     return registration, McpServerReadiness(True, "ready", capability_state, config)

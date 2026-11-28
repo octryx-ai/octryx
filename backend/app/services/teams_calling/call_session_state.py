@@ -1,16 +1,5 @@
 # ruff: noqa: E501
-"""In-memory state for active Teams calls and its database persistence.
-
-Single owner of the module-level mutable state shared across the Teams
-calling pipeline:
-  - ``_call_states``: per-call transcript and chat-session state
-  - ``_temp_audio``: TTS audio blobs served to Graph API playPrompt
-  - ``_playback_locks``: events used to suppress recording restarts while
-    the bot is speaking
-
-Also owns the lifecycle of the chat ``Session`` that backs each call
-(create on first agent turn, close with transcript metadata on hangup).
-"""
+"""In-memory state for active Teams calls and its database persistence."""
 
 from __future__ import annotations
 
@@ -39,24 +28,14 @@ _playback_locks: dict[str, asyncio.Event] = {}
 
 
 def get_temp_audio(file_id: str) -> bytes | None:
-    """Return a stored TTS audio blob, or None if unknown."""
     return _temp_audio.get(file_id)
 
 
 def is_bot_speaking(call_id: str) -> bool:
-    """Check if the bot is currently playing back audio for this call.
-
-    Used by TeamsPlugin to suppress auto-recording restart during TTS playback.
-    """
     return call_id in _playback_locks
 
 
 def signal_playback_done(call_id: str) -> None:
-    """Signal that playback has completed for this call.
-
-    Called by the playPromptOperation-completed notification handler
-    to wake up the worker waiting for playback to finish.
-    """
     evt = _playback_locks.get(call_id)
     if evt and not evt.is_set():
         evt.set()
@@ -67,8 +46,6 @@ def signal_playback_done(call_id: str) -> None:
 
 @dataclass
 class TranscriptSegment:
-    """A single transcript segment from the call."""
-
     start_ms: int
     end_ms: int
     speaker_label: str  # "SPEAKER_00", "SPEAKER_01", "BOT", etc.
@@ -80,8 +57,6 @@ class TranscriptSegment:
 
 @dataclass
 class CallSessionState:
-    """In-memory state for an active call."""
-
     call_id: str
     project_id: str | None
     channel_id: str | None
@@ -92,7 +67,6 @@ class CallSessionState:
 
     @property
     def transcript_text(self) -> str:
-        """Get formatted transcript for LLM context."""
         if not self.segments:
             return ""
         lines = []
@@ -105,7 +79,6 @@ class CallSessionState:
     def add_user_segment(
         self, text: str, duration_ms: int, speaker_name: str | None = None, speaker_source: str = ""
     ) -> None:
-        """Add a user transcript segment."""
         self.segments.append(
             TranscriptSegment(
                 start_ms=self.audio_ms_offset,
@@ -119,7 +92,6 @@ class CallSessionState:
         self.audio_ms_offset += duration_ms
 
     def add_bot_segment(self, text: str) -> None:
-        """Add a bot response segment (duration unknown, use 0)."""
         if self.segments:
             last_end = self.segments[-1].end_ms
         else:
@@ -139,7 +111,6 @@ _call_states: dict[str, CallSessionState] = {}
 
 
 def get_call_state(call_id: str) -> CallSessionState:
-    """Get or create call state."""
     if call_id not in _call_states:
         _call_states[call_id] = CallSessionState(
             call_id=call_id,
@@ -151,14 +122,11 @@ def get_call_state(call_id: str) -> CallSessionState:
 
 
 def cleanup_call_state(call_id: str) -> CallSessionState | None:
-    """Remove and return call state (on disconnect)."""
     return _call_states.pop(call_id, None)
 
 
 @dataclass(frozen=True, slots=True)
 class CallDbSession:
-    """The call's chat session id, or the refusal ``state`` (then no agent turn runs)."""
-
     session_id: str | None
     state: str | None = None
 
@@ -171,11 +139,6 @@ async def ensure_call_db_session(
     *,
     caller_id: str | None,
 ) -> CallDbSession:
-    """Get or create the chat Session that backs this Teams call.
-
-    Its owner is resolved like a channel chat sender (``call_owner.py``): the mapped caller,
-    else the channel's service user, else a refusal (``channel_service_user_not_configured``).
-    """
     state = get_call_state(call_id)
     if state.db_session_id:
         return CallDbSession(state.db_session_id)
@@ -214,7 +177,6 @@ async def add_call_message(
     content: str,
     db: AsyncSession,
 ) -> None:
-    """Append a message to the call's chat session."""
     msg = Message(
         id=str(uuid.uuid4()),
         session_id=session_id,
@@ -226,7 +188,6 @@ async def add_call_message(
 
 
 async def close_call_db_session(call_id: str, error: str | None = None) -> None:
-    """Mark the chat session for this call as completed/failed. Generate meeting summary."""
     import sys as _sys
 
     state = _call_states.get(call_id)

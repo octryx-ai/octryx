@@ -38,7 +38,6 @@ _ROLE_LAYOUTS = {
 
 
 def _cap(size: int, aggressive: bool) -> int:
-    """A text length limit, shortened by a fifth for the aggressive retry (never below 10)."""
     multiplier = 0.8 if aggressive else 1.0
     return max(10, int(size * multiplier))
 
@@ -85,7 +84,6 @@ def _normalize_quote_slide(slide: dict[str, Any], normalized: dict[str, Any], ag
 
 
 def _titled_visual_slide(slide: dict[str, Any], normalized: dict[str, Any], aggressive: bool) -> None:
-    """Title and optional subtitle shared by chart, table and process flow slides."""
     normalized["title"] = _truncate_presentation_text(slide.get("title"), max_len=_cap(30, aggressive))
     subtitle = _truncate_presentation_text(slide.get("subtitle"), max_len=_cap(42, aggressive))
     if subtitle:

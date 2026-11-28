@@ -11,8 +11,6 @@ from ._jira_helpers_resolver import DEFAULT_JIRA_ISSUE_TYPE
 
 @dataclass(frozen=True)
 class NewTicket:
-    """A ticket to create, read from the tool parameters."""
-
     project_key: str
     summary: str
     issue_type: str

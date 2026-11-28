@@ -1,5 +1,5 @@
 // Settings → Security → Tool & approval policies. Pure: reads
-// `/api/v1/admin/tool-approvals` (backend services/tool_approval_policy.py) and words the rules.
+// `/api/v1/admin/tool-approvals` (backend services/tool_approval/policy.py) and words the rules.
 
 // `unattended_allowed_tools`: tools a run no person started may use to write without an approval; the platform
 // default's alone (a Workspace never stores one).

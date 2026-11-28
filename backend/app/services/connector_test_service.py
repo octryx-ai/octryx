@@ -162,7 +162,6 @@ SESSION_CONNECTOR_TESTS = frozenset({"kubernetes", "aws", "azure", "gcp"})
 async def run_connector_connection_test(
     tool_name: str, config: dict[str, Any], *, db: AsyncSession | None = None, scope_check: bool = False
 ) -> dict[str, Any]:
-    """The connector's test; ``scope_check`` (admin tests only): configured versus visible keys."""
     handler = CONNECTOR_TESTS.get(tool_name)
     if handler is None:
         # Explicit "no test available": recorded as health ``no_test``, never a breaker failure.

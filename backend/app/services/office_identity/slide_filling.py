@@ -1,10 +1,4 @@
-"""Fill one slide of a composed deck from its template layout.
-
-Text lands in placeholders addressed by their ``idx``; pictures are fitted
-into picture placeholders without distortion, inset to the safe area or the
-template gutter where the slot would otherwise cover brand furniture or touch
-the slide edge.
-"""
+"""Fill one slide of a composed deck from its template layout."""
 
 from __future__ import annotations
 
@@ -16,12 +10,6 @@ from .picture_safe_area import gutter_inset, safe_picture_rect
 
 
 def drop_sample_slides(presentation: Any) -> int:
-    """Remove the template's own slides *with* their relationships.
-
-    Removing only the ``sldId`` entry leaves the slide parts orphaned; the
-    package then serialises duplicate zip entries and LibreOffice stalls on the
-    result. Dropping the relationship first is what makes the output loadable.
-    """
     slide_id_list = presentation.slides._sldIdLst
     removed = 0
     for slide_id in list(slide_id_list):
@@ -52,7 +40,6 @@ def _ordered_slots(layout: dict[str, Any], role: str) -> list[dict[str, Any]]:
 
 
 def _content_columns(layout: dict[str, Any]) -> list[list[dict[str, Any]]]:
-    """Group content slots into columns, top-to-bottom within each column."""
     slots = _ordered_slots(layout, "content")
     paired = int((layout.get("capacity") or {}).get("paired_columns") or 0)
     if paired < 2:
@@ -82,17 +69,6 @@ def _insert_picture(
     fit_mode: str,
     frame_override: dict[str, int] | None = None,
 ) -> None:
-    """Place an image in a picture placeholder without ever distorting it.
-
-    ``cover`` keeps python-pptx's center-crop (fills the slot, trims overflow).
-    ``contain`` — the default, and the right mode for diagrams that must stay
-    complete — scales the image to fit inside the frame and centres it there.
-
-    ``frame_override`` is the safe area of a full-bleed slot: the picture is
-    then fitted into that rectangle instead of the slide-sized slot, so the
-    title band and the chrome row stay visible. It always implies ``contain``;
-    the point of the inset is that nothing gets cropped away.
-    """
     if frame_override is not None:
         frame = (
             frame_override["x_emu"],

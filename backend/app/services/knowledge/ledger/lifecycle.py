@@ -1,19 +1,5 @@
-"""Revision lifecycle of a Knowledge source: which revision it says, and which one is served.
-
-A source's head carries two pointers:
-
-- ``wanted`` follows the latest upload: a new revision, or the exact bytes of an earlier one
-  again. It is null once the source is tombstoned.
-- ``current`` is the one ``projected`` revision, which default retrieval serves.
-
-Projection settles the difference. When a revision's projection completes, it becomes current
-only if it is still wanted; the previous current revision, or the finished one when it is no
-longer wanted, is superseded or tombstoned, and a ``retire_revision`` obligation removes its
-spans from the Workspace database. The ledger keeps every revision and span as history.
-
-Every function here runs inside the caller's transaction and never commits. The head row is
-read ``FOR UPDATE`` on PostgreSQL, so two projections of one source settle one after the other.
-"""
+"""Revision lifecycle of a Knowledge source: which revision it says, and which one is served. Runs in the caller's
+transaction and never commits."""
 
 from __future__ import annotations
 
@@ -35,8 +21,6 @@ from ....models.project.knowledge_evidence import (
 from ....time_utils import utc_now
 from ..access.authorization import AuthorizedWorkspace
 from .errors import EvidenceLedgerContractError, EvidenceRecordNotFoundError
-
-# The outbox obligations live in their own module; callers keep importing them from here.
 from .obligations import _ensure_obligation, _reopen, ensure_retirement
 
 REMOVE_SOURCE_AUDIT_ACTION = "knowledge.source.remove"
@@ -46,7 +30,6 @@ _RETIRED_STATES = frozenset({REVISION_STATE_SUPERSEDED, REVISION_STATE_TOMBSTONE
 
 
 async def _revision(db: AsyncSession, project_id: str, revision_id: str) -> tuple[str, str]:
-    """``(source_id, state)`` of one revision of this Workspace."""
     row = (
         await db.execute(
             select(KnowledgeSourceRevision.source_id, KnowledgeSourceRevision.state).where(
@@ -74,8 +57,6 @@ async def _set_state(db: AsyncSession, project_id: str, revision_id: str, state:
 
 
 async def load_head(db: AsyncSession, project_id: str, source_id: str) -> KnowledgeSourceHead:
-    """The source's head row, locked for this transaction. Every source gets its head with its first revision
-    (:func:`create_head`), so a missing head is a ledger contract violation."""
     head = (
         await db.execute(
             select(KnowledgeSourceHead)
@@ -89,19 +70,11 @@ async def load_head(db: AsyncSession, project_id: str, source_id: str) -> Knowle
 
 
 def create_head(db: AsyncSession, *, project_id: str, source_id: str, revision_id: str) -> None:
-    """The head of a source created in this very transaction: its first revision is what it says.
-
-    No lock and no savepoint: until this transaction commits, no other one can see the source.
-    """
+    # No lock and no savepoint: until this transaction commits, no other one can see the source.
     db.add(KnowledgeSourceHead(source_id=source_id, project_id=project_id, wanted_revision_id=revision_id))
 
 
 async def want_revision(db: AsyncSession, *, project_id: str, source_id: str, revision_id: str) -> None:
-    """The latest upload of the source is ``revision_id``: a new revision, or its exact bytes again.
-
-    A superseded or tombstoned revision is registered again and its projection reopened, so
-    re-uploading an earlier version, or a removed source, brings it back.
-    """
     head = await load_head(db, project_id, source_id)
     head.wanted_revision_id = revision_id
     _, state = await _revision(db, project_id, revision_id)
@@ -112,11 +85,6 @@ async def want_revision(db: AsyncSession, *, project_id: str, source_id: str, re
 
 
 async def settle_projection(db: AsyncSession, *, project_id: str, revision_id: str, embed: bool = False) -> str:
-    """The projection of ``revision_id`` has completed: decide what it is now, and return that state.
-
-    With ``embed`` (an embedding space is configured), a revision that becomes current also owes
-    its vectors; a superseded or tombstoned one never does.
-    """
     source_id, _ = await _revision(db, project_id, revision_id)
     head = await load_head(db, project_id, source_id)
     if head.wanted_revision_id != revision_id:
@@ -139,11 +107,6 @@ async def settle_projection(db: AsyncSession, *, project_id: str, revision_id: s
 
 
 async def tombstone_source(db: AsyncSession, *, project_id: str, source_id: str) -> int:
-    """Remove a source from the served Knowledge. Returns the number of revisions tombstoned.
-
-    Every revision is tombstoned and owes retirement, including one still being projected:
-    its completion settles to ``tombstoned`` as well, and retires what it wrote meanwhile.
-    """
     head = await load_head(db, project_id, source_id)
     head.wanted_revision_id = None
     head.current_revision_id = None
@@ -164,10 +127,7 @@ async def tombstone_source(db: AsyncSession, *, project_id: str, source_id: str)
 
 
 async def remove_source(db: AsyncSession, *, authorized: AuthorizedWorkspace, source_id: str, actor_id: str) -> int:
-    """Tombstone one source of this Workspace, audit it, and commit. Returns the revisions tombstoned.
-
-    A source of another Workspace is absent, not forbidden, so it cannot be probed.
-    """
+    # A source of another Workspace is absent, not forbidden, so it cannot be probed.
     if type(authorized) is not AuthorizedWorkspace or type(source_id) is not str:
         raise EvidenceLedgerContractError()
     owned = (
@@ -187,6 +147,7 @@ async def remove_source(db: AsyncSession, *, authorized: AuthorizedWorkspace, so
             action=REMOVE_SOURCE_AUDIT_ACTION,
             resource_type="knowledge_source",
             resource_id=source_id,
+            project_id=authorized.project_id,
             details={"workspace_id": authorized.project_id, "tombstoned_revisions": tombstoned},
         )
     )
@@ -200,12 +161,6 @@ EMBEDDING_BACKFILL_AUDIT_ACTION = "knowledge.embedding.backfill"
 async def backfill_embeddings(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, actor_id: str, space_key: str
 ) -> int:
-    """Owe vectors for every current revision of this Workspace, audit it, and commit.
-
-    For sources projected before an embedding space was configured, and after the Instance
-    switches space: each space has its own property, so this fills the configured one without
-    touching another. Completed obligations are reopened; pending ones are left alone.
-    """
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     current = (

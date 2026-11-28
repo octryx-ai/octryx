@@ -1,22 +1,4 @@
-"""Octryx is the authorization layer of a custom REST API.
-
-The API is reached with a technical account that may see more than the person asking, so the person's access is
-decided here, before every call, from server-owned context only (user, roles, Workspace; never a model argument):
-
-- a **grant** names an Octryx role (a platform role of the user, or a work role key the user holds in the
-  Workspace) and optionally one Workspace. No matching grant: no call (an operation without grants is offered to
-  nobody);
-- a grant may carry a **data scope**: fixed parameter values the executor injects (``assignment_group=X``) and an
-  optional result filter (``field`` must equal ``value``; other records are dropped and counted).
-
-Lesson from Acme Orders: a filter appended to query text is bypassable (``OR 1=1``). A scope here is a structured
-parameter value the model cannot remove or override: a call whose own argument contradicts the scope is refused,
-never silently rewritten, and the result filter runs on the parsed records, not on text.
-
-Writes carry their target in a JSON body as often as in a parameter (``POST /tickets`` with
-``{"assignment_group": ...}``), so a grant may also declare a **body scope**: dotted body paths and the value each
-must hold. The executor sets them last; a body that names another value there is refused like a parameter.
-"""
+"""Octryx is the authorization layer of a custom REST API."""
 
 from __future__ import annotations
 
@@ -35,11 +17,11 @@ FIELD_PATH_RE = re.compile(r"^[A-Za-z0-9_$@-]+(\.[A-Za-z0-9_$@-]+)*$")
 
 
 class NotGrantedError(PermissionError):
-    """No grant of the operation matches the caller; the message names the setting, never data."""
+    pass
 
 
 class ScopeError(PermissionError):
-    """The call's arguments contradict the caller's data scope, or several scopes fit and the call names none."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -60,8 +42,6 @@ class Grant:
 
 @dataclass(frozen=True)
 class AppliedScope:
-    """What the executor enforces for this call: injected parameters and the optional result filter."""
-
     role: str
     params: dict[str, Any] = field(default_factory=dict)
     result_filter: dict[str, Any] | None = None
@@ -82,7 +62,6 @@ _MISSING = object()
 
 
 def body_value(body: Any, path: str) -> Any:
-    """The value at a dotted ``path`` of a JSON body, or ``_MISSING``."""
     current = body
     for part in path.split("."):
         if not isinstance(current, dict) or part not in current:
@@ -92,7 +71,6 @@ def body_value(body: Any, path: str) -> Any:
 
 
 def with_body_scope(body: Any, body_scope: dict[str, Any]) -> dict[str, Any]:
-    """A copy of ``body`` with every scoped path set (intermediate objects created); the input is not changed."""
     result = json.loads(json.dumps(body if body is not None else {}, default=str))
     if not isinstance(result, dict):
         raise ScopeError("Your access to this operation fixes fields of the request body, so the body must be a JSON "
@@ -126,7 +104,6 @@ def _body_scope(raw: Any, *, has_body: bool) -> dict[str, Any]:
 
 
 def normalize_grants(raw: Any, *, declared: dict[str, Any], has_body: bool = False) -> list[dict[str, Any]]:
-    """The admin's grants, checked: a role, scope parameters the operation declares, scalar values only."""
     if raw in (None, ""):
         return []
     if not isinstance(raw, list):
@@ -174,11 +151,6 @@ def grants_of(operation: Any) -> list[Grant]:
 
 
 async def caller_roles(db: AsyncSession, context: Any, workspace_id: str | None) -> frozenset[str]:
-    """The caller's platform roles plus the work role keys they hold in the Workspace (lower case).
-
-    Work roles count whatever the Workspace's ``role_based_tools`` switch says: a grant is authored explicitly for
-    this operation, like a decider policy (``work_role_model.effective.held_roles_by_user``).
-    """
     acting = getattr(context, "acting_role", None)
     if acting:
         # A Work intake's sync runs as exactly the role the intake names, server-owned: its
@@ -202,7 +174,6 @@ def matching_grants(operation: Any, roles: frozenset[str], workspace_id: str | N
 
 
 def scope_choices(grants: list[Grant]) -> dict[str, list[Any]]:
-    """Per parameter every matching grant scopes: the values the caller may use (for the tool schema)."""
     if not grants or any(not grant.scope for grant in grants):
         return {}
     names = set.intersection(*(set(grant.scope) for grant in grants))
@@ -216,7 +187,6 @@ def _describe(grants: list[Grant]) -> str:
 
 
 def _fits(grant: Grant, arguments: dict[str, Any]) -> bool:
-    """The call names nothing outside the grant: no other parameter value, no other value at a scoped body path."""
     if not all(name not in arguments or arguments[name] == value for name, value in grant.scope.items()):
         return False
     body = arguments.get(BODY_PARAM)
@@ -224,7 +194,6 @@ def _fits(grant: Grant, arguments: dict[str, Any]) -> bool:
 
 
 def resolve_scope(grants: list[Grant], arguments: dict[str, Any]) -> AppliedScope:
-    """The scope this call runs in; refuses a contradiction and an ambiguity, never rewrites the model's value."""
     if not grants:
         raise NotGrantedError(
             "None of your roles is granted this operation. A platform admin can grant it (Connections › REST APIs › "

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from app.models import UserDevice
 from app.services.devices.job_events import apply_event
 from app.services.devices.job_offer import offer_body
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     TWO_PHASES,
     _confirm,
@@ -17,11 +18,11 @@ from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     _reenter,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 @pytest.mark.asyncio
 async def test_a_runs_own_turn_accepts_edits_unless_the_workspace_asks_before_each_edit(db):
-    """A run's 'Tests first' must not wait for a write approval nobody is there to give. The run's own turns
-    run in acceptEdits (the platform's hooks still decide every change); a Workspace may ask before each edit."""
     from app.services.agent_gateway.policy import load_workspace_policy
 
     admin, _device, thread, run = await _device_run(db)
@@ -53,8 +54,6 @@ async def test_a_runs_own_turn_accepts_edits_unless_the_workspace_asks_before_ea
 
 @pytest.mark.asyncio
 async def test_a_runs_own_turn_picks_the_phase_model_and_falls_back_when_not_admitted(db, monkeypatch):
-    """A tiny task must not run on the device default's large model. The run's own governed
-    turn picks the phase's / Workspace's model; a model the Workspace does not admit falls back to the default."""
     from app.models import WorkflowRunEvent
     from app.services.devices import device_models
 
@@ -84,16 +83,13 @@ async def test_a_runs_own_turn_picks_the_phase_model_and_falls_back_when_not_adm
 
 @pytest.mark.asyncio
 async def test_each_phase_pass_starts_a_fresh_claude_conversation(db):
-    """A run's device job must not resume one Claude Code session across all phases, which resends the earlier
-    phases' tokens with every call. A phase pass starts fresh (contract + repository are its context); a turn the
-    user types still resumes."""
     from app.services.devices.job_offer import offer_body
     from app.services.devices.jobs import start_turn
 
     admin, _device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
-    assert offer_body(job, limits={})["resume_session_id"] is None  # the phase's own turn
+    assert offer_body(job, limits={})["resume_session_id"] is None
     job.claude_session_id, job.status = "claude-earlier-phase", "idle"
     device = await db.get(UserDevice, job.device_id)
     own = await start_turn(db, owner_user_id=admin.id, device=device, session_id=thread.id,
@@ -108,8 +104,6 @@ async def test_each_phase_pass_starts_a_fresh_claude_conversation(db):
 
 @pytest.mark.asyncio
 async def test_another_pass_of_the_same_phase_resumes_its_session_and_a_new_phase_starts_fresh(db):
-    """A fresh Claude Code session per revision re-reads the contract, SPEC.md and the files each time. A revision of
-    the same phase continues its session with a short prompt naming what changed; another phase starts fresh."""
     admin, _device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -117,19 +111,18 @@ async def test_another_pass_of_the_same_phase_resumes_its_session_and_a_new_phas
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
 
     run.context = {**run.context, "po_answers": [{"text": "Use the blue button."}]}
-    await _reenter(db, run, "work")  # the product owner's answer sends the phase back while its turn still ends
+    await _reenter(db, run, "work")
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     assert job.status == "offered" and job.turn_count == 2
     assert offer_body(job, limits={})["resume_session_id"] == "claude-work-1"
     assert "continues in this session" in job.turn_prompt and "do not re-read" in job.turn_prompt
     assert "product owner answered" in job.turn_prompt
-    # Run 4: the answers travel in the prompt itself, not as a second fetch of the whole contract.
     assert "Use the blue button." in job.turn_prompt and "Call workflow_run_status once" not in job.turn_prompt
 
-    await _reenter(db, run, "work", runtime_step=True)  # a pipeline turn in between: fresh, no agent session
-    await _reenter(db, run, "work")  # red: back to the same phase
+    await _reenter(db, run, "work", runtime_step=True)
+    await _reenter(db, run, "work")
     await apply_event(db, job, "job_rejected", {"turn_id": job.turn_id, "reason": "pipeline_done"}, limits={})
-    assert offer_body(job, limits={})["resume_session_id"] == "claude-work-1"  # the phase's own session again
+    assert offer_body(job, limits={})["resume_session_id"] == "claude-work-1"
 
 
 @pytest.mark.asyncio

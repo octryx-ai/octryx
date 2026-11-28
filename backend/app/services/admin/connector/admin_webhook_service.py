@@ -1,9 +1,4 @@
-"""Admin-panel service for inbound webhooks (automation V3: a webhook starts an Action).
-
-The secret is write-only: issued encrypted, returned once on create and on *Rotate*, never listed.
-A webhook names the Action it starts; the Action must belong to the same Workspace. Filters, repeat
-grouping and limits default to safe values (critical/warning firing alerts, 30 min, 20 per hour).
-"""
+"""Admin-panel service for inbound webhooks (automation V3: a webhook starts an Action)."""
 
 from __future__ import annotations
 
@@ -26,12 +21,13 @@ from ...inbound_alerts.samples import sample_payload
 from ...inbound_alerts.signature import sign_timestamped
 from ...inbound_alerts.trigger import receive_alert
 from ...inbound_alerts.views import list_events, serialize_webhook
+from ...project.private_workspace import hidden_private_ids, refuse_foreign_private
 from ...webhook_secret import issue_webhook_secret, resolve_webhook_secret
 
 
-async def _load(db: AsyncSession, webhook_id: str) -> Webhook:
+async def _load(db: AsyncSession, webhook_id: str, viewer_id: str) -> Webhook:
     webhook = (await db.execute(select(Webhook).where(Webhook.id == webhook_id))).scalar_one_or_none()
-    if not webhook:
+    if not webhook or (webhook.project_id and await refuse_foreign_private(db, webhook.project_id, viewer_id)):
         raise HTTPException(status_code=404, detail="Webhook not found")
     return webhook
 
@@ -66,10 +62,6 @@ async def _action(db: AsyncSession, task_id: Any, project_id: str) -> str | None
 
 
 async def _agent_mode(db: AsyncSession, payload: dict[str, Any]) -> str | None:
-    """An explicitly sent mode is held to the Action contract: a non-key is a 422, never the default.
-
-    The forms do not send one (a webhook starts an Action); ``None`` counts as omitted.
-    """
     if payload.get("agent_type") is None:
         return None
     return await require_explicit_agent_mode(db, payload["agent_type"])
@@ -88,7 +80,6 @@ def _untimestamped(payload: dict[str, Any]) -> bool:
 
 
 def _rate_limit(value: Any, default: int) -> int:
-    """1–1000 analyses per hour; there is no unlimited (a replay burst must hit a ceiling)."""
     if value is None:
         return default
     limit = int(value)
@@ -99,7 +90,6 @@ def _rate_limit(value: Any, default: int) -> int:
 
 
 async def _set_result_channel(db: AsyncSession, task_id: str, channel_id: Any) -> None:
-    """The webhook form's "Send the result to": the Action's own destination (one declaration)."""
     from ....models.integration.channel_config import ChannelConfig
 
     task = await db.get(Task, task_id)
@@ -115,9 +105,10 @@ async def _set_result_channel(db: AsyncSession, task_id: str, channel_id: Any) -
     task.config = config
 
 
-async def list_webhooks(db: AsyncSession) -> list[dict[str, Any]]:
+async def list_webhooks(db: AsyncSession, *, viewer_id: str) -> list[dict[str, Any]]:
+    hidden = await hidden_private_ids(db, viewer_id)
     webhooks = (await db.execute(select(Webhook).order_by(Webhook.name))).scalars().all()
-    return [await serialize_webhook(db, webhook) for webhook in webhooks]
+    return [await serialize_webhook(db, webhook) for webhook in webhooks if webhook.project_id not in hidden]
 
 
 async def create_webhook(db: AsyncSession, *, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -154,8 +145,10 @@ async def create_webhook(db: AsyncSession, *, user_id: str, payload: dict[str, A
     return {**await serialize_webhook(db, webhook), "secret": raw_secret}
 
 
-async def update_webhook(db: AsyncSession, *, webhook_id: str, payload: dict[str, Any]) -> dict[str, Any]:
-    webhook = await _load(db, webhook_id)
+async def update_webhook(
+    db: AsyncSession, *, webhook_id: str, viewer_id: str, payload: dict[str, Any]
+) -> dict[str, Any]:
+    webhook = await _load(db, webhook_id, viewer_id)
     agent_type = await _agent_mode(db, payload)
     if agent_type is not None:
         webhook.agent_type = agent_type
@@ -197,9 +190,8 @@ async def update_webhook(db: AsyncSession, *, webhook_id: str, payload: dict[str
     return await serialize_webhook(db, webhook)
 
 
-async def rotate_webhook_secret(db: AsyncSession, *, webhook_id: str, user_id: str | None = None) -> dict[str, Any]:
-    """A new secret, returned once; audited with the webhook's id and name, never the secret."""
-    webhook = await _load(db, webhook_id)
+async def rotate_webhook_secret(db: AsyncSession, *, webhook_id: str, user_id: str) -> dict[str, Any]:
+    webhook = await _load(db, webhook_id, user_id)
     raw_secret = await issue_webhook_secret(db, webhook)
     db.add(AuditLog(user_id=user_id, action="webhook.secret_rotated", resource_type="webhook", resource_id=webhook.id,
                     details={"name": webhook.name}))
@@ -207,8 +199,10 @@ async def rotate_webhook_secret(db: AsyncSession, *, webhook_id: str, user_id: s
     return {**await serialize_webhook(db, webhook), "secret": raw_secret}
 
 
-async def send_test_alert(db: AsyncSession, *, webhook_id: str, sample: str, scheduler: Any = None) -> dict[str, Any]:
-    webhook = await _load(db, webhook_id)
+async def send_test_alert(
+    db: AsyncSession, *, webhook_id: str, viewer_id: str, sample: str, scheduler: Any = None
+) -> dict[str, Any]:
+    webhook = await _load(db, webhook_id, viewer_id)
     payload = sample_payload(webhook.source_type or "generic", sample)
     if payload is None:
         raise HTTPException(status_code=422, detail={"code": "webhook_sample_unknown",
@@ -216,7 +210,7 @@ async def send_test_alert(db: AsyncSession, *, webhook_id: str, sample: str, sch
     # The test goes through the real signature check: signed like a sender would sign it (timestamp + body).
     body = json.dumps(payload).encode()
     timestamp = str(int(time.time()))
-    secret = await resolve_webhook_secret(db, webhook)
+    secret = await resolve_webhook_secret(db, webhook, purpose="inbound_webhook.sign_test_call")
     headers = {
         "X-Webhook-Timestamp": timestamp,
         "X-Webhook-Signature": sign_timestamped(secret or "", timestamp, body),
@@ -225,14 +219,16 @@ async def send_test_alert(db: AsyncSession, *, webhook_id: str, sample: str, sch
     return await receive_alert(db, webhook=webhook, body=body, headers=headers, is_test=True, scheduler=scheduler)
 
 
-async def list_webhook_events(db: AsyncSession, *, webhook_id: str | None = None, limit: int = 20) -> list[dict]:
+async def list_webhook_events(
+    db: AsyncSession, *, viewer_id: str, webhook_id: str | None = None, limit: int = 20
+) -> list[dict]:
     if webhook_id:
-        await _load(db, webhook_id)
-    return await list_events(db, webhook_id=webhook_id, limit=limit)
+        await _load(db, webhook_id, viewer_id)
+    return await list_events(db, webhook_id=webhook_id, limit=limit, hidden=await hidden_private_ids(db, viewer_id))
 
 
-async def delete_webhook(db: AsyncSession, *, webhook_id: str) -> dict[str, Any]:
-    webhook = await _load(db, webhook_id)
+async def delete_webhook(db: AsyncSession, *, webhook_id: str, viewer_id: str) -> dict[str, Any]:
+    webhook = await _load(db, webhook_id, viewer_id)
     from ....models.integration.webhook import WebhookDeliveryKey, WebhookEvent
 
     await db.execute(sa_delete(WebhookDeliveryKey).where(WebhookDeliveryKey.webhook_id == webhook_id))

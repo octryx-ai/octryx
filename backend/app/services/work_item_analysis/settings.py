@@ -1,19 +1,4 @@
-"""The Workspace's work item analysis settings: ``Project.config["work_item_analysis"]``.
-
-- ``model_policy``: ``"name@revision"`` of a published Model Policy in the Workspace. Required to run;
-  without it an analysis is ``needs_configuration`` / ``model_policy_unresolved`` (no implicit model).
-- ``cost_cap_usd``: the cost cap of one analysis run, 0.01..50, default 1.
-- ``auto_analyze``: ``{servicenow_new_incidents: bool, jira_label: str | null}``, both off by default.
-- ``ask_reporter``: post the analysis's open questions to the Jira reporter (default off; it also needs the
-  workflow's Jira write-back, see ``reporter_questions``).
-- ``runner``: ``governed`` (default: the server runs the analysis on the Workspace's model policy) or ``seat``
-  (the analysis runs in the user's own seat session, ``octryx-claude analyze <KEY>``, and is submitted through
-  ``work_item_analysis_submit``; the server then never starts a run itself, not even an automatic one).
-- ``max_output_tokens``: the output bound of each model request of a governed run, 1024..32000, default 8192.
-
-Unknown keys and wrong types are refused with ``AnalysisSettingsError(code, field)``; stored values that no
-longer validate read as the defaults with ``source: invalid`` so nothing runs on a broken setting.
-"""
+"""The Workspace's work item analysis settings: ``Project.config["work_item_analysis"]``."""
 
 from __future__ import annotations
 
@@ -121,7 +106,6 @@ def _label(value: Any) -> str | None:
 
 
 def normalize_settings(value: Any) -> dict[str, Any]:
-    """The stored form of a complete settings object; raises :class:`AnalysisSettingsError`."""
     if not isinstance(value, dict):
         raise AnalysisSettingsError("object_required", CONFIG_KEY)
     unknown = sorted(str(key) for key in set(value) - _TOP_KEYS)
@@ -150,7 +134,6 @@ def normalize_settings(value: Any) -> dict[str, Any]:
 
 
 def settings_from_config(config: Any) -> tuple[AnalysisSettings, str]:
-    """``(settings, source)``: ``workspace``, ``default`` (nothing stored) or ``invalid`` (defaults apply)."""
     stored = config.get(CONFIG_KEY) if isinstance(config, dict) else None
     if stored is None:
         return AnalysisSettings(), "default"
@@ -171,7 +154,6 @@ def settings_from_config(config: Any) -> tuple[AnalysisSettings, str]:
 
 
 def merged_settings(current: AnalysisSettings, patch: Any) -> dict[str, Any]:
-    """``patch`` over ``current``: keys it names replace, ``auto_analyze`` merges per key; validated."""
     if not isinstance(patch, dict):
         raise AnalysisSettingsError("object_required", CONFIG_KEY)
     merged = current.as_dict()
@@ -184,7 +166,6 @@ def merged_settings(current: AnalysisSettings, patch: Any) -> dict[str, Any]:
 
 
 async def set_analysis_settings(db: AsyncSession, *, project: Project, value: Any, actor_id: str) -> AnalysisSettings:
-    """Store ``value`` (all or some keys) over the current settings through the project-config path, audited."""
     config = project.config if isinstance(project.config, dict) else {}
     section = merged_settings(settings_from_config(config)[0], value)
     before = config.get(CONFIG_KEY)
@@ -199,7 +180,6 @@ async def set_analysis_settings(db: AsyncSession, *, project: Project, value: An
 
 
 def normalize_config_value(value: Any) -> Any:
-    """The project-config owner hook: ``None`` clears the key, anything else must validate."""
     return None if value is None else normalize_settings(value)
 
 

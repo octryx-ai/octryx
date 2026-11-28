@@ -1,14 +1,4 @@
-"""Admin-panel service helpers for scheduler management flows.
-
-A submitted cron expression is validated before any write; an update that omits it keeps
-the stored value, even one that would not validate.
-
-List, create and update responses carry ``worker_application``: whether the scheduling worker
-has registered exactly this row (``paused|pending|applied|worker_unavailable|invalid_schedule``,
-``next_run_at`` UTC ISO or null, ``timezone`` or null). It describes registration, not task
-execution, and is computed in one batch for a list. Saving only records the row; the worker applies
-it through reconciliation, so a fresh save normally reads ``pending``.
-"""
+"""Admin-panel service helpers for scheduler management flows."""
 
 from __future__ import annotations
 
@@ -155,7 +145,6 @@ async def update_scheduler(db: AsyncSession, *, scheduler_id: str, payload: dict
 
 
 async def preview_scheduler(payload: dict[str, Any]) -> dict[str, Any]:
-    """Calculated next fire times; reads no rows and registers no job."""
     from ....scheduler.dispatch.cron_schedule import preview_schedule
 
     return await preview_schedule(payload.get("cron_expression"), payload.get("count", 5))

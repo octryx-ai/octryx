@@ -1,10 +1,4 @@
-"""Loki tool implementation.
-
-Every query has an explicit window (``start``/``end`` sent to Loki): the alert scope's window by default, else
-the last hour; ``since`` (``30m``) or ``start``/``end`` (RFC3339) narrow it, the span is at most 24 h and ``limit``
-at most 1000. Under an alert scope the window is clamped to the alert's and every stream selector must name the
-target's labels. A transport or HTTP error is ``unavailable``, never an empty answer.
-"""
+"""Loki tool implementation."""
 
 from typing import Any
 

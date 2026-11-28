@@ -15,11 +15,6 @@ KNOWLEDGE_IMPORT_FIELDS = [
 
 
 def _auto_discover_tools(keyword: str) -> list[dict[str, str]]:
-    """Auto-discover tools for a connector from the definitions registry.
-
-    Returns list of {"name": ..., "description": ...} for all tools
-    whose name contains the keyword.  Results are cached.
-    """
     if keyword in _tools_cache:
         return _tools_cache[keyword]
 

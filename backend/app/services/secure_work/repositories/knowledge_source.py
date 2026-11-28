@@ -1,9 +1,5 @@
-"""A repository record from a Knowledge git source: the offered sources and the governed binding.
-
-``source_catalog`` lists the Workspace's active Knowledge git sources a repository record can be created from;
-``bind_source`` creates that record (``provider = knowledge_snapshot``) once per source, with its URL and branch read
-from the source, never typed again. Nothing here starts or changes a sync.
-"""
+"""A repository record from a Knowledge git source: the offered sources and the governed binding. Nothing here starts or
+changes a sync."""
 
 from __future__ import annotations
 
@@ -96,6 +92,7 @@ async def bind_source(db, authorized, actor_id, connector_id) -> dict:
     )
     db.add(repo)
     db.add(AuditLog(user_id=actor_id, action="code_repository.source_bound", resource_type="code_repository",
-                    resource_id=repo.id, details={"workspace_id": authorized.project_id, "connector_id": connector_id}))
+                    resource_id=repo.id, project_id=repo.project_id,
+                    details={"workspace_id": authorized.project_id, "connector_id": connector_id}))
     await db.commit()
     return {"repository_id": repo.id}

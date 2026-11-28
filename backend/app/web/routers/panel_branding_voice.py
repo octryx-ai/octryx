@@ -69,8 +69,6 @@ async def panel_tts_save_config(
     )
 
 
-# ─── STT (Speech-to-Text) Provider Configuration ─────────────────────────────
-
 
 @router.get("/chat/api/panel/stt/config")
 async def panel_stt_get_config(request: Request, db: AsyncSession = Depends(get_db)):

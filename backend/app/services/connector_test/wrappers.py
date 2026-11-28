@@ -1,8 +1,4 @@
-"""Connector tests that need only the shared httpx module or a session.
-
-``connector_test_service`` dispatches to these tests. The httpx module is passed as the module
-object, so a test that patches ``httpx.AsyncClient`` reaches these calls.
-"""
+"""Connector tests that need only the shared httpx module or a session."""
 
 from __future__ import annotations
 

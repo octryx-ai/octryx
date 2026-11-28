@@ -14,10 +14,6 @@ import { addRepositoryFromConnectionHref } from "../workspaceKnowledge/sourceLin
 
 const GIT_CONNECTION_TYPES = new Set(["bitbucket", "github", "gitlab", "azure_devops"]);
 
-// The uses of one connection: Knowledge, Tickets, Agent tools and, for git types, Repositories. Each shows
-// what the connection does there; switching a use on or off, its schedule, scope, ticket filter, status mapping
-// and write-back are edits of the connection itself (one "Save changes", arrays replaced as a whole).
-
 type UseProps = {
   detail: ConnectionDetail; draft: ConnectionDraft; setDraft: (patch: Partial<ConnectionDraft>) => void;
   readOnly: boolean; errors: FieldErrors;
@@ -129,10 +125,7 @@ export function TicketsUseTab({ detail, draft, setDraft, readOnly, errors, onSyn
   );
 }
 
-/**
- * Write-back is the Workspace's work item workflow's, not the connection's (422 write_back_on_workflow): shown
- * read-only with a link to where it is changed; never part of the save.
- */
+// Write-back belongs to the Workspace's work item workflow (the server refuses it here), so it is read-only.
 function WriteBackSection({ detail, ticketStates }: { detail: ConnectionDetail; ticketStates: TicketState[] }) {
   const writeBack = detail.tickets?.writeBack;
   const workspaceId = detail.tickets?.intakes.length === 1 ? detail.tickets.intakes[0].workspace?.id ?? "" : "";
@@ -172,7 +165,6 @@ export function AgentToolsTab({ detail, draft, setDraft, readOnly }: UseProps) {
         label="Tools" testId="connection-tools" rows={detail.agentTools?.tools ?? []} rowKey={(tool) => tool.name}
         empty={{ text: "This connection offers agents no tools." }}
         columns={[
-          // Readable, with the function name as tooltip.
           { key: "name", header: "Tool", grow: true, render: (tool) => <span title={tool.name}>{connectionToolLabel(tool.name, detail.type)}</span> },
           { key: "level", header: "Kind", nowrap: true, render: (tool) => (tool.level === "write" ? "Writes" : tool.level === "read" ? "Reads" : "Off") },
         ]}

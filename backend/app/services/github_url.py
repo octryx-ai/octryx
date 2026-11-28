@@ -10,8 +10,6 @@ PUBLIC_GITHUB_API_URL = "https://api.github.com"
 
 
 def normalize_github_api_base_url(value: Any) -> str:
-    """Return a GitHub REST API base URL from user-entered connector config."""
-
     raw_url = str(value or "").strip().rstrip("/") or PUBLIC_GITHUB_API_URL
     parsed = urlparse(raw_url)
     host = (parsed.netloc or parsed.path).split("/", 1)[0].lower()
@@ -29,8 +27,7 @@ PUBLIC_GITHUB_WEB_URL = "https://github.com"
 
 
 def github_web_base_url(api_base_url: Any) -> str | None:
-    """The web base of a GitHub REST API base: ``github.com`` for the public API, the Enterprise host
-    for ``https://host/api/v3``; ``None`` for any other form, so no web link is ever guessed."""
+    # ``None`` for any other form, so no web link is ever guessed.
 
     api_base = normalize_github_api_base_url(api_base_url)
     if api_base == PUBLIC_GITHUB_API_URL:

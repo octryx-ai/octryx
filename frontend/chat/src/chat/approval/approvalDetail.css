@@ -19,7 +19,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   font-size: var(--ds-text-xl);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .approval-detail__heading {
@@ -88,7 +88,7 @@
   margin: 0;
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

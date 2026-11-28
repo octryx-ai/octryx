@@ -1,7 +1,4 @@
-"""The result of a workflow's checks for one turn.
-
-Written at turn end in platform chat (``services/workflow_checks``).
-"""
+"""The result of a workflow's checks for one turn."""
 
 from __future__ import annotations
 
@@ -10,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -17,7 +15,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class WorkflowCheckResult(Base):
+class WorkflowCheckResult(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "workflow_check_results"
     __table_args__ = (
         Index("ix_workflow_check_results_session", "session_id", "created_at"),

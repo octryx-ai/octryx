@@ -1,33 +1,5 @@
-"""Deterministic span, evidence-key, and citation derivation.
-
-Same bytes in, same spans out: the split depends only on the decoded text, so a
-projection can always be rebuilt from the stored object without invalidating a
-citation that was already handed out.
-
-Pipeline:
-
-1. decode as strict UTF-8 (no lenient fallback: undecodable bytes are a typed
-   refusal, never mojibake silently persisted as evidence);
-2. normalize line endings to ``\\n`` and drop unsafe characters (the same
-   character-safety rule the retrieval contract enforces, applied once at
-   ingestion so stored spans can always be constructed into ``Evidence``);
-3. split on blank lines into paragraphs, then hard-wrap any paragraph longer
-   than :data:`MAX_SPAN_CHARS` at a whitespace boundary;
-4. number spans from 1 and record each span's ``[char_start, char_end)`` range
-   in the *normalized* text, which is the text the digest-verified bytes decode
-   to.
-
-The evidence key is ``<revision_id_hex>:<span_ordinal>``. It is validated
-against the retrieval contract's own evidence-id rule, so a derived key can never
-be rejected later — and never be mistaken for a database record id.
-
-Two independent bounds, both explicit. A revision's bytes are bounded by
-``ingestion.MAX_UPLOAD_BYTES`` (8 MiB), and its span count by
-:data:`MAX_SPANS_PER_REVISION`. Neither implies the other: a document well inside
-the byte bound can still have more than 2000 paragraphs, which is a capacity
-refusal (:class:`EvidenceSpanLimitExceededError`, HTTP 413), not a malformed
-request.
-"""
+"""Deterministic span, evidence-key, and citation derivation. Same bytes in, same spans out; the evidence key is
+``<revision_id_hex>:<span_ordinal>``."""
 
 from __future__ import annotations
 
@@ -56,8 +28,6 @@ _SOURCE_KEY = re.compile(r"^[a-z0-9][a-z0-9._-]{0,199}$")
 
 @dataclass(frozen=True, slots=True)
 class DerivedSpan:
-    """One ordered, citable span of a revision's normalized text."""
-
     span_ordinal: int
     char_start: int
     char_end: int
@@ -87,12 +57,7 @@ class DerivedSpan:
 
 
 def new_revision_id() -> str:
-    """A revision id whose hex can never look like a database record id.
-
-    ``<hex>:<ordinal>`` would match the record-id shape if the hex happened to be
-    all decimal digits, which the retrieval contract rejects. Regenerating is
-    cheaper than special-casing the key format.
-    """
+    # ``<hex>:<ordinal>`` must never match the record-id shape, which the retrieval contract rejects.
     while True:
         candidate = uuid.uuid4()
         if not candidate.hex.isdigit():
@@ -100,7 +65,6 @@ def new_revision_id() -> str:
 
 
 def normalize_source_key(raw: object) -> str:
-    """Validate the Workspace-stable document key. Never a path or a file name."""
     if type(raw) is not str:
         raise InvalidEvidenceRequestError()
     key = raw.strip().lower()
@@ -110,7 +74,6 @@ def normalize_source_key(raw: object) -> str:
 
 
 def normalize_display_title(raw: object) -> str:
-    """Validate the human-facing title; unsafe characters are refused, not stripped."""
     if type(raw) is not str:
         raise InvalidEvidenceRequestError()
     title = " ".join(raw.split())
@@ -122,7 +85,6 @@ def normalize_display_title(raw: object) -> str:
 
 
 def decode_text(data: bytes) -> str:
-    """Strict UTF-8 decode plus one normalization pass. No lenient fallback."""
     if type(data) is not bytes or not data:
         raise InvalidEvidenceRequestError()
     try:
@@ -138,7 +100,6 @@ def decode_text(data: bytes) -> str:
 
 
 def derive_evidence_key(revision_id: str, span_ordinal: int) -> str:
-    """``<revision_id_hex>:<span_ordinal>``, validated against the retrieval contract."""
     if type(revision_id) is not str or type(span_ordinal) is not int or span_ordinal < 1:
         raise EvidenceLedgerContractError()
     try:
@@ -152,7 +113,6 @@ def derive_evidence_key(revision_id: str, span_ordinal: int) -> str:
 
 
 def derive_citation(display_title: str, revision_ordinal: int, span: DerivedSpan) -> str:
-    """A fixed-shape, human-readable citation of exactly one span."""
     if type(revision_ordinal) is not int or revision_ordinal < 1:
         raise EvidenceLedgerContractError()
     if type(span) is not DerivedSpan:
@@ -180,7 +140,6 @@ def derive_located_citation(
     page_end: int | None,
     section: str | None,
 ) -> str:
-    """The citation of a parsed span: revision, pages, and the nearest heading."""
     if type(revision_ordinal) is not int or revision_ordinal < 1:
         raise EvidenceLedgerContractError()
     title = normalize_display_title(display_title)
@@ -197,7 +156,6 @@ def derive_located_citation(
 
 
 def _wrapped(paragraph: str, offset: int) -> list[tuple[int, int, str]]:
-    """Split one over-long paragraph at whitespace, keeping absolute offsets."""
     pieces: list[tuple[int, int, str]] = []
     position = 0
     while position < len(paragraph):
@@ -222,7 +180,6 @@ def _wrapped(paragraph: str, offset: int) -> list[tuple[int, int, str]]:
 
 
 def paragraph_pieces(text: str) -> list[tuple[int, int, str]]:
-    """``(char_start, char_end, text)`` of every bounded paragraph piece, in order."""
     if type(text) is not str or not text.strip():
         raise InvalidEvidenceRequestError()
     pieces: list[tuple[int, int, str]] = []
@@ -237,7 +194,6 @@ def paragraph_pieces(text: str) -> list[tuple[int, int, str]]:
 
 
 def derive_spans(text: str) -> tuple[DerivedSpan, ...]:
-    """Split normalized text into ordered, bounded spans. Deterministic."""
     spans: list[DerivedSpan] = []
     for char_start, char_end, chunk in paragraph_pieces(text):
         if len(spans) >= MAX_SPANS_PER_REVISION:

@@ -1,11 +1,5 @@
-"""Seeds of the governed secure-work prompts: the governed coding agent's execution prompt, the
-verification and workspace lines, the Work Plan author, the CI/CD, review and external-activity
-agent instructions, the rejected-approval resume note, the delivery gate and the Claude Code
-gateway's deny and verification messages.
-
-The only code copy of these texts. Fact lines (state machine, runtime contract, workspace records,
-command lines) and the Work Plan JSON schema the parser validates stay in code.
-"""
+"""Seeds of the governed secure-work prompts (verification and workspace lines, Work Plan author, CI/CD, review,
+delivery gate, gateway messages); fact lines and the Work Plan schema stay in code."""
 
 from __future__ import annotations
 
@@ -14,86 +8,6 @@ from ..contract import RISK_HIGH, PromptKeySpec
 AREA = "secure_work"
 
 SPECS: tuple[PromptKeySpec, ...] = (
-    PromptKeySpec(
-        key="secure_work.coding.execution_prompt",
-        area=AREA,
-        title="Governed coding agent: execution prompt",
-        seed=(
-            "You are Octryx's governed coding agent.\n"
-            "Execute this approved Work Plan through platform tools only; do not rely on hidden manual work.\n"
-            "\n"
-            "Hard requirements:\n"
-            "- Use repository/workspace tools to prepare the repository and working branch.\n"
-            "- Change only files inside the approved expected paths.\n"
-            "- Do not deploy, merge, or close the Jira issue.\n"
-            "- If the source task, approved scope, repository state, or policy evidence conflicts, stop and report "
-            "blockers.\n"
-            "- Record validation evidence, diff evidence, and next human review actions in the final answer.\n"
-            "\n"
-            "Runtime state machine:\n"
-            "{state_machine_block}{execution_contract_block}\n"
-            "Delivery tools you may need:\n"
-            "- apply_patch_workspace / edit_workspace_file / multi_edit_workspace_file for file changes.\n"
-            "- run_cli_command for local validation only after changes are made.\n"
-            "- commit_and_push_repository_branch and create_bitbucket_pull_request for review handoff.\n"
-            "- ask_clarification only when the approved plan or source evidence is insufficient or conflicting.\n"
-            "\n"
-            "Work Item: {source_key}\n"
-            "Title: {title}\n"
-            "Jira status: {source_status}\n"
-            "Source URL: {source_url}\n"
-            "Description:\n"
-            "{description}\n"
-            "\n"
-            "Approved Work Plan v{plan_version}: {plan_title}\n"
-            "Understood request:\n"
-            "{understood_request}\n"
-            "Rollback plan:\n"
-            "{rollback_plan}\n"
-            "\n"
-            "Approved repositories and paths:\n"
-            "{unit_block}\n"
-            "{verification_block}\n"
-            "Pipeline preflight:\n"
-            "- run_id: {run_id}\n"
-            "- status: {run_status}\n"
-            "\n"
-            "Prepared coding workspaces:\n"
-            "{workspace_block}\n"
-            "Restart context:\n"
-            "{restart_line}\n"
-            "\n"
-            "Operator request:\n"
-            "{operator_request}"
-        ),
-        placeholders=frozenset(
-            {
-                "description",
-                "execution_contract_block",
-                "operator_request",
-                "plan_title",
-                "plan_version",
-                "restart_line",
-                "rollback_plan",
-                "run_id",
-                "run_status",
-                "source_key",
-                "source_status",
-                "source_url",
-                "state_machine_block",
-                "title",
-                "understood_request",
-                "unit_block",
-                "verification_block",
-                "workspace_block",
-            }
-        ),
-        risk=RISK_HIGH,
-        description=(
-            "First message of a governed coding execution. Each *_block placeholder is a block of lines, each ending "
-            "with a newline (empty when there are none); the other placeholders are Work Item and Work Plan facts."
-        ),
-    ),
     PromptKeySpec(
         key="secure_work.coding.restart_from_scratch",
         area=AREA,
@@ -131,13 +45,6 @@ SPECS: tuple[PromptKeySpec, ...] = (
         area=AREA,
         title="Governed coding agent: no Change Units",
         seed="- No Change Units are selected. Stop and report this blocker.",
-        risk=RISK_HIGH,
-    ),
-    PromptKeySpec(
-        key="secure_work.workspace.none_prepared",
-        area=AREA,
-        title="Governed coding agent: no workspace prepared",
-        seed="- No workspace record was prepared. Stop and report this blocker.",
         risk=RISK_HIGH,
     ),
     PromptKeySpec(

@@ -1,18 +1,4 @@
-"""Save-time validation of explicit agent or workflow Action dispatch.
-
-The binding is authored explicitly on every create (``dispatch_binding``); it is never inferred. An
-update without the field keeps the stored value. Whenever the effective binding after the save is an
-agent or workflow binding, the full effective state is validated before any field changes, so a
-refused save writes nothing (a ``task_definition`` Action runs its own definition and needs no
-binding state):
-
-* the closed value (``scheduler/dispatch/agent_definition_binding.py``);
-* ``agent_run`` only, no enabled steps, a non-blank selected agent;
-* the selected agent and instruction through ``admit_agent_turn`` (owner visibility,
-  Workspace, active/published and mode state, authored instruction), with its own typed codes.
-
-Refusals are HTTP 422 (as the sibling schedule and agent-mode validators) with a fixed ``code`` and ``field: "dispatch_binding"``.
-"""
+"""Save-time validation of explicit agent or workflow Action dispatch."""
 
 from __future__ import annotations
 
@@ -36,12 +22,10 @@ def _binding():
 
 
 def _refuse(code: str, message: str, **typed: str) -> HTTPException:
-    """``typed``: the ``state`` and ``reason`` of a refusal that names them (a missing Workspace)."""
     return HTTPException(status_code=422, detail={"message": message, "code": code, "field": FIELD, **typed})
 
 
 def require_binding_value(value: Any) -> str:
-    """The authored binding, or a typed refusal for anything outside the closed values (``None`` included)."""
     binding = _binding()
     if isinstance(value, str) and value in DISPATCH_BINDINGS:
         return value
@@ -58,7 +42,6 @@ async def require_bound_state(
     project_id: str | None,
     has_enabled_steps: bool,
 ) -> None:
-    """Refuse a save whose effective state the explicit binding could not run."""
     if binding == TASK_DEFINITION_BINDING:
         return
     from ....scheduler.execution.action_admission import ActionAdmissionError, admit_agent_turn
@@ -87,7 +70,6 @@ async def require_bound_state(
 
 
 def require_step_allowed(*, binding: str | None, enabled: bool) -> None:
-    """Only a ``task_definition`` Action has steps: an agent or workflow Action never gains an enabled one."""
     if binding != TASK_DEFINITION_BINDING and enabled:
         rules = _binding()
         raise _refuse(rules.BINDING_STEPS_ENABLED, rules.BINDING_MESSAGES[rules.BINDING_STEPS_ENABLED])

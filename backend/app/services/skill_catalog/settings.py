@@ -1,11 +1,4 @@
-"""Instance settings of the skill catalog, stored in ``system_config`` and edited by platform admins.
-
-- ``licence_allowlist``: SPDX ids a published version may carry (default MIT, Apache-2.0, BSD-2-Clause,
-  BSD-3-Clause, ISC and MPL-2.0). ``Internal`` (written on the platform) is always allowed.
-- ``allowed_hosts``: Git hosts the importer and the update check may contact (default ``github.com``); every
-  fetch also passes ``outbound_url_policy``.
-- ``update_check_hours``: how often the scheduled upstream check runs (default 24; 0 turns it off).
-"""
+"""Instance settings of the skill catalog, stored in ``system_config`` and edited by platform admins."""
 
 from __future__ import annotations
 

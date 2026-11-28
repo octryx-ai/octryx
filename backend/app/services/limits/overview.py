@@ -1,14 +1,4 @@
-"""The Limits & budgets overview: sources and Workspace overrides, read-only.
-
-The platform values themselves are read and saved through the runtime settings API (``/admin/chat/api/panel/
-runtime-settings``, each page sends only its own keys). This adds what that API does not say:
-
-- **Workspace overrides** per limit: the cost caps in ``projects.config.runtime_cost_limits`` and the Claude Code
-  daily budget per person in ``projects.config.agent_gateway_policy.session_budget`` (no platform value: Workspace
-  only, the gateway baseline applies where a Workspace sets none);
-- **Environment limits** shown read-only: the per-person and per-address request rate limits.
-- **Budget periods** (``budget_policies``) with this period's spend, so a hidden enforced limit becomes visible.
-"""
+"""The Limits & budgets overview: sources and Workspace overrides, read-only."""
 
 from __future__ import annotations
 

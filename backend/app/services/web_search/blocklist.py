@@ -1,19 +1,4 @@
-"""The platform's pinned, offline blocklist for every web search result (search control plane).
-
-It ships with the image as ``blocklist_v1.json`` and is never fetched at runtime, so what is blocked
-is reviewable in the repository and cannot change underneath a running platform. Each category
-blocks by:
-
-- top-level domain (``.xxx``);
-- a listed registrable domain and all its subdomains;
-- a host substring (``porn`` anywhere in the host), for names that have no legitimate reading;
-- a host token: a whole label part between dots and hyphens (``sex`` in ``free-sex.example``, but
-  not in ``essex.ac.uk``).
-
-This is the floor that holds even for an open search. It is not exhaustive and does not try to
-be: knowledge research only uses trusted sources, and admins block further sources in the
-registry (``registry.py``), which every search applies on top.
-"""
+"""The platform's pinned, offline blocklist for every web search result (search control plane)."""
 
 from __future__ import annotations
 
@@ -43,7 +28,6 @@ class Blocklist:
     categories: tuple[_Category, ...]
 
     def category_of(self, url: str) -> str | None:
-        """The blocking category of ``url``'s host, or ``None`` when it is not blocked."""
         host = (urlsplit(url).hostname or "").strip(".").lower()
         if not host:
             return "invalid"

@@ -82,7 +82,6 @@ async def _candidate_change_units(db: AsyncSession, items: list[WorkItem]) -> li
 
 
 async def _candidate_pull_requests(db: AsyncSession, items: list[WorkItem]) -> list[WorkPullRequest]:
-    """D12: the candidates' pull requests from work_pull_requests, the one PR source."""
     if not items:
         return []
     stmt = select(WorkPullRequest).where(WorkPullRequest.work_item_id.in_([item.id for item in items]),

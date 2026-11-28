@@ -52,7 +52,7 @@ async def panel_create_project_task_from_design_artifact(
     db: AsyncSession = Depends(get_db),
 ):
     current_user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, current_user.id, project_id)
     return JSONResponse(
         await admin_create_project_task_from_design_artifact(
             db,
@@ -71,8 +71,8 @@ async def panel_sync_project_design_releases(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_sync_project_design_releases(
             db,
@@ -89,8 +89,8 @@ async def panel_sync_project_design_checkpoints(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_sync_project_design_checkpoints(
             db,
@@ -108,8 +108,8 @@ async def panel_run_project_design_trace_sync_workflow(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_run_project_design_trace_sync_workflow(
             db,
@@ -129,7 +129,7 @@ async def panel_create_project_design_trace_sync_workflow_task(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await create_project_design_trace_sync_workflow_task_instance(
             db,
@@ -148,8 +148,8 @@ async def panel_upsert_project_design_trace_sync_template(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_upsert_project_design_trace_sync_template_entry(
             db,
@@ -166,8 +166,8 @@ async def panel_delete_project_design_trace_sync_template(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_delete_project_design_trace_sync_template_entry(
             db,
@@ -184,6 +184,6 @@ async def panel_delete_project_design_trace_link(
     request: Request,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(await admin_delete_project_design_trace_link(db, link_id=link_id))

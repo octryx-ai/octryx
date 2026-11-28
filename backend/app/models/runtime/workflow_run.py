@@ -1,17 +1,4 @@
-"""A workflow run: the server-side state of one workflow execution.
-
-The run record is the only phase state. Chat (and later octryx-claude) read it and report evidence to it;
-neither can move it. A run is anchored on an optional Work item and survives turns and sessions.
-
-- ``WorkflowRun``: the definition version it runs, the anchor (Work item, ticket, repository, branch, pull
-  request), the responsible person (``workflow_runs.responsible``), the cursor (current node and its state), loop
-  counters, effective limits, budget usage and the outcome.
-- ``WorkflowRunSession``: the sessions bound to the run (main chat, later children/reviewer); a run resumes
-  in a new session by binding it.
-- ``WorkflowRunEvent``: the append-only history (node entered, gate result, loop iteration, pause, decision).
-- ``WorkflowRunDecision``: a recorded human decision (confirmation, approval, pause choice) with the hash of
-  the payload it decided on.
-"""
+"""A workflow run: the server-side state of one workflow execution."""
 
 from __future__ import annotations
 
@@ -22,6 +9,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import validates
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -29,7 +17,8 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class WorkflowRun(Base):
+class WorkflowRun(WorkspaceBound, Base):
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "workflow_runs"
     __table_args__ = (
         Index("ix_workflow_runs_status", "status", "updated_at"),
@@ -47,7 +36,6 @@ class WorkflowRun(Base):
     title = Column(String(220), nullable=False, default="")
     flow_definition_version_id = Column(String(36), ForeignKey("flow_definition_versions.id"), nullable=True)
     workflow_version = Column(String(40), nullable=False, default="")
-    # Anchor
     work_item_id = Column(String(36), ForeignKey("work_items.id", ondelete="SET NULL"), nullable=True)
     ticket_key = Column(String(220), nullable=True)
     repository = Column(String(500), nullable=True)
@@ -81,7 +69,9 @@ class WorkflowRun(Base):
     completed_at = Column(DateTime, nullable=True)
 
 
-class WorkflowRunSession(Base):
+class WorkflowRunSession(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"run_id": "workflow_runs"}
     __tablename__ = "workflow_run_sessions"
     __table_args__ = (
         Index("ix_workflow_run_sessions_session", "session_id", "active"),
@@ -99,7 +89,9 @@ class WorkflowRunSession(Base):
     linked_at = Column(DateTime, default=utc_now, nullable=False)
 
 
-class WorkflowRunEvent(Base):
+class WorkflowRunEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"run_id": "workflow_runs"}
     __tablename__ = "workflow_run_events"
     # ``kind``/``created_at``: a worker reads one kind of event since its cursor (the PR review bot's instant
     # trigger, ``pr_review_bot.instant``) without scanning the history.
@@ -116,13 +108,15 @@ class WorkflowRunEvent(Base):
 
     @validates("detail")
     def _masked_detail(self, _key: str, value: Any) -> Any:
-        """An event can carry a platform action's arguments or result text: stored masked."""
+        # An event can carry a platform action's arguments or result text, so it is stored masked.
         from ...services.secret_masking import masked
 
         return masked(value) if value else value
 
 
-class WorkflowRunDecision(Base):
+class WorkflowRunDecision(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"run_id": "workflow_runs"}
     __tablename__ = "workflow_run_decisions"
     __table_args__ = (Index("ix_workflow_run_decisions_run", "run_id", "created_at"),)
 

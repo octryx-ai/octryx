@@ -1,14 +1,5 @@
-"""Fixed, secret-safe failure taxonomy of the Knowledge object boundary.
-
-Every error carries a stable ``state`` and the fixed ``operation`` it failed in.
-Messages are fixed per class and the constructors accept no free text, so no
-bucket name, object key, endpoint, credential, or S3 error body can reach a
-public error, a log line, or an API payload.
-
-There is no "fell back to the filesystem" state on purpose: an absent or
-invalid configuration is :class:`KnowledgeObjectNotConfiguredError` /
-:class:`KnowledgeObjectInvalidConfigurationError`, never a local directory.
-"""
+"""Fixed, secret-safe failure taxonomy of the Knowledge object boundary. There is no filesystem fallback state on
+purpose."""
 
 from __future__ import annotations
 
@@ -31,21 +22,7 @@ class KnowledgeObjectState(StrEnum):
 
 
 class KnowledgeObjectOperation(StrEnum):
-    """The fixed operations of the object boundary.
-
-    There is no ``head_object`` member because no capability issues a ``HeadObject`` — the
-    ``IfNoneMatch`` precondition on the write is what makes it write-if-absent.
-
-    The membership is split by *owner*, and the split is the privilege boundary:
-
-    - ``put_object`` / ``get_object`` belong to :class:`~.store.KnowledgeObjectStore`, the
-      immutable ingestion and retrieval path;
-    - ``list_objects`` belongs to :class:`~.maintenance.KnowledgeObjectMaintenance`, the
-      operator-owned reconciliation capability, which no runtime or tool path can reach.
-
-    Nothing widens either set: there is no bucket-wide list, no overwrite, no copy, no
-    multipart, no versioning and no presign member.
-    """
+    """The fixed operations of the object boundary, split by owner: the split is the privilege boundary."""
 
     CONFIGURATION = "configuration"
     PUT_OBJECT = "put_object"
@@ -103,13 +80,7 @@ class KnowledgeObjectNotFoundError(KnowledgeObjectError):
 
 
 class KnowledgeObjectOutsidePartitionError(KnowledgeObjectNotFoundError):
-    """A persisted key does not lie in the caller's Workspace partition under the configured prefix.
-
-    A subclass of the not-found error, so every caller that only needs "unreadable" keeps
-    treating it as absent; no object is requested. A caller that owns a precise outcome (the
-    revision original) tells it apart, because it means the ledger and the configured prefix
-    disagree rather than that an object is missing.
-    """
+    """A persisted key does not lie in the caller's Workspace partition under the configured prefix."""
 
     state = KnowledgeObjectState.OUTSIDE_PARTITION
     default_message = "knowledge object key is outside the workspace partition"

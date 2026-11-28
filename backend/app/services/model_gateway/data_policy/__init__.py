@@ -1,15 +1,4 @@
-"""Server-owned workspace data classification for model-gateway dispatch.
-
-The alias catalog declares a ``data_policy_class`` per admitted alias. This
-package turns that declaration into an enforced control: it owns the server-side
-classification source, the closed compatibility order, and the comparison that
-runs before a gateway client is constructed and before any billable dispatch.
-
-- :mod:`.classification` — the closed order and the effective-classification rule
-  (project floor, session raise-only).
-- :mod:`.source` — the async resolver, which reads the project row itself.
-- :mod:`.gate` — the comparison, its fixed denial codes, and closed evidence.
-"""
+"""Server-owned Workspace data classification for model-gateway dispatch."""
 
 from .classification import (
     CLASSIFICATION_SOURCE_PROJECT_CONFIG,

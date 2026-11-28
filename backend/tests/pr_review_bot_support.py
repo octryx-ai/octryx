@@ -10,8 +10,6 @@ from app.tools.connectors import github_pr_review as github
 
 
 class Recorder:
-    """A provider API scripted per (method, path); every call recorded with its body."""
-
     def __init__(self, answers):
         self.answers, self.calls = answers, []
 

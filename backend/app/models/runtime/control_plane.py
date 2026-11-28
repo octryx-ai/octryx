@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, Str
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -12,7 +13,6 @@ def uuid_pk():
 
 
 def _string_list(value: list | None) -> list[str]:
-    """The non-blank items of a native JSON list column."""
     return [str(item).strip() for item in (value or []) if str(item).strip()]
 
 
@@ -37,7 +37,9 @@ class ControlPlaneConfig(Base):
     )
 
 
-class ControlPlaneRuntimeTarget(Base):
+class ControlPlaneRuntimeTarget(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"provider_id": "llm_providers"}
     __tablename__ = "control_plane_runtime_targets"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -47,8 +49,8 @@ class ControlPlaneRuntimeTarget(Base):
     priority = Column(Integer, nullable=False, default=1)
     is_active = Column(Boolean, default=True)
     use_case_tags_json = Column(JSON, default=list)
-    # Governed model capabilities the target serves (W22b), validated against the admin capability
-    # catalog; ``turn_runtime_requirement`` reads them. Separate from the free-form use-case tags.
+    # Governed model capabilities the target serves, validated against the admin capability catalog;
+    # ``turn_runtime_requirement`` reads them. Separate from the free-form use-case tags.
     capability_tags_json = Column(JSON, default=list)
     # Override of the sampling catalog (``agent/providers/sampling_capabilities``): True/False forces
     # whether the model gets an explicit temperature; None (default) lets the catalog decide.

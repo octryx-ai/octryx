@@ -1,9 +1,4 @@
-"""Service helpers for admin-panel agent builder flows.
-
-Every function here that creates or changes agent rows stays in this module, because it
-is the registered panel writer of the agent aggregate. Request checks and read queries
-live in the ``_admin_agent_*`` modules beside it.
-"""
+"""Service helpers for admin-panel agent builder flows."""
 
 from __future__ import annotations
 

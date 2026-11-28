@@ -1,16 +1,4 @@
-"""Tool results through the content check before they reach a model.
-
-``content_checked`` is the last step of ``registry.execute_tool`` and ``execute_tool_with_plugins``: every tool
-result of a chat turn or an MCP call is asked as ``receive_tool_result`` (``content_routing.tool_results``) for
-the context's Workspace, session (the chat conversation) and principal. A masked result replaces the original
-(so the stored tool call keeps the masked text, too) and carries ``content_policy`` with the counts; a blocked
-one becomes a refusal payload. MCP server tools (``mcp__<server>__<tool>``) have origin ``mcp``, every other tool
-``connector``.
-
-A Knowledge retrieval result then gets its retrieved text fenced as untrusted data, citation fields outside
-(``services/content_security/knowledge_fence``): both functions are the last step before
-the model reads it, in the chat and run loops and on the MCP server.
-"""
+"""Tool results through the content check before they reach a model."""
 
 from __future__ import annotations
 
@@ -48,8 +36,6 @@ async def _content_checked(tool_name: str, result: Any, context: ToolContext) ->
 
 
 async def mcp_result_checked(tool_name: str, result: dict[str, Any], workspace_id: Any) -> dict[str, Any]:
-    """A result of the Octryx MCP server (``mcp_governed_knowledge`` / ``mcp_parity_dispatch``) before it
-    goes to the coding agent: origin ``mcp``, the caller's Workspace, no chat conversation."""
     if not isinstance(workspace_id, str):
         return result  # a refusal before any tool ran
     return fence_knowledge_result(tool_name, await _mcp_content_checked(tool_name, result, workspace_id))

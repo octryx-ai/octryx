@@ -1,25 +1,5 @@
-"""Reads over a Knowledge scope: the reader's Workspace plus its bound sources.
-
-Each Workspace is still queried on its own, scoped to its own rows of the Evidence index, with its own
-authorized view. Nothing is merged at the storage level, so hard isolation stays intact. Only the answers are
-combined, deterministically:
-
-- **Search.** Every Workspace in scope answers the hybrid retrieval with the binding's product
-  bound. The hits are fused by rank (RRF); when every Workspace was reranked, by the reranker's
-  relevance, which is comparable because it is the same model on the same query. The same
-  *passage* found in two Workspaces is kept once, from the better-ranked hit: same source
-  content digest, same character window and the same span text. Different passages of one document
-  are different hits; a hit without a valid locator keeps its own evidence identity and is never
-  merged. Each hit names its Workspace.
-- **Read.** An evidence key names its revision, so the first Workspace in scope that holds it
-  serves the read. A bound source only serves revisions of the binding's products.
-- **Changes.** A product's change facts are read from one Workspace: the first in scope order that
-  has extracted facts for it (the reader's own first). So a project Workspace answers from a bound
-  library Workspace until it holds its own facts for that product.
-
-A Workspace that cannot answer reports its fixed state per Workspace. The reader's own failure
-fails the read only when no Workspace in scope answered.
-"""
+"""Reads over a Knowledge scope: the reader's Workspace plus its bound sources. Each Workspace is queried on its own;
+only the answers are combined."""
 
 from __future__ import annotations
 
@@ -70,15 +50,8 @@ _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 def _passage_identity(workspace_id: str, hit: HybridEvidence) -> tuple[str, ...]:
-    """Which hits are the same passage.
-
-    ``content_sha256`` is the digest of the whole source revision, so on its own it would merge every
-    passage of a document. A passage is that digest plus its validated character window plus the
-    exact span text: equal only for the same text at the same place of the same content, whichever
-    Workspace or parser produced it (a span ordinal alone is not used). When the digest or the window
-    is missing or invalid, the hit keeps its own authenticated evidence identity and merges with
-    nothing.
-    """
+    # ``content_sha256`` covers the whole revision, so a passage is digest, window and text; an invalid one merges with
+    # nothing.
     evidence = hit.evidence
     digest = evidence.content_sha256 if isinstance(evidence.content_sha256, str) else ""
     start, end = evidence.char_start, evidence.char_end
@@ -184,7 +157,6 @@ async def _revision_products(db: AsyncSession, project_id: str, evidence_key: st
 async def scoped_read(
     db: AsyncSession, *, scope: KnowledgeScope, evidence_key: object, window: object
 ) -> tuple[str, SpanWindow]:
-    """``(workspace_id, window)`` from the first Workspace in scope that holds ``evidence_key``."""
     try:
         return scope.primary.project_id, await read_span_window(
             db, authorized=scope.primary, evidence_key=evidence_key, window=window

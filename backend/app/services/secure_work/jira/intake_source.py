@@ -1,11 +1,4 @@
-"""Jira as a registered Work source (``intake/registry``): setup, discovery and scheduling hooks over ``jira_sync``.
-
-Jira keeps its own runner (``jira_sync.run_jira_work_item_sync``: allowlist, fall-out, link and parent scoping) and
-its scheduled entry analyses after the sync itself (``analyzes_after_sync``). This adapter only moves the Jira
-branches of ``intake/setup.py``, ``intake/discovery.py`` and the scheduler here, behaviour unchanged.
-The runner functions are looked up on their modules (``jira_sync``, ``jira_sync_config``, ``jira_sync_schedule``,
-``jira_sync_task``) at call time, so a patched runner is the one used.
-"""
+"""Jira as a registered Work source (``intake/registry``): setup, discovery and scheduling hooks over ``jira_sync``."""
 
 from __future__ import annotations
 
@@ -52,7 +45,6 @@ class JiraIntakeSource:
     analyzes_after_sync = True
 
     def scope_key(self, item: WorkItem) -> str:
-        """The Jira project of its issue key: the binding key of a named connection."""
         return issue_project(item.source_key) or ""
 
     def wants_auto_analysis(self, item: WorkItem, settings: Any, options: Mapping[str, Any]) -> bool:

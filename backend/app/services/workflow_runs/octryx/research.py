@@ -1,25 +1,4 @@
-"""Web research in a phase a Workspace lists (``device_runs.research_phases``).
-
-Without it, spec-writing ``draft`` (Claude Code on the device seat) wrote
-SPEC.md "without a live web search" (0 URLs, 0 web calls), although the epic expects "he does a web search, then
-writes the spec": the phase's ``tool_policy.allowlist`` had no ``web_search`` / ``web_fetch``, so the platform tools
-were never offered. A run is pinned to its workflow version, so a seed change alone would not reach a running run.
-
-For a phase the run's Workspace lists as ``"<workflow_key>.<node_id>"``, :func:`with_research` changes the phase's
-definition at runtime, wherever the platform reads it for that run (the device's run contract and with it the MCP
-tools the session sees, the Stop gate's checks, a server turn's resolution):
-
-- ``web_search`` and ``web_fetch`` join the allowlist (and leave the node's denylist: the Workspace's list wins, as
-  for ``browser_phases``; a published agent's own tools deny still narrows them afterwards);
-- the contract's ``research`` note tells the agent to research first and cite every source as a URL;
-- two blocking checks, listed like the seed's own: ``evidence_count`` over both tools with ``min_count`` =
-  ``device_runs.research_min_sources`` and ``urls_cited`` with the same minimum over what the phase wrote.
-
-Claude Code's own ``WebSearch`` / ``WebFetch`` count as the same evidence (``read_evidence.native_web_use``: the hook
-reported success and the gateway recorded the call); they leave from the device, the platform tools from the server
-(the platform tools can fail with ``transport`` errors without web egress). Codex's hosted web search stays off
-(``codex_driver``): Codex reaches the platform tools over the MCP server, which retry a failed connection.
-"""
+"""Web research in a phase a Workspace lists (``device_runs.research_phases``)."""
 
 from __future__ import annotations
 
@@ -27,11 +6,9 @@ import copy
 from typing import Any
 
 RESEARCH_TOOLS = ("web_search", "web_fetch")
-# Knowledge-first over web search: the Workspace's knowledge counts as research too (a search with
-# hits); otherwise a spec researched the web from scratch next to another spec of the same
-# Workspace (7 sources, none shared, different rule values).
-EVIDENCE_TOOLS = ("knowledge_search", *RESEARCH_TOOLS)  # offered to the phase
-EVIDENCE_COUNTED = ("knowledge_hit", *RESEARCH_TOOLS)  # counted: a knowledge search with hits (``octryx.stop``)
+# Knowledge-first: a knowledge search with hits counts as research too.
+EVIDENCE_TOOLS = ("knowledge_search", *RESEARCH_TOOLS)
+EVIDENCE_COUNTED = ("knowledge_hit", *RESEARCH_TOOLS)
 RESEARCH_KEY = "research"
 RESEARCH_SOURCE = "workspace_research_phases"
 RESEARCH_NOTE = ("Ask the Workspace's knowledge first: knowledge_search finds the specifications, pages and "
@@ -57,8 +34,6 @@ def research_checks(minimum: int) -> list[dict[str, Any]]:
 
 
 def with_research(definition: dict[str, Any], minimum: int | None, *, brief: bool = False) -> dict[str, Any]:
-    """``definition`` (a ``phase_definition``) with the research tools, note and checks; unchanged for ``None``.
-    ``brief``: the note also ends ``when_to_use`` (a server turn's instructions; the device reads ``research``)."""
     if not minimum:
         return definition
     from ...workflow_checks.library import MAX_CHECKS
@@ -81,7 +56,6 @@ def with_research(definition: dict[str, Any], minimum: int | None, *, brief: boo
 
 
 async def research_min_sources(db: Any, run: Any, node: Any) -> int | None:
-    """``device_runs.research_min_sources`` when ``run``'s Workspace lists phase ``node`` in ``research_phases``."""
     from ..graph import NODE_PHASE
 
     if node is None or run is None or not getattr(run, "project_id", None) or getattr(node, "kind", None) != NODE_PHASE:
@@ -98,7 +72,6 @@ async def research_min_sources(db: Any, run: Any, node: Any) -> int | None:
 
 
 async def research_phase_definition(db: Any, run: Any, node: Any, *, brief: bool = False) -> dict[str, Any]:
-    """``phase_definition(run, node)`` with the Workspace's research switch applied."""
     from ..phase_contract import phase_definition
 
     return with_research(phase_definition(run, node), await research_min_sources(db, run, node), brief=brief)

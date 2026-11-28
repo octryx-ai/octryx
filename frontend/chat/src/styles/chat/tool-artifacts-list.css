@@ -52,7 +52,7 @@
   background: var(--surface-overlay);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.06em;
   text-align: center;
 }
@@ -86,7 +86,7 @@
 .tool-artifact__name {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.35;
   word-break: break-word;
 }
@@ -102,7 +102,7 @@
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -172,7 +172,7 @@
   color: var(--muted-strong);
   cursor: pointer;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-decoration: none;
 }
 

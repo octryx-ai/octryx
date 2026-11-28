@@ -32,7 +32,6 @@ _SECRET_FOLDERS = ("/.ssh/", "/.aws/", "/.gnupg/", "/.kube/", "/.docker/", "/.co
 
 
 def secret_path(path: str) -> bool:
-    """A file whose content is likely a secret: no diff or file of it leaves the Mac."""
     normalized = path.replace("\\", "/").lower()
     name = normalized.rsplit("/", 1)[-1]
     return (name == ".env" or name.startswith(".env.") or name.endswith(_SECRET_SUFFIXES)
@@ -41,7 +40,6 @@ def secret_path(path: str) -> bool:
 
 
 def change_diff(tool: str, tool_input: dict[str, Any]) -> str:
-    """A unified diff of an Edit/MultiEdit, or the new file of a Write, for the app's code-change view; capped."""
     import difflib  # noqa: PLC0415
 
     path = str(tool_input.get("file_path") or tool_input.get("notebook_path") or "file")
@@ -73,7 +71,6 @@ def _clip(value: Any, limit: int = MAX_RESULT_CHARS) -> str:
     return value if len(value) <= limit else value[:limit] + "…"
 
 def context_tokens(message: Any) -> int | None:
-    """How full the context is after one main-thread API call: its input (with cache) plus its output tokens."""
     if type(message).__name__ != "AssistantMessage" or getattr(message, "parent_tool_use_id", None):
         return None
     usage = getattr(message, "usage", None)
@@ -85,7 +82,6 @@ def context_tokens(message: Any) -> int | None:
 
 
 def context_window(model_usage: Any) -> int:
-    """The largest context window the turn's models report (``model_usage[...].contextWindow``); 0 if unknown."""
     if not isinstance(model_usage, dict):
         return 0
     windows = [int(item.get("contextWindow") or 0) for item in model_usage.values() if isinstance(item, dict)]
@@ -93,7 +89,6 @@ def context_window(model_usage: Any) -> int:
 
 
 def map_message(message: Any) -> list[dict[str, Any]]:
-    """One SDK message → the job events the chat sees (text deltas, tools, results, retries)."""
     name = type(message).__name__
     if name == "StreamEvent":
         event = getattr(message, "event", {}) or {}

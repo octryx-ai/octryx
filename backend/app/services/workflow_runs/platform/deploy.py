@@ -1,12 +1,4 @@
-"""The optional deploy phase of Feature delivery: the Workspace's deploy job on its CI connection.
-
-A Workspace that deploys names its job in its configuration (``project config deploy_job``, a Jenkins job on the
-Workspace's ``jenkins`` named connection); a workflow never names a job. ``deploy.configured`` routes ``configured``
-or ``not_configured`` (no deploy phase then); ``deploy.run`` starts the job only with a four-eyes approval of this
-pass (``deploy_four_eyes``: refused at publish without an approval on every path, checked again here) and records
-it (``context.deploy``: job, queue item, approval) so the following watch observes exactly the build that queue item
-started. A failed start routes ``failed``; deploying is never retried automatically.
-"""
+"""The optional deploy phase of Feature delivery: the Workspace's deploy job on its CI connection."""
 
 from __future__ import annotations
 

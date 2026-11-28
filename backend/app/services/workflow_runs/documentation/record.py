@@ -1,10 +1,5 @@
-"""The ``feature_documentation`` output: what the documentation phase's agent drafts (``submit_feature_documentation``).
-
-The agent writes the prose only — what the feature does, why it exists, how to use it. Everything that is a fact of
-the run is added by the server from what it recorded (``page``): the acceptance criteria and their tests from the
-confirmed test contract, the ticket and the pull request links. A draft can therefore never claim a test or a link
-the run did not record.
-"""
+"""The ``feature_documentation`` output: what the documentation phase's agent drafts
+(``submit_feature_documentation``)."""
 
 from __future__ import annotations
 

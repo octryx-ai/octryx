@@ -1,13 +1,4 @@
-"""C: the operations layer of one record revision.
-
-Selected explicitly: revisions of the profile's operations connector kinds (``servicenow.…``,
-``jira.…`` and ``kubernetes.…`` source keys, which the connectors own). A ``kubernetes`` revision is
-one namespace's inventory the Kubernetes connector read from the cluster's API
-(``sources/sync/kubernetes.py``: deployments, replicas, images).
-
-The stored text is parsed whole and every fact is cited from the span covering its offset. Git
-files and commits belong to the configuration layer, whose snapshot they come from.
-"""
+"""The operations layer of one record revision."""
 
 from __future__ import annotations
 

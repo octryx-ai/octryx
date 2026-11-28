@@ -81,14 +81,6 @@
   max-width: 32rem;
 }
 
-.pc-agent-scope {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
 .pc-group {
   min-width: 0;
   border: 1px solid var(--border-soft);
@@ -108,7 +100,7 @@
 .pc-group__label {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   overflow-wrap: anywhere;
 }
 

@@ -22,8 +22,6 @@ _KUBECONFIG_MOUNT_PATH = "/runtime-mounts/kubeconfig"
 
 
 def _validate_kubectl_args(args: list[str]) -> tuple[bool, str]:
-    """``run_kubectl`` runs read-only kubectl commands only; ``(ok, error_message)``. Secret contents,
-    ConfigMap data and template formats on resources with containers are refused like in the Kubernetes tools."""
     from ..kubernetes_env_mask import kubectl_env_template_refusal
     from ..kubernetes_kubectl_argv import kubectl_secret_read_refusal
 
@@ -49,7 +47,6 @@ def _kubectl_command_args(args: Any) -> list[str]:
 async def _alert_scope_refusal(
     params: dict, context: ToolContext, command_args: list[str]
 ) -> tuple[dict[str, Any] | None, str | None]:
-    """Under a run's alert scope only the target's namespace, and no Secret read: ``(refusal, scoped_namespace)``."""
     from ..alert_scope import run_alert_scope
 
     scope = await run_alert_scope(context)
@@ -65,7 +62,6 @@ async def _alert_scope_refusal(
 
 
 def _kubeconfig_mounts(command: list[str], kubeconfig_path: Any, workspace_root: Path) -> list[Any]:
-    """Mount a kubeconfig outside the workspace read-only and point ``--kubeconfig`` at the mount (in place)."""
     mounts = []
     if kubeconfig_path:
         kubeconfig_resolved = Path(str(kubeconfig_path)).expanduser()

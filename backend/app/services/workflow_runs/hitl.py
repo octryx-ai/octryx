@@ -1,13 +1,4 @@
-"""Human-in-the-loop nodes of a phased run: what a waiting run shows and how a person moves it on.
-
-- ``user_conversation``: the run asks its question in the chat banner and waits for the requester's next
-  message in the bound session; the reply is recorded on the run and the run continues (the same turn then
-  runs the next phase, if one follows).
-- ``user_confirmation``, ``approval``, ``watch``: the run waits; how they are decided is in this module's
-  decision functions and in the run's actions.
-
-While a run waits, a chat turn in its session is held with the run's state (``held_reason``): nothing runs.
-"""
+"""Human-in-the-loop nodes of a phased run: what a waiting run shows and how a person moves it on."""
 
 from __future__ import annotations
 
@@ -43,7 +34,6 @@ def _set_waiting(run: WorkflowRun, waiting: dict[str, Any]) -> None:
 
 
 async def enter_waiting_node(db: AsyncSession, run: WorkflowRun, node: PhasedNode, *, actor_id: str | None) -> None:
-    """Record what the run waits for; the banner and the Inbox read it from the run."""
     waiting: dict[str, Any] = {"kind": run.waiting_kind, "title": node.title, "since": utc_now().isoformat()}
     if node.kind == NODE_CONVERSATION:
         waiting["question"] = str(node.config.get("question") or "")
@@ -72,7 +62,6 @@ _HELD = {
 
 
 def held_reason(run: WorkflowRun) -> tuple[str, str]:
-    """The execution profile state and reason of a turn the run holds."""
     if run.status == "paused":
         pause = dict(dict(run.node_state or {}).get("pause") or {})
         detail = str(pause.get("message") or "")
@@ -84,8 +73,6 @@ def held_reason(run: WorkflowRun) -> tuple[str, str]:
 
 
 async def record_reply(db: AsyncSession, run: WorkflowRun, text: str, *, user: User | None = None) -> None:
-    """Answer as the authenticated current decider; an internal call without a user defaults to the
-    requester, unless the node has an authored decider."""
     from .decider import audit_decider_decision, require_node_decider
     from .engine import resolve_current_node
     from .hitl_actions import authored_decider, reply_payload
@@ -124,7 +111,6 @@ async def record_reply(db: AsyncSession, run: WorkflowRun, text: str, *, user: U
 
 
 async def _answer_clarification(db: AsyncSession, run: WorkflowRun, reply: str, *, actor_id: str) -> None:
-    """The run's own question is answered by the same reply (if the send path has not done it already)."""
     from ...models import ClarificationQuestion
 
     question_id = str(_waiting(run).get("clarification_id") or "")

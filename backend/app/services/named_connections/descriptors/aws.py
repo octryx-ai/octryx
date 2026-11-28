@@ -1,15 +1,4 @@
-"""AWS: one named connection per account (role or keys), bound to account ids.
-
-A named connection holds its region, a role ARN or an access key pair (optionally a session token) and the
-``allow_platform_credentials`` opt-in, with the same meaning as on the connector's own entry: without own keys
-or a role, a call runs on the platform's credentials only with that opt-in (named connections are written by
-platform admins only, ``_require_admin_api``; over MCP such a call is audited). A host profile (``aws_profile``)
-is never inherited from the default entry. A named connection that has neither keys, a role nor the opt-in at
-call time is refused (``runtime_guard``), never sent to boto3's host default chain.
-
-A call names its account with ``account_id`` (or its ``connection``); the default entry serves the account of
-its own ``aws_account_id``. Without either and with named connections, the call is refused with the candidates.
-"""
+"""AWS: one named connection per account (role or keys), bound to account ids."""
 
 from __future__ import annotations
 

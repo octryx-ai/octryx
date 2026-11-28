@@ -1,13 +1,4 @@
-"""Device turns that will never finish on their own: stalled turns end as failed.
-
-A device service that restarts while a turn runs (an update, a crash, a kill) reports the turn itself once it is
-connected again (``turn_finished {status: failed, reason: service_restarted}``, ``jobs.apply_event``). Anything the
-device cannot report (a lost state file, a hung Claude Code) is caught here: a delivered turn
-(``sent`` or ``accepted``) of a connected device without any device event for the Workspace's
-``device_runs.stale_turn_minutes`` (default 10) ends as failed (``turn_stalled``) and the job goes back to idle,
-so the next chat message starts a turn again. A turn waiting for an owner approval is never stalled (the approval
-has its own timeout). The device gets a ``cancel`` for the turn in case it still runs.
-"""
+"""Device turns that will never finish on their own: stalled turns end as failed."""
 
 from __future__ import annotations
 
@@ -31,7 +22,6 @@ LAUNCHER_STEP_ACTIONS = ("pipeline.run", "workspace.prepare")
 
 
 async def _launcher_step(db: AsyncSession, job: DeviceJob) -> bool:
-    """The job's thread follows a running run whose current node is a launcher step (``LAUNCHER_STEP_ACTIONS``)."""
     if job.turn_state != "sent" or not job.session_id:
         return False
     from ..workflow_runs.graph import graph_for_run
@@ -55,7 +45,6 @@ async def _stale_minutes(db: AsyncSession, workspace_id: str | None, cache: dict
 
 async def fail_stalled_turns(db: AsyncSession, *, device_id: str | None = None,
                              now: Any = None) -> list[DeviceJob]:
-    """End every stalled turn in scope as failed with the job back to idle. Flushes."""
     current = ensure_utc(now or utc_now())
     waiting = exists().where(DeviceJobApproval.job_id == DeviceJob.id, DeviceJobApproval.status == "pending")
     query = select(DeviceJob).where(
@@ -79,6 +68,7 @@ async def fail_stalled_turns(db: AsyncSession, *, device_id: str | None = None,
         job.stop_state = "pending"  # the device stops the turn should it still run
         db.add(AuditLog(user_id=job.owner_user_id, session_id=job.session_id, action="device.job.turn_stalled",
                         resource_type="device_job", resource_id=job.id,
+                        project_id=job.workspace_id,
                         details={"device_id": job.device_id, "turn_id": job.turn_id, "stale_turn_minutes": minutes}))
         stalled.append(job)
     await db.flush()

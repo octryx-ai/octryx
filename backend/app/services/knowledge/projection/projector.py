@@ -1,32 +1,5 @@
-"""The outbox projector: applies one revision's spans to the Workspace Evidence index.
-
-Idempotent by construction. Each span is written with the registry's upsert by
-``evidence_key``, so re-running a claimed entry, or re-projecting a revision
-after a rebuild, converges instead of duplicating or erroring. The index schema
-comes from the Alembic migration, so a run issues no DDL.
-
-Failures never carry text. Every dependency error is mapped to one of the fixed
-``ALL_PROJECTION_FAILURES`` tokens before it touches the database, so a driver
-message — which may carry statement text and values — can never be persisted,
-logged, or returned.
-
-Bounded per run, continued from a cursor. One span is one upsert call, so
-a revision may owe up to ``spans.MAX_SPANS_PER_REVISION`` calls — far too many to
-run inside one synchronous HTTP request. A run therefore applies at most
-:data:`MAX_SPANS_PER_RUN` ordinals, persists how far it got in the outbox entry's
-``projected_through_ordinal``, and leaves the obligation ``pending`` and due.
-Partial work is never marked applied; only the run that projects the last span
-does that.
-
-Lease ownership decides the outcome. Every transition requires this run to still
-hold the exact claim generation it started with; a reclaimed or expired lease
-answers ``lease_lost`` and reports ``applied=False`` rather than overwriting the
-new holder's state. The upserts themselves are idempotent, so nothing is corrupted
-by the overlap. A run whose remaining lease drops below
-:data:`LEASE_RENEWAL_MARGIN_SECONDS` renews it and continues with the new claim
-value, so the bound on one run is the run budget below — not an unwritten
-assumption that the budget happens to be shorter than the lease.
-"""
+"""The outbox projector: applies one revision's spans to the Workspace Evidence index. Idempotent, bounded per run, and
+never marks partial work applied."""
 
 from __future__ import annotations
 
@@ -76,8 +49,6 @@ def _run_budget(operation: str) -> int:
 
 
 class EvidenceProjector:
-    """Applies claimed projection obligations with the non-root credential."""
-
     def __init__(self, runtime: EvidenceRuntime) -> None:
         if type(runtime) is not EvidenceRuntime:
             raise EvidenceLedgerContractError()
@@ -86,14 +57,12 @@ class EvidenceProjector:
     async def project_once(
         self, db: AsyncSession, *, worker_id: str, project_id: str | None = None
     ) -> ProjectionOutcome | None:
-        """Claim and apply one due entry, or return ``None`` when nothing is due."""
         claimed = await claim_next(db, worker_id=worker_id, project_id=project_id)
         if claimed is None:
             return None
         return await self.apply_claimed(db, claimed)
 
     async def apply_claimed(self, db: AsyncSession, claimed: ClaimedProjection) -> ProjectionOutcome:
-        """Apply one bounded batch of a leased entry; a failure is recorded, never raised."""
         if type(claimed) is not ClaimedProjection:
             raise EvidenceLedgerContractError()
         if claimed.operation == OUTBOX_OPERATION_PARSE_REVISION:
@@ -122,7 +91,6 @@ class EvidenceProjector:
     async def _close_run(
         self, db: AsyncSession, lease: _RunLease, last_ordinal: int, *, more_pending: bool
     ) -> str:
-        """The one transition a run that did not fail makes; ``lease_lost`` when its renewal was refused."""
         if lease.lost:
             # The renewal that would have kept this run's claim alive was
             # refused, so no transition is attempted at all.
@@ -132,12 +100,7 @@ class EvidenceProjector:
         return await mark_applied(db, lease.claim, embed_current=self._runtime.embedding is not None)
 
     async def _apply_parse(self, db: AsyncSession, claimed: ClaimedProjection) -> ProjectionOutcome:
-        """One bounded run of a parse obligation: submit, poll, or write the parsed spans.
-
-        Waiting for the sandbox is reported like a deferral (no attempt spent). A failure rolls
-        back whatever the run added before the attempt is recorded, so a half-written parse is
-        never committed.
-        """
+        # A failure rolls back the run's writes before the attempt is recorded: a half-written parse is never committed.
         lease = _RunLease(claimed)
         try:
             async with asyncio.timeout(PROJECTION_RUN_TIMEOUT_SECONDS):
@@ -165,11 +128,6 @@ class EvidenceProjector:
     _outcome = staticmethod(projection_outcome)
 
     async def _project_batch(self, db: AsyncSession, workspace: WorkspaceId, lease: _RunLease) -> tuple[int, int, bool]:
-        """Run one bounded step of the claimed obligation after the cursor.
-
-        Returns ``(written, last ordinal, more pending)``. The lease is renewed before a span
-        whenever it is close to expiry, and ``lease.lost`` stops the run when that is refused.
-        """
         if lease.claim.operation == OUTBOX_OPERATION_EXTRACT_GRAPH:
             from ..temporal.extraction_step import EPISODE_LEASE_SECONDS, extract_graph_step
 
@@ -198,7 +156,6 @@ class EvidenceProjector:
 
     @staticmethod
     async def _renew_for(db: AsyncSession, lease: _RunLease, seconds: int) -> bool:
-        """Extend this run's claim to ``seconds`` from now, for a step with its own budget."""
         renewed = await renew_lease(db, lease.claim, lease_seconds=seconds)
         if type(renewed) is not ClaimedProjection:
             lease.lost = True
@@ -208,12 +165,7 @@ class EvidenceProjector:
 
     @staticmethod
     async def _hold_lease(db: AsyncSession, lease: _RunLease) -> bool:
-        """Keep this run's claim alive, renewing it shortly before it would expire.
-
-        Returns False once the claim is gone, which is the only case in which a
-        bounded run stops before its batch: continuing would spend dependency calls
-        on an obligation another claim generation already owns.
-        """
+        # Continuing after a lost claim would spend dependency calls on work another claim generation owns.
         remaining = (lease.claim.lease_until - utc_now()).total_seconds()
         if remaining > LEASE_RENEWAL_MARGIN_SECONDS:
             return True

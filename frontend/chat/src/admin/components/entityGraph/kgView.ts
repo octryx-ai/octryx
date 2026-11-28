@@ -1,13 +1,6 @@
-// What the knowledge graph canvas shows, as pure functions: one colour per entity type, who is in the focus
-// neighbourhood, which labels compete for space first, how an edge is drawn, and the "N of M" count line.
-
 export const TYPE_SLOTS = 8;
 
-/**
- * One colour slot (1–8) per entity type; types beyond eight share slot 0 ("other", neutral). A type keeps its
- * slot when the legend hides another type: the slots come from the loaded view, never from what is visible.
- * The most frequent types get a slot first; each starts at a slot from its name and takes the next free one.
- */
+// Slots come from the loaded view, never from what is visible, so a type keeps its colour when another is hidden.
 export function assignTypeSlots(nodeTypes: Record<string, number> | null | undefined): Map<string, number> {
   const slots = new Map<string, number>();
   const taken = new Set<number>();
@@ -25,7 +18,7 @@ export function assignTypeSlots(nodeTypes: Record<string, number> | null | undef
   return slots;
 }
 
-/** Slots for types an Expand brings in: the next free slot each, so no type already shown changes colour. */
+// Next free slot each, so no type already shown changes colour.
 export function withTypes(slots: Map<string, number>, types: string[]): Map<string, number> {
   const missing = Array.from(new Set(types)).filter((type) => !slots.has(type)).sort();
   if (!missing.length) return slots;
@@ -40,12 +33,10 @@ export function withTypes(slots: Map<string, number>, types: string[]): Map<stri
   return next;
 }
 
-/** The theme variable of a colour slot (knowledge-graph.css defines them for dark and light). */
 export function slotColor(slot: number | undefined): string {
   return slot ? `var(--kg-type-${slot})` : "var(--kg-type-other)";
 }
 
-/** The entity and every entity one relationship away from it. */
 export function neighbourhood(selectedId: string, edges: { source: string; target: string }[]): Set<string> {
   const ids = new Set<string>();
   if (!selectedId) return ids;
@@ -59,11 +50,6 @@ export function neighbourhood(selectedId: string, edges: { source: string; targe
 
 export type LabelCandidate = { id: string; degree: number; hub: boolean; name: string };
 
-/**
- * The order in which labels claim space (entityGraphLabels.placeLabels then skips any that would collide at the
- * current zoom): the selection, the hovered entity, the selection's neighbours, search matches, each type's hub,
- * then by relationships. Zooming in frees space, so more names appear.
- */
 export function labelOrder(candidates: LabelCandidate[], focus: {
   selectedId?: string; hoverId?: string; neighbours?: Set<string>; matches?: Set<string>;
 }): string[] {
@@ -82,18 +68,16 @@ export function labelOrder(candidates: LabelCandidate[], focus: {
 
 export type EdgeLook = "idle" | "faint" | "focus" | "dim" | "hover";
 
-/** An edge is quiet by default, highlighted next to the selection, faded elsewhere while something is selected. */
 export function edgeLook(
   edge: { id: string; source: string; target: string }, selectedId: string, hoverEdgeId = "", faint?: Set<string>,
 ): EdgeLook {
   if (edge.id === hoverEdgeId) return "hover";
   if (selectedId && (edge.source === selectedId || edge.target === selectedId)) return "focus";
   if (selectedId) return "dim";
-  // Lines from the loosely connected ring cross the whole graph: quiet until hovered or selected.
+  // Lines from the loosely connected ring cross the whole graph, so they stay quiet until hovered or selected.
   return faint && (faint.has(edge.source) || faint.has(edge.target)) ? "faint" : "idle";
 }
 
-/** Relationship labels on the canvas: the hovered edge, and the selection's edges while they are few enough to read. */
 export const MAX_FOCUS_EDGE_LABELS = 12;
 export function showsEdgeLabel(look: EdgeLook, focusEdges: number): boolean {
   return look === "hover" || (look === "focus" && focusEdges <= MAX_FOCUS_EDGE_LABELS);
@@ -101,10 +85,6 @@ export function showsEdgeLabel(look: EdgeLook, focusEdges: number): boolean {
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
-/**
- * The count line above the canvas. With the server's totals: "128 of 409 entities · 212 of 915 relationships"
- * (drawn of the whole visible graph). Without them: "128 of 150 entities · 212 relationships" (drawn of loaded).
- */
 export function countLine(input: {
   shown: number; loaded: number; relationships: number; totalNodes?: number | null; totalEdges?: number | null;
 }): string {
@@ -121,7 +101,6 @@ export function countLine(input: {
 
 export type LegendItem = { type: string; slot: number; shown: number; total: number; hidden: boolean };
 
-/** Legend rows, most frequent type first: its colour slot, how many are drawn of how many loaded, hidden or not. */
 export function legendItems(
   loaded: { node_type: string }[], hidden: Set<string>, slots: Map<string, number>,
 ): LegendItem[] {
@@ -132,7 +111,6 @@ export function legendItems(
     .map(([type, total]) => ({ type, slot: slots.get(type) ?? 0, total, shown: hidden.has(type) ? 0 : total, hidden: hidden.has(type) }));
 }
 
-/** The legend as a filter: a click hides or shows one type; "only" shows that type alone (or all again). */
 export function toggleType(hidden: Set<string>, type: string): Set<string> {
   const next = new Set(hidden);
   if (next.has(type)) next.delete(type);
@@ -145,10 +123,7 @@ export function onlyType(hidden: Set<string>, type: string, all: string[]): Set<
   return alone ? new Set() : new Set(all.filter((other) => other !== type));
 }
 
-/**
- * The edges that carry a label: one per pair of entities (two relationships between the same two read as one
- * label, "a · b"), so labels never sit on top of each other at the same midpoint. Returns edge id → label.
- */
+// One label per entity pair, so labels never sit on top of each other at the same midpoint.
 export function edgeLabels(edges: { id: string; source: string; target: string; relation: string; labelled: boolean }[]): Map<string, string> {
   const byPair = new Map<string, { id: string; relations: string[] }>();
   for (const edge of edges) {
@@ -165,17 +140,12 @@ export type EdgeLabelSpot = { id: string; x1: number; y1: number; x2: number; y2
 export type PlacedEdgeLabel = { x: number; y: number; text: string };
 export type LabelObstacle = { x: number; y: number; r: number };
 
-// Screen pixels: 11 px text at about 6 px per character, chip padding, and the gap kept to the circles.
+// 11 px text at about 6 px per character.
 const LABEL_CHAR_PX = 6;
 const LABEL_PAD_PX = 10;
 const LABEL_HEIGHT_PX = 18;
 const LABEL_GAP_PX = 6;
 
-/**
- * Where relationship labels go: as a chip on the middle of the edge (between the circle rims). A label is left to
- * hover when its edge is shorter than the label plus a gap to both circles, when it would touch any circle, or
- * when it would overlap a label already placed. Sizes are screen pixels at `zoom`.
- */
 export function placeEdgeLabels(spots: EdgeLabelSpot[], zoom: number, obstacles: LabelObstacle[] = []): Map<string, PlacedEdgeLabel> {
   const placed = new Map<string, PlacedEdgeLabel>();
   const boxes: { l: number; t: number; r: number; b: number }[] = [];
@@ -202,11 +172,6 @@ export function placeEdgeLabels(spots: EdgeLabelSpot[], zoom: number, obstacles:
 
 export type ClusterLabelSpot = { type: string; x: number; y: number; r: number; size: number; text: string };
 
-/**
- * Which cluster names fit at the current zoom: the largest clusters first, each name above its cluster, skipped
- * when it would overlap a name already placed or an entity circle. Sizes in screen pixels (11 px caps, about
- * 7.5 px per character with the tracking).
- */
 export function placeClusterLabels(
   spots: ClusterLabelSpot[], zoom: number, circles: LabelObstacle[] = [],
 ): Map<string, { left: number; top: number; right: number; bottom: number }> {

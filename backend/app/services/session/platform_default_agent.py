@@ -1,9 +1,5 @@
-"""The platform Assistant answers every turn that names no agent.
-
-There is no anonymous "turn without an agent": the turn runs as the Assistant, recorded as
-``agent_selection_source = platform_default``. An Assistant that is missing, retired or inactive refuses the turn
-explicitly (``agent_definition_refused``) — never a silent run without an agent.
-"""
+"""The platform Assistant answers every turn that names no agent. A missing or inactive Assistant refuses the turn
+explicitly, never a silent run without an agent."""
 
 from __future__ import annotations
 

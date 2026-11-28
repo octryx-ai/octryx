@@ -111,6 +111,10 @@ async def _rights(db: AsyncSession, row: WorkflowHandoff, actor: User, runtime: 
             requested, effective = parse_target(runtime), parse_target(proof.get("runtime_target"))
         except WorkflowRunError:
             refuse("needs_configuration", "The selected receiver runtime was not admitted")
+        # The server's agents are its runners: a server or pool request is admitted as the runner it resolved to.
+        pooled = isinstance(proof.get("runtime_target"), dict) and bool(proof["runtime_target"].get("pool"))
+        if requested and effective and pooled and (requested["kind"] == "server" or requested.get("pool")):
+            requested = effective
         if not requested or not effective or requested["kind"] != effective["kind"]:
             refuse("needs_configuration", "The selected receiver runtime was not admitted")
         if requested["kind"] == "device":

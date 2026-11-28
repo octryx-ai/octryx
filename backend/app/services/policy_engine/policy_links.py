@@ -1,14 +1,4 @@
-"""Where policies show up outside the Policies page.
-
-- :func:`workspace_platform_policies` — the published custom policies that apply to one Workspace, for Agents →
-  Governance → Policy (any member of the Workspace reads its policy summary): a builder policy applies when its
-  where-part matches the Workspace (chosen Workspaces, classification is / at least / unresolved); a hand-written
-  one when it names no Workspace or names this one (its other conditions are flagged, not evaluated). Sentences
-  and names only — never the Cedar text. Members read a public view (:class:`MemberNames`): this Workspace by name,
-  other Workspaces of a multi-Workspace policy as "another Workspace", user and group names hidden.
-- :func:`reference_counts` — for the connector cards (platform admins): per connector and per named connection,
-  the policies of the working version that name them (removed ones excluded), with the names.
-"""
+"""Where policies show up outside the Policies page."""
 
 from __future__ import annotations
 
@@ -32,8 +22,6 @@ HIDDEN_NAME = "(hidden)"
 
 @dataclass(frozen=True, slots=True)
 class MemberNames(NameIndex):
-    """The names a Workspace member may read: its own Workspace; never other Workspaces, users or groups."""
-
     own_workspace: str = ""
 
     def workspace(self, workspace_id: str) -> str | None:

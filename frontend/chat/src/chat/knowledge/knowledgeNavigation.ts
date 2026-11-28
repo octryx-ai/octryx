@@ -1,5 +1,4 @@
-// Moves between Knowledge pages keep the user's workspace intent: before a page switch the current
-// URL carries the selected workspace_id, which useActiveWorkspace reads first on the next page.
+// Carries workspace_id across page switches; useActiveWorkspace reads it first.
 
 import { hrefWithWorkspace } from "../activeWorkspace";
 

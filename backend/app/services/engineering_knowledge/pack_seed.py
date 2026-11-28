@@ -1,16 +1,4 @@
-"""Seeding and freshness helpers for Engineering Knowledge Packs.
-
-Two follow-ups of the research→bronze bridge:
-
-- ``seed_pack_sources``: a finished research run carries an evidence manifest
-  (source URLs with titles). Seeding turns those into
-  ``EngineeringKnowledgePackSource`` rows on a draft version — with a
-  DETERMINISTIC trust-tier inference by domain — so the drafting agent only
-  writes items against already-registered, attributable sources.
-- ``list_stale_engineering_knowledge_packs``: published pack versions whose
-  knowledge is older than the pack's ``freshness_policy.max_age_days`` — the
-  re-research worklist ("Spring Boot 4.1 may exist by now").
-"""
+"""Seeding and freshness helpers for Engineering Knowledge Packs."""
 
 from __future__ import annotations
 
@@ -82,11 +70,6 @@ async def seed_pack_sources(
     pack_version: EngineeringKnowledgePackVersion,
     sources: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Register research evidence sources on a draft version (dedup by URI).
-
-    Returns the registered sources (key, uri, trust_tier) for the drafting
-    agent to reference in its items.
-    """
     existing_uris = {
         str(uri)
         for uri in (
@@ -125,11 +108,6 @@ async def seed_pack_sources(
 
 
 async def list_stale_engineering_knowledge_packs(db: AsyncSession) -> list[dict[str, Any]]:
-    """Published pack versions older than their freshness policy allows.
-
-    Age is measured from ``published_at``; the pack's
-    ``freshness_policy.max_age_days`` overrides the default (90 days).
-    """
     versions = (
         (
             await db.execute(

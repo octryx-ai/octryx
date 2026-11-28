@@ -54,8 +54,6 @@ def test_no_bug_scenario_and_a_broken_file_are_reported(tmp_path):
 
 
 def test_a_repository_scenario_step_is_checked_with_a_message_and_the_obvious_spellings_are_meant(tmp_path):
-    """A step like {"do": "goto", "url": "/"} is checked with a message naming the step and its keys (never a bare
-    KeyError 'path' in the browser); the obvious spellings are taken as meant."""
     import json
 
     from octryx_claude import hands_on_repo
@@ -73,8 +71,6 @@ def test_a_repository_scenario_step_is_checked_with_a_message_and_the_obvious_sp
 
 
 def test_one_hands_on_pass_per_serve_url_on_a_device(tmp_path, monkeypatch):
-    """Two runs served the app on port 8090 at once; the second could not bind (and an app that
-    answered already would have been the other run's)."""
     import threading
 
     from octryx_claude import hands_on
@@ -93,7 +89,6 @@ def test_one_hands_on_pass_per_serve_url_on_a_device(tmp_path, monkeypatch):
 
 
 def test_an_app_that_already_answers_is_never_tested(tmp_path, monkeypatch):
-    """Another run's app on the same URL is never the app under test: the pass reports it and starts nothing."""
     import http.server
     import threading
 

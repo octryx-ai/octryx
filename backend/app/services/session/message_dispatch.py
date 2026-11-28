@@ -1,18 +1,6 @@
-"""``/api/v1/sessions/{id}/messages``: prepare the turn like ``/chat/api``, run it inside the request.
-
-Preparation is the one owner of both paths (``turn_start.prepare_turn``, scope
-``existing``): the same refusal states, the session marked ``running`` / ``in_progress``
-with its process ownership, the double-text guard, the runtime target / thinking level / agent
-resolution and the execution profile. The turn then runs as a registered task
-(``turn_runner.run_request_turn``), so ``turn_stop`` stops it like a chat turn, and is
-finished by the same completion step (``turn_settlement``) or failure settlement
-(``turn_failure``). The response is the turn's messages, from its user message on.
-"""
+"""``/api/v1/sessions/{id}/messages``: one turn on a runner, answered with its messages from the user message on."""
 
 from __future__ import annotations
-
-from collections.abc import Callable
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,9 +9,9 @@ from ...db import core as db_core
 from ...models import Message
 from ...schemas.operations.session import MessageResponse
 from ...time_utils import utc_isoformat
+from .turn_handoff import held_by_gate, names_a_workflow, runner_turn_kwargs
 from .turn_refusals import TurnRefusal
 from .turn_request import SESSION_SCOPE_EXISTING, TurnRequest
-from .turn_runner import run_request_turn
 from .turn_start import prepare_turn
 
 
@@ -58,7 +46,6 @@ async def send_session_message(
     session_id: str,
     content: str,
     user_id: str,
-    run_agent_func: Callable[..., Any] | None = None,
     project_id: str | None = None,
     agent_type: str = "",
     workflow_key: str = "",
@@ -67,15 +54,21 @@ async def send_session_message(
     thinking_level: str | None = None,
     agent_id: str | None = None,
     session_factory=None,
+    person_chat: bool = False,
 ) -> list[MessageResponse] | TurnRefusal:
-    """Run one turn on the existing session; the refusal when it may not start.
+    from ..devices.agent_runtime import chat_target_for
 
-    ``None`` for ``runtime_target_id`` / ``thinking_level`` / ``agent_id`` means "not
-    chosen": the session's, the agent's or the Workspace's default applies, as on
-    ``/chat/api``. A value is an explicit choice. ``run_agent_func`` defaults to the
-    runner's ``run_agent`` (the one seam of both paths).
-    """
     session_factory = session_factory or db_core.async_session_factory
+    if not names_a_workflow(workflow_key, workflow_decisions):
+        from .turn_project_scope import load_writable_turn_session
+        from .turn_refusals import TurnRefusedError
+
+        try:
+            await load_writable_turn_session(db, user_id=user_id, session_id=session_id)
+        except TurnRefusedError as refused:
+            return refused.refusal
+        return await _pool_turn(db, session_id=session_id, content=content, user_id=user_id,
+                                target=await chat_target_for(db, session_id), person_chat=person_chat)
     prepared = await prepare_turn(
         TurnRequest(
             user_id=user_id,
@@ -97,10 +90,25 @@ async def send_session_message(
     )
     if isinstance(prepared, TurnRefusal):
         return prepared
-    await run_request_turn(
-        db, run_agent_func=run_agent_func, session_factory=session_factory, prepared=prepared, user_id=user_id
-    )
-    return await _turn_messages(db, session_id=prepared.session_id, user_message_id=prepared.user_message_id)
+    if await held_by_gate(db, prepared, session_factory=session_factory):
+        return await _turn_messages(db, session_id=prepared.session_id, user_message_id=prepared.user_message_id)
+    handoff = await runner_turn_kwargs(db, prepared)
+    return await _pool_turn(db, session_id=prepared.session_id, content=prepared.prompt, user_id=user_id,
+                            target=handoff["target"], rerun_message=handoff["rerun_message"], person_chat=person_chat)
+
+
+async def _pool_turn(db: AsyncSession, *, session_id: str, content: str, user_id: str, target: dict,
+                     rerun_message=None, person_chat: bool = False) -> list[MessageResponse]:
+    from fastapi import HTTPException
+
+    from ..devices.agent_runtime import run_pool_turn
+    from ..devices.chat_turn import DeviceTurnRefusal
+
+    turn = await run_pool_turn(db, user_id=user_id, prompt=content, session_id=session_id, target=target,
+                               rerun_message=rerun_message, person_chat=person_chat)
+    if isinstance(turn, DeviceTurnRefusal):
+        raise HTTPException(status_code=turn.status, detail=turn.detail())
+    return await _turn_messages(db, session_id=turn.session_id, user_message_id=turn.user_message_id)
 
 
 __all__ = ["build_dispatched_message_response", "send_session_message"]

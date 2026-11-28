@@ -1,9 +1,5 @@
-"""Inbound webhook secrets live in the encrypted secret store (VULN-43).
-
-Every create path issues the secret through :func:`issue_webhook_secret` (stored encrypted under
-``webhook:<id>`` / ``secret``, referenced by ``webhooks.secret_ref``). The raw value is handed back
-once, to the creator, and never listed again.
-"""
+"""Inbound webhook secrets live in the encrypted secret store. The raw value is handed back once, to the creator, and
+never listed again."""
 
 from __future__ import annotations
 
@@ -22,7 +18,7 @@ def webhook_secret_tool_name(webhook_id: str) -> str:
 
 
 async def issue_webhook_secret(db: AsyncSession, webhook: Webhook) -> str:
-    """Generate, store encrypted and reference a new secret; return the raw value (show it once)."""
+    # The raw value is shown once.
     raw_secret = secrets.token_hex(32)
     entry = await set_secret_value(
         db,
@@ -35,10 +31,10 @@ async def issue_webhook_secret(db: AsyncSession, webhook: Webhook) -> str:
     return raw_secret
 
 
-async def resolve_webhook_secret(db: AsyncSession, webhook: Webhook) -> str | None:
+async def resolve_webhook_secret(db: AsyncSession, webhook: Webhook, *, purpose: str) -> str | None:
     if not webhook.secret_ref:
         return None
-    return await get_secret_value(db, secret_id=webhook.secret_ref)
+    return await get_secret_value(db, secret_id=webhook.secret_ref, purpose=purpose)
 
 
 __all__ = ["issue_webhook_secret", "resolve_webhook_secret", "webhook_secret_tool_name"]

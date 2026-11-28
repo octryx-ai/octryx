@@ -1,19 +1,4 @@
-"""HTTP boundary from the Codex seat route to ChatGPT's Codex backend (``codex_seat``).
-
-A Codex seat session's model traffic goes to ``https://chatgpt.com/backend-api/codex``
-(``OCTRYX_CODEX_SEAT_UPSTREAM``) with the person's **own** ChatGPT ``Authorization``, unchanged. Only one
-upstream path is ever reached: :data:`CODEX_SEAT_RESPONSES_PATH` (``/backend-api/codex/responses``). An override
-must be ``https`` (or ``http`` to a loopback host, for tests and local stubs) and keep exactly that base path; any
-other value refuses every call (``codex_seat_upstream_misconfigured``) instead of becoming the default.
-
-Only an allowlist of request headers travels (:data:`CODEX_SEAT_FORWARDED_HEADERS`, what codex-rs sends on a
-Responses call: its ChatGPT login, account, beta flag, originator, version and correlation ids); in particular no
-``x-octryx-*`` header, no cookie and not ``x-codex-turn-metadata`` (workspace and git details). Response
-headers: a small allowlist plus the ``x-codex-*`` family (rate-limit windows, credits, sticky ``x-codex-turn-state``).
-
-The client is built with ``trust_env=False``, no credential of its own and no redirects. The ``Authorization``
-value is passed per request and never logged, stored or put into a message.
-"""
+"""HTTP boundary from the Codex seat route to ChatGPT's Codex backend."""
 
 from __future__ import annotations
 
@@ -59,25 +44,23 @@ def _configured(environ: Mapping[str, str] | None) -> str:
 
 
 def _allowed(raw: str) -> bool:
-    """Usable as the seat upstream (``seat_upstream._usable``) and exactly the Codex backend's base path."""
     return _usable(raw) and urlsplit(raw).path == CODEX_SEAT_BASE_PATH
 
 
 def codex_seat_upstream_origin(environ: Mapping[str, str] | None = None) -> str:
-    """``scheme://host[:port]`` of the configured upstream (the default when unset or unusable)."""
     raw = _configured(environ)
     parts = urlsplit(raw if raw and _allowed(raw) else DEFAULT_CODEX_SEAT_UPSTREAM)
     return f"{parts.scheme}://{parts.netloc}"
 
 
+# An override must be https (http only to a loopback host) and keep exactly the base path; anything else refuses every
+# call instead of becoming the default.
 def codex_seat_upstream_problem(environ: Mapping[str, str] | None = None) -> str:
-    """``codex_seat_upstream_misconfigured`` when the override is set but not allowed; else ``""``."""
     raw = _configured(environ)
     return REASON_CODEX_SEAT_UPSTREAM_MISCONFIGURED if raw and not _allowed(raw) else ""
 
 
 def codex_seat_transport() -> httpx.AsyncBaseTransport | None:
-    """Transport seam: ``None`` in production (httpx's own), a mock in tests."""
     return None
 
 
@@ -91,8 +74,9 @@ def build_codex_seat_client() -> httpx.AsyncClient:
     )
 
 
+# Only what codex-rs sends on a Responses call travels: no x-octryx-*, no cookie, no x-codex-turn-metadata (Workspace
+# and git details).
 def codex_seat_request_headers(headers: Mapping[str, str]) -> dict[str, str]:
-    """Exactly the allowlisted request headers, by lower-case name."""
     lowered = {str(name).lower(): str(value) for name, value in headers.items()}
     return {
         name: lowered[name]

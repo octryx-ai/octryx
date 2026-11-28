@@ -1,7 +1,5 @@
-"""The platform's working-copy tree leaves out the operating system's files, from the launcher's own list.
-
-Finder's ``.DS_Store`` would make the device's tree and the platform's differ (``pipeline_not_for_head``).
-"""
+"""The platform's working-copy tree leaves out the operating system's files, from the launcher's own list,
+or ``.DS_Store`` makes the device's tree and the platform's differ."""
 
 from __future__ import annotations
 

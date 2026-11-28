@@ -1,43 +1,4 @@
-"""Input-free rendering of settings-validation failures, and the loader that applies it.
-
-Startup must fail closed on invalid configuration, but the failure text is the one
-place where the whole settings payload is within reach. Pydantic renders
-``input_value`` for every failing field, and for a model-level validator that input
-*is* the settings payload: JWT and encryption secrets, the admin bootstrap
-credentials, the database URL with its password, provider and connector tokens, the
-proxy allowlist. The probe saw a synthetic ``trusted_proxy_ips`` marker in
-``str(ValidationError)``; secrets stayed outside the truncated rendering only by
-luck of field order, which is not a boundary.
-
-This module is the only permitted renderer of a settings failure, and
-``load_validated_settings`` is the single boundary every startup path passes
-through (``config.get_settings`` is its only caller, and the API, the workers, the
-launcher migration gate and Alembic all resolve configuration through it). Per
-failing field it emits a declared field location, a stable reason code and a fixed
-remediation sentence — nothing else.
-
-The rules that make that safe, and that must survive an edit here:
-
-* A location is rendered only when the settings class graph *declares* that name.
-  A ``loc`` part is a field name for a declared field, but for a mapping field it is
-  an operator-supplied key, and a key is indistinguishable from a field name by
-  shape alone (an API token is a valid identifier). Anything undeclared renders as
-  ``?``.
-* Reason codes are either ours (``SettingsFieldError.reason``) or Pydantic's
-  error ``type`` (``int_parsing``, ``missing``, …), which is a fixed code chosen by
-  code and never derived from a value.
-* Remediation text is a literal here or in the raising validator, which is exactly
-  what ``SettingsFieldError`` exists to keep input-free. Pydantic's ``msg`` is
-  never used: for ``value_error`` it is whatever text a validator put in its
-  ``ValueError``, and for other types it is upstream free text.
-* The failure is raised *after* the handler has exited, so the new error has no
-  ``__cause__`` and no ``__context__``. A chained ``ValidationError`` would be
-  rendered by any default traceback or ``logging`` handler and would put the payload
-  straight back.
-* Only settings faults are converted. Every other exception keeps propagating
-  untouched, so this is never a catch-all that turns an unknown fault into a tidy
-  message.
-"""
+"""Input-free rendering of settings-validation failures, and the loader that applies it."""
 
 from __future__ import annotations
 
@@ -97,23 +58,12 @@ _SOURCE_FIELD = re.compile(r'field "([^"]{1,64})"')
 
 @dataclass(frozen=True, slots=True)
 class SettingsFault:
-    """One failing setting: where, why, and what to do. No configured value."""
-
     location: str
     reason: str
     remediation: str
 
 
 class SettingsFieldError(ValueError):
-    """A settings validator's refusal, carrying the fields and a stable reason.
-
-    Raised inside ``Settings`` validators so the boundary can render a failure
-    without reading Pydantic's message. ``str()`` is the remediation plus the
-    affected field names — never a value — so a caller that constructs ``Settings``
-    directly (a test, a script) still gets actionable text from the plain
-    ``ValueError``.
-    """
-
     def __init__(self, reason: str, remediation: str, fields: Iterable[str] = ()) -> None:
         resolved = tuple(fields)
         named = f"{remediation} Affected settings: {', '.join(resolved)}." if resolved else remediation
@@ -124,13 +74,6 @@ class SettingsFieldError(ValueError):
 
 
 class SettingsValidationError(RuntimeError):
-    """Fail-closed startup failure for invalid configuration, rendered input-free.
-
-    ``safe_field_reasons`` is the same information as narrow tokens, for a launcher
-    that renders diagnostics without trusting free error text (``scripts/
-    dev-migration-gate.sh``).
-    """
-
     def __init__(self, faults: Iterable[SettingsFault]) -> None:
         resolved = tuple(faults) or (SettingsFault(UNNAMED_LOCATION, _GENERIC_REASON, _GENERIC_REMEDIATION),)
         super().__init__(render_settings_faults(resolved))
@@ -139,7 +82,6 @@ class SettingsValidationError(RuntimeError):
 
 
 def render_settings_faults(faults: Iterable[SettingsFault]) -> str:
-    """The operator-facing text: one line per reason, naming the settings it concerns."""
     grouped: dict[tuple[str, str], list[str]] = {}
     for fault in faults:
         grouped.setdefault((fault.reason, fault.remediation), []).append(fault.location)
@@ -151,13 +93,6 @@ def render_settings_faults(faults: Iterable[SettingsFault]) -> str:
 
 
 def load_validated_settings(settings_cls: type[SettingsT]) -> SettingsT:
-    """Build a settings object, or fail closed with an input-free error.
-
-    The failure is raised outside the handlers on purpose: inside one, the raised
-    error would keep the original exception as its ``__context__`` and any default
-    traceback or log handler would render the payload again. Only settings faults
-    are converted; anything else propagates as it is.
-    """
     faults: tuple[SettingsFault, ...] | None = None
     try:
         return settings_cls()
@@ -171,11 +106,6 @@ def load_validated_settings(settings_cls: type[SettingsT]) -> SettingsT:
 def settings_validation_faults(
     exc: ValidationError, settings_cls: type[BaseSettings]
 ) -> tuple[SettingsFault, ...]:
-    """Faults for a validation failure, from ``loc``, error type and our rejections.
-
-    ``include_input=False`` drops the payload, and the remaining context is read
-    only to recover a ``SettingsFieldError`` instance — never rendered.
-    """
     declared = declared_locations(settings_cls)
     faults: list[SettingsFault] = []
     for item in exc.errors(include_input=False, include_url=False):
@@ -199,14 +129,6 @@ def settings_validation_faults(
 
 
 def settings_source_faults(exc: SettingsError, settings_cls: type[BaseSettings]) -> tuple[SettingsFault, ...]:
-    """Faults for a settings *source* failure, located by declared field name only.
-
-    pydantic-settings raises this before validation when a source cannot produce a
-    field's value. Its own message names just the field and the source class, but it
-    chains the library error that caused it, which is free text over a configured
-    value. So the field name is recovered from the message, kept only when the class
-    really declares it, and nothing else of the error survives.
-    """
     match = _SOURCE_FIELD.search(str(exc))
     name = match.group(1) if match else ""
     declared = declared_locations(settings_cls)
@@ -215,11 +137,6 @@ def settings_source_faults(exc: SettingsError, settings_cls: type[BaseSettings])
 
 
 def declared_locations(model: type[BaseModel], _depth: int = 4) -> frozenset[str]:
-    """Every field name and alias the model graph declares.
-
-    The allowlist of renderable location parts: a name that reaches the operator
-    came from the code, not from configuration.
-    """
     if _depth <= 0:
         return frozenset()
     names: set[str] = set()

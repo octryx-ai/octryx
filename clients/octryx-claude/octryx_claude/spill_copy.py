@@ -1,16 +1,5 @@
-"""The agent reads its own tool output that Claude Code moved into a file.
-
-Claude Code writes a tool answer too long for the turn into ``<CLAUDE_CONFIG_DIR>/projects/<project>/<session>/
-tool-results/<file>`` and tells the model to read it there. That folder lies under the launcher's state directory,
-which the platform's self-protection, Claude Code's deny rules and the sandbox all keep away from the agent (it holds
-the launcher's credentials). Nightly: 17 refused reads in 13 runs, each one the agent's own run contract.
-
-The protection stays whole. Instead this hook copies exactly such a file into a folder of the session outside the
-state directory and points the call at the copy (``updatedInput``), so the platform and Claude Code judge an ordinary
-path. Only a regular file (no link) directly in a ``tool-results`` folder of this session's own transcript, under one
-of the launcher's Claude config directories, is copied; a path with ``..`` or any other file of the state directory
-is left alone and meets the protection.
-"""
+"""Copies of the agent's own tool output that Claude Code spilled into the protected state directory, so the
+agent can read it without weakening the protection."""
 
 from __future__ import annotations
 
@@ -43,7 +32,6 @@ def _config_projects(state: LocalState) -> list[Path]:
 
 
 def own_spill(state: LocalState, raw: str, session_id: str) -> Path | None:
-    """``raw`` as this session's own spilled tool output, or ``None``."""
     if not raw or not session_id or ".." in raw.split("/"):
         return None
     path = Path(raw)
@@ -82,7 +70,6 @@ def _copied(state: LocalState, session_key: str, source: Path) -> str:
 
 
 def redirect(state: LocalState, session_key: str, hook_input: dict[str, Any]) -> dict[str, Any] | None:
-    """The tool input pointed at copies of this session's spilled outputs, or ``None`` when it names none."""
     tool = str(hook_input.get("tool_name") or "")
     tool_input = hook_input.get("tool_input")
     session_id = str(hook_input.get("session_id") or "")

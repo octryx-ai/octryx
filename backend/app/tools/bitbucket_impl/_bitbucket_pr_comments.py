@@ -1,16 +1,4 @@
-"""Pull request comments on Bitbucket since a time, for the review bot's ``@octryx`` commands (stage D).
-
-A local installation gets no webhook, so the bot polls (``pr_review_bot.commands``), per open pull request:
-
-- Bitbucket Cloud: ``GET …/pullrequests/{id}/comments?q=created_on>"<since>"`` page by page; a reply names its
-  ``parent``;
-- Bitbucket Server/Data Center: the pull request's activities, each ``COMMENTED`` one with its nested replies,
-  created after ``since``.
-
-Every comment is returned as ``{id, pr, author, author_id, body, created_at, in_reply_to, inline}``, the shape of
-``github_pr_comments``. Commenter permissions are not read on Bitbucket (only a repository admin may list them): the
-bot falls back to the Octryx role of the commenter.
-"""
+"""Pull request comments on Bitbucket since a time, for the review bot's ``@octryx`` commands (stage D)."""
 
 from __future__ import annotations
 
@@ -72,7 +60,6 @@ def _server_comment(comment: dict[str, Any], pr_id: str, parent: str, inline: bo
 
 
 async def server_comments(pages: Any, repo_base: str, pr_ids: list[str], since: str) -> list[dict[str, Any]]:
-    """``pages(path, params)`` reads a Data Center list page by page."""
     after, found = _millis(since), []
     for pr_id in pr_ids:
         for activity in await pages(f"{repo_base}/pull-requests/{int(pr_id)}/activities", {}):

@@ -1,11 +1,4 @@
-"""Build decks strictly from a template's own layouts.
-
-The composer never invents shapes or coordinates: every slide is created from a
-layout that exists in the ``office_template_snapshot`` catalog, and every value
-lands in a placeholder addressed by its ``idx``. When no layout in the template
-can hold a plan entry, that is an explicit error listing the available layout
-keys — never a silent approximation.
-"""
+"""Build decks strictly from a template's own layouts."""
 
 from __future__ import annotations
 
@@ -39,7 +32,6 @@ def _compose_slides(
     plan: list[dict[str, Any]],
     output: Path,
 ) -> tuple[list[str], list[str], list[dict[str, Any]]]:
-    """Add one slide per plan entry and save the deck; returns layout keys, filled slots, icon findings."""
     layouts_by_part = layout_index(presentation)
     margin_emu = template_margin_emu(snapshot.get("layouts", []))
 

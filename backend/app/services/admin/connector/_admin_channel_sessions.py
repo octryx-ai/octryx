@@ -54,7 +54,6 @@ async def list_channel_sessions(db: AsyncSession, *, limit: int = 50) -> list[di
 
 
 async def list_call_sessions(db: AsyncSession, *, limit: int = 50) -> list[dict[str, Any]]:
-    """Return recent Teams voice call sessions with per-turn stats and status."""
     bounded_limit = max(1, min(int(limit or 50), 200))
     result = await db.execute(
         select(

@@ -1,13 +1,5 @@
-"""Keep coding pipeline runs in sync with their agent session's run state.
-
-Otherwise an agent session can
-self-stop (loop recovery) while the pipeline run keeps showing
-``running/context_collection``, so the cockpit is wrong. A pipeline run whose agent
-session reached a terminal failure state must transition to an explicit
-``failed`` state itself, with the session's reason on the run and the current
-stage. Successful turn completion is NOT propagated — later stages (review,
-human feedback, PR) are driven explicitly, not inferred.
-"""
+"""Keep coding pipeline runs in sync with their agent session's run state. A terminal failure of the session fails the
+run explicitly; a successful turn is not propagated."""
 
 from __future__ import annotations
 
@@ -32,11 +24,6 @@ async def fail_pipeline_runs_for_session(
     run_status: str,
     reason: str | None,
 ) -> int:
-    """Fail still-running coding pipeline runs bound to a dead agent session.
-
-    Returns the number of runs transitioned. No-op for non-terminal or
-    successful session states.
-    """
     normalized_status = str(run_status or "").strip().lower()
     if normalized_status not in _TERMINAL_FAILURE_STATUSES or not session_id:
         return 0

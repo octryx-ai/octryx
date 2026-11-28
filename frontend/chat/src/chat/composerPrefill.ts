@@ -1,6 +1,4 @@
-// A one-shot hand-off of a composer text from another page (Knowledge Search "Ask in chat"). The draft
-// key of a new chat changes while the chat boots (runtime target, mode), so a text written under one key could be
-// missed; the prefill names the Workspace instead and stays readable for two minutes after it was written.
+// A new chat's draft key changes while it boots, so the prefill is keyed by Workspace and stays readable for two minutes.
 const KEY = "octryx.composer.prefill.v1";
 const TTL_MS = 2 * 60_000;
 
@@ -14,7 +12,6 @@ export function writeComposerPrefill(store: Store | null, projectId: string, tex
   }
 }
 
-/** Takes the prefill for a new chat in this Workspace while it is fresh (it is removed); otherwise "". */
 export function takeComposerPrefill(store: Store | null, projectId: string, now = Date.now()): string {
   try {
     const raw = store?.getItem(KEY);

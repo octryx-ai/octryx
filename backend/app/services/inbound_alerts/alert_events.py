@@ -91,7 +91,6 @@ def _words(decision: AlertDecision) -> str:
 
 
 async def _record_alert_linked(db: AsyncSession, event: WebhookEvent, decision: AlertDecision) -> None:
-    """The grouped alert on the workflow run it joined; escalation is only recorded, not acted on."""
     dedup = decision.dedup
     if dedup is None or not dedup.linked_workflow_run_id:
         return
@@ -111,7 +110,6 @@ async def _record_alert_linked(db: AsyncSession, event: WebhookEvent, decision: 
 
 async def _deliver_run_event(db: AsyncSession, webhook: Webhook, data: Any, headers: Mapping[str, str], *,
                              is_test: bool, signature_method: str | None) -> dict[str, Any]:
-    """An SCM or CI event: hand it to the workflow runs that watch its target; no Action starts."""
     from ..workflow_runs.watch import deliver_event
     from ..workflow_runs.watch_events import ci_event, scm_event
 

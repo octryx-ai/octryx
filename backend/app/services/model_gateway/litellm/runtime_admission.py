@@ -1,26 +1,4 @@
-"""Project admission for resolved gateway runtime targets.
-
-Enforcement happens at the runtime boundary, before dispatch, so a denied alias
-produces zero requests. A denied runtime is *annotated*, never silently dropped:
-a dropped runtime would leave no evidence that a governed target was refused.
-The engine reads the generic ``admission_denial`` key, records a zero-dispatch
-attempt, and continues with the targets that *are* admitted — a project-policy
-gap must not hard-fail a whole runtime chain, and the refusal stays visible in
-the turn's runtime attempts either way.
-
-Three governed checks run here, in this order:
-
-1. project ``model_policy`` — may this project use this alias at all;
-2. provider alias catalog — is the alias admitted, and what ``data_policy_class``
-   does it declare;
-3. workspace data policy — may this workspace's data, at its server-owned
-   classification, go to an alias declaring that class.
-
-An admitted gateway runtime carries the verified
-:class:`~.project_admission.ProjectModelAdmission` that granted it, including the
-resolved classification, so the driver can re-check both at its own boundary
-instead of trusting the chain.
-"""
+"""Project admission for resolved gateway runtime targets, before any request."""
 
 from __future__ import annotations
 
@@ -29,11 +7,12 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ....agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
-from ....agent.core.runtime.runtime_errors import (
+from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
+from app.agent.runtime.runtime_errors import (
     RUNTIME_ERROR_ALIAS_DENIED,
     RUNTIME_ERROR_DATA_POLICY_DENIED,
 )
+
 from ...data_classification.policy_matrix import model_allowlists
 from ..data_policy import (
     UNRESOLVED_DATA_CLASSIFICATION,
@@ -41,6 +20,7 @@ from ..data_policy import (
     WorkspaceDataClassification,
     resolve_workspace_data_classification,
 )
+from .admission_types import AdmissionDenial
 from .alias_catalog import resolve_alias_admission
 from .errors import GATEWAY_STATE_ALIAS_DENIED, GATEWAY_STATE_DATA_POLICY_DENIED
 from .evidence import build_denial_evidence
@@ -69,19 +49,14 @@ def runtime_uses_gateway_driver(runtime: Any) -> bool:
     return driver == LITELLM_GATEWAY_DRIVER
 
 
+# Shared by every producer, so the engine reads one shape and the evidence allowlist is applied in one place.
 def build_alias_denial_annotation(
     *,
     decision: ModelAliasAccessDecision,
     project_admission_source: str,
     dispatch_owner: str = "",
     project_scope_size: int | None = None,
-) -> dict[str, Any]:
-    """The generic ``admission_denial`` payload for one refused alias.
-
-    Shared by every producer so the engine keeps reading exactly one shape and the
-    bounded evidence allowlist is applied in exactly one place.
-    """
-
+) -> AdmissionDenial:
     return {
         "error_class": RUNTIME_ERROR_ALIAS_DENIED,
         "reason": decision.reason,
@@ -104,9 +79,7 @@ def build_data_policy_denial_annotation(
     project_admission_source: str,
     dispatch_owner: str = "",
     project_scope_size: int | None = None,
-) -> dict[str, Any]:
-    """The generic denial payload for a refused classification comparison."""
-
+) -> AdmissionDenial:
     return {
         "error_class": RUNTIME_ERROR_DATA_POLICY_DENIED,
         "reason": decision.reason,
@@ -124,7 +97,6 @@ def build_data_policy_denial_annotation(
 
 
 def _admitted_runtime(runtime: dict[str, Any], admission: ProjectModelAdmission) -> dict[str, Any]:
-    """One gateway runtime: annotated with the refusal, or carrying the admission that granted it."""
     alias = str(runtime.get("model") or "").strip()
     decision = admission.decide(alias)
     if not decision.allowed:
@@ -174,24 +146,8 @@ def apply_model_policy_to_runtimes(
     source: str = ADMISSION_SOURCE_AGENT_RUN,
     level_model_aliases: Mapping[str, frozenset[str]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Admit or annotate gateway runtimes for one server-owned project context.
-
-    ``project_id`` is the resolved project of the turn and ``project_config`` the
-    config the caller already assembled from that project's own rows. Without the
-    project id no policy can be evaluated, so every gateway target is denied
-    rather than assumed granted. Non-gateway runtimes are returned untouched.
-
-    This is the single-project primitive. A dispatch owner that has to *resolve*
-    its Workspace (rather than already holding its config) goes through
-    ``services/model_gateway/dispatch_admission.py``, which reads the project rows
-    itself and generalizes this to a multi-Workspace scope.
-
-    ``data_classification`` must come from
-    :func:`~..data_policy.source.resolve_workspace_data_classification`; its
-    default denies, so an omitted classification cannot dispatch. ``level_model_aliases`` is the
-    classification policy matrix's per-level alias lists; :func:`admit_gateway_runtimes` always
-    passes it, ``None`` is the default matrix.
-    """
+    """Admit or annotate the gateway runtimes for one server-owned project; without ``project_id`` every gateway
+    target is denied. Non-gateway runtimes are returned untouched."""
 
     if not runtimes:
         return list(runtimes or [])
@@ -220,12 +176,7 @@ async def admit_gateway_runtimes(
     session_metadata: dict[str, Any] | None = None,
     source: str = ADMISSION_SOURCE_AGENT_RUN,
 ) -> list[dict[str, Any]]:
-    """Resolve the server-owned classification, then admit the runtime chain.
-
-    This is the seam run preparation calls: it keeps the classification read (a
-    project-row query) out of the turn-preparation hotspot and out of
-    :func:`apply_model_policy_to_runtimes`, which stays pure and synchronous.
-    """
+    """Resolve the server-owned classification, then admit the runtime chain (the seam run preparation calls)."""
 
     if not runtimes or not any(runtime_uses_gateway_driver(runtime) for runtime in runtimes):
         return list(runtimes or [])

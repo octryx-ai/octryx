@@ -1,5 +1,3 @@
-"""S10: the launcher relays the workflow run contract and reports the working copy's facts; it decides nothing."""
-
 from __future__ import annotations
 
 import hashlib
@@ -71,8 +69,6 @@ def test_an_edit_reports_the_path_it_really_writes(tmp_path):
 
 @requires_git
 def test_a_text_file_that_is_not_utf8_reaches_the_change_byte_for_byte(tmp_path, monkeypatch):
-    """A Latin-1 file without a NUL byte raised ``UnicodeDecodeError`` in ``change``; the
-    work-git job ended without a report and was resent three times."""
     import subprocess
 
     from octryx_claude.contract_change import change
@@ -95,7 +91,6 @@ def test_a_text_file_that_is_not_utf8_reaches_the_change_byte_for_byte(tmp_path,
 
 @requires_git
 def test_a_failed_git_step_is_tried_once_more_and_the_report_says_which_and_why(tmp_path, monkeypatch):
-    """A failed git step is tried once more, and the report names the step and git's words."""
     from octryx_claude import contract_change, run_contract
 
     repo = make_repo(tmp_path, monkeypatch)
@@ -123,7 +118,6 @@ def test_a_failed_git_step_is_tried_once_more_and_the_report_says_which_and_why(
 
 
 def test_the_style_facts_find_todos_and_commented_out_code():
-    """The platform checks TODOs without a ticket and commented-out code itself."""
     from octryx_claude.style_facts import commented_code, todos
 
     text = "\n".join(["def f():", "    # TODO fix", "    return 1", "# old = compute(x)", "# if old:",

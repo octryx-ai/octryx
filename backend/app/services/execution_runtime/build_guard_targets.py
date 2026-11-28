@@ -23,7 +23,6 @@ from .build_guard_rules import (
 
 
 def _git_internals_write(name: str, args: Sequence[str]) -> ForeignBuildVerdict | None:
-    """A write into ``.git/`` (hooks, config, info …) or to a target that cannot be judged; archive extraction."""
     if name in {"cd", "pushd"} and any(_GIT_INTERNAL_PATH.search(arg) or _UNJUDGEABLE_TARGET.search(arg)
                                        for arg in args):
         return _blocked(CLASS_GIT_INTERNALS, name, "changes into git's internals or a directory it cannot judge")
@@ -62,7 +61,6 @@ def _targets_verdict(output_targets: Sequence[str], input_targets: Sequence[str]
 
 
 def _http_verdict(name: str, args: Sequence[str]) -> ForeignBuildVerdict | None:
-    """``curl``/``wget`` only to a public host: no metadata, cluster, private or loopback address, no ``file:``."""
     refused_options = _CURL_REFUSED_OPTIONS if name == "curl" else _WGET_REFUSED_OPTIONS
     for index, arg in enumerate(args):
         if arg in refused_options or arg.startswith(tuple(f"{option}=" for option in refused_options if

@@ -18,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -25,7 +26,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class AgentWorker(Base):
+class AgentWorker(WorkspaceBound, Base):
     __tablename__ = "agent_workers"
     __table_args__ = (
         Index("ix_agent_workers_project_active", "project_id", "is_active"),
@@ -85,7 +86,9 @@ class AgentWorker(Base):
     )
 
 
-class WorkerOnboarding(Base):
+class WorkerOnboarding(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_onboarding"
     __table_args__ = (
         Index("ix_worker_onboarding_status", "onboarding_status"),
@@ -108,7 +111,9 @@ class WorkerOnboarding(Base):
     worker = relationship("AgentWorker", back_populates="onboarding")
 
 
-class WorkerRuntimeState(Base):
+class WorkerRuntimeState(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_runtime_state"
     __table_args__ = (
         Index("ix_worker_runtime_status", "status"),
@@ -139,7 +144,9 @@ class WorkerRuntimeState(Base):
     current_session = relationship("Session")
 
 
-class WorkerMonitor(Base):
+class WorkerMonitor(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_monitors"
     __table_args__ = (
         Index("ix_worker_monitors_worker_active", "worker_id", "is_active"),
@@ -168,7 +175,9 @@ class WorkerMonitor(Base):
     events = relationship("WorkerMonitorEvent", back_populates="monitor", cascade="all, delete-orphan")
 
 
-class WorkerMonitorEvent(Base):
+class WorkerMonitorEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_monitor_events"
     __table_args__ = (
         Index("ix_worker_monitor_events_worker_created", "worker_id", "created_at"),
@@ -194,7 +203,9 @@ class WorkerMonitorEvent(Base):
     task_run = relationship("TaskRun")
 
 
-class WorkerTrustEvent(Base):
+class WorkerTrustEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_trust_events"
     __table_args__ = (
         Index("ix_worker_trust_events_worker_created", "worker_id", "created_at"),
@@ -214,7 +225,9 @@ class WorkerTrustEvent(Base):
     task_run = relationship("TaskRun")
 
 
-class WorkerShift(Base):
+class WorkerShift(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_shifts"
     __table_args__ = (
         Index("ix_worker_shifts_worker_status", "worker_id", "status"),
@@ -237,7 +250,9 @@ class WorkerShift(Base):
     worker = relationship("AgentWorker", back_populates="shifts")
 
 
-class WorkerDailyAgenda(Base):
+class WorkerDailyAgenda(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_daily_agenda"
     __table_args__ = (
         Index("ix_worker_daily_agenda_worker_date", "worker_id", "date", unique=True),
@@ -254,7 +269,7 @@ class WorkerDailyAgenda(Base):
     worker = relationship("AgentWorker", back_populates="daily_agendas")
 
 
-class WorkerDelegation(Base):
+class WorkerDelegation(WorkspaceBound, Base):
     __tablename__ = "worker_delegations"
     __table_args__ = (
         Index("ix_worker_delegations_from_created", "from_worker_id", "created_at"),
@@ -290,7 +305,9 @@ class WorkerDelegation(Base):
     task_run = relationship("TaskRun")
 
 
-class WorkerEscalationRule(Base):
+class WorkerEscalationRule(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_escalation_rules"
     __table_args__ = (
         Index("ix_worker_escalation_rules_worker", "worker_id"),
@@ -313,7 +330,9 @@ class WorkerEscalationRule(Base):
     escalate_to_user = relationship("User")
 
 
-class WorkerEscalation(Base):
+class WorkerEscalation(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_escalations"
     __table_args__ = (
         Index("ix_worker_escalations_worker_created", "worker_id", "created_at"),
@@ -339,7 +358,9 @@ class WorkerEscalation(Base):
     escalated_to_user = relationship("User", foreign_keys=[escalated_to])
 
 
-class WorkerReport(Base):
+class WorkerReport(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_reports"
     __table_args__ = (Index("ix_worker_reports_worker_period", "worker_id", "period_start"),)
 
@@ -365,7 +386,9 @@ class WorkerReport(Base):
     worker = relationship("AgentWorker", back_populates="reports")
 
 
-class WorkerLearning(Base):
+class WorkerLearning(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"worker_id": "agent_workers"}
     __tablename__ = "worker_learnings"
     __table_args__ = (Index("ix_worker_learnings_worker_created", "worker_id", "created_at"),)
 

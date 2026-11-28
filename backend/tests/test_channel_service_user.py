@@ -1,13 +1,4 @@
-"""Contract: an unmapped channel sender runs as its channel's service user.
-
-- channel setup provisions one service user per channel: global ``viewer`` only, a ``viewer``
-  member of the channel's Workspace, no login; setup is idempotent and repairs an elevated one;
-- Teams chat from an unmapped sender runs as that service user, never as an admin or another
-  active user, and the reply goes back to the sender;
-- an unmapped sender's approval command is still refused (``channel_sender_unresolved``);
-- a channel without a valid service user refuses (``channel_service_user_not_configured``),
-  ``require_registered_user`` refuses silently; neither starts a turn.
-"""
+"""Contract: an unmapped channel sender runs as its channel's service user."""
 
 from __future__ import annotations
 
@@ -16,7 +7,6 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.engine import AgentEvent
 from app.models import Project, Role, Session, User, UserProject, UserRole
 from app.plugins.channels.teams_plugin import TeamsPlugin
 from app.services.channel_config import ChannelConfigService
@@ -24,6 +14,9 @@ from app.services.channel_config.service_user import service_username
 from app.services.channel_router_runtime import ChannelMessageRouter
 from app.services.channel_router_runtime.approval_commands import SENDER_UNRESOLVED_REPLY
 from app.services.channel_router_runtime.run_as import SERVICE_USER_NOT_CONFIGURED_REPLY
+from tests.scripted_pool_support import scripted_turns  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_turns")
 
 
 def _router(db) -> ChannelMessageRouter:
@@ -43,15 +36,9 @@ def _router(db) -> ChannelMessageRouter:
 
 
 @pytest.fixture
-def agent_turns(monkeypatch) -> list[dict]:
-    turns: list[dict] = []
-
-    async def fake_run_agent(*, session_id, user_message, user_id, project_id, agent_type, db, **kwargs):
-        turns.append({"session_id": session_id, "user_id": user_id, "project_id": project_id})
-        yield AgentEvent(role="assistant", content="Status is green.")
-
-    monkeypatch.setattr("app.agent.engine.run_agent", fake_run_agent)
-    return turns
+def agent_turns(scripted_turns) -> list[dict]:  # noqa: F811 - the imported fixture
+    scripted_turns["default"] = "Status is green."
+    return scripted_turns["calls"]
 
 
 async def _teams_channel(db, *, require_registered_user: bool = False) -> tuple[int, str, TeamsPlugin]:
@@ -124,7 +111,6 @@ async def test_unmapped_teams_sender_runs_as_the_channel_service_user(db, agent_
     assert session.user_id == service_user.id
     assert plugin.sent == ["Status is green."]
 
-    # The same unmapped sender cannot decide an approval as the service user.
     await router._handle_message(
         str(channel_id), plugin, await _teams_message(plugin, "unmapped-1", f"approve {uuid.uuid4()}")
     )
@@ -164,7 +150,6 @@ async def test_without_a_valid_service_user_the_channel_refuses_and_setup_repair
     await router._handle_message("987654", unset, await _teams_message(unset, "unmapped-3", "hello"))
     assert unset.sent == [SERVICE_USER_NOT_CONFIGURED_REPLY]
 
-    # require_registered_user refuses unmapped senders entirely, silently.
     strict_id, _pid, strict = await _teams_channel(db, require_registered_user=True)
     await router._handle_message(str(strict_id), strict, await _teams_message(strict, "unmapped-4", "hello"))
     assert strict.sent == []

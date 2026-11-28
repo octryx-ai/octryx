@@ -1,15 +1,4 @@
-"""Readiness of an assigned skill in a Workspace: read-only, never a grant.
-
-- platform chat: each required tool (``extension.tools.platform_chat.required``) is evaluated with the Workspace
-  tool policy (``tool_project_policy_decision``);
-- octryx-claude: each required Claude Code pattern (``Bash(terraform validate *)``) becomes a synthetic hook
-  input checked against the Workspace gateway policy (``evaluate_tool_check``) and its deny permissions;
-- an MCP server entry: the Workspace ``mcp_policy`` must allow its server name, otherwise it is not started
-  (``needs_mcp_policy``).
-
-Result per surface: ``ready`` or ``restricted`` with the refusing rule; a restricted skill is still delivered and
-the blocked steps are refused at run time.
-"""
+"""Readiness of an assigned skill in a Workspace: read-only, never a grant."""
 
 from __future__ import annotations
 
@@ -32,7 +21,6 @@ _PATH_TOOLS = {"Read", "Edit", "Write", "MultiEdit", "NotebookEdit", "Glob", "Gr
 
 
 def synthetic_hook_input(pattern: str) -> dict[str, Any] | None:
-    """``Bash(terraform validate *)`` → a PreToolUse input for ``terraform validate``; None when unreadable."""
     match = _PATTERN.match(str(pattern or "").strip())
     if match is None:
         return None

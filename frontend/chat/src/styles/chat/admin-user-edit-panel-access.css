@@ -11,7 +11,7 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .user-edit-panel__apikey-field--full {
@@ -43,7 +43,7 @@
 
 .user-edit-panel__hint-inline {
   color: var(--muted-strong);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
   font-size: var(--ds-text-2xs);
 }
 
@@ -130,7 +130,7 @@
 .user-edit-panel__oidc-grid dt {
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   margin-bottom: 0.25rem;
 }
 
@@ -145,7 +145,7 @@
   color: var(--muted-strong);
   cursor: pointer;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .user-edit-panel__oidc-profile pre {

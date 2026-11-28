@@ -1,20 +1,4 @@
-"""Agent sessions become knowledge-graph fuel at ingest time.
-
-External CLI sessions (Claude Code, Codex, OpenCode, ...) arrive through
-``session_ingest`` outside the connector sync pipeline, so the graph stage
-never sees them. This module gives them the same treatment inline on ingest:
-
-1. Chunk indexing — the session digest becomes retrievable passages.
-2. Deterministic record — the session node, the person who ran it, and the
-   workspace it touched become alias-resolved graph nodes and edges.
-3. Governed LLM extraction (best effort) — entities/relations mentioned in
-   the conversation flow into the graph via the EXTRACT runtime; when no
-   runtime is configured the step reports itself as unavailable instead of
-   degrading silently.
-
-A session is referenced as ``agent-session:<platform session id>`` (its shadow
-session).
-"""
+"""Agent sessions become knowledge-graph fuel at ingest time."""
 
 from __future__ import annotations
 
@@ -40,8 +24,6 @@ _MAX_EXTRACTION_CHARS = 12_000
 
 @dataclass(frozen=True, slots=True)
 class AgentSessionRecord:
-    """One ingested external session: its shadow session, stable key, and redacted text."""
-
     session_id: str
     key: str
     title: str
@@ -118,7 +100,6 @@ async def ingest_agent_session_record(
     workspace_ref: str = "",
     models: list[str] | None = None,
 ) -> Any:
-    """Deterministic session record: session node + person + workspace edges."""
     source_ref = record.source_ref
     session_node = await upsert_node(
         db,
@@ -202,7 +183,6 @@ async def process_agent_session_knowledge(
     workspace_ref: str = "",
     models: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Run the full ingest-time graph treatment for one ingested session."""
     result: dict[str, Any] = {
         "chunks_indexed": 0,
         "graph_entities": 0,

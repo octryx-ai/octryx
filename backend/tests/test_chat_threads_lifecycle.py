@@ -1,71 +1,12 @@
 """Stopping, archiving (with child threads) and renaming chat threads, and the archived list on the settings page."""
 
-import asyncio
 import uuid
 
 import pytest
 from sqlalchemy import select
 
-from app.agent.engine import (
-    AgentEvent,
-)
 from app.models import Message, Project, Session, User
-from app.services.session import turn_runner
 from tests.conftest import ADMIN_PASSWORD
-
-
-@pytest.mark.asyncio
-@pytest.mark.committed_db
-async def test_chat_thread_can_be_stopped(client, db, monkeypatch):
-    login_resp = await client.post("/admin/login", data={"username": "admin", "password": ADMIN_PASSWORD})
-    assert login_resp.status_code == 303
-
-    started = asyncio.Event()
-    cancelled = asyncio.Event()
-
-    async def fake_run_agent(
-        *,
-        session_id,
-        user_message,
-        user_id,
-        project_id,
-        agent_type,
-        db,
-        runtime_target_id=None,
-        thinking_level=None,
-        agent_definition=None,
-        run_origin=None,
-    ):
-        started.set()
-        try:
-            await asyncio.sleep(10)
-        except asyncio.CancelledError:
-            cancelled.set()
-            raise
-        yield AgentEvent(role="assistant", content="Should not complete")
-
-    monkeypatch.setattr(turn_runner, "run_agent", fake_run_agent)
-
-    send_resp = await client.post(
-        "/admin/chat/api/send",
-        json={"prompt": "Long running task"},
-    )
-    assert send_resp.status_code == 200
-    payload = send_resp.json()
-    session_id = payload["selectedSession"]["id"]
-    assert payload["selectedSessionIsRunning"] is True
-
-    await asyncio.wait_for(started.wait(), timeout=1)
-
-    stop_resp = await client.post(f"/admin/chat/api/sessions/{session_id}/stop", json={})
-    assert stop_resp.status_code == 200
-    stop_payload = stop_resp.json()
-    assert stop_payload["selectedSessionIsRunning"] is False
-    assert stop_payload["selectedSession"]["status"] == "stopped"
-    assert stop_payload["selectedSession"]["runStatus"] == "stopped"
-    assert stop_payload["selectedSession"]["runCompletionReason"] == "user_cancelled"
-    assert stop_payload["selectedMessages"][-1]["content"] == "Generation stopped by user."
-    await asyncio.wait_for(cancelled.wait(), timeout=1)
 
 
 @pytest.mark.asyncio

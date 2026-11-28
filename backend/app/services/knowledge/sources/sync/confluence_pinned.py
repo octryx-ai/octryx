@@ -8,7 +8,6 @@ from dataclasses import dataclass
 
 
 def view_document(title: str, source_url: str, body: str) -> bytes:
-    """The generated HTML document of one page (title + canonical link + ``body.view``), as ingested."""
     escaped = html.escape(title)
     # The canonical link is part of the content: a rename or move is a new revision with its new origin.
     canonical = html.escape(source_url, quote=True)
@@ -20,26 +19,9 @@ def view_document(title: str, source_url: str, body: str) -> bytes:
     return document.encode("utf-8")
 
 
-# --- Pinned source read: the bounded, owned legacy-view compatibility profile ----------------------------------
-#
-# The documentation provenance check must prove that the bytes Knowledge ingested are the generated document of
-# exactly the published version. The Source Sync ingests the legacy v1 ``body.view`` (the connector's ``fetch``), so the
-# pinned read uses the same endpoint and representation: a Cloud v2 view would be another representation, never
-# comparable to the ingested revision byte-for-byte, and moving the sync itself to v2 is a separate, global rewrite.
-#
-# The profile is therefore explicit, versioned and bounded:
-# - endpoint: ``GET {base}/rest/api/content/{id}?expand=body.view,version`` on an Atlassian **Cloud** instance
-#   (host ``*.atlassian.net``, base path ``/wiki``); no Data Center claim, no other endpoint, no fallback;
-# - shape: ``id`` equals the page, ``type`` is ``page``, ``status`` is ``current``, ``version.number`` is a positive
-#   int, ``body.view.representation`` is ``view`` and ``body.view.value`` a string; anything else is refused;
-# - pin: ``version.number`` must equal the published version, else the read is refused (no historical read: a
-#   newer version means the page moved on, an older one that the read lags; both refuse and relist);
-# - evidence: the sync's ``body.view`` read is observed on a real tenant; the ``version`` expansion shape is
-#   checked on the tenant before the profile is relied on;
-# - removal dependency: Atlassian deprecates the v1 content GET (Cloud access catalog; removal policy announced for
-#   31 Mar 2025). A removed endpoint answers 404/410 and the read refuses (``legacy_view_unavailable``); the
-#   replacement is a Source Sync that ingests v2 ``body-format=view``, after which this
-#   profile is deleted together with the sync's v1 ``fetch``.
+# The pinned read uses the sync's own v1 ``body.view`` endpoint, so its bytes compare with the ingested
+# revision. Cloud only, one endpoint, no fallback; a ``version.number`` other than the published one is refused, and
+# a removed v1 endpoint (404/410) refuses as ``legacy_view_unavailable``.
 
 LEGACY_VIEW_PROFILE: dict[str, str] = {
     "id": "confluence-cloud-legacy-view@2026-10-13",
@@ -56,8 +38,6 @@ PINNED_REFUSED_READ = "legacy_view_unavailable"
 
 
 class PinnedViewRefusedError(Exception):
-    """The pinned read refused: ``reason`` is one of the ``PINNED_REFUSED_*`` values, never response text."""
-
     def __init__(self, reason: str, *, source_reason: str = "", fetched_version: int | None = None) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -67,9 +47,6 @@ class PinnedViewRefusedError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class PinnedView:
-    """What the pinned read observed. Digests are ``sha256:<hex>``; ``document_sha256`` is bare hex, the
-    ledger's ``content_sha256`` form."""
-
     page_id: str
     version: int
     title: str
@@ -86,7 +63,6 @@ def sha256_digest(data: bytes) -> str:
 
 
 def _profile_view(payload: dict, page_id: str) -> tuple[str, int]:
-    """``(body.view value, version number)`` of a profile-shaped answer, else :class:`PinnedViewRefusedError`."""
     version_info = payload.get("version")
     version = version_info.get("number") if isinstance(version_info, dict) else None
     view = (payload.get("body") or {}).get("view") if isinstance(payload.get("body"), dict) else None

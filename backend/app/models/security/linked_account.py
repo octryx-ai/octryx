@@ -1,11 +1,4 @@
-"""A platform user's account on an external platform (``services/linked_accounts``): the one home that reviewer,
-author and assignee resolution reads.
-
-One row per user and platform. ``account_id`` holds an Atlassian account id, ``username`` an SCM login or a
-Jira/Bitbucket Server username (``services/linked_accounts/contract.PLATFORMS`` says which one a platform uses).
-``verification_status`` is ``unverified`` until a Workspace connection confirmed the account, ``verified`` once it
-did and ``failed`` when the connection did not know it; any change of the identifier resets it to ``unverified``.
-"""
+"""A platform user's account on an external platform (services/linked_accounts)."""
 
 import uuid
 

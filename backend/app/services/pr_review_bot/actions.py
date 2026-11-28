@@ -1,19 +1,4 @@
-"""The ``pr-review-bot`` workflow's own steps (``pr_review.*``), definition-only platform actions (concept §4).
-
-- ``pr_review.prepare``: check out the pull request's source branch in the run's working copy with the merge base of
-  its target branch as the review base (``platform.scm.checkout``), record the full head commit it reviews
-  (``reviewed_sha``; a push after the event is reviewed as it is now) and mark that commit ``pending``; after an
-  earlier posted pass of the same pull request the reviewer gets only the delta and the open findings
-  (``incremental``);
-- ``pr_review.publish``: after the independent review node (``review.runner``), the review as the pull request
-  shows it (``render``): one summary comment edited in place, the inline comments on diff lines, and the commit
-  status ``success`` / ``failure``. Posted without a confirmation;
-- ``pr_review.report_failure``: a step that failed (no checkout, nothing posted) leaves the status ``error`` with
-  its reason, so the pull request never shows "pending" forever; always routes ``succeeded``.
-
-Each step goes through the governed provider tool on the repository's connection (``dispatch_tool``), so the
-connection's allowlist, the read-only registration and the audit apply like to any other platform action.
-"""
+"""The ``pr-review-bot`` workflow's own steps (``pr_review.*``), definition-only platform actions (concept §4)."""
 
 from __future__ import annotations
 
@@ -45,7 +30,6 @@ ACTION_KEYS = (PREPARE, PUBLISH, REPORT_FAILURE, EXPLAIN, FIX_PREPARE, FIX_SCOPE
 
 
 async def _run_url(db: AsyncSession, run: WorkflowRun) -> str:
-    """The run's page for the status link; the pull request's own page when the platform has no public origin."""
     from ..workflow_runs.octryx.contract import run_link
     from ..workflow_runs.records import main_session_id
 
@@ -87,7 +71,6 @@ async def prepare(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) ->
 
 
 async def _offer_scan(db: AsyncSession, run: WorkflowRun, root: str, head: str) -> dict[str, Any]:
-    """The scanners on a review seat's device (``scan_job``); never waits, never fails the review."""
     from .scan_job import offer_scan
 
     try:
@@ -99,9 +82,6 @@ async def _offer_scan(db: AsyncSession, run: WorkflowRun, root: str, head: str) 
 
 
 async def _plan_pass(db: AsyncSession, run: WorkflowRun, root: str, head: str, merge_base: str) -> None:
-    """An incremental pass (``incremental``): the reviewer gets only ``previous head..head`` (``context.base_sha``)
-    and the open findings of the last pass as its previous verdict; the caller check above stays on the whole pull
-    request."""
     from .incremental import delta_base, previous_pass, seed
 
     previous_run, previous = await previous_pass(db, run)
@@ -125,7 +105,6 @@ async def _plan_pass(db: AsyncSession, run: WorkflowRun, root: str, head: str, m
 
 
 async def _check_callers(run: WorkflowRun, root: str, base: str) -> None:
-    """The deterministic caller check (``callers``): its findings for the post, its context for the reviewer."""
     from .callers import check_callers
 
     if not root or not base:
@@ -198,7 +177,6 @@ async def publish(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) ->
 
 async def _build(db: AsyncSession, run: WorkflowRun, review: dict[str, Any], facts: dict[str, Any], *, passed: Any,
                  commit: str, provider: str, ci: Any, scan: dict[str, Any], answered: list[Any]) -> ReviewPost:
-    """The post of the review: the repository's status policy, the suggestions' sources, the diff, then the facts."""
     from .settings import repository_record, settings_of
 
     policy = settings_of(await repository_record(db, str(run.project_id), str(run.repository or ""))).status_policy
@@ -213,9 +191,6 @@ async def _build(db: AsyncSession, run: WorkflowRun, review: dict[str, Any], fac
 
 
 async def report_failure(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """The failed step's reason as status ``error`` on the head. When that post fails too, the step fails with both
-    reasons (``context.pr_review.failure``): otherwise it answers "succeeded" while an open
-    circuit breaker refused the post, and the pull request shows nothing at all."""
     commit = str(_facts(run).get("reviewed_sha") or _facts(run).get("head_sha") or "")
     failure = next(reversed(list(dict(dict(run.context or {}).get("actions") or {}).values())), {})
     reason = str(dict(failure).get("reason") or "a review step failed")

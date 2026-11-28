@@ -88,7 +88,7 @@ def claim_value(claims: dict[str, Any], key: str) -> Any:
 
 
 def merge_oidc_claims(userinfo_claims: dict[str, Any], id_token_claims: dict[str, Any]) -> dict[str, Any]:
-    """Merge OIDC claims while preserving token security claims from the validated ID token."""
+    # Token security claims from the validated ID token are preserved.
     if not id_token_claims:
         return dict(userinfo_claims or {})
     merged = dict(id_token_claims)
@@ -161,7 +161,6 @@ def resolve_identity_claims(provider: IdentityProvider, claims: dict[str, Any]) 
 
 
 def sso_claim_lists(claims: dict[str, Any], mapping: dict[str, str]) -> tuple[list[str], list[str]]:
-    """The values of the provider's groups claim and roles claim (nested paths allowed), de-duplicated."""
     groups = sorted(set(_list_claim(claim_value(claims, mapping["groups"]))))
     roles = sorted(set(_list_claim(claim_value(claims, mapping["roles"]))))
     return groups, roles

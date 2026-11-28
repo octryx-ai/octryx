@@ -6,6 +6,7 @@ import { RUN_STATE_LABEL, humanize, runStatePhrase, targetPhrase } from "./compa
 import { CompanionFooter, type CompanionFooterProps } from "./CompanionFooter";
 import { ItemCard, type Accepted } from "./CompanionItemCard";
 import { CompanionJobs } from "./CompanionJobs";
+import { CompanionPool } from "./CompanionPool";
 import { SidePanel } from "../../layout/SidePanel";
 import type { WatchJob } from "./CompanionJobDetail";
 
@@ -14,7 +15,7 @@ import type { WatchJob } from "./CompanionJobDetail";
 // person comes first, then problems, what runs and what is done, each run in exactly one of them;
 // quiet hours and browser notifications sit behind the gear. An answered card stays where it is with "Answered" for a
 // moment and is removed afterwards, so the next click hits its target. "Jobs" lists the person's or the team's
-// runs.
+// runs; "Pool" the sessions of the person's Workspaces that wait for someone to take them over.
 
 type PanelProps = {
   attention: Attention | null;
@@ -24,7 +25,7 @@ type PanelProps = {
   onOpenAgents: () => void;
   footer: CompanionFooterProps;
   watchJob: WatchJob;
-  /** Opens a chat thread (an accepted handover's new thread of the receiver). */
+  /** Opens a chat thread (the thread of an accepted handover, now the receiver's). */
   onOpenSession?: (sessionId: string) => void;
   isAdmin?: boolean;
   now?: () => number;
@@ -32,8 +33,9 @@ type PanelProps = {
   answeredMs?: number;
 };
 
-type View = "now" | "jobs" | "settings";
-const VIEWS: { key: Exclude<View, "settings">; label: string }[] = [{ key: "now", label: "Now" }, { key: "jobs", label: "Jobs" }];
+type View = "now" | "jobs" | "pool" | "settings";
+const VIEWS: { key: Exclude<View, "settings">; label: string }[] = [
+  { key: "now", label: "Now" }, { key: "jobs", label: "Jobs" }, { key: "pool", label: "Pool" }];
 export const ANSWERED_MS = 1_500;
 
 /** Re-renders every second while a countdown runs, else every 30 s, so relative times never go stale. */
@@ -147,6 +149,7 @@ export function CompanionPanel({
           </>
         ) : null}
         {view === "jobs" ? <CompanionJobs watchJob={watchJob} isAdmin={isAdmin} now={now} /> : null}
+        {view === "pool" ? <CompanionPool onOpenSession={onOpenSession} /> : null}
         {view === "now" ? (
           <>
             {problem ? <p className="octryx-panel__hint" role="status" data-testid="octryx-problem">{problem}</p> : null}

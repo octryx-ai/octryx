@@ -1,9 +1,4 @@
-"""The rows of the Workflows list: phased workflows and flow graphs.
-
-The columns — class, steps, scope, use in the window, status and version — come from the flow's current version;
-when it last changed and by whom from its latest version. A flow graph's runs are the flow engine's agent runs, a phased
-workflow's runs are its workflow runs.
-"""
+"""The rows of the Workflows list."""
 
 from __future__ import annotations
 
@@ -14,7 +9,6 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from ...models import OrchestratorAgentRun
 from ...models.runtime.flow_definition import FlowDefinition, FlowDefinitionVersion
 from ...models.runtime.workflow_run import WorkflowRun
 from ...time_utils import utc_now
@@ -31,18 +25,13 @@ def is_test_flow(version: Any) -> bool:
 
 async def _flow_runs(db: AsyncSession, *, window_days: int) -> dict[str, int]:
     since = utc_now() - timedelta(days=window_days)
-    usage: dict[str, int] = {}
-    # The flow engine's runs of a flow graph, then the workflow runs of a phased workflow (its sub-workflow runs too).
-    for run in (OrchestratorAgentRun, WorkflowRun):
-        rows = await db.execute(
-            select(FlowDefinitionVersion.flow_id, func.count())
-            .join(run, run.flow_definition_version_id == FlowDefinitionVersion.id)
-            .where(run.created_at >= since)
-            .group_by(FlowDefinitionVersion.flow_id)
-        )
-        for flow_id, count in rows.all():
-            usage[str(flow_id)] = usage.get(str(flow_id), 0) + int(count)
-    return usage
+    rows = await db.execute(
+        select(FlowDefinitionVersion.flow_id, func.count())
+        .join(WorkflowRun, WorkflowRun.flow_definition_version_id == FlowDefinitionVersion.id)
+        .where(WorkflowRun.created_at >= since)
+        .group_by(FlowDefinitionVersion.flow_id)
+    )
+    return {str(flow_id): int(count) for flow_id, count in rows.all()}
 
 
 def flow_row(
@@ -69,7 +58,6 @@ def flow_row(
         # Switched off by an admin (or an optional shipped workflow not switched on yet): listed with its switch.
         "is_active": bool(flow.is_active),
         "test_flow": is_test_flow(version),
-        # "Runs in phases" or a flow graph.
         "execution_kind": "phased" if definition.get("execution_kind") == "phased" else "flow",
         **last_change(versions, names=authors or {}),
     }

@@ -1,7 +1,4 @@
-"""Read and write the Workspace → Models contract by deriving the existing stores.
-
-See ``contract.py`` for the contract and the stores. Every write is one transaction (the caller commits).
-"""
+"""Read and write the Workspace → Models contract by deriving the existing stores."""
 
 from __future__ import annotations
 
@@ -26,7 +23,8 @@ from ..model_gateway.data_policy.classification import (
     DATA_POLICY_CONFIG_KEY,
     declared_classification,
 )
-from ..model_gateway.litellm.policy import model_alias_access_decision
+from ..model_gateway.litellm.admission_types import StoredModelPolicy
+from ..model_gateway.litellm.policy import effective_model_policy, model_alias_access_decision
 from ..model_selection.task_models import (
     TASK_KEYS,
     TASKS,
@@ -85,15 +83,8 @@ def _runtime_bindings(workspace: Project) -> dict[str, Any]:
 def _granted(
     catalog: list[CatalogEntry], config: Mapping[str, Any], runtime_policy: Mapping[str, Any], bindings: dict[str, Any]
 ) -> set[str]:
-    """The catalog keys the runtime admits for this Workspace, ignoring clearance.
-
-    Two stores grant a model and the runtime enforces both: a runtime target needs its runtime binding when the
-    assignment mode is ``selected_only``, and a company-gateway alias needs the ``model_policy`` grant (the same
-    decision the gateway admission takes, ``model_alias_access_decision``).
-    """
     selected_only = runtime_policy.get("runtime_assignment_mode") == SELECTED_ONLY
-    model_policy = config.get(MODEL_POLICY_KEY)
-    project_config = {MODEL_POLICY_KEY: dict(model_policy) if isinstance(model_policy, Mapping) else {}}
+    project_config = {MODEL_POLICY_KEY: effective_model_policy(config)}
     granted: set[str] = set()
     for entry in catalog:
         if entry.target_id and selected_only:
@@ -107,11 +98,6 @@ def _granted(
 
 
 async def read_models(db: AsyncSession, project_id: str) -> dict[str, Any]:
-    """The contract plus the model rows the page shows (by display name, clearance, where each can be used).
-
-    The contract is the *effective* grant: a restrictive ``model_policy`` shows as ``selected`` with exactly the
-    granted models, even when the runtime bindings would allow every installed model.
-    """
     workspace = await load_workspace_composition(db, workspace_id=project_id)
     config = _config(workspace)
     catalog = await model_catalog(db)
@@ -232,9 +218,6 @@ def _checked(body: Any, catalog: list[CatalogEntry], level: str | None) -> dict[
 
 
 def _seat_settings_unchanged(seat: Mapping[str, Any], stored: Mapping[str, Any], project_id: str) -> None:
-    """``mode`` / ``subscription_models`` / ``company_models_in_seat`` may only repeat the stored values (single editor:
-    the seat route, one audited key per call); a change is ``seat_setting_via_seat_route`` before anything is
-    written."""
     for field in ("mode", "subscription_models", "company_models_in_seat"):
         if field not in seat:
             continue
@@ -247,7 +230,6 @@ def _seat_settings_unchanged(seat: Mapping[str, Any], stored: Mapping[str, Any],
 async def save_models(
     db: AsyncSession, project_id: str, body: Any, *, actor_id: str, platform_admin: bool
 ) -> dict[str, Any]:
-    """Derive runtime bindings, the default, ``model_policy`` and the seat keys from the contract. Flushes."""
     from ..admin.project.admin_project_config_service import apply_project_config_patch
 
     workspace = await load_workspace_composition(db, workspace_id=project_id)
@@ -287,7 +269,7 @@ async def save_models(
         granted_aliases = [
             entry.alias for entry in catalog if entry.gateway and entry.alias and cleared_for(entry, level)[0]
         ]
-        model_policy: dict[str, Any] = {"allowed_aliases": [], "allow_all_admitted_aliases": True}
+        model_policy: StoredModelPolicy = {"allowed_aliases": [], "allow_all_admitted_aliases": True}
     else:
         granted_aliases = [entry.alias for entry in selected if entry.gateway and entry.alias]
         model_policy = {"allowed_aliases": granted_aliases, "allow_all_admitted_aliases": False}

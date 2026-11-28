@@ -1,16 +1,4 @@
-"""Admin-only mutations served outside an ``admin``/``panel`` path.
-
-The admin-surface gate (``admin_surface_gate.py``) recognises the admin surface by an ``admin`` or
-``panel`` path segment. The routes below are admin-only too, but their path has neither segment:
-chat routes mounted at the root (``/budget-policies``, ``/chat/api/v1/tts/...``) and ``/api/v1``
-routes whose handler checks the global admin role inside its body (after request-body
-validation). Each is listed as an exact ``(METHOD, path template)``, grouped by domain, and the
-gate refuses a caller who is not a global admin before the route runs, whatever the body.
-
-The handlers keep their own check. ``tests/test_admin_surface_gate.py`` proves the list is exact:
-every entry is served, and every served state-changing route outside the admin path whose handler
-requires the global admin role unconditionally is listed here or has the admin dependency.
-"""
+"""Admin-only mutations served outside an ``admin``/``panel`` path, refused by the gate for any non-admin."""
 
 from __future__ import annotations
 
@@ -33,7 +21,6 @@ _WORKSPACES_AND_PROVIDERS = {
     ("POST", "/api/v1/projects/{project_id}/restore"),
     ("POST", "/api/v1/projects/{project_id}/make-default"),
     ("PUT", "/api/v1/projects/{project_id}/config"),
-    ("POST", "/api/v1/providers/bedrock/pricing/sync"),
     ("POST", "/api/v1/tasks/scheduler/reload"),
 }
 
@@ -60,22 +47,8 @@ _FLOWS = {
     # An optional shipped workflow switched on or off by a platform admin (no draft or version change).
     ("POST", "/api/v1/flows/{flow_id}/active"),
     ("POST", "/api/v1/flows/versions/{version_id}/publish"),
-    ("POST", "/api/v1/flows/versions/{version_id}/unpublish"),
     # Four-eyes publish: the author asks a second admin to publish.
     ("POST", "/api/v1/flows/versions/{version_id}/request-review"),
-    ("POST", "/api/v1/flows/versions/{version_id}/run"),
-    ("POST", "/api/v1/flows/versions/{version_id}/partial-run"),
-    ("POST", "/api/v1/flows/capabilities/{tool_name}/run"),
-    ("POST", "/api/v1/flows/runs/recover-stale"),
-    ("POST", "/api/v1/flows/runs/{run_id}/evaluate"),
-    ("POST", "/api/v1/flows/runs/{run_id}/resume"),
-    ("POST", "/api/v1/flows/runs/{run_id}/resume-interrupted"),
-    ("POST", "/api/v1/flows/runs/{run_id}/cancel"),
-    ("POST", "/api/v1/flows/{flow_id}/test-cases"),
-    ("PUT", "/api/v1/flows/{flow_id}/test-cases/{test_case_id}"),
-    ("DELETE", "/api/v1/flows/{flow_id}/test-cases/{test_case_id}"),
-    ("POST", "/api/v1/flows/{flow_id}/test-cases/{test_case_id}/run"),
-    ("POST", "/api/v1/flows/{flow_id}/test-cases/batch-run"),
 }
 
 ADMIN_ONLY_ROUTES_OUTSIDE_ADMIN_PATH: frozenset[tuple[str, str]] = frozenset(

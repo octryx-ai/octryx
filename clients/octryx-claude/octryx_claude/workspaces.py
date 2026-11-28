@@ -1,16 +1,5 @@
-"""``--workspace`` takes a Workspace id **or name** (owner: ``octryx-claude --workspace "Acme Orders"``).
-
-The names come from ``GET /api/v1/agent-gateway/workspaces``: the Workspaces the logged-in user is a member of,
-narrowed by the login's binding, read with the launcher's own gateway login. :func:`resolve_workspace`:
-
-- an exact id of one of those Workspaces → that one;
-- otherwise a **case-insensitive exact** name match: exactly one → that one; two or more → an error asking for the id
-  (listing the candidates); none → an error listing the Workspaces the user can use;
-- when the list cannot be read, a value that is a valid id is used (the platform still authorizes it
-  on every call); a name cannot be resolved then and is refused with the reason.
-
-Only ids and names travel; nothing else is printed.
-"""
+"""``--workspace`` takes a Workspace id or a case-insensitive exact name from the user's Workspaces.
+When the list cannot be read, a valid id is still used (the platform authorizes every call)."""
 
 from __future__ import annotations
 
@@ -40,7 +29,6 @@ class WorkspaceError(Exception):
 
 
 def fetch_workspaces(state: LocalState, http: httpx.Client, base_url: str) -> list[Workspace] | None:
-    """The user's Workspaces, or ``None`` when the platform cannot be asked."""
     try:
         token = get_access_token(state, GATEWAY_AUDIENCE, http=http)
         response = http.get(f"{base_url}{CONTROL_PLANE_PREFIX}/workspaces",
@@ -61,7 +49,6 @@ def _listing(workspaces: list[Workspace]) -> str:
 
 
 def resolve_workspace(value: str, workspaces: list[Workspace] | None) -> Workspace:
-    """The Workspace ``value`` names (id or name); raises ``WorkspaceError`` with a clear message."""
     text = value.strip()
     if not text:
         raise WorkspaceError("no Workspace given")
@@ -82,13 +69,11 @@ def resolve_workspace(value: str, workspaces: list[Workspace] | None) -> Workspa
 
 
 def label_for(config: dict, workspace_id: str) -> str:
-    """``name (id)`` when the stored config knows the name of ``workspace_id``, else the id."""
     name = str(config.get("workspace_name") or "") if config.get("workspace_id") == workspace_id else ""
     return Workspace(workspace_id, name).label()
 
 
 def resolved_label(state: LocalState, http: httpx.Client, base_url: str, config: dict, workspace_id: str) -> str:
-    """``name (id)``: the stored name, else the name from the Workspace list; the id alone when neither knows it."""
     if config.get("workspace_id") == workspace_id and config.get("workspace_name"):
         return label_for(config, workspace_id)
     for workspace in fetch_workspaces(state, http, base_url) or []:

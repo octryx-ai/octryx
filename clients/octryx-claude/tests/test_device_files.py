@@ -1,5 +1,3 @@
-"""Files a phone turn made on the Mac: listed by name after the turn, sent only on request and only from its folder."""
-
 from __future__ import annotations
 
 import asyncio
@@ -22,7 +20,6 @@ from octryx_claude.state import LocalState
 
 @pytest.fixture
 def work():
-    """A project folder (temp folders are never shared): inside the checkout, removed after."""
     folder = Path(__file__).resolve().parent / "_work" / uuid.uuid4().hex
     folder.mkdir(parents=True)
     yield folder
@@ -102,7 +99,6 @@ def test_serves_a_file_in_chunks_or_says_why_not(tmp_path, work, monkeypatch):
 
 
 def test_home_disks_temp_system_and_config_folders_share_nothing(tmp_path, work):
-    """A take-over session started in ``~`` must not list or serve credentials or app data."""
     home = work / "Users" / "alice"
     _touch(home / ".zsh_history", b"export TOKEN=x")
     _touch(home / "Library" / "Keychains" / "login.keychain-db", b"k")

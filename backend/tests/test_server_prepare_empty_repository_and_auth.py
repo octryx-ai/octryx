@@ -1,18 +1,4 @@
-"""Server prepare: fetches carry the Bitbucket Git auth, and an empty repository is prepared.
-
-Contract:
-
-- ``prepare_branch``/``prepare_locally``/``restore_run_wip`` run every fetch from ``origin`` with ``git_env`` (the
-  credential in the environment only: never in argv);
-- ``origin_auth.origin_git_env`` is the Bitbucket tools' Git environment for the run's repository: the Workspace's
-  per-repository Git token when set, else the connection's sign-in; nothing for another host or provider;
-- a clone of a repository without any commit (``ls-remote origin`` advertises no ref) is ``empty_repository``: the
-  folder is on the run's unborn branch, ``decide`` counts it as prepared and the first commit creates the branch; an
-  unborn folder whose ``origin`` has refs is prepared;
-- the Bitbucket prepare tool clones an empty repository without a branch and reports ``repository_empty``;
-- ``scm.create_branch`` goes on with such a folder (base: Git's empty tree) and a refused pull request of such a run
-  says why instead of the provider's bare error.
-"""
+"""Server prepare: fetches carry the Bitbucket Git auth, and an empty repository is prepared."""
 
 from __future__ import annotations
 
@@ -35,7 +21,7 @@ from app.services.workflow_runs.workspace.preparation import decide
 from app.tools.bitbucket_impl import _bitbucket_sync_repo as sync_repo
 from app.tools.context import ToolContext
 from tests.policy_engine_support import bearer
-from tests.test_repository_git_token import (  # noqa: F401 - the ``world`` fixture
+from tests.services.knowledge.sources.test_repository_git_token import (  # noqa: F401 - the ``world`` fixture
     BASE,
     CLONE_URL,
     TOKEN,
@@ -62,7 +48,6 @@ def git_identity(tmp_path, monkeypatch):
 
 
 def _recording(monkeypatch) -> list[tuple[tuple[str, ...], dict | None]]:
-    """``server_prepare.git`` through the real ``safe_git.git``, recording each command and its environment."""
     calls: list[tuple[tuple[str, ...], dict | None]] = []
 
     async def recorded(cwd, *args, stdin=None, env=None):
@@ -111,7 +96,7 @@ async def test_every_fetch_from_origin_carries_the_git_env_and_no_credential_in_
 async def test_an_empty_repository_is_prepared_on_the_runs_unborn_branch(tmp_path, monkeypatch, git_identity) -> None:
     remote, server = tmp_path / "empty.git", tmp_path / "server"
     _git("init", "-q", "--bare", "-b", "main", str(remote))
-    _git("clone", "-q", str(remote), str(server))  # "You appear to have cloned an empty repository."
+    _git("clone", "-q", str(remote), str(server))
     calls = _recording(monkeypatch)
     env = bearer_header_env("https://bitbucket.example.test/scm/acme/demo-shop.git", SECRET_TOKEN)
 
@@ -125,7 +110,6 @@ async def test_an_empty_repository_is_prepared_on_the_runs_unborn_branch(tmp_pat
     assert _git("symbolic-ref", "HEAD", cwd=server) == "refs/heads/feature/ACME-1-first"
     [(_, ls_remote_env)] = [(args, seen) for args, seen in calls if "ls-remote" in args]
     assert ls_remote_env is not None and SECRET_TOKEN in json.dumps(ls_remote_env), "ls-remote carries the auth"
-    # The agent's first commit creates the run's branch.
     (server / "README.md").write_text("first\n")
     _git("add", "-A", cwd=server)
     _git("commit", "-q", "-m", "first", cwd=server)
@@ -215,7 +199,6 @@ async def test_the_prepare_tool_clones_an_empty_repository_onto_the_unborn_work_
     local = Path(result["local_path"])
     assert _git("symbolic-ref", "HEAD", cwd=local) == "refs/heads/feature/PROJ-1-first"
     assert ["git", "ls-remote", clone_url] in seen
-    # A second prepare of the same (still empty) clone takes the existing-clone path and ends the same way.
     again = await sync_repo.PrepareBitbucketRepository().execute(
         {"project_key": "PROJ", "repo_slug": "service-api", "branch_name": "feature/PROJ-1-first"}, context)
     assert again.get("repository_empty") is True, again
@@ -242,7 +225,11 @@ async def test_a_run_goes_on_on_an_empty_repository_and_its_refused_pr_says_why(
     async def no_earlier(*_args):
         return None
 
+    async def no_links(*_args):
+        return ""
+
     monkeypatch.setattr(scm, "dispatch_tool", fake_dispatch)
+    monkeypatch.setattr(scm, "run_links", no_links)
     monkeypatch.setattr(scm, "reviewers_for", no_reviewers)
     monkeypatch.setattr(scm, "branch_name", named)
     monkeypatch.setattr("app.services.workflow_runs.platform.pr_adoption.earlier_pull_request", no_earlier)

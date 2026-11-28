@@ -1,23 +1,4 @@
-"""The platform's hard-deny list of a workflow run, evaluated on the device (stdlib only, no I/O).
-
-The story session of an epic decides its tool calls in the launcher, without a server round trip per
-call (which costs time on every tool call); only the short hard-deny list holds there.
-
-This module is a copy of the server's rules, kept equal by ``backend/tests/test_epic_delivery.py`` (it runs both on one
-corpus):
-
-- ``agent_gateway.command_match``: the structural shell parser (:func:`command_segments`,
-  :func:`without_data_heredocs`, :func:`segment_matches`);
-- ``workflow_runs.octryx.shell_rules.hard_denied``: credential files and environment dumps, credential commands, a
-  recursive or forced ``rm`` outside the work folder, uploads (``scp``, ``nc``, ``rsync`` to a host, ``curl -d/-T/-F``,
-  ``wget --post-*``);
-- ``workflow_runs.octryx.tool_policy._bash_run_rules``: ``git push`` / ``send-pack``, SCM and Jira clients, an HTTP
-  client aimed at an SCM or Jira host;
-- ``workflow_runs.octryx.browser_tools``: the browser opens only loopback, and runs no free Playwright code;
-- ``agent_gateway.self_protection``: the launcher's credentials and the platform's control endpoints.
-
-It decides nothing else; the caller (``local_decisions``) asks the server for every case it cannot decide.
-"""
+"""The platform's hard-deny list of a workflow run, evaluated on the device (stdlib only, no I/O)."""
 
 from __future__ import annotations
 
@@ -86,7 +67,6 @@ def _hard_segment(segment: Segment) -> str | None:
 
 
 def hard_denied(command: str) -> str | None:
-    """Why ``command`` never runs in a workflow run's phase (the short hard-deny list), or ``None``."""
     text = without_data_heredocs(command or "")
     if _CREDENTIAL_FILE.search(text):
         return "it reads a credential file"
@@ -129,7 +109,6 @@ def _host_matches(argument: str, hosts: frozenset[str]) -> bool:
 
 
 def bash_run_rules(command: str, *, hosts: frozenset[str] = DEFAULT_SCM_HOSTS) -> tuple[str, str] | None:
-    """``(reason, message)`` of a run rule that refuses ``command``, or ``None``."""
     if (why := hard_denied(command)) is not None:
         return REASON_HARD_DENY, f"This command never runs during a workflow run: {why}."
     for segment in command_segments(command) or []:
@@ -151,7 +130,6 @@ OPEN_SUBCOMMANDS = frozenset({"l10n-merge"})  # no token, no state: a repository
 
 
 def names_platform_credentials(command_or_path: str, state_root: str = "") -> bool:
-    """The text names the launcher's state, its credentials or a platform control path (the server denies it)."""
     markers = (*PROTECTED_MARKERS, state_root) if state_root else PROTECTED_MARKERS
     return any(marker in command_or_path for marker in markers)
 

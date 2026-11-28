@@ -1,9 +1,3 @@
-// A person's roles in a Workspace, as the chat and the phone show them (roles contract §2 "Effective permission",
-// §3.3, §4, §5; board 8). Plain functions over the API's answers, so the presentation is testable without
-// a browser:
-//   GET /api/v1/work-roles/workspaces/{ws}/me -> EffectivePermission (every member)
-//   GET /api/v1/work-roles/workspaces/{ws}    -> { settings, roles, assignments, members_without_role, can_edit } (admins)
-
 export type RoleVia = { kind: string; value?: string; label?: string };
 export type EffectiveRole = { id: string; key: string; name: string; trusted: boolean; via: RoleVia[] };
 
@@ -35,14 +29,12 @@ export type WorkspaceRoles = {
   canEdit: boolean;
 };
 
-/** §4: the empty-state text when the API sends none. */
 export const EMPTY_REASON_EN =
   "You have no role in this Workspace, so no tools are available. A Workspace admin can assign one (Workspace › Roles).";
-/** The badge a trusted role carries wherever it appears (BRIEF-ROLES "Trusted role"). */
 export const TRUSTED_BADGE = "Trusted · no plan confirmation";
 export const WHO_ASSIGNS_ROLES = "Workspace admin";
 
-// §7 seed functions; a custom function without a known name reads as its key in words, never the raw slug.
+// A custom function without a known name reads as its key in words, never the raw slug.
 const FUNCTION_NAMES: Record<string, string> = {
   read: "Chat & knowledge",
   work_items: "Work items",
@@ -106,7 +98,6 @@ export function readEffectivePermission(raw: unknown): EffectivePermission | nul
   };
 }
 
-/** How a role reaches the person, in words ("Assigned to you", "Through the SSO group eng-developers"). */
 export function viaText(via: RoleVia): string {
   const name = via.label || via.value || "";
   switch (via.kind) {
@@ -127,7 +118,6 @@ export function viaSummary(role: EffectiveRole): string {
   return role.via.map(viaText).filter(Boolean).join(" · ");
 }
 
-/** The write connections in words (§2: "all" or the ids of the named connections). */
 export function writeConnectionsText(permission: EffectivePermission): string {
   if (permission.writeConnections === "all") return "Every connection of the Workspace";
   const count = permission.writeConnections.length;
@@ -139,8 +129,7 @@ export type RoleChatNotice =
   | { kind: "empty"; text: string; workspace: string; hint: string }
   | { kind: "trusted"; text: string; roles: string };
 
-/** Chat writes are confirmed once per task through a write plan; a trusted role skips that plan
- * (everything inside a confirmed plan's scope runs, no per-call exceptions). */
+/** A trusted role skips the once-per-task write plan confirmation. */
 export const TRUSTED_EFFECT =
   "your chat writes run without a plan confirmation.";
 
@@ -148,11 +137,7 @@ export function trustedNoticeText(roleNames: string[]): string {
   return roleNames.length ? `Trusted role (${roleNames.join(", ")}): ${TRUSTED_EFFECT}` : `Trusted role: ${TRUSTED_EFFECT}`;
 }
 
-/**
- * What the chat shows above the composer for the person's roles in its Workspace: the empty state (switch on, no
- * role; the chat still answers without tools), else the trusted notice, else nothing. Platform admins are never
- * filtered, so they see neither.
- */
+/** Platform admins are never filtered, so they see neither notice. */
 export function roleChatNotice(permission: EffectivePermission | null, workspaceName: string): RoleChatNotice | null {
   if (!permission || permission.platformAdmin) return null;
   if (permission.enforced && (permission.emptyReason || !permission.roles.length)) {
@@ -170,14 +155,11 @@ export function roleChatNotice(permission: EffectivePermission | null, workspace
   return null;
 }
 
-/** "Your role: Developer" for the chat header; empty when the switch is off or nothing applies. */
 export function roleHeaderText(permission: EffectivePermission | null): string {
   if (!permission || !permission.enforced || permission.platformAdmin || !permission.roles.length) return "";
   const names = permission.roles.map((role) => role.name);
   return `${names.length === 1 ? "Your role" : "Your roles"}: ${names.join(", ")}`;
 }
-
-// ── Refusals (§4) ──────────────────────────────────────────────────────────────────────────────────────────────
 
 export const ROLE_REFUSAL_CODES = ["role_tool_not_granted", "role_connection_not_granted", "po_function_required"] as const;
 export type RoleRefusal = { code: string; message: string; setting: string; whoCanChange: string };
@@ -210,25 +192,19 @@ function parsed(value: unknown): unknown {
   }
 }
 
-/**
- * A role refusal carried by a tool result: `{code, …}`, `{detail: {code, …}}` or `{error: {code, …}}`, as an object
- * or a JSON string. Only the structured code counts; prose is never parsed.
- */
+/** Only the structured code counts; prose is never parsed. */
 export function readRoleRefusal(result: unknown): RoleRefusal | null {
   const body = record(parsed(result));
   if (!body) return null;
   return refusalFrom(body) ?? refusalFrom(record(parsed(body.detail))) ?? refusalFrom(record(parsed(body.error)));
 }
 
-/** The refusal as one calm sentence plus the setting and who can change it, verbatim. */
 export function roleRefusalText(refusal: RoleRefusal): string {
   const parts = [refusal.message.replace(/\s+/g, " ").trim()];
   if (refusal.setting) parts.push(`Setting: ${refusal.setting}.`);
   if (refusal.whoCanChange) parts.push(`Who can change it: ${refusal.whoCanChange}.`);
   return parts.join(" ");
 }
-
-// ── A Workspace's assignments (admins, read-only on the phone) ───────────────────────────────────────────────────
 
 const SUBJECT_KINDS: Record<string, string> = {
   user: "Person",
@@ -279,14 +255,12 @@ export function readWorkspaceRoles(raw: unknown): WorkspaceRoles | null {
   };
 }
 
-/** "Role-based tools: on" / "off", with what the state means. */
 export function switchText(roles: WorkspaceRoles): { label: string; detail: string } {
   return roles.roleBasedTools
     ? { label: "On", detail: "Tools follow each person's roles. Without a role a person has no tools." }
     : { label: "Off", detail: "Roles are kept but not applied: everyone has the Workspace's tools." };
 }
 
-/** "These 2 members will have no tools: Anna Keller, Ben Roth" (§3.3). */
 export function membersWithoutRoleText(names: string[], switchOn: boolean): string {
   if (!names.length) return "";
   const one = names.length === 1;

@@ -42,7 +42,6 @@ async def draft_skill(db, category_id: str, name: str | None = None, *, files: l
 
 async def published_skill(db, category_id: str, name: str | None = None, *, approver_id: str,
                           files: list[BundleFile] | None = None, **content) -> tuple[Skill, SkillVersion]:
-    """A published version written directly (the lifecycle has its own tests)."""
     skill, row = await draft_skill(db, category_id, name, files=files, actor_id=approver_id, **content)
     approval = Approval(requested_by=approver_id, approved_by=approver_id, status="approved",
                         action=approval_action(row), reason="test")
@@ -57,7 +56,6 @@ async def published_skill(db, category_id: str, name: str | None = None, *, appr
 
 
 async def force_publish(db, skill_id: str, *, approver_id: str) -> SkillVersion:
-    """Publish the skill's open version directly (the lifecycle has its own tests)."""
     row = (await db.execute(select(SkillVersion).where(SkillVersion.skill_id == skill_id,
                                                        SkillVersion.state.in_(["draft", "in_review"])))).scalar_one()
     approval = Approval(requested_by=approver_id, approved_by=approver_id, status="approved",
@@ -79,9 +77,6 @@ async def publish_chat_skill(db, name: str, *, approver_id: str, description: st
                              body: str = "", when_to_use: str | None = None, required_tools: tuple[str, ...] = (),
                              allowed_roles: tuple[str, ...] = (), card_content: str = "", executor_type: str | None = None,
                              in_chat: bool = True) -> tuple[Skill, SkillVersion]:
-    """Publish v1 of a skill authored as an Agent Skills bundle (SKILL.md + platform extension), written directly:
-    licence ``Internal``, chat only (``in_chat=False`` publishes it unavailable in chat), in the top-level category
-    ``category``."""
     top = await ensure_top_category(db, category)
     frontmatter = {"name": name, "description": description}
     if when_to_use:

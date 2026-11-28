@@ -6,8 +6,8 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
 
+from .stored_types import StoredCustomDetector, StoredDetectorSet
 from .vocabulary import (
     BUILTIN_CATEGORIES,
     CONFIDENCE_HIGH,
@@ -69,7 +69,7 @@ class CustomDetectorDefinition:
     mask_style: str = MASK_TYPE_TOKEN
     workspace_id: str = ""
 
-    def to_json(self) -> dict[str, Any]:
+    def to_json(self) -> StoredCustomDetector:
         return {"id": self.id, "label": self.label, "category": self.category, "pattern": self.pattern,
                 "check": self.check, "context_words": list(self.context_words), "mask_style": self.mask_style,
                 "workspace_id": self.workspace_id or None}
@@ -88,12 +88,10 @@ class CustomDetectorDefinition:
 
 @dataclass(frozen=True, slots=True)
 class DetectorDefinitions:
-    """The custom detectors and categories of one policy-set version."""
-
     detectors: tuple[CustomDetectorDefinition, ...] = ()
     categories: tuple[Category, ...] = ()
 
-    def to_json(self) -> dict[str, Any]:
+    def to_json(self) -> StoredDetectorSet:
         return {"categories": [{"id": item.id, "label": item.label} for item in self.categories],
                 "detectors": [item.to_json() for item in self.detectors]}
 

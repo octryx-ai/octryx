@@ -1,18 +1,5 @@
-"""Contract: what a clarification-answer revision carries and refuses.
-
-- unanswered source questions stay open in the revision whatever the model returns, deduplicated,
-  and keep it ``needs_clarification``;
-- the prompt carries the exact source plan's bounded context; a field that does not fit is named
-  as omitted, never cut;
-- the source plan's stored workflow is loaded through the scoped loader for the item's Workspace (missing or
-  invisible: the same 404; an authorized workflow of another Workspace: the workflow mismatch 409) and must be
-  active, checked before any model call;
-- the answering actor is retained with a readable label;
-- the engine's real exhausted-runtime error becomes a 503 without provider text.
-
-The model is faked except in the exhaustion test, which runs the real runtime fallback chain against
-a failing provider client.
-"""
+"""Contract: what a clarification-answer revision carries and refuses: open questions stay open, bounded
+context is never cut, the workflow is scope-loaded, and exhausted runtimes become a 503."""
 
 from __future__ import annotations
 
@@ -23,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
 from app.models import Project, UserProject, WorkChangePlan, WorkItemWorkflowDefinition
 from app.services.secure_work.plans import clarification_answers as service
 from app.services.secure_work.plans.clarification_revision import revision_open_questions
@@ -123,7 +110,6 @@ async def test_all_answered_and_no_new_question_is_ready_for_review(db):
 
 
 async def test_the_prompt_revises_the_exact_source_plan_with_every_field_whole(db):
-    """No artificial limits: a long field reaches the revision whole."""
     actor = await _admin(db)
     item = await _item(db)
     source = await _plan(db, item, actor, version=1)

@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 async def _workspace_of(db: AsyncSession, *, session_id: str | None, task_run_id: str | None) -> str | None:
-    """The Workspace an approval belongs to: its session's project, else its task run's task's project.
-
-    If neither lookup resolves, ``workspace_id`` stays null and the page cannot say which Workspace asked."""
     from ...models import Task, TaskRun
 
     if session_id:
@@ -34,7 +31,6 @@ async def _workspace_of(db: AsyncSession, *, session_id: str | None, task_run_id
 
 
 def _requested_payload(approval: Approval) -> dict[str, Any]:
-    """The ``approval.requested`` event payload, read from the row at the moment it is sent."""
     return {
         "approval_id": approval.id,
         "action": approval.action,
@@ -48,7 +44,6 @@ def _requested_payload(approval: Approval) -> dict[str, Any]:
 async def _pending_duplicate(
     db: AsyncSession, *, requested_by: str, action: str, task_run_id: str | None, session_id: str | None
 ) -> Approval | None:
-    """The newest pending approval for the same requester, action, task run and session."""
     query = select(Approval).where(
         Approval.requested_by == requested_by,
         Approval.action == action,
@@ -69,7 +64,6 @@ async def _pending_duplicate(
 async def _hold_session(
     db: AsyncSession, approval: Approval, *, session_id: str, requested_by: str, action: str, reason: str | None
 ) -> Session | None:
-    """Put the session on hold for the approval and tell the admins; returns the session row if it exists."""
     session = await db.get(Session, session_id)
     if session is not None:
         session.status = "pending_approval"

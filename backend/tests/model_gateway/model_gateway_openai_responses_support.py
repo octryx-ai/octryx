@@ -48,14 +48,29 @@ def _stream(model: str = MODEL_GROUP, *, model_in_created: bool = True) -> bytes
     ]).encode("utf-8")
 
 
+def _faked_stream(model: str, *, completed: bool = True) -> bytes:
+    text = "All tests pass."
+    events = [_sse({"type": "response.output_text.delta", "item_id": "resp_1", "output_index": 0,
+                    "content_index": 0, "delta": text[i:i + 5]}) for i in range(0, len(text), 5)]
+    if completed:
+        events.append(_sse({"type": "response.completed", "response": _response(model, "completed", usage=USAGE, output=[
+            {"type": "message", "id": "msg_1", "role": "assistant", "status": "completed",
+             "content": [{"type": "output_text", "text": text, "annotations": []}]}, CALL])}))
+    return "".join(events).encode("utf-8")
+
+
 class FakeResponsesGateway:
     def __init__(self) -> None:
         self.requests: list[httpx.Request] = []
         self.model = MODEL_GROUP
         self.model_in_created = True
+        self.faked: str | None = None
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
+        if json.loads(request.content).get("stream") is True and self.faked:
+            return httpx.Response(200, content=_faked_stream(self.model, completed=self.faked == "complete"),
+                                  headers={"content-type": "text/event-stream", "request-id": "req_up_3"})
         if json.loads(request.content).get("stream") is True:
             return httpx.Response(200, content=_stream(self.model, model_in_created=self.model_in_created),
                                   headers={"content-type": "text/event-stream", "request-id": "req_up_1"})

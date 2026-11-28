@@ -17,7 +17,6 @@ def _resolve_path(raw: str, workspace_root: str | None) -> str:
 
 
 async def _get_client(path: str, context: ToolContext):
-    """Return a running LspClient for the given file, or None."""
     from ..services.lsp import _detect_language, lsp_manager
 
     lang = _detect_language(path)

@@ -1,15 +1,3 @@
-"""The launcher prepares the job folder for the run before the agent starts.
-
-Live, the device folder stayed on main and pytest was not installed for its python. Here, with a real git origin:
-
-- the folder is checked out on the run's branch (created locally from the remote branch the platform created);
-- foreign uncommitted changes are never overwritten: ``dirty``, the folder stays as it was;
-- the readiness probes run with the declared path first; a failing probe runs the declared setup in the folder, a
-  setup that would install outside it is refused on the device;
-- a device turn reports the facts and starts only when the platform answers ``ready``; the declared path is first
-  on the agent's ``PATH``.
-"""
-
 from __future__ import annotations
 
 import json

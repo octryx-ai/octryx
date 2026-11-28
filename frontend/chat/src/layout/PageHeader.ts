@@ -2,24 +2,17 @@ import { createElement, type ReactNode, type Ref } from "react";
 
 import { openPageHelp } from "../help/usePageHelp";
 
-// The one page header of the UI: eyebrow, title, one purpose sentence, and
-// on the right always in the same order: the Workspace switch, neutral actions, the one primary action, the help
-// "?". Plain .ts with createElement (no JSX, no CSS import; styles/chat/page-header.css) so every page and its
-// unit-test loader can require it.
+// Plain .ts with createElement (no JSX, no CSS import) so every page and its unit-test loader can require it.
 
 export type PageHeaderProps = {
   eyebrow: string;
   title: string;
   purpose?: string | null;
-  // The page's Workspace switch (pages that act on one Workspace).
   workspace?: ReactNode;
-  // Neutral actions such as Refresh.
   secondary?: ReactNode;
-  // The one bright action of the page.
   primary?: ReactNode;
   // Admin pages portal their own controls into this container (AdminHeaderActions).
   actionsRef?: Ref<HTMLDivElement>;
-  // After the help button, e.g. a panel's close button.
   trailing?: ReactNode;
   testIds?: { eyebrow?: string; purpose?: string };
 };
@@ -30,7 +23,6 @@ const HELP_ICON = [
   createElement("path", { key: "d", d: "M12 17h.01" }),
 ];
 
-/** The "?" of every page header: opens the help panel for the current page. */
 export function PageHelpButton() {
   return createElement(
     "button",
@@ -39,7 +31,6 @@ export function PageHelpButton() {
   );
 }
 
-/** Whether the page was opened from the Setup guide (`from=setup`), so its header offers the way back. */
 export function openedFromSetup(search: string | undefined = globalThis.location?.search): boolean {
   try {
     return new URLSearchParams(search ?? "").get("from") === "setup";

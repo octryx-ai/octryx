@@ -22,7 +22,7 @@
 
 .trace-turn-diff__header {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -75,11 +75,11 @@
   width: 1.2rem;
   height: 1.2rem;
   margin-top: 0.05rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-hover);
   color: var(--text);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-turn-diff__item-copy {
@@ -90,7 +90,7 @@
 
 .trace-turn-diff__item strong {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -107,9 +107,9 @@
   align-items: center;
   justify-content: center;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }

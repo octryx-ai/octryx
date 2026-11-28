@@ -28,8 +28,6 @@ GREEN_FILE = "pipeline-green.json"
 
 
 def tree_digest(root: Path) -> str:
-    """The git tree of the folder as it is now, uncommitted and untracked files included (``.gitignore`` holds), via a
-    throwaway index; ``""`` when git cannot say."""
     import tempfile  # noqa: PLC0415
 
     index = root / ".git" / "index"
@@ -58,11 +56,6 @@ def _key(root: Path, tree: str, view: dict[str, Any]) -> str:
 
 
 def green_before(state: LocalState, root: Path, tree: str, view: dict[str, Any]) -> list[dict[str, Any]] | None:
-    """The results of this pipeline's last green run on exactly this tree, ``None`` when it must run.
-
-    (epic-delivery): no test run the pipeline already ran green on the same code. A high review
-    finding the session answers without a change (or a retried pass) would otherwise run the whole suite again, with
-    the system tests the slowest part of a story's platform steps."""
     from .state import read_json  # noqa: PLC0415
 
     if not tree or getattr(state, "root", None) is None:
@@ -76,7 +69,6 @@ def green_before(state: LocalState, root: Path, tree: str, view: dict[str, Any])
 
 def remember_green(state: LocalState, root: Path, tree: str, view: dict[str, Any],
                    results: list[dict[str, Any]]) -> None:
-    """Keep an all-green run's results for its tree (one entry per folder); anything red is forgotten."""
     from .state import read_json, write_private_json  # noqa: PLC0415
 
     if getattr(state, "root", None) is None:

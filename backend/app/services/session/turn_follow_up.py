@@ -1,16 +1,4 @@
-"""The follow-up of a completed chat turn, after its end state is committed.
-
-Scheduled by :func:`services.session.turn_settlement.settle_turn_after_stream` for
-every entry path, only when the turn ended ``completed``. It runs as a chat-turn
-background task on its own database sessions, so it never extends the turn:
-
-1. the session workspace's completion sync;
-2. the ``session.completed`` outbound webhook;
-3. the Memory capture, then the Episode capture (bounded; off unless the Workspace
-   enables them).
-
-A failure of steps 1-2 is logged and rolled back; it never changes the turn's state.
-"""
+"""The follow-up of a completed chat turn, after its end state is committed."""
 
 from __future__ import annotations
 

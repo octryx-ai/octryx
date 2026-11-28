@@ -5,11 +5,6 @@ import { readOperations } from "./operationsRead";
 import { readStopHistory, readStopPreview, stopResultText, type StopPreview, type StopRecord } from "./operationsEmergencyStop";
 import { type OperationsLive } from "./operationsTypes";
 
-// Operations › Live requests. The live view has two routes with the
-// Problems scope: the admin route first, and on 403 the current Workspace's route. Actions use existing routes only.
-// A refusal keeps the server's own message (detail.message), shown verbatim. The phone passes `renew`, which turns its
-// credential into a fresh access cookie once when a request answers 401.
-
 export type OpsRefusal = Error & { status: number; code: string };
 
 export function isOpsRefusal(error: unknown): error is OpsRefusal {
@@ -53,10 +48,7 @@ async function call(path: string, init?: RequestInit, options: OpsOptions = {}):
 export type LiveScope = { workspaceId: string; useWorkspaceRoute: boolean };
 export type LiveResult = { live: OperationsLive; viaWorkspace: boolean };
 
-/**
- * The live view. Admin route first (platform and Workspace admins; `workspaceId` narrows it, empty = everything the
- * caller administers); on 403 the Workspace route of the current Workspace, and the caller remembers that.
- */
+// Admin route first; on 403 the current Workspace's route, and the caller remembers that.
 export async function loadOperationsLive(scope: LiveScope, options: OpsOptions = {}): Promise<LiveResult> {
   const workspaceRoute = async () => {
     if (!scope.workspaceId) throw Object.assign(new Error("Choose a Workspace to see what runs in it."), { name: "OpsRefusal", status: 400, code: "workspace_required" });
@@ -74,7 +66,6 @@ export async function loadOperationsLive(scope: LiveScope, options: OpsOptions =
 
 export type OfferedAction = { key: string; label: string; input: { name: string; kind: string; label: string } | null };
 
-/** What the run offers the viewer now (`run.actions`), read on demand before Abort is confirmed. */
 export async function loadRunActions(runId: string, options: OpsOptions = {}): Promise<OfferedAction[]> {
   const body = await call(`/api/v1/workflow-runs/${encodeURIComponent(runId)}`, undefined, options) as { run?: { actions?: unknown } } | null;
   const actions = Array.isArray(body?.run?.actions) ? body.run.actions : [];
@@ -106,27 +97,23 @@ export async function acknowledgeOpsProblem(key: string, options: OpsOptions = {
   await call(`/api/v1/admin/problems/${encodeURIComponent(key)}/acknowledge`, { method: "POST" }, options);
 }
 
-// Emergency stop (contract §5): preview what a stop touches, stop with a required reason, read the history.
 const stopQuery = (workspaceId: string) => (workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : "");
 
 export async function loadStopPreview(workspaceId: string): Promise<StopPreview> {
   return readStopPreview(await call(`/api/v1/admin/operations/emergency-stop/preview${stopQuery(workspaceId)}`));
 }
 
-/** Stops everything in the Workspace (or the platform without one); returns the sentence of what stopped. */
 export async function emergencyStop(workspaceId: string, reason: string): Promise<string> {
   const body: Record<string, unknown> = { reason };
   if (workspaceId) body.workspace_id = workspaceId;
   return stopResultText(await call("/api/v1/admin/operations/emergency-stop", { method: "POST", body: JSON.stringify(body) }));
 }
 
-/** Whether new starts in this scope are held and by which stop (platform or this Workspace). */
 export async function loadNewStartsHeld(workspaceId: string): Promise<{ held: boolean; hold: Hold | null }> {
   const preview = await call(`/api/v1/admin/operations/emergency-stop/preview${stopQuery(workspaceId)}`);
   return { held: newStartsHeld(preview), hold: readHold(preview) };
 }
 
-/** Lifts the held starts of exactly this scope; the answer says whether a platform stop still holds them. */
 export async function resumeNewStarts(workspaceId: string, reason: string): Promise<unknown> {
   return call("/api/v1/admin/operations/emergency-stop/resume", { method: "POST", body: JSON.stringify(resumeBody(workspaceId, reason)) });
 }
@@ -135,21 +122,17 @@ export async function loadStopHistory(workspaceId: string): Promise<StopRecord[]
   return readStopHistory(await call(`/api/v1/admin/operations/emergency-stop/history${stopQuery(workspaceId)}`));
 }
 
-// Costs (contract §6): cost and outcome per group over the last `days`; admins in the Problems scope.
 export async function loadCosts(query: { workspaceId: string; days: number; group: CostGroup }): Promise<CostReport> {
   const params = new URLSearchParams({ days: String(query.days), group: query.group });
   if (query.workspaceId) params.set("workspace_id", query.workspaceId);
   return readCosts(await call(`/api/v1/admin/operations/costs?${params.toString()}`), query.group);
 }
 
-/** A run's main chat, read when its row is opened (the cost report has no session id). */
 export async function loadRunSession(runId: string): Promise<string> {
   return mainSessionOf(await call(`/api/v1/workflow-runs/${encodeURIComponent(runId)}`));
 }
 
-// Seats by person: per person, what the seat calls would cost via the API at list price, and
-// apart from it the real API cost; admins in the Problems scope. A refusal keeps status and code (OpsRefusal), so the
-// page can tell a missing route (404 without a code) from a refused Workspace.
+// A refusal keeps status and code so the page can tell a missing route (404 without a code) from a refused Workspace.
 export async function loadSeatUsage(query: { workspaceId: string; days: number }): Promise<SeatUsageReport> {
   const params = new URLSearchParams({ days: String(query.days) });
   if (query.workspaceId) params.set("workspace_id", query.workspaceId);

@@ -1,9 +1,4 @@
-"""The Cedar query of the gateway ``tool_rules`` check (``POINT_GATEWAY_TOOL_CHECK``).
-
-One request per command segment and per candidate path. The decision log stores ``PointQuery.log_resource``: only
-the tool name, the programs (argv[0]) and a hash of the arguments, never the command line or the paths (they can
-carry secrets and personal data); the full ``resource`` stays in memory for the test bench.
-"""
+"""The Cedar query of the gateway ``tool_rules`` check (``POINT_GATEWAY_TOOL_CHECK``)."""
 
 from __future__ import annotations
 
@@ -25,7 +20,6 @@ MAX_LOG_RESOURCE_CHARS = 240
 
 
 def arguments_digest(tool_input: Mapping[str, Any]) -> str:
-    """A short, stable hash of a tool call's arguments: correlates records without storing the arguments."""
     canonical = json.dumps(tool_input, sort_keys=True, ensure_ascii=False, default=str)
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
@@ -34,11 +28,6 @@ def gateway_query(
     *, workspace_id: str, gateway: GatewayPolicy, hook_input: Mapping[str, Any], principal: EntityRef,
     principal_records: Sequence[Mapping[str, Any]], classification: WorkspaceDataClassification | None = None,
 ) -> PointQuery:
-    """The gateway ``tool_rules`` check: one request per command segment and per candidate path.
-
-    ``classification``: the Workspace's resolved classification (``workspace_facts``), so policies can
-    narrow coding agents by it; ``None`` or unresolved leaves the attributes absent (the conditions do not match).
-    """
     from ..agent_gateway.command_match import command_segments
     from ..agent_gateway.tool_check import BASH_TOOL, PATH_FIELDS, candidate_paths
 

@@ -13,7 +13,6 @@ from .phase_view import _text, how_to_run_tests
 
 async def with_phase_details(db: AsyncSession, run: WorkflowRun, graph: Any, node: Any, contract: dict[str, Any], *,
                              item: Any, principal: Any) -> None:
-    """Complete ``contract["phase"]`` (the run is at a phase) in the order the enforcement points read it."""
     from ..specification.integration import projected_phase_facts, source_backed_phase
 
     if await source_backed_phase(db, run, node):
@@ -26,7 +25,6 @@ async def with_phase_details(db: AsyncSession, run: WorkflowRun, graph: Any, nod
     await _with_code_style(db, run, contract)
     _with_system_tests(run, graph, node, contract, item=item)
     await _with_phase_agent(db, node, contract)
-    # What the enforcement points decide, in a few lines before the agent starts.
     from ..run_texts import run_texts as brief_texts
     from .phase_brief import phase_brief
 
@@ -35,7 +33,6 @@ async def with_phase_details(db: AsyncSession, run: WorkflowRun, graph: Any, nod
 
 
 async def _with_code_style(db: AsyncSession, run: WorkflowRun, contract: dict[str, Any]) -> None:
-    # The code style for a changing phase (``code_limits.phase_style``).
     from .code_limits import phase_style
 
     style = await phase_style(db, run, str(contract["phase"].get("capability_class") or ""))
@@ -47,7 +44,6 @@ async def _with_code_style(db: AsyncSession, run: WorkflowRun, contract: dict[st
 
 
 def _with_system_tests(run: WorkflowRun, graph: Any, node: Any, contract: dict[str, Any], *, item: Any) -> None:
-    """The phase's system tests, its environment file rule and the CI pipeline after it."""
     from ..size_class.pipeline_scope import agent_runs_system_test
     from .contract import environment_file_rule, plain_brief
     from .system_tests import phase_system_tests
@@ -76,7 +72,6 @@ def _with_system_tests(run: WorkflowRun, graph: Any, node: Any, contract: dict[s
 
 
 async def _with_phase_agent(db: AsyncSession, node: Any, contract: dict[str, Any]) -> None:
-    """The phase's agent and its instructions (a version without one: ``None``); its tools deny narrows the phase."""
     from .agent_view import phase_agent_view
     from .contract import plain_agent, plain_brief
 
@@ -100,16 +95,15 @@ async def _with_phase_agent(db: AsyncSession, node: Any, contract: dict[str, Any
 
 
 async def with_test_runs(db: AsyncSession, run: WorkflowRun, contract: dict[str, Any]) -> None:
-    """How the phase runs its tests, worded for the run's declared environment and size class."""
     from ..run_texts import run_texts
 
-    async with run_texts(db, run):  # the run's catalog versions; the runner of its declared environment
+    async with run_texts(db, run):
         contract["phase"]["how_to_run_tests"] = how_to_run_tests(
             dict(contract.get("preparation") or {}).get("environment"))
         from ..run_texts import run_text
         from ..size_class.tests_scope import agent_tests
 
-        if agent_tests(run) == "affected":  # the class leaves the whole suite to the pipeline (lever 1)
+        if agent_tests(run) == "affected":
             contract["phase"]["how_to_run_tests"] += " " + run_text("tests.affected")
         from ..size_class.pipeline_scope import agent_runs_system_test
 
@@ -119,7 +113,6 @@ async def with_test_runs(db: AsyncSession, run: WorkflowRun, contract: dict[str,
 
 async def with_decision(db: AsyncSession, run: WorkflowRun, contract: dict[str, Any], *, state: dict[str, Any],
                          link: str | None, principal: Any) -> None:
-    """What a waiting or paused run waits for, and who decides it."""
     if run.status == STATUS_WAITING:
         waiting = dict(state.get("waiting") or {})
         contract["waiting"] = {"kind": run.waiting_kind, "title": waiting.get("title"),
@@ -138,8 +131,6 @@ async def with_decision(db: AsyncSession, run: WorkflowRun, contract: dict[str, 
 
 
 async def _runs_codex(db: AsyncSession, session: Any) -> bool:
-    """Whether the session runs on Codex: the gateway session its launcher registered as Codex, or the platform
-    session of a Codex device job (``devices.job_engine``)."""
     from ...agent_gateway.engine_keys import ENGINE_CODEX, SESSION_ENGINE_KEY
 
     metadata = getattr(session, "metadata_", None)
@@ -158,11 +149,9 @@ async def _runs_codex(db: AsyncSession, session: Any) -> bool:
 
 
 def _for_codex(contract: dict[str, Any]) -> None:
-    """A Codex session calls Codex's own tools: the contract names them (``codex_names``; otherwise the
-    model looks for ``write_workspace_file`` / ``Write``, which Codex does not have, and loops)."""
     from .codex_names import codex_on_device
 
     tools = (contract.get("phase") or {}).get("tools")
     if isinstance(tools, dict) and isinstance(tools.get("on_device"), list):
         tools["on_device"] = codex_on_device(tools["on_device"])
-        tools["on_device_note"] = _text("codex_tools_note")  # a Codex session's own tools
+        tools["on_device_note"] = _text("codex_tools_note")

@@ -1,6 +1,5 @@
 """octryx-claude: run Claude Code through Octryx (agent gateway PoC)."""
 
-# One version everywhere: the product release (``PRODUCT_VERSION``) and the launcher (``__version__``, the same
-# release in its PEP 440 form, which the served wheel carries as ``<__version__>+<source hash>``).
-__version__ = "0.0.1a0"
-PRODUCT_VERSION = "0.0.1-alpha"
+# The same release twice: PEP 440 for the launcher (the wheel adds ``+<source hash>``) and the product's form.
+__version__ = "0.0.2a0"
+PRODUCT_VERSION = "0.0.2-alpha"

@@ -16,7 +16,7 @@
   background: var(--sidebar-surface-strong);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.01em;
 }
 
@@ -65,7 +65,7 @@
   overflow: hidden;
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -74,7 +74,7 @@
 .thread-group__title-meta {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .thread-group__items,
@@ -102,7 +102,7 @@
   background: transparent;
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .thread-group__load-more:hover:not(:disabled) {
@@ -116,7 +116,7 @@
   padding: 0.5rem 0.5rem 0.25rem 1.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0.8;

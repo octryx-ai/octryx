@@ -1,15 +1,4 @@
-"""What a Workspace's structured graph holds and how its builds went.
-
-Counts per layer from the ledger and the latest builds with their reports (counts and fixed
-tokens only), for the admin "Build structured graph" section. Source sync refreshes are on for a
-Workspace once it has asked for a structured graph. A running build whose lease ended
-(``lease_expired``) has no live claimer: its runner stopped (a restart) or handed it back, and the
-next claim resumes it.
-
-The counts cover every source, restricted ones included, so only the Workspace's authors (the
-roles that may request a build) see them; any other reader gets the build states without counts
-or reports (``counts_visible: false``).
-"""
+"""What a Workspace's structured graph holds and how its builds went."""
 
 from __future__ import annotations
 
@@ -35,7 +24,6 @@ MAX_BUILDS = 5
 
 
 async def _runner_health(db: AsyncSession) -> dict[str, Any] | None:
-    """The runner's last recorded run: state, times, counts and a fixed failure token (no owner, no text)."""
     row = await db.get(BackgroundWorkerRunState, RUNNER_NAME)
     if row is None:
         return None

@@ -1,18 +1,4 @@
-"""Whether a one-click suggestion still runs once applied.
-
-A suggestion such as ``return 0.0 if total >= FREE_SHIPPING_FROM else SHIPPING_FLAT_RATE``; when nothing in the file
-defines ``SHIPPING_FLAT_RATE``, the one click gives a ``NameError``. A suggestion block is a promise that the
-click works, so it is checked before it is posted:
-
-- the suggestion replaces its lines in the file at the reviewed head (:func:`applied`);
-- for Python the result must parse, and every name the replaced lines read must be bound somewhere in the module
-  (an assignment, a ``def``/``class``, a parameter, an import, an ``except … as``, a loop or ``with`` target) or be a
-  builtin. Scopes are not followed: a name bound anywhere counts, so the check only refuses what cannot work.
-  A star import turns the check off (anything may come from it);
-- other languages are not checked: without a parser a guess would drop good suggestions.
-
-A refused suggestion is still shown, as text, with the reason (``render``): the author applies it by hand.
-"""
+"""Whether a one-click suggestion still runs once applied."""
 
 from __future__ import annotations
 
@@ -25,7 +11,6 @@ _BUILTINS = frozenset(dir(builtins)) | {"__name__", "__file__", "__doc__", "__sp
 
 
 def applied(source: str, start: int, end: int, suggestion: str) -> str:
-    """``source`` with its lines ``start``..``end`` (1-based) replaced by ``suggestion``."""
     lines = source.split("\n")
     return "\n".join([*lines[: start - 1], *suggestion.rstrip("\n").split("\n"), *lines[end:]])
 
@@ -56,7 +41,6 @@ def _bound(tree: ast.AST) -> set[str] | None:
 
 
 def python_problem(source: str, start: int, end: int, suggestion: str) -> str:
-    """Why the applied suggestion cannot run (``''`` when it can): a syntax error, or the unknown names it reads."""
     first, last = start, start + len(suggestion.rstrip("\n").split("\n")) - 1
     try:
         tree = ast.parse(applied(source, start, end, suggestion))
@@ -72,14 +56,12 @@ def python_problem(source: str, start: int, end: int, suggestion: str) -> str:
 
 
 def problem(path: str, source: str | None, start: int, end: int, suggestion: str) -> str:
-    """Why the suggestion must not be a one-click block (``''`` when it may, or when it cannot be checked)."""
     if source is None or not path.endswith(PYTHON_SUFFIXES):
         return ""
     return python_problem(source, start, end, suggestion)
 
 
 async def sources(root: str, head: str, findings: list[Any]) -> dict[str, str]:
-    """The reviewed head's text of every checked file a suggestion is for (read from the run's checkout)."""
     from ..workflow_runs import safe_git
 
     paths = sorted({str(item.get("file") or "").strip().lstrip("./") for item in findings if isinstance(item, dict)

@@ -1,31 +1,4 @@
-"""The runtime target a turn runs on, and the one source it came from.
-
-Closed precedence, first match wins (``RuntimeSelectionSource``):
-
-1. ``explicit``: the caller's runtime (unknown: ``runtime_target_invalid``; outside the
-   Workspace assignment policy: ``runtime_not_allowed``);
-2. ``session``: the thread's runtime, when its recorded source (``runtime_selection_source``) is an explicit
-   choice or the thread's own runtime;
-3. ``agent``: the selected agent definition's runtime;
-4. ``workflow``: the runtime the selected workflow's ``required_model_capability``
-   needs (``turn_runtime_requirement``);
-5. ``workspace_default``: the Workspace composition's default runtime;
-6. ``global_default``: the automatic chain (empty id), in control-plane priority order.
-
-A ``selected_only`` Workspace with no active runtime on its list is refused
-(``runtime_not_allowed``) before any source is read: the automatic chain would otherwise
-answer on a runtime the Workspace does not allow.
-
-Every source is judged by the one model resolver's gates (``services/model_selection``):
-the model must be enabled in the Model catalog, allowed in the Workspace,
-cleared for its data class (every driver) and, for a workflow, have the required
-capability as an explicit catalog checkbox (no model-name heuristic). An implicit
-runtime that fails a gate is skipped; an explicit one is refused (capability:
-``runtime_requirement_unmet``, anything else: ``runtime_not_allowed`` naming the reason).
-The workflow source takes the first model of the platform order that passes. No source
-reads the prompt. The loop keeps the chosen chain for every iteration of the
-turn; only the provider fallback's explicit, logged failover changes it.
-"""
+"""The runtime target a turn runs on, and the one source it came from."""
 
 from __future__ import annotations
 
@@ -88,7 +61,6 @@ def require_runtime_allowed(workspace_execution_view: dict | None, *, runtime_ta
 async def initial_runtime_choice(
     db: AsyncSession, *, runtime_target_id: str, runtime_target_id_explicit: bool
 ) -> RuntimeChoice:
-    """The caller's runtime before any policy: an unknown explicit id is ``runtime_target_invalid``."""
     labels = {option["value"]: option["label"] for option in await list_chat_runtime_options(db)}
     selection = resolve_initial_runtime_selection(
         runtime_target_id=runtime_target_id,
@@ -105,7 +77,7 @@ async def initial_runtime_choice(
 
 
 def sticky_session_runtime_target_id(session: AgentSession | None) -> str:
-    """The thread's runtime when a person chose it (an implicit pick is re-derived per turn), else ``""``."""
+    # An implicit pick is re-derived per turn; only a person's choice sticks.
     return _session_runtime_target_id(session)
 
 
@@ -123,7 +95,6 @@ NO_ALLOWED_RUNTIME_DETAIL = (
 
 
 async def require_allowed_active_runtime(db: AsyncSession, workspace_execution_view: dict | None) -> None:
-    """Refuse a ``selected_only`` Workspace whose list names no active runtime target."""
     if runtime_assignment_mode(workspace_execution_view) != "selected_only":
         return
     allowed = selected_runtime_target_ids(workspace_execution_view)
@@ -138,7 +109,6 @@ def _requirement_unmet(detail: str) -> TurnRefusedError:
 async def load_turn_selection(
     db: AsyncSession, workspace_execution_view: dict | None, session: AgentSession | None
 ) -> tuple[SelectionSnapshot, WorkspaceScope]:
-    """The catalog/order snapshot and the Workspace scope (allowlist, explicit default, data class)."""
     workspace_id = str((normalize_workspace_execution_view(workspace_execution_view) or {}).get("workspace_id") or "")
     metadata = dict(session.metadata_ or {}) if session is not None else None
     scope = await load_scope(db, workspace_id=workspace_id, view=workspace_execution_view, session_metadata=metadata)
@@ -155,7 +125,6 @@ async def resolve_turn_runtime(
     agent_runtime_target_id: str | None,
     workflow_contract: dict[str, Any] | None,
 ) -> None:
-    """Settle ``choice`` by the closed precedence (see the module docstring)."""
     await require_allowed_active_runtime(db, workspace_execution_view)
     try:
         capability = required_model_capability(workflow_contract)

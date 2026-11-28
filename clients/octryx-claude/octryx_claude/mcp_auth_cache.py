@@ -1,12 +1,5 @@
-"""The platform's MCP server never waits out Claude Code's "needs authentication" mark.
-
-Claude Code remembers a server that answered 401 in ``<CLAUDE_CONFIG_DIR>/mcp-needs-auth-cache.json``
-(``{"<server>": {"timestamp": <ms>}}``, reproduced with Claude Code 2.1.318) and skips it for about 15 minutes. The
-launcher supplies the platform server's authentication itself (``mcp-headers``), so a mark left by one broken turn
-(a device turn with a broken hook) cost every following turn its platform tools (acceptance 2,
-09:27-09:45). Before each session the launcher removes the mark for its own server from its own config folder; other
-servers' marks stay, and a file it cannot read stays as it is.
-"""
+"""Clears Claude Code's "needs authentication" mark for the platform's MCP server before each session.
+Claude Code skips a server that answered 401 for about 15 minutes, but the launcher supplies that auth itself."""
 
 from __future__ import annotations
 
@@ -24,7 +17,6 @@ def _ours(key: str, server: str) -> bool:
 
 
 def clear(config_dir: Path, server: str) -> bool:
-    """Remove ``server``'s mark from ``config_dir``'s cache; True when there was one."""
     path = Path(config_dir) / CACHE_FILE
     try:
         cache = json.loads(path.read_text(encoding="utf-8"))

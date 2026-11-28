@@ -127,8 +127,6 @@ def test_the_client_runs_without_a_proxy_or_ambient_trust_for_a_cluster_service(
 
 
 def test_a_cluster_internal_declaration_does_not_open_any_other_plaintext_host() -> None:
-    """The endpoint gate stays loopback-only for every host that is not a cluster Service."""
-
     cases = [
         ("http://10.0.0.5:4000", ["10.0.0.5"]),
         ("http://litellm.gateway.svc:4000", ["litellm.gateway.svc"]),
@@ -152,8 +150,6 @@ def test_a_cluster_service_must_still_be_on_the_host_allowlist() -> None:
 
 
 def test_an_http_cluster_service_needs_the_cluster_internal_mode() -> None:
-    """Without the declaration a cluster Service over http is refused."""
-
     for tls in ({"mode": "plaintext_loopback"}, public_bundle_tls(), None):
         section = cluster_section(tls=tls)
         if tls is None:
@@ -175,8 +171,6 @@ def test_the_cluster_internal_mode_is_refused_on_loopback() -> None:
 
 
 def test_the_transport_policy_rechecks_the_cluster_service_host_itself() -> None:
-    """Second line of defence: the transport rule does not trust the endpoint's flag."""
-
     for host in ("10.0.0.5", "litellm.gateway.svc", "gateway.internal.test"):
         resolution = resolve_transport_policy(
             endpoint=GatewayEndpoint(

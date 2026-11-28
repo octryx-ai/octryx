@@ -1,23 +1,4 @@
-"""``similar_to`` edges between sections of different manuals, from the stored span vectors.
-
-No model is called: each section's first span already has its vector in the Workspace's Evidence
-index (written by the projection's embedding step). For every section (bounded by the
-profile) the build reads that vector with a registered fixed statement, asks the same space's
-vector index for neighbours, maps each neighbour span to the section that contains it, and keeps the
-best ``top_k`` sections of **other** manuals at or above ``min_score``. Only public spans take part
-(the build has no reader), so a restricted manual never contributes a neighbour. An edge is cited
-from both spans and, like every edge, served only when both resolve for the reader.
-
-The pass is resumable: one call handles at most :data:`MAX_SECTIONS_PER_STEP` sections and stops
-at the build slice's ``deadline`` (after at least one section, so every slice makes progress),
-merging the edges it found (``store.merge_linkage``) and returning ``partial`` with a ``cursor``;
-the next slice continues from there with the same ``pass_started``. The last step prunes the
-``similar_to`` edges the pass did not state.
-
-States: ``ok``, ``partial`` (continued by the next slice), ``needs_configuration`` (no embedding
-space, or the Workspace has no vectors in it) and ``unavailable`` (the vector store failed); the
-last two leave the remaining edges untouched.
-"""
+"""``similar_to`` edges between sections of different manuals, from the stored span vectors."""
 
 from __future__ import annotations
 
@@ -78,7 +59,6 @@ async def _manual_revisions(context, profile) -> list[str]:
 
 
 def _section_locator(sections: list[tuple[str, str, int]]):
-    """Maps a span (revision, ordinal) to the section that contains it."""
     starts: dict[str, list[tuple[int, str]]] = {}
     for node, revision, ordinal in sections:
         starts.setdefault(revision, []).append((ordinal, node))
@@ -92,7 +72,6 @@ def _section_locator(sections: list[tuple[str, str, int]]):
 
 
 def _rank_neighbours(neighbours, *, revision: str, by_hex: dict, section_at, profile) -> list:
-    """The best ``top_k`` sections of other manuals among a section's neighbour spans."""
     found: dict[str, tuple[float, str, int]] = {}
     for hit in neighbours:
         hex_form, _, raw_ordinal = str(hit.get("evidence_key") or "").partition(":")
@@ -112,7 +91,6 @@ def _rank_neighbours(neighbours, *, revision: str, by_hex: dict, section_at, pro
 
 
 async def _neighbours(context, space, revision: str, ordinal: int) -> list | None:
-    """The neighbour spans of a section's first span; ``None`` when that span has no vector."""
     runtime = context.runtime
     key = derive_evidence_key(revision, ordinal)
     rows = await runtime.runtime_client.run(
@@ -140,7 +118,6 @@ def _keep_best(best: dict, ranked: list, node: str, revision: str, ordinal: int)
 
 
 async def link_similar_sections(context, *, deadline: float | None = None, progress: dict | None = None) -> dict:
-    """One step of the similarity pass; ``progress`` is the previous step's ``partial`` result."""
     embedding = getattr(context.runtime, "embedding", None)
     if embedding is None or not await vector_space_ready(context.db, context.project_id, embedding.space.key):
         return {"state": "needs_configuration"}

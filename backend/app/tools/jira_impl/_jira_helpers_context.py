@@ -3,10 +3,10 @@
 import re
 from datetime import datetime
 
-from app.services.atlassian_auth_modes import JIRA
+from app.services.connector_auth.atlassian_modes import JIRA
 from app.tools.context import ToolContext
 
-from ...services.atlassian_auth import auth_headers, request_auth
+from ...services.connector_auth.atlassian import auth_headers, request_auth
 from ._jira_relative_dates import infer_relative_release_date_from_message
 
 
@@ -15,7 +15,6 @@ def _jira_base_url(context: ToolContext) -> str:
 
 
 def _jira_allowed_projects(context: ToolContext) -> list[str] | None:
-    """Return the configured project-key allowlist, or None if unrestricted."""
     raw = context.project_config.get("jira_allowed_projects")
     if raw is None:
         return None
@@ -29,7 +28,6 @@ def _jira_allowed_projects(context: ToolContext) -> list[str] | None:
 
 
 def _jira_check_project_allowed(ticket_id: str, allowed: list[str] | None) -> str | None:
-    """Return an error string if the ticket's project key is not in the allowlist."""
     if not allowed:
         return None
     # ticket_id looks like "ACME-123" — project key is everything before the last hyphen+digits
@@ -43,12 +41,10 @@ def _jira_check_project_allowed(ticket_id: str, allowed: list[str] | None) -> st
 
 
 def _jira_auth_headers(context: ToolContext) -> dict[str, str]:
-    """The ``Authorization`` header of the configured mode; empty when not configured."""
     return auth_headers(JIRA, context.project_config)
 
 
 def _jira_http(context: ToolContext) -> dict:
-    """The Jira client options: timeout, redirects and, for client credentials, the token auth."""
     return {"timeout": 30, "follow_redirects": True, "auth": request_auth(JIRA, context.project_config)}
 
 

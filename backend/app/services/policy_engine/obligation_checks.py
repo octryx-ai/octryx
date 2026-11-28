@@ -1,17 +1,4 @@
-"""Save-time checks of content obligations: the annotations a custom policy may carry.
-
-Static (``check_custom_policies``, pure):
-
-- ``@obligation`` is ``mask`` | ``reroute`` | ``mask_reroute`` on a policy for exactly one action, ``call_model`` (all
-  three) or ``receive_tool_result`` (``mask`` only);
-- ``mask``/``mask_reroute`` need ``@mask`` (built-in or ``custom.<id>`` detectors), a route needs ``@reroute_to``;
-- ``@mask_style`` is a known style; ``@mask``, ``@mask_style`` and ``@reroute_to`` without ``@obligation`` are refused.
-
-Against the version and the catalog (:func:`check_obligation_targets`, at save and submit): every ``custom.<id>``
-in ``@mask`` exists in the version's detectors, and a route target is an alias of an active gateway catalog that
-is approved for every category the policy names (directly, or through the detectors it names). The runtime asks
-the changed request again anyway; these checks catch the mistake at save time.
-"""
+"""Save-time checks of content obligations: the annotations a custom policy may carry."""
 
 from __future__ import annotations
 
@@ -96,7 +83,6 @@ def _named_categories(statement_text: str, definitions: DetectorDefinitions) -> 
 
 def check_obligation_targets(statements: Iterable[Any], definitions: DetectorDefinitions,
                              approvals: Mapping[str, frozenset[str]]) -> list[dict[str, str]]:
-    """``statements``: ``policy_text.Statement``s; ``approvals``: alias → approved categories (active catalogs)."""
     custom = {item.id for item in definitions.detectors}
     issues: list[dict[str, str]] = []
     for statement in statements:

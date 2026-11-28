@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { flowEditorHref, readFlowIdFromSearch } from "../../src/admin/editorLinks.ts";
+import { flowEditorHref } from "../../src/admin/editorLinks.ts";
+import { readOpenWorkflow } from "../../src/admin/components/agentsWorkflows/workflows/workflowListModel.ts";
 
-test("editor links name only the target; each editor reads its own parameter", () => {
-  const flow = new URL(flowEditorHref("7784cd96 x"), "http://x");
-  // One concept Workflow: a flow opens in the Workflows page's Canvas view.
-  assert.equal(flow.searchParams.get("tab"), "workflowList");
-  assert.equal(flow.searchParams.get("view"), "canvas");
-  assert.equal(readFlowIdFromSearch(flow.search), "7784cd96 x");
-  assert.equal(readFlowIdFromSearch("?tab=workflowList"), "");
+test("a workflow link opens that workflow in the Workflows designer", () => {
+  const link = new URL(flowEditorHref("7784cd96 x"), "http://x");
+  assert.equal(link.searchParams.get("area"), "workflows");
+  assert.equal(link.searchParams.get("tab"), "workflowDesigner");
+  assert.equal(link.searchParams.get("view"), "canvas");
+  assert.equal(readOpenWorkflow(link.search), "7784cd96 x");
+  assert.equal(readOpenWorkflow("?tab=workflowList"), null);
 });

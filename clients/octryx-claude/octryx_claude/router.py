@@ -1,17 +1,4 @@
-"""The routing suggestion of the local decision model.
-
-The local model (``local_model``) rates how demanding a request is: ``trivial``, ``normal`` or ``hard``, with
-probabilities. The default Qwen3-1.7B (Apache-2.0) is asked as a chat with a few-shot prompt and its first answer
-token's log probabilities (:func:`chat_request` / :func:`read_chat_route`, measured);
-d1-2B (LFM licence, only on explicit choice) answers on its own ``/v1/systemone`` endpoint.
-It only **measures**: the Mac turn runs with the person's own choice, and the suggestion travels with it as a
-``route`` job event (shown in the app, kept for the comparison). Nothing here ever
-changes a model, a permission or a limit.
-
-d1-2B on a Mac, the first and third asked in German: "write a test.txt" → trivial 0.95;
-"Fix the failing test" → normal 0.97; "pods crash-looping, deploy hangs" → hard 0.79; "Refactor the auth layer" →
-hard 0.98; about 70 ms each.
-"""
+"""The routing suggestion of the local decision model."""
 
 from __future__ import annotations
 
@@ -71,7 +58,6 @@ def chat_request(prompt: str) -> dict[str, Any]:
 
 
 def _tier_of(token: str) -> str | None:
-    """The tier a first answer token starts (``tr`` → trivial, ``Normal`` → normal); ``None`` for anything else."""
     word = str(token or "").strip().lower()
     if not word:
         return None
@@ -79,7 +65,6 @@ def _tier_of(token: str) -> str | None:
 
 
 def read_chat_route(answer: dict[str, Any]) -> dict[str, Any] | None:
-    """The tier from the first token's top log probabilities: summed per tier, normalised over the three."""
     try:
         first = answer["choices"][0]["logprobs"]["content"][0]
         candidates = first.get("top_logprobs") or [first]
@@ -102,7 +87,6 @@ def read_chat_route(answer: dict[str, Any]) -> dict[str, Any] | None:
 
 
 async def suggest(model: LocalModel, prompt: str) -> dict[str, Any] | None:
-    """The suggestion for ``prompt``, or ``None`` (no prompt, no answer); never raises."""
     if not (prompt or "").strip():
         return None
     started = time.monotonic()

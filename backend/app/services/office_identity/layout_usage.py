@@ -1,18 +1,4 @@
-"""Learn from a template's own sample slides *how* each layout is used.
-
-A layout catalog states what a layout can hold. It does not state what the
-template author actually does with it — and that is the missing half of the
-evidence: a corporate template often ships dozens of sample slides across its
-layouts, and those slides are the author's own demonstration of "this is how you use me".
-
-This module reads that demonstration deterministically: per layout, how often it
-appears, how many slots are typically filled, how long the text in each slot
-role usually is (characters and lines, median and max), whether the slot is used
-as a bullet list or as a single line, and whether pictures are placed.
-
-Nothing here guesses. A layout without a sample slide gets no usage record at
-all (``usage: null`` in the snapshot) rather than an invented one.
-"""
+"""Learn from a template's own sample slides *how* each layout is used."""
 
 from __future__ import annotations
 
@@ -57,7 +43,6 @@ _IGNORED_ROLES = frozenset({"chrome"})
 
 
 def _spread(values: list[int]) -> dict[str, int]:
-    """Median (lower, so the result is always an observed integer) and max."""
     if not values:
         return {"median": 0, "max": 0}
     return {"median": int(statistics.median_low(values)), "max": max(values)}
@@ -83,8 +68,6 @@ def _slot_roles(layout: dict[str, Any]) -> dict[int, str]:
 
 
 class _SlotTally:
-    """Running measurements for one placeholder across all its sample slides."""
-
     def __init__(self, idx: int, role: str) -> None:
         self.idx = idx
         self.role = role
@@ -159,12 +142,6 @@ class _LayoutTally:
 def collect_layout_usage(
     package: PresentationPackage, layouts: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
-    """Layout part name -> usage record, learned from the package's own slides.
-
-    Layouts that no sample slide uses are simply absent from the result; the
-    caller records ``None`` for them rather than a zeroed record, because "no
-    evidence" and "evidence of zero" are different statements.
-    """
     by_part = {str(layout.get("part")): layout for layout in layouts}
     tallies: dict[str, _LayoutTally] = {}
     for slide_part in package.slide_parts()[:MAX_SAMPLE_SLIDES]:
@@ -185,21 +162,6 @@ def collect_layout_usage(
 def collect_layout_usage_from_example(
     example_package: PresentationPackage, brand_layouts: list[dict[str, Any]]
 ) -> dict[str, dict[str, Any]]:
-    """Learn usage from a SEPARATE example deck, keyed by the brand layout part.
-
-    The example is a real presentation built on the same brand system; its
-    slides demonstrate how each *named* layout is filled. Because it is a
-    different package, a slide addresses the example's own layout parts — so it
-    is matched to a brand layout by the layout's human name (``cSld/@name``),
-    normalised, rather than by part path. A slide whose layout name has no brand
-    counterpart contributes nothing: the example never invents a mapping, and a
-    brand layout the example never demonstrates keeps no example usage.
-
-    The returned records are keyed by the *brand* layout part and carry
-    ``usage_source = example_deck``, so they drop into the snapshot's existing
-    ``usage`` machinery unchanged while staying distinguishable from the
-    template's own sample-slide evidence.
-    """
     by_name: dict[str, dict[str, Any]] = {}
     for layout in brand_layouts:
         normalized = normalized_layout_name(str(layout.get("name") or ""))

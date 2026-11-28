@@ -1,12 +1,5 @@
-"""On real PostgreSQL: the run claim is a row lock, and a step that works outside the run releases it.
-
-Two real connections (``OCTRYX_TEST_LEDGER_POSTGRES_URL``: a disposable database migrated to head; skipped
-without it — a pre-deploy PostgreSQL smoke step):
-
-- while a step holds the claim, a second writer's claim waits on the row (visible in ``pg_locks``);
-- after ``release_for_external_work`` the second writer claims at once and stops the run;
-- the first step's ``resume_after_external_work`` then refuses (``run_moved_on``) and writes nothing.
-"""
+"""On real PostgreSQL the run claim is a row lock that ``release_for_external_work`` releases. Needs
+``OCTRYX_TEST_LEDGER_POSTGRES_URL``, a disposable database migrated to head."""
 
 from __future__ import annotations
 

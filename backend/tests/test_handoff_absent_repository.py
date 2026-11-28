@@ -16,9 +16,10 @@ from app.services.workflow_runs.handoff.authority import confirmed_envelopes
 from app.services.workflow_runs.handoff.contract import canonical_hash
 from app.services.workflow_runs.handoff.permissions import _scope, rights_evaluator
 from app.services.workflow_runs.phase_outputs import output_hash
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.team_handoff_support import action, counts, setup_case
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 @pytest.fixture(autouse=True)

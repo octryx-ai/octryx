@@ -1,9 +1,4 @@
-"""A user's own octryx-claude device that can run chat requests (remote device sessions).
-
-A device belongs to exactly one user. Only its owner can send work to it or answer its approvals; admins can
-see, audit, pause and revoke it, never drive it. The device's background credential is an OAuth grant bound
-to this row (``OAuthGrant.device_id``); revoking the device revokes the grant.
-"""
+"""A user's own octryx-claude device that can run chat requests."""
 
 from __future__ import annotations
 
@@ -39,9 +34,14 @@ class UserDevice(Base):
     public_key = Column(Text, nullable=False)
     client_version = Column(String(40), nullable=True)
     service_kind = Column(String(40), nullable=True)
+    runtime = Column(String(40), nullable=True)
     # The folder allowlist as last reported by the device. The platform can only narrow it.
     folders = Column(JSON, nullable=False, default=list)
     profiles = Column(JSON, nullable=False, default=list)
+    # As reported at the last handshake (``devices.seat_engines``): the engines whose seat login the device holds and
+    # the engines it can run; NULL: never reported.
+    seat_engines = Column(JSON, nullable=True)
+    engines = Column(JSON, nullable=True)
     max_parallel_jobs = Column(Integer, nullable=False, default=DEFAULT_MAX_PARALLEL_JOBS)
     status = Column(String(20), nullable=False, default=DEVICE_STATUS_ACTIVE, index=True)
     paused = Column(Boolean, nullable=False, default=False)

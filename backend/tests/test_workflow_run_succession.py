@@ -1,11 +1,4 @@
-"""Successive runs on one Work item.
-
-The common case first: an aborted run left an empty branch (head = main); the next run adopts it instead of blocking
-at "Branch already exists". Then: foreign commits pause with a choice, the reason of an abort is recorded, a transient
-platform failure pauses and a retry succeeds, a non-recoverable one still ends blocked, one active run per item and
-workflow, an earlier open pull request is reused (or refuses on another branch), the change plan of the same contract
-is adopted, and the definition must route every failure.
-"""
+"""Successive runs on one Work item."""
 
 from __future__ import annotations
 
@@ -15,6 +8,7 @@ from app.services.workflow_runs.actions import available_actions, perform_action
 from app.services.workflow_runs.records import WorkflowRunError
 from app.services.workflow_runs.views import run_row, run_view
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_succession_support import (
     BRANCH,
     EXISTS,
@@ -27,6 +21,8 @@ from tests.workflow_run_succession_support import (
     _start,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 @pytest.mark.asyncio
 async def test_the_live_case_an_aborted_runs_empty_branch_is_adopted_by_the_next_run(db, monkeypatch, tmp_path):
@@ -37,11 +33,11 @@ async def test_the_live_case_an_aborted_runs_empty_branch_is_adopted_by_the_next
     item = await _item(db)
     first = await _start(db, key, item)
     assert (first.status, first.branch) == ("waiting", _name(item))
-    _remote_branch(seed, work, _name(item))  # what the provider now has: head = main, no commits
+    _remote_branch(seed, work, _name(item))
     admin = await admin_user(db)
     await perform_action(db, first, user=admin, body={"action": "abort", "reason": "Restart with the new definition"})
     assert first.status == "stopped" and first.context["stop"]["reason"] == "Restart with the new definition"
-    assert run_row(first)["stop_reason"] == "Restart with the new definition"  # the Work item's run list shows it
+    assert run_row(first)["stop_reason"] == "Restart with the new definition"
 
     tools.answers["create_github_branch"] = [EXISTS]
     second = await _start(db, key, item)
@@ -61,14 +57,14 @@ async def test_a_branch_with_only_earlier_runs_commits_is_adopted_on_those_commi
     item = await _item(db)
     first = await _start(db, key, item)
     pushed = _remote_branch(seed, work, _name(item), foreign_commit=True)
-    first.context = {**first.context, "pushed_commits": [pushed]}  # the earlier run pushed this commit
+    first.context = {**first.context, "pushed_commits": [pushed]}
     await perform_action(db, first, user=await admin_user(db), body={"action": "abort", "reason": "retry"})
     scm_tools = Tools(monkeypatch, {"create_github_branch": [EXISTS],
                                     "prepare_github_repository": [{"local_path": str(work), "base_branch": "main"}]})
     second = await _start(db, key, item)
     assert second.status == "waiting" and second.context["branch_adoption"]["commits"] == [pushed]
-    assert _git(work, "rev-parse", "HEAD") == pushed  # the working copy starts from the adopted commits
-    assert second.context["base_sha"] == _git(work, "rev-parse", "origin/main")  # reviewed against the base
+    assert _git(work, "rev-parse", "HEAD") == pushed
+    assert second.context["base_sha"] == _git(work, "rev-parse", "origin/main")
     assert "create_github_branch" in scm_tools.tools()
 
 
@@ -82,7 +78,7 @@ async def test_foreign_commits_pause_with_adopt_new_name_or_abort(db, monkeypatc
     admin = await admin_user(db)
     first = await _start(db, key, item)
     await perform_action(db, first, user=admin, body={"action": "abort", "reason": "retry"})
-    head = _remote_branch(seed, work, _name(item), foreign_commit=True)  # someone pushed onto it meanwhile
+    head = _remote_branch(seed, work, _name(item), foreign_commit=True)
 
     tools.answers["create_github_branch"] = [EXISTS]
     second = await _start(db, key, item)
@@ -103,7 +99,7 @@ async def test_foreign_commits_pause_with_adopt_new_name_or_abort(db, monkeypatc
                                                         "branch_name": f"{_name(item)}-2"})
 
     third_item = await _item(db)
-    third = await _start(db, key, third_item)  # a branch that no earlier run of this item created
+    third = await _start(db, key, third_item)
     await perform_action(db, third, user=admin, body={"action": "abort", "reason": "retry"})
     tools.answers["create_github_branch"] = [EXISTS]
     _remote_branch(seed, work, _name(third_item), foreign_commit=True)
@@ -116,14 +112,12 @@ async def test_foreign_commits_pause_with_adopt_new_name_or_abort(db, monkeypatc
 
 @pytest.mark.asyncio
 async def test_no_earlier_run_created_the_branch_so_only_an_empty_one_is_adopted_silently(db, monkeypatch, tmp_path):
-    """A crashed run created the branch at main and never recorded it. An empty branch carries
-    nobody's work, so it is adopted; one with a commit nobody of this item pushed is a conflict."""
     seed, work = _origin(tmp_path)
     Tools(monkeypatch, {"create_github_branch": [EXISTS],
                         "prepare_github_repository": [{"local_path": str(work), "base_branch": "main"}]})
     key = await publish_phased(db, BRANCH)
     item = await _item(db)
-    _remote_branch(seed, work, _name(item))  # empty, and nobody of this item made it
+    _remote_branch(seed, work, _name(item))
     run = await _start(db, key, item)
     assert (run.status, run.branch) == ("waiting", _name(item))
     assert (run.context["branch_adoption"]["from_runs"], run.context["branch_adoption"]["commits"]) == ([], [])

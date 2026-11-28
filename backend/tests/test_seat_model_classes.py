@@ -18,7 +18,10 @@ from app.services.workflow_runs.octryx.seat_models import (
 )
 from tests.phase_seat_models_support import seat_admitted  # noqa: F401 - fixture
 from tests.phase_sessions_models_support import _events, _seat_run, _with_phase  # noqa: F401 - fixtures
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import DEFINITION, _confirm, _hub, _jobs  # noqa: F401 - fixtures
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 HAIKU, SONNET, OPUS = "claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"
 LEVELS = Levels(workflow={"plan": "wf-plan"}, workspace={"implement": "ws-implement", "plan": "ws-plan"},
@@ -121,7 +124,7 @@ async def test_the_model_chosen_for_the_run_wins_over_the_class_default(db, seat
     admin, thread, run = await _seat_run(db, _with_phase(DEFINITION, "work", model_class="implement"))
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
-    assert job.turn_model == OPUS  # the thread's model: chosen for this run
+    assert job.turn_model == OPUS
     [event] = await _events(db, run, "run_turn_model")
     assert (event.detail["source"], event.detail["model"]) == ("thread", OPUS)
 
@@ -144,8 +147,6 @@ async def test_the_model_chosen_at_run_start_wins_over_the_thread_and_the_class_
 
 @pytest.mark.asyncio
 async def test_a_class_default_an_earlier_phase_wrote_onto_the_thread_is_no_ones_choice(db, seat_admitted):  # noqa: F811
-    """Every device turn writes its model onto the thread; the next phase must not take the earlier phase's
-    class default as "the model chosen on the run's thread"."""
     seat_admitted["models"] |= {SONNET, HAIKU}
     admin, thread, run = await _seat_run(db, _with_phase(DEFINITION, "work", model_class="implement"))
     thread.metadata_ = {**thread.metadata_, "execution_target": {**thread.metadata_["execution_target"],

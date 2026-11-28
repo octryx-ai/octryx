@@ -8,12 +8,6 @@ type AdminMcpWorkspaceNoticeProps = {
   value: string;
 };
 
-/**
- * MCP servers follow the global Workspace switch (the page had its own Workspace selector in the
- * header; the global switch is the only one). The one line the page shows instead of the table while there is no
- * Workspace, or none is chosen: the choice sets the global active Workspace. What the scope means is in the page help
- * (help/admin/mcp.md).
- */
 export function AdminMcpWorkspaceNotice({ options, value }: AdminMcpWorkspaceNoticeProps) {
   const { openAdminTab } = useAdminNavigation();
 

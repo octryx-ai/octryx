@@ -1,10 +1,4 @@
-"""Cohere Rerank 3.5 on Bedrock (``invoke_model``).
-
-Request ``{"query", "documents", "top_n", "api_version": 2}``; the response is
-``{"results": [{"index", "relevance_score"}]}``. The caller admits the Workspace first. Failures
-map to the embedding port's fixed states (``embedding/bedrock.py``); no provider text is kept, and
-usage is logged as counts only.
-"""
+"""Cohere Rerank 3.5 on Bedrock (``invoke_model``). The caller admits the Workspace first; no provider text is kept."""
 
 from __future__ import annotations
 
@@ -63,7 +57,6 @@ class BedrockReranker:
         return scores
 
     async def rerank(self, query: str, documents: list[str]) -> list[RerankScore]:
-        """Relevance per document index, best first. Bounded by the spec; never an empty request."""
         if not query.strip() or not 0 < len(documents) <= self.spec.max_documents:
             raise EmbeddingError(EmbeddingState.LIMIT_EXCEEDED, "rerank_batch")
         clipped = [document[: self.spec.max_document_chars] for document in documents]

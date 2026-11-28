@@ -1,12 +1,4 @@
-"""A deterministic Markdown rendering of one Jira issue.
-
-The rendering is what the ledger stores and hashes, so it contains only what describes the issue:
-summary, key fields, the description and the comments, in a fixed order with fixed headings. The
-headings make the text outline-aware in ingestion, so the description and each comment become their
-own citable spans. Nothing volatile that does not change the issue's meaning (the ``updated`` time, ranks,
-avatars) is rendered, so a Jira update that touches only such fields yields identical bytes and no
-new revision.
-"""
+"""A deterministic Markdown rendering of one Jira issue."""
 
 from __future__ import annotations
 
@@ -42,7 +34,6 @@ def _names(values: Any) -> str:
 
 
 def _body(value: Any) -> str:
-    """API v2 text fields are wiki-markup strings, Jira Cloud v3 ones ADF documents (read as text); else nothing."""
     if isinstance(value, dict):
         value = adf_to_text(value)
     if not isinstance(value, str):

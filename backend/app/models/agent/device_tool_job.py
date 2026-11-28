@@ -1,11 +1,5 @@
-"""A device job without an agent: pinned tools run on code the platform sent (the review bot's scan and
-the check proof of From Correction to Check; ``services/devices/tool_jobs``).
-
-A row is ``pending`` until the channel tick of one of its ``candidates`` (connected, with every tool of ``needs``)
-claims and sends it (``sent``), ``done`` with the device's raw ``result``, or ``timeout`` / ``failed`` with a
-``reason``. The code travels as archives (``DeviceToolJobArchive``): their bytes live here only until the tick offers
-them to the claiming device (the API process serves them; the worker that made them may run in another container).
-"""
+"""A device job without an agent: pinned tools run on code the platform sent (``services/devices/tool_jobs``).
+``pending`` until a candidate's channel tick claims it (``sent``), then ``done``, ``timeout`` or ``failed``."""
 
 from __future__ import annotations
 
@@ -14,6 +8,7 @@ import secrets
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, LargeBinary, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -21,7 +16,8 @@ def tool_job_pk() -> str:
     return f"tj_{secrets.token_hex(10)}"
 
 
-class DeviceToolJob(Base):
+class DeviceToolJob(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "device_tool_jobs"
     __table_args__ = (Index("ix_device_tool_jobs_state_created", "state", "created_at"),)
 
@@ -44,7 +40,9 @@ class DeviceToolJob(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
-class DeviceToolJobArchive(Base):
+class DeviceToolJobArchive(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"job_id": "device_tool_jobs"}
     __tablename__ = "device_tool_job_archives"
 
     id = Column(String(40), primary_key=True, default=lambda: f"ta_{secrets.token_hex(10)}")

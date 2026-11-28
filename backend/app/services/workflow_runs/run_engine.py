@@ -1,13 +1,4 @@
-"""The coding engine and the route of a workflow run, for the run lists and the run card.
-
-- ``engine``: the engine of the newest device job on one of the run's sessions (``device_jobs.engine``; empty is
-  Claude Code), else the engine a gateway session of the run registered with (``sessions.metadata.engine``);
-  ``None`` when the run has neither (a Server run: no coding engine of a person's device).
-- ``route``: from the same job's or gateway session's profile: ``seat`` (or a Mac's own ``local:<name>`` profile)
-  is :data:`ROUTE_OWN_SUBSCRIPTION`, ``governed`` is :data:`ROUTE_COMPANY_MODEL`; ``None`` when unknown.
-
-Nothing is guessed: a run without a device job and without a registered gateway session answers ``None`` for both.
-"""
+"""The coding engine and the route of a workflow run, for the run lists and the run card."""
 
 from __future__ import annotations
 
@@ -23,7 +14,7 @@ from ..agent_gateway.seat_credential import PROFILE_GOVERNED, PROFILE_SEAT
 
 ROUTE_OWN_SUBSCRIPTION = "own_subscription"
 ROUTE_COMPANY_MODEL = "company_model"
-GATEWAY_PROFILE_KEY = "gateway_profile"  # written by ``presence.register_session``
+GATEWAY_PROFILE_KEY = "gateway_profile"
 _NONE: dict[str, str | None] = {"engine": None, "route": None}
 
 
@@ -41,7 +32,6 @@ def _engine(value: object) -> str:
 
 
 async def run_engine_routes(db: AsyncSession, run_ids: Iterable[str]) -> dict[str, dict[str, str | None]]:
-    """``{run_id: {engine, route}}`` for every id (``None`` values when unknown). Three queries for any number."""
     ids = sorted(set(run_ids))
     if not ids:
         return {}
@@ -76,7 +66,6 @@ async def run_engine_routes(db: AsyncSession, run_ids: Iterable[str]) -> dict[st
             _created, engine, profile = max(jobs, key=lambda job: job[0])
             answer[run_id] = {"engine": _engine(engine), "route": route_of(profile)}
             continue
-        # The newest linked gateway session (``linked`` is newest first).
         answer[run_id] = next((dict(gateway[session_id]) for session_id in linked if session_id in gateway),
                               dict(_NONE))
     return answer

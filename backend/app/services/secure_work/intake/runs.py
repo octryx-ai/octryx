@@ -1,8 +1,4 @@
-"""The run history of one intake and the trigger of a run (intake redesign §3.5).
-
-A run's trigger (``manual`` or ``scheduled``) is recorded in its summary when it starts; a run recorded
-before that reports none. The history lists the last :data:`MAX_RUNS` runs, newest first.
-"""
+"""The run history of one intake and the trigger of a run."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ TRIGGER_SCHEDULED = "scheduled"
 
 
 def trigger_of(payload: Mapping[str, Any] | None) -> str:
-    """The trigger of a run request: the scheduler sends ``trigger: scheduler``; everything else is manual."""
     return TRIGGER_SCHEDULED if (payload or {}).get("trigger") == "scheduler" else TRIGGER_MANUAL
 
 

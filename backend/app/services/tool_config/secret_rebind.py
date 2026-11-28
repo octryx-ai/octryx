@@ -1,13 +1,4 @@
-"""A stored secret never silently follows its connection to another host.
-
-When a tool configuration is saved (or tested) with a changed target (``*_url``, ``*_host``,
-``*_port``: another scheme, host or port; an OIDC token endpoint is a ``*_url`` too) or a changed
-client id of a client-credentials grant (``connection_fields.client_id_fields``), every secret
-the save keeps from the stored entry instead of receiving it again would be sent to the new target.
-That is refused with the explicit state ``secret_rebind_required`` unless the request either
-re-enters every such secret or an admin re-confirms the rebind in the same request
-(``confirm_secret_rebind``). Both outcomes are audited with field names only, never a value, URL or host.
-"""
+"""A stored secret never silently follows its connection to another host."""
 
 from __future__ import annotations
 
@@ -30,8 +21,6 @@ AUDIT_ACTION_CONFIRMED = "tool_config.secret_rebind_confirmed"
 
 @dataclass(frozen=True, slots=True)
 class SecretRebind:
-    """A target change that keeps stored secrets; names only."""
-
     tool_name: str
     project_id: str | None
     changed_target_fields: tuple[str, ...]
@@ -39,8 +28,6 @@ class SecretRebind:
 
 
 class SecretRebindRequiredError(Exception):
-    """The save would move kept secrets to a new target without re-entry or confirmation."""
-
     def __init__(self, rebind: SecretRebind) -> None:
         super().__init__(SECRET_REBIND_REQUIRED)
         self.rebind = rebind
@@ -74,14 +61,6 @@ def _target_identity(field: str, value: Any) -> tuple[str, ...] | None:
 def changed_target_fields(
     tool_name: str, stored: dict | None, proposed: dict | None, inherited: dict | None = None
 ) -> tuple[str, ...]:
-    """Target fields whose *effective* scheme, host or port the proposal changes (setting one counts).
-
-    ``inherited`` is the target a Workspace entry would inherit from the active global entry:
-    a Workspace request that clears or omits its own target moves to that one, which counts as a
-    change too. Without ``inherited`` (a global save) a cleared target goes nowhere.
-    Both sides are compared as effective targets: a field the stored entry never set already
-    resolved to the inherited one, so omitting it again moves nothing.
-    """
     changed = []
     for field in target_fields(tool_name):
         new = _target_identity(field, (proposed or {}).get(field))
@@ -100,7 +79,6 @@ def changed_target_fields(
 
 
 def carried_secret_fields(tool_name: str, stored: dict | None, submitted: set[str]) -> tuple[str, ...]:
-    """Secret fields the save keeps from the stored entry (their secret ref) because no new value was submitted."""
     return tuple(
         field
         for field in secret_fields(tool_name)
@@ -118,7 +96,6 @@ def evaluate_secret_rebind(
     confirmed: bool,
     inherited: dict | None = None,
 ) -> SecretRebind | None:
-    """``None`` when nothing kept moves; the confirmed rebind; or :class:`SecretRebindRequiredError`."""
     changed = changed_target_fields(tool_name, stored, proposed, inherited)
     carried = carried_secret_fields(tool_name, stored, submitted_secret_fields) if changed else ()
     if not changed or not carried:
@@ -132,13 +109,13 @@ def evaluate_secret_rebind(
 def record_secret_rebind_audit(
     db: AsyncSession, *, actor_user_id: str | None, rebind: SecretRebind, refused: bool
 ) -> None:
-    """Audit a refused or confirmed rebind; the caller commits."""
     record_admin_config_audit(
         db,
         actor_user_id=actor_user_id,
         action=AUDIT_ACTION_REFUSED if refused else AUDIT_ACTION_CONFIRMED,
         resource_type="tool_config",
         resource_id=f"{rebind.tool_name}:{rebind.project_id or 'global'}",
+        project_id=rebind.project_id,
         before=None,
         after=None,
         details={
@@ -164,14 +141,6 @@ async def enforce_secret_rebind(
     confirmed: Any,
     inherits_global_target: bool = True,
 ) -> None:
-    """Run before any secret is stored. A confirmed rebind is audited with the save; a refused
-    one commits its audit row alone and raises :class:`SecretRebindRequiredError`.
-
-    For a Workspace entry (``project_id`` set) the effective target includes the one it would
-    inherit from the active global entry, so clearing the Workspace target is a target change too.
-    A named connection is a complete unit of its own and inherits nothing
-    (``inherits_global_target=False``).
-    """
     inherits = project_id is not None and inherits_global_target
     inherited = await _inherited_targets(db, tool_name) if inherits else None
     try:
@@ -194,7 +163,6 @@ async def enforce_secret_rebind(
 
 
 async def _inherited_targets(db: AsyncSession, tool_name: str) -> dict:
-    """The target fields of the active global entry, which a Workspace entry without its own inherits."""
     from . import get_tool_config  # the package imports this module
 
     entry = await get_tool_config(db, tool_name, None)
@@ -213,7 +181,6 @@ async def enforce_global_payload_rebind(
     proposed: dict | None,
     payload: dict[str, Any],
 ) -> None:
-    """:func:`enforce_secret_rebind` for a JSON save of the global entry; a refusal is a 409."""
     submitted = {field for field in secret_fields(tool_name) if str(payload.get(field) or "").strip()}
     try:
         await enforce_secret_rebind(
@@ -231,7 +198,6 @@ async def enforce_global_payload_rebind(
 
 
 def is_confirmed(value: Any) -> bool:
-    """Only an explicit true confirms; absence, empty or anything else does not."""
     return value is True or str(value or "").strip().lower() == "true"
 
 

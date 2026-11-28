@@ -1,9 +1,4 @@
-"""Authenticated audience receipts: issue, consume and current-proof validation.
-
-Server-owned contract checks live in audience_contract (and its ``audience_*`` modules); recording runs in
-receipt_record. Run is locked before receipt; recording uses the caller's real Knowledge authorization, and
-consumption is CAS protected. Only blind acknowledgements are returned to outsiders. No tokens are stored.
-"""
+"""Authenticated audience receipts: issue, consume and current-proof validation."""
 
 from __future__ import annotations
 
@@ -61,12 +56,9 @@ from .receipt_store import (
     result_digest,
 )
 
-# --- issue -----------------------------------------------------------------------------------------------------
-
 
 async def issue_audience_challenge(db: AsyncSession, run: WorkflowRun, *, principal_role: str = ROLE_AUDIENCE
                                    ) -> DocumentationAudienceReceipt:
-    """Issue (or return, within the same pass) the server-owned challenge for the configured principal."""
     if principal_role not in ROLES:
         raise ValueError(f"unknown principal role {principal_role!r}")
     run = await _fresh_run(db, run)
@@ -104,7 +96,6 @@ async def issue_audience_challenge(db: AsyncSession, run: WorkflowRun, *, princi
 
 
 async def issue_audience_challenge_action(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """Platform-action form of :func:`issue_audience_challenge` (``params.principal_role``, default audience)."""
     role = str(dict(params or {}).get("principal_role") or ROLE_AUDIENCE)
     try:
         receipt = await issue_audience_challenge(db, run, principal_role=role)
@@ -115,12 +106,9 @@ async def issue_audience_challenge_action(db: AsyncSession, run: WorkflowRun, pa
                                    "expires_at": receipt.expires_at.isoformat()})
 
 
-# --- consume ----------------------------------------------------------------------------------------------------
-
 
 async def consume_audience_receipt(db: AsyncSession, run: WorkflowRun, *, principal_role: str = ROLE_AUDIENCE
                                    ) -> ToolOutcome:
-    """Consume this pass's recorded receipt once, under a lock, after re-checking every binding."""
     if principal_role not in ROLES:
         raise ValueError(f"unknown principal role {principal_role!r}")
     try:
@@ -152,8 +140,6 @@ async def consume_audience_receipt(db: AsyncSession, run: WorkflowRun, *, princi
 
 def _refuser(db: AsyncSession, run: WorkflowRun, receipt: DocumentationAudienceReceipt | None,
              principal_role: str) -> Any:
-    """The refusal answer of a consume (an event, then a ``failed`` outcome with the fixed code)."""
-
     def refused(code: str, reason: str, failure_class: str = CLASS_AUDIENCE_UNPROVEN) -> ToolOutcome:
         record_event(db, run, EVENT_REFUSED, node_id=run.current_node_id, detail={
             "principal_role": principal_role, "code": code,
@@ -166,7 +152,6 @@ def _refuser(db: AsyncSession, run: WorkflowRun, receipt: DocumentationAudienceR
 
 async def _consumable(db: AsyncSession, run: WorkflowRun, receipt: DocumentationAudienceReceipt | None,
                       principal_role: str, refused: Any) -> ToolOutcome | tuple[Any, str]:
-    """The refusal, or ``(publication, result digest)`` of a recorded receipt that proves what the role owes."""
     if receipt is None:
         return refused("no_receipt", f"no {principal_role} receipt was issued in this pass")
     if receipt.state == RECEIPT_CONSUMED:
@@ -199,7 +184,6 @@ async def _consumable(db: AsyncSession, run: WorkflowRun, receipt: Documentation
 
 def _record_proof(db: AsyncSession, run: WorkflowRun, receipt: DocumentationAudienceReceipt, principal_role: str,
                   checks: dict[str, Any]) -> ToolOutcome:
-    """The consumed proof on the run's documentation context, with its event."""
     proof = {"challenge_id": receipt.challenge_id, "principal_role": principal_role,
              "principal_id": receipt.expected_principal_id, "outcome": receipt.outcome,
              "receipt_id": receipt.id, "node_id": receipt.node_id, "pass_key": receipt.pass_key,
@@ -215,7 +199,7 @@ def _record_proof(db: AsyncSession, run: WorkflowRun, receipt: DocumentationAudi
 
 
 async def validate_current_publication_proof(db: AsyncSession, run: WorkflowRun) -> ToolOutcome:
-    """Revalidate consumed proofs at deferred acceptance; never consume or fabricate retrieval again."""
+    # Never consumes or fabricates retrieval again.
     try:
         run = await _fresh_run(db, run)
         publication = await confirmed_publication(db, run)

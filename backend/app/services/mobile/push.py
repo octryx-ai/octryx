@@ -1,21 +1,4 @@
-"""Notifications on the paired phone (Octryx Mobile).
-
-The phone subscribes with Web Push (``subscribe``). A background sweep (:class:`MobilePushSweeper`, every
-:data:`SWEEP_SECONDS`) reads each subscribed person's attention queue, the same list the pet and the companion show,
-and sends what is new:
-
-- the groups follow the pet: **needs you** (an action, or a seat/budget threshold), **problem** (a warning) and
-  **done** (info); the phone's ``rules`` say which groups it wants (default: needs you and problem);
-- every entry notifies once (``notified``); the first sweep after subscribing only takes note of what is there;
-- nothing is sent during the person's quiet hours (the companion's own setting, default none); entries that came
-  up then are noted and stay silent;
-- at most :data:`MAX_PER_SWEEP` notifications per sweep, the rest as one "and N more";
-- each notification carries the number of "needs you" entries for the app icon's badge and opens exactly
-  that entry.
-
-A revoked or expired phone gets nothing and its subscription is deleted, as is one the push service no longer
-knows (404/410).
-"""
+"""Notifications on the paired phone (Octryx Mobile)."""
 
 from __future__ import annotations
 
@@ -65,7 +48,6 @@ def normalize_rules(value: Any) -> dict[str, bool]:
 
 
 def vapid() -> tuple[Any, str] | None:
-    """The platform's VAPID key and subject, or ``None`` when push is not configured."""
     settings = get_settings()
     key = load_vapid_key(getattr(settings, "mobile_vapid_private_key", None))
     if key is None:
@@ -91,7 +73,6 @@ async def phone_subscription(db: AsyncSession, device_id: str) -> MobilePushSubs
 
 
 async def subscribe(db: AsyncSession, device: MobileDevice, body: Any) -> MobilePushSubscription | str:
-    """Store (or replace) the phone's subscription and rules. Flushes."""
     if vapid() is None:
         return REASON_NOT_CONFIGURED
     raw = body.get("subscription") if isinstance(body, dict) else None
@@ -132,7 +113,6 @@ async def unsubscribe(db: AsyncSession, device: MobileDevice) -> None:
 
 
 def messages_for(new: list[dict[str, Any]], badge: int) -> list[dict[str, Any]]:
-    """At most :data:`MAX_PER_SWEEP` notifications; more become one summary."""
     shown = new[:MAX_PER_SWEEP]
     out = []
     for entry in shown:
@@ -152,7 +132,6 @@ Sender = Any  # (http, Subscription, message, key=, subject=) -> str
 
 async def sweep_subscription(db: AsyncSession, row: MobilePushSubscription, *, http: httpx.AsyncClient,
                              sender: Sender = send) -> int:
-    """One phone: send what is new for it. Returns the number of notifications sent. Flushes."""
     configured = vapid()
     device = await db.get(MobileDevice, row.mobile_device_id)
     if configured is None:
@@ -201,7 +180,6 @@ async def sweep_subscription(db: AsyncSession, row: MobilePushSubscription, *, h
 
 
 async def sweep_once(session_factory, *, http: httpx.AsyncClient, sender: Sender = send) -> int:
-    """Every subscribed phone once, each in its own transaction (a failing phone never stops the others)."""
     if vapid() is None:
         return 0
     async with session_factory() as db:
@@ -222,8 +200,6 @@ async def sweep_once(session_factory, *, http: httpx.AsyncClient, sender: Sender
 
 
 class MobilePushSweeper:
-    """The background sweep; started with the platform runtime, idle while push is not configured."""
-
     def __init__(self, session_factory, *, seconds: float = SWEEP_SECONDS) -> None:
         self._session_factory = session_factory
         self._seconds = seconds

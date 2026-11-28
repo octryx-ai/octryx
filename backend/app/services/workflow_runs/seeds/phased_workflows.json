@@ -143,12 +143,6 @@
                   },
                   "blocking": true,
                   "description": "The reproduction was submitted"
-                },
-                {
-                  "type": "lint_passed",
-                  "params": {},
-                  "blocking": true,
-                  "description": "The declared lint command passes for the run change"
                 }
               ],
               "path_rules": {
@@ -179,8 +173,6 @@
                 "multi_edit_workspace_file",
                 "run_test_suite",
                 "knowledge_search",
-                "spawn_sub_agent",
-                "get_context_from_subthreads",
                 "todo_read",
                 "todo_write",
                 "work_item_context",
@@ -278,12 +270,6 @@
                   "params": {},
                   "blocking": true,
                   "description": "The last test run after the last change passed"
-                },
-                {
-                  "type": "lint_passed",
-                  "params": {},
-                  "blocking": true,
-                  "description": "The declared lint command passes for the run change"
                 }
               ],
               "path_rules": {
@@ -304,8 +290,6 @@
                 "multi_edit_workspace_file",
                 "run_test_suite",
                 "knowledge_search",
-                "spawn_sub_agent",
-                "get_context_from_subthreads",
                 "todo_read",
                 "todo_write"
               ],
@@ -333,12 +317,6 @@
                 "params": {},
                 "blocking": true,
                 "description": "The confirmed tests are still there and not skipped"
-              },
-              {
-                "type": "lint_passed",
-                "params": {},
-                "blocking": true,
-                "description": "The declared lint command passes before review and push"
               }
             ]
           }
@@ -358,7 +336,9 @@
           "config": {
             "action": "hands_on.run",
             "generic_actions": ["save", "submit", "ok", "confirm", "done", "apply", "create", "add", "send", "continue",
-                                "finish"]
+                                "finish"],
+            "regression_covers": ["app_loads", "persistence_reload", "empty_state", "mobile_390", "desktop_1280",
+                                  "invalid_input"]
           }
         },
         {
@@ -2596,7 +2576,9 @@
           "config": {
             "action": "hands_on.run",
             "generic_actions": ["save", "submit", "ok", "confirm", "done", "apply", "create", "add", "send", "continue",
-                                "finish"]
+                                "finish"],
+            "regression_covers": ["app_loads", "persistence_reload", "empty_state", "mobile_390", "desktop_1280",
+                                  "invalid_input"]
           }
         },
         {

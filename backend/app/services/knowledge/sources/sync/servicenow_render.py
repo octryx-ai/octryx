@@ -1,17 +1,5 @@
-"""Deterministic renderings of ServiceNow knowledge articles and records.
-
-What is rendered is what the ledger stores and hashes, so only fields that describe the item are
-included, in a fixed order with fixed headings. Volatile fields (``sys_updated_on``,
-``sys_mod_count``, view counts) are never rendered: a touch without a content change yields
-identical bytes and no new revision.
-
-- **Articles** (``article_type`` HTML, the default): the ``text`` HTML wrapped with the number and
-  title as ``<h1>``, for the Docling sandbox, like Confluence pages. ``wiki`` articles become
-  Markdown with the wiki text as their body, ingested in-process.
-- **Records** (incidents, problems): Markdown like Jira issues. Key facts, then the description,
-  workaround, cause, fix and resolution notes, then the customer-visible ``comments`` journal.
-  ``work_notes`` are internal to the fulfiller team and are never rendered.
-"""
+"""Deterministic renderings of ServiceNow knowledge articles and records. Volatile fields are never rendered, so a touch
+yields no new revision."""
 
 from __future__ import annotations
 
@@ -55,7 +43,6 @@ _SECTIONS = (
 
 
 def _field(value: Any) -> str:
-    """A display value: a string, or a ``{display_value, value}`` pair; anything else is empty."""
     if isinstance(value, dict):
         value = value.get("display_value") or value.get("value")
     if value is None or isinstance(value, dict | list):
@@ -79,7 +66,6 @@ def item_title(record: dict[str, Any], fallback: str) -> str:
 
 
 def render_article(record: dict[str, Any], title: str) -> tuple[bytes, str]:
-    """The article's bytes and media type: HTML for the sandbox, or Markdown for a wiki article."""
     if _field(record.get("article_type")) == "wiki":
         text = _body(record.get("wiki"))
         return f"# {title}\n\n{text}\n".encode(), "text/markdown"

@@ -9,21 +9,10 @@ const systemNow = () => new Date();
 export type SchedulerStatusCheck = {
   checking: boolean;
   error: string | null;
-  /** When the user last checked; null means the status is from when the list was loaded. */
   checkedAt: Date | null;
 };
 
-/**
- * Apply a status reply that was requested when the list was `snapshot` to the list as it is
- * now (`current`). Local writes (save, pause/resume, create, delete) replace row objects or
- * remove rows, so a row that is still the snapshot's object is untouched since the check began:
- *
- * - untouched rows take the fetched version, or disappear when the server no longer lists them;
- * - rows replaced by a local write keep that newer local result;
- * - rows deleted locally stay deleted (only `current` rows are kept or updated);
- * - rows unknown to the snapshot are added only when the list did not change at all in flight,
- *   so a row created and deleted during the check cannot reappear.
- */
+// Local writes replace row objects, so a row that is still the snapshot's object is untouched since the check began.
 export function mergeStatusCheck(
   snapshot: PanelScheduler[],
   current: PanelScheduler[],
@@ -43,15 +32,7 @@ export function mergeStatusCheck(
   return merged;
 }
 
-/**
- * Explicit "Check worker status": one list request per click, never polling.
- *
- * Deliberately not the panel's `loadTab`: that swaps the whole tab for a loading or error
- * view, which would unmount an open create/edit form. Here only list rows change, through
- * `mergeStatusCheck`, so a slow reply cannot undo a save or pause made meanwhile or bring back
- * a deleted row; form fields live in separate state and stay as they are. A failed check keeps
- * the last known rows and says so; an older check reply never overwrites a newer one.
- */
+// Not loadTab: that swaps the whole tab for a loading view and would unmount an open form.
 export function useSchedulerStatusCheck(
   schedulers: PanelScheduler[],
   setSchedulers: Dispatch<SetStateAction<PanelScheduler[]>>,
@@ -63,7 +44,6 @@ export function useSchedulerStatusCheck(
     checkedAt: null,
   });
   const latest = useRef(0);
-  // The committed list, read when a check starts (its snapshot).
   const rows = useRef(schedulers);
   useLayoutEffect(() => {
     rows.current = schedulers;

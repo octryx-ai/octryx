@@ -1,18 +1,5 @@
-"""Owe the knowledge-graph extraction of a product's current revisions.
-
-Extraction costs governed model calls for every span, so it never starts by itself: an author asks
-for it explicitly, for one product and optionally one subject version or a version range
-``(from_version, to_version]``, and every current revision in that scope owes an ``extract_graph``
-obligation. A revision whose extraction already completed is reopened; spans already extracted
-under the current profile are skipped, so a repeated request only pays for what is new.
-
-After an extraction profile changed (``change_types.CHANGE_RECORDS_PROFILE``), the product's graph
-is purged of the earlier profile before anything is extracted into it again
-(``profile_migration``). So a request also owes every current revision of the product that still
-holds episodes of an earlier profile, even outside the requested range, and says how many those
-were: no revision is left without its facts by a purge it did not ask for. There is no "force"
-flag: the profile is the only reason to pay for the same span twice.
-"""
+"""Owe the knowledge-graph extraction of a product's current revisions. It never starts by itself: an author asks for it
+explicitly."""
 
 from __future__ import annotations
 
@@ -75,7 +62,6 @@ async def request_graph_extraction(
     from_version: object = None,
     to_version: object = None,
 ) -> ExtractionRequest:
-    """Owe extraction for the product's current revisions of ``version`` or of ``(from_version, to_version]``."""
     products = normalize_products(product)
     exact = normalize_version(version)
     after = normalize_version(from_version)

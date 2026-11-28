@@ -43,8 +43,6 @@ def test_a_literal_material_app_title_is_found(tmp_path):
 
 
 def test_the_ui_texts_come_from_the_changed_app_not_its_neighbours_or_packages(tmp_path: Path):
-    """The catalog is read from the app's own folder, not the whole repository; otherwise one Flutter app's scenarios
-    click labels from another Flutter app beside it (and .pub-cache catalogs)."""
     import json
 
     from app.services.workflow_runs.hands_on.generate import app_root, screen_actions, ui_texts

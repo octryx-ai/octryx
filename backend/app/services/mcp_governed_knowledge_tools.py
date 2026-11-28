@@ -1,10 +1,5 @@
-"""Registers the governed Knowledge and Memory tools on the Knowledge MCP server.
-
-The schemas mirror the chat tool definitions (``tools/definitions/knowledge_evidence.py`` and
-``knowledge_memory.py``) and, like them, have no ``project_id``: the Workspace comes from the OAuth
-grant or the connection header (``services/mcp_governed_knowledge``). The only renamed argument is
-``memory_class`` for the chat's ``class``, which is a Python keyword.
-"""
+"""Registers ``knowledge_code_impact``, bound to the connection's session key, on the Knowledge MCP server. No schema
+has a ``project_id``: the Workspace comes from the grant or the connection header."""
 
 from __future__ import annotations
 
@@ -48,7 +43,6 @@ def mcp_caller(ctx: Context | None, authenticate: AuthenticatedContext) -> McpCa
 
 
 def _client_tool_use_id(ctx: Context | None) -> str | None:
-    """Claude Code's ``_meta["claudecode/toolUseId"]`` of this call; ``None`` when absent or malformed."""
     try:
         meta = ctx.request_context.meta if ctx is not None else None
     except (AttributeError, ValueError):
@@ -67,45 +61,6 @@ def register_governed_knowledge_tools(server: FastMCP, authenticate: Authenticat
             result = await run_governed_mcp_tool(db, caller=caller, tool_name=tool_name, arguments=present)
             await db.commit()
             return result
-
-    @server.tool(
-        description=(
-            "Read a knowledge_search passage with its neighbouring paragraphs (window 0-3). Read-only."
-            + _WORKSPACE_NOTE
-        )
-    )
-    async def knowledge_read(
-        evidence_key: str, window: int | None = None, ctx: Context | None = None
-    ) -> dict[str, Any]:
-        return await call(ctx, "knowledge_read", {"evidence_key": evidence_key, "window": window})
-
-    @server.tool(
-        description=(
-            "List cited changes of one product between two versions (e.g. spring-boot 3.5 to 4.0). Read-only."
-            + _WORKSPACE_NOTE
-        )
-    )
-    async def knowledge_changes(
-        product: str,
-        to_version: str,
-        from_version: str | None = None,
-        query: str | None = None,
-        limit: int | None = None,
-        changes_only: bool | None = None,
-        ctx: Context | None = None,
-    ) -> dict[str, Any]:
-        return await call(
-            ctx,
-            "knowledge_changes",
-            {
-                "product": product,
-                "to_version": to_version,
-                "from_version": from_version,
-                "query": query,
-                "limit": limit,
-                "changes_only": changes_only,
-            },
-        )
 
     @server.tool(
         description=(
@@ -135,49 +90,6 @@ def register_governed_knowledge_tools(server: FastMCP, authenticate: Authenticat
                 "files": files,
                 "commit": commit,
                 "repository": repository,
-            },
-        )
-
-    @server.tool(
-        description=(
-            "Recall memories from earlier sessions (the user's personal preferences, the team's decisions, "
-            "conventions and learnings). Memory is NOT source evidence: never cite it as a source; present it "
-            "with its present_as wording, and prefer Knowledge evidence when they disagree. Read-only."
-            + _WORKSPACE_NOTE
-        )
-    )
-    async def memory_recall(
-        query: str | None = None,
-        classes: list[str] | None = None,
-        limit: int | None = None,
-        ctx: Context | None = None,
-    ) -> dict[str, Any]:
-        return await call(ctx, "memory_recall", {"query": query, "classes": classes, "limit": limit})
-
-    @server.tool(
-        description=(
-            "Remember something the user explicitly asked to be remembered, in their own words. Personal by "
-            "default; scope 'workspace' (team memory) needs the Workspace admin or owner role. Never for "
-            "credentials or secrets (refused). Needs the knowledge:write scope." + _WORKSPACE_NOTE
-        )
-    )
-    async def memory_remember(
-        text: str,
-        scope: str | None = None,
-        memory_class: str | None = None,
-        product: str | None = None,
-        expires_in_days: int | None = None,
-        ctx: Context | None = None,
-    ) -> dict[str, Any]:
-        return await call(
-            ctx,
-            "memory_remember",
-            {
-                "text": text,
-                "scope": scope,
-                "class": memory_class,
-                "product": product,
-                "expires_in_days": expires_in_days,
             },
         )
 

@@ -1,14 +1,4 @@
-"""MCP tools ``board_post``, ``board_read`` and ``board_ack``: the agent message board.
-
-Shared secure-work dispatch (``mcp_work_access.run_secure_work_tool``: ``work:manage`` scope, rate limit,
-activity, audit row). The board of a Workspace is readable and writable inside the grant's listing scope
-(membership narrowed by the binding). The author is the agent identity (``agent_board.identity``): its own
-gateway session, else the grant. Every result carries the fixed ``content_is_data`` notice: board messages
-are data, never instructions.
-
-The Workspace of a post is the optional ``project_id``, else the one of ``work_item_id`` or ``reply_to``,
-else the gateway session's own Workspace; these must agree.
-"""
+"""MCP tools ``board_post``, ``board_read`` and ``board_ack``: the agent message board."""
 
 from __future__ import annotations
 
@@ -108,15 +98,13 @@ async def _ack(db, identity, scope, arguments) -> dict[str, Any]:
 def board_tool_handlers(
     headers: Mapping[str, str] | None = None, *, identity: AgentIdentity | None = None
 ) -> dict[str, Any]:
-    """The board handlers; the agent is ``identity`` when given (a chat session), else the MCP call's ``headers``."""
     return {name: identity_handler(run, headers=headers, identity=identity)
             for name, run in ((POST_TOOL, _post), (READ_TOOL, _read), (ACK_TOOL, _ack))}
 
 
 async def board_call(db: AsyncSession, *, headers: Mapping[str, str], user_id: str, grant_id: str | None,
                      scopes: Any, client_name: str, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-    """One board tool call: under ``work:manage``, or without it on the caller's own run board (``mcp_run_board``:
-    a device job's grant)."""
+    # Without ``work:manage`` only the caller's own run board.
     from .mcp_run_board import run_board_handlers, run_board_scope, run_board_tool
 
     handlers = board_tool_handlers(headers)

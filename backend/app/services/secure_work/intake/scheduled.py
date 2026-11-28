@@ -1,15 +1,4 @@
-"""The scheduler's one entry for every intake sync task.
-
-A task names its intake (``config.sync_config_id``). Its source is the registry entry whose own task type it carries
-(``secure_work_jira_sync``, ``secure_work_servicenow_sync``: stored tasks keep working), or, for the generic
-``secure_work_work_intake_sync``, the intake's ``source_type``. The same task also runs when an inbound webhook
-triggers the intake (``inbound_alerts/trigger``): it is a sync, never an agent turn.
-
-Every scheduled sync then starts the Workspace's automatic analyses (opt-in, ``work_item_analysis/auto_start``).
-All scheduled runners trigger enabled analyses (ServiceNow schedules must analyse new incidents too,
-when ``auto_analyze.servicenow_new_incidents`` is enabled). A source whose runner already analyses (Jira)
-says so (``analyzes_after_sync``) and is not analysed twice.
-"""
+"""The scheduler's one entry for every intake sync task."""
 
 from __future__ import annotations
 
@@ -22,7 +11,7 @@ from .registry import entry_for_task_type, source_for
 
 
 class IntakeTaskError(ValueError):
-    """A sync task without its intake, owner or a known source."""
+    pass
 
 
 async def _config_of(db: AsyncSession, task: Task) -> WorkItemSyncConfig | None:
@@ -48,7 +37,6 @@ async def analyze_after_sync(db: AsyncSession, *, row: WorkItemSyncConfig, owner
 
 
 async def run_scheduled_intake(db: AsyncSession, *, task: Task, task_run: Any) -> dict[str, Any]:
-    """Run the task's intake sync; ``task_run.output`` is the run and its summary (and the analyses started)."""
     source = await source_of_task(db, task)
     output = await source.run_scheduled(db, task=task, task_run=task_run)
     if source.analyzes_after_sync:

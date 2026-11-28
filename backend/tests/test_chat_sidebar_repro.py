@@ -1,12 +1,4 @@
-"""Chat sidebar list hygiene.
-
-These started as ``xfail`` reproductions:
-
-* Empty "New thread" rows: sessions carry an explicit ``origin`` and the sidebar lists ``chat`` and
-  ``device_chat`` only; a session with neither a title nor a user message is not listed either.
-* Duplicate threads: a send with an ``idempotency_key`` that a user message of the same user already
-  carries answers that thread instead of creating a second one.
-"""
+"""Chat sidebar list hygiene: no empty "New thread" rows, and no duplicate thread for a repeated ``idempotency_key``."""
 
 from __future__ import annotations
 
@@ -15,10 +7,9 @@ import uuid
 import pytest
 from sqlalchemy import func, select
 
-from app.agent.engine import AgentEvent
-from app.models import Message, Session, User
-from app.services.session import turn_runner
+from app.models import Message, Project, Session, User
 from app.services.session.session_title import title_from_prompt
+from tests.chat_pool_support import chat_pool  # noqa: F401 - fixture
 from tests.conftest import ADMIN_PASSWORD
 
 
@@ -44,22 +35,16 @@ async def test_a_session_without_title_or_message_is_not_a_sidebar_thread(client
 
 @pytest.mark.asyncio
 @pytest.mark.committed_db
-async def test_a_repeated_new_thread_send_with_the_same_key_creates_one_thread(client, db, monkeypatch):
+async def test_a_repeated_new_thread_send_with_the_same_key_creates_one_thread(client, db, chat_pool):  # noqa: F811
     login = await client.post("/admin/login", data={"username": "admin", "password": ADMIN_PASSWORD})
     assert login.status_code == 303
-
-    async def fake_run_agent(*, session_id, db, **_kwargs):
-        db.add(Message(id=str(uuid.uuid4()), session_id=session_id, role="assistant", content="ok"))
-        await db.commit()
-        yield AgentEvent(role="assistant", content="ok")
-
-    monkeypatch.setattr(turn_runner, "run_agent", fake_run_agent)
     prompt = f"duplicate-thread repro {uuid.uuid4()}"
-    body = {"prompt": prompt, "session_id": "", "idempotency_key": "send-once-1"}
+    project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
+    body = {"prompt": prompt, "session_id": "", "idempotency_key": "send-once-1", "project_id": project.id}
 
     first = await client.post("/admin/chat/api/send", json=body)
     second = await client.post("/admin/chat/api/send", json=body)
-    assert first.status_code == 200
+    assert first.status_code == 200, first.text
     assert second.status_code in (200, 409)
 
     admin_id = (await _admin(db)).id

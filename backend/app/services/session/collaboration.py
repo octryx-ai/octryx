@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import uuid
-
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import Project, Session, SessionCollaborator, SessionHandover, User, UserProject
+from ...models import Project, Session, SessionCollaborator, User, UserProject
 from ...time_utils import utc_now
 from ..team_notification import create_notification
 
 COLLABORATOR_ROLES = {"observer", "contributor"}
-HANDOVER_STATUSES = {"pending", "accepted", "declined"}
 
 
 async def get_session_access_role(db: AsyncSession, *, session_id: str, user_id: str) -> str | None:
@@ -87,25 +84,17 @@ def serialize_collaborator(row: SessionCollaborator) -> dict:
     }
 
 
-def serialize_handover(row: SessionHandover) -> dict:
-    return {
-        "id": row.id,
-        "session_id": row.session_id,
-        "from_user_id": row.from_user_id,
-        "to_user_id": row.to_user_id,
-        "reason": row.reason,
-        "context_summary": row.context_summary,
-        "status": row.status,
-        "created_at": row.created_at.isoformat() if row.created_at else None,
-        "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
-    }
-
-
-async def list_accessible_sessions(db: AsyncSession, *, user_id: str) -> list[tuple[Session, str]]:
+async def list_accessible_sessions(
+    db: AsyncSession, *, user_id: str, project_id: str | None = None
+) -> list[tuple[Session, str]]:
+    workspace_filter = (Session.project_id == project_id,) if project_id else ()
     owned = (
         (
             await db.execute(
-                select(Session).where(Session.user_id == user_id).order_by(Session.started_at.desc()).limit(50)
+                select(Session)
+                .where(Session.user_id == user_id, *workspace_filter)
+                .order_by(Session.started_at.desc())
+                .limit(50)
             )
         )
         .scalars()
@@ -115,7 +104,7 @@ async def list_accessible_sessions(db: AsyncSession, *, user_id: str) -> list[tu
         await db.execute(
             select(SessionCollaborator, Session)
             .join(Session, Session.id == SessionCollaborator.session_id)
-            .where(SessionCollaborator.user_id == user_id)
+            .where(SessionCollaborator.user_id == user_id, *workspace_filter)
             .order_by(Session.started_at.desc())
             .limit(50)
         )
@@ -240,121 +229,3 @@ async def add_session_collaborator(
     )
     await db.commit()
     return serialize_collaborator(row)
-
-
-async def create_session_handover(
-    db: AsyncSession,
-    *,
-    session_id: str,
-    current_user: User,
-    to_user_id: str,
-    reason: str | None,
-    context_summary: str | None,
-) -> dict:
-    session, _ = await require_session_access(db, session_id=session_id, user_id=current_user.id, require_write=True)
-    if session.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the session owner can hand over a session")
-    if to_user_id == current_user.id:
-        raise HTTPException(status_code=400, detail="Cannot hand over to yourself")
-    target_user = await db.get(User, to_user_id)
-    if target_user is None or not target_user.is_active:
-        raise HTTPException(status_code=404, detail="User not found")
-    row = SessionHandover(
-        id=str(uuid.uuid4()),
-        session_id=session_id,
-        from_user_id=current_user.id,
-        to_user_id=to_user_id,
-        reason=(reason or "").strip() or None,
-        context_summary=(context_summary or "").strip() or None,
-        status="pending",
-    )
-    db.add(row)
-    await create_notification(
-        db,
-        user_id=to_user_id,
-        notification_type="session.handover_requested",
-        title="Session handover requested",
-        body=(reason or "A session was handed over to you.").strip(),
-        link=f"/chat?session_id={session_id}",
-        project_id=session.project_id,
-        payload={"session_id": session_id, "handover_id": row.id},
-    )
-    await db.commit()
-    return serialize_handover(row)
-
-
-async def list_session_handovers(
-    db: AsyncSession,
-    *,
-    current_user: User,
-    status_filter: str | None = None,
-) -> list[dict]:
-    stmt = select(SessionHandover).where(
-        or_(SessionHandover.from_user_id == current_user.id, SessionHandover.to_user_id == current_user.id)
-    )
-    if status_filter:
-        stmt = stmt.where(SessionHandover.status == status_filter)
-    rows = (await db.execute(stmt.order_by(SessionHandover.created_at.desc()))).scalars().all()
-    return [serialize_handover(row) for row in rows]
-
-
-async def respond_to_session_handover(
-    db: AsyncSession,
-    *,
-    handover_id: str,
-    current_user: User,
-    action: str,
-) -> dict:
-    row = await db.get(SessionHandover, handover_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Handover not found")
-    if row.to_user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Only the handover target can respond")
-    if row.status != "pending":
-        raise HTTPException(status_code=400, detail="Handover already resolved")
-    normalized_action = str(action or "").strip().lower()
-    if normalized_action not in {"accept", "decline"}:
-        raise HTTPException(status_code=400, detail="Invalid handover action")
-    session = await db.get(Session, row.session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
-    if normalized_action == "accept":
-        previous_owner_id = session.user_id
-        session.user_id = current_user.id
-        collaborator = await db.get(SessionCollaborator, {"session_id": session.id, "user_id": previous_owner_id})
-        if collaborator is None:
-            db.add(
-                SessionCollaborator(
-                    session_id=session.id,
-                    user_id=previous_owner_id,
-                    role="contributor",
-                    invited_by=current_user.id,
-                )
-            )
-        else:
-            collaborator.role = "contributor"
-            collaborator.invited_by = current_user.id
-            collaborator.joined_at = utc_now()
-        target_collaborator = await db.get(SessionCollaborator, {"session_id": session.id, "user_id": current_user.id})
-        if target_collaborator is not None:
-            await db.delete(target_collaborator)
-        row.status = "accepted"
-        title = "Session handover accepted"
-        body = "Your session was accepted by the new owner."
-    else:
-        row.status = "declined"
-        title = "Session handover declined"
-        body = "Your session handover request was declined."
-    row.resolved_at = utc_now()
-    await create_notification(
-        db,
-        user_id=row.from_user_id,
-        notification_type=f"session.handover_{row.status}",
-        title=title,
-        body=body,
-        link=f"/chat?session_id={row.session_id}",
-        project_id=session.project_id,
-        payload={"session_id": row.session_id, "handover_id": row.id, "status": row.status},
-    )
-    await db.commit()
-    return serialize_handover(row)

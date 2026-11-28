@@ -101,7 +101,7 @@
 .admin-form-field label,
 .admin-form-field__label {
   display: block;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-size: var(--ds-text-sm);
   color: var(--text);
 }

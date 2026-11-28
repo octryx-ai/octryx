@@ -1,10 +1,4 @@
-"""Named connections of a connector, per Workspace and global: list, create, update, delete, test.
-
-One API for every connector type (its descriptor, ``named_connections/descriptors/``); the descriptor list
-tells the UI which connector cards carry named connections and what their forms hold.
-
-Secrets are write-only: a request may carry a typed secret, a response never carries a secret or a ref.
-"""
+"""Named connections of a connector, per Workspace and global: list, create, update, delete, test."""
 
 from functools import partial
 

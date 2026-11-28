@@ -1,8 +1,4 @@
-"""Retrieval metrics for one configuration over a golden set.
-
-A retrieved hit is correct when it cites the expected source and its text contains the expected
-passage (case-insensitive). Per query the metric is the rank of the first correct hit.
-"""
+"""Retrieval metrics for one configuration over a golden set."""
 
 from __future__ import annotations
 
@@ -56,7 +52,6 @@ def _lang_share(outcomes: list[QueryOutcome], lang: str) -> float:
 
 
 def first_correct_rank(hits: list[tuple[str, str]], *, source_title: str, passage: str) -> int | None:
-    """1-based rank of the first ``(source_title, text)`` hit that is the expected evidence."""
     needle = passage.casefold()
     for rank, (title, text) in enumerate(hits, start=1):
         if title == source_title and needle in text.casefold():

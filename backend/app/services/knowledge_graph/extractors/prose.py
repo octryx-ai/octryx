@@ -1,11 +1,4 @@
-"""LLM prose extractor for unstructured text.
-
-LightRAG-faithful: single extraction pass plus optional *gleaning* rounds ("what
-did you miss?"), constrained to the ontology types. GraphRAG-faithful: also
-extracts *claims* (versioned/temporal facts about entities) persisted as
-``knowledge_claims``. The model call is injected (``generate``) so it wires to
-the governed EXTRACT runtime in production and to a stub in tests.
-"""
+"""LLM prose extractor for unstructured text."""
 
 from __future__ import annotations
 
@@ -119,8 +112,6 @@ def _parse_extraction_json(raw: str) -> dict[str, Any]:
 
 
 class _GraphWriter:
-    """Writes extracted entities, relations and claims once each, counting what it created."""
-
     def __init__(self, db: AsyncSession, *, project_id: str | None, source_ref: str, ontology: dict[str, list[str]]):
         self.db = db
         self.project_id = project_id
@@ -133,7 +124,6 @@ class _GraphWriter:
         self.created_entities = self.created_relations = self.created_claims = 0
 
     async def apply(self, data: dict[str, Any]) -> int:
-        """Write one parsed extraction; returns how many items were new."""
         added = await self._apply_entities(data["entities"])
         added += await self._apply_relations(data["relations"])
         added += await self._apply_claims(data["claims"])
@@ -237,11 +227,7 @@ async def extract_graph_from_text(
     project: Any = None,
     gleaning_rounds: int = 1,
 ) -> dict[str, Any]:
-    """LLM extraction constrained to the ontology, with gleaning and claims.
-
-    ``gleaning_rounds`` extra passes ask the model for missed items (LightRAG's
-    recall technique); rounds stop early when a pass adds nothing new.
-    """
+    """LLM extraction constrained to the ontology, with gleaning and claims."""
     ontology = resolve_ontology(project)
     writer = _GraphWriter(db, project_id=project_id, source_ref=source_ref, ontology=ontology)
 

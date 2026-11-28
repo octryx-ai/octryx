@@ -1,15 +1,4 @@
-"""The closed Knowledge original route as an answer-evidence link; recognition grants no access.
-
-Exactly one internal route is recognized next to the repository viewer: the authenticated original of one
-source revision, ``/api/v1/workspaces/{workspace}/knowledge/sources/{source}/revisions/{revision}/original``
-(``api/routes/knowledge_source_originals.py``). Opening it still authorizes the Workspace, the source's
-visibility and its tombstone state on every request (``ledger/original.read_original``).
-
-Closed by construction: a relative path only (no scheme, host or credentials), the canonical lower-case
-Workspace UUID, lower-case UUIDs for source and revision (hyphenated, or the 32-hex form), the exact
-``/original`` suffix, and no query, fragment, percent-encoding or dot segment. Every other ``/api`` path is
-not a source. Building and recognizing share this module, so a link the tools emit is one the guard accepts.
-"""
+"""The closed Knowledge original route as an answer-evidence link; recognition grants no access."""
 
 from __future__ import annotations
 
@@ -35,7 +24,6 @@ def _is_uuid(value: str) -> bool:
 
 
 def knowledge_original_url(raw: str) -> str | None:
-    """``raw`` when it is exactly the governed original route of one revision, else ``None``."""
     if not isinstance(raw, str) or "%" in raw or "\\" in raw or ".." in raw:
         return None
     try:
@@ -51,7 +39,6 @@ def knowledge_original_url(raw: str) -> str | None:
 
 
 def knowledge_original_path(workspace_id: object, source_id: object, revision_id: object) -> str | None:
-    """The original route of one revision in its own Workspace, or ``None`` when the identity is not exact."""
     if not all(isinstance(value, str) and value for value in (workspace_id, source_id, revision_id)):
         return None
     return knowledge_original_url(

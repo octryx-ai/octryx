@@ -1,5 +1,3 @@
-"""Octryx Mobile "live": the session list, the relay's parsing and checks, and the device service's bridge."""
-
 from __future__ import annotations
 
 import json
@@ -90,8 +88,6 @@ def test_send_instruction_carries_the_text_as_json():
 
 
 def test_relay_command_limits_the_relay_to_one_guarded_tool(tmp_path):
-    """``--allowedTools`` restricts nothing; the relay gets only SendMessage, none of the person's
-    MCP servers, settings, hooks or commands, and a hook that lets only requested mail through."""
     command = relay_command("/bin/claude", tmp_path, python="/py")
     assert "--allowedTools" not in command
     assert command[command.index("--tools") + 1] == "SendMessage"

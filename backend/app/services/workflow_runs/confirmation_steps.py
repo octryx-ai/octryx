@@ -51,7 +51,6 @@ async def _decide_test_contract(db: AsyncSession, run: WorkflowRun, user: User, 
 
 
 async def _decide_s1(db: AsyncSession, run: WorkflowRun, *, user: User, action: str, body: dict[str, Any]) -> bool:
-    """Publish & prove: statement (a), the exception from a declared pause, the audience receipt check."""
     from .documentation import acceptance, followup_exception
 
     if action in acceptance.ACCEPTANCE_ACTIONS:
@@ -79,13 +78,12 @@ async def _decide_s1(db: AsyncSession, run: WorkflowRun, *, user: User, action: 
 
     record_decision(db, run, kind="pause", subject=PAUSE_AUDIENCE_UNPROVEN, action=ACTION_NEW_AUDIENCE,
                     payload={"node_id": run.current_node_id}, user_id=user.id)
-    await restart_at(db, run, str(run.current_node_id or ""), actor_id=user.id)  # a new pass: a new challenge
+    await restart_at(db, run, str(run.current_node_id or ""), actor_id=user.id)
     return True
 
 
 async def _after_s1_confirmation(db: AsyncSession, run: WorkflowRun, decision: Any, payload: dict[str, Any],
                                  value: str, body: dict[str, Any]) -> None:
-    """Card (b) binds the reserved intent; the follow-up card authorises or changes the exact issue."""
     subject = payload.get("subject")
     if subject == SUBJECT_PUBLICATION and value == CONFIRMED:
         from .documentation.s1_graph import approve_publication
@@ -105,11 +103,6 @@ async def _after_s1_confirmation(db: AsyncSession, run: WorkflowRun, decision: A
 async def _current_payload(
     db: AsyncSession, run: WorkflowRun, waiting: dict[str, Any], *, refuse_change: bool, principal=None
 ) -> dict[str, Any]:
-    """The confirmation payload rebuilt from current data; a changed one replaces the waiting one.
-
-    A confirm of a changed payload is refused (``payload_changed``, the refreshed payload is kept so the card
-    shows it); change and stop act on the current payload.
-    """
     from .graph import graph_for_run
 
     node = (await graph_for_run(db, run)).nodes.get(run.current_node_id or "")
@@ -135,7 +128,6 @@ async def _current_payload(
 
 async def _decide_watched(db: AsyncSession, run: WorkflowRun, user: User, value: str, waiting: dict[str, Any],
                           body: dict[str, Any]) -> bool:
-    """A watched condition was met: "go on" routes on it, "not now" keeps waiting, "stop" aborts."""
     from .decider import require_node_decider
     from .engine import resolve_current_node
     from .pause import abort_run
@@ -156,7 +148,6 @@ async def _decide_watched(db: AsyncSession, run: WorkflowRun, user: User, value:
 
 
 async def _bind_confirmed_tests(db: AsyncSession, run: WorkflowRun, payload: dict[str, Any]) -> None:
-    """What the person confirmed becomes the tests the TDD gates judge, with the content they confirmed."""
     from .test_runs import confirm_tests, snapshot_confirmed_tests
 
     subject = payload.get("subject")

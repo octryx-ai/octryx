@@ -15,11 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class MatrixPlugin(ChannelPlugin):
-    """
-    Matrix channel plugin.
-    Authenticates with username+password or an existing access token,
-    then runs a background sync loop to receive messages.
-    """
+    """Matrix channel plugin."""
 
     INBOUND_POLLING = True
 
@@ -151,10 +147,7 @@ class MatrixPlugin(ChannelPlugin):
     # ------------------------------------------------------------ send
 
     async def send_message(self, target: str, content: str, **kwargs) -> bool:
-        """
-        Send a message to a Matrix room.
-        target = room_id (e.g. "!roomid:homeserver")
-        """
+        """Send a message to a Matrix room."""
         if not self._http_client or not self.access_token:
             logger.error("Matrix plugin: not initialised")
             return False
@@ -188,7 +181,6 @@ class MatrixPlugin(ChannelPlugin):
     # ---------------------------------------------------------- sync loop
 
     async def _sync_loop(self) -> None:
-        """Background task: continuously /sync and queue incoming messages."""
         logger.info("Matrix sync loop running")
         while True:
             try:

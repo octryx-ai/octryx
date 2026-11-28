@@ -11,8 +11,11 @@ from app.services.workflow_checks.test_command_outcome import ENVIRONMENT, NOT_R
 from app.services.workflow_runs.workspace.spec import derive_from_ci, probes, validate_environment
 from app.time_utils import utc_now
 from tests.device_job_session_parity_support import CONFIRMED, _call
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import systems  # noqa: F401 - the stubbed Jira and GitHub fixture
 from tests.workspace_preparation_support import _device_at_tests_first, _server_pipeline, _stop  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 NOT_INSTALLED = "Exit code 1\n/usr/bin/python3: No module named pytest"
 

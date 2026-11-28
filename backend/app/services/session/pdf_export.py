@@ -53,16 +53,13 @@ async def build_session_pdf_export(
 
 
 def _unfenced_lines(lines: list[str]) -> list[str]:
-    """The export's lines without fence markers: a PDF is read by people (fence only at a model's input).
-    Stored tool results keep their fences for the model; the evidence a person exports shows the text."""
+    # A PDF is read by people: fence only at a model's input.
     from ..content_security.knowledge_fence import unfence_text
 
     return unfence_text("\n".join(lines)).split("\n")
 
 
 def render_text_pdf(lines: list[str], *, title: str) -> bytes:
-    """Render wrapped text lines into a simple WinAnsi PDF document."""
-
     page_width = 595
     page_height = 842
     margin_x = 42

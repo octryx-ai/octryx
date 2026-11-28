@@ -6,7 +6,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-import app.agent.core.execution_support as execution_support_module
+import app.agent.runtime.execution_support as execution_support_module
 from app.models import UsageEvent, User
 from app.services.budget import UsageCostAttribution
 

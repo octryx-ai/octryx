@@ -48,9 +48,6 @@ async def record_turn_messages(
     model: str,
     cost: Decimal,
 ) -> str | None:
-    """The agent loop's user prompt and final assistant text as ``Message`` rows (shared with the seat route).
-
-    Returns the id of the assistant row when this call wrote one (the turn's answer), else ``None``."""
     tools = body.get("tools")
     if not isinstance(tools, list) or not tools:
         return None
@@ -94,9 +91,7 @@ async def record_turn_messages(
 
 
 async def link_answer_trace(db: AsyncSession, trace: TurnTrace, answer_id: str | None) -> None:
-    """The call that wrote the turn's answer is the answer's trace: the chat opens the turn's calls from it.
-
-    The answer row is flushed first, so the trace's foreign key never points at a row not yet written."""
+    # The answer row is flushed first, so the trace's foreign key never points at an unwritten row.
     if answer_id:
         await db.flush()
         trace.message_id = answer_id

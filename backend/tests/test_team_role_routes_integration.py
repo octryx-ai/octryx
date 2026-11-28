@@ -1,8 +1,5 @@
-"""S2a actual JWT/HTTP decisions: scoped role offers never transfer requester execution rights.
-
-Only isolated fixture accounts, SQLite rows and the real route/service boundaries are used.
-No auth dependency is overridden, provider is called, or shared fixture is changed.
-"""
+"""S2a JWT/HTTP decisions: scoped role offers never transfer requester execution rights; isolated
+fixture accounts only, no auth dependency overridden."""
 from __future__ import annotations
 
 import json

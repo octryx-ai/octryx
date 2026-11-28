@@ -30,7 +30,6 @@ async def chat(db):
 
 @pytest.fixture
 def writes(monkeypatch):
-    """Recorded writes instead of HTTP: Jira tickets get CHEF-<n>, work items OE-<n>."""
     calls: list[tuple[str, dict]] = []
 
     def recorder(tool_name, result):

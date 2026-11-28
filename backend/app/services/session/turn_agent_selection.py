@@ -1,28 +1,4 @@
-"""The Agent Definition a turn runs with, and the one source it came from.
-
-Precedence, first match wins (``AgentSelectionSource``):
-
-0. ``workflow_phase``: inside a workflow run the phase's agent; no pick applies;
-1. ``explicit``: the caller's ``agent_id``;
-2. ``mention``: an exact ``@<configured name>`` mention of one of the owner's agents
-   (``turn_agent_mention``; conflicting mentions are ``agent_mention_ambiguous``). It
-   overrides the session's bound agent for this turn only (``bound_agent_after_turn``);
-3. ``session``: the agent the session is bound to, unless the caller chose an agent type
-   this turn or the turn's workflow definition excludes the session's agent type
-   (:func:`workflow_excludes_agent_type`);
-4. ``default``: the Workspace composition's default agent binding, when no
-   agent type was chosen and the workflow definition does not exclude it;
-5. ``platform_default``: the platform Assistant: there is no anonymous turn.
-   An Assistant that cannot run refuses the turn ``agent_definition_refused``.
-
-The platform agents are global and never need a Workspace binding, so ``selected_only`` does
-not refuse them.
-
-No source reads the prompt beyond the exact mention: there is no keyword, capability or
-metadata scoring. The chosen definition is resolved explicitly: an unknown one is
-``agent_not_found``, an inactive, unpublished or misconfigured one
-``agent_definition_refused``, one outside a ``selected_only`` Workspace ``agent_not_allowed``.
-"""
+"""The Agent Definition a turn runs with, and the one source it came from."""
 
 from __future__ import annotations
 
@@ -65,11 +41,8 @@ class AgentChoice:
 
 
 def workflow_excludes_agent_type(routing: TurnRouting, agent_type: str) -> bool:
-    """Whether the turn's workflow definition rules out an implicit agent of ``agent_type``.
-
-    Only a policy-sourced routing intent (a selected workflow definition) counts; the
-    diagnosis default of a turn without a workflow never excludes an agent.
-    """
+    # Only a policy-sourced routing intent counts; the diagnosis default of a turn without a workflow never excludes an
+    # agent.
     if routing.strategy_decision.routing_intent_source != ROUTING_INTENT_SOURCE_POLICY:
         return False
     if str(routing.routing_intent or "").strip().lower() not in _READ_ONLY_ROUTING_INTENTS:
@@ -92,7 +65,6 @@ ExcludesAgentType = Callable[[str], bool]
 
 
 def no_selected_workflow(_agent_type: str) -> bool:
-    """No workflow is selected, so none excludes an implicit agent (the admission before a proposal)."""
     return False
 
 
@@ -159,10 +131,7 @@ async def choose_turn_agent(
     workspace_execution_view: dict | None,
     project_id: str | None = None,
 ) -> AgentChoice:
-    """The canonical choice: precedence, Workspace allowance and the explicit resolution.
-
-    *project_id* is the turn's Workspace: when set, only global, built-in and its own agents can run.
-    """
+    # With ``project_id`` set, only global, built-in and that Workspace's own agents can run.
     effective_agent_id, source = await _select_agent_id(
         db,
         owner_id=owner_id,
@@ -201,7 +170,6 @@ async def select_turn_agent(
     workspace_execution_view: dict | None,
     project_id: str | None = None,
 ) -> AgentChoice:
-    """The turn's agent: a workflow phase's bound agent, else the canonical choice."""
     from ..workflow_runs.phase_agent_binding import phase_agent_of
 
     phase_agent = phase_agent_of(routing.policy_resolution)

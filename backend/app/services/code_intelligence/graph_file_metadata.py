@@ -37,8 +37,6 @@ VENDOR_PATH_MARKERS = {
 
 
 def build_file_extraction_metadata(*, relative_path: str, language: str, text: str) -> dict[str, Any]:
-    """Return deterministic file flags and parser status for graph ingestion."""
-
     parse_error = detect_parse_error(relative_path=relative_path, language=language, text=text)
     classification = classify_code_graph_file(relative_path)
     return {

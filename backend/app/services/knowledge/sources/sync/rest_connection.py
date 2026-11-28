@@ -1,20 +1,4 @@
-"""The "connection" of a Custom REST Knowledge source: its definition, operations and acting role, resolved per run.
-
-A ``custom_rest`` source reads through no tool configuration: its connection is the REST definition the Workspace has
-a connection for (its own, else the platform's), exactly as the Work intake resolves it
-(``secure_work/custom_rest/listing.resolve_list`` and ``acting_role``, reused here). Resolving at save and again at
-every run means a definition that was deactivated, an operation that was disabled, or a grant that was withdrawn
-refuses the next run with a fixed reason instead of reading with whatever is left.
-
-Checked beyond the Work intake, because a Knowledge source also reads one record's content:
-
-- a ``detail_operation`` must be an enabled read of the same definition that the acting role holds a grant of, and
-  its id parameter must be decidable (``detail_param``, or the operation's only path parameter);
-- an ``updated_since_param`` must be a parameter the list operation declares (an undeclared one would be refused by
-  the executor on every incremental run).
-
-The intake's refusal codes (``custom_rest_role_required`` ...) are fixed strings and become the run's reason as is.
-"""
+"""The "connection" of a Custom REST Knowledge source: its definition, operations and acting role, resolved per run."""
 
 from __future__ import annotations
 
@@ -46,8 +30,6 @@ MAX_REASON_CHARS = 40
 
 @dataclass(frozen=True)
 class RestSourceConnection:
-    """What one run reads with: the definition, its list (and detail) operation and the one role it acts as."""
-
     definition: RestApiDefinition
     operation: RestApiOperation
     role: str
@@ -88,7 +70,6 @@ async def _detail(db: AsyncSession, definition: RestApiDefinition, scope: dict[s
 
 
 async def resolve_rest_connection(db: AsyncSession, project_id: str, scope: dict[str, Any]) -> RestSourceConnection:
-    """The source's definition, operations and acting role, or :class:`ConnectorError` with a fixed reason."""
     try:
         definition, operation = await resolve_list(db, project_id, str(scope.get("definition") or ""),
                                                    str(scope.get("operation") or ""))
@@ -104,7 +85,6 @@ async def resolve_rest_connection(db: AsyncSession, project_id: str, scope: dict
 
 
 def rest_scope_within(scope: dict[str, Any], connection: object) -> bool:
-    """The connection was resolved for exactly this definition (the grants, not an allowlist, scope the data)."""
     return isinstance(connection, RestSourceConnection) and connection.definition.key == scope.get("definition")
 
 

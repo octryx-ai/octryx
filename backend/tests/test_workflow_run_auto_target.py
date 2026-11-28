@@ -1,10 +1,5 @@
-"""Target ``auto``: device-first with a seat, governed by rule or as fallback, always with a reason.
-
-Contract: with the seat allowed, an online, free device of the requester with a folder known for the run's
-repository gets the run with the seat profile; seat allowance used up, a rule forbidding the seat, or no usable
-device each fall back to governed (on the device when usable, else the Server), and the stored target names
-``resolved_from: auto`` and a readable reason.
-"""
+"""Target ``auto``: device-first with a seat, governed by rule or as fallback, and the stored target names
+``resolved_from: auto`` with a readable reason."""
 
 from __future__ import annotations
 
@@ -21,6 +16,9 @@ from app.services.workflow_runs.runtime_target.target import validate_target
 from app.time_utils import utc_now
 from tests.devices.device_support import RecordingConnection, device_with_grant, enable_device_runs
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 REPO = "bitbucket:team/pay"
 FOLDER = "/Users/dev/work/pay"
@@ -96,6 +94,8 @@ async def test_used_up_allowance_falls_back_to_governed(db, seat):
 async def test_without_a_usable_device_the_server_runs_governed(db, seat, case):
     project, admin, _device = await _setup(db, online=case != "offline", known_folder=case != "no_folder")
     target = await _resolve(db, project, admin)
-    assert target == {"kind": "server", "resolved_from": "auto", "reason": (
-        "governed on the Server: no device of yours is online and free with a folder known for this repository")}
+    # The server's agents are its runners: the fallback is the pool, with the reason it fell back.
+    assert (target["kind"], target.get("pool"), target["resolved_from"]) == ("device", True, "auto")
+    assert target["reason"] == (
+        "governed on the Server: no device of yours is online and free with a folder known for this repository")
     assert auto.KIND_AUTO == "auto"

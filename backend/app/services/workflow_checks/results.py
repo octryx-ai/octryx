@@ -1,8 +1,4 @@
-"""Stored check results (A6): one ``workflow_check_results`` row per checked turn, and the list view.
-
-States: ``passed`` (no blocking check failed) and ``not_verified`` (platform chat accepted the
-answer after the one reminder).
-"""
+"""Stored check results (A6): one ``workflow_check_results`` row per checked turn, and the list view."""
 
 from __future__ import annotations
 
@@ -28,7 +24,6 @@ _OUTCOMES = frozenset({"passed", "failed", "not_applicable", "skipped"})
 
 
 def read_workflow_checks(context_snapshot: object) -> dict[str, Any] | None:
-    """The validated check record of a trace's context snapshot, or ``None`` (closed values, bounded)."""
     record = context_snapshot.get(WORKFLOW_CHECKS_KEY) if isinstance(context_snapshot, dict) else None
     if not isinstance(record, dict) or record.get("state") not in _RECORD_STATES:
         return None

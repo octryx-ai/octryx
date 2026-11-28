@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 from urllib.parse import quote
 
-from ...services.ai_marking import marking_facts, with_marker
 from ...services.outbound_egress import CONNECTION_GITLAB
 from ...services.source_control import SourceControlOperation
 from ..context import ToolContext
@@ -96,7 +95,6 @@ class GetGitLabMergeRequestTool:
 
 
 async def _reviewer_ids(context: ToolContext, raw: Any) -> tuple[list[int], list[str]]:
-    """GitLab takes reviewer ids: each requested username is looked up; one GitLab does not know is reported."""
     names = [_string(item) for item in raw or [] if _string(item)] if isinstance(raw, list) else []
     ids: list[int] = []
     unresolved: list[str] = []
@@ -140,7 +138,6 @@ class CreateGitLabMergeRequestTool:
             reviewers, description, skipped = apply_requester_rule(
                 reviewers, requester=requester, author=await connection_author("gitlab", username),
                 description=description, mention=f"@{requester}")
-        description = with_marker(description, await marking_facts(context))
         reviewer_ids, unresolved = await _reviewer_ids(context, reviewers)
         body: dict[str, Any] = {
             "title": title,

@@ -1,30 +1,4 @@
-"""Dispatch one governed tool for a run, and read its outcome as a closed state.
-
-``succeeded`` | ``failed`` (with a reason) | ``approval_pending`` (the tool approval gate filed an approval in the
-run's chat session: the run waits for it; once granted the same call runs again and consumes the grant).
-
-A failure carries its **failure class** (``action_failures`` decides what is recoverable), read only from structured
-facts: the provider's HTTP ``status_code``, the closed tool ``status`` vocabulary, the exception type of a tool that
-raised. A tool failure without such a fact is ``external`` (the provider refused); a handler's own precondition
-failure names its class explicitly, else it is ``invalid`` (retrying cannot change it).
-
-**The run's root** (:func:`run_root`; otherwise a push refused "local_path must stay inside workspace root"
-because it got the chat session's folder while the run's copy had been re-created under another base). A run's
-action dispatches in the same root its phase turns work in — the run's working copy
-(``phase_workspace.run_working_copy``, from ``run.context.local_path``), never the chat session's folder:
-
-- an explicit ``workspace_root`` (the folder a copy is being cloned into, ``recovery``; the copy just prepared,
-  ``branch_fast_forward``) is used as given;
-- a call that prepares a copy (a provider's prepare tool, ``scm.TOOLS[...]["prepare"]``) gets the session's folder,
-  where copies are established;
-- otherwise a run with a working copy dispatches in it, so a tool's "path inside the workspace root" check is made
-  against the run's copy;
-- a call that works in the copy (a ``local_path`` argument) refuses ``not_configured`` when the run's copy is missing
-  or the path is outside it — never a fallback to another folder.
-
-An API-only action (pull request, CI, Jira, Confluence) of a run without a copy keeps the session's folder (it reads
-no file). Tool use outside runs is unchanged.
-"""
+"""Dispatch one governed tool for a run, and read its outcome as a closed state."""
 
 from __future__ import annotations
 
@@ -57,10 +31,8 @@ CLASS_PR_CONFLICT = "pr_conflict"
 CLASS_INVALID = "invalid"
 CLASS_SAFETY = "safety"
 CLASS_REJECTED = "rejected"
-# Workspace preparation (``workspace/preparation``): the runtime's test environment, or foreign uncommitted changes.
 CLASS_ENVIRONMENT_NOT_READY = "environment_not_ready"
 CLASS_WORKSPACE_DIRTY = "workspace_dirty"
-# A push with nothing new while the pushed commit's CI failed: back to the fix phase (``ci_return``), no pause.
 CLASS_NEEDS_FIX = "needs_fix"
 # A write-back definition of another Workspace than the Work item's: a configuration error, never retried.
 CLASS_SCOPE_MISMATCH = "scope_mismatch"
@@ -74,7 +46,6 @@ NO_COPY_REASON = ("this action works in the run's working copy, but the run has 
 
 
 def class_of_status_code(code: Any) -> str:
-    """The failure class an HTTP status names ('' when it names none)."""
     if type(code) is not int or code < 400:
         return ""
     if code in (401, 403):
@@ -125,7 +96,6 @@ def read_outcome(result: Any) -> ToolOutcome:
 
 
 def run_root(run: WorkflowRun, tool: str, arguments: dict[str, Any]) -> tuple[str | None, str]:
-    """``(root, '')``: the run's working copy, or ``None`` for the session's folder; ``('', why)`` refuses."""
     from .repo_ref import TOOLS
 
     prepares_copy = tool in {tools["prepare"] for tools in TOOLS.values()}
@@ -141,9 +111,6 @@ def run_root(run: WorkflowRun, tool: str, arguments: dict[str, Any]) -> tuple[st
 
 async def tool_context(db: AsyncSession, run: WorkflowRun, capability_class: str, *,
                        workspace_root: str | None = None, typed_action: bool = True) -> ToolContext:
-    """The context a run's platform action dispatches in: the requester, the run's session and the given root (the
-    session's workspace when ``None``). ``typed_action``: a platform catalog action (its tool is fixed by the platform),
-    which the published workflow explicitly allows; a free ``tool`` step of a definition is not (review of)."""
     from ...session.workspace import resolve_session_workspace_root
 
     session_id = await main_session_id(db, run)

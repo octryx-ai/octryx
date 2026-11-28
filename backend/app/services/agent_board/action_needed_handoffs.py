@@ -1,13 +1,4 @@
-"""Action-needed items of the handoff flow: takeovers to confirm and handoffs to pick up.
-
-- ``handoff_confirm``: a pending, unexpired takeover addressed to me (``to_user``), or, when it came from an
-  automatic handoff request, any takeover in a Workspace where I am admin/owner.
-  ``{kind, project, takeover_id, work_item, agent:{user, agent_hash} (the requester), created_at}``.
-- ``available_handoff``: a live claim with an automatic handoff request in one of my Workspaces, not my own,
-  offered only while my own agent sessions there have spare allowance (below 80% or unknown). The item shows
-  no allowance numbers. ``{kind, project, claim_id, work_item, agent:{user, agent_hash} (the holder),
-  created_at}``.
-"""
+"""Action-needed items of the handoff flow: takeovers to confirm and handoffs to pick up."""
 
 from __future__ import annotations
 

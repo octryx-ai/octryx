@@ -1,15 +1,5 @@
-"""The registered provider wrapper: structures get their aggregate disposition before dispatch (Cut 9 B-01, S-01).
-
-Every registered driver runs against a fake transport (``model_call_driver_support``):
-
-- replayed tool-call arguments whose every value finishes on its own but whose aggregate field-aware examination
-  does not are withheld whole from the provider copy before dispatch; the caller's tool call (local execution)
-  keeps the original arguments;
-- the call's decision record carries the completion of every examination the copy was disposed by: a withheld
-  older-history text or an unfinished aggregate never leaves the record ``complete``;
-- the offered tool definitions are part of the provider copy: a credential in a tool description is masked, and
-  a definition whose aggregate examination does not finish is not offered; the caller's tools are unchanged.
-"""
+"""The registered provider wrapper gives structures (tool-call arguments, offered tool definitions) their aggregate
+disposition before dispatch; the caller's own copies stay unchanged."""
 
 from __future__ import annotations
 
@@ -22,7 +12,7 @@ import app.services.content_security.model_call_outcome as model_call_module
 from app.services.content_detection.masking import WITHHELD_TEXT
 from tests.content_security.model_call_driver_support import DRIVERS, Harness, Reply
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 SECRET = "AKIA" + "QRSTUVWXYZABCDEF"
@@ -49,7 +39,6 @@ async def _send(harness: Harness, messages: list[dict[str, Any]], **kwargs: Any)
 
 
 def _older_call(arguments: Any) -> list[dict[str, Any]]:
-    """A replayed tool call that is not the newest assistant message: only the copy's disposition covers it."""
     return [{"role": "user", "content": "Inventory the hosts."},
             {"role": "assistant", "content": "", "tool_calls": [
                 {"id": "c1", "type": "function", "function": {"name": "inventory", "arguments": arguments}}]},

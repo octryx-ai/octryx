@@ -1,14 +1,4 @@
-// Layout of the knowledge graph canvas: deterministic, clustered by entity type, no overlaps.
-//
-// 1. Every entity type is one cluster. Its entities sit on a sunflower spiral around the cluster's hub (the
-//    entity with the most relationships), spaced so that no two circles (plus room for a label) touch.
-// 2. Clusters are discs. They are placed by a small simulation over the clusters only (a few dozen bodies, not
-//    hundreds): clusters with many relationships between them are pulled together, and discs never overlap.
-// 3. Inside a cluster an entity takes the free spiral slot that faces the clusters it links to, so most lines
-//    between clusters leave from the side that is nearest.
-//
-// The same nodes and edges always give the same picture. Hiding a type in the legend does not lay out again;
-// only a new answer from the server does. Cost: O(n log n) for the slots plus O(k² · steps) for k clusters.
+// Deterministic: hiding a type in the legend does not lay out again, only a new server answer does.
 
 export type LayoutNode = { id: string; node_type: string; degree: number };
 export type LayoutEdge = { source: string; target: string };
@@ -17,17 +7,14 @@ export type ClusterBox = { type: string; x: number; y: number; r: number; size: 
 export type GraphLayout = { nodes: Map<string, Placed>; clusters: ClusterBox[] };
 
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
-// Room between two circles for a one-line label below the upper one, in canvas units (1 unit = 1 px at zoom 1).
 const GAP = 22;
 const CLUSTER_GAP = 110;
-// Spacing inside a cluster (room for a label) and between clusters. Groups without types use the airier one.
-// `stretchX` widens the arrangement of the clusters (canvases are wider than tall); it only adds distance.
+// Canvases are wider than tall; stretchX only adds distance.
 type Spacing = { gap: number; clusterGap: number; stretchX: number };
 const NORMAL: Spacing = { gap: GAP, clusterGap: CLUSTER_GAP, stretchX: 1 };
 const AIRY: Spacing = { gap: 40, clusterGap: 170, stretchX: 1.45 };
 const STEPS = 240;
 
-/** Circle radius by number of relationships: 7 for a leaf, up to 24 for a large hub. */
 export function nodeRadius(degree: number): number {
   return 7 + Math.min(17, Math.sqrt(Math.max(0, degree)) * 2.6);
 }
@@ -54,7 +41,6 @@ function makeClusters(nodes: LayoutNode[], sp: Spacing): Cluster[] {
       const hubR = nodeRadius(members[0].degree);
       const rest = members.slice(1);
       const restR = rest.length ? nodeRadius(rest[0].degree) : 0;
-      // Sunflower spacing: neighbouring slots are about 1.6·c apart.
       const spacing = (2 * restR + sp.gap) / 1.6;
       const r = rest.length ? hubR + sp.gap / 2 + spacing * Math.sqrt(rest.length) + restR : hubR;
       return { type, members, spacing, hubR, r, x: 0, y: 0 };
@@ -76,7 +62,6 @@ function clusterWeights(clusters: Cluster[], nodes: LayoutNode[], edges: LayoutE
   return weights;
 }
 
-// Start on a ring in a greedy order (each next cluster is the one most linked to the previous), then settle.
 function placeClusters(clusters: Cluster[], weights: number[][], sp: Spacing): void {
   if (clusters.length === 1) return;
   const order = [0];
@@ -107,7 +92,6 @@ function placeClusters(clusters: Cluster[], weights: number[][], sp: Spacing): v
         let dist = Math.hypot(dx, dy);
         if (dist < 1e-6) { dx = 1; dy = 0; dist = 1; }
         const want = a.r + b.r + sp.clusterGap;
-        // Linked clusters pull towards touching; unlinked ones only keep their distance.
         const pull = weights[i][j] ? (dist - want) * 0.08 * (0.3 + weights[i][j] / maxWeight) : 0;
         const push = dist < want ? (want - dist) * 0.5 : 0;
         const move = (pull - push) * cooling;
@@ -125,7 +109,6 @@ function placeClusters(clusters: Cluster[], weights: number[][], sp: Spacing): v
       cluster.y *= 1 - 0.01 * cooling;
     }
   }
-  // Settle any overlap that is left (exact, independent of the cooling).
   for (let pass = 0; pass < 200; pass += 1) {
     let moved = false;
     for (let i = 0; i < clusters.length; i += 1) {
@@ -147,7 +130,6 @@ function placeClusters(clusters: Cluster[], weights: number[][], sp: Spacing): v
   }
 }
 
-/** The clustered layout of the given entities and relationships (see the module comment). */
 export function layoutGraph(
   nodes: LayoutNode[], edges: LayoutEdge[], options: { ring?: string; airy?: boolean } = {},
 ): GraphLayout {
@@ -157,10 +139,6 @@ export function layoutGraph(
   return ringNodes.length ? withRing(layout, ringNodes, options.ring as string) : layout;
 }
 
-/**
- * The loosely connected entities on rings around everything else, most connected first, so they neither crowd
- * the middle nor hide between groups. The ring is one more cluster (its label sits above the ring).
- */
 function withRing(layout: GraphLayout, ring: LayoutNode[], type: string): GraphLayout {
   const placed = new Map(layout.nodes);
   let cx = 0;
@@ -173,12 +151,10 @@ function withRing(layout: GraphLayout, ring: LayoutNode[], type: string): GraphL
   const extent = layout.clusters.reduce((max, cluster) => Math.max(max, Math.hypot(cluster.x - cx, cluster.y - cy) + cluster.r), 0);
   const ordered = [...ring].sort(byDegree);
   const spacing = 2 * nodeRadius(ordered[0].degree) + GAP + 26;
-  // Just outside the outermost group: the ring frames the groups instead of pushing them into the middle.
   let radius = extent + (layout.clusters.length ? 56 : 0) + nodeRadius(ordered[0].degree);
   let index = 0;
   let outer = radius;
   for (let round = 0; index < ordered.length; round += 1) {
-    // Spread evenly over the whole ring (the last ring holds what is left).
     const slots = Math.min(ordered.length - index, Math.max(6, Math.floor((2 * Math.PI * radius) / spacing)));
     for (let slot = 0; slot < slots && index < ordered.length; slot += 1, index += 1) {
       const angle = (slot / slots) * 2 * Math.PI - Math.PI / 2 + round * (Math.PI / slots);
@@ -199,7 +175,6 @@ function clusterLayout(nodes: LayoutNode[], edges: LayoutEdge[], sp: Spacing = N
   if (sp.stretchX !== 1) for (const cluster of clusters) cluster.x *= sp.stretchX;
   const clusterOf = new Map<string, Cluster>();
   for (const cluster of clusters) for (const member of cluster.members) clusterOf.set(member.id, cluster);
-  // Where each entity would like to sit: towards the mean of the clusters it links to (its own cluster aside).
   const pull = new Map<string, { x: number; y: number }>();
   for (const edge of edges) {
     const a = clusterOf.get(edge.source);
@@ -224,7 +199,6 @@ function clusterLayout(nodes: LayoutNode[], edges: LayoutEdge[], sp: Spacing = N
       const angle = k * GOLDEN;
       return { x: cluster.x + Math.cos(angle) * radius, y: cluster.y + Math.sin(angle) * radius, angle, free: true };
     });
-    // The most connected entities choose first, among the innermost free slots.
     const window = Math.max(6, Math.ceil(Math.sqrt(rest.length) * 2));
     let firstFree = 0;
     for (const node of rest) {
@@ -252,16 +226,11 @@ function clusterLayout(nodes: LayoutNode[], edges: LayoutEdge[], sp: Spacing = N
   };
 }
 
-/**
- * A focused neighbourhood (the phone's picture of one entity): the entity in the middle, its neighbours on one
- * ring (two when there are many), ordered by type so each type forms one arc.
- */
 export function egoLayout(centre: LayoutNode, neighbours: LayoutNode[]): Map<string, Placed> {
   const placed = new Map<string, Placed>();
   const centreR = nodeRadius(centre.degree);
   placed.set(centre.id, { x: 0, y: 0, r: centreR, cluster: centre.node_type, hub: true });
   const ordered = [...neighbours].sort((a, b) => a.node_type.localeCompare(b.node_type) || byDegree(a, b));
-  // About 90 canvas units between neighbours on a ring leaves room for their labels.
   const perRing = 16;
   const firstRing = Math.max(centreR + 120, (Math.min(perRing, ordered.length) * 90) / (2 * Math.PI));
   ordered.forEach((node, index) => {

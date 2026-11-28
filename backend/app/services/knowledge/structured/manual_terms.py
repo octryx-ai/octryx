@@ -1,12 +1,4 @@
-"""Technical terms a manual section mentions, from a gazetteer plus pattern rules.
-
-The gazetteer is what the same manual already established: its CamelCase parameter names,
-its plugin headings and the profile components. The pattern rule adds CamelCase class and
-plugin names that end with a profile suffix (``CacheProvider``, ``HttpService``). Every
-match becomes a ``mentions`` edge from the section to a ``Term`` (or ``Component``) node, cited from
-the first span of the section that mentions it, bounded per section. Term keys are Workspace-wide,
-so two manuals that mention the same class share its node.
-"""
+"""Technical terms a manual section mentions, from a gazetteer plus pattern rules."""
 
 from __future__ import annotations
 

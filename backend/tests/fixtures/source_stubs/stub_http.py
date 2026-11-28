@@ -1,17 +1,5 @@
-"""The shared HTTP side of the source-system stubs (Confluence, Jira) of the local acceptance stack.
-
-A stub is a pure ``handle(method, target, authorization) -> (status, JSON body)`` function over
-fixed fixtures; this module serves it with the standard library only and adds what every stub has:
-
-- ``GET /healthz``: unauthenticated liveness for the compose health check;
-- ``GET /_stub/requests``: unauthenticated, what the stub was asked so far (method counts and the
-  bounded list of ``METHOD path`` lines, never a header or query value). The acceptance check reads
-  it from inside the stub's container, to prove the connectors only ever sent ``GET``;
-- a Basic credential check (``basic_authorization``) the stubs apply to everything else.
-
-Every HTTP method is dispatched to ``handle``, so a write reaches the stub, is recorded, and is
-refused (405). The log line is method, path and status only.
-"""
+"""The shared HTTP side of the source-system stubs: serves a stub's pure ``handle`` with the standard library, plus
+``/healthz``, the request log ``/_stub/requests`` and the Basic credential check."""
 
 from __future__ import annotations
 
@@ -48,8 +36,6 @@ def bounded_int(query: dict[str, list[str]], name: str, default: int) -> int | N
 
 
 class RequestLog:
-    """What a stub was asked: method counts and ``METHOD path`` lines, bounded, thread-safe."""
-
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._methods: Counter[str] = Counter()

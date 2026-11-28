@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { LiteLlmGatewayConfigFields } from "./LiteLlmGatewayConfigFields";
 import { LiteLlmGatewaySecretNotice } from "./LiteLlmGatewaySecretNotice";
-import { ProviderTypeSelect } from "./ProviderTypeSelect";
 import { buildGatewayCreatePayload } from "./litellmGatewayPayload";
 import { emptyGatewayDraft } from "./litellmGatewayDrafts";
 import { isGatewayDraftSubmittable } from "./litellmGatewayValidation";
@@ -72,12 +71,7 @@ function useGatewayDraft(ctx: ProviderTabCtx, onStateChange: (state: GatewayForm
 }
 
 export function LiteLlmGatewayAddForm({ ctx, formId, onStateChange }: LiteLlmGatewayAddFormProps) {
-  const {
-    newProviderDisplay,
-    newProviderDriver,
-    setNewProviderDisplay,
-    setNewProviderDriver,
-  } = ctx;
+  const { newProviderDisplay, setNewProviderDisplay } = ctx;
 
   const { draft, setDraft, error, handleSubmit } = useGatewayDraft(ctx, onStateChange);
 
@@ -87,10 +81,6 @@ export function LiteLlmGatewayAddForm({ ctx, formId, onStateChange }: LiteLlmGat
       className="provider-form litellm-gateway__form"
       onSubmit={(e) => void handleSubmit(e)}
     >
-      <ProviderTypeSelect
-        value={newProviderDriver}
-        onChange={setNewProviderDriver}
-      />
       <label className="admin-panel__field" htmlFor={`${ID_PREFIX}-display`}>
         <span>Display name</span>
         <input

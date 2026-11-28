@@ -1,19 +1,4 @@
-"""The one model resolver: which model answers, and what the fallback chain is.
-
-```
-CANDIDATES = enabled ∩ Workspace allowed ∩ cleared for its data class ∩ required capability   (gates.py)
-START      = person's choice (explicit only) › agent pin › workflow step pin › task model › Workspace default
-             › first candidate of the platform order
-             explicit choice ∉ CANDIDATES → refusal naming the reason (never a silent swap);
-             an implicit pin ∉ CANDIDATES is skipped and the trace says why
-FALLBACK   = "next": the rest of the platform order ∩ CANDIDATES · "stop": nothing after the start
-```
-
-Pure and synchronous: the callers load a ``SelectionSnapshot`` and a ``WorkspaceScope`` (``snapshot.py``). The chat
-turn (``session/turn_runtime_selection`` + ``chain_admission``), sub-agents, scheduled steps, task models and
-*Explain a turn* all decide through this module; the governed gateway admits an alias with the same clearance
-(``model_catalog/clearance`` → the classification level lists).
-"""
+"""The one model resolver: which model answers, and what the fallback chain is."""
 
 from __future__ import annotations
 

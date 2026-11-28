@@ -1,15 +1,10 @@
-// Named connections: binding keys (labels, canonical case, problems, clashes), names and the edit form draft.
 import type { NamedConnection, NamedConnector } from "./namedConnectionsTypes";
 
 export function scopeLabel(connector: NamedConnector): { plural: string; one: string } {
   return { plural: connector.binding.plural, one: connector.binding.label };
 }
 
-/**
- * What an inherited (global) connection serves in this Workspace. One without bound keys is no "every key is taken"
- * case: unbound, it is the default and reads the Workspace's allowed list (Confluence-Octryx in the Coffee
- * Workspaces said "Serves nothing here" although it serves them all).
- */
+// An unbound inherited connection is the default and serves the Workspace's allowed list.
 export function inheritedServesText(connection: Pick<NamedConnection, "boundScopes" | "servedHere" | "overriddenHere">,
   connector: NamedConnector): string {
   const { plural, one } = scopeLabel(connector);
@@ -21,7 +16,6 @@ export function inheritedServesText(connection: Pick<NamedConnection, "boundScop
   return `Serves nothing here: every ${one.toLowerCase()} it binds is bound by a Workspace connection.${overridden}`;
 }
 
-/** The bound keys in the facts line; "not bound" instead of an empty list. */
 export const boundScopesFact = (connection: Pick<NamedConnection, "boundScopes">, connector: NamedConnector) =>
   `${scopeLabel(connector).plural}: ${connection.boundScopes.length ? connection.boundScopes.join(", ") : "not bound"}`;
 
@@ -32,7 +26,6 @@ export function canonical(connector: NamedConnector, raw: string): string {
   return key.toUpperCase();
 }
 
-/** The scope keys of a comma- or space-separated text, in the server's canonical case, without repeats. */
 export function parseScopes(connector: NamedConnector, value: string): string[] {
   const keys: string[] = [];
   for (const raw of value.split(/[\s,]+/)) {
@@ -42,7 +35,6 @@ export function parseScopes(connector: NamedConnector, value: string): string[] 
   return keys;
 }
 
-/** Why the scope text cannot be saved, or null. */
 export function scopesProblem(connector: NamedConnector, value: string): string | null {
   const keys = parseScopes(connector, value);
   const label = scopeLabel(connector);
@@ -52,7 +44,6 @@ export function scopesProblem(connector: NamedConnector, value: string): string 
   return bad ? `"${bad}" is not a valid ${label.one} key.` : null;
 }
 
-/** Keys another connection already binds, as "KEY (name)", so the author sees the clash before saving. */
 export function boundElsewhere(
   connector: NamedConnector,
   connections: NamedConnection[],
@@ -79,10 +70,7 @@ export function nameProblem(value: string, connections: NamedConnection[], ownId
   return null;
 }
 
-/**
- * The shape the shared sign-in models read (tool_name, public_fields, secret_status). The models use `tool_name`
- * only for input ids, so a named-connection form gets its own (`<connector>-named`) beside the Workspace form.
- */
+// The models use tool_name only for input ids, so the named form gets its own beside the Workspace form.
 export function namedAsConnector(connectorName: string, connection: NamedConnection | null) {
   return {
     tool_name: `${connectorName}-named`,
@@ -92,7 +80,6 @@ export function namedAsConnector(connectorName: string, connection: NamedConnect
   };
 }
 
-/** The draft a connection opens with: its stored fields as text (yes/no, lists comma separated), never a secret. */
 export function namedDraft(connection: NamedConnection | null): Record<string, string> {
   const draft: Record<string, string> = {};
   for (const [field, value] of Object.entries(connection?.publicFields ?? {})) {

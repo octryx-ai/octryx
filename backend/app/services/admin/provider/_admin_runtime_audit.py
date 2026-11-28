@@ -30,13 +30,6 @@ def _list_audit_snapshot(payload: list[dict[str, Any]]) -> dict[str, Any]:
     return {"count": len(payload), "items": payload}
 
 
-def _find_catalog_item(payload: list[dict[str, Any]], item_id: str) -> dict[str, Any] | None:
-    normalized_id = str(item_id or "").strip()
-    if not normalized_id:
-        return None
-    return next((item for item in payload if str(item.get("id") or "") == normalized_id), None)
-
-
 def _record_runtime_audit(
     db: AsyncSession,
     *,
@@ -44,6 +37,7 @@ def _record_runtime_audit(
     action: str,
     resource_type: str,
     resource_id: str,
+    project_id: str | None,
     before: dict[str, Any] | list[dict[str, Any]] | None,
     after: dict[str, Any] | list[dict[str, Any]] | None,
     details: dict[str, Any] | None = None,
@@ -56,6 +50,7 @@ def _record_runtime_audit(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
+        project_id=project_id,
         before=safe_before,
         after=safe_after,
         details=details,

@@ -1,10 +1,4 @@
-"""The loop's execution-contract message, rendered from explicit sources only.
-
-The message is injected only when an explicit requirement exists (``analysis_first``): the
-context plan's coverage domains (a scenario profile's ``enforce_domain_coverage``), several
-context domains or a ``summary_aggregation`` route.
-Nothing in it is derived from the prompt's wording except the language contract.
-"""
+"""The loop's execution-contract message, rendered from explicit sources only."""
 
 from __future__ import annotations
 

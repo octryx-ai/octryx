@@ -1,18 +1,4 @@
-"""Seat usage per person: what their seat calls would have cost through the API, beside their real API cost.
-
-The question answered: "what would it cost if this person had no subscription and used only the API?" Per person (the
-main view), with their seat accounts (one per provider: Claude, ChatGPT), Workspaces and models as the detail:
-
-- ``api_equivalent_usd``: the sum of their seat calls' ``usage_events.list_cost`` (the list price per call and tier,
-  ``budget/api_equivalent``), labelled "would cost via API (list price)";
-- ``api_cost_usd``: the real cost of their other calls, shown apart and never added up with the equivalent;
-- ``unpriced_calls``: seat calls whose model has no list price (shown as "no list price (seat only)"), never
-  estimated;
-- the seat's last known 5-hour and 7-day allowance (``agent_presence``) and the limit hits in the window (failed
-  seat turns the account refused, ``devices/seat_quota``), as information.
-
-No subscription price and no ratio: the platform does not know what a person pays. Read-only.
-"""
+"""Seat usage per person: what their seat calls would have cost through the API, beside their real API cost."""
 
 from __future__ import annotations
 
@@ -40,8 +26,7 @@ def _money(value: Any) -> float:
     return round(float(value or 0), 6)
 
 
-async def _allowances(db: AsyncSession, user_ids: set[str]) -> dict[str, list[dict[str, Any]]]:
-    """Each person's newest allowance snapshot per seat client (Claude Code, Codex)."""
+async def _allowances(db: AsyncSession, user_ids: set[str], scope: Any) -> dict[str, list[dict[str, Any]]]:
     if not user_ids:
         return {}
     rows = (await db.execute(
@@ -49,7 +34,7 @@ async def _allowances(db: AsyncSession, user_ids: set[str]) -> dict[str, list[di
                AgentPresence.five_hour_resets_at, AgentPresence.seven_day_pct, AgentPresence.seven_day_resets_at,
                AgentPresence.allowance_status, AgentPresence.allowance_updated_at)
         .where(AgentPresence.user_id.in_(user_ids), AgentPresence.profile == "seat",
-               AgentPresence.allowance_updated_at.is_not(None))
+               AgentPresence.allowance_updated_at.is_not(None), scope(func.coalesce(AgentPresence.project_id, "")))
         .order_by(AgentPresence.allowance_updated_at.desc()))).all()
     newest: dict[str, dict[str, dict[str, Any]]] = defaultdict(dict)
     for user_id, client, five, five_reset, seven, seven_reset, status, updated in rows:
@@ -60,15 +45,15 @@ async def _allowances(db: AsyncSession, user_ids: set[str]) -> dict[str, list[di
     return {user_id: list(clients.values()) for user_id, clients in newest.items()}
 
 
-async def _limit_hits(db: AsyncSession, user_ids: set[str], since: datetime) -> dict[str, int]:
-    """Failed seat turns in the window that the account refused for its limit, per person."""
+async def _limit_hits(db: AsyncSession, user_ids: set[str], since: datetime, scope: Any) -> dict[str, int]:
     if not user_ids:
         return {}
     rows = (await db.execute(
         select(DeviceJob.owner_user_id, DeviceJobEvent.body, DeviceJobEvent.created_at)
         .join(DeviceJob, DeviceJob.id == DeviceJobEvent.job_id)
         .where(DeviceJob.owner_user_id.in_(user_ids), DeviceJob.profile == "seat",
-               DeviceJobEvent.type == "turn_finished", DeviceJobEvent.created_at >= since))).all()
+               DeviceJobEvent.type == "turn_finished", DeviceJobEvent.created_at >= since,
+               scope(func.coalesce(DeviceJob.workspace_id, ""))))).all()
     hits: dict[str, int] = defaultdict(int)
     for user_id, body, created_at in rows:
         if turn_limit(body if isinstance(body, dict) else {}, said_at=created_at) is not None:
@@ -77,7 +62,6 @@ async def _limit_hits(db: AsyncSession, user_ids: set[str], since: datetime) -> 
 
 
 async def seat_usage_report(db: AsyncSession, *, scope: Any, now: datetime, days: int) -> dict[str, Any]:
-    """Per person in ``scope`` (a Workspace filter on ``Session.project_id``), the window's seat API equivalent."""
     if not 1 <= days <= MAX_DAYS:
         raise CostQueryError("days", f"days must be between 1 and {MAX_DAYS}.")
     since = now - timedelta(days=days)
@@ -124,8 +108,8 @@ async def seat_usage_report(db: AsyncSession, *, scope: Any, now: datetime, days
     workspace_ids = {wid for person in people.values() for wid in person["workspaces"] if wid}
     workspace_names = dict((await db.execute(select(Project.id, Project.name).where(
         Project.id.in_(workspace_ids)))).all()) if workspace_ids else {}
-    allowances = await _allowances(db, ids)
-    hits = await _limit_hits(db, ids, since)
+    allowances = await _allowances(db, ids, scope)
+    hits = await _limit_hits(db, ids, since, scope)
     result = []
     for user_id, person in people.items():
         result.append({

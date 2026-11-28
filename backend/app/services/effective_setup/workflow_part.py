@@ -18,7 +18,6 @@ WORKFLOWS_TAB = "workflowList"
 async def workflow_part(
     db: AsyncSession, *, resolution: dict[str, Any], run_capability: dict[str, Any] | None
 ) -> SetupPart:
-    """The selected workflow (the current phase of the session's workflow run), or why none is selected."""
     del db
     selection = workflow_selection_from_resolution(resolution)
     capability_class = str((run_capability or {}).get("class") or "read_only")

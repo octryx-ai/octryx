@@ -1,17 +1,4 @@
-"""Changed signatures of a pull request, and whether a call still fits one (Python, ``ast``). Pure.
-
-When ``vat(amount)`` becomes ``vat(amount, rate)``, a ``report.py`` not in the diff that still calls
-``vat(net)`` breaks, and a reviewer who sees only the diff says "looks good". So the
-bot compares every changed Python file's public callables between the base and the head (``callers`` finds the
-calls and checks them with :func:`call_problem`):
-
-- a top-level function ``name``; a class ``Class`` (its ``__init__`` without ``self``); a method ``Class.method``
-  (without ``self`` / ``cls``, a ``staticmethod`` keeps every parameter);
-- names starting with ``_`` are private: not checked (a dunder ``__init__`` counts as the class);
-- a callable that is gone from the head is ``removed``.
-
-A source that does not parse is skipped, never guessed. Other languages are reported as not checked (``callers``).
-"""
+"""Changed signatures of a pull request, and whether a call still fits one (Python, ``ast``)."""
 
 from __future__ import annotations
 
@@ -66,7 +53,6 @@ def _is_static(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 
 
 def public_callables(source: str) -> dict[str, Signature] | None:
-    """Every public callable of a module by its name, or ``None`` when the source does not parse."""
     try:
         tree = ast.parse(source)
     except (SyntaxError, ValueError):
@@ -88,7 +74,6 @@ def public_callables(source: str) -> dict[str, Signature] | None:
 
 
 def changed_signatures(base: str, head: str) -> list[Change]:
-    """The public callables whose signature changed or that are gone; ``[]`` when either side does not parse."""
     before, after = public_callables(base), public_callables(head)
     if before is None or after is None:
         return []
@@ -97,7 +82,6 @@ def changed_signatures(base: str, head: str) -> list[Change]:
 
 
 def call_problem(call: ast.Call, signature: Signature) -> str:
-    """Why ``call`` no longer fits ``signature`` (``''`` when it fits or cannot be judged: ``*args`` / ``**kw``)."""
     if any(isinstance(arg, ast.Starred) for arg in call.args) or any(item.arg is None for item in call.keywords):
         return ""
     names = [name for name, _default in signature.positional]

@@ -51,7 +51,7 @@
 .turn-trace-section h4 {
   margin: 0;
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-calls__list {
@@ -85,7 +85,7 @@
 }
 
 .trace-calls__model {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-calls__facts {
@@ -103,7 +103,7 @@
 .trace-calls__detail h5 {
   margin: 0;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-calls__note {
@@ -147,10 +147,10 @@
   min-height: 1.45rem;
   padding: 0.12rem 0.5rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 
@@ -176,7 +176,7 @@
 .trace-routing__tools > span {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 
@@ -187,13 +187,13 @@
   margin: 0;
   overflow-wrap: anywhere;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-routing__grid dd span {
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-routing__tools {
@@ -214,10 +214,10 @@
   min-height: 1.45rem;
   padding: 0.08rem 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   overflow-wrap: anywhere;
 }
 
@@ -225,7 +225,7 @@
   cursor: pointer;
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .trace-routing__details .trace-panel__pre {

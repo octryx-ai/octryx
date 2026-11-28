@@ -28,7 +28,6 @@ def _compact_evidence(evidence: Any) -> dict[str, Any]:
         return {}
     return {
         "tools": [{"name": use.name, "succeeded": use.succeeded} for use in evidence.tools],
-        # Each family call's status, target, namespace and window (``EvidenceRecord.as_dict()``).
         "evidence_records": records_of(evidence.tools),
         "artifacts": [str(item.get("type") or "") for item in evidence.artifacts],
         "cited_count": evidence.cited_count, "source_count": evidence.source_count,
@@ -40,7 +39,6 @@ def _compact_evidence(evidence: Any) -> dict[str, Any]:
 
 
 async def complete_phase_turn(db: AsyncSession, run: WorkflowRun, *, node_id: str, state: str, evidence: Any) -> None:
-    """A governed turn of phase ``node_id`` ended: record its evidence; a passed turn completes the phase."""
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -63,7 +61,6 @@ async def complete_phase_turn(db: AsyncSession, run: WorkflowRun, *, node_id: st
     if turn.get("answer"):
         # The phase's last answer: a confirmation of a drafted ticket or reproduction shows it as its payload.
         _set_context(run, "answers", node_id, turn["answer"])
-    # Per-test results of the turn's test runs (the confirmed tests' content is fixed when first red).
     await record_turn_test_runs(db, run, list(getattr(evidence, "test_runs", None) or []), node_id=node_id)
     if state == PASSED:
         from .conditions import phase_result_values
@@ -99,7 +96,6 @@ async def complete_phase_turn(db: AsyncSession, run: WorkflowRun, *, node_id: st
 async def phased_turn_resolution(
     db: AsyncSession, run: WorkflowRun, *, user_message: str, user: User | None = None
 ) -> dict[str, Any]:
-    """The resolution of a turn in a session bound to a phased run (or the run's hold)."""
     from .handoff.lifecycle import guard_receiver
     from .hitl import held_reason, record_reply
 

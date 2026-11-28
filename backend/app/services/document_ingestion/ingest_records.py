@@ -27,8 +27,6 @@ from ...time_utils import utc_now
 
 @dataclass(slots=True)
 class BundleRecords:
-    """What the last write of a source's records left in the bundle."""
-
     evidence_records: list[Any]
     sources: list[Any]
     citations: list[Any]
@@ -153,7 +151,6 @@ def _write_source_records(
 def _first_evidence_record(
     source: dict[str, Any], stored: StoredSource, *, source_url: str, bundle_root: Path, workspace_root: Path
 ) -> tuple[dict[str, Any], Path, Path]:
-    """The evidence record and the source entry, written once before anything is archived."""
     evidence_record = _build_evidence_record(
         source=source,
         origin_kind="url" if source_url else "file",
@@ -182,7 +179,6 @@ def write_bundle_records(
     source: dict[str, Any], stored: StoredSource, parsed: ParsedDocument, *, source_url: str, bundle_root: Path,
     workspace_root: Path,
 ) -> BundleRecords:
-    """Write the records, archive the content, then the metadata, rewriting the records after each archive step."""
     evidence_record, evidence_record_path, evidence_manifest_path = _first_evidence_record(
         source, stored, source_url=source_url, bundle_root=bundle_root, workspace_root=workspace_root
     )
@@ -229,7 +225,6 @@ def _archive_metadata(
     source: dict[str, Any], evidence_record: dict[str, Any], content_archive_artifacts: list[dict[str, Any]],
     metadata_artifacts: list[dict[str, Any]], source_id: str, bundle_root: Path,
 ) -> None:
-    """Archive the metadata files and point the source and its evidence record at every archived artifact."""
     metadata_archive_artifacts = archive_document_ingestion_artifacts(
         bundle_id=bundle_root.name,
         source_id=source_id,

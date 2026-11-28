@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ....models import Project, WorkflowRun
 from ....time_utils import utc_now
 from ..records import record_event
+from .scenarios import COVERS_KEY
 from .step import CODE_SCENARIOS_FAILED, EVENT_REPORTED, GENERATING, PENDING, RED, SCENARIOS_KEY, _set, state
 
 
 async def _write(db: AsyncSession, run: WorkflowRun, *, model_factory: Any) -> tuple[str, list[Any]]:
-    """``(problem, scenarios)`` the review model writes for the run's change (no run lock is held)."""
     from ..graph import graph_for_run
     from ..review.call_inputs import _review_model, _working_copy
     from ..review.choice import review_choice
@@ -37,10 +37,12 @@ async def _write(db: AsyncSession, run: WorkflowRun, *, model_factory: Any) -> t
 
         stacks = await for_project(db, await db.get(Project, run.project_id) if run.project_id else None)
         hands_on = (await graph_for_run(db, run)).nodes.get(run.current_node_id)
+        config = dict(hands_on.config or {}) if hands_on is not None else {}
         scenarios, problem, _usage = await write_scenarios(
             db, run, model, task, ui_texts(app_root(root, changed, stacks), stacks) if root is not None else [],
             screen_actions(root, changed, stacks) if root is not None else [],
-            [str(item) for item in (hands_on.config.get("generic_actions") or [])] if hands_on is not None else [])
+            [str(item) for item in config.get("generic_actions") or []],
+            tuple(str(item) for item in config.get(COVERS_KEY) or []))
     return problem, scenarios
 
 

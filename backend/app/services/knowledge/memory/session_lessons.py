@@ -1,23 +1,5 @@
-"""Lessons learned from octryx sessions, proposed to the team memory.
-
-At a compaction and at the session's end the client sends the facts its context manager kept (goal, requests, file
-*paths*, test runs, todos) and, after a compaction, Claude Code's own summary (``POST /api/v1/agent-gateway/sessions/
-lessons``). Here, by design:
-
-- **only when the Workspace switched it on** (``knowledge_memory_policy.session_lessons``, default off); the client
-  has its own opt-out;
-- **the session's own Workspace**, from the gateway identity, never from the body; a session in a private Workspace
-  proposes only there;
-- **secrets out twice:** the client redacts before sending, the server redacts the input again (:func:`redact`) and
-  ``text_guard`` refuses any candidate that still looks like one;
-- **a cleared model:** the governed capture model, admitted by the Workspace's data policy (its classification);
-- **proposed, not observed:** a candidate is stored as ``proposed``, which recall never includes, so one session's
-  prompt-injected "lesson" cannot reach another session's prompt before a person with the confirmation right
-  confirms it (``confirm_roles``); rejected, it is deleted;
-- **limits:** at most :data:`MAX_CANDIDATES` per call, :data:`MAX_PER_SESSION_DAY` per session and
-  :data:`MAX_PER_WORKSPACE_DAY` per Workspace a day; a call is idempotent per session and ``ref`` (a Stop or hook
-  retry adds nothing).
-"""
+"""Lessons learned from octryx sessions, proposed to the team memory. Candidates are stored as ``proposed``, which
+recall never includes, until a person confirms them."""
 
 from __future__ import annotations
 
@@ -119,7 +101,6 @@ async def _count(db: AsyncSession, *conditions: Any) -> int:
 
 async def _propose(db: AsyncSession, reply: Any, *, allowance: int, user_id: str, workspace_id: str,
                    session_id: str, ref: str) -> tuple[int, int]:
-    """Store the model's accepted lessons as proposed items; returns (proposed, skipped)."""
     proposed, skipped = 0, 0
     for item_class, text in accepted(reply):
         if proposed >= allowance:
@@ -151,7 +132,6 @@ async def _propose(db: AsyncSession, reply: Any, *, allowance: int, user_id: str
 
 async def capture_session_lessons(db: AsyncSession, *, user_id: str, workspace_id: str, session_id: str, ref: Any,
                                   facts: Any, summary: Any, model_factory: Any = None) -> dict:
-    """Propose lessons for the Workspace's team; never raises for a model or content problem. Flushes."""
     if not await session_lessons_enabled(db, workspace_id):
         return {"state": "off"}
     if not isinstance(ref, str) or not REF.match(ref):
@@ -171,6 +151,7 @@ async def capture_session_lessons(db: AsyncSession, *, user_id: str, workspace_i
     if not facts_text and not summary_text:
         return {"state": "nothing_to_capture"}
     db.add(AuditLog(user_id=user_id, action=AUDIT_PROCESSED, resource_type="session_lessons", resource_id=marker,
+                    project_id=workspace_id,
                     details={"session_id": session_id}))
     try:
         async with scoped_prompt_set(db, workspace_id=workspace_id):

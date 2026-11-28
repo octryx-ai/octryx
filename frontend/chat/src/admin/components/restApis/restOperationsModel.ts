@@ -1,9 +1,6 @@
-// REST API model: shared texts, operation state and kind, server warnings and list rows.
 import type { StatusTone } from "../../../layout/StatusLabel";
 import type { RestDefinition, RestDefinitionListEntry, RestOperation, WriteCapability } from "./restApisApi";
 import { BATCH_HINT, BATCH_LABEL, isBatch } from "./restOdataModel";
-
-// ---- texts -------------------------------------------------------------------------------------------------------
 
 export const WRITES_NEED_APPROVAL =
   "Writes are offered like reads, but every write waits for an approval: the chat's write plan or the workflow's approval. Runs without a person always ask.";
@@ -20,14 +17,11 @@ export function scopeWithoutFilterText(params: string[]): string {
   return `Scope without a result filter: ${named} is only enforced if the API honours the fixed value. Add a result filter so records outside the scope are dropped here.`;
 }
 
-// ---- operations --------------------------------------------------------------------------------------------------
-
 export const toolNameFor = (definitionKey: string, op: Pick<RestOperation, "op_key" | "llm_name">) =>
   `rest__${definitionKey}__${(op.llm_name || "").trim() || op.op_key}`;
 
 export type OperationState = { label: string; tone: StatusTone; hint?: string };
 
-/** What a row of the operations list says: on, off, or enabled without grants (the exception). Reads and writes alike. */
 export function operationState(op: { enabled: boolean; grants: ArrayLike<unknown>; unsupported?: string }): OperationState {
   if (isBatch(op)) return { label: BATCH_LABEL, tone: "neutral", hint: BATCH_HINT };
   if (!op.enabled) return { label: "Off", tone: "neutral" };
@@ -35,12 +29,7 @@ export function operationState(op: { enabled: boolean; grants: ArrayLike<unknown
   return { label: "On", tone: "neutral" };
 }
 
-// ---- writes: run class and retries (backend) ---------------------------------------------------------------
-
-/**
- * The run class a write needs. Deliver (the default) is the class of runs that may write to other systems; Change is
- * one step lower, so runs that may only change things inside Octryx can call it too. Either way a person approves.
- */
+/** Change is one step below Deliver, so runs that may only change things inside Octryx can call it too. */
 export const WRITE_CAPABILITIES: ReadonlyArray<{ value: WriteCapability; label: string; hint: string }> = [
   { value: "deliver", label: "Deliver", hint: "Only runs allowed to write to other systems may call it. The default." },
   { value: "change", label: "Change", hint: "Runs that may change things may call it too. For low-impact writes." },
@@ -52,7 +41,6 @@ export const CAPABILITY_NOTE =
 export const capabilityLabel = (capability: string | null | undefined) =>
   WRITE_CAPABILITIES.find((entry) => entry.value === capability)?.label ?? "Deliver";
 
-/** The Kind column: "Read", or "Write · Deliver" / "Write · Change" (the server's effective class). */
 export function operationKind(op: Pick<RestOperation, "is_read" | "capability">): { label: string; write: boolean; hint: string } {
   if (op.is_read) return { label: "Read", write: false, hint: "" };
   const entry = WRITE_CAPABILITIES.find((item) => item.value === op.capability) ?? WRITE_CAPABILITIES[0];
@@ -66,10 +54,6 @@ export const grantCountText = (count: number) => (count === 0 ? "No grants" : co
 
 export type ServerWarning = { text: string; opId: string | null };
 
-/**
- * The server's warnings of an API (backend: across operations, then per operation as "'<op>': …"), each with the
- * operation it names, so the panel can point to it. The label is the operation's model-facing name or its key.
- */
 export function serverWarnings(definition: Pick<RestDefinition, "warnings" | "operations">): ServerWarning[] {
   const operations = definition.operations ?? [];
   return (definition.warnings ?? []).map((text) => {
@@ -90,7 +74,6 @@ export type DefinitionRow = {
   warnings: number;
 };
 
-/** One row of the list, straight from the list endpoint's counts (no detail or connections loaded per API). */
 export function definitionRow(entry: RestDefinitionListEntry): DefinitionRow {
   return {
     id: entry.id,

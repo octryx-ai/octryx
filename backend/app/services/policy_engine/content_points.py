@@ -1,15 +1,4 @@
-"""Cedar queries of the content points: a model request or a tool result with what the scan found.
-
-- :func:`model_content_query` — ``call_model`` with ``context.route`` and ``context.content``:
-  on the **governed** route the same baseline fragment as the content-free admission (``points.model_query``:
-  the model family, the level's alias list, the Workspace's grants) plus the content family; on the **seat** route
-  the content family alone (its ``platform:seat-route-permit`` grants what the seat route's own checks admitted),
-  with the resource ``ModelAlias::"seat:<model>"`` that is approved for nothing.
-- :func:`tool_result_query` — ``receive_tool_result`` (baseline: ``platform:tool-result-permit``).
-
-The principal's ``sensitive`` set is the conversation's categories (``entities.with_sensitive``). The decision
-log stores the resource label only (an alias, a tool name): never content.
-"""
+"""Cedar queries of the content points: a model request or a tool result with what the scan found."""
 
 from __future__ import annotations
 
@@ -54,11 +43,6 @@ def model_content_query(
     admission: Any = None, workspace_id: str | None = None, classification: Any = None,
     principal: Principal | None = None, sensitive: Iterable[str] = (), secret_policy: bool = True,
 ) -> PointQuery:
-    """``admission``: the governed route's ``ProjectModelAdmission`` (it carries the Workspace and its sources).
-
-    ``secret_policy``: include ``platform:secrets-never-leave`` — only where the gateway's secret scan is the
-    existing check (the inbound routes), so the shadow comparison stays equal on the platform's chat driver.
-    """
     if route not in (ROUTE_GOVERNED, ROUTE_SEAT) or (route == ROUTE_GOVERNED and admission is None):
         raise ValueError("content_route_invalid")  # a governed question needs its admission; no silent seat
     if route == ROUTE_GOVERNED:

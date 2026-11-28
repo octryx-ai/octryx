@@ -1,8 +1,4 @@
-"""Agent tools of the Memory lobe: thin — scope from the run, call the service, render.
-
-The Workspace comes from ``ToolContext`` exactly as for the Knowledge evidence tools; no schema has a
-``project_id`` or user parameter. Every failure is a fixed state with a fixed message.
-"""
+"""Agent tools of the Memory lobe: thin — scope from the run, call the service, render."""
 
 from __future__ import annotations
 

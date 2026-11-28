@@ -27,6 +27,9 @@ from .queries import LspQueriesMixin
 log = logging.getLogger(__name__)
 root_log = logging.getLogger()
 
+# A language server that does not answer shutdown quickly is terminated instead of holding up the platform's stop.
+_SHUTDOWN_SECONDS = 2.0
+
 
 def _log_warning(message: str, *args: object) -> None:
     log.warning(message, *args)
@@ -35,8 +38,6 @@ def _log_warning(message: str, *args: object) -> None:
 
 
 class LspClient(LspQueriesMixin):
-    """Manages a single language server process for a given workspace root."""
-
     def __init__(
         self,
         language: str,
@@ -62,7 +63,6 @@ class LspClient(LspQueriesMixin):
         self.runtime_metadata: dict[str, Any] = {}
 
     async def start(self) -> bool:
-        """Start the language server. Returns True on success."""
         command = _LSP_SERVERS.get(self.language)
         if not command:
             return False
@@ -118,7 +118,7 @@ class LspClient(LspQueriesMixin):
 
     async def stop(self) -> None:
         try:
-            await self._request("shutdown", {})
+            await self._request("shutdown", {}, timeout=_SHUTDOWN_SECONDS)
         except Exception:
             pass
         try:
@@ -131,6 +131,8 @@ class LspClient(LspQueriesMixin):
             try:
                 self._proc.terminate()
                 await asyncio.wait_for(self._proc.wait(), timeout=3)
+            except TimeoutError:
+                self._proc.kill()
             except Exception:
                 pass
 
@@ -182,8 +184,6 @@ class LspClient(LspQueriesMixin):
 
 
 class LspClientManager:
-    """Pool of LspClient instances keyed by (language, workspace_root)."""
-
     def __init__(
         self,
         *,
@@ -212,11 +212,8 @@ class LspClientManager:
         return client
 
     async def stop_all(self) -> None:
-        for client in list(self._clients.values()):
-            try:
-                await client.stop()
-            except Exception:
-                pass
+        # Side by side: a shutdown waits for every server at most once, however many are open.
+        await asyncio.gather(*(client.stop() for client in self._clients.values()), return_exceptions=True)
         self._clients.clear()
 
 

@@ -1,15 +1,4 @@
-"""The documentation page of a run: settings, title and rendered body.
-
-The Workspace configures where feature documentation lives (project config ``feature_documentation``):
-
-- ``confluence_space_key`` (required): the space the page is published in; the named connection bound to that
-  space serves every call (the one resolver, ``named_connections``);
-- ``parent_page_id`` (optional): the page a new page is created under;
-- ``knowledge_connector_key`` (optional): the Knowledge source that syncs the page (else the Confluence source whose
-  scope covers the space or the parent's tree).
-
-The body is Confluence storage format built only from the recorded output (escaped) and recorded run facts.
-"""
+"""The documentation page of a run: settings, title and rendered body."""
 
 from __future__ import annotations
 
@@ -45,18 +34,6 @@ def documentation_settings(project_config: dict[str, Any] | None) -> Documentati
 def recorded_output(run: WorkflowRun, kind: str = KIND) -> dict[str, Any] | None:
     entry = dict(dict(run.context or {}).get(OUTPUTS_KEY) or {}).get(kind)
     return dict(entry) if isinstance(entry, dict) else None
-
-
-def recorded_criteria(run: WorkflowRun) -> list[dict[str, Any]]:
-    """The acceptance criteria → tests of the run's recorded test contract (never the draft's)."""
-    contract = recorded_output(run, "test_contract") or {}
-    criteria = []
-    for item in dict(contract.get("record") or {}).get("criteria") or []:
-        if isinstance(item, dict):
-            criteria.append({"id": str(item.get("id") or ""), "text": str(item.get("text") or ""),
-                             "tests": [str(test) for test in item.get("tests") or []],
-                             "manual_only": bool(item.get("manual_only"))})
-    return criteria
 
 
 async def run_links(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
@@ -109,7 +86,6 @@ def render_storage(record: dict[str, Any], criteria: list[dict[str, Any]], links
 
 
 async def documentation_pages(db: AsyncSession, work_item_id: str) -> list[dict[str, Any]]:
-    """The pages runs published for a Work item, newest first (``work_item_documents``)."""
     from sqlalchemy import select
 
     from ....models import WorkItemDocument

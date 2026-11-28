@@ -1,10 +1,4 @@
-"""Skill sources (``skill_sources``): one row per Git repository + ref, plus one row for uploads.
-
-A source carries what the update check needs (URL, ref, optional named connection for private repositories) and
-what it last saw (commit, time, error). ``trust`` is the admin's label shown as *Official* / *Community* /
-*Internal*; it never changes a decision. Credentials come only from a **global** named connection of a Git
-connector (GitHub, GitLab, …): the first resolved ``*_token`` field.
-"""
+"""Skill sources (``skill_sources``): one row per Git repository + ref, plus one row for uploads."""
 
 from __future__ import annotations
 

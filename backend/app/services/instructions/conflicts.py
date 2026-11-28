@@ -1,20 +1,4 @@
-"""The conflict check of an instruction version: deterministic, no model, run at submit.
-
-Closed findings, each with the names that triggered it:
-
-- ``unknown_workflow``: the bound key names no published phased workflow;
-- ``tool_not_in_workflow``: the body names a platform tool the bound workflow does not offer;
-- ``tool_against_capability``: the body names a changing tool while the bound workflow (or, for an
-  agent instruction, the agent's ceiling) is read-only;
-- ``duplicates_skill``: the title equals a published skill's name, or the body overlaps a published
-  skill body by more than 80 % (word 5-shingles);
-- ``over_budget``: the layer's published instructions plus this one exceed the layer budget;
-- ``tool_forbidden_by_policy``: the scope's effective policy (tool policy deny lists, Cedar) forbids a named tool,
-  with the forbidding policy (``policy_check``).
-
-Tool names are matched as whole words against the platform's tool definitions; nothing interprets
-the text. A finding blocks publish until the submitter accepts it (``lifecycle.submit_for_review``).
-"""
+"""The conflict check of an instruction version: deterministic, no model, run at submit."""
 
 from __future__ import annotations
 
@@ -56,7 +40,6 @@ def named_tools(body: str) -> list[str]:
 
 
 def _phase_tools(config: dict[str, Any]) -> set[str]:
-    """Every tool one phase names: its tool allowlist, its contract's allowed tools and its step tools."""
     from ..workflow_checks.steps import workflow_steps
     from ..workflow_routing.tool_policy import normalized_tool_policy
 
@@ -69,7 +52,6 @@ def _phase_tools(config: dict[str, Any]) -> set[str]:
 
 
 async def _workflow(db: AsyncSession, key: str, project_id: str | None) -> dict[str, Any] | None:
-    """The tools and highest class of the published phased workflow ``key``, or ``None``."""
     from ..run_admission.phased_catalog import highest_class
     from ..workflow_runs.engine import published_phased_flow
 

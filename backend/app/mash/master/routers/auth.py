@@ -1,7 +1,4 @@
-"""MASH OAuth2 token endpoint and auth dependencies.
-
-POST /mash/oauth/token — client_credentials grant
-"""
+"""MASH OAuth2 token endpoint and auth dependencies."""
 
 from __future__ import annotations
 
@@ -86,7 +83,6 @@ async def mash_token(payload: TokenRequest, db: AsyncSession = Depends(get_db)):
 
 
 async def require_mash_token(request: Request) -> dict[str, Any]:
-    """FastAPI dependency: extract and validate the MASH bearer token."""
     auth = request.headers.get("Authorization", "")
     if not auth.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="missing_token")
@@ -99,7 +95,6 @@ async def require_mash_token(request: Request) -> dict[str, Any]:
 
 
 def require_scope(scope: str):
-    """Return a dependency that checks for a specific MASH scope."""
     async def _check(token: dict[str, Any] = Depends(require_mash_token)):
         if not token_has_scope(token, scope):
             raise HTTPException(status_code=403, detail=f"scope_required:{scope}")

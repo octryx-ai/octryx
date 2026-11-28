@@ -1,6 +1,5 @@
-"""Device credential renewal with the device key: a lost or replayed refresh token never strands an
-active device, while a revoked device, a foreign key, a stale or replayed request and a credential change are
-refused."""
+"""Device credential renewal with the device key: a lost or replayed refresh token never strands an active device,
+while a revoked device, a foreign key, a stale or replayed request and a credential change are refused."""
 
 from __future__ import annotations
 
@@ -136,7 +135,6 @@ async def test_the_owner_sees_needs_login_while_the_credential_is_dead(client, d
 
 @pytest.mark.asyncio
 async def test_renewal_locks_the_device_row(db):
-    """Concurrent renewals are serialized on the device row, so exactly one grant stays live."""
     user = await user_named(db, "device-owner")
     device, _private, _token = await keyed_device(db, user)
     locked: list[bool] = []

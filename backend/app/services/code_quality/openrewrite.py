@@ -67,7 +67,6 @@ def _build_command(
     repo_root: Path, *, recipes: list[str], artifacts: list[str], plugin_version: str, dry_run: bool,
     export_datatables: bool, which_fn: WhichFn,
 ) -> list[str] | str:
-    """The OpenRewrite command of the repository's build, or the error text why there is none."""
     if (repo_root / "pom.xml").exists():
         launcher = resolve_maven_command(repo_root, which_fn=which_fn)
         if not launcher:

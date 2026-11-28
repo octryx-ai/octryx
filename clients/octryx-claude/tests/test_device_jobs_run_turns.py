@@ -17,8 +17,6 @@ from tests.device_jobs_support import FakeDriver, _fake_sdk, _manager, _offer, _
 
 
 def test_the_workspace_autonomy_set_becomes_claude_codes_allow_rules():
-    """The allow-set comes from the platform's client policy, next to the deny rules."""
-
     policy = {"permissions": {"deny": ["Bash(git push --force:*)"], "ask": [],
                               "allow": ["Bash(git commit:*)", "Bash(.venv/bin/python:*)"]}}
     settings = launch_settings.build_settings(shim=Path("/shim"), state_root=Path("/state"), env={}, policy=policy,
@@ -29,9 +27,7 @@ def test_the_workspace_autonomy_set_becomes_claude_codes_allow_rules():
 
 
 def test_a_run_turn_on_a_tiered_model_compacts_below_the_price_tier():
-    """Claude Code compacts about 33K below its window. A run turn on Haiku compacts at ~92K (window 125K), below its
-    100K price tier, a run turn on any other model too; a chat turn keeps the device's window, and a smaller device
-    window stays."""
+    # Claude Code compacts about 33K below its window; Haiku's 100K price tier needs a smaller window.
     from octryx_claude.device_turn_kind import run_compact_window
 
     def prepared(model="", env_model="claude-haiku-5-5", run=True, window=200_000):
@@ -68,9 +64,6 @@ def test_a_run_turn_on_a_tiered_model_compacts_below_the_price_tier():
 
 @pytest.mark.asyncio
 async def test_a_teams_platform_turn_takes_no_slot_and_items_fill_every_slot(state, tmp_path):
-    """With four parallel items the run's main thread (its git work, the
-    coordinator) took a slot, so only three items ran. A turn the platform marks ``slot_exempt`` for a workflow run is
-    counted only among such turns; an offer without a run cannot claim it."""
     hold = asyncio.Event()
     manager, channel, repo = _manager(state, tmp_path, driver=[FakeDriver(hold=hold) for _ in range(4)], parallel=2)
     for index in (1, 2):
@@ -91,9 +84,7 @@ def test_the_default_parallel_limit_lets_a_team_run_side_by_side():
 
 
 def test_a_run_turns_subagents_work_on_the_turns_model():
-    """The sub-agents of a run turn work on the turn's model, not the device's "main" alias. The value goes into the
-    session's settings env, which
-    outranks the child's environment; a chat turn keeps the device's aliases."""
+    # The settings env outranks the child's environment.
     from octryx_claude.device_session import subagents_follow_the_turn
 
     aliases = {"ANTHROPIC_MODEL": "claude-opus-5-5", "CLAUDE_CODE_SUBAGENT_MODEL": "claude-opus-5-5"}
@@ -104,8 +95,6 @@ def test_a_run_turns_subagents_work_on_the_turns_model():
 
 
 def test_only_a_run_turn_with_a_browser_gets_the_playwright_server_in_its_mcp_config(tmp_path):
-    """The browser MCP server instead of ``--chrome``; every run turn whose
-    phase opted in (the job manager describes the server only then), a story session or a phase turn."""
     captured = {}
     fake_sdk = types.SimpleNamespace(ClaudeAgentOptions=lambda **kwargs: captured.update(kwargs) or kwargs,
                                      HookMatcher=lambda **kwargs: kwargs)
@@ -132,7 +121,6 @@ def test_only_a_run_turn_with_a_browser_gets_the_playwright_server_in_its_mcp_co
 
 @pytest.mark.asyncio
 async def test_a_run_turn_marks_its_processes_and_stops_what_still_listens(state, tmp_path, monkeypatch):
-    """App servers a session started stop with its turn."""
     from octryx_claude import run_wip, turn_processes
 
     stopped: list[str] = []
@@ -151,8 +139,6 @@ async def test_a_run_turn_marks_its_processes_and_stops_what_still_listens(state
 
 @pytest.mark.asyncio
 async def test_the_next_turn_waits_for_the_last_turns_clean_up_instead_of_busy(state, tmp_path):
-    """A turn offered while the device still cleans up after ``turn_finished`` waits for that clean-up instead of
-    being refused ``device_job_busy``."""
     manager, channel, repo = _manager(state, tmp_path)
     turn = Turn("dj_1", "t0", limits={})
     turn.finished = True
@@ -176,7 +162,6 @@ async def test_the_next_turn_waits_for_the_last_turns_clean_up_instead_of_busy(s
 
 
 def test_a_compaction_is_reported_as_the_runs_event(state, monkeypatch):
-    """PreCompact and PostCompact go to the platform as the run's ``session_compacted``."""
     from octryx_claude import hooks
 
     sent = []

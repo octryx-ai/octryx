@@ -1,10 +1,5 @@
-"""Per-item sync state of one connector, and the tombstones it owes.
-
-Every function runs in the caller's transaction and never commits. Retiring an item tombstones
-its ledger source (``ledger/lifecycle.tombstone_source``): every revision owes ``retire_revision``,
-so the projector removes its spans from the Workspace database and retrieval stops returning it.
-The ledger keeps the revisions as history.
-"""
+"""Per-item sync state of one connector, and the tombstones it owes. Every function runs in the caller's transaction and
+never commits."""
 
 from __future__ import annotations
 
@@ -30,8 +25,6 @@ _EXTERNAL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 @dataclass(frozen=True, slots=True)
 class ConnectorRef:
-    """Plain values of one connector row, safe to use across the commits and rollbacks of a run."""
-
     id: str
     project_id: str
     kind: str
@@ -54,12 +47,11 @@ class ConnectorRef:
 
 
 def source_key_for(connector: ConnectorRef, external_id: str) -> str:
-    """The Workspace-stable ledger key: connector-scoped, so two connectors never share a source."""
+    # Connector-scoped, so two connectors never share a source.
     return source_key_of(connector.kind, connector.connector_key, external_id)
 
 
 def source_key_of(kind: str, connector_key: str, external_id: str) -> str:
-    """``source_key_for`` from plain values (a connector that links to its own ledger source)."""
     if type(external_id) is not str or not _EXTERNAL_ID.fullmatch(external_id):
         raise EvidenceLedgerContractError()
     return f"{kind}.{connector_key}.{external_id.lower()}"
@@ -91,7 +83,6 @@ def new_item(connector: ConnectorRef, external_id: str, *, state: str, outcome: 
 
 
 async def retire_item(db: AsyncSession, item: KnowledgeSourceSyncItem, *, withheld: bool, outcome: str) -> bool:
-    """Stop serving the item's source. True when a served source was tombstoned."""
     retired = False
     if item.source_id is not None:
         await tombstone_source(db, project_id=item.project_id, source_id=item.source_id)
@@ -108,7 +99,6 @@ async def retire_item(db: AsyncSession, item: KnowledgeSourceSyncItem, *, withhe
 async def served_items_unseen_in(
     db: AsyncSession, connector: ConnectorRef, pass_number: int
 ) -> list[KnowledgeSourceSyncItem]:
-    """Items that still serve a source but were not listed in the pass ``pass_number``."""
     return list(
         (
             await db.execute(
@@ -128,7 +118,6 @@ async def served_items_unseen_in(
 
 
 async def served_item_count(db: AsyncSession, row: KnowledgeSourceConnector) -> int:
-    """How many of the connector's items currently serve a ledger source (withheld and retired ones do not)."""
     return int(
         await db.scalar(
             select(func.count())
@@ -144,7 +133,6 @@ async def served_item_count(db: AsyncSession, row: KnowledgeSourceConnector) -> 
 
 
 async def connector_source_roles(db: AsyncSession, project_id: str, source_ids: list[str]) -> dict[str, str]:
-    """The document role of each source a connector serves with one (a Jira release: ``release_notes``)."""
     if not source_ids:
         return {}
     rows = await db.execute(

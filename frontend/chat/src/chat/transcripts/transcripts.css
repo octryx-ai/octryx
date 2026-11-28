@@ -48,7 +48,7 @@
 
 .transcript-block--message > .transcript-block__head { margin-bottom: 0.25rem; }
 
-.transcript-block__label { font-weight: 600; color: var(--ds-text); font-size: var(--ds-font-size-small); }
+.transcript-block__label { font-weight: var(--ds-weight-strong); color: var(--ds-text); font-size: var(--ds-font-size-small); }
 
 .transcript-block__summary {
   flex: 1 1 auto;
@@ -126,7 +126,7 @@
   border-style: dashed;
   background: transparent;
 }
-.transcript-block--note .transcript-block__label { color: var(--ds-muted); font-weight: 500; }
+.transcript-block--note .transcript-block__label { color: var(--ds-muted); font-weight: var(--ds-weight-medium); }
 
 
 /* ---- Entry points ------------------------------------------------------------------------------ */
@@ -136,8 +136,7 @@
   gap: 0.25rem;
   font-size: var(--ds-font-size-small);
 }
-.transcript-link svg,
-.transcript-icon svg {
+.transcript-link svg {
   width: 0.875rem;
   height: 0.875rem;
   fill: none;

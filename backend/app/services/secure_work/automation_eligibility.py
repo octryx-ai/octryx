@@ -9,7 +9,6 @@ DEFAULT_AUTOMATION_LABEL = "octryx"
 
 
 def work_item_automation_eligibility(item: WorkItem) -> dict[str, Any]:
-    """Describe whether Octryx is allowed to actively work on a synced task."""
     source_fields = object_value(item.source_fields_json)
     policy = object_value(source_fields.get("automation_policy"))
     labels = [str(label).strip() for label in item.labels_json or [] if str(label).strip()]

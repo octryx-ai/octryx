@@ -1,28 +1,5 @@
-"""Fixture content of the Confluence stub, and what the source-ACL check expects from it (K6).
-
-One space (``ACLSTUB``) with six pages, one per ACL case the governed Confluence Source Sync
-connector must handle (``services/knowledge/sources/sync/confluence.py`` and ``confluence_acl.py``):
-
-| Page | Read restriction | Expected with ``knowledge_source_acl.enforce`` |
-|---|---|---|
-| 1001 | none | public: every Workspace member |
-| 1002 | user ``alice`` | alice only |
-| 1003 | none, child of 1002 | alice only (the restriction is inherited) |
-| 1004 | group ``acl-stub-readers`` (bob, carol) | bob only (carol has no platform account) |
-| 1005 | user ``mallory``, whose address Confluence does not report | nobody (unmapped principal) |
-| 1006 | group ``acl-stub-broken``, whose member lookup fails | withheld as ``acl_unresolved`` |
-
-With enforcement off (the default), every restricted page (1002-1006) is withheld as
-``restricted_acl`` and only 1001 is ingested.
-
-The platform maps a source principal to a platform user by email address only. The two platform
-test users (``PLATFORM_USERS``) carry exactly the addresses the stub reports for alice and bob. The
-Workspace owner (the acceptance admin) has an address no page admits, so the owner sees the public
-page only: source ACLs have no owner or admin bypass.
-
-``STUB_USERNAME`` / ``STUB_TOKEN`` are the stub's own fixed Basic credential. It protects nothing
-and is not a secret; it only proves that the connector sends the Workspace's configured credential.
-"""
+"""Fixture content of the Confluence stub (one page per source-ACL case), and what the source-ACL check expects from
+it."""
 
 from __future__ import annotations
 
@@ -97,7 +74,6 @@ PAGES: dict[str, dict[str, object]] = {
     },
 }
 
-# Platform test users of the local acceptance stack: fixture name -> (username, email).
 PLATFORM_USERS: dict[str, tuple[str, str]] = {
     "alice": ("acl-stub-alice", f"alice@{EMAIL_DOMAIN}"),
     "bob": ("acl-stub-bob", f"bob@{EMAIL_DOMAIN}"),
@@ -113,7 +89,6 @@ VISIBLE_WITH_ENFORCEMENT: dict[str, frozenset[str]] = {
     "alice": frozenset({"1001", "1002", "1003"}),
     "bob": frozenset({"1001", "1004"}),
 }
-# With enforcement off every reader sees the public page only.
 VISIBLE_WITHOUT_ENFORCEMENT: dict[str, frozenset[str]] = dict.fromkeys(VISIBLE_WITH_ENFORCEMENT, PUBLIC_PAGES)
 
 # Page id -> (outcome, reason) of the first sync, with enforcement off and then on.
@@ -132,7 +107,6 @@ SYNC_WITH_ENFORCEMENT: dict[str, tuple[str, str | None]] = {
 
 
 def page_id_of(source_url: object) -> str | None:
-    """The page id in a connector deep link (``…/pages/viewpage.action?pageId=<id>``)."""
     if not isinstance(source_url, str) or "pageId=" not in source_url:
         return None
     return source_url.rsplit("pageId=", 1)[1].split("&", 1)[0] or None

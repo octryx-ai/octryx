@@ -1,19 +1,5 @@
-"""Workspace authorization of a registry API (read = any role, author = admin or owner).
-
-Same semantics as ``services/agent_definition_access`` and the knowledge
-Workspace authorization:
-
-* a Workspace that does not exist and a Workspace the caller has no role in are
-  answered with the same 404, so the API never confirms another Workspace's ids;
-  the project row is checked *before* the role, because a global admin resolves
-  to ``admin`` for any id;
-* reading needs any role in the Workspace; authoring, submitting, publishing,
-  retiring and importing need the ``admin`` or ``owner`` role (403 otherwise,
-  which discloses nothing the caller could not already read).
-
-Approving is not authorized here: it happens through the approvals API, and the
-four-eyes rule is enforced at publish time.
-"""
+"""Workspace authorization of a registry API (read = any role, author = admin or owner). An unknown Workspace and one
+without a role answer the same 404."""
 
 from __future__ import annotations
 
@@ -39,11 +25,7 @@ async def authorize_workspace(
     require_author: bool,
     not_found_detail: Any = WORKSPACE_NOT_FOUND_DETAIL,
 ) -> str:
-    """Return the canonical Workspace id, or raise 404 / 403.
-
-    ``not_found_detail`` lets a row lookup (a policy) answer an
-    out-of-scope row with exactly the body of an unknown one.
-    """
+    # ``not_found_detail`` answers an out-of-scope row with exactly the body of an unknown one.
     project_id = str(workspace_id or "").strip()
     exists = (
         (await db.execute(select(Project.id).where(Project.id == project_id))).scalar_one_or_none()

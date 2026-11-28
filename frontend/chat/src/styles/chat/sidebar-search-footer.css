@@ -74,7 +74,7 @@
 
 .sidebar__user {
   color: var(--highlight);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-size: var(--ds-text-md);
   margin-bottom: 0.25rem;
 }

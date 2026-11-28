@@ -1,13 +1,5 @@
-"""Lifting the server build lock in a test that exercises the server pipeline itself.
-
-The server never runs repository build/test tooling (``execution_runtime.foreign_build_guard``) and
-never starts a run that declares a build or test step (``workflow_runs.runtime_target.server_build``); there is no
-platform switch. The suites that cover the server pipeline's own mechanics (working copy, declared test/lint
-commands, TDD evidence, slices, exec policy, script resolution, runs without a runtime target that a terminal
-attaches to later) keep covering them, because the sandbox runtime runs exactly that pipeline: they lift the lock
-with this monkeypatch, never the product. The lock itself is proven in ``test_foreign_build_guard`` and
-``test_workflow_run_server_build_lock``.
-"""
+"""Lifts the server build lock for suites that cover the server pipeline's own mechanics, which the sandbox runtime
+runs; the lock itself is proven in ``test_foreign_build_guard``."""
 
 from __future__ import annotations
 
@@ -26,7 +18,6 @@ def lift_server_build_lock(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def lift_command_audit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Tool mechanics tests without a database session: the fail-closed audit (``command_audit``) writes nothing."""
     from app.services.execution_runtime import command_audit
 
     async def no_row(*args, **kwargs):

@@ -1,9 +1,4 @@
-"""Request checks, field values and row lookups for the admin-panel agent builder.
-
-Nothing here constructs or changes an agent row: the registered writer
-:mod:`app.services.admin.governance.admin_agent_service` does that with the values
-prepared here, so the writer inventory keeps naming the one module that writes.
-"""
+"""Request checks, field values and row lookups for the admin-panel agent builder."""
 
 from __future__ import annotations
 
@@ -37,11 +32,6 @@ _AGENT_TYPE_FOR_CEILING = {"read_only": "diagnosis", "change": "change", "delive
 
 
 def _tool_surface_from_payload(payload: dict[str, Any], *, default: str | None) -> str:
-    """The requested tool surface; an absent key keeps *default* (``governed`` on create).
-
-    The request schema already refuses unknown values; this re-checks for direct callers, so a
-    present ``null`` or ``""`` is refused instead of falling back.
-    """
     if "tool_surface" not in payload:
         if default is None:
             return DEFAULT_TOOL_SURFACE
@@ -60,7 +50,6 @@ def _tool_surface_from_payload(payload: dict[str, Any], *, default: str | None) 
 
 
 def _reply_contract_from_payload(payload: dict[str, Any], *, stored: str | None) -> str | None:
-    """The reply contract column: an absent key keeps *stored*; ``None`` from the route is absent."""
     present = {"reply_contract": payload["reply_contract"]} if payload.get("reply_contract") is not None else {}
     try:
         return reply_contract_column_for_write(present, stored=stored)
@@ -71,7 +60,6 @@ def _reply_contract_from_payload(payload: dict[str, Any], *, stored: str | None)
 
 
 def _refuse_tool_surface_conflict(tool_surface: str | None, steps: list[dict[str, Any]]) -> None:
-    """No tools (text only) never coexists with steps that use tools; nothing is changed silently."""
     try:
         ensure_no_step_conflict(tool_surface or "", steps)
     except ToolSurfaceConflictError as exc:
@@ -84,7 +72,6 @@ def _refuse_tool_surface_conflict(tool_surface: str | None, steps: list[dict[str
 async def new_agent_fields(
     db: AsyncSession, *, user_id: str, payload: dict[str, Any], thinking_levels: list[str]
 ) -> dict[str, Any]:
-    """Checked constructor values of an agent created from a panel request."""
     name = str(payload.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Agent name is required")
@@ -122,8 +109,6 @@ async def new_agent_fields(
 
 @dataclass(frozen=True, slots=True)
 class AgentUpdateInputs:
-    """Values of a panel update that are checked before any field of the agent changes."""
-
     name: str
     tool_surface: str
     reply_contract_json: str | None
@@ -135,7 +120,6 @@ class AgentUpdateInputs:
 async def agent_update_inputs(
     db: AsyncSession, agent: AgentDefinition, payload: dict[str, Any], thinking_levels: list[str]
 ) -> AgentUpdateInputs:
-    """Check an update request against *agent*; a refused save leaves the agent untouched."""
     name = str(payload.get("name") or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="Agent name is required")
@@ -162,7 +146,6 @@ async def agent_update_inputs(
 
 
 async def editable_agent_with_steps(db: AsyncSession, *, user_id: str, agent_id: str) -> AgentDefinition:
-    """The agent with its steps and group loaded, if *user_id* may edit it; 404 otherwise."""
     agent = (
         await db.execute(
             select(AgentDefinition)
@@ -176,7 +159,6 @@ async def editable_agent_with_steps(db: AsyncSession, *, user_id: str, agent_id:
 
 
 async def reloaded_agent(db: AsyncSession, agent_id: str) -> AgentDefinition | None:
-    """The agent read back after a commit, with steps and group loaded for serialization."""
     return (
         await db.execute(
             select(AgentDefinition)
@@ -187,7 +169,6 @@ async def reloaded_agent(db: AsyncSession, agent_id: str) -> AgentDefinition | N
 
 
 async def editable_agent(db: AsyncSession, *, user_id: str, agent_id: str) -> AgentDefinition:
-    """The agent row alone, if *user_id* may edit it; 404 otherwise."""
     agent = (
         await db.execute(
             select(AgentDefinition).where(AgentDefinition.id == agent_id, await editable_agent_clause(db, user_id))
@@ -201,7 +182,6 @@ async def editable_agent(db: AsyncSession, *, user_id: str, agent_id: str) -> Ag
 async def editable_step_with_surface(
     db: AsyncSession, *, user_id: str, agent_id: str, step_id: str
 ) -> tuple[AgentStep, str | None]:
-    """The step and its agent's tool surface, if *user_id* may edit the agent; 404 otherwise."""
     row = (
         await db.execute(
             select(AgentStep, AgentDefinition.tool_surface)
@@ -218,7 +198,6 @@ async def editable_step_with_surface(
 
 
 def step_request_view(name: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """The tool-relevant view of a requested step, for the tool-surface conflict check."""
     return {
         "name": name,
         "is_enabled": bool(payload.get("is_enabled", True)),

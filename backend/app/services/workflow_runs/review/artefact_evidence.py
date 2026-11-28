@@ -1,8 +1,4 @@
-"""Current-pass provenance and actual-requester Knowledge reads for artifact review.
-
-Only successful knowledge_read calls with persisted IDs from the trusted turn recorder are supported.
-Other connectors, display URLs and historical same-session calls confer no authority.
-"""
+"""Current-pass provenance and actual-requester Knowledge reads for artifact review."""
 from __future__ import annotations
 
 import copy
@@ -29,7 +25,7 @@ from .artefact_contract import KIND, PROVENANCE_EVENT, SPEC_KIND, ArtefactUnavai
 
 
 async def record_provenance(db, run, *, node_id: str, session_id: str, evidence: Any, state: str) -> None:
-    """Durable exact-turn call IDs, never a session-time query or model-provided list."""
+    # Durable exact-turn call ids, never a session-time query or a model-provided list.
     from ..records import main_session_id
 
     if await main_session_id(db, run) != session_id:
@@ -85,7 +81,6 @@ async def _local(db, run, node, *, kind=KIND) -> tuple[dict, dict]:
 
 
 async def resolve_snapshot(db, run, node, *, review_entry=None) -> dict:
-    """Resolve and reauthorize anew before I/O and recording; immutable copies live in review events."""
     from ..graph import graph_for_run
     from ..handoff.lifecycle import guard_receiver
     from ..work_roles import active_human, lock_actor_membership, workspace_humans

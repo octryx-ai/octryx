@@ -1,13 +1,5 @@
-"""Web Push to a paired phone (Octryx Mobile): RFC 8291 message encryption (aes128gcm,
-RFC 8188) and RFC 8292 VAPID, with the platform's existing ``cryptography`` (no extra dependency).
-
-- The VAPID key is the platform's own (``MOBILE_VAPID_PRIVATE_KEY``, from the deployment's secret store): a P-256
-  private key, base64url raw (the usual VAPID form) or PEM. Without it push is ``needs_configuration``.
-- A subscription's endpoint must be HTTPS on a known push service (:data:`PUSH_HOSTS`): a phone can never make the
-  platform send requests to arbitrary addresses.
-- :func:`send` answers ``sent``, ``gone`` (404/410: the subscription no longer exists; the caller deletes it) or
-  ``failed``; it never raises for a network or service problem.
-"""
+"""Web Push to a paired phone (Octryx Mobile): RFC 8291 message encryption (aes128gcm, RFC 8188) and RFC 8292 VAPID,
+with the platform's existing ``cryptography`` (no extra dependency)."""
 
 from __future__ import annotations
 
@@ -65,7 +57,6 @@ def endpoint_allowed(endpoint: object) -> bool:
 
 
 def load_vapid_key(text: str | None) -> ec.EllipticCurvePrivateKey | None:
-    """The platform's VAPID key from its setting (base64url raw scalar or PEM), or ``None``."""
     raw = str(text or "").strip()
     if not raw:
         return None
@@ -80,7 +71,6 @@ def load_vapid_key(text: str | None) -> ec.EllipticCurvePrivateKey | None:
 
 
 def public_key_b64(key: ec.EllipticCurvePrivateKey) -> str:
-    """The ``applicationServerKey`` the phone subscribes with (uncompressed point, base64url)."""
     return b64url(key.public_key().public_bytes(serialization.Encoding.X962,
                                                 serialization.PublicFormat.UncompressedPoint))
 
@@ -102,7 +92,6 @@ def _hkdf(salt: bytes, ikm: bytes, info: bytes, length: int) -> bytes:
 
 def encrypt(payload: bytes, p256dh: str, auth: str, *, salt: bytes | None = None,
             sender_key: ec.EllipticCurvePrivateKey | None = None) -> bytes:
-    """One aes128gcm record for the subscription's keys (RFC 8291 §3.4, RFC 8188)."""
     ua_public = unb64url(p256dh)
     auth_secret = unb64url(auth)
     if len(ua_public) != 65 or len(auth_secret) < 16:

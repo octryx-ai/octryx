@@ -1,18 +1,5 @@
-// The agent's checked output format (shared contract). Pure: no requests, no React.
-//
-// Contract: the panel agent payload carries `replyContract`; create/update accept `reply_contract`. A
-// value is {kind: "text"} or {kind: "json_object", schema: {type: "object", properties, required}}.
-// Each property is {type: string|integer|number|boolean} or {type: "array", items: {type: <one of
-// those>}}; 1–32 distinct field names matching the server's field name rule; `required` names only
-// declared fields, once each; at most 16 KiB serialized. A missing value means free text.
-//
-// - The server stays the authority; this mirrors its rules only to explain mistakes before saving.
-// - An unchanged format is not sent (an omitted update keeps the stored value), so an ordinary
-//   free-text agent stays exactly as it is. Choosing Free text for a checked agent sends {kind: "text"}.
-// - A saved value this form cannot represent is never replaced silently: nothing is sent for it until
-//   the author explicitly chooses a format. Such a value is invalid on the server too (same rules),
-//   and the server refuses every save of the agent until a valid format is chosen (
-//   reply_contract_column_for_write, HTTP 422), so the form says so and offers the two choices.
+// The server stays the authority; these rules only explain mistakes before saving.
+// An unchanged format is not sent, so an ordinary free-text agent stays exactly as it is.
 
 import {
   ABSENT,
@@ -27,11 +14,9 @@ import {
 } from "./agentReplyFields";
 import { buildContract, replyFormatFromAgent } from "./agentReplyContract";
 
-/** Problems per field row (keyed by row key) and for the list as a whole, in the author's words. */
 export type ReplyFieldIssues = {
   rows: Record<string, string>;
   general: string | null;
-  /** The first row with a problem, in display order. */
   firstKey: string | null;
 };
 
@@ -68,20 +53,14 @@ export function replyFieldIssues(fields: ReplyField[]): ReplyFieldIssues {
   return { rows, general, firstKey };
 }
 
-/** The first problem with the structured fields, in the author's words; null when they are valid. */
 export function replyFieldsError(fields: ReplyField[]): string | null {
   const issues = replyFieldIssues(fields);
   if (!fields.length || fields.length > MAX_REPLY_FIELDS) return issues.general;
   return issues.firstKey ? issues.rows[issues.firstKey] : issues.general;
 }
 
-/** Prefix of a save refused by the output format, so the form can update or clear that message. */
 export const REPLY_FORMAT_ERROR_PREFIX = "Output format: ";
 
-/**
- * The form error after the output format changed. A save message about the output format
- * follows the fields (updated, or cleared once valid); any other message is left as it is.
- */
 export function formErrorAfterReplyFormatChange(
   current: string | null | undefined,
   next: ReplyFormatState,
@@ -101,10 +80,8 @@ export type ReplyFormatSave =
   | { ok: true; send: true; value: ReplyContract }
   | { ok: false; error: string };
 
-/** What a save sends: nothing when unchanged or unrecognised, {kind: "text"} or the checked format. */
 export function replyFormatForSave(state: ReplyFormatState): ReplyFormatSave {
-  // Only an explicit text or structured choice is ever sent; nothing (never null, never text) is sent
-  // for an unrecognised saved value or any other state, so the server decides (and refuses, 422).
+  // Nothing is sent for an unrecognised saved value, so the server decides (and refuses with 422).
   if (state?.mode === "text") {
     return state.baseline === ABSENT ||
       state.baseline === JSON.stringify({ kind: "text" })
@@ -121,10 +98,7 @@ export function replyFormatForSave(state: ReplyFormatState): ReplyFormatSave {
     : { ok: true, send: true, value };
 }
 
-/**
- * The form error for a refused save. While the saved format is unrecognised, the server refuses every
- * save of the agent (422); its message is kept verbatim and the way out is named.
- */
+/** While the saved format is unrecognised the server refuses every save (422), so the way out is named. */
 export function replyFormatSaveError(
   state: ReplyFormatState | undefined,
   message: string,
@@ -141,7 +115,6 @@ const EXAMPLE_VALUES: Record<ReplyPrimitive, unknown> = {
   boolean: true,
 };
 
-/** A short example of a reply that matches the fields (names as typed). */
 export function replyFormatPreview(fields: ReplyField[]): string {
   const example: Record<string, unknown> = {};
   for (const field of fields) {
@@ -153,7 +126,6 @@ export function replyFormatPreview(fields: ReplyField[]): string {
   return JSON.stringify(example, null, 2);
 }
 
-/** The agent detail line for the saved format. */
 export function replyFormatSummary(agent: object | null | undefined): {
   label: string;
   fields: { name: string; type: string; required: boolean }[];

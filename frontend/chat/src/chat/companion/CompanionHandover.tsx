@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { loadHandoverCandidates, requestHandover } from "./companionApi";
-import { handoverRequestedText, type HandoverCandidate } from "./companionHandoverModel";
+import { POOLED_TEXT, TO_POOL, handoverRequestedText, type HandoverCandidate } from "./companionHandoverModel";
 import type { JobDetail } from "./companionJobModel";
 
-// "Hand over…" inside a job's detail: choose who takes the run over and say why. The run keeps working until the
+// "Hand over…" inside a job's detail: choose who takes the run over (or the session pool) and say why. The run keeps working until the
 // receiver accepts; the receiver answers in their own companion. The server checks that the receiver is a member of
 // the run's Workspace and shows its refusal here in its own words.
 
@@ -32,7 +32,8 @@ export function CompanionHandover({ job, title, onClose, onRequested }: {
     setBusy(true);
     setProblem(null);
     const name = candidates?.find((candidate) => candidate.id === toUserId)?.name || "them";
-    requestHandover(job.runId, toUserId, reason).then(() => onRequested(handoverRequestedText(name)))
+    requestHandover(job.runId, toUserId, reason)
+      .then(() => onRequested(toUserId === TO_POOL ? POOLED_TEXT : handoverRequestedText(name)))
       .catch((error: { message?: string }) => setProblem(error?.message || "The handover could not be requested."))
       .finally(() => setBusy(false));
   };
@@ -46,10 +47,11 @@ export function CompanionHandover({ job, title, onClose, onRequested }: {
           onChange={(event) => setToUserId(event.target.value)}>
           <option value="">{candidates ? "Choose a person" : "Loading people…"}</option>
           {(candidates ?? []).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}</option>)}
+          {candidates ? <option value={TO_POOL}>The session pool (whoever can run it now)</option> : null}
         </select>
       </label>
       {candidates && !candidates.length ? (
-        <p className="octryx-panel__hint">No one else is a member of this Workspace.</p>
+        <p className="octryx-panel__hint">No one else is a member of this Workspace: the session pool waits for one.</p>
       ) : null}
       <label className="admin-panel__field">
         <span>Reason (required)</span>

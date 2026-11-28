@@ -16,7 +16,6 @@ def _tokenize(text: str) -> list[str]:
 
 
 async def execute_tool_search(params: dict, context: ToolContext) -> dict[str, Any]:
-    """Search discoverable (long-tail) tools and return compact metadata."""
     query = str(params.get("query", "")).strip()
     limit = max(1, min(int(params.get("limit", 10) or 10), 50))
     source_filter = str(params.get("source", "")).strip().lower() or None
@@ -92,7 +91,6 @@ async def execute_tool_search(params: dict, context: ToolContext) -> dict[str, A
 
 
 async def execute_tool_schema_get(params: dict, context: ToolContext) -> dict[str, Any]:
-    """Load the full callable schema for a single tool if policy allows."""
     tool_name = str(params.get("tool_name", "")).strip()
 
     if not tool_name:

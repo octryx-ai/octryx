@@ -40,11 +40,7 @@ async def require_candidate(db: AsyncSession, row: WorkflowHandoff, actor_id: st
 
 
 async def confirmed_envelopes(db: AsyncSession, parent: WorkflowRun, kinds: list[str]) -> dict:
-    """Only an exact latest confirmation of the shown envelope is admissible.
-
-    Cards without an explicit output version/hash cannot establish this contract.
-    A changed/stopped later decision invalidates the old confirmation even with unchanged output names.
-    """
+    # A later changed or stopped decision invalidates the old confirmation even with unchanged output names.
     decisions = list((await db.execute(select(WorkflowRunDecision).where(
         WorkflowRunDecision.run_id == parent.id, WorkflowRunDecision.kind == "confirmation")
         .order_by(WorkflowRunDecision.created_at.desc(), WorkflowRunDecision.id.desc())

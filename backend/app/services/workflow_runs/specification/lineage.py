@@ -1,7 +1,4 @@
-"""Server-owned specification lineage and current-principal Knowledge reauthorization.
-
-Call under the existing Run claim. These helpers never commit, impersonate, publish or grant access.
-"""
+"""Server-owned specification lineage and current-principal Knowledge reauthorization."""
 from __future__ import annotations
 
 import copy
@@ -36,7 +33,7 @@ PROVENANCE_EVENT = "specification_read_provenance"
 
 
 class SpecificationUnavailableError(Exception):
-    """Closed non-sensitive reason; never include source text, identifiers or upstream exception text."""
+    # Never include source text, identifiers or upstream exception text.
 
     def __init__(self, reason: str, *, code="needs_configuration") -> None:
         super().__init__(reason)
@@ -160,7 +157,6 @@ async def _calls(db, run, *, ids, session_id, request_id, node_id, entry):
 
 
 def _shown_keys(result: dict) -> list[str]:
-    """The keys of the passages the read result showed: its own, and its window's from the same revision."""
     own = str(result.get("evidence_key") or "")
     revision = own.rsplit(":", 1)[0]
     keys = result.get("passage_keys")
@@ -173,7 +169,6 @@ def _shown_keys(result: dict) -> list[str]:
 
 
 def take_output_provenance(db, run, kind, record, *, session_id=None, request_id=None):
-    """Pre-store proof consumption: missing or mismatched authority refuses before any envelope mutation."""
     if kind != "research_brief":
         return None
     proof = db.info.get("specification_validated_reads", {}).pop(run.id, None)
@@ -185,7 +180,6 @@ def take_output_provenance(db, run, kind, record, *, session_id=None, request_id
 
 
 async def record_output_provenance(db, run, kind, *, proof=None, **_kwargs):
-    """Deterministic post-store event from proof taken before storage; no I/O, checks or failure."""
     if kind == "research_brief":
         envelope = recorded_output(run, kind)
         record_event(db, run, PROVENANCE_EVENT, node_id=envelope["node_id"], detail={
@@ -273,11 +267,7 @@ async def _snapshots(db, run, actor, keys, calls, *, frozen=None):
 
 
 async def _budget_still_bound(db, run, recorded: dict) -> bool:
-    """The confirmed plan's budget, or a raise of it that a recorded budget-limit continue made after the confirm.
-
-    A budget only changes at run start or through that supported continue (``pause.continue_run``), which records
-    the new budget. Raising the budget does not change research already done, so it keeps the lineage; a lowered
-    or otherwise differing budget, or one without that recorded decision, does not."""
+    # Raising the budget keeps the lineage: research already done does not change.
     effective = effective_budget(run)
     if effective == recorded:
         return True
@@ -319,7 +309,7 @@ async def _brief(db, run, actor):
 
 async def canonicalize_output(db, run, kind, proposal, *, principal, session_id=None,
                               request_id=None, tool_history=None) -> dict:
-    """Enrich an already phase-authorized proposal; refusal never mutates the Run or existing output."""
+    # A refusal never mutates the run or its existing output.
     if kind == "research_brief":
         db.info.get("specification_validated_reads", {}).pop(run.id, None)
     record, errors = validate_proposal(kind, proposal)
@@ -354,7 +344,6 @@ async def canonicalize_output(db, run, kind, proposal, *, principal, session_id=
 
 
 async def resolve_spec_snapshot(db, run, *, principal, purpose="review", kind="spec") -> dict:
-    """Actual viewer/confirmer/read-only reviewer recheck. Review pass is checked separately by Root."""
     if kind not in KINDS or purpose not in {"review", "preview", "confirm"}:
         _hold("resolver_contract_invalid", invalid=True)
     actor = await _actor(db, run, principal)

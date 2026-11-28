@@ -16,7 +16,7 @@ import type {
   SelectedSession,
   SerializedThreadContext,
 } from "./chatThreadTypes";
-import type { ThreadUsageStats } from "./chatUsageTypes";
+import type { SessionPullRequest, ThreadUsageStats } from "./chatUsageTypes";
 import type { SelectedWorkspace } from "./chatWorkspaceTypes";
 
 export type ChatState = {
@@ -62,6 +62,7 @@ export type ChatState = {
   selectedThreadStats: ThreadUsageStats | null;
   selectedThreadContext?: SerializedThreadContext | null;
   selectedApprovals: ApprovalSummary[];
+  selectedSessionPullRequests?: SessionPullRequest[];
   selectedWorkspace?: SelectedWorkspace | null;
   newThread: boolean;
   settingsUrl: string;

@@ -90,7 +90,6 @@ def extract_slide_dimensions(extracted_root: Path) -> dict[str, Any]:
 
 
 def build_layout_to_example_slides(extracted_root: Path) -> dict[str, int]:
-    """Return {slideLayoutN_stem: best_slide_number}."""
     from collections import defaultdict
 
     slides_dir = extracted_root / "ppt" / "slides"
@@ -131,13 +130,6 @@ _COLUMN_TOLERANCE_CM = 0.06
 
 
 def column_pair_purposes(placeholders: list[dict[str, Any]]) -> None:
-    """Mark heading/body column pairs by geometry, in place.
-
-    A layout whose body placeholders stand in two or more columns of exactly two
-    each — a short one above a taller one — is a topic layout: the upper slot of
-    column N is "icon heading N", the lower one "icon body N". Placeholder
-    numbering plays no part; templates number these slots however they like.
-    """
     bodies = [item for item in placeholders if item.get("placeholder_type") in {"body", "obj"}]
     if len(bodies) < 4 or len(bodies) % 2 or any("x_cm" not in item for item in bodies):
         return
@@ -159,7 +151,6 @@ def column_pair_purposes(placeholders: list[dict[str, Any]]) -> None:
 def _layout_shapes(
     shapes: list[ET.Element],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[tuple[ET.Element, dict[str, float] | None]]]:
-    """Split a layout's shapes into placeholders, static shapes and the raw (shape, rect) pairs."""
     placeholders: list[dict[str, Any]] = []
     non_placeholder_shapes: list[dict[str, Any]] = []
     raw_shapes: list[tuple[ET.Element, dict[str, float] | None]] = []

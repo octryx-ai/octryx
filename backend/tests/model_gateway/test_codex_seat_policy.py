@@ -21,12 +21,10 @@ from tests.model_gateway.codex_seat_support import (  # noqa: F401
     chatgpt,
 )
 
-# --- policy ------------------------------------------------------------------------------------------------
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("classification", "policy", "reason"), [
-    ("confidential", None, "seat_classification_too_sensitive"),  # unset: open up to internal
+    ("confidential", None, "seat_classification_too_sensitive"),
     ("internal", {"seat_mode": "allowed", "codex_seat_mode": "forbidden"}, "codex_seat_mode_forbidden"),
     ("internal", {"codex_seat_mode": "allowed", "requires_governed_routing": True}, "seat_requires_governed_routing"),
     ("confidential", CODEX_POLICY, "seat_classification_too_sensitive"),
@@ -62,7 +60,7 @@ def test_codex_seat_mode_is_a_validated_policy_key():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("policy", "expected"), [
-    (None, ("allowed", True, None)),  # unset at internal: open
+    (None, ("allowed", True, None)),
     ({"codex_seat_mode": "forbidden"}, ("forbidden", False, "codex_seat_mode_forbidden")),
     (CODEX_POLICY, ("allowed", True, None)),
     ({**CODEX_POLICY, "engines": {"allowed": ["claude_code"]}}, ("allowed", False, "engine_not_allowed_in_workspace")),
@@ -79,7 +77,6 @@ async def test_the_client_policy_reports_the_codex_seat_like_registration_decide
 
 @pytest.mark.asyncio
 async def test_a_codex_model_may_be_a_seat_target_when_the_workspace_allows_the_codex_seat(db):
-    """A Codex run's reviewer on a Codex model is not refused device_model_not_allowed by a Claude-only seat list."""
     from app.services.devices.device_models import check_device_model
 
     allowed_ws, allowed_user, _ = await _member(db, policy=CODEX_POLICY)
@@ -95,8 +92,6 @@ async def test_a_codex_model_may_be_a_seat_target_when_the_workspace_allows_the_
 
 @pytest.mark.asyncio
 async def test_codex_seat_models_narrow_the_codex_seat(client, db, chatgpt):  # noqa: F811
-    """A Workspace may name the Codex models its Codex seat allows; another model is refused (403), never
-    swapped; device turns and run targets follow the same list."""
     from app.services.devices.device_models import check_device_model
 
     policy = {**CODEX_POLICY, "codex_seat_models": ["gpt-6.1-sol", MODEL]}
@@ -125,8 +120,6 @@ def test_codex_seat_models_are_validated_like_seat_models():
 
 @pytest.mark.asyncio
 async def test_a_codex_workspaces_seat_device_run_is_decided_by_the_codex_seat_switch(db, monkeypatch):
-    """A Codex start is not refused seat_mode_forbidden when the Workspace allows the Codex seat; the Claude seat's
-    switch does not decide."""
     import uuid
 
     from app.models import UserDevice

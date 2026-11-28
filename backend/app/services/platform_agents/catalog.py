@@ -25,12 +25,10 @@ def class_rank(value: object) -> int:
 
 
 def ceiling_covers(ceiling: object, capability_class: object) -> bool:
-    """True when an agent with ``ceiling`` may run a phase of ``capability_class``."""
     return class_rank(ceiling) >= class_rank(capability_class)
 
 
 def agent_mode_of(payload: object) -> str:
-    """The agent's own mode (``agentType``); a platform agent has none — the run, phase or chat sets the mode."""
     data = payload if isinstance(payload, dict) else {}
     if is_platform_agent_key(data.get("builtinKey")):
         return ""

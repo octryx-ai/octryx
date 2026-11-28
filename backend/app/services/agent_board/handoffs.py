@@ -1,16 +1,4 @@
-"""Structured, versioned Work Item handoffs.
-
-- **Sections** (all optional): strings ``goal``, ``acceptance``, ``rules``, ``state``, ``notes``; lists of strings
-  ``last_commits``, ``next_steps``, ``open_decisions``, ``pitfalls``, ``changed_files``, ``excluded_files``; objects
-  ``repo {url, branch, worktree, base_commit, wip_commit, bundle_id}`` (the work state that travels)
-  and ``commands {build, test, deploy, other[]}``. ``linked_sessions`` is filled by the server, never the client.
-  Each string is at most 4 KB, the whole document at most 32 KB (UTF-8 JSON).
-- **Refusals:** an unknown key or shape is 422 ``handoff_invalid`` naming the field; any secret (the gateway's
-  secret scan) is 422 ``secret_detected`` and URL userinfo (``user:pass@host``, the project config detector, per
-  word) is 422 ``url_userinfo_refused``. A refused value is never echoed.
-- **Writes** append version ``n+1``; a racing writer of the same version loses on ``uq_work_item_handoff_version``
-  and gets 409 ``handoff_version_conflict``. Who may write is the caller's rule (``mcp_work_handoff_tools``).
-"""
+"""Structured, versioned Work Item handoffs."""
 
 from __future__ import annotations
 
@@ -37,7 +25,7 @@ OBJECT_KEYS = {
     "commands": ("build", "test", "deploy", "other"),
 }
 LIST_FIELDS = {"commands": ("other",)}
-SERVER_KEYS = ("linked_sessions",)
+SERVER_KEYS = ("linked_sessions", "pull_requests", "plan")
 MAX_STRING_BYTES = 4 * 1024
 MAX_DOCUMENT_BYTES = 32 * 1024
 MAX_LIST_ITEMS = 100
@@ -79,7 +67,6 @@ def _strings(value: Any, field: str) -> list[str]:
 
 
 def validate_sections(value: Any) -> dict[str, Any]:
-    """The normalized document, or a coded 422. ``linked_sessions`` from a client is refused."""
     if not isinstance(value, dict):
         raise _refuse(CODE_INVALID, "sections")
     allowed = set(TEXT_KEYS) | set(LIST_KEYS) | set(OBJECT_KEYS)
@@ -119,7 +106,6 @@ async def latest_handoff(db: AsyncSession, work_item_id: str) -> WorkItemHandoff
 
 
 async def _linked_sessions(db: AsyncSession, item: WorkItem) -> list[str]:
-    """Shadow sessions of the agent sessions registered for this item (by key or id), newest first."""
     keys = [value for value in (item.source_key, item.id) if value]
     rows = (
         await db.execute(
@@ -137,11 +123,13 @@ async def write_handoff(
     db: AsyncSession, *, item: WorkItem, sections: dict[str, Any], author_kind: str, author_user_id: str,
     author_agent_hash: str | None,
 ) -> WorkItemHandoff:
-    """Append the next version. ``sections`` must come from :func:`validate_sections`. Flushes."""
     last = (
         await db.execute(select(func.max(WorkItemHandoff.version)).where(WorkItemHandoff.work_item_id == item.id))
     ).scalar_one()
-    document = {**sections, "linked_sessions": await _linked_sessions(db, item)}
+    from ..workflow_runs.pr_links import item_plan, item_pull_requests
+
+    document = {**sections, "linked_sessions": await _linked_sessions(db, item),
+                "pull_requests": await item_pull_requests(db, item.id), "plan": await item_plan(db, item.id)}
     handoff = WorkItemHandoff(
         id=str(uuid.uuid4()),
         project_id=item.project_id,
@@ -163,7 +151,6 @@ async def write_handoff(
 
 
 async def handoff_views(db: AsyncSession, rows: list[WorkItemHandoff]) -> list[dict[str, Any]]:
-    """``{id, work_item, version, author, created_at, sections}`` per handoff."""
     if not rows:
         return []
     item_ids = sorted({row.work_item_id for row in rows})
@@ -190,7 +177,6 @@ async def handoff_views(db: AsyncSession, rows: list[WorkItemHandoff]) -> list[d
 
 
 async def list_handoffs(db: AsyncSession, *, project_id: str, work_item_id: str | None) -> list[WorkItemHandoff]:
-    """Every version of one item (newest first), or the latest version of each item in the Workspace."""
     statement = select(WorkItemHandoff).where(WorkItemHandoff.project_id == project_id)
     if work_item_id:
         statement = statement.where(WorkItemHandoff.work_item_id == work_item_id)

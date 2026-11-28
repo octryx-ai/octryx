@@ -1,19 +1,5 @@
-"""A ``claude -p`` run turn that only waits for a wakeup has ended: the launcher ends its process.
-
-``claude -p`` keeps its process alive while a wakeup is pending (ScheduleWakeup as a "fallback check" while an agent
-runs, or to "retry once the sandbox lets Chromium launch"), although the turn's work is done at its Stop.
-
-A run turn's background work wakes the session by itself (each task's completion notice), so a wakeup never has to:
-once the session's Stop is the latest thing in its transcript, no background task this process started is still
-running, and the process has not exited on its own for :data:`GRACE_SECONDS`, the only thing left is the wakeup, and
-the job manager ends the process (``plain_driver``). Its deferred Stop is then judged as always.
-
-``claude -p`` stops a background agent 600 s after the main session's Stop and sends no completion notice for it, so
-the session would sleep on its wakeup until the job's limit. Such an agent, whose own transcript ends with Claude
-Code's interrupt
-marker, is over (:func:`stopped_agents`), and the turn reports it plainly. An agent the session resumed with
-SendMessage (``resumedAgentId``) runs again until its notice and counts as running.
-"""
+"""Ends a ``claude -p`` run turn's process when only a pending wakeup keeps it alive.
+``claude -p`` stops a background agent 600 s after Stop without a notice, so such an agent counts as over."""
 
 from __future__ import annotations
 
@@ -62,7 +48,6 @@ def _entries(transcript: Path, since: float) -> list[tuple[float, dict[str, Any]
 
 
 def _launched(entry: dict[str, Any]) -> str:
-    """The id of a background task a tool result started: an async Agent, a background Bash, a Monitor."""
     result = entry.get("toolUseResult")
     if not isinstance(result, dict):
         return ""
@@ -84,7 +69,6 @@ def _agent_transcript(transcript: Path, agent_id: str) -> Path:
 
 
 def _stopped(agent: Path) -> bool:
-    """The agent's own transcript ends with Claude Code's interrupt marker: nothing of it runs any more."""
     last = None
     try:
         with agent.open(encoding="utf-8", errors="replace") as handle:
@@ -104,8 +88,6 @@ def _stopped(agent: Path) -> bool:
 
 
 def _unfinished(transcript: Path, since: float) -> set[str]:
-    """Tasks whose latest event since ``since`` is their start or resume, not an end notice (in transcript order: a
-    stopped agent's notice, then SendMessage resuming it, leaves it running)."""
     running: dict[str, bool] = {}
     for _when_at, entry in _entries(transcript, since):
         if task := _launched(entry):
@@ -117,23 +99,19 @@ def _unfinished(transcript: Path, since: float) -> set[str]:
 
 
 def stopped_agents(transcript: Path, since: float) -> set[str]:
-    """Agents started (or resumed) at or after ``since``, without a completion notice, that Claude Code stopped."""
     return {task for task in _unfinished(transcript, since) if _stopped(_agent_transcript(transcript, task))}
 
 
 def open_tasks(transcript: Path, since: float) -> set[str]:
-    """Background tasks started at or after ``since`` whose completion notice has not arrived and that still run."""
     return {task for task in _unfinished(transcript, since) if not _stopped(_agent_transcript(transcript, task))}
 
 
 def resumed_after(transcript: Path, moment: float) -> bool:
-    """Whether the session did anything after ``moment``: a message, or a queued prompt or notice that wakes it."""
     return any(entry.get("type") in ("user", "assistant", "queue-operation")
                for _when_at, entry in _entries(transcript, moment + 0.001))
 
 
 def last_text(transcript: Path, since: float) -> str:
-    """The session's last answer text (the result ``claude -p`` would have printed)."""
     text = ""
     for _when_at, entry in _entries(transcript, since):
         if entry.get("type") != "assistant" or entry.get("isSidechain"):
@@ -145,7 +123,6 @@ def last_text(transcript: Path, since: float) -> str:
 
 
 def only_waiting(stop_file: Path, since: float, now: float) -> Path | None:
-    """The transcript when the process started at ``since`` has nothing left but a wakeup, else ``None``."""
     try:
         stopped = os.stat(stop_file).st_mtime
         stop = json.loads(stop_file.read_text(encoding="utf-8"))

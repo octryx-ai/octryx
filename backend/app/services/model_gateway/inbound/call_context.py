@@ -17,7 +17,6 @@ CLIENT_CONTEXT_HEADERS = {
 }
 _CONTEXT_VALUE = re.compile(r"^[A-Za-z0-9._:-]{1,100}$")
 
-# Renders a refusal in the client's API shape (Anthropic here, OpenAI on the ``/openai`` route).
 ErrorRenderer = Callable[[InboundRefusal], Response]
 
 
@@ -28,8 +27,6 @@ def render_refusal(item: InboundRefusal | GatewayRefusal, render: ErrorRenderer 
 
 
 def client_context(headers: Mapping[str, str], names: Mapping[str, str] = CLIENT_CONTEXT_HEADERS) -> dict[str, str]:
-    """The client's own correlation headers (``names``: header -> context key), kept only when well-formed."""
-
     return {
         key: value
         for header, key in names.items()

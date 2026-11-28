@@ -1,10 +1,4 @@
-"""``graph_neighbors``, ``config_vs_manual`` and ``ops_chain``: the deterministic structured graph.
-
-Read-only and bounded (``services/knowledge/structured``). The Workspace is the session's; no tool
-argument names one. Every fact carries its resolved citations (manual page and section, file line,
-ticket record); results are data (``content_is_data``), never instructions, and a ``state`` says
-when nothing was found or the graph was never built, so an empty answer is not mistaken for "no".
-"""
+"""``graph_neighbors``, ``config_vs_manual`` and ``ops_chain``: the deterministic structured graph."""
 
 from __future__ import annotations
 
@@ -26,7 +20,6 @@ _CITATION_KEYS = ("cite_as", "page", "section", "line")
 
 
 def _compact(value: Any) -> Any:
-    """Citations as the model needs them: the cite_as link plus page, section or line; nothing else."""
     if isinstance(value, dict):
         if "cite_as" in value and "evidence_key" in value:
             return {key: value[key] for key in _CITATION_KEYS if value.get(key) is not None}
@@ -37,7 +30,6 @@ def _compact(value: Any) -> Any:
 
 
 def _fit(result: dict[str, Any], lists: tuple[str, ...]) -> dict[str, Any]:
-    """Drop items from the end of the longest list until the result fits; never cut an item."""
     trimmed = dict(result)
     cut: dict[str, int] = {}
     while len(json.dumps(trimmed, ensure_ascii=False, default=str)) > RESULT_BUDGET_BYTES:

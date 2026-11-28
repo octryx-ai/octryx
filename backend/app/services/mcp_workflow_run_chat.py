@@ -1,9 +1,4 @@
-"""A platform chat's side of the MCP workflow run tools.
-
-A chat follows the run it started or continues (requester only), and a chat that
-follows no run gets a plain answer with the Workspace's recent runs instead of a
-refusal-shaped status.
-"""
+"""A platform chat's side of the MCP workflow run tools."""
 
 from __future__ import annotations
 
@@ -19,10 +14,7 @@ from .workflow_runs.records import active_run_for_session
 
 async def _chat_follow(db: AsyncSession, *, chat: Session, user: User, workspace_id: str, run_id: str,
                        reference: str) -> dict[str, Any]:
-    """The chat continues an active run (by id or its Work item) in this chat: the run card's "continue in chat".
-
-    Requester only, like ``POST /workflow-runs/{id}/sessions``. A new run is started with the chat's own
-    ``start_workflow``, which asks the person first."""
+    # Requester only, like ``POST /workflow-runs/{id}/sessions``.
     from .workflow_runs.access import run_access
     from .workflow_runs.records import bind_session
 
@@ -49,7 +41,6 @@ _SCAN_RECENT_RUNS = 50
 
 
 async def _recent_runs(db: AsyncSession, *, user: User, workspace_id: str) -> list[dict[str, Any]]:
-    """The newest workflow runs of the Workspace that ``user`` may see (newest first)."""
     from sqlalchemy import select
 
     from .workflow_runs.access import run_access
@@ -69,13 +60,7 @@ async def _recent_runs(db: AsyncSession, *, user: User, workspace_id: str) -> li
 
 
 async def _chat_without_run(db: AsyncSession, *, user: User, workspace_id: str) -> dict[str, Any]:
-    """A chat that follows no run: say so plainly and name the Workspace's recent runs.
-
-    A refusal-shaped status (``needs_configuration`` / ``octryx_session_required`` / ``not_found``) reads like a
-    failure, and a model then tells the person to reconfigure their connection instead of "no run in this chat".
-    So the answer is a successful lookup: no run in this chat, the recent runs to pick from (``workflow_run_status``
-    with ``run_id`` reads one), and how to start one.
-    """
+    # A successful lookup, not a refusal status: a model would read a refusal as a broken connection.
     recent = await _recent_runs(db, user=user, workspace_id=workspace_id)
     message = "No workflow run is running in this chat: none was started or continued here."
     message += (" The Workspace's most recent runs are listed in recent_runs; workflow_run_status with a run_id "

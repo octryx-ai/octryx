@@ -1,9 +1,4 @@
-"""A launcher's preparation report, as the gateway receives it (``POST sessions/workspace-preparation``).
-
-The session must follow an active run (bound at registration or by ``workflow_select``); the report is bounded and
-only its known fields are read. The run decides (``preparation.record_report``); the answer carries the readiness
-state and the refreshed run contract, which the launcher remembers before the agent starts.
-"""
+"""A launcher's preparation report, as the gateway receives it (``POST sessions/workspace-preparation``)."""
 
 from __future__ import annotations
 
@@ -17,8 +12,7 @@ from ....models import Session
 from ..records import active_run_for_session, lock_run
 
 logger = logging.getLogger(__name__)
-# a first preparation report answered after the launcher's 20 s timeout and nobody could tell which
-# step took the time (the API keeps no access log). A slow report logs its steps.
+# A slow report logs its steps: the API keeps no access log that tells which step took the time.
 SLOW_REPORT_SECONDS = 5.0
 
 REASON_NO_RUN = "workflow_run_not_bound"
@@ -31,7 +25,6 @@ def _text(value: Any, limit: int = MAX_TEXT) -> str:
 
 
 def _clean(payload: dict[str, Any]) -> dict[str, Any]:
-    """Only the report's known fields, bounded."""
     branch = payload.get("branch") if isinstance(payload.get("branch"), dict) else {}
     environment = payload.get("environment") if isinstance(payload.get("environment"), dict) else {}
     return {
@@ -67,8 +60,6 @@ def _reset_report(raw: Any) -> dict[str, Any]:
 
 
 def _file_report(raw: Any) -> dict[str, Any]:
-    """The repository environment file's account (state and its declared commands), bounded; the server validates
-    the commands before any phase may run them (``preparation.file_commands``)."""
     if not isinstance(raw, dict):
         return {}
     commands = raw.get("commands") if isinstance(raw.get("commands"), dict) else {}
@@ -79,7 +70,6 @@ def _file_report(raw: Any) -> dict[str, Any]:
 
 
 async def report_preparation(db: AsyncSession, *, session: Session, payload: dict[str, Any]) -> dict[str, Any] | None:
-    """The answer to a preparation report, or ``None`` when the session follows no active run."""
     from ..octryx.contract import run_contract, session_principal
     from ..teamwork.item_sessions import record_item_preparation
     from .preparation import record_report

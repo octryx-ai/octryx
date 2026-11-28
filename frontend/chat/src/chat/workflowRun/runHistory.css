@@ -13,7 +13,7 @@
 .run-history__title {
   margin: 0;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 .run-history__list {

@@ -1,10 +1,4 @@
-"""Licence of an imported skill: SPDX id and the licence text that must travel with the copy.
-
-Order: the skill's frontmatter ``license``, else the plugin's ``plugin.json`` / marketplace entry ``license``,
-else the repository ``LICENSE`` file. A LICENSE file is identified by the canonical title lines the licence
-texts themselves carry (exact phrases, first 40 lines) — deterministic, no scoring. An unidentified text stays
-``None`` and publishing is refused until an admin sets the SPDX id (``skill_licence_not_allowed``).
-"""
+"""Licence of an imported skill: SPDX id and the licence text that must travel with the copy."""
 
 from __future__ import annotations
 
@@ -59,7 +53,6 @@ def spdx_value(value: object) -> str | None:
 
 def detect_licence(*, frontmatter_licence: object, plugin_licence: object,
                    repository_files: dict[str, str]) -> LicenceInfo:
-    """``repository_files``: candidate LICENSE texts by path, nearest first (skill folder, plugin, repository)."""
     declared = spdx_value(frontmatter_licence)
     text_path = next(iter(repository_files), None)
     if declared:

@@ -29,7 +29,6 @@ _CatalogEntry = tuple[AgentDefinition, str, str, bool, int]
 
 
 async def _load_project_config(db: AsyncSession, project_id: str | None) -> dict[str, Any]:
-    """The project's config dict; no query without a project id."""
     project = (
         (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none() if project_id else None
     )
@@ -53,7 +52,6 @@ def _agent_rank(agent: AgentDefinition) -> tuple[int, float]:
 async def _load_deduped_chat_agents(
     db: AsyncSession, *, user: User, project_id: str | None
 ) -> list[AgentDefinition]:
-    """The visible chat-selectable agents, one per (name, type, project), the richest and newest winning."""
     agent_query = (
         select(AgentDefinition)
         .options(selectinload(AgentDefinition.steps), selectinload(AgentDefinition.group))

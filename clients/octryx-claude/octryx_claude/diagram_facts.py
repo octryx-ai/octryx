@@ -1,15 +1,4 @@
-"""The app's draw.io diagrams at the end of a changing phase: the launcher exports each diagram's PNG
-with the draw.io CLI outside Claude Code's sandbox, before the phase's change is taken, so the PNG is part of the
-reviewed and pushed change; then it reports what the platform judges (``code_style.diagrams``):
-
-- every ``*.drawio`` in the style's ``folder`` (``docs/diagrams``) of any app folder: valid draw.io XML or why not;
-- its PNG in ``images`` (``docs/images/<name>.png``): ``exported`` now, ``current`` (newer than the diagram),
-  ``stale`` (older, and no CLI to export), ``missing_tool`` (no PNG and no CLI) or ``export_failed``;
-- whether the app's README or a docs page references the PNG;
-- the box labels that are no name in the app's code (module, class, file or screen names).
-
-A missing CLI never stops anything: the ``.drawio`` is committed without its PNG and the platform warns.
-"""
+"""The app's draw.io diagrams at the end of a changing phase: PNG export and the facts the platform judges."""
 
 from __future__ import annotations
 
@@ -44,7 +33,6 @@ def _squash(text: str) -> str:
 
 
 def _models(root: ElementTree.Element) -> list[ElementTree.Element]:
-    """The ``mxGraphModel`` of every page, also of a compressed page (base64, raw deflate, URL-encoded)."""
     models = [root] if root.tag == "mxGraphModel" else list(root.iter("mxGraphModel"))
     for diagram in root.iter("diagram"):
         text = (diagram.text or "").strip()
@@ -55,7 +43,6 @@ def _models(root: ElementTree.Element) -> list[ElementTree.Element]:
 
 
 def labels(path: Path) -> list[str]:
-    """The diagram's box labels (first line, tags removed); raises ``ValueError`` when it is no draw.io XML."""
     try:
         root = ElementTree.parse(path).getroot()
         models = _models(root)
@@ -121,10 +108,7 @@ def _export_once(cli: str, source: Path, target: Path) -> str:
 
 
 def _export(cli: str, source: Path, target: Path) -> str:
-    """Export the PNG; one more attempt when the CLI ends without it.
-
-    The draw.io CLI is an Electron app: on a busy machine it now and then ended without writing the PNG, and the next
-    run of the same export succeeded. A second failure is reported with its own words (``export_failed``)."""
+    # The draw.io CLI (Electron) sometimes ends without writing the PNG on a busy machine; a rerun succeeds.
     target.parent.mkdir(parents=True, exist_ok=True)
     problem = ""
     for _attempt in range(EXPORT_ATTEMPTS):
@@ -135,7 +119,6 @@ def _export(cli: str, source: Path, target: Path) -> str:
 
 
 def diagram_facts(root: Path, diagrams: dict[str, Any] | None) -> dict[str, Any] | None:
-    """What the platform judges, after exporting every PNG that is missing or older than its diagram."""
     config = dict(diagrams or {})
     if not config or config.get("enabled") is False:
         return None

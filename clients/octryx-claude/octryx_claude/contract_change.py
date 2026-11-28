@@ -1,6 +1,5 @@
-"""The working copy's change against the run's base commit (``run_contract.facts`` at Stop): a binary patch with
-untracked files (a temporary index), or ``base_unavailable`` with the failed git step. git runs without anything the
-working copy configures (no hooks, fsmonitor, external diff or textconv)."""
+"""The working copy's change against the run's base commit as a binary patch, or the failed git step.
+git runs without anything the working copy configures (no hooks, fsmonitor, external diff or textconv)."""
 
 from __future__ import annotations
 
@@ -49,7 +48,6 @@ def _git(root: Path, *args: str, env: dict[str, str] | None = None,
 
 def _git_bytes(root: Path, *args: str, env: dict[str, str] | None = None,
                timeout: float = CHANGE_GIT_TIMEOUT) -> bytes | None:
-    """git's output as bytes (a patch carries file contents, which need not be UTF-8); ``None`` when git failed."""
     try:
         done = subprocess.run([*SAFE_GIT, *args], cwd=root, capture_output=True, timeout=timeout, check=False,
                               env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1", **(env or {})})
@@ -62,7 +60,6 @@ _DIFF = ("diff", "--cached", "--binary", "--no-color", "--no-ext-diff", "--no-te
 
 
 def _not_utf8(root: Path, base: str, env: dict[str, str]) -> list[bytes]:
-    """The changed paths whose content (at ``base`` or in the index) is not UTF-8."""
     names = _git_bytes(root, "diff", "--cached", "--name-only", "-z", "--no-renames", base, env=env) or b""
     found = []
     for name in [item for item in names.split(b"\0") if item]:
@@ -81,7 +78,6 @@ _GLOB = frozenset(b"*?[\\")
 
 
 def _attribute_line(name: bytes) -> bytes:
-    """``"/<path>" -diff`` for git's attributes: the path anchored, its glob characters escaped, C-quoted."""
     pattern = b"/" + b"".join(b"\\" + bytes([c]) if c in _GLOB else bytes([c]) for c in name)
     quoted = b"".join(b"\\" + bytes([c]) if c in b'"\\' else b"\\%03o" % c if c < 32 or c == 127 else bytes([c])
                       for c in pattern)
@@ -89,9 +85,7 @@ def _attribute_line(name: bytes) -> bytes:
 
 
 def _patch(root: Path, base: str, env: dict[str, str]) -> str | None:
-    """The binary patch as text. A text file that is not UTF-8 (Latin-1, no NUL byte, so git diffs it as text) goes
-    as a binary hunk instead: its bytes stay exact and the patch stays text, and decoding it never raises
-    ``UnicodeDecodeError`` (which would end the work-git job without a report)."""
+    # Non-UTF-8 text goes as a binary hunk: bytes stay exact and decoding the patch never raises.
     raw = _git_bytes(root, *_DIFF, base, env=env)
     if raw is None:
         return None
@@ -115,7 +109,6 @@ MAX_REASON = 300
 
 
 def _failed(step: str, done: subprocess.CompletedProcess | None) -> str:
-    """``<step>: <git's last words>`` (timed out or not started when there is no result)."""
     if done is None:
         return f"{step}: timed out or could not start git"
     words = " ".join(str(done.stderr or "").split()[-40:])
@@ -139,12 +132,7 @@ def _change_once(root: Path, base: str) -> dict[str, Any]:
 
 
 def change(root: Path, base: str) -> dict[str, Any]:
-    """The working copy against ``base`` as a binary patch, untracked files included; or why there is none
-    (``base_unavailable`` with ``reason``: the git step and its last words).
-
-    A git step can fail transiently (a file written while ``add -A`` reads it); without a change the hands-on step
-    takes the change as unreadable and the review has no diff (``review_no_decision``). So a failed step is tried once
-    more after a second, and the report says which step failed and why."""
+    # A git step can fail transiently (a file written while add -A reads it), so it is tried once more.
     if not _SHA.match(base or ""):
         return {"base": base, "base_unavailable": True, "reason": "no base commit in the run contract"}
     result: dict[str, Any] = {}

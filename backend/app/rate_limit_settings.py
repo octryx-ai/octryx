@@ -1,17 +1,4 @@
-"""Rate-limit settings (key bound, per-user limits), a base of :class:`app.config.Settings`.
-
-Every limit is per minute and can be overridden from the environment:
-
-- ``OCTRYX_RATE_LIMIT_USER_READ_PER_MIN`` (default 3000): ``GET``/``HEAD``/``OPTIONS`` of one
-  authenticated user, a runaway-loop guard that a person clicking around never reaches;
-- ``OCTRYX_RATE_LIMIT_USER_WRITE_PER_MIN`` (default 600): writes of one authenticated user;
-- ``OCTRYX_RATE_LIMIT_IP_GENERAL_PER_MIN`` (default 120) and ``..._IP_WRITE_PER_MIN`` (default 30):
-  unauthenticated requests per client address;
-- ``OCTRYX_RATE_LIMIT_AUTH_PER_MIN`` (default 20): ``/api/v1/auth/*`` per client address;
-- ``OCTRYX_RATE_LIMIT_LOGIN_FAILURES_PER_USERNAME`` (default 10): failed logins per username.
-
-``OCTRYX_DISABLE_API_RATE_LIMIT=1`` still disables the API limiter (tests, local tooling).
-"""
+"""Rate-limit settings (key bound, per-user limits), a base of :class:`app.config.Settings`."""
 
 from __future__ import annotations
 
@@ -26,11 +13,7 @@ def _limit(name: str, default: int):
 
 
 class RateLimitSettings(BaseSettings):
-    # Hard bound on the number of client keys each in-memory rate limiter
-    # retains. It applies per limiter store (API addresses, API users and auth), so one
-    # process retains at most three times this many keys, and a deployment with several
-    # replicas multiplies that by the replica count. Invalid values fail startup — see
-    # rate_limit_state_policy.
+    # Bound per limiter store (three per process, times replicas); invalid values fail startup.
     max_rate_limit_keys: int = Field(
         default=DEFAULT_MAX_RATE_LIMIT_KEYS,
         validation_alias=AliasChoices("max_rate_limit_keys", "OCTRYX_MAX_RATE_LIMIT_KEYS"),

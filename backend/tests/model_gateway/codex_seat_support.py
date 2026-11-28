@@ -8,8 +8,6 @@ from typing import Any
 import httpx
 import pytest_asyncio
 
-from app.models import SystemConfig
-from app.services.agent_gateway.seat_traffic import SEAT_TRAFFIC_GATEWAY, SEAT_TRAFFIC_KEY
 from app.services.model_gateway.inbound import codex_seat_upstream
 from tests.agent_gateway.seat_presence_support import REGISTER, _gateway_headers, _workspace
 from tests.knowledge_evidence_seed_support import seed_member
@@ -73,14 +71,10 @@ class FakeChatGPT:
 
 
 @pytest_asyncio.fixture
-async def chatgpt(monkeypatch, db) -> FakeChatGPT:
-    """ChatGPT's backend, and the platform's ``seat_traffic`` on ``gateway``: these tests prove the relay route
-    unchanged (the device's way, the default, is ``test_codex_seat_device``)."""
+async def chatgpt(monkeypatch) -> FakeChatGPT:
     fake = FakeChatGPT()
     monkeypatch.setattr(codex_seat_upstream, "codex_seat_transport", lambda: httpx.MockTransport(fake.handle))
     monkeypatch.delenv(codex_seat_upstream.CODEX_SEAT_UPSTREAM_ENV, raising=False)
-    db.add(SystemConfig(key=SEAT_TRAFFIC_KEY, value=SEAT_TRAFFIC_GATEWAY))
-    await db.commit()
     return fake
 
 

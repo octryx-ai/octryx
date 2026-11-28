@@ -1,19 +1,4 @@
-"""The check library: a workflow's done criteria.
-
-A workflow version declares its checks in ``workflow_contract.checks``::
-
-    {"type": "tool_called", "params": {"tools": ["knowledge_search"]}, "blocking": true,
-     "description": "At least one search before answering"}
-
-Every check is a closed type, evaluated deterministically over what one turn produced
-(:class:`TurnEvidence`): the successful tool calls, the artifacts, the answer and, for
-octryx-claude, the verification gate state (only :data:`EXTERNAL_CHECK_TYPES` over MCP tools run
-there). A ``judge`` check (rubric) is advisory and
-recorded as ``skipped``: no runtime runs a model judge yet, the rubric documents the intent.
-
-Outcomes: ``passed``, ``failed``, ``not_applicable`` (nothing to judge, e.g. citations without
-any source) and ``skipped``. A failed ``blocking`` check holds the turn.
-"""
+"""The check library: a workflow's done criteria."""
 
 from __future__ import annotations
 
@@ -52,8 +37,6 @@ CHECK_TYPES = (
     # The Work item's Definition of Ready is complete (``workflow_runs.definition_of_ready``).
     "definition_of_ready",
     "specification_ready",
-    # The repository's declared lint command passed on the run's change (``workflow_runs/workspace/declared_lint``).
-    "lint_passed",
     # The CI failure of the pushed commit is fixed on fresh evidence (``workflow_runs/ci_return``).
     "ci_findings_addressed",
     # Every required evidence family answered for the run's alert target and window (``evidence_families``).
@@ -112,8 +95,6 @@ class TurnEvidence:
     specification: dict[str, Any] = field(default_factory=dict)
     # A test command whose runner could not start (``test_command_outcome``): the run's environment, not the agent.
     environment_failure: dict[str, Any] | None = None
-    # The declared lint command's run on the run's copy (``declared_lint``; ``None``: none declared or ran).
-    lint: dict[str, Any] | None = None
     # A pending CI failure's verdict on this turn's fresh evidence (``ci_return``; ``None``: none pending).
     ci_fix: dict[str, Any] | None = None
     # The phase's evidence family records (``evidence_families.EvidenceRecord`` dicts; empty: classify ``tools``)
@@ -165,7 +146,6 @@ def _int(value: Any, default: int) -> int:
 
 
 def validate_checks(raw: Any) -> list[dict[str, str]]:
-    """Closed validation for a workflow version's ``checks``; ``[]`` when valid or absent."""
     if raw is None:
         return []
     if not isinstance(raw, list) or len(raw) > MAX_CHECKS:
@@ -243,7 +223,6 @@ def _review(evidence: TurnEvidence) -> tuple[str, str]:
 
 
 def _tdd_unresolved(kind: str, params: Mapping[str, Any], evidence: TurnEvidence) -> str:
-    """Why the platform cannot judge this TDD check on the newest test run (empty: it can)."""
     from .test_results import evidence_unresolved
 
     if kind == "ci_green" or not evidence.test_runs:
@@ -261,10 +240,6 @@ def _plain(text: str) -> str:
 
 
 def shows_symptom(symptom: str, message: str) -> bool:
-    """Whether a failure message shows the submitted symptom: one contains the other (punctuation and spacing
-    aside), or every quoted value of the symptom is in the message. A symptom written
-    as prose ("... Assertion: expected '15.0', actual '1.0'.") and a Dart message reading "Expected: '15.0' Actual:
-    '1.0' ..." never pass a whole-text match."""
     plain_symptom, plain_message = _plain(symptom), _plain(message)
     if plain_symptom and (plain_symptom in plain_message or (plain_message and plain_message in plain_symptom)):
         return True
@@ -273,10 +248,6 @@ def shows_symptom(symptom: str, message: str) -> bool:
 
 
 def judged_run(runs: list[Any]) -> Any:
-    """The run the confirmed-test checks judge: the last one, except a pipeline run that names no test at all (a
-    declared system test script). When a pipeline runs `flutter test` (the
-    whole suite, passed) and then `python3 system_test/run_system_test.py`, judging the system test run would find
-    the confirmed Dart tests "missing from the last test run" and pause the run at the review loop's limit."""
     for run in reversed(runs):
         if not (isinstance(run, Mapping) and run.get("source") == "pipeline" and not run.get("results")
                 and not run.get("suite_passed") and not run.get("unresolved")):
@@ -290,11 +261,6 @@ _RED_ON_BASE = ("failed", "error")
 
 def _proven_on_base(roles: dict[str, str], confirmed: list[str], params: Mapping[str, Any],
                     evidence: TurnEvidence) -> tuple[dict[str, str], str]:
-    """``reproduces`` with ``existing_tests: "red_on_base"`` (an agent may correct
-    the existing test that asserted the bug; without this the gate says "only a new test can be red"): a changed
-    existing confirmed test counts as the reproduction when the newest base run (``context.red_on_base``) saw it
-    fail on the base commit. The proof decides, not the file status. ``(roles, why it is refused)``; the default
-    (``new_only``) leaves the roles as they are."""
     if params.get("existing_tests") != EXISTING_TESTS_RED_ON_BASE:
         return roles, ""
     proof = dict(evidence.red_on_base or {})
@@ -363,7 +329,6 @@ def _tdd(kind: str, params: Mapping[str, Any], evidence: TurnEvidence) -> tuple[
 
 
 def read_only_tool_check(check: Mapping[str, Any]) -> bool:
-    """A ``tool_called`` check that asks only for the platform's read tools ("the code was read")."""
     params = check.get("params") if isinstance(check.get("params"), Mapping) else {}
     tools = _names(params.get("tools"))
     return check.get("type") == "tool_called" and bool(tools) and all(name in READ_TOOLS for name in tools)
@@ -430,8 +395,6 @@ def _evaluate(kind: str, params: Mapping[str, Any], evidence: TurnEvidence) -> t
                 (FAILED, state.get("reason") or "No current authorized specification evidence."))
     if kind in TDD_CHECK_TYPES:
         return _tdd(kind, params, evidence)
-    if kind == "lint_passed":
-        return _lint(evidence.lint)
     if kind == "ci_findings_addressed":
         if not evidence.ci_fix:
             return NOT_APPLICABLE, "no CI failure of the pushed commit is pending"
@@ -446,7 +409,6 @@ def _evaluate(kind: str, params: Mapping[str, Any], evidence: TurnEvidence) -> t
 
 
 def _families(params: Mapping[str, Any], evidence: TurnEvidence) -> tuple[str, str, bool]:
-    """``evidence_families``: the required families (named, and the alert target's with ``from_target``)."""
     from .evidence_families import evaluate_families, records_of, required_families_of
 
     required = _names(params.get("required"))
@@ -470,16 +432,7 @@ def _families(params: Mapping[str, Any], evidence: TurnEvidence) -> tuple[str, s
     return outcome, detail, unresolved
 
 
-def _lint(lint: dict[str, Any] | None) -> tuple[str, str]:
-    if not lint:
-        return NOT_APPLICABLE, "no declared lint command for the run's copy on this server"
-    if lint.get("state") == PASSED:
-        return PASSED, str(lint.get("note") or "")
-    return FAILED, str(lint.get("reason") or "the declared lint command failed")
-
-
 def externally_checkable(check: Mapping[str, Any], mcp_tools: frozenset[str]) -> bool:
-    """Whether octryx-claude's Stop gate can evaluate ``check``: a closed type over tools it reaches."""
     kind = str(check.get("type") or "")
     if kind not in EXTERNAL_CHECK_TYPES:
         return False
@@ -515,12 +468,10 @@ def failed_blocking(results: Sequence[CheckResult]) -> list[CheckResult]:
 
 
 def unresolved_blocking(results: Sequence[CheckResult]) -> list[CheckResult]:
-    """The failed blocking checks the platform could not judge (the run pauses; no loop, no continuation)."""
     return [result for result in failed_blocking(results) if result.unresolved]
 
 
 def describe_failed(results: Sequence[CheckResult]) -> str:
-    """One line per failed check for a reminder or gate detail: description (or type) and why."""
     return "; ".join(
         f"{result.description or result.type}" + (f" ({result.detail})" if result.detail else "") for result in results
     )

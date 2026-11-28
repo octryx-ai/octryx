@@ -5,38 +5,11 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.engine import (
-    _format_recent_bitbucket_commits_report,
-)
 from app.models import ChannelConfig, Project, Session, Task, TaskRun, ToolCall, User
 from app.scheduler.output.channel_output import deliver_task_output_channel
 from app.web import _context as web_context
 from app.web._helpers.tool_call_serialization import _serialize_tool_call
 from tests.conftest import ADMIN_PASSWORD
-
-
-def test_recent_bitbucket_commit_report_renders_markdown_table():
-    content = _format_recent_bitbucket_commits_report(
-        {
-            "days": 5,
-            "commits": [
-                {
-                    "project_key": "SHOP",
-                    "repo_slug": "acme-orders-config",
-                    "repository_label": "SHOP/acme-orders-config",
-                    "display_id": "0b07e35bf23",
-                    "author_name": "Alice Example",
-                    "author_timestamp": 1_710_000_000_000,
-                    "message": "Merge branch feature/ACME-390 into main",
-                }
-            ],
-        }
-    )
-
-    assert "Here is the table of all commits from the last 5 days" in content
-    assert "| Repository | Date | Commit | Author | Message |" in content
-    assert "SHOP/acme-orders-config" in content
-    assert "0b07e35bf23" in content
 
 
 def test_serialize_tool_call_infers_artifact_from_stdout(tmp_path, monkeypatch):

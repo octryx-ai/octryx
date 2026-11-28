@@ -1,27 +1,4 @@
-"""Graphiti's model calls, through the Model Control Plane.
-
-Graphiti extracts entities and facts with an LLM. It never gets a provider client of its own:
-this client dispatches through the platform's provider layer over the runtimes
-``graph_model_selection`` chose and admitted for the one Workspace the episode belongs to
-(``extract``-tagged runtimes, else the Workspace's model policy, else ``needs_configuration``).
-
-The temperature follows the engine's sampling rule (``agent/providers/sampling_capabilities``):
-0 (or the client's configured value) unless the model rejects an explicit temperature (Claude 5
-family, or the runtime target's ``accepts_temperature`` override), then none; the model catalog's
-``temperature`` wins over the client's value. Graphiti's own
-``LLMConfig`` default is never forwarded.
-
-Graphiti appends the JSON schema of the expected answer to the prompt; the answer is parsed here
-(code fences and prose around the object are dropped) and validated against Graphiti's model. An
-unparseable answer raises ``JSONDecodeError``, which Graphiti retries a bounded number of times.
-
-A client built with ``check_change_edges`` (a change-record episode) asks Graphiti's fact extraction
-for the self-checked answer of ``change_self_check`` and hands back the guarded one; every other
-prompt is untouched.
-
-Token usage of every call, and the facts the guard stripped of a change type, are accumulated on
-the client, so the extraction run can report them. No prompt, answer or provider message is logged.
-"""
+"""Graphiti's model calls, through the Model Control Plane. Graphiti never gets a provider client of its own."""
 
 from __future__ import annotations
 
@@ -66,7 +43,6 @@ _DECODER = json.JSONDecoder()
 
 
 def _json_object(text: str) -> dict[str, Any]:
-    """The first complete JSON object in the answer; prose or a second object around it is ignored."""
     position = text.find("{")
     while position >= 0:
         try:
@@ -81,8 +57,6 @@ def _json_object(text: str) -> dict[str, Any]:
 
 
 class GovernedGraphitiLLM(LLMClient):
-    """Graphiti ``LLMClient`` over admitted control-plane runtimes."""
-
     def __init__(
         self,
         runtimes: list[dict[str, Any]],
@@ -172,7 +146,6 @@ class GovernedGraphitiLLM(LLMClient):
         raise GraphModelUnavailableError("unavailable", "all_runtimes_failed")
 
     def _parsed(self, content: str, response_model) -> dict[str, Any]:
-        """The answer as a JSON object that fits ``response_model``; a decode error otherwise."""
         try:
             answer = _json_object(content)
         except json.JSONDecodeError:
@@ -206,7 +179,6 @@ async def governed_graph_llm(
     check_change_edges: bool = False,
     change_types: frozenset[str] | None = None,
 ) -> GovernedGraphitiLLM:
-    """The graph extraction client over the runtimes chosen for this Workspace, or a fixed refusal."""
     runtimes = await select_graph_runtimes(db, project_id=project_id)
     return GovernedGraphitiLLM(runtimes, scope=workspace_call(project_id), check_change_edges=check_change_edges,
                                change_types=change_types)

@@ -1,7 +1,4 @@
-"""PowerPoint builders: slides (by layout or as a clone), shapes, connectors, tables, charts, pictures.
-
-Shared by ``add_office_element`` and the generated presentation scripts.
-"""
+"""PowerPoint builders: slides (by layout or as a clone), shapes, connectors, tables, charts, pictures."""
 
 from __future__ import annotations
 
@@ -85,7 +82,6 @@ def _copy_chart_part(part: Any, package: Any) -> Any:
 
 
 def clone_slide(presentation: Any, source: Any, *, index: int | None = None) -> Any:
-    """Append a copy of ``source`` (same layout, shapes, pictures, charts, background)."""
     slide = presentation.slides.add_slide(source.slide_layout)
     tree = slide.shapes._spTree
     for shape in list(slide.shapes):
@@ -209,7 +205,6 @@ def add_picture(slide: Any, props: dict[str, Any]) -> Any:
 
 def add(presentation: Any, parent: Node, element_type: str, props: dict[str, Any], *,
         from_slide: Any = None, index: int | None = None) -> str:
-    """Add an element; returns the new element's path."""
     kind = element_type.strip().lower()
     if kind not in ADDABLE:
         raise OfficeEngineError(UNSUPPORTED_ELEMENT, f"PowerPoint supports: {', '.join(ADDABLE)}")

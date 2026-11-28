@@ -1,15 +1,4 @@
-"""Schemas of the governed Knowledge tools, led by the one ``knowledge_search``.
-
-``knowledge_search`` is the platform's single Knowledge search: the chat, workflows
-and the Knowledge MCP share this definition (``KNOWLEDGE_SEARCH_DESCRIPTION``) and the tool class
-``tools/knowledge_evidence/search.KnowledgeSearchTool``.
-
-Deliberately has **no** scope property. The Workspace comes from the server-side
-``ToolContext`` of the run, so a model cannot name a Workspace, and there is no
-argument for it to name one with. This is the opposite of the
-``knowledge_retrieve`` schema, where a model-supplied ``project_id`` wins over the
-run's context.
-"""
+"""Schemas of the governed Knowledge tools, led by the one ``knowledge_search``."""
 
 from __future__ import annotations
 

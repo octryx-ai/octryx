@@ -1,14 +1,4 @@
-"""A run's size class from its workflow's ``size_classes`` block (``context.size_class``).
-
-Set once at start from the block's rules (data in the workflow definition), raised along a class's ``escalate_to``,
-never lowered. The class's settings (skipped steps, shared session, context cap, rounds, a note for the agent) are
-snapshotted with it, so a run keeps the rules it started with. A workflow without the block, and a run that continues
-an unclassified run (an epic chain, a parent run: e.g. one started on a workflow version without the block), have no
-class: they run.
-
-Measured: a small bug cost $15.81 / 17 h through the full bug flow against $0.26
-/ 73 s with plain Claude Code; the workflow owner decides which items take a lighter path (no hardcoding).
-"""
+"""A run's size class from its workflow's ``size_classes`` block (``context.size_class``)."""
 
 from __future__ import annotations
 
@@ -47,8 +37,6 @@ def skipped_nodes(settings: dict[str, Any], labels: set[str]) -> list[str]:
 
 
 async def _continues_unclassified(db: AsyncSession, run: WorkflowRun) -> str:
-    """The run this one continues (epic chain, parent) when that one has no class; ``""`` otherwise.
-    So an unclassified epic finishes as it started."""
     from ..epic_chain import CHAIN_KEY
 
     for source in (str(dict(dict(run.context or {}).get(CHAIN_KEY) or {}).get("after_run") or ""),

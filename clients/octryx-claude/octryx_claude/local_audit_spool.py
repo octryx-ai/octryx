@@ -1,6 +1,5 @@
 """The audit spool of a session that decides on the device (``local_decisions``): every local denial and every
-tool's execution evidence, uploaded in batches. Stdlib only.
-"""
+tool's execution evidence, uploaded in batches. Stdlib only."""
 
 from __future__ import annotations
 
@@ -19,15 +18,13 @@ MAX_BATCH_BYTES = 1_500_000
 
 
 def _slim(hook_input: dict[str, Any]) -> dict[str, Any]:
-    """What the platform records of a tool call (``record_tool_execution``, ``record_denial``): never the tool's
-    output, which the model gateway already has."""
     keep = ("hook_event_name", "tool_name", "tool_use_id", "tool_input", "cwd", "agent_id", "agent_type",
             "permission_mode", "workflow_run_facts")
     return {key: hook_input[key] for key in keep if key in hook_input}
 
 
+# One write per event, so parallel subagents' hooks never interleave.
 def spool(folder: Path, event: str, hook_input: dict[str, Any], **extra: Any) -> None:
-    """Append one audit event (one ``write``, so parallel subagents' hooks never interleave)."""
     line = json.dumps({"event": event, "at": time.time(), "hook_input": _slim(hook_input), **extra},
                       ensure_ascii=False, default=str) + "\n"
     descriptor = os.open(str(folder / SPOOL_FILE), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
@@ -50,12 +47,8 @@ def _batches(events: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
     return [batch for batch in batches if batch]
 
 
+# Renamed before reading so hooks keep appending to a fresh spool; an unsent batch waits for the next drain.
 def drain(folder: Path, post: Any) -> dict[str, Any] | None:
-    """Upload the spooled events (``post(body) -> answer dict | None``); the last answer, ``None`` if nothing went.
-
-    The spool is renamed before it is read, so hooks keep appending to a new one; a batch that did not go stays in its
-    ``audit-sending-*`` file and goes with the next drain. One drain at a time (a lock file): the Stop hook waits for
-    the job manager's upload in flight, so the platform's verification sees every event before it."""
     import fcntl  # noqa: PLC0415 - POSIX: the device runs on macOS / Linux (WSL2)
 
     if not folder.is_dir():

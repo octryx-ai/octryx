@@ -1,50 +1,4 @@
-"""Closed per-key value grammars for the gateway evidence payload (Issue).
-
-The evidence writer runs every string through the shared redaction policy, which
-matches a credential prefix such as ``sk-`` as a *substring*. That is right for
-free text — an API key pasted into the middle of a field must still be caught —
-but wrong for the closed fields that hold the deployment's own naming:
-
-- ``model_group='task-router'`` and ``model_group='desk-nova-lite'`` carry
-  ``sk-`` inside ``task-`` and ``desk-``;
-- ``cost_contract_reference='desk-pricing-2026'`` and
-  ``content_logging_attestation_reference='litellm-posture-task-non-prod-2026-09-27'``
-  name the environment they govern.
-
-All four were refused as ``evidence_payload_sensitive_value``, so the
-qualification could not write evidence for exactly the deployment it gates —
-and the model group is the *cluster's* naming, which Octryx cannot
-rename. ``evidence_host_shape`` already solved this for the three fields that
-hold a host; this module does it for the identifier and reference fields, and
-owns the key-to-grammar registry both halves are reached through.
-
-A key that has a grammar is *authoritative*: the writer admits only values the
-grammar matches, so arbitrary free text under a closed field fails closed
-(``evidence_payload_value_not_admissible``) instead of being written because it
-happens not to look like a secret. A key without a grammar keeps the unchanged
-generic scan, and a secret-shaped value is still reported as such — the shape
-check never turns a refusal into a pass.
-
-The invariant each grammar has to keep is therefore narrow and checkable: a
-value it admits may only be one the generic scan would have refused *because of
-a credential prefix that is not at a component boundary*:
-
-- the admitted character set is ``[A-Za-z0-9._-]`` (plus ``/`` for a path). No
-  space, no ``:``, no ``=``, no ``@``, no ``://`` can occur, which is what every
-  remaining rule in ``redaction_policy`` needs in order to match: a credential
-  URL, an ``Authorization`` header, a ``bearer``/``basic`` token, a
-  ``key=value`` assignment and a PEM block are all structurally excluded;
-- a credential prefix at the *start of a component* still refuses the value. A
-  real token carries its prefix at a boundary (``sk-live-…``, ``ghp_…``,
-  ``xoxb-…``), including after a separator (``pricing-sk-live-…``), while
-  ``desk-`` and ``task-`` carry it mid-component;
-- an ``aws_secret_access_key``-style marker still refuses the value.
-
-Only operator- or cluster-supplied fields get a grammar. The backend's own
-closed codes (``gateway_state``, ``denial_reason``, ``check``, the modes and the
-retention states) keep the generic scan, and a test pins that none of them is
-secret-shaped, so a future code cannot quietly inherit an exemption.
-"""
+"""Closed per-key value grammars for the gateway evidence payload (Issue)."""
 
 from __future__ import annotations
 
@@ -114,19 +68,11 @@ def _mask_known_safe_sk_tokens(value: str) -> str:
 
 
 def carries_credential_shape(value: str) -> bool:
-    """True when ``value`` still looks like credential material under a grammar.
-
-    The two checks a bounded character set cannot make on its own: a credential
-    prefix at a component boundary, and a named secret marker.
-    """
-
     normalized = value.strip().lower()
     return looks_like_secret_value(_mask_known_safe_sk_tokens(normalized))
 
 
 def is_identifier_shaped(value: object) -> bool:
-    """True when ``value`` is a bounded identifier or reference, not a secret."""
-
     if not isinstance(value, str):
         return False
     candidate = value.strip()
@@ -138,8 +84,6 @@ def is_identifier_shaped(value: object) -> bool:
 
 
 def is_request_path_shaped(value: object) -> bool:
-    """True when ``value`` is a bounded absolute request path, not a secret."""
-
     if not isinstance(value, str):
         return False
     candidate = value.strip()
@@ -172,13 +116,6 @@ def _is_sha256(value: object) -> bool:
 
 
 def has_declared_grammar(key: str) -> bool:
-    """True when this evidence key has a closed value grammar of its own.
-
-    A key that has one is *authoritative*: the writer admits only values the
-    grammar matches, so free text under a closed field fails closed instead of
-    being written because it happens not to look like a secret.
-    """
-
     return (
         key in HOST_EVIDENCE_KEYS
         or key in HOP_RULE_EVIDENCE_KEYS
@@ -188,8 +125,6 @@ def has_declared_grammar(key: str) -> bool:
 
 
 def is_admissible_evidence_value(key: str, value: object) -> bool:
-    """True when ``value`` is the closed content its evidence key promises."""
-
     if key in HOST_EVIDENCE_KEYS or key in HOP_RULE_EVIDENCE_KEYS:
         return is_admissible_host_evidence(key, value)
     if key in {

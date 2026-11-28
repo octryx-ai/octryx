@@ -1,18 +1,4 @@
-"""Published signing keys of a Microsoft token issuer, cached.
-
-:class:`OpenIdSigningKeySource` reads an OpenID metadata document, takes its ``jwks_uri`` only
-when it is ``https`` on one of the hosts the issuer profile names, and caches the key set for
-:data:`KEY_CACHE_SECONDS`. A token whose ``kid`` is not in the cache may force one refresh, at
-most every :data:`MIN_REFRESH_SECONDS`, so a stream of made-up key ids cannot turn into a
-stream of fetches; after a failed fetch the next attempt waits
-:data:`RETRY_AFTER_FAILURE_SECONDS`. Fetches go through the pinned ``public_web`` client (globally routable
-addresses only, no environment proxy, no redirects).
-
-Anything that is not a well-formed key set raises :class:`SigningKeysUnavailableError`; the gate
-turns that into ``channel_webhook_signing_keys_unavailable`` and accepts nothing.
-
-Tests inject a :class:`SigningKeySource` of their own (``gate.default_key_sources`` is the seam).
-"""
+"""Published signing keys of a Microsoft token issuer, cached."""
 
 from __future__ import annotations
 
@@ -31,7 +17,7 @@ _FETCH_TIMEOUT_SECONDS = 10.0
 
 
 class SigningKeysUnavailableError(Exception):
-    """The issuer's signing keys could not be obtained; carries a fixed reason only."""
+    pass
 
 
 class SigningKeySource(Protocol):
@@ -53,8 +39,6 @@ async def _fetch_json(url: str) -> Any:
 
 
 class OpenIdSigningKeySource:
-    """The key set behind ``openid_url``; ``jwks_hosts`` bounds where the key set may live."""
-
     def __init__(
         self,
         openid_url: str,
@@ -110,8 +94,6 @@ class OpenIdSigningKeySource:
 
 
 class StaticSigningKeySource:
-    """A fixed key set (tests, and an operator-pinned key set if one is ever needed)."""
-
     def __init__(self, keys: list[dict[str, Any]]) -> None:
         self._keys = list(keys)
 

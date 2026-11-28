@@ -9,6 +9,8 @@
   "unmapped": "platform",
   "reasons": {
     "loop_limit": "agent",
+    "checks_failed": "agent",
+    "needs_approval": "person",
     "budget_limit": "person",
     "no_reply": "person",
     "watch_timeout": "environment",
@@ -27,6 +29,7 @@
     "pipeline_not_for_head": "platform",
     "phase_scope_exceeded": "agent",
     "device_unreachable": "environment",
+    "seat_required": "person",
     "protected_path": "agent",
     "loop_detected": "platform",
     "emergency_stop": "person",

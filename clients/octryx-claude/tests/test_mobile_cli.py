@@ -1,11 +1,3 @@
-"""``octryx-claude mobile pair`` and the pet's "Connect iPhone…".
-
-- the QR code (the platform's URL) is drawn in the terminal; the pairing waits for the phone's scan;
-- the person confirms the phone and its two-digit number here; "no" (or anything but yes) declines;
-- without a terminal, a configuration or a login nothing is created;
-- the pet opens a terminal running the same command (macOS: a .command file; Windows: a new console).
-"""
-
 from __future__ import annotations
 
 import json

@@ -1,17 +1,4 @@
-"""``octryx-claude device run``: the device background service.
-
-One instance per state dir (an exclusive lock on ``device.lock``), a rotating log in ``logs/device.log``, the
-outbound channel (``device_channel``) and the job manager (``device_jobs``). SIGTERM/SIGINT stop it cleanly:
-running turns are interrupted first.
-
-Self-update: the start itself goes through ``self_update.on_start`` like every launcher command. While it
-runs, ``update_watch`` checks every ``UPDATE_INTERVAL_SECONDS`` whether no job is running; then it builds and
-activates a newly served version, waits until no job runs, stops the service cleanly and re-executes
-``device run`` through the shim (same process, so launchd, systemd and the WSL logon task need no restart policy;
-the logon task has none for a process that exits). Should the re-exec fail, the exit code
-``EXIT_RESTART_FOR_UPDATE`` (non-zero) makes launchd (``KeepAlive.SuccessfulExit=false``) and systemd
-(``Restart=on-failure``) start it again on the new version. A running job is never interrupted for an update.
-"""
+"""``octryx-claude device run``: the device background service."""
 
 from __future__ import annotations
 
@@ -28,7 +15,7 @@ from typing import Any
 
 from octryx_claude import self_update_state
 
-from . import __version__, codex_seat, device_service, device_state, self_update, tools
+from . import __version__, codex_seat, device_service, device_state, engine_report, self_update, tools
 from .device_channel_auth import channel_token, revocation_check
 from .device_folder_access import folder_watch
 from .device_watches import (
@@ -77,7 +64,6 @@ def configure_logging(state: LocalState) -> None:
 
 
 def device_report(state: LocalState) -> dict[str, Any]:
-    """What the device says about itself in ``hello`` and ``state`` (the platform may only narrow folders)."""
     device = device_state.load_device(state)
     seat = seat_logged_in(state)
     return {
@@ -88,6 +74,8 @@ def device_report(state: LocalState) -> dict[str, Any]:
         "seat_login": seat,
         # The Codex seat (the person's own ChatGPT login): ``codex login status``'s exit code, never the login itself.
         "codex_seat_login": codex_seat.reported_login(state.root),
+        "seat_engines": engine_report.seat_engines(state),
+        "engines": engine_report.installed_engines(),
         "client_version": installed_version() or __version__,  # the build (``0.2.0+<hash>``), not the series
         "service_kind": str(device.get("service_kind") or "foreground"),
         "live": bool(device.get("live")),
@@ -109,7 +97,6 @@ def _confirm_healthy(state: LocalState) -> None:
 
 
 def _start_attempt(state: LocalState) -> self_update.Updated | None:
-    """A start on a freshly activated version that keeps failing goes back to the previous version."""
     try:
         layout = self_update.detect_layout(state)
         running = installed_version()
@@ -122,7 +109,6 @@ def _start_attempt(state: LocalState) -> self_update.Updated | None:
 async def serve(state: LocalState, stop: asyncio.Event, *,
                 check_update: Callable[[], self_update.Updated | None] | None = None,
                 confirm_healthy: Callable[[], None] | None = None) -> self_update.Updated | None:
-    """Runs the service until ``stop``; returns the activated update when it stopped for one."""
     from .device_channel import ChannelClient
     from .device_jobs import JobManager
     from .live_bridge import LiveBridge
@@ -165,9 +151,6 @@ async def serve(state: LocalState, stop: asyncio.Event, *,
 
 
 def reconcile_service_unit(state: LocalState, *, manager: Any = None, env: dict[str, str] | None = None) -> str:
-    """At every start: the installed unit becomes the definition this launcher writes (``device_service.reconcile``).
-    Inside the LaunchAgent a replaced plist is loaded by a detached helper (``bootout`` + ``bootstrap``; this start
-    runs no job yet). ``""`` (already current), ``replaced`` or ``reloading``."""
     device = device_state.load_device(state)
     kind = str(device.get("service_kind") or "")
     if kind not in ("launchd", "systemd"):
@@ -188,14 +171,11 @@ STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
 
 
 def on_stop_signal(logger: logging.Logger, stop: asyncio.Event, signum: int) -> None:
-    """A stop by signal is logged, so a deliberate stop is never confused with a crash."""
     logger.warning("device service stopping: %s received", signal.Signals(signum).name)
     stop.set()
 
 
 def run_logged(logger: logging.Logger, run: Callable[[], Any]) -> Any:
-    """Every end of the service is in its log: an exception with its traceback (not only on stderr), and the regular
-    end."""
     try:
         result = run()
     except BaseException:
@@ -206,7 +186,6 @@ def run_logged(logger: logging.Logger, run: Callable[[], Any]) -> Any:
 
 
 def _ensure_tools(state: LocalState, logger: logging.Logger) -> None:
-    """The launcher's pinned tools after an install or update, in the background (never blocks the start)."""
     import threading  # noqa: PLC0415
 
     def work() -> None:

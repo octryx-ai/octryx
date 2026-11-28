@@ -1,6 +1,5 @@
-"""spec-writing's decisions gate waits for the product owner in the Spec Studio by default.
-auto_accept=review_passed is only an explicit opt-in (benchmarks/unattended runs). While waiting, the product owner
-gets a notification and the run is visible as 'waiting for spec approval'."""
+"""spec-writing's decisions gate waits for the product owner in the Spec Studio by default;
+auto_accept=review_passed is only an explicit opt-in."""
 
 from __future__ import annotations
 
@@ -10,10 +9,12 @@ from sqlalchemy import select
 from app.models import Notification
 from app.services.workflow_runs.auto_accept import auto_accept
 from tests import test_spec_studio_flow as flow
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _gate(monkeypatch, **config) -> None:
-    """The flow test's definition with the decisions node configured like the seed (or the opt-in)."""
     original = flow._definition
 
     def definition() -> dict:
@@ -105,9 +106,6 @@ def test_the_spec_writing_seed_waits_for_the_product_owner_and_records_the_studi
 @pytest.mark.asyncio
 async def test_a_workspace_opts_out_of_the_wait_with_one_audited_setting(
         client, auth_headers, db, tmp_path, monkeypatch):
-    """Benchmarks: the shipped spec-writing stays as it is, its Workspace says
-    ``spec_approval: review_passed`` and a passed spec is accepted without a product owner and without a
-    notification. A Workspace copy of the workflow would need a second admin to publish it (four-eyes)."""
     from app.models import AuditLog
 
     _gate(monkeypatch, auto_accept="product_owner", auto_revise=2, tasks=False)

@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...security_analyzer import normalize_security_analyzer_chain
 from ...system_config import (
-    AGENT_ELASTIC_ITERATION_ENABLED_KEY,
     AGENT_EXECUTION_RUNTIME_ALLOW_HOST_FALLBACK_KEY,
     AGENT_EXECUTION_RUNTIME_DOCKER_IMAGE_KEY,
     AGENT_EXECUTION_RUNTIME_DOCKER_NETWORK_MODE_KEY,
@@ -20,9 +19,8 @@ from ...system_config import (
     set_system_config_value,
 )
 from ._admin_runtime_update_thresholds import (
-    ANALYZER_AND_STUCK_LOOP_SETTINGS,
     DOCKER_LIMIT_SETTINGS,
-    ELASTIC_ITERATION_SETTINGS,
+    SECURITY_ANALYZER_SETTINGS,
     apply_optional_numbers,
 )
 from ._admin_runtime_update_workspace import apply_office_settings, apply_session_workspace_settings
@@ -67,15 +65,7 @@ async def apply_execution_and_safety_settings(
     await apply_optional_numbers(db, payload, DOCKER_LIMIT_SETTINGS)
     await apply_session_workspace_settings(db, payload)
     await apply_office_settings(db, payload)
-    await apply_optional_numbers(db, payload, ANALYZER_AND_STUCK_LOOP_SETTINGS)
-    if "elastic_iteration_enabled" in payload:
-        await set_system_config_value(
-            db,
-            key=AGENT_ELASTIC_ITERATION_ENABLED_KEY,
-            value="true" if bool(payload.get("elastic_iteration_enabled")) else None,
-            description="Enable elastic per-step iteration increases when the agent shows bounded multi-tool progress.",
-        )
-    await apply_optional_numbers(db, payload, ELASTIC_ITERATION_SETTINGS)
+    await apply_optional_numbers(db, payload, SECURITY_ANALYZER_SETTINGS)
     if "security_analyzer_chain" in payload:
         normalized_chain = normalize_security_analyzer_chain(payload.get("security_analyzer_chain"))
         await set_system_config_value(

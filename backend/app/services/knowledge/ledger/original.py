@@ -1,21 +1,5 @@
-"""Read the original bytes of one source revision, for a person to open.
-
-The ledger keeps every revision's bytes in the Workspace's object partition. This module is the
-only path from the API to those bytes, and it adds nothing a reader could not already see through
-source detail: the same Workspace predicate, the same per-source ACL (:func:`visible_source`), and a
-digest-verified read bounded by ``MAX_OBJECT_BYTES``.
-
-Indistinguishable refusals. A revision of another Workspace, an unknown revision, a revision of a
-source the caller's ACL hides, and a tombstoned revision all raise the same
-:class:`EvidenceRecordNotFoundError`, so the route cannot be used to probe which documents exist.
-
-Precise refusals once the revision is known to be readable (``original_errors``): no object recorded
-for it, a recorded key outside this deployment's partition, and an object absent in the store each
-have their own class, so a missing object never reads like an unknown Workspace again.
-
-Nothing about storage leaves this module: the bucket, the object key and the version id are read
-to address the object and are never returned. There is no presigned URL; the bytes are proxied.
-"""
+"""Read the original bytes of one source revision, for a person to open. Unknown, foreign, ACL-hidden and tombstoned
+revisions raise one error."""
 
 from __future__ import annotations
 
@@ -86,8 +70,6 @@ _UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 @dataclass(frozen=True, slots=True)
 class OriginalContent:
-    """The verified bytes of one revision and how to present them; no storage location."""
-
     data: bytes
     media_type: str
     filename: str
@@ -97,7 +79,6 @@ class OriginalContent:
 
 
 def original_headers(original: OriginalContent) -> dict[str, str]:
-    """Response headers for serving one original; the filename is already ASCII-safe."""
     disposition = "inline" if original.inline else "attachment"
     return {
         **ORIGINAL_RESPONSE_HEADERS,
@@ -107,7 +88,7 @@ def original_headers(original: OriginalContent) -> dict[str, str]:
 
 
 def safe_filename(display_title: object, revision_ordinal: int, media_type: str) -> str:
-    """An ASCII-only download name derived from the title, never from the uploaded file name."""
+    # Never derived from the uploaded file name.
     stem = _UNSAFE_FILENAME_CHARS.sub("-", str(display_title or "")).strip(".-_")[:MAX_FILENAME_STEM_CHARS]
     stem = stem.strip(".-_") or "source"
     extension = _EXTENSION_BY_MEDIA_TYPE.get(media_type, "bin")
@@ -115,7 +96,6 @@ def safe_filename(display_title: object, revision_ordinal: int, media_type: str)
 
 
 def _is_recorded(value: object) -> bool:
-    """A ledger location column that names something; empty means no original was kept."""
     return type(value) is str and bool(value.strip())
 
 
@@ -180,7 +160,6 @@ async def read_original(
     source_id: object,
     revision_id: object,
 ) -> OriginalContent:
-    """The digest-verified original bytes of one visible revision, or the not-found state."""
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     if not _is_id(source_id) or not _is_id(revision_id):

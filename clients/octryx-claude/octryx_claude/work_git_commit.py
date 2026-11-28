@@ -1,10 +1,4 @@
-"""The git primitives of the ``parallel_work`` git work (``work_git``): the platform identity, the runtime
-excludes and the platform's own commits of a folder.
-
-The platform's own commits of the main folder (the work plan before a branch or a merge) never delete a file that a
-merged item brought in (``commit_main``): such a deletion is put back from HEAD and reported (``kept_files``), so a
-work-plan commit never takes away the files an item merge just brought in.
-"""
+"""The git primitives of the ``parallel_work`` git work: identity, runtime excludes and the platform's commits."""
 
 from __future__ import annotations
 
@@ -17,15 +11,8 @@ from .contract_change import SAFE_GIT
 
 ITEMS_DIR = ".octryx-items"
 EXCLUDE = f"/{ITEMS_DIR}/"
-# Never part of an item's merge, the run's change or the push, whatever the repository's .gitignore says. In a live
-# run a repository ignored only ``TEST*.xml``; ``git add -A`` committed every
-# Playwright screenshot and the pipeline's JUnit into the story, the base85 PNGs pushed the review diff past its size
-# and the review paused ``review_no_decision``; two items' screenshots conflicted add/add in the merge.
-# Also the build output of the repository's own setup (``pip install
-# -e .`` made ``src/kitchen.egg-info``, an item's ``git add -A`` merged it, and a fix item that had to remove it
-# blocked). And what a web app's engine installs or its browser tests leave in any app folder (story path audit
-# An engine that installs before it writes the app's .gitignore would otherwise put node_modules and a
-# Chromium download into the change): at any depth, untracked files only.
+# Never in an item's merge, the change or the push, whatever .gitignore says: test reports, screenshots, setup build
+# output and engine installs bloated the review diff and conflicted in merges. Untracked files only, at any depth.
 RUNTIME_EXCLUDES = (EXCLUDE, "/test-reports/", "/.pytest_cache/", "/.venv/", "*.db", "*.egg-info/", "__pycache__/",
                     "/build/", "/dist/", "node_modules/", ".npm-cache/", ".playwright-browsers/", "test-results/",
                     "playwright-report/", ".octryx-eslint.config.mjs")  # the platform's own lint config (style_tools)
@@ -36,7 +23,7 @@ GIT_TIMEOUT = 120
 
 
 def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
-    try:  # ``errors="replace"``: a file name or message that is not UTF-8 never ends the git work (D6)
+    try:  # ``errors="replace"``: a file name or message that is not UTF-8 never ends the git work
         return subprocess.run([*SAFE_GIT, *IDENTITY, *args], cwd=root, capture_output=True, text=True, check=False,
                               errors="replace", timeout=GIT_TIMEOUT, stdin=subprocess.DEVNULL,
                               env={**os.environ, "GIT_CONFIG_NOSYSTEM": "1", "GIT_TERMINAL_PROMPT": "0",
@@ -50,8 +37,6 @@ def _error(done: subprocess.CompletedProcess) -> str:
 
 
 def exclude_runtime_files(root: Path) -> None:
-    """``RUNTIME_EXCLUDES`` in the repository's ``.git/info/exclude`` (shared by every worktree): a local exclude,
-    never a commit, so they stay out of ``git add -A`` in the items, the merges, the change and the push."""
     target = _git(root, "rev-parse", "--git-path", "info/exclude")
     if target.returncode != 0:
         return
@@ -64,8 +49,6 @@ def exclude_runtime_files(root: Path) -> None:
 
 
 def commit_all(folder: Path, message: str) -> str:
-    """Commit everything in ``folder`` (untracked files too); ``""`` when done or nothing to commit, else git's
-    reason."""
     added = _git(folder, "add", "-A")
     if added.returncode != 0:
         return _error(added)
@@ -77,8 +60,6 @@ def commit_all(folder: Path, message: str) -> str:
 
 
 def _merged_item_files(root: Path, base: str) -> set[str]:
-    """The files the platform's item merges brought into the main folder since ``base`` (the whole first-parent line
-    without one): what an item delivered, which only an item may take away again."""
     span = [f"{base}..HEAD"] if base and _git(root, "cat-file", "-e", f"{base}^{{commit}}").returncode == 0 \
         else ["HEAD"]
     merges = _git(root, "log", "--first-parent", "--merges", "--format=%H%x00%an%x00%s", *span)
@@ -92,12 +73,7 @@ def _merged_item_files(root: Path, base: str) -> set[str]:
 
 
 def commit_main(root: Path, message: str, base: str = "") -> tuple[str, list[str]]:
-    """Commit the main folder's work plan (``commit_all``), but never a deletion of a merged item's file: those are
-    put back from HEAD first. ``(git's reason or "", the files put back)``.
-
-    A platform commit records what the coordinator changed; it has no business taking away what an item delivered
-    and the platform merged: a folder that lost merged files (a stale WIP restored over it) would have ``git add -A``
-    stage their deletion."""
+    # A folder that lost merged files (a stale WIP restored over it) would otherwise stage their deletion.
     added = _git(root, "add", "-A")
     if added.returncode != 0:
         return _error(added), []

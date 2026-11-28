@@ -1,11 +1,5 @@
-"""PR review bot, the code graph and the acceptance table on incremental passes.
-
-- the code graph's callers and references of the changed symbols (any indexed language) reach the reviewer as
-  context, outside the changed files, bounded; an unindexed repository changes nothing;
-- a pull request an Octryx run opened gets that run's confirmed criteria and test facts;
-- an incremental pass keeps the previous acceptance rows (a follow-up commit never looks worse) and asks again
-  only for what is not covered, or covered by a file the delta changes.
-"""
+"""PR review bot: code-graph callers and references reach the reviewer as bounded context, and incremental
+passes keep the previous acceptance rows."""
 
 from __future__ import annotations
 
@@ -132,8 +126,6 @@ def test_a_follow_up_answer_keeps_its_acceptance_rows():
 
 
 async def test_the_definitions_of_called_functions_outside_the_change_are_shown(tmp_path):
-    """round_money lives in pay/money.py; the diff shows only its call, so without the graph the reviewer judges
-    the rounding criterion "partial"."""
     import subprocess
 
     root = tmp_path / "repo"

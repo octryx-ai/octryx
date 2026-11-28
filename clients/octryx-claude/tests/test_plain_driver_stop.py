@@ -1,5 +1,3 @@
-"""The judged stop, the stop replay, waiting on background work and continuing after a blocked stop."""
-
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +27,6 @@ def _replay_setup(tmp_path, monkeypatch, script: str):
 
 
 def _transcript_rows(at: float, *, notified: bool) -> list[dict]:
-    """(Preview): a background test agent, its completion notice, the summary, then the Stop."""
     from datetime import UTC, datetime
 
     def stamp(offset: float) -> str:
@@ -49,8 +46,6 @@ def _transcript_rows(at: float, *, notified: bool) -> list[dict]:
 
 
 def test_the_main_sessions_stop_is_judged_once_the_process_has_ended(tmp_path, monkeypatch):
-    """Run 4: the first Stop, while two background subagents still ran, ended the phase; the run moved
-    to its pipeline and refused the subagents' calls. The Stop is remembered and replayed after the process exits."""
     from octryx_claude import hooks
     from octryx_claude.plain_driver import replay_stop
     from octryx_claude.platform import SessionContext
@@ -69,12 +64,12 @@ def test_the_main_sessions_stop_is_judged_once_the_process_has_ended(tmp_path, m
     prepared = _prepared(tmp_path)
     prepared.env.update({"OCTRYX_CLAUDE_HOME": str(tmp_path / "home"), "OCTRYX_TEST_RUN_SHIM": str(shim)})
     replay_stop(prepared, str(tmp_path))
-    assert json.loads(seen.read_text())["n"] == 1 and seen.with_suffix(".json.args").read_text().strip() == "hook stop"
+    assert json.loads(seen.read_text())["n"] == 1
+    assert seen.with_suffix(".json.args").read_text().strip() == "hook stop 0"  # the replay is not deferred again
     assert not (state.session_dir(key) / hooks.DEFERRED_STOP_FILE).exists()
 
 
 def test_a_stop_replay_the_platform_did_not_judge_runs_once_more_with_a_fresh_token(tmp_path, monkeypatch):
-    """A Stop replay the platform did not judge runs once more with a fresh token."""
     from octryx_claude import hooks, plain_driver
 
     monkeypatch.setattr(plain_driver, "REPLAY_RETRY_SECONDS", 0)
@@ -101,8 +96,6 @@ def test_a_judged_stop_replay_is_not_repeated(tmp_path, monkeypatch):
 
 
 def test_the_stop_replay_judges_the_repository_the_job_runs_in_not_the_agents_last_folder(tmp_path, monkeypatch):
-    """The replayed Stop names the job's folder as CLAUDE_PROJECT_DIR, as Claude Code does, so the agent's last cwd
-    (e.g. the app folder) is never taken as the repository."""
     import subprocess
 
     from octryx_claude import plain_driver
@@ -134,7 +127,6 @@ def test_the_stop_replay_judges_the_repository_the_job_runs_in_not_the_agents_la
 
 
 def test_the_stop_replay_logs_into_the_device_log(tmp_path, monkeypatch, caplog):
-    """The replay's lines reach device.log."""
     import logging
 
     from octryx_claude import plain_driver
@@ -148,8 +140,6 @@ def test_the_stop_replay_logs_into_the_device_log(tmp_path, monkeypatch, caplog)
 
 
 def test_a_turn_that_only_waits_for_a_wakeup_ends_when_its_background_work_has(tmp_path, monkeypatch):
-    """A turn that only waits for a wakeup after its Stop (its background work done) ends a grace period after the
-    Stop, a success with the session's last answer."""
     import os
     import sys
     import time
@@ -207,7 +197,6 @@ def test_a_turn_that_only_waits_for_a_wakeup_ends_when_its_background_work_has(t
 
 
 def test_a_stop_the_platform_blocks_after_the_process_continues_the_same_session_with_its_reason(tmp_path, monkeypatch):
-    """A replayed Stop the platform blocks (e.g. code style) continues the same session with the platform's reason."""
     from octryx_claude import plain_driver
 
     fake = tmp_path / "claude"

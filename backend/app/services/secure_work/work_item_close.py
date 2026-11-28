@@ -1,19 +1,4 @@
-"""The explicit Close action of a Work item: at the source when write-back allows it, else locally.
-
-Write-back is honoured exactly as configured, never enabled here. It applies when all of these hold
-(the same double opt-in as every workflow transition, ``jira_state_sync``):
-
-- the item comes from Jira (``not_a_jira_item``);
-- its Workspace's (else a global) active workflow exists (``no_workflow``);
-- that workflow's ``sync_policy.sync_mode`` is ``execute`` (``write_back_disabled``);
-- the workflow knows the ``done`` state and its mapping sets ``sync_back`` (``done_mapping_not_synced``).
-
-With write-back the close is the workflow transition to ``done``: the mapped Jira transition or status, else
-the one transition Jira offers into a status of category ``done``. Jira first, local state second: a failure
-leaves the item open and is an explicit, coded refusal (``transition_not_available``, ``scope_not_allowed``,
-``write_back_not_configured``, ``write_back_failed``) recorded on the timeline - never a local close instead.
-Without write-back the item closes locally only; the response says which (``mode``) and why (``write_back``).
-"""
+"""The explicit Close action of a Work item: at the source when write-back allows it, else locally."""
 
 from __future__ import annotations
 
@@ -42,10 +27,7 @@ DONE_CATEGORY_TARGET = {"target_status_category": "done"}
 
 
 def write_back_reason(item: WorkItem, workflow: WorkItemWorkflowDefinition | None) -> str | None:
-    """``None`` when closing writes to the item's source, else the configuration reason it stays local.
-
-    Jira, and a registered source that brings its own write-back (``state_sync_driver``, Custom REST: its done
-    mapping must name the ``source_status``, there is no status category to fall back on)."""
+    # Custom REST's done mapping must name the ``source_status``: there is no status category to fall back on.
     own = _own_write_back(item)
     if str(item.source_type or "") != "jira" and not own:
         return "not_a_jira_item"
@@ -100,6 +82,7 @@ def _result(item: WorkItem, *, mode: str, reason: str | None, event: WorkItemSta
 def _audit(user: User, item: WorkItem, *, mode: str, from_state: str | None, reason: str | None,
            write_back: str | None) -> AuditLog:
     return AuditLog(user_id=user.id, action=AUDIT_CLOSED, resource_type="work_item", resource_id=item.id,
+                    project_id=item.project_id,
                     details={"source_key": item.source_key, "mode": mode, "from_state": from_state,
                              "reason": reason, "write_back_reason": write_back})
 
@@ -150,7 +133,6 @@ async def _close_at_source(db: AsyncSession, item: WorkItem, workflow: WorkItemW
 
 
 async def close_preview(db: AsyncSession, item: WorkItem) -> dict[str, Any]:
-    """What Close would do for ``item``: ``{close_mode: source_transition|local_only, write_back_reason}``."""
     await load_item_intake(db, item)
     why_local = write_back_reason(item, await default_workflow_for_item(db, item))
     return {"close_mode": MODE_LOCAL if why_local is not None else MODE_SOURCE, "write_back_reason": why_local}
@@ -159,7 +141,6 @@ async def close_preview(db: AsyncSession, item: WorkItem) -> dict[str, Any]:
 async def close_work_item(
     db: AsyncSession, *, work_item_id: str, current_user: User, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Close the item: ``{closed, mode: source_transition|local_only|already_closed, write_back, ...}``."""
     item = await get_scoped_work_item(db, current_user, work_item_id)
     reason = str(payload.get("reason") or "").strip()[:2000] or None
     workflow = await default_workflow_for_item(db, item)

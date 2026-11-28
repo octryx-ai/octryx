@@ -1,16 +1,4 @@
-"""``knowledge_code_impact``: where a version change applies in a codebase.
-
-Read-only. Joins the cited change facts of a product version range with the codebase's imports,
-annotations, configuration keys, dependencies and Java level (``services/knowledge/code``). The
-codebase is resolved by one fixed precedence (``code/codebase.resolve_codebase``): an explicit
-``path`` inside the session workspace, an explicit ``repository`` (a Workspace ``git_repository``
-connector key), the session's own git checkout, the launcher session's recorded repository binding
-(MCP, ``repository_snapshot/session_target``), the Workspace's single repository source, else
-``needs_clarification`` (several, with the candidates) or ``needs_configuration`` (none). Every
-item carries its cited fact and the exact file and line; on a repository source each location also
-links the file at the commit (``links``, ``#L<line>``): the host blob when the host serves exactly
-that content, otherwise the platform's source viewer. ``commit`` makes the list reproducible.
-"""
+"""``knowledge_code_impact``: where a version change applies in a codebase."""
 
 from __future__ import annotations
 
@@ -32,7 +20,6 @@ MAX_LOCATIONS_SHOWN = 8
 
 
 def _text_param(params: dict, name: str) -> str | None | bool:
-    """The stripped string, ``None`` when absent or blank, ``False`` when not a string."""
     value = params.get(name)
     if value is None:
         return None

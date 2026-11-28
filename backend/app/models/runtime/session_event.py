@@ -8,17 +8,15 @@ from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class SessionEvent(Base):
-    """Append-only event log recording every meaningful session state transition.
-
-    Acts as the Write-Ahead Log (WAL) for crash recovery. Each row captures
-    a single atomic state change — the system of record is always this log.
-    The current session state (status, run_status, etc.) is a derived snapshot
-    maintained for query efficiency.
-    """
+class SessionEvent(WorkspaceBound, Base):
+    """Append-only event log of every meaningful session state transition. It is the system of record for crash
+    recovery; the session's state columns are a derived snapshot."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
 
     __tablename__ = "session_events"
     __table_args__ = (

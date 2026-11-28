@@ -29,7 +29,7 @@
 
 .composer-notice__label {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -50,7 +50,7 @@
 .composer-notice a {
   color: var(--accent-strong);
   text-decoration: none;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .composer-notice--editing {
@@ -130,10 +130,10 @@
   color: var(--muted-strong);
   cursor: pointer;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1;
   padding: 0.5rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   flex-shrink: 0;
 }
 

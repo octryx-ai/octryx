@@ -1,12 +1,4 @@
-"""Real PostgreSQL: 17 deferred repository steps never starve the pool.
-
-Each "step" does what ``deferred_action.execute`` does around ``scm.create_branch``: a short claim transaction, then a
-free executor slot (waited for without a session), then one transaction that waits on the real cache clone lock of
-its own session workspace and on a real subprocess longer than the pool timeout. 17 in one process, a pool of 15 like
-the API's 5 + 10: no step and no other request gets a QueuePool timeout, at most ``max_concurrent()`` connections are
-held by steps at once (a third of the pool, counted around each step's transaction), and every claim (the request's part) takes well under 2 s. The control without the slots shows
-the incident. Needs ``OCTRYX_TEST_POSTGRES_URL``; it only reads (``SELECT 1``).
-"""
+"""Real PostgreSQL: 17 deferred repository steps never starve the pool."""
 
 from __future__ import annotations
 
@@ -52,15 +44,15 @@ async def _scenario(url: str, root: Path, *, slots: bool = True) -> tuple[list[s
         nonlocal held, most_held
         try:
             started = time.monotonic()
-            async with factory() as db:  # 1. the claim (in the product: the request's own transaction)
+            async with factory() as db:
                 await db.execute(text("SELECT 1"))
                 await db.commit()
             claim_seconds.append(time.monotonic() - started)
             if together is not None:
                 await together.wait()
-            async with deferred_action.executor_slots() if slots else nullcontext():  # 2. no session while waiting
-                async with factory() as db:  # 3. the step: one transaction
-                    await db.execute(text("SELECT 1"))  # the connection is checked out from here to the commit
+            async with deferred_action.executor_slots() if slots else nullcontext():  # no session held while waiting
+                async with factory() as db:
+                    await db.execute(text("SELECT 1"))
                     held += 1
                     most_held = max(most_held, held)
                     try:
@@ -73,7 +65,7 @@ async def _scenario(url: str, root: Path, *, slots: bool = True) -> tuple[list[s
         except Exception as error:  # noqa: BLE001 - counted, the test asserts on the list
             errors.append(f"step: {type(error).__name__}")
 
-    async def other_request() -> None:  # e.g. the Work page while the steps run
+    async def other_request() -> None:
         await asyncio.sleep(0.5)
         try:
             async with factory() as db:

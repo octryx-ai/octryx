@@ -7,6 +7,7 @@ import {
   MIN_SOURCES_LOW,
   browserPhaseProblem,
   browserPhasesPatch,
+  checkAttemptsPatch,
   minSourcesValue,
   readRunPhaseSettings,
   researchMinSourcesPatch,
@@ -62,9 +63,18 @@ export function RunPhaseSettingsCard({ projectId }: { projectId: string }) {
         hint={<>These phases get <code>web_search</code> and <code>web_fetch</code>, must research before writing and
           cite their sources as URLs; two blocking checks (searches and distinct cited URLs).</>}
         onSave={(phases) => save(researchPhasesPatch(phases))} />
-      <MinSourcesField count={settings.researchMinSources} disabled={!editable}
-        inEffect={settings.researchPhases.length > 0}
+      <NumberField id="research-min-sources" label="Minimum sources" count={settings.researchMinSources}
+        disabled={!editable} inEffect={settings.researchPhases.length > 0}
+        hint={<>How many searches/fetches and distinct cited URLs a research phase needs.
+          {settings.researchPhases.length > 0 ? null : " Not in effect: add a research phase first."}</>}
+        saved="Saved. Research phases of runs started from now on need this many sources."
         onSave={(count) => save(researchMinSourcesPatch(count))} />
+      <NumberField id="check-attempts" label="Attempts after failed checks" count={settings.checkAttempts}
+        disabled={!editable} inEffect
+        hint={<>How often a red gate, pipeline or CI result sends the work back to the agent. Then the run stops as
+          <code> checks_failed</code> with the failed checks, and a person decides.</>}
+        saved="Saved. Runs use this from their next failed check."
+        onSave={(count) => save(checkAttemptsPatch(count))} />
     </section>
   );
 }
@@ -138,8 +148,12 @@ function PhaseListField({ testId, label, example, hint, empty, phases, disabled,
   );
 }
 
-/** research_min_sources: 1..20 (default 3); not in effect while no phase researches. */
-function MinSourcesField({ count, inEffect, disabled, onSave }: {
+/** A whole number 1..20 of the device_runs section (research_min_sources, check_attempts), saved on its own. */
+function NumberField({ id, label, hint, saved, count, inEffect, disabled, onSave }: {
+  id: string;
+  label: string;
+  hint: ReactNode;
+  saved: string;
   count: number;
   inEffect: boolean;
   disabled: boolean;
@@ -161,7 +175,7 @@ function MinSourcesField({ count, inEffect, disabled, onSave }: {
     setBusy(true);
     try {
       await onSave(parsed.value);
-      setMessage({ ok: true, text: "Saved. Research phases of runs started from now on need this many sources." });
+      setMessage({ ok: true, text: saved });
     } catch (error) {
       setMessage({ ok: false, text: (error as Error).message });
     } finally {
@@ -170,21 +184,18 @@ function MinSourcesField({ count, inEffect, disabled, onSave }: {
   };
 
   return (
-    <div className="admin-panel__field" data-testid="research-min-sources">
-      <label htmlFor="research-min-sources-input">Minimum sources</label>
-      <p className="sk-hint">
-        How many searches/fetches and distinct cited URLs a research phase needs.
-        {!inEffect ? " Not in effect: add a research phase first." : null}
-      </p>
+    <div className="admin-panel__field" data-testid={id}>
+      <label htmlFor={`${id}-input`}>{label}</label>
+      <p className="sk-hint">{hint}</p>
       <div className="sk-row">
-        <input id="research-min-sources-input" className="admin-users__toolbar-input" type="number" inputMode="numeric"
+        <input id={`${id}-input`} className="admin-users__toolbar-input" type="number" inputMode="numeric"
           min={MIN_SOURCES_LOW} max={MIN_SOURCES_HIGH} step={1} value={draft} disabled={off || busy}
-          aria-invalid={message && !message.ok ? true : undefined} data-testid="research-min-sources-input"
+          aria-invalid={message && !message.ok ? true : undefined} data-testid={`${id}-input`}
           onChange={(event) => { setDraft(event.target.value); setMessage(null); }}
           onKeyDown={(event) => { if (event.key === "Enter" && changed) { event.preventDefault(); void submit(); } }} />
         {!disabled ? (
           <button type="button" className="admin-panel__action-btn admin-panel__action-btn--primary"
-            data-testid="research-min-sources-save" disabled={off || busy || !changed} onClick={() => void submit()}>
+            data-testid={`${id}-save`} disabled={off || busy || !changed} onClick={() => void submit()}>
             {busy ? "Saving…" : "Save"}
           </button>
         ) : null}

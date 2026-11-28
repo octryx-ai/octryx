@@ -1,17 +1,4 @@
-"""Cron trigger construction, validation and next-run preview for schedulers.
-
-One builder serves registration (``registration.py``) and the admin preview, so
-the preview parses exactly what the scheduler registers: APScheduler 3 crontab syntax,
-numeric weekdays counting from Monday = 0, day-of-month AND day-of-week, and the process
-local zone APScheduler applies when no zone is given. Nothing here changes those semantics.
-
-The preview is calculated trigger times, not observed execution. It never touches the
-database, the running scheduler or a job. When the engine's own sequence repeats or goes
-backwards, the preview stops there and says so instead of inventing times. Measured with
-APScheduler 3.11.2 and the scheduler's own call pattern: at spring-forward a time inside
-the gap fires once, an hour later in wall time (``dst_gap``); at fall-back a wall time in
-the repeated hour fires twice, once per offset (``dst_repeat``).
-"""
+"""Cron trigger construction, validation and next-run preview for schedulers."""
 
 from __future__ import annotations
 
@@ -62,12 +49,10 @@ SEQUENCE_WARNING = {
 
 
 def build_cron_trigger(expression: str) -> CronTrigger:
-    """The trigger the scheduler registers: no explicit zone, so APScheduler uses the process zone."""
     return CronTrigger.from_crontab(expression)
 
 
 def check_cron_syntax(expression: Any) -> tuple[CronTrigger | None, CronProblem | None]:
-    """Cheap syntax check of the exact value; returns the built trigger when it parses."""
     if not isinstance(expression, str) or not expression.strip():
         return None, CronProblem("cron_required", "Enter a schedule.")
     if len(expression) > MAX_CRON_LENGTH:
@@ -99,17 +84,12 @@ def _schedulable_problem(expression: Any, now: datetime) -> CronProblem | None:
 
 
 async def require_schedulable_cron(expression: Any, *, field: str = "cron_expression") -> None:
-    """Typed 422 before any write when a submitted expression cannot be scheduled.
-
-    ``field`` names the request field in the error: schedulers submit ``cron_expression``, tasks ``schedule``.
-    """
     problem = await asyncio.to_thread(_schedulable_problem, expression, utc_now_aware())
     if problem is not None:
         raise HTTPException(status_code=422, detail={**problem.as_detail(), "field": field})
 
 
 def scheduling_scope() -> dict[str, str]:
-    """Which process this preview speaks for, from the existing background-worker toggle only."""
     if background_workers_enabled():
         return {
             "owner": "this_process",
@@ -182,7 +162,6 @@ def _preview(expression: Any, count: int, now: datetime) -> dict[str, Any]:
 
 
 async def preview_schedule(expression: Any, count: int = 5, *, now: datetime | None = None) -> dict[str, Any]:
-    """Next calculated fire times for an expression: pure, bounded and off the event loop."""
     bounded = max(1, min(int(count), MAX_PREVIEW_COUNT))
     return await asyncio.to_thread(_preview, expression, bounded, now or utc_now_aware())
 

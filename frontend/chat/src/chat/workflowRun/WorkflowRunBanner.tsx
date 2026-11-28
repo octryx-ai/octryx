@@ -9,7 +9,7 @@ import { RunDetails } from "./RunDetails";
 import { decisionCard } from "./decisionCardModel";
 import { workSummary } from "./teamworkModel";
 import { publishRunThreadTitle, rememberRunBarOpen, runActsAtOnce, runBarOpen, runPhaseShort, runPlaceText, runWorkflowName } from "./runBarModel";
-import { runNextAction, runStateTone, runThreadTitle } from "./runCardModel";
+import { runChatTitle, runNextAction, runStateTone } from "./runCardModel";
 import { chatSessionHref, FOLLOW_UP_NOT_STARTED, followUpFailure, SAMPLE_RUN_LABEL, SAMPLE_RUN_TEXT, sampleRunBadge } from "./workflowRunModel";
 import { runStatusLabel } from "./workflowRunStatus";
 import { TEST_ALERT_TEXT } from "./workflowRunPayloadView";
@@ -17,6 +17,8 @@ import { type RunAction, type RunActionValue } from "./workflowRunTypes";
 
 type WorkflowRunBannerProps = {
   sessionId: string | null | undefined;
+  chatTitle?: string | null;
+  chatTitleSource?: string | null;
   refreshKey: unknown;
 };
 
@@ -31,7 +33,7 @@ function sessionStore(): Storage | null {
 // The run bar above a run's chat (product inventory): one quiet line "Workflow · Phase n/m · State ·
 // Where", the next action as one small button at its end, everything else folded into the details below it
 // (collapsed by default, remembered per run for this browser tab). It loads after the messages and never blocks them.
-export function WorkflowRunBanner({ sessionId, refreshKey }: WorkflowRunBannerProps) {
+export function WorkflowRunBanner({ sessionId, refreshKey, chatTitle, chatTitleSource }: WorkflowRunBannerProps) {
   const { run, busy, problem, act } = useWorkflowRun(sessionId, refreshKey);
   const [inputs, setInputs] = useState<Record<string, number | string>>({});
   const [openRuns, setOpenRuns] = useState<Record<string, boolean>>({});
@@ -44,7 +46,7 @@ export function WorkflowRunBanner({ sessionId, refreshKey }: WorkflowRunBannerPr
       && current.folder === target.folder;
     if (target && sessionId && !same) setExecutionTarget(sessionId, target);
   }, [runtimeTarget, sessionId]);
-  const threadTitle = run ? runThreadTitle(run) : null;
+  const threadTitle = run ? runChatTitle(run, { title: chatTitle, titleSource: chatTitleSource }) : null;
   useEffect(() => {
     // The chat header shows the Work item and the current state instead of the thread's first prompt.
     publishRunThreadTitle(sessionId, threadTitle);
@@ -117,6 +119,10 @@ export function WorkflowRunBanner({ sessionId, refreshKey }: WorkflowRunBannerPr
             </button>
           ) : null}
         </div>
+        {/* A pause's next step is the person's to take: it shows without opening the details. */}
+        {!open && run.status === "paused" && run.pause?.detail ? (
+          <p className="run-bar__text" data-testid="workflow-run-bar-pause">{run.pause.detail}</p>
+        ) : null}
         {open ? (
           <RunDetails
             run={run}

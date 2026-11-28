@@ -45,16 +45,13 @@ from .states import (
 APPROVAL_ACTION_PREFIX = "workflow_run.approval"
 
 
-# Fixed, server-owned labels of the three confirmation actions, per subject.
 CONFIRMATION_LABELS: dict[str, dict[str, str]] = {
     "test_contract": {CONFIRMED: "Confirm these tests", CHANGED: "Change the tests", STOPPED: "Stop"},
     "ticket_draft": {CONFIRMED: "Create this ticket", CHANGED: "Change the draft", STOPPED: "Stop"},
     "reproduction": {CONFIRMED: "This shows the bug", CHANGED: "Not the bug yet", STOPPED: "Stop"},
     "retry_choice": {CONFIRMED: "Retry", CHANGED: "Clarify again", STOPPED: "Stop"},
     "advance": {CONFIRMED: "Go to the next phase", CHANGED: "Not now", STOPPED: "Stop"},
-    # The clarification questions triage drafted, before they are posted on the ticket.
     "questions": {CONFIRMED: "Post these questions", CHANGED: "Change the questions", STOPPED: "Stop"},
-    # Publish & prove: statement (b), the authorised follow-up intent, the declared exception.
     "publication": {CONFIRMED: "Publish this page", CHANGED: "Change the documentation", STOPPED: "Stop"},
     "followup": {CONFIRMED: "Create this follow-up", CHANGED: "Change its summary", STOPPED: "Stop"},
     "exception": {CONFIRMED: "Take the exception", CHANGED: "No exception: end blocked", STOPPED: "Stop"},
@@ -103,13 +100,11 @@ def _set_waiting(run: WorkflowRun, waiting: dict[str, Any]) -> None:
 
 
 def reply_payload(run: WorkflowRun) -> dict[str, Any]:
-    """The server's current question and entry, not a caller-authored reply contract."""
     return {"subject": "reply", "run_id": run.id, "node_id": run.current_node_id,
             "entry": dict(run.node_state or {}).get("entry"), "question": str(_waiting(run).get("question") or "")}
 
 
 async def prepare_decision(db: AsyncSession, run: WorkflowRun, node: PhasedNode, *, actor_id: str | None) -> None:
-    """What a waiting node needs before a person can decide it."""
     waiting = _waiting(run)
     if node.kind == NODE_CONVERSATION:
         from ..clarification_service import create_clarification_question
@@ -146,7 +141,6 @@ async def prepare_decision(db: AsyncSession, run: WorkflowRun, node: PhasedNode,
 
 
 async def authored_decider(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Only the current pinned node can declare scoped human decision authority."""
     from .graph import graph_for_run
 
     if run.workflow_kind != "phased":
@@ -164,7 +158,6 @@ async def _may_confirm(db: AsyncSession, run: WorkflowRun, user: User) -> bool:
 
 
 async def _may_allow_tool(db: AsyncSession, run: WorkflowRun, user: User) -> bool:
-    """A run's tool approval: the requester (the session owner) or the run's current responsible person."""
     from .responsible import responsible_decider
 
     return user.id == run.requested_by or user.id in await responsible_decider(db, run)
@@ -188,7 +181,6 @@ async def _viewer_may_approve(db: AsyncSession, run: WorkflowRun, user: User) ->
 
 
 def _acceptance_actions(waiting: dict[str, Any], *, late: bool) -> list[dict[str, Any]]:
-    """Statement (a)'s actions: accept only with a named environment and an observed build."""
     blocked = bool(dict(waiting.get("payload") or {}).get("accept_blockers"))
     keys = [*([] if blocked else ["accept"]), *([] if late else ["not_testable_yet"]), "reject_acceptance"]
     return [{"key": key, "label": ACCEPTANCE_LABELS[key],
@@ -197,7 +189,6 @@ def _acceptance_actions(waiting: dict[str, Any], *, late: bool) -> list[dict[str
 
 
 def _s1_paused_actions(run: WorkflowRun) -> list[dict[str, Any]]:
-    """Publish & prove: a declared missing-proof pause offers the exception; an expired audience wait a new receipt."""
     actions: list[dict[str, Any]] = []
     pause = dict(dict(run.node_state or {}).get("pause") or {})
     if run.pause_reason == PAUSE_AUDIENCE_UNPROVEN and not pause.get("action_node_id"):
@@ -209,7 +200,6 @@ def _s1_paused_actions(run: WorkflowRun) -> list[dict[str, Any]]:
 
 
 async def decision_actions(db: AsyncSession, run: WorkflowRun, *, user: User | None) -> list[dict[str, Any]]:
-    """Current human decision offers; tool approval remains the execution requester's consent."""
     from .actions import REASON_INPUT
 
     if run.status == STATUS_PAUSED and user is not None and user.id == run.requested_by:
@@ -238,7 +228,7 @@ async def decision_actions(db: AsyncSession, run: WorkflowRun, *, user: User | N
                     dict(_ANSWER_INPUTS[waiting["subject"]]) if waiting.get("subject") in _ANSWER_INPUTS else None},
                    {"key": "stop", "label": labels[STOPPED], "input": dict(REASON_INPUT)}]
         if dict(waiting.get("payload") or {}).get("missing") or dict(waiting.get("payload") or {}).get("blockers"):
-            actions = actions[1:]  # nothing complete to confirm yet
+            actions = actions[1:]
         return actions
     if run.waiting_kind == WAITING_TOOL_APPROVAL and await _may_allow_tool(db, run, user):
         # The tool approval of a platform action is the session owner's consent, like every chat tool approval, and

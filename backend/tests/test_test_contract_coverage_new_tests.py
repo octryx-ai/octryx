@@ -17,12 +17,12 @@ from tests.contract_coverage_support import (  # noqa: F401
     _server_pipeline,
     _submit,
 )
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-# --- selector granularity and proven absence -----------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _commit_at_base(run, path: str, text: str) -> str:
-    """Add ``text`` to ``path`` in the run's copy and make that commit the run's base."""
     root = Path(run.context["local_path"])
     target = root / path
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -39,9 +39,6 @@ def _commit_at_base(run, path: str, text: str) -> str:
 
 
 EXISTING_CLASS = "\nclass TestExisting:\n    def test_existing(self):\n        assert True\n"
-
-
-# --- the validator's limits --------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -71,7 +68,6 @@ async def test_without_the_runs_copy_at_its_base_nothing_is_assumed(db, tmp_path
 @pytest.mark.parametrize("selector", [FILE, "tests/", FILE + "::TestExisting"])
 @pytest.mark.asyncio
 async def test_a_selector_is_not_proof_of_a_new_test(db, tmp_path, selector):
-    # An existing file, a folder, an existing class as 'new'.
     run, _session, context = await _clarify(db, tmp_path)
     if "::TestExisting" in selector:
         _commit_at_base(run, FILE, EXISTING_CLASS)
@@ -85,7 +81,6 @@ async def test_a_selector_is_not_proof_of_a_new_test(db, tmp_path, selector):
 
 @pytest.mark.asyncio
 async def test_an_unreadable_base_file_is_not_an_absent_file(db, tmp_path, monkeypatch):
-    # A failing read of the base never means "new".
     from app.services.workflow_runs import safe_git
 
     run, _session, context = await _clarify(db, tmp_path)
@@ -120,11 +115,11 @@ async def test_a_failing_tree_lookup_is_not_an_absent_file(db, tmp_path, monkeyp
 
 
 @pytest.mark.parametrize(("selector", "existing_class"), [
-    (NEW[0], False),                                                  # a new test function in an existing file
-    (f"{FILE}::TestExisting::test_truncates_words", True),            # a new method in an existing class
-    (f"{FILE}::TestTruncateWords::test_truncates_words", False),      # a new method in a new class
-    ("tests/test_words.py::test_truncates_words", False),             # a test in a new file
-    ("tests/test_words.py", False),                                   # a provably new file
+    (NEW[0], False),
+    (f"{FILE}::TestExisting::test_truncates_words", True),
+    (f"{FILE}::TestTruncateWords::test_truncates_words", False),
+    ("tests/test_words.py::test_truncates_words", False),
+    ("tests/test_words.py", False),
 ])
 @pytest.mark.asyncio
 async def test_a_concrete_new_test_case_or_a_new_file_is_accepted(db, tmp_path, selector, existing_class):

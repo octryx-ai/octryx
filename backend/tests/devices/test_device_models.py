@@ -65,8 +65,6 @@ async def test_rows_follow_the_profile_and_the_seat_policy(db, auth_user, monkey
 
 @pytest.mark.asyncio
 async def test_subscription_rows_carry_the_catalog_name_never_the_bare_id(db, auth_user, monkeypatch):
-    """The device Model pill must not show ``Model: claude-opus-5-5``. A catalog row named after the bare id
-    repeats the id; the provider-prefixed row names it."""
     import uuid
 
     from app.models import LLMModel, LLMProvider
@@ -125,7 +123,6 @@ async def test_a_chosen_model_is_checked_offered_and_reported(client, db, auth_h
             "execution_target": {"kind": "device", "device_id": device.id, "folder": FOLDER, "profile": "governed",
                                  "model": model}})
 
-    # A model outside the list becomes the nearest listed one, unless the Workspace keeps the list.
     from app.models import Project
 
     project = await db.get(Project, session.project_id)
@@ -153,7 +150,6 @@ async def test_a_chosen_model_is_checked_offered_and_reported(client, db, auth_h
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     assert serialize_job(job)["model"] == "co-sonnet" and serialize_job(job)["requested_model"] == "co-sonnet"
 
-    # The device default on the next turn: the same job and Claude Code session, the model reported anew.
     assert (await send("")).status_code == 200
     await db.refresh(job)
     assert (await db.execute(select(func.count()).select_from(DeviceJob))).scalar_one() == 1
@@ -190,7 +186,6 @@ async def test_the_chats_permission_mode_and_effort_reach_the_offer(client, db, 
 @pytest.mark.asyncio
 async def test_bypass_off_in_the_workspace_refuses_a_bypass_turn_and_continuations_never_bypass(
         client, db, auth_headers, auth_user):
-    # Server-side mode check; a platform-driven continuation never inherits the turn's mode
     from app.models import Project
     from app.services.workflow_runs.octryx.continuation_marker import _device_target
 
@@ -213,8 +208,6 @@ async def test_bypass_off_in_the_workspace_refuses_a_bypass_turn_and_continuatio
 
 @pytest.mark.asyncio
 async def test_a_turn_follows_the_persons_role_in_the_workspace(client, db, auth_headers, auth_user):
-    """Each role's ceiling per Workspace (here admins may not bypass); a viewer's turn runs in plan
-    mode whatever was picked; the Workspace info tells the app which modes are offered."""
     from app.models import Project
     from app.models.security.user import UserProject
     from tests.devices.device_support import member_with_headers

@@ -1,24 +1,13 @@
 """Admin panel routes for runtimes, context budget profiles and tool result compressors."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.schemas.admin.admin_panel._runtime import RuntimeCreateRequest, RuntimeUpdateRequest
 from app.schemas.admin.admin_runtime_panel import (
-    ContextBudgetProfileUpsertRequest,
     RuntimeDirectionRequest,
-    ToolResultCompressorUpdateRequest,
-)
-from app.services.admin.provider._admin_runtime_budget_profiles import (
-    get_context_budget_profiles as admin_get_context_budget_profiles,
-)
-from app.services.admin.provider._admin_runtime_budget_profiles import (
-    remove_context_budget_profile as admin_remove_context_budget_profile,
-)
-from app.services.admin.provider._admin_runtime_budget_profiles import (
-    save_context_budget_profile as admin_save_context_budget_profile,
 )
 from app.services.admin.provider.admin_runtime_service import (
     add_runtime as admin_add_runtime,
@@ -45,53 +34,10 @@ from app.services.control_plane_service import (
     toggle_runtime_target,
     upsert_runtime_target,
 )
-from app.services.tool_result_compression import (
-    list_tool_result_compression_logs,
-    list_tool_result_compressors,
-    upsert_tool_result_compressor,
-)
 from app.web._helpers.api_guards import _require_admin_api
 from app.web._helpers.panel_serializers import _serialize_runtime_target
 
 router = APIRouter()
-
-
-@router.get("/chat/api/panel/context-budget-profiles")
-async def panel_get_context_budget_profiles(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_get_context_budget_profiles(db))
-
-
-@router.post("/chat/api/panel/context-budget-profiles")
-async def panel_save_context_budget_profile(
-    payload: ContextBudgetProfileUpsertRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    admin = await _require_admin_api(request, db)
-    return JSONResponse(
-        await admin_save_context_budget_profile(
-            db,
-            payload=payload.model_dump(),
-            actor_user_id=admin.id,
-        )
-    )
-
-
-@router.delete("/chat/api/panel/context-budget-profiles/{profile_id}")
-async def panel_delete_context_budget_profile(
-    profile_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    admin = await _require_admin_api(request, db)
-    return JSONResponse(
-        await admin_remove_context_budget_profile(
-            db,
-            profile_id=profile_id,
-            actor_user_id=admin.id,
-        )
-    )
 
 
 @router.get("/chat/api/panel/runtimes")
@@ -104,44 +50,6 @@ async def panel_list_runtimes(request: Request, db: AsyncSession = Depends(get_d
             serialize_runtime_target=_serialize_runtime_target,
         )
     )
-
-
-@router.get("/chat/api/panel/tool-result-compressors")
-async def panel_list_tool_result_compressors(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await list_tool_result_compressors(db))
-
-
-@router.put("/chat/api/panel/tool-result-compressors/{tool_name}")
-async def panel_update_tool_result_compressor(
-    tool_name: str,
-    payload: ToolResultCompressorUpdateRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    await _require_admin_api(request, db)
-    try:
-        return JSONResponse(
-            await upsert_tool_result_compressor(
-                db,
-                tool_name=tool_name,
-                strategy=payload.strategy,
-                config=payload.config,
-                is_active=payload.is_active,
-            )
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-
-@router.get("/chat/api/panel/tool-result-compression-log")
-async def panel_list_tool_result_compression_log(
-    request: Request,
-    limit: int = 20,
-    db: AsyncSession = Depends(get_db),
-):
-    await _require_admin_api(request, db)
-    return JSONResponse(await list_tool_result_compression_logs(db, limit=limit))
 
 
 @router.post("/chat/api/panel/runtimes")

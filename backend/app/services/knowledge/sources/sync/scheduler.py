@@ -1,23 +1,4 @@
-"""Scheduled Source Sync runs: off by default, bounded per tick, never overlapping.
-
-Two switches must both be on before anything runs:
-
-- the Instance switch ``OCTRYX_ENABLE_KNOWLEDGE_SOURCE_SYNC_SCHEDULER`` (``runtime_toggles``,
-  default off), which decides whether the platform runtime starts this worker at all;
-- the connector's own ``schedule_enabled`` flag (default false), set by an author.
-
-Per tick the worker claims at most ``MAX_CONNECTORS_PER_TICK`` due connectors, one at a time. A
-claim is one atomic ``UPDATE`` that moves ``next_scheduled_at`` one interval ahead, but only while it
-is still due, so two replicas never claim the same slot. The claimed connector then runs through
-``service_run.run_connector``, the same bounded path as "run now". That path takes the connector's
-run lease, so a scheduled run never overlaps a manual or another scheduled run. A slot whose run
-finds the lease held is spent (``run_in_progress``), and the next attempt is one interval later.
-
-A scheduled run acts as the author who enabled the schedule (``schedule_owner_id``). That author is
-re-authorized for the Workspace with the authoring role on every run. An owner who left, was
-disabled or lost the role gets no run (``schedule_owner_not_authorized``); the schedule stays as
-configured until an author saves it again. Logging carries fixed reasons and counts only.
-"""
+"""Scheduled Source Sync runs: off by default, bounded per tick, never overlapping."""
 
 from __future__ import annotations
 
@@ -52,7 +33,6 @@ REASON_SCHEDULED_RUN_FAILED = "scheduled_run_failed"
 
 
 async def claim_due_connector(db: AsyncSession, now: datetime) -> str | None:
-    """Claim the most overdue scheduled connector for this tick, or ``None`` when none is due."""
     due = or_(KnowledgeSourceConnector.next_scheduled_at.is_(None), KnowledgeSourceConnector.next_scheduled_at <= now)
     candidates = (
         await db.execute(
@@ -87,7 +67,6 @@ async def run_scheduled_connector(
     connector_id: str,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> str:
-    """Run one claimed connector as its schedule owner; answers the run state or a fixed reason."""
     row = await db.get(KnowledgeSourceConnector, connector_id)
     if row is None or not row.schedule_enabled:
         return REASON_SCHEDULE_OWNER_NOT_AUTHORIZED
@@ -114,17 +93,13 @@ async def run_scheduled_connector(
 
 
 def instance_scheduler_enabled() -> bool:
-    """Whether this instance runs scheduled source syncs. The instance switch alone decides: with the worker
-    split the api process has its background workers off and the worker process runs the scheduler, so
-    the api's own toggle says nothing about the instance."""
+    # With the worker split the api process has its workers off, so only the instance switch decides.
     from .....runtime_toggles import knowledge_source_sync_scheduler_enabled
 
     return knowledge_source_sync_scheduler_enabled()
 
 
 class KnowledgeSourceSyncScheduler:
-    """Poll for due scheduled connectors and run a bounded number of them per tick."""
-
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -166,7 +141,6 @@ class KnowledgeSourceSyncScheduler:
                 self._task = None
 
     async def run_tick(self) -> dict[str, int]:
-        """Run at most ``MAX_CONNECTORS_PER_TICK`` due connectors; answers counts per outcome."""
         started_at = utc_now()
         try:
             runtime = self._runtime_provider()

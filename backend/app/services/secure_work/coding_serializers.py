@@ -10,7 +10,6 @@ from ...models import (
     WorkCodingPipelineRun,
     WorkCodingPipelineStage,
     WorkCodingReviewEvent,
-    WorkCodingWorkspace,
 )
 from .jira_values import iso
 
@@ -73,38 +72,6 @@ def serialize_coding_pipeline_stage(row: WorkCodingPipelineStage) -> dict[str, A
         "policy_refs": list(row.policy_refs_json or []),
         "started_at": iso(row.started_at),
         "completed_at": iso(row.completed_at),
-        "updated_by": row.updated_by,
-        "created_at": iso(row.created_at),
-        "updated_at": iso(row.updated_at),
-    }
-
-
-def serialize_coding_workspace(row: WorkCodingWorkspace) -> dict[str, Any]:
-    return {
-        "id": row.id,
-        "work_item_id": row.work_item_id,
-        "pipeline_run_id": row.pipeline_run_id,
-        "change_unit_id": row.change_unit_id,
-        "repository_profile_id": row.repository_profile_id,
-        "session_id": row.session_id,
-        "provider": row.provider,
-        "provider_instance": row.provider_instance,
-        "project_key": row.project_key,
-        "repository_name": row.repository_name,
-        "repository_slug": row.repository_slug,
-        "repository_url": row.repository_url,
-        "base_branch": row.base_branch,
-        "resolved_base_branch": row.resolved_base_branch,
-        "feature_branch": row.feature_branch,
-        "base_commit": row.base_commit,
-        "workspace_path": row.workspace_path,
-        "source_repository_root": row.source_repository_root,
-        "source_evidence_cutoff": iso(row.source_evidence_cutoff),
-        "restart_generation": int(row.restart_generation or 0),
-        "status": row.status,
-        "evidence": dict(row.evidence_json or {}),
-        "is_active": bool(row.is_active),
-        "created_by": row.created_by,
         "updated_by": row.updated_by,
         "created_at": iso(row.created_at),
         "updated_at": iso(row.updated_at),

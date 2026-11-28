@@ -1,8 +1,4 @@
-"""Admission of the optional governed egress proxy for the LiteLLM gateway (``transport_policy``).
-
-Every rejection is a fixed reason code; the configured URL is never echoed, since an operator can paste a
-credential into it.
-"""
+"""Admission of the optional governed egress proxy for the LiteLLM gateway."""
 
 from __future__ import annotations
 
@@ -96,8 +92,6 @@ def _resolve_proxy(
 def _proxy_target(
     candidate: Any, *, hosts: Any, endpoint: GatewayEndpoint
 ) -> tuple[tuple[str, str, int | None] | None, str]:
-    """Validate the proxy URL against the allowlist; returns ``((scheme, host, port), "")`` or a denial."""
-
     candidate = candidate.strip() if isinstance(candidate, str) else ""
     if not candidate:
         return None, PROXY_DENIAL_URL_NOT_CONFIGURED

@@ -1,14 +1,4 @@
-"""The provider drivers' final-bytes check (I-1): every driver's request, examined as sent.
-
-The provider wrapper (``model_call.enforced_chat``) binds the call's ``final_check.FinalCheck``
-(:func:`bound_final`) around the driver's ``chat``. Every driver produces its request body through :func:`final_body`
-(an HTTP JSON body: exactly these bytes are sent) or :func:`final_arguments` (Bedrock Converse: the argument object
-the SDK serializes, a faithful encoding of it). Each send site of every registered driver calls one of them right
-before the send (``tests/content_security/test_final_check_drivers.py`` lists them).
-A send without a bound check — a driver called outside the wrapper — is refused: there is no unchecked path. The one
-send of constant platform text outside a model call (the LiteLLM qualification probe) binds :func:`bound_constant`:
-no content kind may be in it.
-"""
+"""The provider drivers' final-bytes check: every driver's request, examined as sent."""
 
 from __future__ import annotations
 
@@ -30,11 +20,6 @@ _FINAL: ContextVar[FinalCheck | None] = ContextVar("octryx_model_call_final_chec
 
 def call_check(plan: HandlingPlan, budget: RequestBudget, messages: list[Any], sent: list[Any], model: str,
                passed: Callable[[Examination], None]) -> FinalCheck:
-    """A platform call's final check: no prompt injection and no kind the plan keeps out (``refuse``, ``mask``,
-    ``mask_reroute``); a rerouting kind only when ``model`` (the alias the call goes to) is the Workspace's governance
-    alias (:attr:`HandlingPlan.governance_alias`); the reported kinds read to state whether the request carries them.
-    The call's system texts as sent (``sent``, the provider copy of ``messages``), the administrator-authored ones
-    marked; ``passed``: handed to the transport, with the examination of what it carries."""
     system = [(item, copy["content"]) for item, copy in zip(messages, sent, strict=False)
               if isinstance(copy, dict) and copy.get("role") == "system" and isinstance(copy.get("content"), str)
               and copy["content"]]
@@ -56,25 +41,23 @@ def bound_final(check: FinalCheck) -> Iterator[None]:
 
 @contextmanager
 def bound_constant() -> Iterator[None]:
-    """The final-bytes check of a send of constant platform text (a qualification probe): every content kind out."""
+    # A send of constant platform text outside a model call (the qualification probe): every content kind is kept out.
     with bound_final(FinalCheck(frozenset(KIND_IDS), RequestBudget())):
         yield
 
 
 def _check() -> FinalCheck:
     check = _FINAL.get()
-    if check is None:
+    if check is None:  # a driver called outside the provider wrapper: there is no unchecked send
         raise FinalCheckRefused(REASON_UNBOUND)
     return check
 
 
 def final_body(payload: Any) -> bytes:
-    """The driver's request body, serialized exactly as it is sent, after the final check."""
     return examine_request(_check(), payload)
 
 
 def final_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
-    """An SDK's request arguments (serialized by the SDK itself), after the final check of that object."""
     examine_request(_check(), arguments)
     return arguments
 

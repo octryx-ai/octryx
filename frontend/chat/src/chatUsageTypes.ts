@@ -76,3 +76,11 @@ export type ThreadCodeIntelligenceStats = {
   fallbackRate: number;
   hasData: boolean;
 };
+
+// A pull request the session or its run opened (the session view's ``selectedSessionPullRequests``).
+export type SessionPullRequest = {
+  url: string;
+  title: string;
+  state: string;
+  run_id: string | null;
+};

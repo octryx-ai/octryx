@@ -1,20 +1,4 @@
-"""Switch a run's runtime target: an explicit run action (``change_runtime``) that prepares the new runtime.
-
-The requester (or an admin) chooses another target in the run card or over the API. It is validated like a target
-at start (``target.validate_target``) and refused while one of the run's device turns is still running (stop it or
-wait for it). Then the run and its chat thread name the new target (event ``runtime_target_changed``), and the new
-runtime is prepared before any agent turn runs there:
-
-- the run has not reached ``workspace.prepare`` yet → nothing else; the step runs on the new target;
-- the run is at ``workspace.prepare`` → the step runs again for the new target (server now; a device gets the turn
-  whose launcher prepares and reports; a terminal prepares at its next launch);
-- the run is past it → the new runtime is prepared at the current node without routing it (``in_place``): the server
-  prepares its working copy now, a device's next turn (started at once when the run is running at a phase) and a
-  terminal's next launch prepare their folder first. A folder that is not ready pauses the run
-  ``environment_not_ready`` (``workspace.readiness``); retry re-enters the phase.
-
-A run waiting for its device leaves that wait: the switch decides where it continues.
-"""
+"""Switch a run's runtime target: an explicit run action (``change_runtime``) that prepares the new runtime."""
 
 from __future__ import annotations
 
@@ -67,16 +51,19 @@ async def change_runtime(db: AsyncSession, run: WorkflowRun, *, user: User, raw:
         from .device_wait import leave_waiting
 
         leave_waiting(db, run, cause="runtime_changed")
+    from .seat_required import lift_seat_pause, seat_paused
+
+    if seat_paused(run):
+        await lift_seat_pause(db, run, actor_id=user.id)
     await prepare_new_runtime(db, run)
 
 
 def _keeping_model(raw: Any, previous: dict[str, Any] | None) -> Any:
-    """A device switch that names no model keeps the run's model; only an explicit model changes it.
-
-    Without this, a folder switch without a model stored ``model: ""`` and the device fell back
-    to Claude Code's default, Opus 5.5 instead of the chosen Sonnet 5.5, at several times the cost."""
+    # A switch without a model must not store an empty one: the device would fall back to its own default model.
+    # The pool's model is the pool's choice, never a person's device's.
     model = str((previous or {}).get("model") or "")
-    if not model or (previous or {}).get("kind") != KIND_DEVICE or not isinstance(raw, dict):
+    if not model or (previous or {}).get("kind") != KIND_DEVICE or (previous or {}).get("pool") \
+            or not isinstance(raw, dict):
         return raw
     if str(raw.get("kind") or "") != KIND_DEVICE or str(raw.get("model") or "").strip():
         return raw
@@ -84,7 +71,6 @@ def _keeping_model(raw: Any, previous: dict[str, Any] | None) -> Any:
 
 
 async def _refuse_server_build(db: AsyncSession, run: WorkflowRun, target: dict[str, Any], *, actor_id: str) -> None:
-    """A run that builds or tests never moves onto the server (``server_build``)."""
     from .server_build import refuse_server_build, run_definition
 
     definition = await run_definition(db, run)
@@ -93,7 +79,6 @@ async def _refuse_server_build(db: AsyncSession, run: WorkflowRun, target: dict[
 
 
 async def prepare_new_runtime(db: AsyncSession, run: WorkflowRun) -> None:
-    """Prepare the run's (new) runtime target where the run stands now."""
     from ..graph import NODE_PHASE, graph_for_run
     from ..workspace.preparation import ACTION, preparation
 
@@ -113,7 +98,6 @@ async def prepare_new_runtime(db: AsyncSession, run: WorkflowRun) -> None:
 
 
 async def _continue_phase(db: AsyncSession, run: WorkflowRun, node: Any) -> None:
-    """Start the current phase's turn on the run's (new) target: a device turn, or the server's turn."""
     from ..octryx.continuation import continue_on_device
     from ..octryx.continuation_marker import CONTEXT_KEY as CONTINUATION_KEY
     from ..octryx.continuation_marker import STATE_PENDING
@@ -176,7 +160,6 @@ async def _prepare_in_place(db: AsyncSession, run: WorkflowRun, node: Any, *, at
         return
     _set(run, {**base, "state": PREP_PENDING})
     if target["kind"] == KIND_DEVICE and at_phase and run.status == STATUS_RUNNING:
-        # The device continues the phase; its launcher prepares the folder before the agent starts.
         run.context = {**dict(run.context or {}),
                        CONTINUATION_KEY: {"node_id": node.id, "entry": entry, "state": STATE_PENDING}}
         await continue_on_device(db, run)

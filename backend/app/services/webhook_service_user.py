@@ -1,18 +1,5 @@
-"""The least-privilege principal an inbound webhook run executes as.
-
-A webhook trigger is an unauthenticated caller holding a shared secret, so its agent run must not
-inherit the rights of the admin who created the webhook. Each webhook gets its own service user,
-modelled on the channel service user (``channel_config/service_user.py``):
-
-* username ``webhook-service-<webhook id>``, an undeliverable ``.invalid`` email address;
-* ``account_type``/``auth_source`` ``webhook_service`` and a password nobody knows, so it cannot
-  log in; no API key;
-* exactly the global ``viewer`` role and one ``viewer`` membership in the webhook's Workspace.
-
-:func:`ensure_webhook_service_user` creates or repairs it (idempotent) and is called on every
-trigger, so a webhook without its principal gets one on first use. A username held
-by another kind of account is refused (``webhook_service_user_not_configured``), never reused.
-"""
+"""The least-privilege principal an inbound webhook run executes as. A webhook run never inherits the rights of the
+admin who created it."""
 
 from __future__ import annotations
 
@@ -53,7 +40,7 @@ async def _already_bound(db: AsyncSession, user_id: str, project_id: str) -> boo
 
 
 class WebhookServiceUserConflictError(RuntimeError):
-    """The service username is taken by an account that is not this webhook's service user."""
+    pass
 
 
 def webhook_service_username(webhook_id: str) -> str:
@@ -61,7 +48,6 @@ def webhook_service_username(webhook_id: str) -> str:
 
 
 async def ensure_webhook_service_user(db: AsyncSession, webhook: Webhook) -> User:
-    """Create or repair ``webhook``'s service user; flushes, the caller commits."""
     from .auth import hash_password
 
     username = webhook_service_username(webhook.id)

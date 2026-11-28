@@ -1,17 +1,5 @@
-"""The instant trigger: a pull request Octryx opened, or a commit Octryx pushed onto one, is reviewed at once
-(a harness may merge or close its pull requests within minutes, before the hourly sync sees them).
-
-- ``scm.open_pr`` and ``scm.push`` record a ``pr_head_ready`` run event when they succeed on a run with an open pull
-  request (``head_ready``): an outbox row in the step's own transaction, no coupling to the author run's step;
-- the bot's worker reads the events of that kind since its cursor every :data:`TICK_SECONDS` (``start_due``, over
-  the ``(kind, created_at)`` index), lists the pull request once through the governed listing tool (its target
-  branch, title and draft state, and that the head really is on the provider) and starts the review with the trigger
-  ``octryx_pr``. The usual start decides: the repository's bot must be on (any trigger), a draft only with
-  ``review_drafts``, a head already reviewed is ``already_reviewed``.
-
-Pull requests of other authors keep the sync and the webhook. A WIP push (``server_wip``) is no event: only the
-delivered commit is reviewed.
-"""
+"""The instant trigger: a pull request Octryx opened, or a commit Octryx pushed onto one, is reviewed at once (a harness
+may merge or close its pull requests within minutes, before the hourly sync sees them)."""
 
 from __future__ import annotations
 
@@ -38,7 +26,6 @@ ATTEMPTS = 3
 
 
 def head_ready(db: AsyncSession, run: WorkflowRun) -> None:
-    """Record that ``run``'s open pull request has a new head (after ``scm.open_pr`` or ``scm.push`` succeeded)."""
     pr = dict(run.pull_request or {})
     if run.workflow_key == WORKFLOW_KEY or not pr.get("id") or pr.get("state", "open") != "open":
         return
@@ -50,8 +37,6 @@ def head_ready(db: AsyncSession, run: WorkflowRun) -> None:
 
 @dataclass
 class Cursor:
-    """The worker's position in the event stream; held in memory (a restart reads :data:`CATCH_UP` again)."""
-
     since: datetime = field(default_factory=lambda: utc_now() - CATCH_UP)
     seen: set[str] = field(default_factory=set)
     tries: dict[str, int] = field(default_factory=dict)
@@ -59,8 +44,6 @@ class Cursor:
 
 @dataclass(frozen=True, slots=True)
 class _Due:
-    """One recorded head, copied out of the session (a rollback after a failed start expires the rows)."""
-
     event_id: str
     created_at: datetime
     project_id: str
@@ -80,7 +63,6 @@ async def _due(db: AsyncSession, cursor: Cursor) -> list[_Due]:
 
 
 async def _start_one(db: AsyncSession, item: _Due) -> str:
-    """The start's outcome for one pull request, or an exception to try again on a later tick."""
     from ..observability.review_bot_metrics import count_trigger
     from .bot_user import ensure_review_bot_user
     from .comment_poll import list_repository
@@ -104,7 +86,6 @@ async def _start_one(db: AsyncSession, item: _Due) -> str:
 
 
 async def start_due(db: AsyncSession, cursor: Cursor) -> dict[str, int]:
-    """Start the reviews of the heads recorded since ``cursor``; one pull request once per tick (its newest head)."""
     counted: dict[str, int] = {}
     due = await _due(db, cursor)
     newest = {(item.repository, item.pr_id): item for item in due}

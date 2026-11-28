@@ -3,7 +3,7 @@
 // Connector UX (delivery 5): "Choose pages" on the Confluence card. Per allowed space either the whole space
 // or chosen pages; per page "page and all below", "this page only" or excluded (exclusions inside an included
 // branch allowed). The choices compile to confluence_allowed_pages entries in the backend's shape
-// (services/confluence_pages/rules.py; the tree and rules are those of backend tests/test_confluence_page_rules.py).
+// (services/confluence_pages/rules.py; the tree and rules are those of backend tests/services/connectors/test_confluence_page_rules.py).
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";

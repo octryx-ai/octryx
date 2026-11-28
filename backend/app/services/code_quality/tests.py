@@ -31,14 +31,11 @@ WhichFn = Callable[[str], str | None]
 
 
 def _kept_output(text: str | None) -> str:
-    """Test run output is a product result the agent reads to fix failures: redacted, then bounded."""
     return truncate(redact_process_output(text or ""))
 
 
 @dataclass(frozen=True)
 class _SuiteRun:
-    """What every framework branch of one ``run_test_suite_impl`` call shares."""
-
     config: dict[str, Any]
     detected_framework: str
     repo_root: Path
@@ -76,7 +73,6 @@ def _head(suite: _SuiteRun, framework: str, result: dict[str, Any]) -> dict[str,
 
 
 def _tail(suite: _SuiteRun, result: dict[str, Any], combined: str, failed_tests: list[str] | None) -> dict[str, Any]:
-    """The output fields; ``failed_tests`` is ``None`` for a runner whose failures are not parsed."""
     return {
         "stdout": _kept_output(result["stdout"]),
         "stderr": _kept_output(result["stderr"]),
@@ -204,7 +200,6 @@ def _wants_gradle(suite: _SuiteRun) -> bool:
 
 
 async def _run_detected_suite(suite: _SuiteRun, coverage: bool) -> dict[str, Any] | None:
-    """The first framework branch that applies and finds its launcher; ``None`` when none does."""
     framework, which_fn = suite.detected_framework, suite.which_fn
     if framework in {"pytest", ""} and (which_fn("pytest") or which_fn("python3") or which_fn("python")):
         return await _run_pytest(suite, coverage)

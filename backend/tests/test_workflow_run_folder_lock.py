@@ -1,9 +1,4 @@
-"""One run per device folder (``runtime_target.folder_lock``).
-
-Runs started on one device folder would share one working tree, switch the branch under each other and push each
-other's files in their WIP. A second run family's start or switch onto a
-folder an active run holds is refused ``folder_busy``; another folder is fine.
-"""
+"""One run per device folder (``runtime_target.folder_lock``)."""
 
 from __future__ import annotations
 
@@ -57,7 +52,6 @@ async def test_a_second_run_on_a_busy_device_folder_is_refused_and_another_folde
     assert first_id[:8] in busy.json()["detail"]["message"]
     other = await _start(client, auth_headers, second, _target(device, OTHER))
     assert other.status_code == 200, other.text
-    # Switching onto the busy folder is refused the same way.
     switched = await client.post(f"/api/v1/workflow-runs/{other.json()['run']['id']}/actions", headers=auth_headers,
                                  json={"action": "change_runtime", "runtime_target": _target(device, FOLDER)})
     assert switched.status_code == 409 and switched.json()["detail"]["code"] == "folder_busy"
@@ -69,7 +63,6 @@ def test_only_a_device_target_with_a_folder_has_a_folder_key():
 
 
 async def _watching(db, run_id: str):
-    """The run handed in its pull request and only watches it now (merge, CI)."""
     from app.models import WorkflowRun
 
     run = await db.get(WorkflowRun, run_id)
@@ -82,8 +75,6 @@ async def _watching(db, run_id: str):
 @pytest.mark.asyncio
 async def test_a_run_watching_its_pull_request_frees_the_folder_and_takes_it_back_only_when_free(
         client, auth_headers, db, systems):  # noqa: F811
-    """A team member who handed in a PR is free for the next task (a new run can start in the folder of a finished
-    one)."""
     from app.models import WorkflowRun
     from app.services.workflow_runs.runtime_target.device_wait import WAITABLE_REASONS
     from app.services.workflow_runs.runtime_target.folder_lock import folder_holder
@@ -92,9 +83,8 @@ async def test_a_run_watching_its_pull_request_frees_the_folder_and_takes_it_bac
     first = (await _start(client, auth_headers, item, _target(device, FOLDER))).json()["run"]["id"]
     a = await _watching(db, first)
     started = await _start(client, auth_headers, second, _target(device, FOLDER))
-    assert started.status_code == 200, started.text  # B runs in the folder A only watched from
+    assert started.status_code == 200, started.text
     b_id = started.json()["run"]["id"]
-    # CI red: A needs the tree again, B holds it, so A's next turn waits folder_busy (resumed by the device's channel).
     a.status, a.waiting_kind = "running", None
     await db.commit()
     assert (await folder_holder(db, _target(device, FOLDER), run_id=a.id)).id == b_id
@@ -102,7 +92,7 @@ async def test_a_run_watching_its_pull_request_frees_the_folder_and_takes_it_bac
     b = await db.get(WorkflowRun, b_id)
     b.status = "completed"
     await db.commit()
-    assert await folder_holder(db, _target(device, FOLDER), run_id=a.id) is None  # free again: A takes it
+    assert await folder_holder(db, _target(device, FOLDER), run_id=a.id) is None
 
 
 @pytest.mark.asyncio

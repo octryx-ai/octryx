@@ -1,47 +1,4 @@
-"""Which connection serves a scope item: the one resolver every consumer uses.
-
-For a scope item (a binding key of the connector's descriptor: a Confluence space key, a Jira project key,
-a ServiceNow table, a Kubernetes cluster, ...; nested keys try the most specific binding first):
-
-1. a connection available in the Workspace that binds it exactly serves it: the Workspace's own connections
-   first, then the shared ones (an own binding overrides a shared binding of the same key: the shared
-   connection then serves only its other keys in this Workspace, see :func:`effective_connections`); which
-   connections are available, active and at which agent tools level is read through ``config_effective``
-   (``grants.py``, ``workspace_routes.py``); a key two connections of the same precedence bind is
-   refused, never chosen;
-2. otherwise the connector's default entry serves it, but only as today's rules allow (its own
-   allowlist, or the keys it declares, ``ConnectorDescriptor.default_keys``) and never for a key some
-   named connection binds;
-3. otherwise the item is refused with ``connection_not_configured_for_scope``.
-
-Named connections apply only while the Workspace's own entry of the connector exists and is active:
-that entry stays the connector's single access switch for the Workspace (a disabled connector has
-no account at all). A request is never served by another named connection's credential: nothing in
-this module chooses by order, by fallback or by trying.
-
-:func:`connection_config` is the effective configuration of one connection: the default entry's
-non-connection settings (page allowlists, limits) with the connection unit replaced
-by the named connection's and the allowlist narrowed to its bound scopes. The default connection's
-allowlist loses every bound key; a default whose allowlist only held bound keys serves nothing (its
-target and credential are removed, so it fails closed instead of turning into "unrestricted"). Only the
-connection unit (``contract.connection_keys``) of a named connection reaches that config; any other key
-stored on the connection is dropped.
-
-The routes travel inside a merged config under :data:`NAMED_CONNECTIONS_KEY`, typed as
-:class:`NamedConnectionRoutes` (``routes_model.py``, attached by ``tool_config._attach_named_connections``).
-:func:`routes_of` reads them:
-
-- no key: the Workspace has no named connections, calls pass through;
-- a typed value: the routes;
-- any other value under the key (a plain value from a policy bundle or ``Project.config``, a JSON
-  round trip that lost the type): :data:`ROUTES_UNAVAILABLE`, a fail-closed marker. The tool router
-  refuses every call of a routed connector with ``named_connection_routes_unavailable``
-  instead of running it on the default connection, whose allowlist would still hold bound keys.
-
-Secrets: the routes attached to a merged config carry each named connection's fields without secrets
-(``workspace_routes(..., secrets=False)``); the tool router resolves the secret of exactly the
-connection a call runs on (:func:`with_secrets`), never every connection's.
-"""
+"""Which connection serves a scope item: the one resolver every consumer uses."""
 
 from __future__ import annotations
 
@@ -62,7 +19,6 @@ ALLOWLIST_FIELDS = {
 
 
 async def with_secrets(db: AsyncSession | None, connection: ResolvedNamedConnection) -> ResolvedNamedConnection:
-    """``connection`` with its own secrets resolved; without a session it keeps none (fails closed)."""
     if connection.source is None or db is None:
         return connection
     return replace(connection, config=await resolved_config(db, connection.source), source=None)
@@ -73,7 +29,6 @@ def _listed(raw: Any) -> list[Any]:
 
 
 def _narrowed(tool: str, base: dict, keys: frozenset[str]) -> list[Any]:
-    """The allowlist for exactly ``keys``: the default's own rule of a key when it has one, else the key's rule."""
     allowlist = require_descriptor(tool).allowlist
     rules = {scope_key(tool, allowlist.rule_key(entry)): entry for entry in _listed(base.get(allowlist.field))}
     narrowed = [rules.get(key, allowlist.entry(key)) for key in sorted(keys)]
@@ -89,7 +44,6 @@ def _without_unit(tool: str, config: dict) -> dict:
 def connection_config(
     base: dict, tool: str, routes: NamedConnectionRoutes, connection: ResolvedNamedConnection | None
 ) -> dict:
-    """The effective config of ``connection`` (``None``: the default connection) over the merged ``base``."""
     descriptor = require_descriptor(tool)
     allowlist = descriptor.allowlist
     if connection is not None:
@@ -118,12 +72,6 @@ def connection_config(
 
 
 def serving_connection(config: dict | None, tool: str) -> ResolvedNamedConnection | None:
-    """The first usable named connection that serves ``tool`` in the merged ``config``, or ``None``.
-
-    The routes exist only while the Workspace's own entry of the connector is active
-    (:func:`workspace_routes`), so a connection here means "enabled and served". Untyped routes
-    (:data:`ROUTES_UNAVAILABLE`) serve nothing. Which keys a call may reach stays the router's decision.
-    """
     routes = routes_of(config)
     descriptor = DESCRIPTORS.get(tool)
     if routes.unavailable or descriptor is None:
@@ -132,7 +80,6 @@ def serving_connection(config: dict | None, tool: str) -> ResolvedNamedConnectio
 
 
 def default_allows(tool: str, config: dict, key: object) -> bool:
-    """Today's rule of the default connection for one key (its allowlist or declared keys; see the descriptor)."""
     served = require_descriptor(tool).default_keys(config)
     return served is None or scope_key(tool, key) in served
 
@@ -142,7 +89,6 @@ def connection_name(connection: ResolvedNamedConnection | None) -> str:
 
 
 def connection_ref(connection: ResolvedNamedConnection | None) -> str:
-    """The identity of a connection: its id (``default`` for the default entry). Names may repeat across scopes."""
     return connection.id if connection is not None else DEFAULT_CONNECTION_NAME
 
 

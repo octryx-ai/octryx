@@ -9,8 +9,6 @@ from .protocol import _detect_language, _lsp_uri
 
 
 class LspQueriesMixin:
-    """Document and workspace queries; the host class provides ``_request`` and ``_notify``."""
-
     async def _open_doc(self, path: str) -> None:
         text = Path(path).read_text(encoding="utf-8", errors="replace")
         language = _detect_language(path) or "plaintext"

@@ -20,11 +20,11 @@
   width: 1.55rem;
   height: 1.55rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-decision-timeline__body {
@@ -51,10 +51,10 @@
   min-height: 1.3rem;
   padding: 0.1rem 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 
@@ -75,7 +75,7 @@
 
 .turn-decision-timeline__title {
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-decision-timeline__detail {
@@ -88,7 +88,7 @@
   cursor: pointer;
   color: var(--muted);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-decision-timeline__metadata .trace-panel__pre {

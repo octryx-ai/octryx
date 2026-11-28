@@ -12,8 +12,6 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from ...models import (
-    AgentTraceRun,
-    AgentTraceSpan,
     AuditLog,
     DataExport,
     DeletionRequest,
@@ -53,7 +51,6 @@ SUPPORTED_RETENTION_ENTITIES = {
     "tool_calls",
     "messages",
     "sessions",
-    "agent_trace_runs",
     *OBSERVABILITY_RETENTION_ENTITIES,
 }
 
@@ -306,36 +303,6 @@ async def apply_retention_policies(
             await db.execute(delete(TurnTraceSummary).where(TurnTraceSummary.trace_id.in_(old_traces)))
             result = await db.execute(delete(TurnTrace).where(TurnTrace.created_at < cutoff))
             affected += int(result.rowcount or 0)
-        elif row.entity_type == "agent_trace_runs":
-            old_run_ids = (
-                (await db.execute(select(AgentTraceRun.id).where(AgentTraceRun.created_at < cutoff))).scalars().all()
-            )
-            if row.action == "anonymize":
-                span_rows = (
-                    (await db.execute(select(AgentTraceSpan).where(AgentTraceSpan.trace_run_id.in_(old_run_ids))))
-                    .scalars()
-                    .all()
-                )
-                for span in span_rows:
-                    span.input_json = {"retention": "anonymized"}
-                    span.output_json = {"retention": "anonymized"}
-                    span.span_metadata = {"retention": "anonymized"}
-                    span.error = None
-                run_rows = (
-                    (await db.execute(select(AgentTraceRun).where(AgentTraceRun.id.in_(old_run_ids)))).scalars().all()
-                )
-                for run in run_rows:
-                    run.session_id = None
-                    run.message_id = None
-                    run.trace_metadata = {"retention": "anonymized"}
-                    run.error = None
-                affected += len(run_rows) + len(span_rows)
-            else:
-                span_result = await db.execute(
-                    delete(AgentTraceSpan).where(AgentTraceSpan.trace_run_id.in_(old_run_ids))
-                )
-                run_result = await db.execute(delete(AgentTraceRun).where(AgentTraceRun.id.in_(old_run_ids)))
-                affected += int(span_result.rowcount or 0) + int(run_result.rowcount or 0)
         elif row.entity_type == "tool_calls":
             tool_call_ids = (await db.execute(select(ToolCall.id).where(ToolCall.created_at < cutoff))).scalars().all()
             await delete_tool_artifacts_for_tool_call_ids_func(db, list(tool_call_ids))

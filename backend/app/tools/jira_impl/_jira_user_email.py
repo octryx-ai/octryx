@@ -1,11 +1,5 @@
-"""An Atlassian account by its email or its account id, on a Jira Cloud connection (``search_jira_users`` with
-``email`` / ``account_id``; the account id lookup verifies a linked account, ``services/linked_accounts``).
-
-Atlassian accounts are one directory: the account id Jira Cloud returns is the same account on Bitbucket Cloud,
-which itself has no lookup by email. ``/rest/api/3/user/search?query=<email>`` also matches display names, so an
-answer counts only when its ``emailAddress`` equals the email exactly (review fix 3). An account that hides its
-address is no match: the requester then sets their Atlassian account id explicitly. Never a guess.
-"""
+"""An Atlassian account by its email or its account id, on a Jira Cloud connection (``search_jira_users`` with ``email``
+/ ``account_id``; the account id lookup verifies a linked account, ``services/linked_accounts``)."""
 
 from __future__ import annotations
 
@@ -38,7 +32,6 @@ async def accounts_by_email(
 async def account_by_id(
     client: httpx.AsyncClient, jira_url: str, *, headers: dict[str, str], account_id: str
 ) -> list[dict[str, Any]]:
-    """The active Atlassian account with exactly this id (``[]`` when Jira does not know it)."""
     response = await client.get(f"{jira_url}/rest/api/3/user", headers=headers,
                                 params={"accountId": account_id.strip()})
     if response.status_code >= 400:

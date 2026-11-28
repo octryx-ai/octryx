@@ -1,15 +1,4 @@
-"""The Claude Code sessions running on this machine right now, of every profile (Octryx Mobile "live").
-
-Claude Code registers every running session in ``<config dir>/sessions/<pid>.json``: its name, folder, status (busy or
-idle), session id and the socket of its inbox (``messagingSocketPath``). Another session reaches it with a cross-session
-message to ``uds:<socket>``, across profiles. :func:`live_sessions` lists them, for the person's phone:
-
-- every profile: ``~/.claude`` and every ``~/.claude-*`` (octryx's own config dirs live elsewhere);
-- only records whose process is alive and whose inbox socket exists (stale files of ended sessions stay out);
-- never the relay itself (:data:`RELAY_NAME`) and never octryx's own config dirs.
-
-Nothing here reads a key file or a transcript; only the registry fields above leave the machine.
-"""
+"""The Claude Code sessions running on this machine right now, of every profile (Octryx Mobile "live")."""
 
 from __future__ import annotations
 
@@ -28,7 +17,6 @@ PID_FILE = re.compile(r"^\d{1,9}\.json$")
 
 
 def profile_label(config_dir: Path, home: Path) -> str:
-    """``~/.claude`` is "default"; ``~/.claude-private`` is "private"; anything else its folder name."""
     if config_dir == (home / ".claude").resolve():
         return "default"
     stem = config_dir.name.removeprefix(".claude").strip("-_.").lower() or config_dir.name.lower()
@@ -69,7 +57,6 @@ def _socket(path: str) -> bool:
 
 
 def live_sessions(state: LocalState, *, home: Path | None = None) -> list[dict[str, Any]]:
-    """The running sessions of every profile, newest activity first; never raises."""
     home = home or Path.home()
     out: list[dict[str, Any]] = []
     for profile, config_dir in _profile_dirs(state, home):

@@ -15,7 +15,6 @@ from ._runtime_execution_events import build_execution_event
 
 
 def _thread_quality_signals(thread_context_row: Any) -> tuple[dict[str, Any], dict[str, Any]]:
-    """The thread context payload and its ``quality_signals`` dict (both empty when absent)."""
     payload = (
         dict(thread_context_row.context_json or {})
         if thread_context_row and isinstance(thread_context_row.context_json, dict)
@@ -26,7 +25,6 @@ def _thread_quality_signals(thread_context_row: Any) -> tuple[dict[str, Any], di
 
 
 async def _load_previous_failed_tests(context: ToolContext) -> tuple[Any, list[str]]:
-    """The session's thread context row (or None) and the failures of its last test run."""
     if context.db is None or not context.session_id:
         return None, []
     from ...models import ThreadContext

@@ -1,7 +1,5 @@
-"""What self-update remembers between starts.
-
-The cached release, failed and rolled-back versions, and the pending health check of a switched version.
-"""
+"""What self-update remembers between starts: the cached release, failed and rolled-back versions
+and the pending health check of a switched version."""
 
 from __future__ import annotations
 
@@ -73,7 +71,6 @@ def _remember(state: LocalState, **entries: object) -> None:
     write_private_json(state.root / CACHE_NAME, {**cache, **entries})
 
 def _held_back(state: LocalState, version: str, now: float) -> bool:
-    """A version rolled back after failed starts, or one this install just switched away from (flip-flop)."""
     cache = read_json(state.root / CACHE_NAME)
     try:
         if cache.get("rolled_back_version") == version and \
@@ -87,13 +84,10 @@ def _pending_path(layout: Layout) -> Path:
     return layout.venvs / PENDING_NAME
 
 def mark_pending(layout: Layout, version: str, previous: str, now: float) -> None:
-    """The switch to ``version`` waits for a healthy service start; ``previous`` is where a rollback goes."""
     write_private_json(_pending_path(layout), {"version": version, "previous": previous, "attempts": 0,
                                                "switched_at": now})
 
 def start_attempt(state: LocalState, layout: Layout, running: str, *, now: float | None = None) -> str:
-    """Count one service start on a version still waiting to prove healthy; after ``MAX_START_ATTEMPTS`` unhealthy
-    starts switch back and answer the version to restart on (``""``: go on)."""
     pending = read_json(_pending_path(layout))
     if not running or pending.get("version") != running:
         return ""
@@ -113,7 +107,6 @@ def start_attempt(state: LocalState, layout: Layout, running: str, *, now: float
     return ""
 
 def confirm_healthy(layout: Layout, running: str) -> None:
-    """The running service on ``running`` is healthy: its switch needs no rollback any more."""
     if read_json(_pending_path(layout)).get("version") == running:
         with contextlib.suppress(FileNotFoundError):
             _pending_path(layout).unlink()

@@ -1,5 +1,3 @@
-"""Shared helpers for the test_workspace_prep_* modules."""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,7 +12,6 @@ BRANCH = "feature/BRD-9-slugify"
 
 
 def _origin(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A bare origin with main and the run's branch (one commit ahead), and a clone of it on main."""
     empty = tmp_path / "gitconfig"
     empty.write_text("[user]\n  name = t\n  email = t@example.test\n[commit]\n  gpgsign = false\n")
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty))
@@ -70,7 +67,5 @@ def _platform(record: list, *, ready: bool, contract: dict):
 
 
 def _no_origin_access(folder: Path, tmp_path: Path) -> str:
-    """The device's origin becomes unreachable (like bitbucket.org without credentials); the branch's commit the
-    platform knows is the one main has locally."""
     git(folder, "remote", "set-url", "origin", str(tmp_path / "unreachable.git"))
     return git(folder, "rev-parse", "HEAD")

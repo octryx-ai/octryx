@@ -7,7 +7,6 @@ import {
 } from "./useAdminTabContextsIntegration";
 import {
   buildKnowledgeTabCtx,
-  buildScenariosTabCtx,
   buildUsersTabCtx,
 } from "./useAdminTabContextsGovernance";
 import {
@@ -113,7 +112,7 @@ function integrationTabContexts(p: Record<string, any>) {
   return { webhooksTabCtx, channelsTabCtx, mcpTabCtx, ttsTabCtx };
 }
 
-// Projects, users, scenarios, knowledge and branding tabs, built in this order.
+// Projects, users, knowledge and branding tabs, built in this order.
 function workspaceTabContexts(p: Record<string, any>) {
   const projectsTabCtx = buildProjectsTabCtx({
     ...p,
@@ -127,13 +126,6 @@ function workspaceTabContexts(p: Record<string, any>) {
     onRoleChange: p.handleRoleChange,
     onUpdateUser: p.handleUpdateUser,
   } as any);
-  const scenariosTabCtx = buildScenariosTabCtx({
-    ...p,
-    onCloseScenarioForm: p.closeScenarioForm,
-    onDeleteScenario: p.handleDeleteScenario,
-    onOpenScenarioForm: p.openScenarioForm,
-    onSaveScenario: p.handleSaveScenario,
-  });
   const knowledgeTabCtx = buildKnowledgeTabCtx({
     ...p,
   });
@@ -144,7 +136,6 @@ function workspaceTabContexts(p: Record<string, any>) {
   return {
     projectsTabCtx,
     usersTabCtx,
-    scenariosTabCtx,
     knowledgeTabCtx,
     brandingTabCtx,
   };
@@ -173,7 +164,6 @@ export function buildAdminPanelTabContexts(params: Record<string, unknown>) {
   const {
     projectsTabCtx,
     usersTabCtx,
-    scenariosTabCtx,
     knowledgeTabCtx,
     brandingTabCtx,
   } = workspaceTabContexts(p);
@@ -191,7 +181,6 @@ export function buildAdminPanelTabContexts(params: Record<string, unknown>) {
     skillsTabCtx,
     projectsTabCtx,
     usersTabCtx,
-    scenariosTabCtx,
     knowledgeTabCtx,
     brandingTabCtx,
   };

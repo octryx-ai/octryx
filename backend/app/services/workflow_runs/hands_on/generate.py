@@ -1,12 +1,5 @@
-"""The hands-on scenarios, written by the platform's reviewer model from the specification, never by the building
-agent: they are written after the building phase, kept on the run only, and the agent sees only the steps that
-failed (the agent cannot write its own exam).
-
-The model gets the work item (its acceptance criteria), the decisions this work introduced (``review.spec_commit``:
-for a feature on an existing app only the feature's) and the app's specification; it answers with the scenarios
-(``scenarios``). An answer that breaks the schema is asked once more with the error; a second miss pauses nothing:
-the step is red with the reason, and a person can continue the run.
-"""
+"""The hands-on scenarios, written by the reviewer model from the specification and never by the building agent, so the
+agent cannot write its own exam."""
 
 from __future__ import annotations
 
@@ -20,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ....models import WorkflowRun
 from ....models.runtime.secure_work import WorkItem
 from ...engineering_knowledge import stacks as stack_data
-from .scenarios import REQUIRED_REGRESSION, ScenarioError, validate
+from .scenarios import COVERS, ScenarioError, validate
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +35,9 @@ SYSTEM = (
     "checking what the user sees, including first start versus later starts where the feature depends on it (an "
     "onboarding: shown on the first start, skippable, not shown again after it was completed or skipped, also after "
     "a reload or restart, what was entered in it present in the app); and (2) a short regression set of the app's "
-    "core that together covers, in \"covers\": " + ", ".join(REQUIRED_REGRESSION) + " (app_loads: the main page "
-    "loads; persistence_reload: create data, reload or restart, the data is still there; empty_state: the empty "
+    "core that together covers, in \"covers\", the names the task requires, of: " + ", ".join(COVERS)
+    + " (app_loads: the main page loads; persistence_reload: create data, reload or restart, the data is still "
+    "there; empty_state: the empty "
     "state's text on a fresh profile; mobile_390 and desktop_1280: the main page at width 390 and 1280; "
     "invalid_input: a form refuses an invalid value with its error text). Use only texts, labels and values the "
     "specification or the work item states (the app shows them; a Flutter app's texts are read from its "
@@ -59,7 +53,6 @@ MAX_ARB_FILES = 40
 
 
 async def scenario_task(db: AsyncSession, run: WorkflowRun, root: Path | None, changed: tuple[str, ...]) -> str:
-    """The model's task: the work item, this work's decisions and the specification."""
     from ...content_security.untrusted_fence import fenced_untrusted, new_fence
     from ..review.decision_evidence import read_lines
     from ..review.spec_commit import recorded_for
@@ -107,17 +100,11 @@ async def scenario_task(db: AsyncSession, run: WorkflowRun, root: Path | None, c
 
 
 def ui_texts(root: Path, stacks: dict[str, Any] | None = None) -> list[str]:
-    """The texts the app can show, from its l10n catalogs (``*.arb``; English first). Without them
-    the scenarios filled German field labels (a minimum, a step, a dead-space weight) in an English app and saved a bean
-    without its required fields; every such scenario was red for the scenario, not the app."""
     return list(dict.fromkeys(ui_catalog(root, stacks).values()))[:MAX_UI_TEXTS]
 
 
 def app_root(root: Path, changed: tuple[str, ...], stacks: dict[str, Any] | None = None) -> Path:
-    """The folder of the app this work changes: the nearest folder above the changed files with a manifest of a stack
-    (``engineering_knowledge/stacks.json``), the one most changed files share; ``root`` without one. A catalog
-    read from the whole repository made the scenarios of one Flutter app click labels of another app next to it
-    (and of package catalogs in .pub-cache)."""
+    # A catalog read from the whole repository mixes in the labels of neighbouring apps.
     names = list(stack_data.manifests(stacks))
     counts: dict[Path, int] = {}
     base = root.resolve()
@@ -136,8 +123,6 @@ def _skipped(relative: Path, skip: frozenset[str]) -> bool:
 
 
 def ui_catalog(root: Path, stacks: dict[str, Any] | None = None) -> dict[str, str]:
-    """The app's l10n keys and the texts it shows for them (the English catalogs when it has them); ``root`` is the
-    app's folder (:func:`app_root`), the catalog kinds come from the stacks."""
     import json  # noqa: PLC0415
 
     skip = stack_data.skip_folders(stacks)
@@ -148,8 +133,6 @@ def ui_catalog(root: Path, stacks: dict[str, Any] | None = None) -> dict[str, st
     files = sorted(files, key=lambda item: (not item[1], str(item[0])))[:MAX_ARB_FILES]
     if any(english for _path, english in files):
         # The hands-on browser starts in English (en-US): only the English catalogs are texts the app shows there.
-        # With the German catalog too, every scenario clicked the German labels for "Next" / "Skip" and expected the
-        # German welcome text; all were red on page 1 of an English app.
         files = [item for item in files if item[1]]
     found: dict[str, str] = {}
     for path, _english in files:
@@ -168,10 +151,6 @@ MAX_SCREEN_FILES = 200
 
 
 def screen_actions(root: Path, changed: tuple[str, ...], stacks: dict[str, Any] | None = None) -> list[str]:
-    """The texts the screens this work changes show: l10n keys referenced in the source of the changed files' feature
-    folders (``lib/features/<name>/``, else the changed file's folder). Without this,
-    the feature scenarios clicked a generic "Save" — a text the app has elsewhere — on an onboarding page that saves
-    with "Next"; three stories went red on it."""
     catalog = ui_catalog(app_root(root, changed, stacks), stacks)
     if not catalog:
         return []
@@ -202,8 +181,6 @@ def screen_actions(root: Path, changed: tuple[str, ...], stacks: dict[str, Any] 
 
 
 def unknown_texts(scenarios: list[dict[str, Any]], texts: list[str]) -> list[str]:
-    """The click texts and field labels of ``scenarios`` the app's texts do not have (a value a scenario typed itself
-    may be clicked); ``[]`` without texts to compare with."""
     if not texts:
         return []
     known = [text.casefold() for text in texts]
@@ -222,8 +199,9 @@ def unknown_texts(scenarios: list[dict[str, Any]], texts: list[str]) -> list[str
 
 
 def _checked(answer: Any, texts: list[str], actions: list[str] | None = None,
-             generic: list[str] | None = None, keeps_data: bool = True) -> list[dict[str, Any]]:
-    scenarios = validate(answer, keeps_data=keeps_data)
+             generic: list[str] | None = None, keeps_data: bool = True,
+             required: tuple[str, ...] = ()) -> list[dict[str, Any]]:
+    scenarios = validate(answer, required=required, keeps_data=keeps_data)
     unknown = unknown_texts(scenarios, texts)
     if unknown:
         raise ScenarioError("these click texts or field labels are not texts the app has: " + ", ".join(unknown[:12])
@@ -238,10 +216,6 @@ def _checked(answer: Any, texts: list[str], actions: list[str] | None = None,
 
 
 def foreign_clicks(scenarios: list[dict[str, Any]], actions: list[str], generic: list[str]) -> list[str]:
-    """The ``generic`` action texts ``scenarios`` click that none of the changed screens shows. ``generic`` is the
-    hands-on node's ``generic_actions`` (workflow data: the form buttons a model assumes on any screen, in the app's
-    languages); a feature scenario may navigate to other screens, but clicks one of these only where a changed screen
-    shows it."""
     known = {text.casefold() for text in actions}
     assumed = {str(text).casefold() for text in generic}
     found: list[str] = []
@@ -256,17 +230,13 @@ def foreign_clicks(scenarios: list[dict[str, Any]], actions: list[str], generic:
 
 
 MAX_ATTEMPTS = 3
-ATTEMPT_CHARS = 300  # of each attempt's refusal in the reason
+ATTEMPT_CHARS = 300
 
 
 async def write_scenarios(db: AsyncSession, run: WorkflowRun, model: Any, task: str, texts: list[str] | None = None,
                           actions: list[str] | None = None,
-                          generic: list[str] | None = None) -> tuple[list[dict[str, Any]], str, Any]:
-    """``(scenarios, problem, usage)``: the validated scenarios (labels the app has, when ``texts`` are known), or none
-    and why. Up to :data:`MAX_ATTEMPTS` answers, each told every earlier refusal (a second
-    answer fixed the labels the first was refused for and lost two regression covers; with one retry the pass was
-    red without a scenario). The reason names every attempt's refusal in order, not only the last (otherwise
-    only "do not cover: invalid_input" is kept, and the earlier refusals that led there are lost)."""
+                          generic: list[str] | None = None,
+                          required: tuple[str, ...] = ()) -> tuple[list[dict[str, Any]], str, Any]:
     from .invalid import keeps_data as app_keeps_data
 
     texts = list(texts or [])
@@ -274,12 +244,14 @@ async def write_scenarios(db: AsyncSession, run: WorkflowRun, model: Any, task: 
     from .invalid import writer_notes
 
     task += await writer_notes(db, run)
+    task += ("\n\nThe regression set covers: " + ", ".join(required) + ".") if required else (
+        "\n\nNo regression cover is required; write regression scenarios only for the app's core.")
     if not keeps_data:
         task += ("\n\nThis app keeps no data across a reload or restart (its environment file says so, or an earlier "
                  "run found a seed's data gone after the restart): create the data a scenario needs in its own "
                  "steps (fresh_profile true, no seed, no restart), and write no persistence_reload regression.")
     refusals: list[str] = []
-    attempts: list[str] = []  # every answer's refusal in order, for the event and the pause
+    attempts: list[str] = []
     usage = None
     for _attempt in range(MAX_ATTEMPTS):
         prompt = task if not refusals else (f"{task}\n\nYour earlier answers were refused: " + "; ".join(refusals)
@@ -291,7 +263,7 @@ async def write_scenarios(db: AsyncSession, run: WorkflowRun, model: Any, task: 
             return [], "the scenarios could not be written", usage
         usage = answered.usage
         try:
-            return _checked(answered.answer, texts, actions, generic, keeps_data), "", usage
+            return _checked(answered.answer, texts, actions, generic, keeps_data, required), "", usage
         except ScenarioError as error:
             attempts.append(str(error))
             if str(error) not in refusals:
@@ -301,7 +273,6 @@ async def write_scenarios(db: AsyncSession, run: WorkflowRun, model: Any, task: 
 
 
 def describe(scenarios: list[dict[str, Any]]) -> str:
-    """One line per scenario (for the run view and the event; the steps stay on the run)."""
     return "\n".join(f"{item['id']} [{item['part']}{', fresh' if item['fresh_profile'] else ', with data'}] "
                      f"{item['title']}" for item in scenarios)
 

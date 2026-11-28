@@ -1,11 +1,4 @@
-"""Governed execution of the run's verification contract.
-
-``run_validation_commands`` executes EXACTLY the commands of the approved
-verification contract stored on the session (secure_work_execution) — the
-agent cannot invent commands here. Each command runs in the coding workspace
-with a bounded timeout; the result carries per-command exit codes and the
-``all_green`` completion signal the step machine keys on.
-"""
+"""Governed execution of the run's verification contract."""
 
 from __future__ import annotations
 

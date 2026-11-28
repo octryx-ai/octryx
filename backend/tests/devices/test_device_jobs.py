@@ -47,7 +47,7 @@ async def test_offer_carries_only_the_prompt_and_target_and_events_are_stored_on
     await handlers.tick(db, connection)
     (kind, offer), = connection.sent
     assert kind == "job_offer"
-    assert set(offer) == {"job_id", "turn_id", "prompt", "folder", "profile", "model", "workspace_id",
+    assert set(offer) == {"job_id", "turn_id", "prompt", "folder", "profile", "model", "workspace_id", "owner_user_id",
                           "chat_session_id", "resume_session_id", "policy_decision_id", "limits",
                           "workflow_run_id", "permission_mode", "effort", "lean", "engine", "web",
                           "browser_external"}  # web and public pages by default

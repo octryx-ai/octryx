@@ -1,11 +1,4 @@
-"""MASH policy management routes.
-
-GET    /mash/v1/policies
-POST   /mash/v1/policies
-PUT    /mash/v1/policies/{key}
-DELETE /mash/v1/policies/{key}
-POST   /mash/v1/policies/{key}/assign
-"""
+"""MASH policy management routes."""
 
 from __future__ import annotations
 

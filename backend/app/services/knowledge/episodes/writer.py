@@ -1,27 +1,5 @@
-"""Write one session episode summary as a governed source revision.
-
-The order is the contract:
-
-1. **Who.** The Workspace is already authorized by the caller (an ``AuthorizedWorkspace`` read
-   directly, never through a binding), and the caller's role must be a writer role; else ``denied``.
-2. **Whether.** The Workspace must accept session episodes and the platform's public origin must be
-   configured (``policy.py``); else ``needs_configuration``.
-3. **What.** The summary is bounded (``MAX_EPISODE_CHARS``), must be visible text, and is redacted by
-   the shared redaction core (``redaction.py``) before anything is written.
-4. **Where.** The normal text ingestion writes the object, the revision, its spans and its projection
-   outbox entry in one transaction, so the episode becomes searchable and graph-extractable like any
-   source. Its origin link is the session in the platform UI.
-
-**Identity and deduplication.** The source key is ``session-episode.<session id>``, so one session is
-one source. A summary whose digest that session's source already holds is answered as ``duplicate``
-with the existing revision before anything is written (the ledger's unique ``(source, content
-digest)`` backs this up under a race), while a changed summary of the same session is its next
-revision. Two sessions never share a source.
-
-**Classification.** A source has no classification of its own: the episode is governed by its
-Workspace's data classification, like every other source there. It carries no source ACL, so every
-member of the Workspace can read it.
-"""
+"""Write one session episode summary as a governed source revision. The order is the contract: who, whether, what
+(bounded, redacted), then where."""
 
 from __future__ import annotations
 
@@ -73,8 +51,7 @@ FALLBACK_MESSAGE = "The Knowledge evidence store could not record this episode."
 
 @dataclass(frozen=True, slots=True)
 class EpisodeProvenance:
-    """Where an episode came from, resolved by the server; never from a model argument."""
-
+    # Resolved by the server, never from a model argument.
     session_id: str
     client: str
     recorded_by: str
@@ -110,10 +87,6 @@ def episode_title(provenance: EpisodeProvenance, title: object) -> str:
 
 
 async def episode_refusal(db: AsyncSession, authorized: AuthorizedWorkspace, summary: object) -> dict[str, str] | None:
-    """Steps 1 to 3: the refusal for this caller, Workspace and summary, or ``None`` when it may be written.
-
-    Callers that must create something first (an MCP shadow session) ask this before they do.
-    """
     if authorized.on_behalf_of is not None or authorized.role not in EPISODE_WRITER_ROLES:
         return refusal("role_required")
     if not await episodes_accepted(db, authorized.project_id):
@@ -138,7 +111,6 @@ async def _ingest(
     products: object,
     version: object,
 ) -> dict[str, object]:
-    """Step 4: the text ingestion writes the revision; a ledger refusal is answered as a fixed state."""
     try:
         ingested = await ingest_text_source(
             db,
@@ -180,7 +152,6 @@ async def record_episode_summary(
     products: object = None,
     version: object = None,
 ) -> dict[str, object]:
-    """Record the summary; the caller commits. Every refusal is a fixed state with a fixed message."""
     refused = await episode_refusal(db, authorized, summary)
     if refused is not None:
         return refused

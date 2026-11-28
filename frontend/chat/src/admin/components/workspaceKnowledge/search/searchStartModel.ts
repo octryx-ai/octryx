@@ -1,7 +1,4 @@
-// What Knowledge › Search shows before the first search instead of an empty area under the field. Two
-// compact parts, both read from what the page already loads (the connectors and the documents list):
-// the sources search reads with their last sync, and three example questions made from those sources' names. Recent
-// searches are not shown: no server keeps a person's searches. Pure: no requests, no React.
+// Recent searches are not shown: no server keeps a person's searches.
 
 import type { SourceConnector } from "../connectorTypes";
 import type { KnowledgeSource } from "../workspaceKnowledgeTypes";
@@ -9,14 +6,12 @@ import { gitScopeSummary } from "../gitRepositoryScope";
 import { originLabel } from "./searchFacets";
 import { lastSyncAt, sourceName, sourceState, type SourceTone } from "../sources/sourceState";
 
-// `reason`: why a source needs attention (its tooltip), else null.
 export type StartSource = {
   key: string; name: string; origin: string; state: string; tone: SourceTone; at: number | null; reason: string | null;
 };
 
 export const START_SOURCE_LIMIT = 6;
 
-/** The connected sources, at most START_SOURCE_LIMIT, the ones that need attention first, each with its state. */
 export function startSources(connectors: SourceConnector[], schedulingOn = true, now = Date.now()): StartSource[] {
   const rank = (tone: SourceTone) => (tone === "warning" || tone === "danger" ? 0 : 1);
   return connectors
@@ -30,8 +25,6 @@ export function startSources(connectors: SourceConnector[], schedulingOn = true,
     .map(({ row }) => row);
 }
 
-// The shortest name a person would type for a source: a Confluence space or Jira project key, a repository's name,
-// a cluster; else the source's own name.
 function subjectOf(connector: SourceConnector): string {
   const scope = connector.scope ?? {};
   if (connector.kind === "git_repository") {
@@ -56,10 +49,6 @@ const isUpload = (source: KnowledgeSource) => {
   return !origin || origin.type !== "connector";
 };
 
-/**
- * Three example questions, each about a different source that has something to find (synced at least once), then
- * about uploaded documents by their titles. Fewer when the workspace has fewer sources; none when it has none.
- */
 export function exampleQuestions(connectors: SourceConnector[], documents: KnowledgeSource[] = [], count = 3): string[] {
   const questions: string[] = [];
   const add = (question: string) => {

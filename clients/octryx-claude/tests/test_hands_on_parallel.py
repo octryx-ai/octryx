@@ -1,6 +1,3 @@
-"""The hands-on scenarios run side by side, each worker on its own Playwright, results in the scenarios' order
-(the web test's depth stays, its time goes; workers from the platform's data and the cores)."""
-
 from __future__ import annotations
 
 import contextlib
@@ -74,8 +71,6 @@ def test_a_missing_browser_in_any_worker_is_the_run_s_problem(monkeypatch, tmp_p
 
 
 def test_two_scenarios_that_disturb_each_other_side_by_side_pass_alone_and_say_so(monkeypatch, tmp_path):
-    """Red side by side runs once more alone before it is red; green alone is parallel
-    interference (shared data), information for the team."""
     module = types.ModuleType("playwright.sync_api")
     module.sync_playwright = contextlib.nullcontext
     monkeypatch.setitem(sys.modules, "playwright", types.ModuleType("playwright"))
@@ -116,8 +111,6 @@ def test_a_repository_that_shares_data_runs_its_scenarios_one_at_a_time():
 
 
 def test_a_browser_that_does_not_start_in_time_is_unavailable_at_once(monkeypatch, tmp_path):
-    """While the GoogleUpdater ran no Chrome started and the test waited for its command's timeout; the
-    start limit (platform data) reports browser_unavailable with the remedy."""
     asked: list[float] = []
 
     class TimeoutError(Exception):  # noqa: A001 - Playwright's own class name, which the launcher recognises

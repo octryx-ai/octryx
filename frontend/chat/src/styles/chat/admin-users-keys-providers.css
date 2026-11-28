@@ -60,7 +60,7 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__provider-create button {
@@ -105,7 +105,7 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__provider-wide {

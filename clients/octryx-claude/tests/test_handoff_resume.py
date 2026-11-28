@@ -1,5 +1,3 @@
-"""Resume checks out exactly the WIP commit, starts a linked session and refuses tampered bundles."""
-
 from __future__ import annotations
 
 import os
@@ -17,9 +15,6 @@ from .conftest import BASE_URL
 from .gitrepo import requires_git
 
 pytestmark = requires_git
-
-
-# --- resume -----------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("push", ["branch", "bundle_only"])
@@ -58,7 +53,6 @@ def test_the_resume_command_starts_a_session_linked_to_the_item(state, repos, mo
 
 
 def test_the_terminal_handoff_works_without_a_running_session(state, repos, monkeypatch, capsys):  # noqa: F811
-    """No session env, no model, no seat: a fresh key identifies only this call; the login does the rest."""
     state.write_config({"base_url": BASE_URL, "workspace_id": "ws-1"})
     for name in ("OCTRYX_SESSION_KEY", "OCTRYX_WORK_ITEM", "OCTRYX_WORKSPACE_ID"):
         monkeypatch.delenv(name, raising=False)

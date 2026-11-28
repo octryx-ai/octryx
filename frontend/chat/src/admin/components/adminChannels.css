@@ -16,7 +16,7 @@
   padding: 0.5rem 0.1rem;
   font: inherit;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -50,7 +50,7 @@
 
 .admin-channels__form-title {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 

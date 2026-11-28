@@ -1,13 +1,3 @@
-"""Full session transcripts per Workspace switch, the launcher's side.
-
-- off: no thread, no call, no file: nothing changes against today;
-- on: the session's transcript and its subagents' go in batches, each line once; a restarted launcher continues after
-  what the platform acknowledged, a half-written line waits, an unreachable platform loses nothing;
-- the platform's ``off`` stops the upload at once and forgets the offsets;
-- secret values never leave the Mac: secret shapes, and the whole output of secret commands and credential files;
-  file contents do.
-"""
-
 from __future__ import annotations
 
 import json
@@ -26,8 +16,6 @@ CONTEXT = SessionContext(BASE_URL, SESSION, "ws-1")
 
 
 class Platform:
-    """The gateway's transcript endpoint: records every batch; ``answers`` scripts the replies."""
-
     def __init__(self, *answers: tuple[int, dict]) -> None:
         self.answers = list(answers)
         self.batches: list[dict] = []

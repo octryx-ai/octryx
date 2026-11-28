@@ -1,15 +1,4 @@
-"""Openable citations for the Knowledge evidence the model sees.
-
-A passage keeps its source's own link (the ledger's ``source_url``, e.g. a public web page). A passage of
-an uploaded source has no such link; when it comes from the reading Workspace itself, it cites the exact
-revision through the existing authenticated original route
-(``services/answer_evidence/knowledge_original_links``). Opening that link authorizes the Workspace, the
-source's visibility and its tombstone state again, so the link grants nothing by itself.
-
-A passage from a bound Workspace gets no manufactured link: the reader reads it on that Workspace's behalf
-and has no direct original access there. Nothing is derived from a Workspace's display name. No object
-key, presigned URL, token or local path is ever exposed.
-"""
+"""Openable citations for the Knowledge evidence the model sees."""
 
 from __future__ import annotations
 
@@ -27,7 +16,6 @@ from ...services.knowledge.retrieval.locator import line_range, markdown_citatio
 def openable_source_url(
     *, source_url: str | None, workspace_id: str, primary_workspace_id: str, source_id: str, revision_id: str
 ) -> str | None:
-    """The source's own link, else the reading Workspace's original of this exact revision, else ``None``."""
     if source_url:
         return source_url
     if not workspace_id or workspace_id != primary_workspace_id:
@@ -38,7 +26,6 @@ def openable_source_url(
 def presented_citation(
     citation: Any, *, workspace_id: str, primary_workspace_id: str
 ) -> dict[str, str | None]:
-    """``source_url`` and the matching ``cite_as`` of a cited span or fact citation."""
     url = openable_source_url(
         source_url=getattr(citation, "source_url", None),
         workspace_id=workspace_id,
@@ -52,7 +39,6 @@ def presented_citation(
 
 
 def _revision_of(evidence_key: object) -> str | None:
-    """The revision id an evidence key names (``<revision_hex>:<ordinal>``), in the ledger's form."""
     if not isinstance(evidence_key, str) or ":" not in evidence_key:
         return None
     try:
@@ -64,7 +50,6 @@ def _revision_of(evidence_key: object) -> str | None:
 async def read_source_url(
     db: AsyncSession, *, source_url: str | None, workspace_id: str, primary_workspace_id: str, evidence_key: object
 ) -> str | None:
-    """``openable_source_url`` for a ``knowledge_read`` window, whose read names only the evidence key."""
     if source_url or not workspace_id or workspace_id != primary_workspace_id:
         return source_url or None
     revision_id = _revision_of(evidence_key)

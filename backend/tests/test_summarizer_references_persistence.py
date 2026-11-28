@@ -1,14 +1,12 @@
 """Summary updates store validated references with their evidence map and honour the cooldown, and the drill-back tool resolves message and tool-call references only inside its own session."""
 
-import json
 import uuid
 from datetime import timedelta
 
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.summarizer import _update_summary
-from app.models import Message, Session, User
+from app.models import Message, Project, Session, User
 from app.time_utils import utc_now
 from app.tools.context import ToolContext
 from app.tools.context_tools import GetSessionSummaryEvidenceTool
@@ -31,7 +29,11 @@ class _RecordingProvider:
 
 async def _seed_session(db, message_count=12):
     user = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
-    session = Session(id=str(uuid.uuid4()), user_id=user.id, agent_type="chat", status="active", metadata_={})
+    project = Project(id=str(uuid.uuid4()), name=f"summary-{uuid.uuid4().hex[:8]}", is_active=True,
+                      config={"data_policy": {"classification": "internal"}})
+    db.add(project)
+    session = Session(id=str(uuid.uuid4()), user_id=user.id, project_id=project.id, agent_type="chat", status="active",
+                      metadata_={})
     db.add(session)
     messages = []
     base_time = utc_now()
@@ -63,66 +65,8 @@ def _tool_context(db, session_id):
     )
 
 
-@pytest.mark.asyncio
-async def test_update_summary_stores_validated_references_and_evidence_map(db, monkeypatch):
-    from app.agent import providers as provider_module
-
-    session, messages = await _seed_session(db)
-    valid_ref = f"msg:{messages[0].id}"
-
-    def _respond(user_prompt):
-        assert valid_ref in user_prompt  # evidence list is offered to the model
-        return json.dumps(
-            {
-                "goal": "Analyse OOM crash",
-                "findings": [{"type": "root_cause", "text": f"OOMKilled seen [{valid_ref}] [msg:hallucinated]"}],
-                "actions_taken": [],
-                "open_items": [],
-                "state": "in_progress",
-            }
-        )
-
-    provider = _RecordingProvider(_respond)
-    monkeypatch.setattr(provider_module, "get_provider", lambda *args, **kwargs: provider)
-
-    await _update_summary(session.id, db)
-    await db.refresh(session)
-
-    metadata = dict(session.metadata_ or {})
-    assert provider.calls == 1
-    assert metadata["summary_references"] == [valid_ref]
-    evidence_map = metadata["summary_evidence_map"]
-    assert isinstance(evidence_map, list) and evidence_map
-    assert all(set(item) == {"ref", "role", "tool_name", "excerpt"} for item in evidence_map)
-    assert metadata["summary_source_last_message_id"] == messages[-9].id  # last message outside the window
-    # hallucinated marker was dropped from stored references and text
-    assert "[msg:hallucinated]" not in json.dumps(metadata["summary_json"])
-    assert valid_ref in metadata["summary_json"]["findings"][0]["text"]
-    # the structured summary and its text form are both stored
-    assert isinstance(metadata.get("summary_json"), dict)
-    assert "Goal:" in metadata["summary"]
 
 
-@pytest.mark.asyncio
-async def test_update_summary_cooldown_skips_same_source_last_message(db, monkeypatch):
-    from app.agent import providers as provider_module
-
-    session, _ = await _seed_session(db)
-    provider = _RecordingProvider(lambda _prompt: json.dumps({"goal": "g", "state": "in_progress"}))
-    monkeypatch.setattr(provider_module, "get_provider", lambda *args, **kwargs: provider)
-
-    await _update_summary(session.id, db)
-    assert provider.calls == 1
-    await db.refresh(session)
-
-    # Force past the message-count skip so only the cooldown can stop the rerun.
-    metadata = dict(session.metadata_ or {})
-    metadata["summary_message_count"] = 0
-    session.metadata_ = metadata
-    await db.commit()
-
-    await _update_summary(session.id, db)
-    assert provider.calls == 1  # cooldown skipped the second run
 
 
 @pytest.mark.asyncio

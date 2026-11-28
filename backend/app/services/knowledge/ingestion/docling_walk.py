@@ -37,8 +37,6 @@ from .outline_sections import outline_index
 
 
 class _Walker:
-    """Collects blocks in reading order, keeping the heading stack."""
-
     def __init__(self, document: dict[str, Any], admonitions: tuple[str, ...] = ADMONITION_MARKERS) -> None:
         self._document = document
         self._admonition = _admonition_pattern(admonitions) if admonitions else None
@@ -138,11 +136,6 @@ class _Walker:
             self.walk(child, depth + 1)
 
     def _is_site_navigation(self, group: dict[str, Any]) -> bool:
-        """A long list whose entries are links to the same site's pages: a page index, not content.
-
-        A wiki sidebar lists every page of the site; a release note's dependency list links to other
-        sites, and a short list of links is ordinary content. Only the first kind is dropped.
-        """
         refs = [ref for ref in group.get("children") or () if isinstance(ref, dict)]
         if len(refs) < NAVIGATION_MIN_ITEMS:
             return False
@@ -181,12 +174,6 @@ def _text_volume(walker: _Walker, ref: object, depth: int = 0) -> int:
 
 
 def _main_content(walker: _Walker, children: list) -> list:
-    """For a web page, the one top-level subtree that holds most of the text: the article.
-
-    A rendered page wraps its content in navigation, sidebars and footers that Docling keeps as body
-    content. When one subtree carries at least half of the page's text, only it is the document;
-    otherwise the page has no single article and everything is kept.
-    """
     volumes = [_text_volume(walker, child) for child in children]
     total = sum(volumes)
     if not total:
@@ -198,11 +185,6 @@ def _main_content(walker: _Walker, children: list) -> list:
 def document_blocks(
     document: object, *, admonitions: tuple[str, ...] = ADMONITION_MARKERS, outline: object = None
 ) -> list[Block]:
-    """Blocks of the document body in reading order (only the article of a web page).
-
-    ``outline``: the PDF's bookmarks (``outline_sections.py``); when usable, each block's section path is
-    the outline's at the block's page and position, otherwise the heading stack's.
-    """
     if not isinstance(document, dict) or not isinstance(document.get("body"), dict):
         raise _contract("document")
     walker = _Walker(document, admonitions)
@@ -212,6 +194,7 @@ def document_blocks(
         children = _main_content(walker, children)
     for child in children:
         walker.walk(child)
+    # Docling reports every heading of a vendor manual at level 1; the PDF outline has the real hierarchy.
     index = outline_index(outline)
     if index is None:
         return walker.blocks

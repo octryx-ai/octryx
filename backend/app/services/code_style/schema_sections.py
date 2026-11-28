@@ -88,7 +88,6 @@ def _tool_levels(levels: Any, path: str) -> dict[str, str]:
 
 
 def _tool(tool: Any, path: str) -> dict[str, Any]:
-    """One formatter or linter section; ``path`` already names the kind."""
     if not isinstance(tool, dict) or set(tool) - {"command", "repo_config_command", "config_files", "enabled",
                                                    "variants", "levels", "blocking", "outside_sandbox"}:
         raise CodeStyleError("invalid_tool", path)
@@ -124,7 +123,6 @@ def _tool(tool: Any, path: str) -> dict[str, Any]:
 
 
 def _diagrams(value: Any, path: str) -> dict[str, Any]:
-    """The app's draw.io diagrams: ``{enabled, folder, images, kinds}``."""
     if not isinstance(value, dict) or set(value) - {"enabled", "folder", "images", "kinds"}:
         raise CodeStyleError("invalid_diagrams", path)
     out: dict[str, Any] = {}

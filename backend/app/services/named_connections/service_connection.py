@@ -1,12 +1,4 @@
-"""The named connection a platform service runs on, for service-only connectors.
-
-A service-only connector (:data:`descriptors.SERVICE_ONLY_CONNECTORS`, today Jenkins) has no agent tool, so no tool
-router picks its connection; the service names it explicitly. :func:`service_connection` answers exactly one
-active connection available in the Workspace (its own first, then a shared one) or ``None``: the connection that
-binds ``instance`` (bound scopes are unique per connector and scope).
-
-Nothing is chosen by order, by fallback or by trying; the returned connection carries its own secrets only.
-"""
+"""The named connection a platform service runs on, for service-only connectors."""
 
 from __future__ import annotations
 
@@ -19,7 +11,6 @@ from .store import list_platform_connections, resolved_config, to_value
 
 
 async def _candidates(db: AsyncSession, connector: str, project_id: str | None) -> list[NamedConnection]:
-    """The active connections available in the Workspace (its own first), or every platform one."""
     if not project_id:
         return [to_value(row) for row in await list_platform_connections(db, connector) if row.is_active]
     granted = [(row, grant) for row, grant in await available_rows(db, [connector], project_id)
@@ -34,7 +25,6 @@ async def service_connection(
     *,
     instance: str | None = None,
 ) -> tuple[NamedConnection, dict] | None:
-    """The connection serving ``connector`` for a platform service in ``project_id`` and its resolved config."""
     if connector not in SERVICE_ONLY_CONNECTORS:
         raise ValueError(f"{connector} is not a service-only connector")
     candidates = await _candidates(db, connector, project_id)

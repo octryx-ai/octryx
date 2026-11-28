@@ -42,7 +42,6 @@ def _runtime(monkeypatch):
 
 
 async def _granted_session(db, key: str, command: str) -> str:
-    """A session holding an approval grant for exactly ``bash`` + ``command`` (what an approval leaves)."""
     from app.models import Session as AgentSession
     from app.models import User
     from app.services.change_preview import build_change_request_fingerprint

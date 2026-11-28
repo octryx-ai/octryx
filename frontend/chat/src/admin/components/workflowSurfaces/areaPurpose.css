@@ -8,11 +8,6 @@
   border-bottom: 1px solid var(--border-soft);
 }
 
-.area-purpose__back {
-  justify-self: start;
-  margin-bottom: 0.25rem;
-}
-
 .area-purpose__text,
 .area-purpose__when {
   margin: 0;
@@ -29,7 +24,7 @@
   margin-right: 0.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
@@ -69,7 +64,7 @@
   padding: 0.75rem 1rem;
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 

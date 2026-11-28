@@ -1,29 +1,4 @@
-"""Which change facts a page shows first: document structure, not keyword guessing.
-
-A version range has hundreds of typed change facts, and one page shows about twenty. Without a topic,
-the page must show what an upgrade hinges on: the new baselines, removed and replaced components,
-the major dependency moves. Where those are is a property of the *documents*, not of the words in a
-fact:
-
-1. **Kind tier.** Blocking changes (requires, removed, renamed, replaced, moved), then changes to
-   revisit (deprecated, default changed), then new capabilities.
-2. **Document role.** Within a tier, migration guides and release notes come first (read in turns),
-   then specifications and references, then a configuration changelog. The role is the one
-   the knowledge package gave the document (``KnowledgePackageDocument.role``), or else the one its
-   Source Sync connector gave it (a Jira release: ``release_notes``); a source without either ranks
-   with references.
-3. **Document order.** Within a document, earlier sections first: a migration guide opens with its
-   system requirements and the moves everything else depends on.
-4. **Breadth.** Within a document, sections are taken in turns, so one long section does not fill
-   the page.
-5. **Product level.** Within a tier, facts whose subject is the product itself ("Spring Boot 4.0
-   requires Java 17", "... updates Jackson to 3.0") take turns with all other facts. They are the
-   baselines an upgrade starts from, and a guide states several of them in one section, so section
-   turns alone would show one per section. The subject is the fact's graph entity, compared with
-   the product key; no word of the fact is read.
-
-Facts that say the same thing (same kind, same text ignoring case and spacing) are shown once.
-"""
+"""Which change facts a page shows first: document structure, not keyword guessing."""
 
 from __future__ import annotations
 
@@ -64,7 +39,6 @@ class _ProductFact(_Fact, Protocol):
 
 
 async def source_roles(db: AsyncSession, project_id: str, source_ids: Iterable[str]) -> dict[str, str]:
-    """The explicit role of each source: its knowledge package's, else the Source Sync connector's."""
     ids = sorted({source_id for source_id in source_ids if source_id})
     if not ids:
         return {}
@@ -129,7 +103,6 @@ def _slug(text: str) -> str:
 
 
 def is_product_level(product: str) -> Callable[[_ProductFact], bool]:
-    """Whether a fact's subject entity is the product itself (``Spring Boot 4.0`` for ``spring-boot``)."""
     key = _slug(product)
 
     def check(item: _ProductFact) -> bool:
@@ -145,7 +118,6 @@ def rank_tier(
     kind_order: Callable[[str], int],
     product_level: Callable[[_Fact], bool] | None = None,
 ) -> list[_Fact]:
-    """One kind tier: product-level facts and the others take turns, each ranked by document structure."""
     if product_level is None:
         return _rank_documents(facts, roles, kind_order)
     level = [item for item in facts if product_level(item)]
@@ -161,7 +133,6 @@ def rank_tier(
 
 
 def _text_order(item: _Fact) -> str:
-    """Within one span, the order the facts were extracted in, which follows the text."""
     return str(getattr(item, "extracted_at", "") or "")
 
 
@@ -172,7 +143,6 @@ def _in_document_order(facts: list[_Fact], kind_order: Callable[[str], int]) -> 
 def _rank_documents(
     facts: list[_Fact], roles: dict[str, str], kind_order: Callable[[str], int], *, breadth: bool = True
 ) -> list[_Fact]:
-    """Documents banded by role, in position order, each read breadth-first by section (or in order)."""
     documents: dict[str, list[_Fact]] = {}
     for item in facts:
         documents.setdefault(item.citation.revision_id, []).append(item)

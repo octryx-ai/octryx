@@ -1,8 +1,4 @@
-"""The registry of connector descriptors: the only place a connector type is added.
-
-Adding a connector type to named connections means one descriptor module here (plus its tool code);
-the table, resolver, tool router, admin API and UI component are shared (``../descriptor.py``).
-"""
+"""The registry of connector descriptors: the only place a connector type is added."""
 
 from __future__ import annotations
 

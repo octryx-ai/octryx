@@ -1,14 +1,4 @@
-"""Central skill catalog: versions, blobs, categories, sources and upstream snapshots.
-
-``skills`` (``models/agent/skill.py``) stays the identity table. Everything that changes what an agent receives,
-or who receives it, lives on a :class:`SkillVersion` and goes through the shared governed-revision lifecycle
-(``draft -> in_review -> published -> retired``, four-eyes publish, immutable once published).
-
-The canonical artefact of a version is an Agent Skills bundle: ``files`` lists every file (path, sha256, size,
-kind) and the bytes live content-addressed in :class:`SkillBlob`. ``frontmatter``/``body`` are the parsed view
-of ``SKILL.md``; ``extension`` holds the platform fields (tools per surface, output contract, safety rules, roles,
-executor). An MCP server entry (``skills.kind = mcp_server``) carries a ``launch_spec`` instead of a SKILL.md.
-"""
+"""Central skill catalog: versions, blobs, categories, sources and upstream snapshots."""
 
 from __future__ import annotations
 

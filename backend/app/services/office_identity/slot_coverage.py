@@ -1,8 +1,4 @@
-"""Geometric relations between a layout's slots: coverage and full bleed.
-
-Used by the layout catalog (``annotate_coverage`` stamps every slot) and by the
-slide gate (what a picture hides).
-"""
+"""Geometric relations between a layout's slots: coverage and full bleed."""
 
 from __future__ import annotations
 
@@ -31,7 +27,6 @@ def _rect(slot: dict[str, Any]) -> tuple[int, int, int, int] | None:
 
 
 def covered_fraction(outer: dict[str, Any], inner: dict[str, Any]) -> float:
-    """Fraction of ``inner``'s own area that lies inside ``outer``."""
     first = _rect(outer)
     second = _rect(inner)
     if first is None or second is None:
@@ -46,15 +41,6 @@ def covered_fraction(outer: dict[str, Any], inner: dict[str, Any]) -> float:
 
 
 def annotate_coverage(slots: list[dict[str, Any]], slide_size: dict[str, int]) -> None:
-    """Stamp ``slide_area_ratio``, ``covers`` and ``full_bleed`` onto each slot.
-
-    ``full_bleed`` is deliberately **z-order blind**. A slide-filling picture
-    replaces the branded background and hides the logo even where the template
-    stacks it *behind* the title — which is exactly what the rendered evidence
-    of a statement layout with a slide-filling picture stacked behind its title
-    showed. Only picture and media slots can be full bleed; text slots that
-    happen to be large are not a branding failure.
-    """
     slide_area = int(slide_size.get("width_emu") or 0) * int(slide_size.get("height_emu") or 0)
     for slot in slots:
         rect = _rect(slot)

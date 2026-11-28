@@ -1,17 +1,4 @@
-"""The linkage phase of a structured build: inside the slice deadline, resumable, only where needed.
-
-After every layer of a build is extracted, each layer with a ``link`` step synchronizes its
-cross-source edges (``layers.py``). This phase:
-
-- runs a layer's linkage only when the build changed it: the layer (or one it depends on,
-  :data:`LINK_DEPENDS`) had revisions extracted or retired. An unchanged layer whose last completed
-  build left a settled linkage (any state but ``needs_configuration``, ``unavailable`` or
-  ``partial``) is reported ``unchanged`` and not recomputed;
-- starts a step only before the slice ``deadline`` and passes the deadline on, so a long step
-  (the similarity pass) stops in time and answers ``partial``; the next slice resumes it from the
-  ``partial`` result, which the build report keeps (a cursor and counts, never content);
-- remembers finished steps in the report, so a resumed slice never reruns them.
-"""
+"""The linkage phase of a structured build: inside the slice deadline, resumable, only where needed."""
 
 from __future__ import annotations
 
@@ -32,7 +19,6 @@ _UNSETTLED = frozenset({"needs_configuration", "unavailable", STATE_PARTIAL})
 
 
 def changed_layers(report: dict) -> set[str]:
-    """The layers this build extracted or retired revisions of (over all its slices so far)."""
     return {
         layer for layer, entry in (report.get("layers") or {}).items()
         if isinstance(entry, dict) and (entry.get("extracted") or entry.get("retired"))
@@ -40,7 +26,6 @@ def changed_layers(report: dict) -> set[str]:
 
 
 async def previous_linkage(db: AsyncSession, project_id: str, build_id: str) -> dict[str, Any]:
-    """The linkage report of the Workspace's last completed build before this one."""
     report = (await db.execute(
         select(KnowledgeStructuredBuild.report)
         .where(
@@ -63,7 +48,6 @@ async def run_linkage(
     specs: dict[str, LayerSpec],
     deadline: float,
 ) -> bool:
-    """Run the build's due linkage steps; ``False`` when the deadline stopped the phase (resume next slice)."""
     linkage = report.setdefault("linkage", {})
     requested = set(build.layers)
     changed = changed_layers(report)

@@ -1,14 +1,5 @@
-"""The text the projection indexes and embeds for each span of a revision.
-
-Most spans are projected as their own text. A **code** span (locator kind ``code``, written by
-``ingestion/code_ingest``) is projected as its retrieval text instead
-(``code/retrieval_text``): the file path and symbol path of its locator, the words of its
-identifiers, then its lines. The projected body is only what the span is found by; the text a
-retrieval hit returns and cites is read back from the ledger (``retrieval/evidence.py``).
-
-Read per batch, from the ledger only: the revision's source title (a repository file's path) and
-the batch's locators. A span without a locator row is projected as its own text.
-"""
+"""The text the projection indexes and embeds for each span of a revision. The cited text is always read back from the
+ledger."""
 
 from __future__ import annotations
 
@@ -62,7 +53,6 @@ async def projected_span_texts(
     *,
     purpose: str,
 ) -> dict[int, str]:
-    """``span_ordinal -> text`` to index (``PURPOSE_INDEX``) or embed (``PURPOSE_EMBED``)."""
     if purpose not in (PURPOSE_INDEX, PURPOSE_EMBED):
         raise ValueError("unknown projection purpose")
     texts = {int(span.span_ordinal): span.text for span in spans}

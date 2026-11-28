@@ -1,18 +1,4 @@
-"""What needs the current person, across their Workspaces, and its in-app notifications.
-
-Items (newest first, at most :data:`MAX_ITEMS`):
-
-- ``decision_request``: undecided, unredacted requests addressed to me, or addressed to ``admins`` or to no
-  one in a Workspace where I am admin/owner;
-- ``limit_reached_with_claim`` (Workspace admins/owners only): a session at its seat limit that still holds a
-  live work-item claim, one item per claim;
-- ``handoff_confirm`` and ``available_handoff``: see ``action_needed_handoffs``.
-
-Every item has one in-app ``Notification`` per person. Its dedupe key is the kind plus the message or claim id,
-carried in the deep ``link``; the title is secret-free (kind, work item key, the agent's user) and there is never
-a body. :func:`sync_notifications` creates the missing ones and resolves (marks read) the ones whose item is
-gone: answered, redacted, released or cleared. A person who turned in-app notifications off gets none.
-"""
+"""What needs the current person, across their Workspaces, and its in-app notifications."""
 
 from __future__ import annotations
 
@@ -190,7 +176,6 @@ async def _in_app_enabled(db: AsyncSession, user_id: str) -> bool:
 
 
 async def sync_notifications(db: AsyncSession, user_id: str, items: list[dict[str, Any]]) -> None:
-    """One notification per current item; open ones whose item is gone are resolved. Flushes."""
     wanted = {item_link(item): item for item in items}
     open_rows = (
         await db.execute(
@@ -215,7 +200,6 @@ async def sync_notifications(db: AsyncSession, user_id: str, items: list[dict[st
 
 
 async def resolve_message_notifications(db: AsyncSession, message: AgentBoardMessage) -> None:
-    """Everyone's open notification for ``message`` is resolved (answered or redacted)."""
     await db.execute(
         update(Notification)
         .where(

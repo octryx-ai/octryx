@@ -1,7 +1,3 @@
-"""Background agents of a plain run turn: Claude Code stops a background agent 600 s after the main session's Stop
-and sends no completion notice; an agent resumed with SendMessage runs again. Transcript shapes as Claude Code writes
-them."""
-
 from __future__ import annotations
 
 import json
@@ -65,7 +61,6 @@ def test_an_agent_claude_code_stopped_is_over_and_named(tmp_path):
 
 
 def test_an_agent_resumed_with_send_message_runs_again_until_its_notice(tmp_path):
-    """A "stopped" notice from before a SendMessage resume does not end the resumed agent's turn."""
     at = time.time() - 1000
     transcript, agent = _session(tmp_path)
     _write(agent, _agent_rows(at - 2000, interrupted=True) + _agent_rows(at + 15, interrupted=False))

@@ -1,9 +1,4 @@
-"""Admin panel API for the entity knowledge graph (gold layer).
-
-Serves the REAL knowledge graph (``knowledge_graph_nodes``/``edges``, claims,
-communities) — not the medallion provenance view — plus a retrieval preview
-that shows exactly the context block an agent would receive for a query.
-"""
+"""Admin panel API for the entity knowledge graph (gold layer)."""
 
 from __future__ import annotations
 
@@ -32,8 +27,6 @@ async def _private_ids(db: AsyncSession) -> frozenset[str]:
 
 
 async def _admin_scope(db: AsyncSession, project_id: str) -> tuple[frozenset[str], list[str] | None]:
-    """The admin knowledge views never reach a private Workspace. ``(private ids, project ids)``;
-    a named private one is 404, an unnamed scope is every other Workspace (plus the instance-global knowledge)."""
     private = await _private_ids(db)
     if project_id:
         if project_id in private:
@@ -119,8 +112,8 @@ async def panel_entity_graph_federation_export(
     body: FederationExportRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, body.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, body.project_id)
     from app.services.knowledge_graph.federation import (
         export_entity_graph_package,
         sign_entity_graph_package,
@@ -177,8 +170,8 @@ async def panel_retrieval_preview(
     body: RetrievalPreviewRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, body.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, body.project_id)
     _private, scope = await _admin_scope(db, body.project_id)
     result = await retrieve_knowledge(
         db,

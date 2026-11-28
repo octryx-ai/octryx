@@ -1,10 +1,4 @@
-"""List and detail views of connections.
-
-``access`` never carries a secret or a secret ref: ``secret_set`` and ``secrets`` say which secrets are stored.
-``state`` is ``disabled`` while ``is_active`` is false, else the last known state (``ok`` | ``failing`` |
-``untested``). ``problems_count`` / ``problems`` come from the problems aggregator (``problems_view.py``).
-``owner`` and ``can_edit`` are computed for the caller (``rights.py``).
-"""
+"""List and detail views of connections."""
 
 from __future__ import annotations
 

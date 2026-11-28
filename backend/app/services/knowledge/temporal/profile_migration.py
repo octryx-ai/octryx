@@ -1,10 +1,4 @@
-"""Which episodes of a Workspace graph were extracted under which extraction profile (typing v2).
-
-An episode records the profile it was extracted under. **Stale** means an episode whose profile is
-not one of :data:`~.change_types.CURRENT_PROFILES`. A request to extract a product also owes every
-current revision of the product that holds stale episodes (``extraction_requests``), so until its
-own run completes, ``knowledge_changes`` says ``not_extracted`` for it.
-"""
+"""Which episodes of a Workspace graph were extracted under which extraction profile."""
 
 from __future__ import annotations
 
@@ -16,7 +10,6 @@ from .change_types import CURRENT_PROFILES
 
 
 async def revisions_with_stale_episodes(db: AsyncSession, project_id: str, revision_ids: list[str]) -> set[str]:
-    """Which of these revisions still hold episodes of a profile that is no longer current."""
     if not revision_ids:
         return set()
     rows = await db.execute(
@@ -32,7 +25,6 @@ async def revisions_with_stale_episodes(db: AsyncSession, project_id: str, revis
 
 
 async def episodes_by_profile(db: AsyncSession, project_id: str) -> dict[str, int]:
-    """The Workspace's episodes per extraction profile, so a profile migration can be watched."""
     rows = await db.execute(
         select(KnowledgeGraphEpisode.extraction_profile, func.count(KnowledgeGraphEpisode.episode_uuid))
         .where(KnowledgeGraphEpisode.project_id == project_id)

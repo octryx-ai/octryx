@@ -1,21 +1,5 @@
-"""Files a phone turn made on this Mac, fetched by the person on demand (Octryx Mobile).
-
-Artifacts a session creates must be retrievable from the app: a turn that writes a report,
-a picture or code leaves it on the Mac; the person opens it from the app.
-
-- **only a project folder** (the rule of ``project_folder``): a job whose folder is a home
-  folder, a disk, temp or a system folder (a take-over session started in ``~``) lists and serves nothing. Inside,
-  dot files and folders and ``Library`` are never entered or served at any depth, nor octryx's own state or a
-  Claude Code config folder.
-- **after each turn** :func:`changed_files` lists the files in the turn's folder changed since the turn started
-  (newest first, at most :data:`MAX_LISTED`). Left out: secrets (``device_sdk.secret_path``), ``.git``, dependency
-  and cache folders, files over :data:`MAX_FILE_BYTES`, links. The list goes to the chat as a ``files`` job event;
-  no content leaves the Mac.
-- **on request** (``file_request {request_id, job_id, path}`` on the channel) :meth:`FileServer.serve` sends one
-  file in chunks (``file_chunk``), or ``file_failed {reason}``. The Mac answers only for a job it ran (its own
-  record, :func:`remember_turn`), only inside that job's folder (no ``..``, no link out of it), only a regular file
-  that is no secret and not larger than :data:`MAX_FILE_BYTES`.
-"""
+"""Files a phone turn made on this Mac, listed after each turn and fetched by the person on demand.
+Only from a project folder of a job this Mac ran; never secrets, dot folders, links or oversized files."""
 
 from __future__ import annotations
 
@@ -47,8 +31,6 @@ _SYSTEM_TOP_LEVEL = frozenset({"etc", "opt", "usr", "bin", "sbin", "Library", "S
 
 
 def shared_folder(folder: str, *, home: Path | None = None, state_root: Path | None = None) -> Path | None:
-    """The job folder when files may be shared from it: a project folder, never the home folder, a disk, temp, a
-    system folder, ``~/Library``, a dot folder, octryx's state or a Claude Code config folder."""
     if not folder or not folder.startswith("/"):
         return None
     try:
@@ -78,7 +60,6 @@ def _hidden(part: str) -> bool:
 
 def changed_files(folder: str, since: float, *, limit: int = MAX_LISTED, home: Path | None = None,
                   state_root: Path | None = None) -> list[dict[str, Any]]:
-    """Files under ``folder`` changed at or after ``since``; nothing for a folder that is not shared; never raises."""
     root = shared_folder(folder, home=home, state_root=state_root)
     if root is None:
         return []
@@ -109,7 +90,6 @@ def changed_files(folder: str, since: float, *, limit: int = MAX_LISTED, home: P
 
 
 def remember_turn(state: LocalState, job_id: str, folder: str, since: float) -> None:
-    """The Mac's own record of which folder a job ran in: file requests are answered only from it."""
     path = state.root / JOBS_FILE
     jobs = read_json(path) if path.exists() else {}
     jobs = jobs if isinstance(jobs, dict) else {}
@@ -129,7 +109,6 @@ def _job_folder(state: LocalState, job_id: str) -> str:
 
 
 def resolve(state: LocalState, job_id: str, rel: str, *, home: Path | None = None) -> tuple[Path | None, str]:
-    """``(file, "")`` when the Mac may hand it out, else ``(None, reason)``."""
     folder = _job_folder(state, job_id)
     if not folder:
         return None, "unknown_job"

@@ -1,15 +1,5 @@
-"""Excel features beyond cells: native charts, data validation, conditional formats, autofilter, sparklines,
-and the pivot-style summary.
-
-Sparklines: openpyxl neither writes nor keeps the x14 ``sparklineGroups`` extension, so they are carried
-around it — read from the package before openpyxl loads it, and written back into each sheet's ``extLst``
-after openpyxl saved (:func:`read_sparklines`, :func:`write_sparklines`). An edit through the tools therefore
-keeps a workbook's sparklines.
-
-Pivot tables: openpyxl cannot create a pivot cache, so a pivot request renders a live summary table of
-``SUMIFS``/``COUNTIFS``/``AVERAGEIFS`` formulas grouped by the ``rows`` field (``pivot_mode:
-"formula_summary"``).
-"""
+"""Excel features beyond cells: native charts, data validation, conditional formats, autofilter, sparklines, and the
+pivot-style summary."""
 
 from __future__ import annotations
 
@@ -45,7 +35,6 @@ def _split_ref(workbook: Any, worksheet: Any, ref: str) -> tuple[Any, str]:
 
 
 def _literal_table(worksheet: Any, spec: ChartSpec) -> str:
-    """Write literal chart data beside the used range; returns the written range."""
     start_col = worksheet.max_column + 2
     worksheet.cell(row=1, column=start_col, value="")
     for offset, (name, _) in enumerate(spec.series, start=1):
@@ -175,7 +164,6 @@ def set_autofilter(worksheet: Any, ref: str) -> None:
 
 
 def pivot_summary(workbook: Any, worksheet: Any, props: dict[str, Any]) -> dict[str, Any]:
-    """A grouped summary of ``source`` by the first ``rows`` field, as live formulas."""
     source = str(props.get("source") or "").strip()
     source_sheet, ref = _split_ref(workbook, worksheet, source)
     min_col, min_row, max_col, max_row = cell_bounds(ref)

@@ -93,6 +93,18 @@ test("events build the current turn; a gap asks for a reload", () => {
   assert.equal(applyJobEvent(jobs, approval)[0].approvals[0].canAllowJobEdits, true);
 });
 
+test("the context pack shows as one finished card with its counts", () => {
+  const pack = "Context pack (built from the checkout by a script, not a model):\n- `checkout` shop/cart.py:4";
+  const [running] = readJobs({ items: [{ ...job(), approvals: [], events: [
+    { seq: 1, type: "job_event", body: { turn_id: "t1", kind: "context_pack", text: pack, symbols: 1, routes: 0, tests: 2 } },
+    { seq: 2, type: "job_event", body: { turn_id: "t1", kind: "context_pack", error: "OSError" } },
+    { seq: 3, type: "job_event", body: { turn_id: "t1", kind: "text", text: "Reading the cart." } }] }] });
+  const items = turnView(running).items;
+  assert.deepEqual(items.map((item) => item.kind === "text" ? item.text : `${item.tool}:${item.status}:${item.preview}`),
+    ["Context pack:done:1 symbols, 0 routes, 2 tests", "Reading the cart."], "a pack without text adds no card");
+  assert.equal(items[0].output, pack);
+});
+
 test("job states say what happened in words", () => {
   const [rejected] = readJobs({ items: [{ ...job({ status: "rejected", status_reason: "folder_not_allowlisted_on_device" }),
     events: [], approvals: [] }] });
@@ -117,4 +129,13 @@ test("a restarted or stalled turn says it was interrupted; a blocked folder name
     events: [], approvals: [] }] });
   assert.match(jobState(timedOut, { status: "error", error: "claude_initialize_timeout" }).label,
     /^Ended: Claude Code on the device did not start in time/);
+});
+
+test("a turn waiting for a server runner is live and can be cancelled", () => {
+  const waiting = readJob({ id: "dj_w", device_id: null, profile: "governed", status: "waiting_runner" });
+  assert.deepEqual(jobState(waiting, null), { label: "Waiting for a server runner", tone: "running", live: true });
+  assert.equal(restoresDeviceTarget(waiting, []), true);
+  const cancelled = readJob({ id: "dj_w", device_id: null, profile: "governed", status: "closed",
+    status_reason: "cancelled_by_owner" });
+  assert.deepEqual(jobState(cancelled, null), { label: "Cancelled", tone: "stopped", live: false });
 });

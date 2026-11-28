@@ -1,15 +1,4 @@
-"""What reviewer, author and assignee resolution reads: a user's linked accounts, nothing else.
-
-- :func:`scm_platform`: the linked-account platform of a run's source control (Bitbucket Cloud → ``atlassian``);
-- :func:`linked_identifier`: the user's account id / username there (``""`` when not linked);
-- :func:`account_identifiers`: the user's account ids and usernames (a Jira assignee matches one of them);
-- :func:`account_names`: the same for several users (a declared reviewer matches one);
-- :func:`users_by_account_name`: the reverse lookup, ``{lower-cased identifier: user ids}``.
-
-Display names never match: two people can share one.
-
-A lookup by email (the fallback where a platform has one) stays the caller's, with an exact match.
-"""
+"""What reviewer, author and assignee resolution reads: a user's linked accounts, nothing else."""
 
 from __future__ import annotations
 
@@ -26,7 +15,6 @@ _SCM_PLATFORMS = {"github": GITHUB, "gitlab": GITLAB, "bitbucket": BITBUCKET_SER
 
 
 def scm_platform(provider: str, *, cloud: bool = False) -> str:
-    """``github`` / ``gitlab`` stay; ``bitbucket`` is ``atlassian`` on Cloud, else ``bitbucket_server``."""
     if provider == "bitbucket" and cloud:
         return ATLASSIAN
     return _SCM_PLATFORMS.get(provider, "")
@@ -39,13 +27,10 @@ async def linked_identifier(db: AsyncSession, user_id: str | None, platform_key:
 
 
 async def account_identifiers(db: AsyncSession, user_id: str) -> set[str]:
-    """The lower-cased account ids and usernames of the user's linked accounts (never display names: an access
-    decision matches an identifier only)."""
     return (await account_names(db, {user_id})).get(user_id, set())
 
 
 async def account_names(db: AsyncSession, user_ids: set[str]) -> dict[str, set[str]]:
-    """``{user id: lower-cased account ids and usernames of their linked accounts}``."""
     if not user_ids:
         return {}
     names: dict[str, set[str]] = defaultdict(set)
@@ -56,7 +41,6 @@ async def account_names(db: AsyncSession, user_ids: set[str]) -> dict[str, set[s
 
 
 async def users_by_account_name(db: AsyncSession, names: set[str]) -> dict[str, set[str]]:
-    """``{lower-cased name: user ids}`` for names that are a linked account's account id or username."""
     if not names:
         return {}
     rows = (await db.execute(select(UserLinkedAccount).where(or_(

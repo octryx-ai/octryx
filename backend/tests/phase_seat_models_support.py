@@ -11,8 +11,6 @@ HAIKU, OPUS = "claude-haiku-5-5", "claude-opus-5-5"
 
 @pytest.fixture
 def seat_admitted(monkeypatch):
-    """The seat may take the turn (the Workspace's seat decision is not what these tests are about) and the
-    Workspace admits the models in ``admitted``."""
     from app.services.devices import chat_turn
 
     admitted = {"models": {"", HAIKU, OPUS}}

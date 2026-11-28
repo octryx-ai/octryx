@@ -1,5 +1,5 @@
-# Which OS base the Python runtime stage builds on: `os-base` (default) for api and the agent
-# workers, `java-toolchain` for api-coding, code-intel-worker and all-in-one. A global ARG, because
+# Which OS base the Python runtime stage builds on: `os-base` (default) for api,
+# `java-toolchain` for api-coding and code-intel-worker. A global ARG, because
 # FROM only expands ARGs declared before the first FROM. The target stages check the value, so a
 # Java target built without it (or a plain target built with it) fails instead of shipping the
 # wrong toolchain.
@@ -102,8 +102,8 @@ RUN apt-get update \
     && soffice --version \
     && rm -rf /var/lib/apt/lists/*
 
-# The Java build toolchain (Temurin 25 JDK and Maven) that code intelligence and coding sessions
-# run: a coding agent builds and tests a Java repository in its session workspace. Built on the OS
+# The Java build toolchain (Temurin 25 JDK and Maven) that coding sessions run: a coding agent builds
+# and tests a Java repository in its session workspace. Built on the OS
 # base only, so a lock change reuses this layer instead of downloading the JDK again.
 FROM os-base AS java-toolchain
 
@@ -173,14 +173,12 @@ RUN mkdir -p /app/data /app/data/provider_profiles /app/data/code-intelligence \
         /app/uploads /app/research /app/backend/data \
     && chown -R 10001:10001 /app/data /app/uploads /app/research /app/backend/data
 
-# The runtime without Java: api, agent-worker and the managed-CLI workers.
 FROM runtime-closure AS python-runtime
 
 ARG RUNTIME_BASE
 RUN test "${RUNTIME_BASE}" = "os-base" \
     || { echo "this target builds on RUNTIME_BASE=os-base, got ${RUNTIME_BASE}" >&2; exit 1; }
 
-# The runtime with the Java toolchain: api-coding, code-intel-worker and all-in-one.
 FROM runtime-closure AS java-runtime
 
 ARG RUNTIME_BASE
@@ -211,62 +209,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 
 CMD ["python", "-m", "app.main"]
 
-FROM python-runtime AS agent-worker-base
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends nodejs npm \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY docker/install-managed-clis.sh /tmp/install-managed-clis.sh
-
-FROM agent-worker-base AS codex-worker
-
-ARG ENABLE_MANAGED_CLI_TOOLS=1
-ARG INSTALL_CLAUDE_CODE=0
-
-RUN chmod +x /tmp/install-managed-clis.sh \
-    && ENABLE_MANAGED_CLI_TOOLS=${ENABLE_MANAGED_CLI_TOOLS} INSTALL_CLAUDE_CODE=${INSTALL_CLAUDE_CODE} MANAGED_CLI_TOOLS=codex /tmp/install-managed-clis.sh \
-    && rm -f /tmp/install-managed-clis.sh \
-    && rm -rf /root/.npm /root/.cache
-
-USER 10001:10001
-
-CMD ["python", "-m", "app.main"]
-
-FROM agent-worker-base AS gemini-worker
-
-ARG ENABLE_MANAGED_CLI_TOOLS=1
-ARG INSTALL_CLAUDE_CODE=0
-
-RUN chmod +x /tmp/install-managed-clis.sh \
-    && ENABLE_MANAGED_CLI_TOOLS=${ENABLE_MANAGED_CLI_TOOLS} INSTALL_CLAUDE_CODE=${INSTALL_CLAUDE_CODE} MANAGED_CLI_TOOLS=gemini /tmp/install-managed-clis.sh \
-    && rm -f /tmp/install-managed-clis.sh \
-    && rm -rf /root/.npm /root/.cache
-
-USER 10001:10001
-
-CMD ["python", "-m", "app.main"]
-
-FROM agent-worker-base AS opencode-worker
-
-ARG ENABLE_MANAGED_CLI_TOOLS=1
-ARG INSTALL_CLAUDE_CODE=0
-
-RUN chmod +x /tmp/install-managed-clis.sh \
-    && ENABLE_MANAGED_CLI_TOOLS=${ENABLE_MANAGED_CLI_TOOLS} INSTALL_CLAUDE_CODE=${INSTALL_CLAUDE_CODE} MANAGED_CLI_TOOLS=opencode /tmp/install-managed-clis.sh \
-    && rm -f /tmp/install-managed-clis.sh \
-    && rm -rf /root/.npm /root/.cache
-
-USER 10001:10001
-
-CMD ["python", "-m", "app.main"]
-
-FROM python-runtime AS agent-worker
-
-USER 10001:10001
-
-CMD ["python", "-m", "app.main"]
-
 FROM java-runtime AS code-intel-worker
 
 RUN apt-get update \
@@ -282,24 +224,5 @@ RUN chmod +x /tmp/install-code-intelligence-tools.sh \
 USER 10001:10001
 
 CMD ["python", "-m", "app.code_indexer_main"]
-
-FROM code-intel-worker AS all-in-one
-
-USER root
-
-ARG ENABLE_MANAGED_CLI_TOOLS=1
-ARG INSTALL_CLAUDE_CODE=0
-
-COPY docker/install-managed-clis.sh /tmp/install-managed-clis.sh
-RUN chmod +x /tmp/install-managed-clis.sh \
-    && ENABLE_MANAGED_CLI_TOOLS=${ENABLE_MANAGED_CLI_TOOLS} INSTALL_CLAUDE_CODE=${INSTALL_CLAUDE_CODE} /tmp/install-managed-clis.sh \
-    && rm -f /tmp/install-managed-clis.sh \
-    && rm -rf /root/.npm /root/.cache
-
-EXPOSE 8000
-
-USER 10001:10001
-
-CMD ["python", "-m", "app.main"]
 
 FROM api AS default

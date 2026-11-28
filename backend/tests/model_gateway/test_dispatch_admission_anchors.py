@@ -1,16 +1,5 @@
-"""The Workspace anchor a dispatch owner is allowed to use.
-
-``test_dispatch_admission.py`` proves the boundary and
-``test_dispatch_admission_owners.py`` proves each owner's seam. This module pins
-the remaining question: *whose* Workspace decides, when the owner's project id can
-also come from a model-supplied tool argument.
-
-The knowledge tools resolve their project from ``params["project_id"]``. A model could therefore name a Workspace with a
-wider ``model_policy`` and borrow its alias grants. The anchor is server-owned
-instead: the turn's own project comes first, the tool's resolved project is
-admitted by intersection, and a project outside the actor's own Workspaces is
-refused before a client — or a policy row — exists.
-"""
+"""The Workspace anchor a dispatch owner may use is server-owned: a model-supplied ``project_id`` cannot borrow
+another Workspace's alias grants."""
 
 from __future__ import annotations
 
@@ -33,6 +22,7 @@ from app.tools.knowledge_impl._knowledge_workspace_scope import (
     MISSING_WORKSPACE_ERROR,
     knowledge_workspace_scope,
 )
+from tests.factories import make_project
 
 from .conftest import ALIAS, gateway_runtime, granted_project_config
 
@@ -42,18 +32,14 @@ KNOWLEDGE_MODULES = {
 
 
 async def _project(db: AsyncSession, *, policy: dict | None) -> Project:
-    project = Project(
-        id=str(uuid.uuid4()),
+    return await make_project(
+        db,
         name=f"anchor-{uuid.uuid4().hex[:8]}",
         config={
             **({"model_policy": policy} if policy is not None else {}),
             "data_policy": {"classification": "internal"},
         },
-        is_active=True,
     )
-    db.add(project)
-    await db.flush()
-    return project
 
 
 def _context(db: AsyncSession, *, home: Project, also_authorized: Project | None = None) -> ToolContext:
@@ -71,8 +57,6 @@ def _context(db: AsyncSession, *, home: Project, also_authorized: Project | None
 
 
 class _ForbiddenDatabase:
-    """Proves a refused model argument never becomes a database lookup."""
-
     async def get(self, *_args: Any, **_kwargs: Any) -> Any:
         raise AssertionError("project authorization must happen before db.get")
 
@@ -90,9 +74,6 @@ def _preflight_context(*, anchor_id: str | None, authorized_ids: list[str]) -> T
         project_config=project_config,
         db=_ForbiddenDatabase(),
     )
-
-
-# --- the scope itself --------------------------------------------------------
 
 
 async def test_the_scope_anchors_on_the_turn_project_not_the_model_argument(db: AsyncSession):
@@ -123,7 +104,6 @@ async def test_the_scope_marks_a_project_outside_the_actor_as_cross_workspace(db
         "admission_reason": REASON_CONTEXT_NOT_AUTHORIZED,
         "dispatched": False,
     }
-    # The refusal names the decision, never the project it refused.
     assert foreign.id not in repr(denial)
 
 
@@ -140,20 +120,10 @@ async def test_the_scope_needs_server_context_before_a_model_can_select_an_autho
     assert scope.reason == REASON_CONTEXT_MISSING
 
 
-# --- the regression: a model-named foreign Workspace, zero clients -----------
-
-
 @pytest.mark.parametrize("tool", sorted(KNOWLEDGE_MODULES))
 async def test_a_model_supplied_cross_workspace_project_never_reaches_the_database_or_a_client(
     monkeypatch, tool: str
 ):
-    """The foreign Workspace grants the alias; naming it must still dispatch nothing.
-
-    Every path that could produce a request is replaced by a failing stand-in, so
-    a green test is the zero-dispatch guarantee rather than a hope: no runtime
-    resolution, no generate function, no provider client.
-    """
-
     import importlib
 
     module_path, tool_name = KNOWLEDGE_MODULES[tool]
@@ -208,12 +178,9 @@ async def test_missing_server_anchor_denies_before_the_database_even_for_an_auth
 
 
 async def test_an_authorized_second_workspace_is_admitted_by_intersection(db: AsyncSession, monkeypatch):
-    """Both Workspaces must grant the alias — naming one of them cannot widen it."""
-
     from app.services.knowledge_graph.llm_runtime import KnowledgeLLMUnavailableError, build_generate_fn
 
     home = await _project(db, policy=granted_project_config(ALIAS)["model_policy"])
-    # Authorized for the actor, but its own policy grants nothing.
     second = await _project(db, policy={})
     monkeypatch.setattr(
         "app.services.control_plane_service.resolve_control_plane_runtimes",

@@ -1,8 +1,4 @@
-"""Fixed words and refusals of the connections API.
-
-Every refusal is ``{detail: {code, message, field?}}``; ``message`` is one sentence that names fields and keys,
-never a value or a secret.
-"""
+"""Fixed words and refusals of the connections API."""
 
 from __future__ import annotations
 

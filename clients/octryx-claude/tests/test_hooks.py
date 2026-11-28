@@ -12,7 +12,6 @@ def test_pre_tool_use_allow_defers_to_the_normal_permission_flow():
 
 
 def test_an_allow_the_platform_rewrote_runs_rewritten_in_claude_code_and_unchanged_in_codex(monkeypatch):
-    """The platform may give a pytest run ``-v`` (``updated_input``); Codex has no updatedInput."""
     tool_input = {"command": "python -m pytest -q"}
     answer = _ok({"decision": "allow", "updated_input": {"command": "python -m pytest -q -v"}})
     monkeypatch.delenv("OCTRYX_ENGINE", raising=False)

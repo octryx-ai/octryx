@@ -21,7 +21,6 @@ PLATFORM="linux/amd64"
 # Images to build (name:target pairs from Dockerfile)
 declare -a IMAGES=(
   "api:api"
-  "agent-worker:agent-worker"
 )
 
 # ── Helpers ──
@@ -51,7 +50,7 @@ while [[ $# -gt 0 ]]; do
       IMAGE_FILTER="${arg#--images=}"
       ;;
     --help|-h)
-      echo "Usage: $0 [--skip-build] [--skip-push] [--skip-helm] [--only-helm] [--images api,agent-worker]"
+      echo "Usage: $0 [--skip-build] [--skip-push] [--skip-helm] [--only-helm] [--images api]"
       echo ""
       echo "  --skip-build   Skip image builds (use existing local images)"
       echo "  --skip-push    Skip pushing images to the registry"
@@ -297,7 +296,6 @@ if [[ "$ONLY_HELM" == "false" ]]; then
     if [[ -n "$digest" ]]; then
       case "$name" in
         api) component="api" ;;
-        agent-worker) component="platformWorker" ;;
         code-intel-worker) component="codeIndexer" ;;
         *) err "Unknown image component: $name"; exit 1 ;;
       esac

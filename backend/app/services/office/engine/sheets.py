@@ -1,11 +1,4 @@
-"""Excel workbooks (openpyxl): element paths and edits (descriptors: ``sheets_describe``, views: ``sheets_views``).
-
-Paths: ``/``, ``/Sheet1`` or ``/sheet[n]``, ``/Sheet1/B4``, ``/Sheet1/A1:C9``, ``/Sheet1/chart[n]``,
-``/Sheet1/row[n]``; ``Sheet1!B4`` is accepted as well. Values are data, always (a leading ``=`` stays text);
-formulas are written only through the ``formula`` property.
-
-Generated Excel scripts import this module (``apply_cell_props``), so those names stay here.
-"""
+"""Excel workbooks (openpyxl): element paths and edits (descriptors: ``sheets_describe``, views: ``sheets_views``)."""
 
 from __future__ import annotations
 
@@ -96,8 +89,6 @@ def _cells(worksheet: Any, ref: str) -> Iterable[Any]:
 
 
 def set_literal(cell: Any, value: Any) -> None:
-    """Store ``value`` as data. openpyxl turns any string starting with ``=`` into a formula; a data value
-    (cell values, template data) must never become one — formulas come only from the ``formula`` property."""
     cell.value = coerce_value(value)
     if isinstance(cell.value, str) and cell.value.startswith("="):
         cell.data_type = "s"
@@ -225,7 +216,6 @@ def add_row(worksheet: Any, values: list[Any], index: int | None = None) -> None
 
 
 def cell_bounds(ref: str) -> tuple[int, int, int, int]:
-    """``"A1:C9"`` → (min_col, min_row, max_col, max_row)."""
     return range_boundaries(ref.replace("$", ""))
 
 

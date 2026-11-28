@@ -28,7 +28,6 @@ def _deny(reason: str, message: str) -> ToolDecision:
 
 
 def _with_remedy(decision: ToolDecision, setting: str, value: Any, defaults: dict[str, Any] | None) -> ToolDecision:
-    """``decision`` with the admin's one-click fix, when the Workspace's ``tool_defaults`` decided it."""
     if defaults is None:
         return decision
     return ToolDecision(decision.decision, decision.state, decision.reason, decision.rule_id,

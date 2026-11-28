@@ -1,20 +1,4 @@
-"""The user-facing content notices of a chat turn: closed, bounded, never the data.
-
-A notice says what a content policy did with one model request or one tool result: the obligation kind, the
-reason code, what was found (detector × count), how many values were masked, the deciding policies, the decision
-record and the model change. Producers put the raw mapping in two structured places:
-
-- the model-call notice (``content_security.model_call``: the shipped policies and ``chat.apply_chat_content``
-  on success, the refusal's ``content_notice`` on failure)
-  rides on the engine's runtime attempt as :data:`ATTEMPT_KEY`, so it is persisted in the trace's
-  ``raw_output.runtime_attempts``;
-- a checked tool result carries ``content_policy`` (``tools/result_content``), so the stored tool call keeps it.
-
-:func:`turn_content_obligations` reads both back for ``turn_execution_summary.v1`` (``content_obligations``).
-Every value is re-validated here: a closed enum, a bounded count, or a token that starts with a letter (detector,
-policy, alias and tool names) or a decision id that is not all digits. Free text and anything shaped like a long
-number never pass, so the summary cannot echo content even if a producer were wrong.
-"""
+"""The user-facing content notices of a chat turn: closed, bounded, never the data."""
 
 from __future__ import annotations
 
@@ -45,12 +29,11 @@ _DECISION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{3,63}$")
 
 
 def name_token(value: Any) -> str | None:
-    """A detector, category, policy, alias or tool name (starts with a letter), else ``None``."""
     return value if isinstance(value, str) and _TOKEN.match(value) else None
 
 
+# Never all digits, so a decision id is never shaped like an account number.
 def decision_token(value: Any) -> str | None:
-    """A decision record id (never all digits, so never shaped like an account number), else ``None``."""
     ok = isinstance(value, str) and _DECISION.match(value) and not value.isdigit()
     return value if ok else None
 
@@ -59,8 +42,8 @@ def _count(value: Any) -> int:
     return value if type(value) is int and 0 <= value <= _MAX_COUNT else 0
 
 
+# Every value is re-validated as a closed code, a bounded count or a name token.
 def closed_notice(raw: Any, *, source: str, tool: Any = None) -> dict[str, Any] | None:
-    """The validated notice, or ``None`` when ``raw`` is not a notice (unknown kind or reason)."""
     if not isinstance(raw, Mapping) or raw.get("kind") not in KINDS:
         return None
     reason = raw.get("reason") or REASON_APPLIED
@@ -86,7 +69,6 @@ def closed_notice(raw: Any, *, source: str, tool: Any = None) -> dict[str, Any] 
 
 
 def attach_to_attempt(attempt: dict[str, Any], carrier: Any) -> None:
-    """Copy a provider response's ``content_obligation`` or an error's ``content_notice`` onto its attempt."""
     raw = carrier.get(ATTEMPT_KEY) if isinstance(carrier, Mapping) else getattr(carrier, "content_notice", None)
     if isinstance(raw, Mapping) and raw:
         attempt[ATTEMPT_KEY] = dict(raw)
@@ -104,10 +86,6 @@ def _key(notice: dict[str, Any]) -> tuple:
 
 def turn_content_obligations(raw_outputs: Iterable[Any], tool_results: Iterable[tuple[Any, Any]]
                              ) -> list[dict[str, Any]]:
-    """The turn's notices: model requests (from the traces' runtime attempts) then tool results, deduplicated.
-
-    ``tool_results`` are ``(tool_name, stored result)`` pairs; only the result's ``content_policy`` is read.
-    """
     found: list[dict[str, Any]] = []
     for raw_output in raw_outputs:
         attempts = raw_output.get("runtime_attempts") if isinstance(raw_output, Mapping) else None

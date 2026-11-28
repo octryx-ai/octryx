@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..access.acl_keys import MAX_SOURCE_PRINCIPALS, is_acl_key
+from ..access.acl_keys import MAX_SOURCE_PRINCIPALS, AclKey, is_acl_key
 from .errors import EvidenceIndexContractError
 from .operations import OperationSpec
 
@@ -24,7 +24,6 @@ MAX_ACL_LIST_ITEMS = MAX_SOURCE_PRINCIPALS + 1
 
 
 def checked_parameters(spec: OperationSpec, parameters: object) -> dict[str, Any]:
-    """Accept exactly the registry's parameter names with bounded values."""
     if parameters is None:
         parameters = {}
     if type(parameters) is not dict or frozenset(parameters) != spec.parameters:
@@ -43,7 +42,6 @@ def checked_parameters(spec: OperationSpec, parameters: object) -> dict[str, Any
 
 
 def _checked_scalar(value: object) -> str | int:
-    """Exact scalars only: no nested structure, no bool-as-int, no float."""
     if type(value) is str and len(value) <= MAX_STRING_VALUE_CHARS:
         return value
     if type(value) is int and 0 <= value <= MAX_INT_VALUE:
@@ -52,7 +50,6 @@ def _checked_scalar(value: object) -> str | int:
 
 
 def _checked_string_list(value: object) -> list[str]:
-    """A bounded list of short strings; an empty list is allowed (an unscoped span)."""
     if type(value) is not list or len(value) > MAX_STRING_LIST_ITEMS:
         raise EvidenceIndexContractError()
     if not all(type(item) is str and 0 < len(item) <= MAX_STRING_LIST_ITEM_CHARS for item in value):
@@ -60,8 +57,7 @@ def _checked_string_list(value: object) -> list[str]:
     return list(value)
 
 
-def _checked_acl_list(value: object) -> list[str]:
-    """A non-empty, bounded list of ACL keys: an empty marker would match nothing and hide the span."""
+def _checked_acl_list(value: object) -> list[AclKey]:
     if type(value) is not list or not 0 < len(value) <= MAX_ACL_LIST_ITEMS:
         raise EvidenceIndexContractError()
     if not all(is_acl_key(item) for item in value):
@@ -70,7 +66,6 @@ def _checked_acl_list(value: object) -> list[str]:
 
 
 def _checked_vector(value: object) -> list[float]:
-    """A dense vector: a non-empty list of finite floats, at most :data:`MAX_VECTOR_DIMENSIONS` long."""
     if type(value) is not list or not 0 < len(value) <= MAX_VECTOR_DIMENSIONS:
         raise EvidenceIndexContractError()
     if not all(type(item) is float and math.isfinite(item) for item in value):

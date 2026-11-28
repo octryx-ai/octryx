@@ -1,6 +1,5 @@
-"""A workflow a pull request starts (its Start box says ``started_by: pull_request``) is not offered where a person
-starts a run for a Work item: the start dialog, the routing of a Work item type and the app all read the startable
-list (the rule lives in the definition, not in a list of keys)."""
+"""A workflow a pull request starts (``started_by: pull_request``) is not offered where a person starts a run
+for a Work item; the rule lives in the definition, not in a list of keys."""
 
 from __future__ import annotations
 

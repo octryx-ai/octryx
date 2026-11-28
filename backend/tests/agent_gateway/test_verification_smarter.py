@@ -1,6 +1,4 @@
-"""The "done means verified" gate asks for a test only where one makes sense: a session that writes a test.txt is
-not pushed to invent a pytest run. Only code changes count, the common runners count, and a folder without any
-test setup gets no forced test."""
+"""The "done means verified" gate asks for a test only where one makes sense."""
 
 from __future__ import annotations
 
@@ -30,7 +28,7 @@ def _row(tool: str, seconds: int, *, path: str = "", command: str = "", ok: bool
 
 
 def test_a_text_or_document_change_needs_no_test():
-    rows = [_row("Write", 1, path="/Users/l/Documents/OCX/test.txt"), _row("Edit", 2, path="/repo/README.md"),
+    rows = [_row("Write", 1, path="/home/sample/Documents/OCX/test.txt"), _row("Edit", 2, path="/repo/README.md"),
             _row("Write", 3, path="/repo/docs/deck.pptx")]
     result = evaluate_verification(POLICY, rows)
     assert (result.state, result.reason) == ("not_applicable", "no_code_change")
@@ -40,7 +38,7 @@ def test_a_code_change_still_needs_a_test_and_unknown_paths_count_as_code():
     assert evaluate_verification(POLICY, [_row("Write", 1, path="/repo/app.py")]).reason == "no_test_after_last_change"
     assert evaluate_verification(POLICY, [_row("Edit", 1)]).reason == "no_test_after_last_change"
     rows = [_row("Edit", 1, path="/repo/app.py"), _row("Write", 2, path="/repo/NOTES.md")]
-    assert evaluate_verification(POLICY, rows).state == "blocked"  # a later doc change does not hide the code change
+    assert evaluate_verification(POLICY, rows).state == "blocked"
 
 
 @pytest.mark.parametrize("command", ["npm test", "pnpm run test -- --run", "npx vitest run", "mvn test",
@@ -52,7 +50,7 @@ def test_the_common_test_runners_count(command):
 
 
 def test_no_test_setup_means_no_forced_test_but_a_run_test_still_decides():
-    rows = [_row("Write", 1, path="/Users/l/scripts/tool.sh")]
+    rows = [_row("Write", 1, path="/home/sample/scripts/tool.sh")]
     result = evaluate_verification(POLICY, rows, test_setup=False)
     assert (result.state, result.reason) == ("not_applicable", "no_test_setup")
     assert evaluate_verification(POLICY, rows, test_setup=True).state == "blocked"

@@ -86,8 +86,6 @@ def _base_metadata(
 
 
 def _host_metadata(base_metadata: dict[str, Any], *, fallback: bool) -> dict[str, Any]:
-    """Metadata of a process started on the host: directly, or as the fallback when the container runtime is
-    unavailable."""
     metadata = {
         **base_metadata,
         "provider": DEFAULT_EXECUTION_RUNTIME_PROVIDER,
@@ -100,7 +98,6 @@ def _host_metadata(base_metadata: dict[str, Any], *, fallback: bool) -> dict[str
 
 
 def _restricted_envs(env: Mapping[str, str] | None) -> tuple[dict[str, str], dict[str, str]]:
-    """The host environment (allowlist only) and the explicit environment with git hardened."""
     from ..execution_runtime.server_env import explicit_env, server_command_env, with_git_hardening
 
     host_env = server_command_env(env)
@@ -140,10 +137,7 @@ async def spawn_persistent_stdio_process(
     new_process_group: bool = False,
     restricted_env: bool = False,
 ) -> PersistentProcessHandle:
-    """``new_process_group`` starts a host child as a group leader, so a deadline kills its whole tree.
-
-    ``restricted_env``: an agent's command (``start_runtime_process``) inherits no secret of this process, only the
-    allowlist plus what the caller sets, and git in it runs nothing of the working copy (``server_env``)."""
+    """``new_process_group`` starts a host child as a group leader, so a deadline kills its whole tree."""
     if restricted_env:
         host_env, env = _restricted_envs(env)
     else:

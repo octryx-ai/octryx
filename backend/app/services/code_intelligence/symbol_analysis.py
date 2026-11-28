@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
-from app.services.code_intelligence.semantic_store import _read_native_scip_index, _read_semantic_index
 from app.services.lsp import _detect_language as _detect_lsp_language
 
 from .storage_constants import _LANGUAGE_TO_LSP_LANGUAGE
-from .storage_runtime import _coerce_dict, _coerce_list, _truncate
 from .storage_search import (
     _iter_source_files,
     _language_for_path,
-    _line_number_for_offset,
 )
 
 
@@ -126,91 +122,4 @@ async def _lsp_references_for_definition(
             continue
         seen.add(key)
         results.append({"path": normalized_path, "line": line, "column": column, "preview": "", "backend": "lsp"})
-    return results
-
-
-def _scip_definitions(snapshot: dict[str, Any], *, symbol: str) -> list[dict[str, Any]]:
-    native_java = _read_native_scip_index(snapshot, language="java")
-    native_definitions = _coerce_dict(native_java.get("definitions_by_name")).get(symbol.lower())
-    if isinstance(native_definitions, list):
-        return [item for item in native_definitions if isinstance(item, dict)]
-    semantic_index = _read_semantic_index(snapshot)
-    definitions = _coerce_dict(semantic_index.get("definitions_by_symbol")).get(symbol.lower())
-    if not isinstance(definitions, list):
-        return []
-    return [item for item in definitions if isinstance(item, dict)]
-
-
-def _scip_references(snapshot: dict[str, Any], *, symbol: str) -> list[dict[str, Any]]:
-    native_java = _read_native_scip_index(snapshot, language="java")
-    if native_java:
-        native_results = _native_scip_references(native_java, symbol=symbol)
-        if native_results:
-            return native_results
-
-    semantic_index = _read_semantic_index(snapshot)
-    references = _coerce_dict(semantic_index.get("references_by_symbol")).get(symbol.lower())
-    if isinstance(references, list):
-        return [item for item in references if isinstance(item, dict)]
-    return _text_scip_references(snapshot, semantic_index=semantic_index, symbol=symbol)
-
-
-def _native_scip_references(native_java: dict[str, Any], *, symbol: str) -> list[dict[str, Any]]:
-    definitions = [
-        item
-        for item in _coerce_dict(native_java.get("definitions_by_name")).get(symbol.lower(), [])
-        if isinstance(item, dict)
-    ]
-    if not definitions:
-        return []
-    symbol_ids = {
-        str(item.get("symbol_id") or "").strip()
-        for item in definitions
-        if str(item.get("symbol_id") or "").strip()
-    }
-    results: list[dict[str, Any]] = []
-    for symbol_id in symbol_ids:
-        for item in _coerce_dict(native_java.get("references_by_symbol")).get(symbol_id, []):
-            if isinstance(item, dict):
-                results.append(item)
-    return results
-
-
-def _text_scip_references(
-    snapshot: dict[str, Any], *, semantic_index: dict[str, Any], symbol: str
-) -> list[dict[str, Any]]:
-    """Plain word-boundary search over files in SCIP-ready languages when no reference index exists."""
-    repo_root = Path(str(snapshot.get("repo_root") or "."))
-    target_name = symbol.strip()
-    if not target_name:
-        return []
-    pattern = re.compile(rf"\b{re.escape(target_name)}\b")
-    results: list[dict[str, Any]] = []
-    for file_entry in _coerce_list(snapshot.get("files")):
-        if not isinstance(file_entry, dict):
-            continue
-        language = str(file_entry.get("language") or "").strip()
-        if language not in set(_coerce_list(semantic_index.get("languages"))):
-            continue
-        relative_path = str(file_entry.get("path") or "").strip()
-        if not relative_path:
-            continue
-        absolute = repo_root / relative_path
-        try:
-            content = absolute.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            continue
-        lines = content.splitlines()
-        for match in pattern.finditer(content):
-            line = _line_number_for_offset(content, match.start())
-            preview = lines[line - 1].strip() if 0 < line <= len(lines) else ""
-            results.append(
-                {
-                    "path": relative_path,
-                    "line": line,
-                    "column": int(match.start() - content.rfind("\n", 0, match.start())),
-                    "preview": _truncate(preview, max_chars=240),
-                    "backend": "scip",
-                }
-            )
     return results

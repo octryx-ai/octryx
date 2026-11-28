@@ -20,8 +20,6 @@ from app.services.code_intelligence.symbol_analysis import (
     _lsp_references_for_definition,
     _lsp_workspace_symbol_matches,
     _rank_symbol,
-    _scip_definitions,
-    _scip_references,
 )
 
 from .storage_runtime import _coerce_list
@@ -83,17 +81,11 @@ async def find_symbol_definition(
         limit=25,
         symbol_only=True,
     )
-    symbols = (
-        _scip_definitions(snapshot, symbol=symbol)
-        if snapshot.get("engines", {}).get("semantic_backend") == "scip"
-        else []
-    )
-    if not symbols:
-        symbols = [
-            item
-            for item in _coerce_list(snapshot.get("symbols"))
-            if str(item.get("name") or "").lower() == symbol.lower()
-        ]
+    symbols = [
+        item
+        for item in _coerce_list(snapshot.get("symbols"))
+        if str(item.get("name") or "").lower() == symbol.lower()
+    ]
     if not symbols:
         symbols = [
             item
@@ -101,11 +93,7 @@ async def find_symbol_definition(
             if symbol.lower() in str(item.get("name") or "").lower()
         ]
     symbols = sorted(symbols, key=lambda item: _rank_symbol(item, symbol))
-    lsp_symbols = (
-        await _lsp_workspace_symbol_matches(repo_root=Path(snapshot["repo_root"]).resolve(), symbol=symbol)
-        if (not symbols or snapshot.get("engines", {}).get("semantic_backend") != "scip")
-        else []
-    )
+    lsp_symbols = await _lsp_workspace_symbol_matches(repo_root=Path(snapshot["repo_root"]).resolve(), symbol=symbol)
     merged: list[dict[str, Any]] = []
     seen: set[tuple[str, int, str]] = set()
     for item in [*symbols, *lsp_symbols]:
@@ -141,7 +129,9 @@ async def find_symbol_references(
         limit=limit,
     )
     definition_keys = {(item.get("path"), int(item.get("line") or 0)) for item in definitions.get("definitions", [])}
-    scip_refs, text_matches = await _reference_text_matches(snapshot, repo_root=repo_root, symbol=symbol, limit=limit)
+    text_matches = await _search_repository_text(
+        snapshot, repo_root=repo_root, query=rf"\b{re.escape(symbol)}\b", limit=limit, case_sensitive=True
+    )
     references = [
         {**match, "is_definition": (match.get("path"), int(match.get("line") or 0)) in definition_keys}
         for match in text_matches["results"]
@@ -150,7 +140,7 @@ async def find_symbol_references(
         await _lsp_references_for_definition(
             repo_root=repo_root, definition=definitions["definitions"][0], include_declaration=True
         )
-        if (definitions.get("definitions") and not scip_refs)
+        if definitions.get("definitions")
         else []
     )
     _merge_lsp_references(references, lsp_references, definition_keys=definition_keys)
@@ -261,25 +251,6 @@ async def build_impact_analysis(
 async def get_graph_summary(*, db, repository_id: str | None, cwd: Path, project_id: str | None) -> dict[str, Any]:
     resolved = await _get_snapshot(db=db, repository_id=repository_id, cwd=cwd, project_id=project_id)
     return _graph_summary_payload(resolved)
-
-
-async def _reference_text_matches(
-    snapshot: dict[str, Any], *, repo_root: Path, symbol: str, limit: int
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """SCIP references when the snapshot has them, else a whole-word text search."""
-    scip_refs = (
-        _scip_references(snapshot, symbol=symbol)
-        if snapshot.get("engines", {}).get("semantic_backend") == "scip"
-        else []
-    )
-    text_matches = (
-        {"backend": "scip", "results": scip_refs}
-        if scip_refs
-        else await _search_repository_text(
-            snapshot, repo_root=repo_root, query=rf"\b{re.escape(symbol)}\b", limit=limit, case_sensitive=True
-        )
-    )
-    return scip_refs, text_matches
 
 
 def _merge_lsp_references(

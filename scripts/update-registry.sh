@@ -34,7 +34,6 @@ for kustomization in \
   # Replace image newName entries with the new registry prefix
   sed -i.bak \
     -e "s|newName: octryx-api|newName: ${NEW_REGISTRY}/api|g" \
-    -e "s|newName: octryx-agent-worker|newName: ${NEW_REGISTRY}/agent-worker|g" \
     -e "s|newName: octryx-code-intel-worker|newName: ${NEW_REGISTRY}/code-intel-worker|g" \
     "${kustomization}"
   rm -f "${kustomization}.bak"
@@ -53,19 +52,13 @@ fi
 # ── Base manifests (image names in yaml) ───────────────────────
 for yaml in \
   "${DEPLOY}/kubernetes/base/api.yaml" \
-  "${DEPLOY}/kubernetes/base/platform-worker.yaml" \
-  "${DEPLOY}/kubernetes/base/code-indexer.yaml" \
-  "${DEPLOY}/kubernetes/base/optional-cli-workers.yaml"; do
+  "${DEPLOY}/kubernetes/base/code-indexer.yaml"; do
   if [[ ! -f "${yaml}" ]]; then continue; fi
   echo "  ${yaml}"
   # Replace bare image: references
   sed -i.bak \
     -e "s|image: octryx-api:latest|image: ${NEW_REGISTRY}/api:latest|g" \
-    -e "s|image: octryx-agent-worker:latest|image: ${NEW_REGISTRY}/agent-worker:latest|g" \
     -e "s|image: octryx-code-intel-worker:latest|image: ${NEW_REGISTRY}/code-intel-worker:latest|g" \
-    -e "s|image: octryx-codex-worker:latest|image: ${NEW_REGISTRY}/codex-worker:latest|g" \
-    -e "s|image: octryx-gemini-worker:latest|image: ${NEW_REGISTRY}/gemini-worker:latest|g" \
-    -e "s|image: octryx-opencode-worker:latest|image: ${NEW_REGISTRY}/opencode-worker:latest|g" \
     "${yaml}"
   rm -f "${yaml}.bak"
 done

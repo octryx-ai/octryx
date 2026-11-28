@@ -1,6 +1,5 @@
-"""The code style in a few lines: for the agent of every changing phase (its contract) and as the reviewer's
-checklist (the engines get the style as contract, the reviewer as checklist). Short on purpose: the
-platform measures the countable rules itself, the text tells the agent what to aim for before it hits them."""
+"""The code style in a few lines: for the agent of every changing phase (its contract) and as the reviewer's checklist
+(the engines get the style as contract, the reviewer as checklist)."""
 
 from __future__ import annotations
 
@@ -48,7 +47,6 @@ DIAGRAM_NAMES = {"architecture": "architecture.drawio (modules and layers, inclu
 
 
 def diagram_rule(diagrams: Any) -> str:
-    """The agent's rule for the app's draw.io diagrams; ``""`` when switched off."""
     config = dict(diagrams or {}) if isinstance(diagrams, dict) else {}
     if not config or config.get("enabled") is False:
         return ""
@@ -97,7 +95,6 @@ def _languages(style: dict[str, Any]) -> list[str]:
 
 
 def agent_brief(style: dict[str, Any] | None) -> str:
-    """The style for a changing phase's agent; ``""`` without a style."""
     if not style:
         return ""
     rules = str(dict(style.get("general") or {}).get("rules") or "").strip()
@@ -114,7 +111,6 @@ REVIEW_INSTRUCTION = (
 
 
 def reviewer_checklist(style: dict[str, Any] | None) -> str:
-    """The reviewer's style checklist (data: it goes into a fence, the instruction stays outside); ``""`` without."""
     brief = agent_brief(style)
     return brief.split("\n", 1)[1] if "\n" in brief else ""
 

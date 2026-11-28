@@ -1,10 +1,4 @@
-"""The board hints of one gateway session's hook answer.
-
-``available_handoffs`` (``{count, items:[keys]}``): items other agents hand off, offered only while this session
-has spare allowance (no numbers are shown). ``handoff_nudges`` (``[{work_item_key, marker}]``): this session's
-claims whose handoff is missing or behind (``kind: update``), plus the items offered to this agent (``kind:
-offer``, also listed as ``handoff_offers``); the Stop hook blocks once per marker.
-"""
+"""The board hints of one gateway session's hook answer."""
 
 from __future__ import annotations
 

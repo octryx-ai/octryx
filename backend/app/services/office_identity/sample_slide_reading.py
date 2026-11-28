@@ -1,8 +1,4 @@
-"""Read one sample slide of a presentation package: filled placeholders, pictures, its layout.
-
-The readers are deterministic and tolerant of malformed packages: a missing
-shape tree reads as an empty slide, an unparsable ``idx`` as ``0``.
-"""
+"""Read one sample slide of a presentation package: filled placeholders, pictures, its layout."""
 
 from __future__ import annotations
 
@@ -18,7 +14,6 @@ def _shape_tree(root: ET.Element) -> ET.Element | None:
 
 
 def _paragraph_texts(shape: ET.Element) -> list[str]:
-    """Non-empty paragraphs of a shape's text body, in document order."""
     body = shape.find(f"{{{NS_P}}}txBody")
     if body is None:
         return []
@@ -31,11 +26,6 @@ def _paragraph_texts(shape: ET.Element) -> list[str]:
 
 
 def filled_placeholders(root: ET.Element) -> dict[int, list[str]]:
-    """Placeholder ``idx`` -> its non-empty paragraphs on this slide.
-
-    A slide placeholder carries only the ``idx`` it inherits from; its role is
-    resolved against the layout, which is the part that declares the type.
-    """
     tree = _shape_tree(root)
     if tree is None:
         return {}
@@ -72,7 +62,6 @@ def layout_part_of_slide(package: PresentationPackage, slide_part: str) -> str |
 
 
 def layout_name(package: PresentationPackage, layout_part: str) -> str:
-    """The human layout name (``cSld/@name``) of a layout part in a package."""
     root = package.xml(layout_part)
     if root is None:
         return ""
@@ -81,7 +70,6 @@ def layout_name(package: PresentationPackage, layout_part: str) -> str:
 
 
 def normalized_layout_name(name: str) -> str:
-    """Case/space-insensitive key for matching layout names across packages."""
     return re.sub(r"[^a-z0-9]+", "-", str(name or "").lower()).strip("-")
 
 

@@ -1,8 +1,4 @@
-// Operations › Costs (backend): what the agent work cost and what it
-// delivered, per workflow, work item, run, person or Workspace. Pure reading and wording; the server groups, sums and
-// sorts by cost. "Cost per delivered run" without a delivered run is "—", never 0 or infinity.
-// `cost_usd` and `cost_per_delivered_usd` are the API cost only; `seat_api_equivalent_usd` and `seat_unpriced_calls` are
-// what the seat calls would cost via the API at list price, a column apart, never summed in.
+// The seat's API equivalent is a column apart, never summed into the API cost.
 import { NO_SEAT, readSeat, type SeatFigures } from "../../../chat/cost/seatEquivalent";
 import { costText } from "./operationsWords";
 
@@ -43,7 +39,6 @@ export function isCostGroup(value: string): value is CostGroup {
   return (COST_GROUPS as readonly string[]).includes(value);
 }
 
-/** "team-delivery" → "Team delivery": a workflow key in words (no raw keys in the UI). */
 export function workflowWords(key: string): string {
   const words = key.replace(/[-_]+/g, " ").trim();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
@@ -95,7 +90,7 @@ export function readCosts(payload: unknown, asked: CostGroup): CostReport {
   };
 }
 
-/** "$12.40"; "—" when nothing was delivered (no division by zero shown as 0 or infinity). */
+/** "—" when nothing was delivered, never 0 or infinity. */
 export function perDeliveredText(row: Pick<CostRow, "delivered" | "costPerDeliveredUsd">): string {
   return row.delivered > 0 && row.costPerDeliveredUsd !== null ? costText(row.costPerDeliveredUsd) : "—";
 }
@@ -104,17 +99,12 @@ export function costCell(usd: number): string {
   return costText(usd) || "$0.00";
 }
 
-/** "2 of 5": delivered runs out of all runs of the row. */
 export function deliveredText(row: Pick<CostRow, "runs" | "delivered">): string {
   return `${row.delivered} of ${row.runs}`;
 }
 
 export type CostLink = { kind: "run"; runId: string } | { kind: "href"; href: string } | null;
 
-/**
- * Where a row leads: a run row to the run (its chat, found on demand), a work item row to the work item. Rows without
- * an id ("No work item") and the other groups lead nowhere.
- */
 export function rowLink(group: CostGroup, row: Pick<CostRow, "key">, workspaceId = ""): CostLink {
   if (!row.key || row.key === "total") return null;
   if (group === "run") return { kind: "run", runId: row.key };
@@ -126,7 +116,6 @@ export function rowLink(group: CostGroup, row: Pick<CostRow, "key">, workspaceId
   return null;
 }
 
-/** The run's main chat from GET /workflow-runs/{id} (`run.sessions`, role "main"); "" without one. */
 export function mainSessionOf(payload: unknown): string {
   const run = record(record(payload)?.run);
   const sessions = Array.isArray(run?.sessions) ? run.sessions.map(record).filter(Boolean) as Record<string, unknown>[] : [];
@@ -134,7 +123,6 @@ export function mainSessionOf(payload: unknown): string {
   return main ? text(main.session_id) : "";
 }
 
-/** "Runs started in the last 30 days" under the table, and what the two cost figures mean. */
 export function periodText(report: Pick<CostReport, "days">): string {
   return `Runs started in the last ${report.days} days, sorted by API cost. A seat call costs the platform nothing; `
     + "its column shows what it would cost via the API at list price, apart from the API cost.";

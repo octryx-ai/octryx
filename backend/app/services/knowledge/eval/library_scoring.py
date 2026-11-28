@@ -1,22 +1,5 @@
-"""Offline scoring of a Library evaluation capture against its frozen manifest.
-
-Pure: no network, no database. Every input is re-validated and re-hashed from its content; any problem
-returns ``status: "invalid"`` with reasons and no scores. Semantics:
-
-* Hits are deduplicated into identities (same evidence key, or same source/revision hash/span). Raw,
-  unique and duplicate counts are reported; all precision figures use unique identities.
-* A hit matching a manifest alternative is ``relevant`` (prelabeled) for that fact; a hit matching an
-  exclusion is an ``excluded_leak`` and cannot be judged otherwise. Everything else needs an independent
-  judgment (``relevant``, ``partial``, ``irrelevant``) or stays ``unjudged``: never correct, never false.
-* Strict precision = relevant / judged unique hits; lenient adds partial; the bounds over all unique hits
-  show what the unjudged hits could change. Each ratio carries its numerator and denominator.
-* Fact coverage is reported twice: prelabeled alternatives only, and including judged equivalent evidence.
-  Partial support never counts as covered. Duplicates never add coverage.
-* An error, malformed or degraded response is never a true empty answer.
-* Holdout acceptance additionally needs a capture after the freeze, verified corpus evidence for every
-  required fact, complete availability and no unjudged hit. Declarations (principal, environment) stay
-  declarations: nothing here verifies them.
-"""
+"""Offline scoring of a Library evaluation capture against its frozen manifest. Pure; any invalid input returns
+``status: "invalid"`` without scores."""
 
 from __future__ import annotations
 
@@ -80,7 +63,6 @@ def _aggregate(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _safe_sha(document: Any, name: str, problems: list[str]) -> str:
-    """The canonical hash; non-finite numbers or non-JSON content make the input invalid."""
     if not isinstance(document, dict):
         problems.append(f"{name}: must be a JSON object")
         return ""
@@ -94,7 +76,6 @@ def _safe_sha(document: Any, name: str, problems: list[str]) -> str:
 def score_documents(
     manifest: Manifest, capture: Any, judgments: Any = None, inventory_document: Any = None
 ) -> dict[str, Any]:
-    """Validate every input, then score; any problem yields an invalid report without scores."""
     problems: list[str] = []
     capture_sha = _safe_sha(capture, "capture", problems)
     judgments_sha = _safe_sha(judgments, "judgments", problems) if judgments is not None else None

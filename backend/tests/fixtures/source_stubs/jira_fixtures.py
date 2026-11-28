@@ -1,31 +1,4 @@
-"""Fixture content of the Jira stub, and what the release acceptance check expects from it (K2).
-
-One Server/DC project ``OPS`` (mapped to the product ``acme-orders`` by the connector's ``releases``
-block) with two versions and six issues:
-
-| Issue | Type | Status (category) | Priority | Fix version | Security level |
-|---|---|---|---|---|---|
-| OPS-1 | Story | Done (done) | Major | 2.4.20 | - |
-| OPS-2 | Bug | In Progress (indeterminate) | Blocker | 2.4.20 | - |
-| OPS-3 | Task | To Do (new) | Minor | 2.4.20 | - |
-| OPS-4 | Bug | To Do (new) | Critical | 2.4.20 | Security team |
-| OPS-5 | Story | Done (done) | Major | 2.4.19 | - |
-| OPS-6 | Bug | Done (done) | Blocker | 2.4.20 | - |
-
-Expected, with the connector's release configuration (``RELEASES``):
-
-- **Issue sync.** OPS-4 carries a security level, whose members Jira Server/DC does not list without
-  administrator rights: it is withheld as ``restricted_acl`` (with or without ACL enforcement).
-  Every other issue is one revision.
-- **Release notes.** One source per version, ``Release 2.4.19`` and ``Release 2.4.20``, with
-  product ``acme-orders``, the version, document role ``release_notes``, and one ``###`` span per
-  readable issue carrying its ``/browse/<key>`` link. OPS-4 is left out of ``Release 2.4.20``.
-- **Live status** (``jira_release_status`` for acme-orders 2.4.20): unreleased, the readable issues
-  counted per status category, and OPS-2 as the one open blocker (OPS-6 is a done blocker).
-
-``STUB_USERNAME`` / ``STUB_TOKEN`` are the stub's own fixed Basic credential (email and API token,
-as a Jira connection sends them). It protects nothing and is not a secret.
-"""
+"""Fixture content of the Jira stub, and what the release acceptance check expects from it (K2)."""
 
 from __future__ import annotations
 
@@ -38,7 +11,6 @@ PROJECT_ID = "10000"
 PRODUCT = "acme-orders"
 RELEASE_QUESTION = "what changes in 2.4.20"
 
-# Jira versions of OPS, in sequence order.
 VERSIONS: tuple[dict[str, object], ...] = (
     {
         "id": "20019",
@@ -95,7 +67,6 @@ ISSUES: tuple[dict, ...] = (
 )
 SECURED_ISSUES = frozenset({"OPS-4"})
 
-# The connector's release configuration (``PUT /knowledge/connectors/{key}`` ``releases``).
 RELEASES: dict[str, object] = {
     "products": {PROJECT_KEY: PRODUCT},
     "sections": [
@@ -105,7 +76,6 @@ RELEASES: dict[str, object] = {
     "blocker_priorities": ["Blocker"],
 }
 
-# External id -> (outcome, reason) of the first sync.
 SYNC_OUTCOMES: dict[str, tuple[str, str | None]] = {
     **{issue["id"]: ("created", None) for issue in ISSUES if issue["key"] not in SECURED_ISSUES},
     **{issue["id"]: ("skipped", "restricted_acl") for issue in ISSUES if issue["key"] in SECURED_ISSUES},
@@ -115,7 +85,6 @@ SYNC_OUTCOMES: dict[str, tuple[str, str | None]] = {
 
 RELEASE_TITLE = "Release 2.4.20"
 RELEASE_VERSION = "2.4.20"
-# The readable issues of 2.4.20, each linked from its own span of the release notes.
 RELEASE_ISSUES = ("OPS-1", "OPS-2", "OPS-3", "OPS-6")
 EXPECTED_STATUS: dict[str, object] = {
     "state": "ok",

@@ -58,8 +58,6 @@ async def finalize_chat_turn_after_agent_stream(
     *,
     session_id: str,
 ) -> ChatTurnCompletionResult:
-    """Finalize the persisted session state after the agent event stream ends."""
-
     session = await db.get(AgentSession, session_id)
     if session is None:
         return ChatTurnCompletionResult(
@@ -164,10 +162,7 @@ async def finalize_chat_turn_after_agent_stream(
 async def _sync_coding_pipeline(
     db: AsyncSession, *, session_id: str, run_status: str, reason: str | None
 ) -> None:
-    """A terminal agent-session state must reach any coding pipeline run bound
-    to this session — the cockpit must never show 'running' for a dead agent.
-    Late import: secure_work depends on session services, not vice versa."""
-    try:
+    try:  # a late import: secure_work depends on the session services
         from ..secure_work.coding.coding_pipeline_session_sync import fail_pipeline_runs_for_session
 
         await fail_pipeline_runs_for_session(

@@ -144,9 +144,10 @@ class AdminViewAuditLogTool:
         from sqlalchemy import select
 
         from ...models import AuditLog
+        from ...services.audit_trail.workspace_scope import owner_known
 
         limit = min(int(params.get("limit") or 20), 100)
-        query = select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
+        query = select(AuditLog).where(owner_known()).order_by(AuditLog.created_at.desc()).limit(limit)
         if params.get("user_id"):
             query = query.where(AuditLog.user_id == str(params["user_id"]))
         if params.get("action"):

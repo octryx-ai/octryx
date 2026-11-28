@@ -1,13 +1,8 @@
-// The run bar: workflow name, phase, place, primary-action mode, open state and the shared run thread titles.
 import type { RunRuntimeTarget } from "./runtimeTargetModel";
 import type { RunAction, WorkflowRun } from "./workflowRunTypes";
 
-// ---- The run bar (product inventory): one quiet line "Workflow · Phase n/m · State · Where" --------------
-
 const ACRONYMS = new Set(["tdd", "ci", "cd", "pr", "aws", "api", "ui", "ux", "qa", "sla", "itsm"]);
 
-/** The workflow's name for people: its definition's current name (``workflow_title``), else derived from the key:
- * "pr-review-bot" → "PR review bot" (outsider walkthrough: "Epic delivery" after the rename). */
 export function runWorkflowName(run: Pick<WorkflowRun, "workflow_key"> & { workflow_title?: string | null }): string {
   const title = String(run.workflow_title ?? "").trim();
   if (title) return title;
@@ -18,7 +13,6 @@ export function runWorkflowName(run: Pick<WorkflowRun, "workflow_key"> & { workf
   return words.join(" ");
 }
 
-/** "Phase 2/3" while the run stands on a phase; the node's title outside the phases ("Prepare folder"); else "". */
 export function runPhaseShort(run: Pick<WorkflowRun, "current_node" | "phase_position" | "status">): string {
   const { index, total } = run.phase_position ?? { index: null, total: 0 };
   if (run.status === "completed" && total) return `Phase ${total}/${total}`;
@@ -27,20 +21,17 @@ export function runPhaseShort(run: Pick<WorkflowRun, "current_node" | "phase_pos
   return run.current_node?.title ?? (index && total ? `Phase ${index}/${total}` : "");
 }
 
-/** Where the run works, as the end of the bar: "on the server", "on Studio Mac · offline". */
 export function runPlaceText(target: RunRuntimeTarget | null | undefined): string {
   if (!target?.label) return "";
   const label = /^the server$/i.test(target.label.trim()) ? "the server" : target.label;
   return `on ${label}${target.kind === "device" && target.online === false ? " · offline" : ""}`;
 }
-/** Whether the bar's primary button acts at once; an action that asks for a value opens the details instead. */
 export function runActsAtOnce(action: RunAction): boolean {
   return !action.input;
 }
 
 const OPEN_KEY = "octryx.runbar.open.";
 
-/** Whether the bar's details are open for this run (per browser tab; collapsed by default). */
 export function runBarOpen(store: Pick<Storage, "getItem"> | null, runId: string): boolean {
   try {
     return store?.getItem(OPEN_KEY + runId) === "1";
@@ -58,8 +49,6 @@ export function rememberRunBarOpen(store: Pick<Storage, "setItem" | "removeItem"
   }
 }
 
-// The open thread's run title for the chat header: the banner loads the run, the header shows its title. One
-// title per session id, kept in memory only.
 type Listener = () => void;
 const titles = new Map<string, string>();
 const listeners = new Set<Listener>();

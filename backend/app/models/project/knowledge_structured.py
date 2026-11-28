@@ -1,22 +1,4 @@
-"""The deterministic structured knowledge graph of a Workspace.
-
-Rule-based extractors (``services/knowledge/structured``) turn manual spans, configuration files and
-operations records into typed nodes and edges without any model call. Every row records the
-extraction profile it was made under (``structured-v4``) and where it is cited from, so the graph
-is served only through the reader's own citation resolution (``ledger/citations.resolve_citations``).
-
-- ``KnowledgeStructuredNode``: one node as one source revision states it. The same entity stated
-  by several revisions (an assignment group, a mentioned Jira key) shares ``node_id``, the digest
-  of its type and key, and is one node in every read.
-- ``KnowledgeStructuredEdge``: one typed edge between two node ids. ``revision_id`` is the revision
-  it was extracted from, or ``NULL`` for a linkage edge computed across sources (a setting that
-  configures a documented parameter). ``citations`` lists every span it rests on.
-- ``KnowledgeStructuredExtraction``: the ledger of extracted revisions, so a rebuild skips a
-  revision already extracted under the current profile and retires one that is no longer current.
-- ``KnowledgeStructuredBuild``: an admin or source-sync request to build layers, run by the
-  projection worker in bounded slices, and its run report.
-- ``KnowledgeStructuredProfile``: the saved revisions of a Workspace's own extraction profile.
-"""
+"""The deterministic structured knowledge graph of a Workspace."""
 
 from __future__ import annotations
 
@@ -25,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -32,7 +15,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeStructuredNode(Base):
+class KnowledgeStructuredNode(WorkspaceBound, Base):
     __tablename__ = "knowledge_structured_nodes"
     __table_args__ = (
         UniqueConstraint("revision_id", "profile", "node_type", "node_key", name="uq_knowledge_structured_nodes_key"),
@@ -56,7 +39,7 @@ class KnowledgeStructuredNode(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeStructuredEdge(Base):
+class KnowledgeStructuredEdge(WorkspaceBound, Base):
     __tablename__ = "knowledge_structured_edges"
     __table_args__ = (
         UniqueConstraint("project_id", "edge_key", name="uq_knowledge_structured_edges_key"),
@@ -81,7 +64,7 @@ class KnowledgeStructuredEdge(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeStructuredExtraction(Base):
+class KnowledgeStructuredExtraction(WorkspaceBound, Base):
     __tablename__ = "knowledge_structured_extractions"
     __table_args__ = (Index("ix_knowledge_structured_extractions_workspace", "project_id", "layer"),)
 
@@ -99,7 +82,7 @@ class KnowledgeStructuredExtraction(Base):
     extracted_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeStructuredBuild(Base):
+class KnowledgeStructuredBuild(WorkspaceBound, Base):
     __tablename__ = "knowledge_structured_builds"
     __table_args__ = (
         Index("ix_knowledge_structured_builds_workspace", "project_id", "requested_at"),
@@ -124,13 +107,8 @@ class KnowledgeStructuredBuild(Base):
     report = Column(JSON, nullable=False, default=dict)
 
 
-class KnowledgeStructuredProfile(Base):
-    """One saved revision of a Workspace's own structured profile; the highest revision is in force.
-
-    ``document`` is a full profile document (the schema of ``profiles/structured-v<n>.json``), or
-    ``NULL`` when the revision returned the Workspace to the instance default. ``profile_id`` is the
-    id its rows are written under (``structured-v4-w3``).
-    """
+class KnowledgeStructuredProfile(WorkspaceBound, Base):
+    """One saved revision of a Workspace's own structured profile; the highest revision is in force."""
 
     __tablename__ = "knowledge_structured_profiles"
     __table_args__ = (

@@ -1,3 +1,17 @@
-/* Flow builder form header, actions, readiness, published capability and JSON editor panels. */
-@import "./flowBuilderFormHeader.css";
-@import "./flowBuilderReadinessCapability.css";
+/* Wraps instead of overflowing: on a phone the actions take their own rows below the title (390px). */
+.flow-builder__header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.flow-builder__header-actions button {
+  min-height: 32px;
+  padding-inline: 0.75rem;
+  white-space: nowrap;
+}

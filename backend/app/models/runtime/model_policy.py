@@ -1,16 +1,4 @@
-"""Model Policy registry records.
-
-A Model Policy is a named, Workspace-scoped, **explicit ordered list** of model
-aliases from the LiteLLM gateway alias catalog, each with the capabilities its
-user requires of it. A Workspace setting references it as ``name@revision``.
-There is no implicit default and no "cheap" fallback: a governed run tries exactly
-the listed aliases in order, and an alias the catalog does not admit is an explicit
-``needs_configuration`` state (``app.services.model_policy.policies``).
-
-``entries_json`` holds ``[{"alias": str, "required_capabilities": [str, ...]}]``
-in the author's order. Revisions share the governed lifecycle and immutability
-guard of governed revisions (``governed_revision``). No column carries a server default.
-"""
+"""Model Policy registry: a Workspace-scoped, ordered list of model aliases and the capabilities each needs."""
 
 from __future__ import annotations
 
@@ -30,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from .governed_revision import (
     DIGEST_LENGTH,
@@ -45,7 +34,8 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ModelPolicy(Base):
+class ModelPolicy(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "model_policies"
     __table_args__ = (
         UniqueConstraint("workspace_id", "name", name="uq_model_policies_workspace_name"),
@@ -68,7 +58,9 @@ class ModelPolicy(Base):
     )
 
 
-class ModelPolicyRevision(Base):
+class ModelPolicyRevision(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"policy_id": "model_policies"}
     __tablename__ = "model_policy_revisions"
     __table_args__ = (
         UniqueConstraint("policy_id", "revision", name="uq_model_policy_revisions_number"),

@@ -1,19 +1,4 @@
-"""Who uses a named connection: Workspaces and Knowledge Source Sync connectors, by connection id.
-
-The answer follows the one resolver (``resolver.py``), never a second rule:
-
-- **A Workspace uses a connection** for the keys it serves there: its own connection for its bound keys;
-  a shared connection available there for its bound keys no own connection binds (the own binding
-  wins), and only while the Workspace's own entry of the connector is active (the access switch).
-- **A Work intake uses a connection** it names by id (``WorkItemSyncConfig.connection_id``);
-  a delete stops its runs (``intake_connection_unavailable``) until another connection is picked.
-- **A Knowledge connector uses a connection** for each of its scope items that connection serves in the
-  connector's Workspace. A connector pinned by id (``scope.connection_id``) uses only that connection; a
-  pin whose items resolve elsewhere is listed with ``pin_mismatch`` (its runs are refused), so a delete or
-  a rebind shows it.
-
-Only ids, names and scope keys are returned; no config, URL or secret is read.
-"""
+"""Who uses a named connection: Workspaces and Knowledge Source Sync connectors, by connection id."""
 
 from __future__ import annotations
 
@@ -29,7 +14,6 @@ from .workspace_routes import effective_connections
 
 
 async def _active_workspaces(db: AsyncSession, tool: str, project_id: str | None) -> dict[str, str]:
-    """``{project id: name}`` of the Workspaces whose own entry of ``tool`` is active (one, for a Workspace)."""
     stmt = (
         select(Project.id, Project.name)
         .join(BuiltInToolConfig, BuiltInToolConfig.project_id == Project.id)
@@ -63,10 +47,6 @@ async def _work_intakes(db: AsyncSession, usage: dict[str, dict[str, list]]) -> 
 async def connection_usage(
     db: AsyncSession, tool: str, project_id: str | None, connection_ids: Iterable[str]
 ) -> dict[str, dict[str, list]]:
-    """``{connection id: {"workspaces": [...], "knowledge_connectors": [...]}}`` for connections of one scope.
-
-    ``project_id`` None: global connections, used across every Workspace; else that Workspace only.
-    """
     from ..knowledge.sources.sync.scope_connections import scope_items  # sync builds on this package
 
     wanted = set(connection_ids)

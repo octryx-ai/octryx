@@ -1,10 +1,4 @@
-"""Cedar source rendering: string literals, entity references, ``like`` patterns and one policy statement.
-
-Every value the translator writes into Cedar text goes through :func:`literal`, so a Workspace id, an alias or a
-command token can never break out of its string. ``fnmatch`` globs (the gateway ``path_denied`` rules) become
-``like`` patterns: ``*`` is exact (fnmatch's ``*`` also matches ``/``, like Cedar's), ``?`` and ``[...]`` have no
-Cedar equivalent and widen to ``*`` — reported as approximate so the translator can flag the rule.
-"""
+"""Cedar source rendering: string literals, entity references, ``like`` patterns and one policy statement."""
 
 from __future__ import annotations
 
@@ -23,7 +17,6 @@ def _escaped_char(char: str) -> str:
 
 
 def literal(value: str) -> str:
-    """A Cedar string literal for ``value``."""
     return '"' + "".join(_escaped_char(char) for char in str(value)) + '"'
 
 
@@ -53,7 +46,6 @@ class LikePattern:
 
 
 def glob_to_like(glob: str) -> LikePattern:
-    """The ``like`` pattern (with quotes) for an ``fnmatchcase`` glob; ``approximate`` when it had ``?``/``[...]``."""
     parts: list[str] = []
     approximate = False
     index, size = 0, len(glob)
@@ -86,8 +78,6 @@ def glob_to_like(glob: str) -> LikePattern:
 
 @dataclass(frozen=True, slots=True)
 class GeneratedPolicy:
-    """One generated Cedar policy: its ``@id`` and its full source text."""
-
     policy_id: str
     text: str
 
@@ -103,7 +93,6 @@ def policy(
     unless: Iterable[str] = (),
     annotations: Iterable[tuple[str, str]] = (),
 ) -> GeneratedPolicy:
-    """Render ``@id(...) effect(principal, action ..., resource) when {...} unless {...};``."""
     lines = [f"@id({literal(policy_id)})"]
     lines.extend(f"@{name}({literal(value)})" for name, value in annotations)
     lines.append(f"{effect} ({principal}, {action_scope(actions)}, {resource})")

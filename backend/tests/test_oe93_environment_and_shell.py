@@ -1,6 +1,5 @@
-"""An environment error in the pipeline pauses instead of fix rounds; a `cd` into the app folder
-counts for the full run; one `&&` step of a declared lint command runs on its own; the refusal says one command per
-call."""
+"""An environment error in the pipeline pauses instead of fix rounds; a `cd` into the app folder counts for the run;
+one `&&` step of a declared lint command runs on its own; the refusal says one command per call."""
 
 from __future__ import annotations
 
@@ -11,7 +10,10 @@ from app.services.workflow_runs import pipeline, pipeline_report
 from app.services.workflow_runs.octryx.declared_commands import declared_part, full_suite_run, run_green
 from app.services.workflow_runs.pipeline_environment import failure_of
 from tests.phase_sessions_models_support import _events
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import COMMANDS, _at_pipeline
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PLAYWRIGHT = ('Traceback (most recent call last):\n  File "system_test/run_system_test.py", line 14, in <module>\n'
               "    from playwright.sync_api import sync_playwright\n"
@@ -52,7 +54,7 @@ async def test_the_pipeline_pauses_environment_not_ready_instead_of_a_fix_round(
     assert (run.status, run.pause_reason, run.current_node_id) == ("paused", "environment_not_ready", "pipeline")
     assert "playwright" in run.context["environment_failure"]["reason"]
     await db.flush()
-    assert await _events(db, run, "loop_iteration") == []  # no fix round, no loop iteration
+    assert await _events(db, run, "loop_iteration") == []
     [reported] = await _events(db, run, "pipeline_reported")
     assert "playwright" in reported.detail["environment"]
 
@@ -62,8 +64,8 @@ def test_a_cd_into_the_app_folder_is_the_declared_full_run():
     assert full_suite_run(command, "flutter test", APP) and full_suite_run(f"cd {APP}/ && flutter test", "flutter test",
                                                                            APP)
     assert run_green(command, "flutter test", succeeded=True, output="00:12 +40: All tests passed!", app_folder=APP)
-    assert not full_suite_run(f"cd {APP}/test && flutter test", "flutter test", APP)  # another selection
-    assert not full_suite_run(command, "flutter test")  # no app folder:
+    assert not full_suite_run(f"cd {APP}/test && flutter test", "flutter test", APP)
+    assert not full_suite_run(command, "flutter test")
 
 
 def test_one_step_of_the_declared_lint_runs_on_its_own_a_chain_with_semicolon_does_not():
@@ -75,8 +77,6 @@ def test_one_step_of_the_declared_lint_runs_on_its_own_a_chain_with_semicolon_do
 
 
 def test_the_strict_shell_refusal_names_the_way_and_no_rule_the_parser_does_not_have():
-    """The strict parser judges each `;` segment on its own, so the refusal must not say "one command per call
-    (no `;`)"; it ends with what to do."""
     from app.services.workflow_runs.run_texts import run_text
 
     text = run_text("shell.strict_refused", phase="Minimal fix")

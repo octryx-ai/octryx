@@ -1,9 +1,4 @@
-"""The pet's poll loop, apart from any tray toolkit (``tray`` drives it; the tests use a fake view).
-
-Each round: read the settings (so ``octryx-claude pet quiet`` applies without a restart), fetch with the last ETag,
-keep the last state on 304, show it, send the notifications :class:`display.Notifier` answers, and wait for the
-schedule's delay or a wake-up from the menu ("Refresh now", a settings change).
-"""
+"""The pet's poll loop, apart from any tray toolkit."""
 
 from __future__ import annotations
 
@@ -53,7 +48,6 @@ class Runner:
     # --- one round ------------------------------------------------------------------------------------------
 
     def tick(self) -> float:
-        """Fetch once, show, notify; answers the seconds until the next round."""
         current = pet_settings.load(self.account.root)
         result = self._fetch(self.account, http=self.http, etag=self.etag, project_id=self.project_id)
         if result.outcome == "ok" and result.pet is not None:

@@ -11,11 +11,7 @@ def new_workspace_id() -> str:
     return str(uuid.uuid4())
 
 
-# --- database seeding -------------------------------------------------------
-
-
 async def seed_workspace(db, *, name: str | None = None) -> str:
-    """Create one project whose id is the Workspace id, and return that id."""
     from app.models import Project
 
     workspace_id = new_workspace_id()
@@ -32,7 +28,6 @@ async def seed_workspace(db, *, name: str | None = None) -> str:
 
 
 async def seed_member(db, *, workspace_id: str, role: str = "admin", username: str | None = None) -> str:
-    """Create a non-admin user with an explicit role in one Workspace only."""
     from app.models import User
     from app.models.security.user import UserProject
 
@@ -54,7 +49,6 @@ async def seed_member(db, *, workspace_id: str, role: str = "admin", username: s
 
 
 async def seed_outsider(db, *, username: str | None = None) -> str:
-    """Create a user with no global admin role and no Workspace membership."""
     from app.models import User
 
     user_id = new_workspace_id()
@@ -79,7 +73,6 @@ async def fetch_user(db, user_id: str):
 
 
 def tool_context(*, user_id: str, project_id: str | None, project_ids: list[str], db) -> ToolContext:
-    """A ToolContext whose only scope input is the server-owned project list."""
     return ToolContext(
         user_id=user_id,
         project_ids=project_ids,

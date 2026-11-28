@@ -1,17 +1,5 @@
-"""Delivery gate: governed coding runs deliver only a proven contract.
-
-A completion claim does not satisfy the gate: a model that judges a branch
-"already done" and skips implementation and run_validation_commands must not
-reach the Deliver Change step (push, PR, ticket comment) on an unproven state.
-Step instructions are prompts, not enforcement.
-
-This gate is the enforcement, at the same dispatch layer as the approval
-gate: when a session carries a verification contract, every delivery tool
-call is blocked with an explicit ``needs_validation`` result until a
-successful ``run_validation_commands`` with ``all_green`` exists in this
-session AND no later delivery-relevant failure invalidated it. The model is
-told exactly how to unblock (run the contract); it cannot talk its way past.
-"""
+"""Delivery gate: governed coding runs deliver only a proven contract. A completion claim does not satisfy it; step
+instructions are prompts, this gate is the enforcement."""
 
 from __future__ import annotations
 
@@ -39,8 +27,6 @@ async def enforce_coding_delivery_validation(
     tool_name: str,
     context: Any,
 ) -> dict[str, Any] | None:
-    """Return a blocking result when delivery is attempted before the
-    verification contract was proven in this session; None otherwise."""
     if tool_name not in _delivery_gated_tools():
         return None
     db = getattr(context, "db", None)
@@ -83,13 +69,8 @@ async def delivery_step_advance_blocked(
     source_step_type: str,
     target_allowed_tools: set[str],
 ) -> bool:
-    """True when a tdd_cycle step may NOT advance into a delivery step yet.
-
-    The step machine advances when the model calls a tool of the NEXT step —
-    which let a model skip implementation by calling a delivery tool directly.
-    Advancing into a step that offers delivery tools requires the same proof
-    as executing them: the latest run_validation_commands is all_green.
-    """
+    # The step machine advances on a tool of the next step, so entering delivery needs the same all-green proof as
+    # running it.
     if str(source_step_type or "").strip().lower() != "tdd_cycle":
         return False
     if not target_allowed_tools.intersection(_delivery_gated_tools()):

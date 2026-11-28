@@ -1,12 +1,4 @@
-"""The governed tool context of a governed agent run.
-
-Built from server-owned rows only, like the chat turn's context
-(``agent/core/context/run_context_config.py``): the Workspace's project config
-(with its ``approval_policy``, ``mcp_policy`` and tool policy), the acting user's
-role in it and the session's workspace root. The context addresses exactly the
-run's Workspace (``project_ids = [workspace]``), so MCP and resource gates
-resolve that Workspace and nothing else. No model output contributes to it.
-"""
+"""The governed tool context of a governed agent run."""
 
 from __future__ import annotations
 

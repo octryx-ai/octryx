@@ -1,21 +1,4 @@
-"""kubectl argv parsed the way kubectl (cobra/pflag) parses it, for the read-only decision.
-
-kubectl accepts flags anywhere: before, between and after command words. Which word is a flag VALUE
-depends on the flag, so the parser knows every flag it accepts and whether it takes a value:
-
-- ``--name value`` / ``--name=value``: a value-taking long flag consumes the next word whatever it
-  looks like (``--namespace --`` takes ``--`` as its namespace, scanning continues);
-- ``-abc``: a short cluster is read per character; a boolean short continues the cluster, a
-  value-taking short consumes the rest of the word or, when nothing is left, the next word
-  (``-Ashttps://x`` is ``-A`` plus ``-s https://x``); ``-n=x`` takes ``x``;
-- a standalone ``--`` (not in value position) and every flag outside the tables make the argv
-  ambiguous for this decision: :func:`parse_kubectl_args` returns ``None`` (fail closed).
-
-The tables hold the global (persistent) flags and, per read command, the read options this platform
-lets an agent use. Options that fetch or execute something besides the API read (``-f``/``-k`` load
-files or URLs and run kustomize, ``--raw``, ``--insecure-skip-tls-verify-backend``) are left out on
-purpose, so they fail closed.
-"""
+"""kubectl argv parsed the way kubectl (cobra/pflag) parses it, for the read-only decision."""
 
 from __future__ import annotations
 
@@ -92,8 +75,6 @@ READ_LEAVES: frozenset[str] = frozenset(_LEAF_LONG)
 
 @dataclass
 class KubectlArgs:
-    """The parsed argv: command words, the leaf they resolve to, flags (long names) and positionals."""
-
     path: list[str] = field(default_factory=list)
     leaf: str | None = None
     flags: list[str] = field(default_factory=list)
@@ -102,7 +83,6 @@ class KubectlArgs:
 
 
 def _resolve(path: list[str]) -> tuple[str | None, bool]:
-    """``(leaf, unknown)``: the read leaf of ``path`` once known; ``unknown`` when it can never be one."""
     command = path[0]
     if command in _GROUP_LEAVES:
         if len(path) < 2:
@@ -113,10 +93,6 @@ def _resolve(path: list[str]) -> tuple[str | None, bool]:
 
 
 def parse_kubectl_args(args: Sequence[str]) -> KubectlArgs | None:
-    """The argv as kubectl reads it, or ``None`` when it is ambiguous (unknown flag, bare ``--``).
-
-    Parsing stops at a command outside the read commands: the result then has no ``leaf``.
-    """
     parsed = KubectlArgs()
     words = [str(word) for word in args]
     index = 0

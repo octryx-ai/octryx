@@ -105,7 +105,6 @@ async def _upsert_sprint(
     sprint_name: str,
     payload: dict[str, Any],
 ) -> tuple[dict[str, Any], bool, int]:
-    """Update the board's active or future sprint of that name, else create it: ``(sprint, created, status)``."""
     data = await _jira_helpers_api._jira_agile_get(
         client,
         jira_url,

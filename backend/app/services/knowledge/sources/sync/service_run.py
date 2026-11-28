@@ -42,6 +42,7 @@ from .jira_release_config import RELEASE_SYNC_OFF, release_sync_state
 from .kinds import BuildRequest, connector_kind
 from .runner import SyncRefusedError, run_source_sync
 from .scope_connections import resolve_scope_connections, scope_allowed
+from .stored_types import ReleaseSyncState
 
 # The service's logger, so the run's log lines keep their origin.
 logger = logging.getLogger(__name__.rsplit(".", 1)[0] + ".service")
@@ -49,18 +50,12 @@ logger = logging.getLogger(__name__.rsplit(".", 1)[0] + ".service")
 
 def build_connector(connection: SourceConnection, row: KnowledgeSourceConnector, *, transport=None, db=None,
                     actor_id: str | None = None) -> SourceConnector:
-    """The connector of ``row``'s kind (``kinds.py``); an unregistered kind is refused, never read as Jira.
-
-    ``db``/``actor_id``: the run's session and actor, for a kind that reads through the platform (``custom_rest``)."""
+    # An unregistered kind is refused, never read as Jira.
     entry = connector_kind(row.kind)
     return entry.build(BuildRequest(connection=connection, row=row, transport=transport, db=db, actor_id=actor_id))
 
 
 async def _repair_unlinked(db: AsyncSession, row: KnowledgeSourceConnector, actor_id: str | None) -> None:
-    """Link an unbound ``git_repository`` source at its run exactly as at save (``git_autolink.py``).
-
-    A source is unbound when no connection matched at save or its connection was deleted (``SET NULL``); several
-    candidates refuse the run (``connection_choice_required``)."""
     scope = dict(row.scope or {})
     connection_id = await auto_link_connection(db, row.project_id, scope)
     if connection_id is None:
@@ -107,12 +102,6 @@ async def run_connector(
     trigger: str = TRIGGER_MANUAL,
     pin: Callable[[Any], str] | None = None,
 ) -> KnowledgeSourceSyncRun:
-    """Run one bounded sync now. ``transport`` is for tests only (a fake source system).
-
-    ``trigger`` is ``manual`` ("Run now", always a full pass) or ``scheduled`` (incremental when due).
-    ``pin`` checks the resolved scope connections before any request (``""`` = go on, else the refusal reason):
-    a caller that needs one specific instance read pins it here, where the run's connections are fixed.
-    """
     if await project_is_inactive(db, row.project_id):
         raise SyncRefusedError(REASON_WORKSPACE_INACTIVE)
     if row.state == CONNECTOR_STATE_PAUSED:
@@ -149,7 +138,6 @@ async def run_connector(
 async def _resolved_scope(
     db: AsyncSession, row: KnowledgeSourceConnector, actor_id: str | None, pin: Callable[[Any], str] | None
 ):
-    """The run's scope and its resolved connections, or the recorded ``needs_configuration`` run."""
     try:
         connector_kind(row.kind)
     except ConnectorError as error:
@@ -171,7 +159,7 @@ async def _resolved_scope(
 
 async def _after_run(
     db: AsyncSession, row: KnowledgeSourceConnector, run: KnowledgeSourceSyncRun, connector: SourceConnector,
-    release: dict | None,
+    release: ReleaseSyncState | None,
 ) -> None:
     if row.kind == CONNECTOR_KIND_GIT_REPOSITORY:
         await record_git_run(db, connector_id=row.id, run=run, connector=connector)

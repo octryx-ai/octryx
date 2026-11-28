@@ -38,7 +38,6 @@ def _ancestors(graph: PhasedGraph, node_id: str) -> set[str]:
 
 
 def _arrow(graph: PhasedGraph, edge: PhasedEdge) -> str:
-    """An arrow in words: “from “Fix” to “Test””, by the boxes' names."""
     def end(node_id: str) -> str:
         return _name(graph.nodes[node_id]) if node_id in graph.nodes else "a removed box"
 
@@ -99,10 +98,7 @@ def _validate_edges(graph: PhasedGraph) -> list[dict[str, str]]:
 
 
 def _push_without_review_errors(graph: PhasedGraph) -> list[dict[str, str]]:
-    """A push that agent work reaches without an independent review.
-
-    A run on a device pushes only the change the reviewer reviewed (``platform/scm._reviewed_tree``); a workflow
-    without that review validated, then its push failed with a safety stop after all the agent work."""
+    # A device run pushes only the reviewed tree, so a push without a review would fail only after all the agent work.
     start = next((node.id for node in graph.nodes.values() if node.kind == NODE_START), None)
     pushes = {node.id for node in graph.nodes.values()
               if node.kind == NODE_PLATFORM_ACTION and str(node.config.get("action") or "") == "scm.push"}
@@ -130,7 +126,6 @@ def _push_without_review_errors(graph: PhasedGraph) -> list[dict[str, str]]:
 
 
 def validate_phased_definition(definition: dict[str, Any]) -> dict[str, Any]:
-    """The flow validation report of a phased definition."""
     graph = parse_phased_definition(definition)
     errors: list[dict[str, str]] = []
     raw_nodes = [raw for raw in definition.get("nodes") or [] if isinstance(raw, dict)]
@@ -161,7 +156,6 @@ def validate_phased_definition(definition: dict[str, Any]) -> dict[str, Any]:
 
 
 def _node_kind_errors(graph: PhasedGraph) -> list[dict[str, str]]:
-    """Every node's errors: an unknown kind, an invalid decider, the kind's own rules."""
     errors: list[dict[str, str]] = []
     for node in graph.nodes.values():
         if node.kind not in NODE_KINDS:
@@ -178,7 +172,6 @@ def _node_kind_errors(graph: PhasedGraph) -> list[dict[str, str]]:
 
 
 def _definition_key_errors(definition: dict[str, Any], graph: PhasedGraph) -> list[dict[str, str]]:
-    """The definition's own keys: failure policy, size classes, start triggers, plan node, budget, models."""
     from .failure import validate_failure_policy
 
     errors = list(validate_failure_policy(definition.get("failure_policy")))
@@ -208,7 +201,6 @@ def _definition_key_errors(definition: dict[str, Any], graph: PhasedGraph) -> li
 
 
 def _graph_rule_errors(graph: PhasedGraph) -> list[dict[str, str]]:
-    """The graph-wide rules: failure routes, deploy approvals, data flow, open high findings, phase agents."""
     from .action_failures import failure_route_errors
     from .data_flow import data_flow_errors
     from .deploy_four_eyes import deploy_approval_errors
@@ -219,7 +211,10 @@ def _graph_rule_errors(graph: PhasedGraph) -> list[dict[str, str]]:
     from .auto_accept import on_open_high_errors
 
     errors.extend(on_open_high_errors(graph))
+    from .hands_on.scenarios import covers_errors
+
+    errors.extend(covers_errors(graph))
     from .phase_agents import static_phase_agent_errors
 
-    errors.extend(static_phase_agent_errors(graph, require=True))  # every phase names its agent
+    errors.extend(static_phase_agent_errors(graph, require=True))
     return errors

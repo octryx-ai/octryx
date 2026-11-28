@@ -12,8 +12,10 @@ from app.exceptions.api import AuthenticationError
 
 from ...models import Message, Session
 from ...schemas.operations.session import MessageResponse, SessionResponse, SessionStreamTokenResponse
+from ...time_utils import utc_isoformat
 from ..agent_mode import resolve_agent_mode
 from ..auth import create_session_stream_token, decode_session_stream_token
+from ..data_access import bind_request_viewer
 from .collaboration import get_session_access_role, list_accessible_sessions, require_session_access
 from .resource_access import require_session_resource_access
 from .turn_stop import stop_session_turn
@@ -31,8 +33,8 @@ def _build_session_response(
         project_id=session.project_id,
         agent_type=session.agent_type,
         status=session.status,
-        started_at=session.started_at.isoformat(),
-        ended_at=session.ended_at.isoformat() if session.ended_at else None,
+        started_at=utc_isoformat(session.started_at) or "",
+        ended_at=utc_isoformat(session.ended_at),
         message_count=message_count,
         access_role=access_role or "owner",
     )
@@ -50,7 +52,7 @@ def _build_message_response(message: Message) -> MessageResponse:
         tokens_in=message.tokens_in,
         tokens_out=message.tokens_out,
         cost=float(message.cost) if message.cost else 0,
-        created_at=message.created_at.isoformat(),
+        created_at=utc_isoformat(message.created_at) or "",
     )
 
 
@@ -64,8 +66,10 @@ class SessionStreamAccessDecision:
     access_role: str | None = None
 
 
-async def list_session_responses(*, db: AsyncSession, user_id: str) -> list[SessionResponse]:
-    accessible_sessions = await list_accessible_sessions(db, user_id=user_id)
+async def list_session_responses(
+    *, db: AsyncSession, user_id: str, project_id: str | None = None
+) -> list[SessionResponse]:
+    accessible_sessions = await list_accessible_sessions(db, user_id=user_id, project_id=project_id)
     session_ids = [session.id for session, _ in accessible_sessions]
     message_counts = await _count_session_messages_by_session_ids(db, session_ids=session_ids)
 
@@ -140,11 +144,6 @@ async def create_stream_token_response(
 
 
 async def stop_session_turn_response(*, db: AsyncSession, session_id: str, user_id: str) -> SessionResponse:
-    """``/api/v1/sessions/{id}/stop``: stop the running turn like ``/chat/api`` does; else a no-op.
-
-    Whoever may write the session may stop it (``resource_access``: owner, contributor,
-    team member, write grant, global admin); an unseen session is a 404.
-    """
     session = await require_session_resource_access(db, session_id=session_id, user_id=user_id, require_write=True)
     if str(session.status or "").strip().lower() == "running":
         await stop_session_turn(db, session)
@@ -183,6 +182,7 @@ async def resolve_session_stream_access(
             token_session_id=token_session_id,
         )
 
+    bind_request_viewer(user_id)
     access_role = await get_session_access_role(db, session_id=session_id, user_id=user_id)
     if access_role is None:
         return SessionStreamAccessDecision(
@@ -201,15 +201,6 @@ async def resolve_session_stream_access(
         token_session_id=token_session_id,
         access_role=access_role,
     )
-
-
-async def validate_session_stream_access(*, db: AsyncSession, session_id: str, token: str) -> None:
-    decision = await resolve_session_stream_access(db=db, session_id=session_id, token=token)
-    if decision.allowed:
-        return
-    if decision.error_code == "stream_session_not_found":
-        raise LookupError("session_not_found")
-    raise AuthenticationError(decision.reason)
 
 
 async def _count_session_messages(db: AsyncSession, *, session_id: str) -> int:

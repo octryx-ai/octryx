@@ -1,9 +1,4 @@
-"""``memory_remember``: record what the user explicitly asked to be remembered, as ``human_stated``.
-
-Scope defaults to the user's personal memory. Workspace memory is team memory and needs the Workspace
-authoring role; without it the answer is the explicit state ``denied``. Provenance (user, session,
-turn) is the run's, never a model argument. A sub-agent never records what "the user stated".
-"""
+"""``memory_remember``: record what the user explicitly asked to be remembered, as ``human_stated``."""
 
 from __future__ import annotations
 

@@ -24,7 +24,6 @@ def _put(run: Any, work: dict[str, Any], item: dict[str, Any]) -> None:
 
 
 def record_result(run: Any, key: str, record: dict[str, Any]) -> bool:
-    """The item's ``submit_phase_result`` (done / blocked) while it runs; ``False`` when it is not running."""
     work, item = _item(run, key)
     if item is None or item.get("status") != RUNNING:
         return False
@@ -34,9 +33,6 @@ def record_result(run: Any, key: str, record: dict[str, Any]) -> bool:
 
 
 async def item_start_refused(db: Any, run: Any, *, key: str, session_id: str, reason: str) -> None:
-    """The device turned the item's job down before its agent ran (``job_rejected``: registration, the folder's
-    preparation): counted by :func:`count_refusal`, then the scheduler goes on (otherwise
-    ``workspace_preparation_workflow_run_not_bound`` and ``environment_not_ready`` each started a new session)."""
     from ....models import Session
     from . import session_works_on
 
@@ -52,7 +48,6 @@ async def item_start_refused(db: Any, run: Any, *, key: str, session_id: str, re
 
 
 def note_start_problem(run: Any, key: str, detail: str) -> None:
-    """Why the device could not prepare the item's folder (its preparation report), shown with the refusal."""
     work, item = _item(run, key)
     if item is not None and _at_node(run, work):
         item["start_detail"] = str(detail or "")[:600] or None
@@ -61,13 +56,12 @@ def note_start_problem(run: Any, key: str, detail: str) -> None:
 
 async def item_finished(db: Any, run: Any, *, key: str, session_id: str, state: str, transient: bool = False,
                         reason: str | None = None) -> None:
-    """An item's turn ended (see ``teamwork/__init__`` point 2)."""
     from ....models import Session
     from . import session_works_on
 
     work, item = _item(run, key)
     if item is None or not _at_node(run, work) or item.get("status") != RUNNING:
-        return  # the node moved on or the item already ended: nothing changes
+        return
     if not session_works_on(run, item, await db.get(Session, session_id) if session_id else None):
         return  # an older session of the item (a device item's gateway session counts as its own)
     value = dict(item.get("result") or {}).get("value")
@@ -86,15 +80,14 @@ async def item_finished(db: Any, run: Any, *, key: str, session_id: str, state: 
     _put(run, work, item)
     _event(db, run, item, session_id=session_id)
     if item["status"] == DONE:
-        executor = await executor_of(db, run, work)
-        await executor.merge(db, run, item)  # the server merges at once and reports; the device queues it
+        executor = await executor_of(db, run)
+        await executor.merge(db, run, item)
         return
     await scheduler.advance(db, run)
 
 
 async def merge_reported(db: Any, run: Any, *, key: str, merged: bool, conflicts: list[str] | None = None,
                          merged_sha: str | None = None) -> None:
-    """The item's merge into the story's working copy happened: ``merged``, or ``conflict`` with its files."""
     work, item = _item(run, key)
     if item is None or not _at_node(run, work) or item.get("status") != DONE:
         return

@@ -7,7 +7,6 @@ from app.models import Skill, User
 from tests.skill_catalog.fake_git import fake_git  # noqa: F401 - fixture for the whole package
 from tests.skill_catalog.support import publish_chat_skill
 
-# Two published chat skills in the "diagnosis" category.
 CHAT_SKILLS = (
     ("alert-diagnosis", "Analyze active Grafana Alert and determine root cause"),
     ("cluster-health", "Run comprehensive cluster health analysis"),
@@ -16,7 +15,6 @@ CHAT_SKILLS = (
 
 @pytest_asyncio.fixture
 async def chat_skills(db):
-    """Two published chat-only skills (``alert-diagnosis``, ``cluster-health``)."""
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
     for name, desc in CHAT_SKILLS:
         if (await db.execute(select(Skill).where(Skill.name == name))).scalar_one_or_none() is not None:

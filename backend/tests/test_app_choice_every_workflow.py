@@ -1,6 +1,5 @@
-"""Every workflow chooses the run's app in its preparation, the same way as the bug intake (a story in a
-multi-app repository would otherwise run against the wrong app). A story's component or
-description names it; still several, the run pauses ``needs_input`` with the options and a person's answer chooses."""
+"""Every workflow chooses the run's app in its preparation, like the bug intake; still ambiguous, the run pauses
+``needs_input`` with the options."""
 
 from __future__ import annotations
 
@@ -14,7 +13,10 @@ from app.services.workflow_runs.records import start_run
 from app.services.workflow_runs.workspace.app_choice import paused_for_app
 from app.services.workflow_runs.workspace.run_app import APP_KEY, app_context, remember_apps
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_size_class_merge import _definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 APPS = ["coffee/flutter/claude/.octryx/environment.json", "e2e/node/.octryx/environment.json",
         "e2e/python/.octryx/environment.json"]

@@ -11,10 +11,6 @@
   margin-bottom: 1.5rem;
 }
 
-.usage-panel__emphasis {
-  font-weight: 600;
-}
-
 .runtime-performance__toolbar {
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -49,7 +45,7 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .runtime-performance__value {
@@ -72,7 +68,7 @@
 
 .usage-panel__cost {
   color: var(--highlight);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .connector-form__textarea {

@@ -1,8 +1,4 @@
-"""Write buffered decisions on a timer and at shutdown.
-
-The flusher writes the decision log and the allow counters every few seconds and once more when the
-platform stops, so records do not wait for traffic and a restart does not lose them.
-"""
+"""Write buffered decisions on a timer and at shutdown."""
 
 from __future__ import annotations
 
@@ -35,7 +31,6 @@ async def _write_allow_counts(db: AsyncSession, items: list) -> None:
 
 
 async def flush_allow_counts(db: AsyncSession | None = None) -> int:
-    """Write the buffered allow counts (own session and commit unless ``db`` is given; then the caller commits)."""
     items = take_allow_counts()
     if not items:
         return 0
@@ -55,7 +50,6 @@ async def flush_allow_counts(db: AsyncSession | None = None) -> int:
 
 
 async def flush_decisions() -> None:
-    """Write pending decision records and allow counts. Never raises."""
     try:
         if pending_records():
             await flush_decision_log()

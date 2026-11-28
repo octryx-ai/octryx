@@ -86,7 +86,6 @@ function run(overrides = {}) {
       { edge_id: "e2", title: "Implement ↔ test", used: 1, limit: 3 },
       { edge_id: "e3", title: "Unbounded", used: 4, limit: 0 },
     ],
-    slices: [],
     gate: null,
     waiting: { kind: "waiting_for_reply", question: "Which login provider?" },
     adopted: { branch: { from_run: EARLIER } },
@@ -356,4 +355,28 @@ test("the audit fact is a small lock with its sentence as tooltip, not in the co
   assert.doesNotMatch(footer, /Policies enforced|All runs audited|AuditMark/);
   assert.match(fs.readFileSync(path.join(SRC, "chat/WorkspaceHeader.tsx"), "utf8"), /<AuditMark \/>/);
   act(() => view.unmount());
+});
+
+test("a seat pause says what it needs in words, and its next step shows without opening the details", async () => {
+  const { runStatusLabel } = await import("../../src/chat/workflowRun/workflowRunStatus.ts");
+  const paused = (code) => run({
+    status: "paused", waiting_kind: null, waiting: null, pause_reason: "seat_required",
+    pause: { reason: "seat_required", detail: "This run needs a Codex seat. Take it over on your device.", code },
+  });
+  assert.equal(runStatusLabel(paused("seat_required")), "Paused · Needs a person's seat");
+  assert.equal(runStatusLabel(paused("no_seat_device_online")), "Paused · Needs a person's seat · no device with one online");
+  const view = renderBanner(paused("seat_required"));
+  assert.doesNotMatch(text(view.root.findByProps({ "data-testid": "workflow-run-bar" })), /seat_required/);
+  assert.equal(text(view.root.findByProps({ "data-testid": "workflow-run-bar-pause" })),
+    "This run needs a Codex seat. Take it over on your device.");
+  act(() => view.unmount());
+});
+
+test("the header keeps a title a run or a person gave the chat, and names the run's subject over a first prompt", () => {
+  const { runChatTitle } = runCardModel;
+  const done = run({ status: "completed", actions: [] });
+  assert.equal(runChatTitle(done, { title: "PR review bot", titleSource: "run" }), "PR review bot · Done");
+  assert.equal(runChatTitle(done, { title: "My review", titleSource: "user" }), "My review · Done");
+  assert.equal(runChatTitle(done, { title: "please fix the login", titleSource: "prompt" }), "BRD-12 Login fix · Done");
+  assert.equal(runChatTitle(done, null), "BRD-12 Login fix · Done");
 });

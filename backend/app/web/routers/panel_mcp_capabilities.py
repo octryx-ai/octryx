@@ -22,7 +22,7 @@ async def panel_mcp_mirror_capabilities(
 ):
     """Mirror one server's discovered tools into a workspace capability catalog."""
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_existing_workspace(db, admin.id, payload.workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.admin.panel.admin_mcp_capability_service import (
         mirror_mcp_server_capabilities_for_workspace,
@@ -49,7 +49,7 @@ async def panel_mcp_mirror_resources(
 ):
     """Mirror one server's resources and prompts into a workspace catalog."""
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_existing_workspace(db, admin.id, payload.workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.admin.panel.admin_mcp_resource_service import (
         mirror_mcp_server_resources_for_workspace,

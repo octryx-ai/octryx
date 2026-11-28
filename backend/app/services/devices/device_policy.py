@@ -1,26 +1,4 @@
-"""The policy step of the device dispatch gate.
-
-In order, each a fixed refusal:
-
-1. platform kill switch (code) — ``denied: device_runs_platform_disabled``;
-2. the Workspace's gateway policy is readable — ``needs_configuration: policy_invalid``;
-3. the Workspace has not switched device runs off (``device_runs.enabled``, default on) — ``needs_configuration:
-   device_runs_disabled``;
-4. the matrix rule ``device_runs_allowed`` of the Workspace's level (on at every level by default) —
-   ``denied: device_runs_classification``;
-5. the profile is in ``allowed_profiles`` — ``denied: device_profile_not_allowed``;
-6. the folder is in the device's reported allowlist — ``denied: folder_not_allowlisted``;
-7. Cedar ``run_on_device`` at the point ``device_dispatch``: shadowed like every point (its answer never changes
-   the decision in shadow mode); in enforce mode a Cedar denial is ``denied: cedar_policy_denied``;
-8. seat: the Workspace's seat decision (``seat_mode``, the classification's ``seat_allowed`` and
-   ``requires_governed_routing``, Cedar ``use_seat``) must allow it; its reason is the refusal. Every model call of
-   the job is still decided by the model gateway, so a call that cannot be routed is blocked, never
-   silently sent to the seat.
-
-Before step 8, a seat run in a thread whose chat conversation already holds sensitive categories (the sticky
-``conversation_state``) is ``needs_configuration: content_requires_governed``: the device's seat calls are their
-own gateway conversations, so they would not inherit the thread's categories. Governed stays allowed.
-"""
+"""The policy step of the device dispatch gate."""
 
 from __future__ import annotations
 
@@ -50,7 +28,6 @@ _STATES = {REASON_DISABLED: STATE_NEEDS_CONFIGURATION}
 
 
 def builtin_device_decision(section: dict, rules, *, profile: str, folder_allowlisted: bool) -> LegacyDecision:
-    """Steps 3–6 from the Workspace section and the level's rules (``None``: unresolved classification)."""
     if section.get("enabled") is not True:
         return LegacyDecision(False, REASON_DISABLED)
     if rules is not None and not rules.device_runs_allowed:
@@ -63,10 +40,6 @@ def builtin_device_decision(section: dict, rules, *, profile: str, folder_allowl
 
 
 async def _codex_engine(db: AsyncSession, user_id: str, workspace_id: str | None) -> bool:
-    """Whether this person's device jobs in the Workspace run on Codex (the engine a job gets, ``job_engine``).
-
-    A Codex start must not be refused ``seat_mode_forbidden`` when the Workspace allows the Codex seat: the seat
-    profile is decided by the engine's own switch, not the Claude seat's."""
     from ..agent_gateway.engine_keys import ENGINE_CODEX
     from ..agent_gateway.engine_policy import effective_engine
 

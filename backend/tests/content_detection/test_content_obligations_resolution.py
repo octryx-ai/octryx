@@ -15,11 +15,9 @@ from tests.model_gateway.conftest import ALIAS, gateway_config
 from tests.model_gateway.test_inbound_anthropic_gateway import _request_body
 from tests.policy_engine_support import use_custom_policies
 
-# --- the chat driver --------------------------------------------------------------------------------------
-
 
 @pytest.mark.asyncio
-async def test_chat_masks_and_switches_alias_within_the_catalog(client):  # client: the test DB factory
+async def test_chat_masks_and_switches_alias_within_the_catalog(client):
     from app.services.content_routing.chat import apply_chat_content
     from app.services.model_gateway.litellm.alias_catalog import resolve_alias_admission
     from app.services.prompt_catalog import prompt_set_scope
@@ -46,9 +44,6 @@ async def test_chat_masks_and_switches_alias_within_the_catalog(client):  # clie
     assert result.entry.alias == "approved-model"
     assert EMAIL not in json.dumps(result.messages) and result.messages[-1]["role"] == "system"
     assert result.notice["model_to"] == "approved-model" and result.notice["found"] == {"email": 1, "phone": 1}
-
-
-# --- units: resolution, masking order, conversation state ------------------------------------------------------
 
 
 def test_resolve_never_repairs_a_baseline_denial_or_routes_a_tool_result():
@@ -79,7 +74,7 @@ def test_a_stored_mask_of_a_removed_detector_masks_only_the_known_ones(caplog):
 
 
 @pytest.mark.asyncio
-async def test_conversation_state_accumulates_and_keeps_the_route(client, db):  # client: the test DB factory
+async def test_conversation_state_accumulates_and_keeps_the_route(client, db):
     from app.models import Session
     from app.services.content_detection.scanner import scan_text
     from app.services.content_routing.conversation_state import load_state, remember
@@ -108,5 +103,5 @@ async def test_an_allowed_request_adds_its_categories_to_the_conversation(client
                                  headers=headers)
     assert response.status_code == 200
     [state] = (await db.execute(select(ContentConversationState))).scalars().all()
-    # C12F-08: the gateway's badge counts its own kinds only (an email is not examined there)
+    # The gateway's badge counts its own kinds only: an email is not examined there.
     assert state.categories == ["secrets"] and state.detectors == {"credential_assignment": 1}

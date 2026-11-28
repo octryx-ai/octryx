@@ -1,10 +1,5 @@
-"""The closing transitions of an outbox claim: applied, progress, contended.
-
-A failed attempt (``mark_failed``) stays in ``outbox``, which owns entering the terminal state.
-
-Each one is conditional on still owning the exact claim generation (``outbox_lease``), and
-answers :data:`LEASE_LOST` instead of overwriting a newer holder's state.
-"""
+"""The closing transitions of an outbox claim: applied, progress, contended. Each answers :data:`LEASE_LOST` instead of
+overwriting a newer holder."""
 
 from __future__ import annotations
 
@@ -35,14 +30,6 @@ from .outbox_lease import (
 
 
 async def mark_applied(db: AsyncSession, claimed: ClaimedProjection, *, embed_current: bool = False) -> str:
-    """Mark the entry applied and settle the revision, in one transaction.
-
-    A completed projection is settled by the source's head (``ledger/lifecycle.py``): the
-    revision becomes current, or superseded/tombstoned when it is no longer what the source
-    says. A completed retirement changes no revision state. Returns the resulting outbox
-    state, or :data:`LEASE_LOST` when the lease was reclaimed — in which case neither the
-    entry nor the revision is touched.
-    """
     now = utc_now()
     owned = await _owned_transition(
         db,
@@ -76,12 +63,7 @@ async def mark_applied(db: AsyncSession, claimed: ClaimedProjection, *, embed_cu
 
 
 async def mark_progress(db: AsyncSession, claimed: ClaimedProjection, projected_through: int) -> str:
-    """Persist a bounded run's cursor and leave the obligation due again.
-
-    Partial work is never reported as applied: the entry returns to ``pending``,
-    immediately due, with its attempt count untouched (contention and a bounded
-    batch are not failures), so the next authorized run continues from the cursor.
-    """
+    # Partial work is never reported as applied; contention and a bounded batch are not failures.
     if type(claimed) is not ClaimedProjection or type(projected_through) is not int:
         raise EvidenceLedgerContractError()
     if projected_through <= claimed.projected_through_ordinal:
@@ -113,18 +95,7 @@ async def mark_progress(db: AsyncSession, claimed: ClaimedProjection, projected_
 async def mark_contended(
     db: AsyncSession, claimed: ClaimedProjection, *, retry_after_seconds: int = DEFAULT_CONTENTION_DEFER_SECONDS
 ) -> str:
-    """Return the obligation to ``pending`` because a resource was busy, not broken.
-
-    Contention is not a failed attempt: the attempt count is untouched and no new
-    failure token is recorded, exactly as in :func:`mark_progress`. Any token from
-    an earlier attempt is left in place, because the attempt it describes is still
-    the entry's last attempt.
-
-    Unlike progress, the entry becomes due only after a bounded delay, so a worker
-    that lost a race for a serialized resource cannot spin on it. Releasing the
-    lease is itself lease-conditional, so a stale claim can never clear the lease of
-    the worker that actually won the race.
-    """
+    # Due only after a delay, so a worker that lost a race cannot spin; the lease release is lease-conditional.
     if type(claimed) is not ClaimedProjection:
         raise EvidenceLedgerContractError()
     if type(retry_after_seconds) is not int or not 0 < retry_after_seconds <= MAX_CONTENTION_DEFER_SECONDS:

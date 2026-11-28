@@ -1,10 +1,4 @@
-"""Stored transcripts live as long as their Workspace's ``retention_days`` (default 30), then they go.
-
-Run on the workflow sweep's tick next to the device-file purge (``workflow_runs/sweep``). The retention is read per
-Workspace at purge time, so an admin who shortens it removes older transcripts at the next tick; switching the
-transcripts off keeps what is stored until its retention ends (nothing is deleted without its time). The object in
-the artifact store goes first, then its index row; a failed object delete leaves the row for the next tick.
-"""
+"""Stored transcripts live as long as their Workspace's ``retention_days`` (default 30), then they go."""
 
 from __future__ import annotations
 
@@ -23,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 
 async def purge_expired(db: AsyncSession) -> int:
-    """Delete every transcript batch older than its Workspace's retention; the number deleted. Commits."""
     projects = (await db.execute(select(SessionTranscriptChunk.project_id).distinct())).scalars().all()
     deleted = 0
     now = utc_now()

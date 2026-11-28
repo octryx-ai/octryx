@@ -1,14 +1,5 @@
-"""Octryx Mobile: pairing a phone with the QR code from the Mac, the phone's session, revoking,
-the platform's device login validity (phones and Macs) and the phone's view of usage.
-
-- the Mac's own octryx-claude login creates the pairing; the code sits in the URL fragment; it scans once, within
-  two minutes; the Mac sees the phone and the two-digit number and must confirm (a denied or foreign pairing gets
-  nothing); the claim is handed out once and redeemed once;
-- the phone's credential is an httpOnly SameSite=Strict cookie for ``/api/v1/mobile`` only; its access token lives
-  five minutes and is refused on the next request once the phone is revoked or expired;
-- the validity is ``<n>h``/``<n>d`` between 1 hour and 365 days, admin only, audited, and applies to Macs too: an
-  expired Mac can neither refresh nor renew, and ``device enable`` replaces the expired registration.
-"""
+"""Octryx Mobile: pairing a phone with the QR code from the Mac, the phone's session, revoking, the platform's device
+login validity (phones and Macs) and the phone's view of usage."""
 
 from __future__ import annotations
 
@@ -53,7 +44,7 @@ async def test_the_whole_pairing_from_qr_code_to_phone_session(client, db):
     view = (await client.get(f"{PAIRINGS}/{pairing_id}", headers=mac)).json()
     assert view["state"] == "scanned" and view["match_number"] == number and view["phone"] == "iPhone"
     again = await client.post("/api/v1/mobile/pairings/scan", json={"code": code})
-    assert again.status_code == 409 and again.json()["reason"] == "mobile_pairing_used"  # one scan only
+    assert again.status_code == 409 and again.json()["reason"] == "mobile_pairing_used"
 
     waiting = await client.post(f"/api/v1/mobile/pairings/{pairing_id}/status", json={"scan_secret": secret})
     assert waiting.json() == {"state": "waiting", "match_number": number}
@@ -66,7 +57,7 @@ async def test_the_whole_pairing_from_qr_code_to_phone_session(client, db):
     claim_code = status.json()["claim"]
     assert status.json()["state"] == "confirmed" and len(claim_code) == 9 and claim_code[4] == "-"
     twice = await client.post(f"/api/v1/mobile/pairings/{pairing_id}/status", json={"scan_secret": secret})
-    assert twice.status_code == 409  # the claim is handed out once
+    assert twice.status_code == 409
 
     claimed = await client.post("/api/v1/mobile/claim", json={"claim": claim_code.lower().replace("-", " ")})
     assert claimed.status_code == 201, claimed.text  # typed by hand: case, separator and spaces do not matter
@@ -159,9 +150,6 @@ async def test_a_model_only_token_cannot_pair_and_pairings_are_capped(client, db
     assert statuses == [201] * 5 + [429]
 
 
-# --- pairing hardening -------------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_only_the_signed_in_browser_confirms_never_a_token(client, db):
     from app.services.auth import create_access_token
@@ -203,10 +191,10 @@ async def test_signing_out_of_the_platform_ends_the_phone_and_pairing_needs_a_li
     user, _mac, claimed = await _paired_phone(client, db)
     phone = (await db.execute(select(MobileDevice).where(MobileDevice.owner_user_id == user.id))).scalar_one()
     pairing = (await db.execute(select(MobilePairing).where(MobilePairing.mobile_device_id == phone.id))).scalar_one()
-    assert pairing.state == "claimed"  # the pairing names the device it created
+    assert pairing.state == "claimed"
     grant = await db.get(OAuthGrant, phone.grant_id)
     web = await db.get(RefreshToken, grant.platform_refresh_token_id)
-    web.revoked_at = utc_now()  # the person signed out of the platform
+    web.revoked_at = utc_now()
     await db.flush()
     session = await client.post("/api/v1/mobile/session", headers={"cookie": _cookie_header(claimed)})
     assert session.status_code == 401 and session.json()["reason"] == "mobile_login_expired"

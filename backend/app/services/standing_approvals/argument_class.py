@@ -1,18 +1,4 @@
-"""The scope of a standing tool approval: the tool, plus the exec-policy argument class of a command.
-
-A standing rule never covers "any arguments" of a command tool. The argument class follows the
-execution policy's own classification (``security_analyzer.builtins``): ``kubectl <verb>``,
-``git <subcommand>``, otherwise the executable. A command whose class cannot be named stably is
-not eligible for "Always" and keeps asking every time:
-
-- shell control or substitution characters (``; & | < > ` $ ( ) \\`` or a newline): compound,
-  redirecting or substituting commands have no single class;
-- an executable or subcommand outside ``[a-z0-9][a-z0-9._+-]{0,63}`` (a path, an empty verb).
-
-For ``run_kubectl`` the platform itself supplies the executable (an admin-configured path), so its
-basename is used. Every other tool has no argument class: its rule covers the tool (or the governed
-capability subject the approval gate names).
-"""
+"""The scope of a standing tool approval: the tool, plus the exec-policy argument class of a command."""
 
 from __future__ import annotations
 
@@ -32,8 +18,6 @@ _TOOL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,159}$")
 
 @dataclass(frozen=True, slots=True)
 class StandingRuleScope:
-    """What one standing tool rule covers: the tool (or approval subject) and an optional class."""
-
     tool_name: str
     argument_class: str | None = None
 
@@ -47,7 +31,6 @@ def _token(value: str) -> str | None:
 
 
 def command_argument_class(tool_name: str, command: Any) -> str | None:
-    """The exec-policy argument class of ``command``, or ``None`` when it has no stable class."""
     if not isinstance(command, (str, list)):
         return None
     text, tokens = _command_text_and_tokens(command)
@@ -67,7 +50,6 @@ def command_argument_class(tool_name: str, command: Any) -> str | None:
 
 
 def _requested_command(tool_name: str, params: Any) -> Any:
-    """The command a dispatched request names: ``command``, or ``kubectl`` plus ``args``."""
     if not isinstance(params, dict):
         return None
     if tool_name != "run_kubectl":
@@ -79,7 +61,6 @@ def _requested_command(tool_name: str, params: Any) -> Any:
 
 
 def standing_rule_scope(tool_name: str, params: Any) -> StandingRuleScope | None:
-    """The scope "Always" would grant for this request, or ``None`` when it is not eligible."""
     name = str(tool_name or "").strip()
     if not _TOOL_NAME.match(name):
         return None
@@ -90,12 +71,6 @@ def standing_rule_scope(tool_name: str, params: Any) -> StandingRuleScope | None
 
 
 def command_review_scope(tool_name: str, command: Any, findings: Any) -> StandingRuleScope | None:
-    """The scope of a command the execution policy sent to review, when "Always" may cover it.
-
-    Only a review raised by the execution policy's command rules alone is eligible. A review a
-    content analyzer raised (secret access, an admin guardrail rule, the LLM risk analyzer) judges
-    this exact command and keeps asking every time; a deny is never an approval.
-    """
     blocking = [finding for finding in findings or [] if getattr(finding, "action", "allow") != "allow"]
     if not blocking or not all(
         finding.action == "review" and finding.analyzer in STANDING_WAIVABLE_ANALYZERS for finding in blocking
@@ -106,7 +81,6 @@ def command_review_scope(tool_name: str, command: Any, findings: Any) -> Standin
 
 
 def standing_rule_view(change_preview: Any) -> dict[str, Any] | None:
-    """The chat view of the scope a tool approval's "Always" would grant (``None``: not offered)."""
     preview = change_preview.get("preview") if isinstance(change_preview, dict) else None
     rule = preview.get("standing_rule") if isinstance(preview, dict) else None
     if not isinstance(rule, dict) or not valid_tool_name(rule.get("tool_name")):

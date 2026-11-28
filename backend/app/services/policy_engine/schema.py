@@ -1,10 +1,4 @@
-"""The Cedar schema and its fixed vocabulary.
-
-The schema text is versioned in this package (``octryx.cedarschema``); :data:`SCHEMA_VERSION` changes
-with it, and every stored policy-set version and decision-log row records the version it was checked against.
-Entity types, actions and the policy-id namespaces below are the only names the translator, the enforcement
-points and the editor use.
-"""
+"""The Cedar schema and its fixed vocabulary."""
 
 from __future__ import annotations
 

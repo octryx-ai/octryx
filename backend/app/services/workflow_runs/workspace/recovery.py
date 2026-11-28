@@ -1,48 +1,4 @@
-"""Prepare a run's server working copy, re-creating one that is gone.
-
-Why: a run could record its working copy under ``/tmp/octryx-session-workspaces/…``;
-when the API container was recreated (``/tmp`` is not persistent) the copy was gone. No action recreated it: the
-server prepare (``server_prepare.prepare_locally``) only reports "not a git working copy", and the only clone lives in
-``scm.create_branch``, which (rightly) never runs twice. Every phase of the run stayed held ``needs_configuration``.
-
-:func:`prepare_on_server` is the one service both server prepare paths call — the Prepare step and "Change where the
-run executes" → Server (also from a held phase; who may is the run-action gate, ``access.require_run(write=True)``,
-which also claims the run). A run whose recorded copy exists is prepared; a run that never recorded one too.
-A **recorded copy that is gone** is re-created only when that provably rebuilds the run's state — a re-clone restores
-what the remote has, nothing else:
-
-1. **No local work can be lost.** Refused ``recovery_unverified`` (a person decides) when the run's record shows
-   anything a lost copy may have held beyond the remote: a change/deliver phase entered, a phase turn that used a
-   writing, shell or test tool (``context.evidence``), a test run, an independent review, slices. Such evidence is
-   bound to the lost tree and is never carried over to a new one. B at Clarify (read-only tools only) has none.
-2. **Same run, same binding, same identity.** The provider's governed ``prepare_<provider>_repository`` tool through
-   ``dispatch_tool``: the run's repository and branch, the run's requester as identity, and every check of a platform
-   action (capability, approval, connector activation, Workspace tool policy) as configured at the time of the clone;
-   the connector owns the git authentication. It is the platform's prepare action: the phase agent's own surface and
-   capability (read-only at Clarify) are not touched. The clone's ``origin`` must be the run's repository on the host
-   of the Workspace's **currently configured** connection (``agent_gateway.repository_root.run_repository_refusal``):
-   a scope check now — not a pin of a connection or credential revision the run started with, which the run never
-   recorded. A connection or repository binding that no longer matches is refused; it is re-confirmed by
-   reconfiguring, never silently re-interpreted.
-3. **The remote is what the run knows.** The run's branch must exist on the remote at the last head the run recorded
-   (its last push ``head_sha``, else an adopted branch's head, else its base for a branch it created empty), and the
-   run's base must be an ancestor of it. The copy is put on that head: never a second branch, never an adoption.
-4. **Fresh target, proven before it is taken over.** The clone goes into a new run-owned folder
-   (``<session workspace>/run-copies/<run>-<random>`` under the currently configured base); an existing folder —
-   the recorded path or any other — is never reset, reused or overwritten (a recorded folder that is not empty and not
-   a git working copy is refused). The candidate is prepared (branch and environment readiness) where it is; only when
-   every proof holds is the run claimed again (``records.lock_run``) and its whole binding (:func:`run_binding`:
-   status, node, entry, runtime target, main session, repository, branch, Workspace, requester, Work item, base, last
-   known head, recorded copy) compared with the one taken before the clone. Any drift — stopped, moved on, switched to
-   another runtime, re-bound, or re-created by a concurrent re-prepare — discards the candidate and adopts nothing. The
-   callers (the Prepare step, "Change where the run executes") re-check the same binding (:func:`still_bound`) before
-   they write any ready / not-ready report or pause, so a result never lands on a binding it was not made for. A
-   repeat after success finds the copy and clones nothing.
-5. **Only facts are recorded:** ``local_path``, head and base (``context.working_copy_recovery`` and the
-   ``working_copy_recreated`` event); any failure text has URL user-info scrubbed.
-
-Device and terminal runs prepare their own folder and never reach this module.
-"""
+"""Prepare a run's server working copy, re-creating one that is gone."""
 
 from __future__ import annotations
 
@@ -71,18 +27,16 @@ STATE_UNVERIFIED = "recovery_unverified"
 LOCAL_WORK_TOOLS = frozenset({
     "write_workspace_file", "edit_workspace_file", "multi_edit_workspace_file", "apply_patch_workspace",
     "run_openrewrite_recipe", "bash", "run_cli_command", "run_validation_commands", "run_test_suite",
-    "delegate_slices", "merge_slices",
 })
 _URL_USERINFO = re.compile(r"(?i)\b([a-z][a-z0-9+.-]*://)[^/@\s]+@")
 
 
 def _scrubbed(text: str) -> str:
-    """A failure text without any URL user-info (a token in a clone URL never reaches the run's record)."""
+    # A token in a clone URL must never reach the run's record.
     return _URL_USERINFO.sub(r"\1***@", str(text or ""))
 
 
 def _refused(detail: str, *, state: str = STATE_REFUSED) -> dict[str, Any]:
-    """A preparation report the node's ``decide`` reads as not prepared (``branch.state`` is not ready)."""
     return {"branch": {"state": state, "detail": _scrubbed(detail)[:400]}, "runtime": "server"}
 
 
@@ -99,13 +53,11 @@ def _gone(root: Path) -> bool:
 
 
 def _known_remote_head(context: dict[str, Any]) -> str:
-    """The branch head the run last knew on the remote: its last push, an adopted head, else its base."""
     adoption = dict(context.get("branch_adoption") or {})
     return str(context.get("head_sha") or adoption.get("head") or context.get("base_sha") or "")
 
 
 async def _possible_local_work(db: AsyncSession, run: WorkflowRun) -> str:
-    """Why the lost copy may have held work the remote lacks (or tree-bound evidence), else ``''``."""
     from ..graph import NODE_PHASE, graph_for_run
     from ..phase_agents import phase_class
     from ..phase_workspace import READ_ONLY_CLASS
@@ -135,7 +87,6 @@ async def _possible_local_work(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 async def _fresh_clone_root(db: AsyncSession, run: WorkflowRun) -> Path | None:
-    """A new, empty, run-owned folder in the main session's workspace under the currently configured base."""
     from ...session.workspace import _build_session_workspace_root, get_session_workspace_base_dir
 
     session_id = await main_session_id(db, run)
@@ -148,7 +99,6 @@ async def _fresh_clone_root(db: AsyncSession, run: WorkflowRun) -> Path | None:
 
 
 async def _clone(db: AsyncSession, run: WorkflowRun, root: Path) -> tuple[str, str]:
-    """``(local_path, '')`` from the governed prepare tool, or ``('', why)``."""
     from ..platform import dispatch
     from ..platform.repo_ref import TOOLS, parse_repository
 
@@ -166,7 +116,6 @@ async def _clone(db: AsyncSession, run: WorkflowRun, root: Path) -> tuple[str, s
 
 
 async def _repository_refusal(db: AsyncSession, run: WorkflowRun, root: Path) -> str:
-    """Why the clone is not the run's repository on the Workspace's connection, else ``''``."""
     from ...agent_gateway.repository_root import run_repository_refusal
     from ...knowledge.sources.repository_snapshot.remote import RemoteRefusedError, parse_remote
 
@@ -179,7 +128,6 @@ async def _repository_refusal(db: AsyncSession, run: WorkflowRun, root: Path) ->
 
 
 async def _on_remote_head(root: Path, branch: str, known: str, base_sha: str) -> tuple[str, str, bool]:
-    """``(head, '', _)`` with the copy on the run's remote branch at the known head, or ``('', why, unverified)``."""
     remote = f"refs/remotes/origin/{branch}"
     code, remote_head, _err = await safe_git.git(root, "rev-parse", "--verify", "--quiet", remote)
     if code != 0:
@@ -199,12 +147,6 @@ async def _on_remote_head(root: Path, branch: str, known: str, base_sha: str) ->
 
 
 async def run_binding(db: AsyncSession, run: WorkflowRun, *, with_copy: bool = True) -> tuple[Any, ...]:
-    """What a preparation is bound to: where the run stands, where it runs, and what it works on.
-
-    Status, node, entry; the runtime target (kind, device, folder, profile, model) and the main session; repository,
-    branch, Workspace, requester, Work item, base and the last known remote head; with ``with_copy`` the recorded
-    working copy too. A preparation result is written, and a re-created copy taken over, only while this is unchanged.
-    """
     from ..runtime_target.target import stored_target
 
     context = dict(run.context or {})
@@ -217,7 +159,6 @@ async def run_binding(db: AsyncSession, run: WorkflowRun, *, with_copy: bool = T
 
 
 async def still_bound(db: AsyncSession, run: WorkflowRun, binding: tuple[Any, ...], *, with_copy: bool = True) -> bool:
-    """Claim the run (``records.lock_run``: a concurrent writer means a re-read) and compare its binding."""
     run = await lock_run(db, run)
     return await run_binding(db, run, with_copy=with_copy) == binding
 
@@ -228,7 +169,6 @@ def _discard(root: Path | None) -> None:
 
 
 async def _recreate(db: AsyncSession, run: WorkflowRun, spec: dict[str, Any], recorded: str) -> dict[str, Any]:
-    """The preparation report of a re-created copy, taken over only when every proof holds."""
     from .preparation import decide
     from .server_prepare import prepare_locally
 
@@ -252,7 +192,6 @@ async def _recreate(db: AsyncSession, run: WorkflowRun, spec: dict[str, Any], re
     if why:
         _discard(candidate_root)
         return _unverified(why) if unverified else _refused(why)
-    # Branch and environment readiness of the candidate, fetched with the connection's Git auth.
     report = await prepare_locally(Path(local_path), spec, git_env=await origin_git_env(db, run, local_path))
     if not decide(report).ok:
         _discard(candidate_root)
@@ -272,8 +211,6 @@ async def _recreate(db: AsyncSession, run: WorkflowRun, spec: dict[str, Any], re
 
 
 async def _builds_or_tests(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Whether the run's workflow has a step that builds or tests (``server_build.builds_or_tests``): only then does
-    the server prepare its test environment."""
     from ..runtime_target.server_build import builds_or_tests, run_definition
 
     definition = await run_definition(db, run)
@@ -281,8 +218,6 @@ async def _builds_or_tests(db: AsyncSession, run: WorkflowRun) -> bool:
 
 
 async def prepare_on_server(db: AsyncSession, run: WorkflowRun, spec: dict[str, Any]) -> dict[str, Any] | None:
-    """The server preparation report of the run's folder; ``None`` when the run has no folder to prepare. Its
-    commands are audited as the run requester's (``command_audit.run_actor``)."""
     from ...execution_runtime.command_audit import run_actor
 
     with run_actor(db, run, tool_name="workspace.prepare"):
@@ -293,7 +228,7 @@ async def _prepare_on_server(db: AsyncSession, run: WorkflowRun, spec: dict[str,
     from ..test_runs import working_copy_root
     from .server_prepare import prepare_locally
 
-    spec = {**dict(spec or {}), "run_id": run.id,  # the run's work in progress is restored after the branch
+    spec = {**dict(spec or {}), "run_id": run.id,
             "environment_needed": await _builds_or_tests(db, run)}
     recorded = str(dict(run.context or {}).get("local_path") or "")
     if not recorded:

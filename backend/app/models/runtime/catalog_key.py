@@ -1,9 +1,5 @@
-"""The stable model catalog key of an ``llm_models`` row.
-
-The key is never a uuid: it is the model id (for a gateway row that is the alias), and only when another row
-already holds that key it is prefixed with the provider name (``<provider>/<model id>``), then numbered. This
-listener keys every new row, so sync, manual adds and bootstrap code need not know about it.
-"""
+"""The stable model catalog key of an ``llm_models`` row: the model id, prefixed with the provider and then numbered
+only on a clash. This listener keys every new row."""
 
 from __future__ import annotations
 
@@ -18,7 +14,6 @@ MAX_NUMBERED_KEYS = 50
 
 
 def catalog_key_candidates(provider_name: str, model_id: str) -> Iterator[str]:
-    """The keys to try, in order: the model id, the provider-prefixed id, then numbered variants."""
     model = str(model_id or "").strip()
     prefixed = f"{str(provider_name or 'provider').strip() or 'provider'}/{model}"
     yield model

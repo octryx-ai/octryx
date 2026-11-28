@@ -1,27 +1,5 @@
-"""The configuration of a Custom REST Knowledge source (kind ``custom_rest``).
-
-Validated and refused, never cleaned up. The admin API carries it as two generic objects, so a new kind needs no new
-body fields (``scope`` and ``mapping``); both are stored together in the connector's ``scope`` column:
-
-- ``scope``: ``definition`` (the REST API's key), ``operation`` (its list operation), ``role`` (the Octryx role whose
-  grant and data scope the sync runs in, as for the Work intake: ``secure_work/custom_rest/listing.acting_role``),
-  ``arguments`` (fixed arguments of the list call), ``detail_operation`` + ``detail_param`` (a read that returns one
-  record's content, called with the record's id), ``updated_since_param`` (a list parameter that narrows the listing
-  to records changed since an instant: it enables incremental scheduled runs), ``media_type`` and ``visibility``;
-- ``mapping``: dotted record paths for ``id`` and ``title`` (required), ``url``, ``updated_at``, ``version`` and
-  ``content``.
-
-Why ``version`` or ``updated_at`` is required: the runner fetches an item only when its version marker changed. A
-source without either would have to be fetched and hashed in full on every run, so it is refused at save
-(``custom_rest_version_required``) instead of quietly costing a full re-read each time.
-
-Why ``visibility`` defaults to ``restricted``: the API is read with a technical account and the grants decide who may
-see its data. Synced knowledge follows the grants unless an admin explicitly says the whole
-Workspace may read it (``workspace``).
-
-Every refusal names a fixed code and the field (:class:`InvalidRestSourceError`); the objects are size-capped so a
-stored configuration stays a configuration.
-"""
+"""The configuration of a Custom REST Knowledge source (kind ``custom_rest``). Validated and refused, never cleaned
+up."""
 
 from __future__ import annotations
 
@@ -31,6 +9,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from ....rest_connector.authorization import ROLE_RE
+from .stored_types import RestRecordMapping, RestSourceScope
 
 MAX_SCOPE_BYTES = 8192
 MAX_MAPPING_BYTES = 2048
@@ -55,8 +34,6 @@ _PATH = re.compile(r"^[A-Za-z0-9_$@:-]+(\.[A-Za-z0-9_$@:-]+)*$")
 
 
 class InvalidRestSourceError(ValueError):
-    """A refused Custom REST source setting; ``code`` and ``field`` are fixed strings, never a value."""
-
     def __init__(self, code: str, field: str) -> None:
         super().__init__(code)
         self.code = code
@@ -112,11 +89,11 @@ def _choice(raw: object, choices: tuple[str, ...], default: str, field: str) -> 
     return str(raw)
 
 
-def _mapping(raw: object, media_type: str) -> dict[str, str]:
+def _mapping(raw: object, media_type: str) -> RestRecordMapping:
     given = _object(raw, "mapping", MAX_MAPPING_BYTES)
     if any(key not in MAPPING_KEYS for key in given):
         raise InvalidRestSourceError("custom_rest_unknown_field", "mapping")
-    mapping: dict[str, str] = {}
+    mapping: RestRecordMapping = {}
     for name, path in given.items():
         if path in (None, ""):
             continue
@@ -134,8 +111,7 @@ def _mapping(raw: object, media_type: str) -> dict[str, str]:
     return mapping
 
 
-def validate_rest_scope(scope: object, mapping: object) -> dict[str, Any]:
-    """The stored ``scope`` of a ``custom_rest`` connector: the validated scope with its ``mapping`` inside."""
+def validate_rest_scope(scope: object, mapping: object) -> RestSourceScope:
     given = _object(scope, "scope", MAX_SCOPE_BYTES)
     if any(key not in SCOPE_KEYS for key in given):
         raise InvalidRestSourceError("custom_rest_unknown_field", "scope")
@@ -143,7 +119,7 @@ def validate_rest_scope(scope: object, mapping: object) -> dict[str, Any]:
     if role not in (None, "") and (type(role) is not str or not ROLE_RE.fullmatch(role.strip())):
         raise InvalidRestSourceError("custom_rest_invalid_name", "scope.role")
     media_type = _choice(given.get("media_type"), MEDIA_TYPES, MEDIA_JSON, "scope.media_type")
-    validated: dict[str, Any] = {
+    validated: RestSourceScope = {
         "definition": _name(given.get("definition"), "scope.definition", required=True, pattern=_DEFINITION),
         "operation": _name(given.get("operation"), "scope.operation", required=True),
         "role": role.strip() if isinstance(role, str) and role.strip() else None,

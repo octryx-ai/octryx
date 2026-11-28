@@ -1,27 +1,4 @@
-"""Build the tracked neutral presentation template, deterministically (O1).
-
-The platform ships one neutral PowerPoint template so a deck can be composed before any corporate
-identity is uploaded: ``fallback_templates/neutral-presentation.potx``. Which template applies is an
-admin setting (``services/office/presentation_fallback.py``); this module only builds the file.
-
-Provenance: the source is ``pptx/templates/default.pptx`` from python-pptx (MIT licence,
-https://github.com/scanny/python-pptx), the locked runtime dependency (``backend/uv.lock``). It is
-the plain Office theme with 11 standard layouts and no slides, brand, logo or content. The build
-transforms it at the XML level only:
-
-- the slide size becomes 16:9 widescreen (12192000 x 6858000 EMU), and every master and layout
-  shape is widened by the same factor (4/3) so the layouts fill the wider slide;
-- the python-pptx thumbnail and the printer-settings blob are dropped (relationships included);
-- the core properties name Octryx and a fixed date instead of the upstream author;
-- the package is marked as a template (``presentationml.template.main+xml``), i.e. a ``.potx``.
-
-The output is reproducible: members keep the source order, carry a fixed timestamp and fixed
-attributes, and every transformation is a pure function of the source bytes.
-``tests/test_neutral_presentation_template.py`` rebuilds the file and compares it member by member
-with the tracked copy, so a changed python-pptx source or builder fails until the file is rebuilt:
-
-    cd backend && .venv/bin/python -m app.services.office.neutral_presentation_template
-"""
+"""Build the tracked neutral presentation template, deterministically (O1)."""
 
 from __future__ import annotations
 
@@ -112,7 +89,6 @@ def _transform(name: str, data: bytes) -> bytes:
 
 
 def build_neutral_presentation_template() -> bytes:
-    """The neutral template's bytes, built from the locked python-pptx default template."""
     output = io.BytesIO()
     with (
         zipfile.ZipFile(io.BytesIO(_source_bytes())) as source,
@@ -130,7 +106,6 @@ def build_neutral_presentation_template() -> bytes:
 
 
 def source_version() -> str:
-    """The python-pptx release the tracked file was built from."""
     return metadata.version("python-pptx")
 
 

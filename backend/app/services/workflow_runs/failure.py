@@ -1,26 +1,4 @@
-"""The failure path of a run.
-
-A phased definition opts in with ``failure_policy``::
-
-    {"comment_per_round": true, "follow_up_on_loop_limit": true, "follow_up_issue_type": "<issue type>"}
-
-- **a comment per failed round**: every time a loop edge sends the run back (a gate failed, a review asked for
-  changes), the run's ticket gets one comment with the failed checks;
-- **one linked follow-up issue** when a loop reaches its limit, or when the requester marks the open findings
-  out of scope (the ``follow_up`` action of the failure card): it names the run's ticket, its key is commented on
-  the ticket and recorded on the run; it is created once per run;
-- **the failure card**: a run paused at a loop limit offers retry (more iterations), re-clarify (back to the plan
-  phase) and stop (Work item ``blocked``) with the findings and the follow-up issue;
-- an ``outcome`` of ``blocked`` moves the Work item to ``blocked`` through the write-back mapping (an outcome may
-  name another ``work_state``).
-
-Comments and the follow-up issue are side effects of the failure, not steps: a failed call is recorded as an event
-and never stops or hides the failure itself. A call the tool approval gate **holds** makes the run wait for that
-approval like a platform action (``awaiting_tool_approval``, the requester allows it in the run card): once granted
-the side effect runs again and consumes the grant, then the run goes on where it was (it enters the next round's
-node, or returns to its pause); refused or expired, the run goes on without it (an event says so). No side effect is
-ever dispatched under another identity than the run's requester.
-"""
+"""The failure path of a run."""
 
 from __future__ import annotations
 
@@ -58,7 +36,7 @@ async def _policy(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
     return dict(policy) if isinstance(policy, dict) else {}
 
 
-failure_policy = _policy  # the run's ``failure_policy`` for other modules (``device_silence``)
+failure_policy = _policy
 
 
 def _held(outcome: Any) -> bool:
@@ -69,7 +47,6 @@ def _held(outcome: Any) -> bool:
 
 def _hold(run: WorkflowRun, outcome: Any, *, side_effect: dict[str, Any], title: str,
           then: dict[str, Any] | None = None) -> None:
-    """The run waits for the tool approval of a side effect; ``then`` is where it goes on afterwards."""
     state = dict(run.node_state or {})
     if then is None:
         then = ({"kind": "pause", "reason": run.pause_reason, "pause": state.get("pause")}
@@ -91,7 +68,6 @@ async def _round_comment(db: AsyncSession, run: WorkflowRun, edge_id: str, node_
 
 
 async def on_failed_round(db: AsyncSession, run: WorkflowRun, edge: PhasedEdge) -> bool:
-    """The round's comment; ``True`` when it waits for its tool approval (the run then waits too)."""
     policy = await _policy(db, run)
     if not policy.get("comment_per_round") or not run.ticket_key:
         return False
@@ -107,8 +83,6 @@ async def on_failed_round(db: AsyncSession, run: WorkflowRun, edge: PhasedEdge) 
 
 async def create_follow_up(db: AsyncSession, run: WorkflowRun, *, reason: str,
                            then: dict[str, Any] | None = None) -> str | None:
-    """The one follow-up issue of the run (``None`` when Jira did not take it — the reason is an event — or when it
-    waits for its tool approval: the run then waits too)."""
     context = dict(run.context or {})
     existing = str(context.get("follow_up_issue") or "")
     if existing and (context.get("follow_up_linked") or not run.ticket_key):
@@ -141,7 +115,6 @@ async def on_loop_limit(db: AsyncSession, run: WorkflowRun, edge: PhasedEdge) ->
 
 
 async def follow_up_action(db: AsyncSession, run: WorkflowRun, *, user: User) -> None:
-    """The failure card's "out of scope": the open findings go to one linked follow-up issue."""
     if not run.ticket_key and not run.work_item_id:
         raise WorkflowRunError("no_ticket", "The run has no ticket a follow-up issue could name.")
     key = await create_follow_up(db, run, reason="out_of_scope")
@@ -151,7 +124,6 @@ async def follow_up_action(db: AsyncSession, run: WorkflowRun, *, user: User) ->
 
 
 async def resume_side_effect(db: AsyncSession, run: WorkflowRun, approval: Approval) -> None:
-    """A decided tool approval of a held side effect: run it (granted), then go on where the run was."""
     from .engine import rerun_current_node
 
     waiting = dict(dict(run.node_state or {}).get("waiting") or {})
@@ -185,7 +157,6 @@ async def resume_side_effect(db: AsyncSession, run: WorkflowRun, approval: Appro
 
 
 async def outcome_work_state(db: AsyncSession, run: WorkflowRun, *, outcome: str, config: dict[str, Any]) -> None:
-    """An outcome moves the Work item through the write-back mapping: ``blocked`` by default, else ``work_state``."""
     state = str(config.get("work_state") or ("blocked" if outcome == "blocked" else "")).strip()
     if not state or not run.work_item_id or run.parent_run_id:
         return
@@ -202,7 +173,6 @@ async def outcome_work_state(db: AsyncSession, run: WorkflowRun, *, outcome: str
 
 
 async def failure_view(db: AsyncSession, run: WorkflowRun) -> dict[str, Any] | None:
-    """What the failure card shows on a run paused at a loop limit (``None`` otherwise)."""
     if run.status != "paused" or run.pause_reason != "loop_limit":
         return None
     from .platform.texts import findings_text

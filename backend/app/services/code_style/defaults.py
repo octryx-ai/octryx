@@ -1,6 +1,5 @@
 """The platform's built-in style, the lowest level under the installation's, the Workspace's and the repository's
-own: data in ``built_in.json`` (its limits, excludes, test globs, per-language layout, naming, tools and l10n), never
-lists in engine code."""
+own."""
 
 from __future__ import annotations
 

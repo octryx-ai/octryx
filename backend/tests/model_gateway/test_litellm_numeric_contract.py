@@ -1,16 +1,5 @@
-"""Governed pricing, cost and usage numbers must be finite.
-
-Every positivity rule in the gateway package is a comparison, and IEEE-754
-``NaN`` is false for all of them — ``nan <= 0.0``, ``nan < 0.0`` and
-``nan != 0.0`` alike — so a ``NaN`` would satisfy "must be strictly positive"
-and land in budget attribution as a cost no threshold can compare against.
-Infinity satisfies the same checks, and a large enough JSON integer makes
-``float()`` itself raise.
-
-Both untrusted sources are covered here: operator configuration (the alias cost
-contract) and the gateway response body, which ``json.loads`` parses with the
-``NaN``/``Infinity`` literals accepted by default.
-"""
+"""Governed pricing, cost and usage numbers must be finite: ``NaN`` passes every comparison-based positivity rule,
+from operator configuration and from gateway response bodies alike."""
 
 from __future__ import annotations
 
@@ -41,7 +30,7 @@ from tests.model_gateway.conftest import (
     gateway_section,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 NAN = float("nan")
@@ -73,8 +62,6 @@ def test_finite_number_admits_only_real_finite_values() -> None:
 
 
 def test_a_non_finite_catalog_price_is_not_admitted() -> None:
-    """A NaN price passes ``< 0.0`` and ``sum <= 0.0``, so it has to be caught here."""
-
     observed: list[tuple[str, str]] = []
     for value in NON_FINITE_NUMBERS:
         for label, config_json in (
@@ -99,12 +86,6 @@ def test_a_non_finite_reported_cost_is_not_a_reported_cost() -> None:
 
 
 def test_a_non_finite_token_count_is_a_contract_violation_not_an_exception() -> None:
-    """``int(nan)`` raises ``ValueError`` and ``int(inf)`` raises ``OverflowError``.
-
-    Either one escaping this module would leave the gateway error boundary as an
-    unclassified exception instead of a fixed response-contract denial.
-    """
-
     for value in NON_FINITE_NUMBERS:
         with pytest.raises(LiteLLMGatewayError) as excinfo:
             resolve_reported_tokens({"prompt_tokens": value, "completion_tokens": 5})
@@ -116,13 +97,6 @@ def test_a_non_finite_token_count_is_a_contract_violation_not_an_exception() -> 
 
 
 def served_body(usage: str) -> bytes:
-    """A conforming chat body with a hand-written ``usage`` object.
-
-    Written as text rather than through ``json=`` because httpx serializes with
-    ``allow_nan=False``; the point of these cases is the bare ``NaN``/``Infinity``
-    literal a gateway can actually put on the wire.
-    """
-
     body = chat_body()
     body.pop("usage")
     rendered = json.dumps(body)
@@ -151,13 +125,10 @@ async def test_a_served_body_carrying_a_non_finite_reported_cost_is_refused(buil
     with pytest.raises(LiteLLMGatewayError) as excinfo:
         await client.chat(MESSAGES, model=ALIAS)
 
-    # An infinite cost is "not reported", never a strictly positive one.
     assert excinfo.value.denial_reason == "gateway_cost_not_reported"
 
 
 async def test_a_catalog_cost_that_overflows_to_infinity_is_refused(build_gateway_client) -> None:
-    """Admitted finite prices can still multiply into infinity, which passes ``<= 0``."""
-
     section = gateway_section()
     section["aliases"][ALIAS]["cost"] = {
         "source": "catalog_pricing",
@@ -176,15 +147,6 @@ async def test_a_catalog_cost_that_overflows_to_infinity_is_refused(build_gatewa
 
 
 def test_the_qualification_cost_check_refuses_a_non_finite_cost() -> None:
-    """The second, independent guard.
-
-    ``resolve_usage_payload`` already guarantees a finite cost, so this state is
-    unreachable through the client. It is asserted directly because the
-    qualification report is what an activation decision is read from: a ``NaN``
-    reaching it would be reported as a *passed* cost contract, since it is neither
-    positive nor zero.
-    """
-
     entry = resolve_alias_admission(ALIAS, alias_with_cost(dict(GATEWAY_REPORTED_COST))).entry
     result = GatewayChatResult(
         content="answer",

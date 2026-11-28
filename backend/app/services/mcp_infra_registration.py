@@ -1,10 +1,5 @@
-"""Registers the read-only Kubernetes and AWS tools on the Knowledge MCP server.
-
-The schemas mirror the chat definitions (``tools/definitions/kubernetes.py``, ``connectors.py``); none has a
-``project_id``: the Workspace is the connection's, and the cluster and AWS account are that Workspace's
-connector configuration. Every call runs through ``run_governed_mcp_tool``; ``mcp_connector_tools`` adds the
-chat's gates (tool policy with ``disabled_tools``, activation, approval) and the ``content_is_data`` notice.
-"""
+"""Registers the read-only Kubernetes and AWS tools on the Knowledge MCP server. No schema has a ``project_id``: the
+Workspace is the connection's."""
 
 from __future__ import annotations
 

@@ -1,5 +1,3 @@
-"""Without origin access the run's branch comes from the platform's bundle, also into an empty folder."""
-
 from __future__ import annotations
 
 import json
@@ -16,8 +14,6 @@ from tests.workspace_prep_support import BRANCH, _contract, _no_origin_access, _
 
 
 def _bundle_from(server: Path, branch: str, asked: list[list[str]]):
-    """The platform's side for the device: a real bundle of ``branch`` from the platform's working copy, thin when
-    the device named commits the copy has (as ``workspace/branch_bundle`` builds it)."""
     import base64
     import subprocess
 
@@ -36,8 +32,6 @@ def _bundle_from(server: Path, branch: str, asked: list[list[str]]):
 @requires_git
 def test_without_origin_access_the_branch_comes_from_the_platforms_bundle(device_state, tmp_path,  # noqa: F811
                                                                           monkeypatch):
-    """The device cannot fetch origin and lacks the branch's commit: the launcher asks the platform (its
-    authenticated session) for the branch as a git bundle, fetches it and goes on as if fetched from origin."""
     folder = _origin(tmp_path, monkeypatch)
     server = tmp_path / "server"
     git(tmp_path, "clone", "-q", "--branch", BRANCH, str(tmp_path / "origin.git"), str(server))
@@ -104,8 +98,6 @@ def test_without_origin_access_the_branch_comes_from_the_platforms_bundle(device
 @requires_git
 def test_an_empty_folder_is_bootstrapped_from_the_platform_when_the_device_cannot_clone(device_state, tmp_path,  # noqa: F811
                                                                                          monkeypatch):
-    """The device has no git credentials for the run's repository and the folder is empty: the launcher makes it a
-    working copy (``git init``, origin = the run's remote) and takes the run's branch from the platform's bundle."""
     _origin(tmp_path, monkeypatch)
     server = tmp_path / "server"
     git(tmp_path, "clone", "-q", "--branch", BRANCH, str(tmp_path / "origin.git"), str(server))

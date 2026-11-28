@@ -1,41 +1,4 @@
-"""The data-flow law of a phased workflow: every consumed artefact has a producer before it.
-
-A node that consumes a run artefact needs a node on every way to it (an ancestor over ``next`` edges) that
-produces it; otherwise the definition is refused at publish (and a run never starts on it), instead of a run
-that waits at a confirmation nothing can ever fill. Producers and consumers are closed tables:
-
-Producers
-- a phase with ``output: <kind>`` → that kind (``phase_outputs``); it must offer the kind's submit tool and have a
-  blocking ``tool_called`` check for it, so the phase is done only once the server recorded the output (a version
-  before output contracts that offers and checks a submit tool produces its kind as well);
-- ``platform_action`` ``work.draft_change_plan`` → ``change_plan`` (from the recorded ``test_contract``);
-- ``review`` → ``review_verdict``;
-- ``user_confirmation`` ``test_contract`` / ``reproduction`` → ``confirmed_tests``;
-- the documentation steps (``documentation/flow``): a ``publication`` confirmation → ``confirmed_documentation``,
-  ``documentation.publish_v2`` → ``documentation_page``.
-
-Consumers
-- ``user_confirmation``: ``test_contract`` ← ``change_plan``; ``reproduction`` ← ``reproduction``; ``questions`` ←
-  ``definition_of_ready``; ``shows: <kind>`` (any subject) ← that kind; ``ticket_draft`` ← a phase before it
-  (``payload_from``, else the last phase);
-- ``platform_action``: ``work.draft_change_plan`` ← ``test_contract``; ``work.create_stories`` ← ``story_plan``
-  (the coordinator's split); a text source (``text_from``,
-  ``summary_from``, ``description_from``) ← its artefact (``dor_questions``, ``review``, ``hypothesis``);
-- a phase's ``inputs``; a ``sub_workflow``'s ``handoff``;
-- ``documentation.publish_v2`` ← ``confirmed_documentation`` (the requester confirmed before any page is
-  written); ``documentation.sync_published_version`` ← ``documentation_page``;
-- gate checks: ``definition_of_ready`` ← ``definition_of_ready``; ``review_passed`` ← ``review_verdict`` (the TDD
-  checks judge the confirmed tests when a test confirmation came before, else their own ``tests`` or the suite).
-
-Typed handoff inputs
-- the ``start`` node's ``handoff_inputs`` (closed: ``spec``) names the artefact a run of this graph receives only
-  through an accepted typed handoff; it produces that kind for every node after it, and the server resolves it for the
-  actual caller from the durable accepted handoff (never from copied child context). Such a graph starts only as an
-  accepted typed child; a node deciding by ``decider: spec_origin`` needs it.
-
-Run facts (ticket, branch, pull request, pushed SHA) come from the run's start or its typed actions, which fail with
-their reason when a fact is missing; they are not artefacts of this law.
-"""
+"""The data-flow law of a phased workflow: every consumed artefact has a producer before it."""
 
 from __future__ import annotations
 
@@ -75,7 +38,6 @@ def _text(value: Any) -> str:
 
 
 def _submit_checked(node: PhasedNode, tool: str) -> bool:
-    """The phase offers ``tool`` and is done only after a successful call of it (a blocking ``tool_called``)."""
     policy = node.config.get("tool_policy") if isinstance(node.config.get("tool_policy"), dict) else {}
     contract = node.config.get("workflow_contract") if isinstance(node.config.get("workflow_contract"), dict) else {}
     offered = tool in (policy.get("allowlist") or []) and tool not in (policy.get("denylist") or [])
@@ -85,7 +47,6 @@ def _submit_checked(node: PhasedNode, tool: str) -> bool:
 
 
 def handoff_inputs(node: PhasedNode | None) -> set[str]:
-    """The typed handoff artefacts a start node declares (only well-formed closed values)."""
     raw = node.config.get("handoff_inputs") if node is not None and node.kind == NODE_START else None
     if not isinstance(raw, list):
         return set()
@@ -93,7 +54,6 @@ def handoff_inputs(node: PhasedNode | None) -> set[str]:
 
 
 def receives_spec(graph: PhasedGraph) -> bool:
-    """The graph consumes an accepted typed spec handoff (its start declares it)."""
     return "spec" in handoff_inputs(graph.start())
 
 
@@ -150,7 +110,6 @@ def consumes(node: PhasedNode) -> set[str]:
 
 
 def missing_producers(graph: PhasedGraph, node: PhasedNode) -> list[str]:
-    """What ``node`` consumes that no node before it produces (sorted)."""
     available: set[str] = set()
     for ancestor in _ancestors(graph, node.id):
         if ancestor in graph.nodes:
@@ -194,7 +153,6 @@ def _handoff_input_errors(graph: PhasedGraph) -> list[dict[str, str]]:
 
 
 def data_flow_errors(graph: PhasedGraph) -> list[dict[str, str]]:
-    """Every consumer without a producer before it, and every phase output the phase cannot submit."""
     errors: list[dict[str, str]] = _handoff_input_errors(graph)
     for node in graph.ordered_nodes():
         if node.kind == NODE_PHASE:

@@ -1,8 +1,4 @@
-"""One object of an installed plugin moved to the new package (``upgrade.apply``).
-
-An object both packages bring is updated in place and keeps its id; one the new package no longer brings is switched
-off and kept (``_drop``). Each mover returns the install's contribution entry for that object.
-"""
+"""One object of an installed plugin moved to the new package (``upgrade.apply``)."""
 
 from __future__ import annotations
 
@@ -12,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import FlowDefinition, McpServerRegistration, Skill, User
 from ...models.runtime.work_role_model import WorkRole, WorkRoleFunction
+from ..mcp_audit_vocabulary import ACTION_CONFIGURATION_UPDATED
 from .install import (
     _install_mcp,
     _install_skill,
@@ -137,13 +134,12 @@ async def _mcp(db: AsyncSession, server, item: dict[str, Any], *, user: User,
         registration.transport, registration.description = server.transport, server.description
         registration.updated_by, registration.revision = user.id, registration.revision + 1
         await db.refresh(registration, ["secret_bindings"])
-        await _audit_change(db, registration=registration, actor_user_id=user.id, action="configuration_updated")
+        await _audit_change(db, registration=registration, actor_user_id=user.id, action=ACTION_CONFIGURATION_UPDATED)
         await _disconnect(registration.name)
     return {"kind": "mcp_server", "id": registration.id, "key": server.name, "created": True}
 
 
 async def _disconnect(name: str) -> None:
-    """A connection to the old URL is closed; the next call connects to the new one."""
     try:
         from ...plugins.mcp.client import mcp_client_manager
 
@@ -153,7 +149,6 @@ async def _disconnect(name: str) -> None:
 
 
 async def _drop(db: AsyncSession, item: dict[str, Any], *, user: User) -> dict[str, Any]:
-    """Switch off what the new package no longer brings; kept, never deleted."""
     from ..skill_catalog.lifecycle import published_version, retire
 
     if item["kind"] == "skill":

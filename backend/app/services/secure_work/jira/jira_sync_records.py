@@ -148,7 +148,6 @@ async def _persist_sync_items(
 
 async def _skipped_run(db: AsyncSession, *, config: WorkItemSyncConfig, current_user: User,
                        payload: dict[str, Any]) -> dict[str, Any]:
-    """Another run of this configuration is still going: this start is recorded skipped (a person is told)."""
     from ..sync_window import SKIPPED_RUN_IN_PROGRESS
 
     run = _create_sync_run(config=config, current_user=current_user, limit=None, query_preview="", dry_run=False)
@@ -163,7 +162,6 @@ async def _skipped_run(db: AsyncSession, *, config: WorkItemSyncConfig, current_
 
 async def _require_no_foreign_items(db: AsyncSession, config: WorkItemSyncConfig,
                                     normalized: list[dict[str, Any]]) -> None:
-    """The sync's one collision guard, before anything is written (a preview never asks another Workspace)."""
     await require_no_foreign_source_items(
         db, project_id=config.project_id, source_type="jira", source_instance=config.source_instance,
         source_keys=[item["source_key"] for item in normalized])

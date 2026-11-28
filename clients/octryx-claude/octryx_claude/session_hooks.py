@@ -1,6 +1,5 @@
-"""The prompt, compaction and session lifecycle hook commands (``hooks``): UserPromptSubmit (``/handoff`` and the
-run's current contract), PreCompact/PostCompact, SessionStart and SessionEnd (the redacted digest to
-``/sessions/finalize``)."""
+"""The prompt, compaction and session lifecycle hook commands
+(UserPromptSubmit, PreCompact/PostCompact, SessionStart, SessionEnd)."""
 
 from __future__ import annotations
 
@@ -38,8 +37,6 @@ DEFERRED_SESSION_END_FILE = "deferred_session_end.json"
 
 
 def _prompt_context(state: LocalState, context: SessionContext, http: httpx.Client, prompt: object) -> dict[str, Any]:
-    """A Work item session or a run-bound one asks the platform at every prompt: the current run contract (a
-    decision taken in the platform meanwhile), or once the first prompt's workflow proposal. Best effort."""
     if not context.work_item and run_contract.current(state, context.session_key) is None:
         return {}
     try:
@@ -53,7 +50,6 @@ def _prompt_context(state: LocalState, context: SessionContext, http: httpx.Clie
 
 
 def run_user_prompt_submit(state: LocalState, http: httpx.Client) -> int:
-    """``/handoff`` runs here, before any model call, and blocks the prompt; anything else passes untouched."""
     try:
         hook_input = _read_hook_input()
         prompt = hook_input.get("prompt")
@@ -96,7 +92,6 @@ CLEAR_REASON = "clear"
 
 
 def _report_compaction(state: LocalState, hook_input: dict[str, Any], stage: str, http: httpx.Client) -> None:
-    """The compaction as the run's event (``POST /sessions/compaction``); best effort, never in its way."""
     try:
         context = SessionContext.from_env()
         if context is None:
@@ -110,7 +105,6 @@ def _report_compaction(state: LocalState, hook_input: dict[str, Any], stage: str
 
 
 def run_pre_compact(state: LocalState, http: httpx.Client) -> int:
-    """PreCompact: the context manager's instructions for the summary (stdout); never blocks a compaction."""
     try:
         from .context_manager import pre_compact  # noqa: PLC0415
 
@@ -126,7 +120,6 @@ def run_pre_compact(state: LocalState, http: httpx.Client) -> int:
 
 
 def run_session_start(state: LocalState, http: httpx.Client) -> int:
-    """SessionStart after a compaction: the kept facts as context; anything else answers nothing."""
     try:
         from .context_manager import session_start  # noqa: PLC0415
 
@@ -141,7 +134,6 @@ LESSONS_TIMEOUT = 30.0
 
 def _send_lessons(state: LocalState, context: Any, hook_input: dict[str, Any], *, kind: str,
                   http: httpx.Client) -> None:
-    """Lessons learned for the team (``session_lessons``); best effort, never in the way of the session."""
     try:
         from .session_lessons import lessons_body  # noqa: PLC0415
 
@@ -154,7 +146,6 @@ def _send_lessons(state: LocalState, context: Any, hook_input: dict[str, Any], *
 
 
 def run_post_compact(state: LocalState, http: httpx.Client) -> int:
-    """PostCompact: Claude Code's summary plus the kept facts go to the platform as lesson material."""
     try:
         hook_input = _read_hook_input()
         _report_compaction(state, hook_input, "post", http)

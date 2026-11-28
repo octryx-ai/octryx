@@ -11,7 +11,6 @@ from .pipeline_results import _failed_tests, _file_audit, _test_run
 
 
 def _pinned_file_audit(run: WorkflowRun, current: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
-    """The environment file's audit, red when the device ran another file than the run's pinned contract."""
     audit = _file_audit(dict(current["environment_file"]), report)
     from .workspace.contract_pin import changed_from_pin, pin
 
@@ -24,7 +23,6 @@ def _pinned_file_audit(run: WorkflowRun, current: dict[str, Any], report: dict[s
 
 
 def _record_test_runs(run: WorkflowRun, results: list[dict[str, Any]], tasks: list[Any]) -> dict[str, Any]:
-    """Record every command that ran (and its re-run) as a test run; the per-test results seen in this pass."""
     from .task_list import proofs_of
     from .test_runs import record_test_run
 
@@ -32,7 +30,7 @@ def _record_test_runs(run: WorkflowRun, results: list[dict[str, Any]], tasks: li
     seen: dict[str, Any] = {}
     for item in results:
         if item.get("skipped"):
-            continue  # nothing ran, so no test run to record
+            continue
         test_run = _test_run(run, item, proofs)
         record_test_run(run, test_run, node_id=run.current_node_id)
         item["failed_tests"] = _failed_tests(test_run)

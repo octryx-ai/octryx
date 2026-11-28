@@ -1,12 +1,4 @@
-"""Per-test results of Dart's JSON reporter (``flutter test --reporter json``, ``dart test --reporter json``).
-
-The expanded reporter's counters cannot be attributed when several test files run concurrently (``flutter test``'s
-default), so such a run kept only its failures and paused ``evidence_unresolved``. The JSON
-reporter names every test's suite (``suiteID`` → the suite's file) and its own result, so a concurrent run is
-attributed exactly. Events, one JSON object per line: ``suite`` (id, path), ``testStart`` (test id, name, suiteID,
-hidden loader tests named ``loading <file>``), ``error`` (testID, error), ``testDone`` (testID, result: success |
-failure | error, skipped, hidden), ``done``.
-"""
+"""Per-test results of Dart's JSON reporter (``flutter test --reporter json``, ``dart test --reporter json``)."""
 
 from __future__ import annotations
 

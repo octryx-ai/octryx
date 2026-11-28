@@ -1,15 +1,4 @@
-"""The Octryx pet without a tray: parsing, schedule, settings, display and notifications, the HTTP read, the loop,
-the icons, the LaunchAgent and the ``pet`` subcommands.
-
-- ``model.parse`` never raises: wrong types fall back, unknown states stay ``unknown``, links only root-relative or
-  http(s), ``reason`` only for a problem and only a fixed code;
-- the schedule follows the server's hint within 5 s … 15 min, backs off 15 s → 5 min on failures;
-- quiet hours: none by default, the person sets them; they cross midnight;
-- notifications only for new items in needs_you / done / problem, never on the first answer, never for running
-  work, never while paused, off, or quiet (own or the platform's);
-- ``api.fetch``: Bearer token, ETag round trip, 304, 401 → signed out, 5xx → unreachable, refusal codes only;
-- the loop keeps the last state on 304 and on failures (shown as offline), and drops it when signed out.
-"""
+"""The Octryx pet without a tray."""
 
 from __future__ import annotations
 

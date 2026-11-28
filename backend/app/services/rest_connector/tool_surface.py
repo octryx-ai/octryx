@@ -1,14 +1,4 @@
-"""The ``rest__`` tools a caller is offered: enabled operations of active definitions they are granted.
-
-The schema is built per caller: a parameter every matching grant fixes to one value is not offered at all (the
-executor injects it), one fixed to several values becomes an enum. An operation no grant of the caller matches is
-invisible, so the model's view and the executor's checks agree. A write is offered like a read; the run's
-class and the central approval gate decide whether and how it runs (chat write plan, workflow policy, unattended and
-device approval), and its description says it writes.
-
-Listing also brings the gates' in-process view of each operation up to date (``tools/definitions/rest_tool_classes``),
-and ``refresh_rest_tool`` does so for the one tool a dispatch names, right before the gates run.
-"""
+"""The ``rest__`` tools a caller is offered: enabled operations of active definitions they are granted."""
 
 from __future__ import annotations
 
@@ -35,7 +25,6 @@ def tool_description(definition: Any, operation: Any) -> str:
 
 
 async def refresh_rest_tool(db: AsyncSession, tool_name: str) -> None:
-    """The gates' view of one ``rest__`` tool, from the stored operation (a disabled or unknown one is a read)."""
     from .executor import find_operation
 
     found = await find_operation(db, tool_name)

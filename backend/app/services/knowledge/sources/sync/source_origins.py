@@ -1,16 +1,5 @@
-"""Where each Knowledge source comes from, for Knowledge → Documents.
-
-Read from stored lineage only, never from the shape of a source key:
-
-- a source is ``connector`` when a Source Sync item of the Workspace records its key (the item's
-  stored ``source_key``, which survives retirement while ``source_id`` is cleared). The connector's
-  kind and key come from the item's connector, ``url`` from the newest revision's stored origin
-  (``KnowledgeSourceRevisionOrigin``), and ``removed_at_source`` from the item's ``retired`` state;
-- every other source is ``upload``, meaning no Source Sync lineage is recorded. This includes a
-  source kept after its connector was deleted, because the connector's items are deleted with it.
-
-``withheld`` (restricted at the source) is not ``removed_at_source``.
-"""
+"""Where each Knowledge source comes from, for Knowledge → Documents. Read from stored lineage only, never from the
+shape of a source key."""
 
 from __future__ import annotations
 
@@ -34,7 +23,6 @@ ORIGIN_CONNECTOR = "connector"
 async def source_origins(
     db: AsyncSession, project_id: str, sources: Iterable[tuple[str, str]]
 ) -> dict[str, dict[str, object]]:
-    """``{source_id: origin}`` for ``(source_id, source_key)`` pairs of one Workspace (a bounded page)."""
     pairs = list(sources)
     if not pairs:
         return {}
@@ -74,7 +62,6 @@ async def source_origins(
 
 
 async def _newest_origin_urls(db: AsyncSession, project_id: str, source_ids: list[str]) -> dict[str, str]:
-    """The stored origin link of each source's newest revision that has one."""
     if not source_ids:
         return {}
     rows = (

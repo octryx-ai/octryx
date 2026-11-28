@@ -1,10 +1,4 @@
-"""The tool parameters named connections add to every routed tool's definition.
-
-Every tool of a descriptor connector gets the optional ``connection`` (a named connection's id or name, or
-``default``) plus the parameters its descriptor declares so a call can name its binding key
-(``ConnectorDescriptor.request_params``, e.g. a Kubernetes ``cluster``). The router strips ``connection``
-before the tool runs; the descriptor's own parameters reach the tool.
-"""
+"""The tool parameters named connections add to every routed tool's definition."""
 
 from __future__ import annotations
 
@@ -25,7 +19,6 @@ def _connection_schema(label: str, key_label: str) -> dict[str, Any]:
 
 
 def with_connection_params(definitions: dict[str, dict]) -> dict[str, dict]:
-    """``definitions`` with the routing parameters added to each routed tool (others unchanged, same objects)."""
     result: dict[str, dict] = {}
     for name, definition in definitions.items():
         descriptor = descriptor_for_tool(name)

@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +23,7 @@ from ..sync.items import ConnectorRef, load_item, new_item, source_key_for
 from .binding import LINKS_HOST, SnapshotRefusal, valid_commit
 from .classification import content_outcome, max_snapshot_file_bytes
 from .labels import file_title, repository_label
+from .protocol_types import FileResult, FilesRequest, FilesResponse
 from .remote import parse_remote, platform_blob_url
 from .snapshot_pass import REASON_NO_OPEN_PASS, REASON_NO_SOURCE, _open_snapshot, _Pass, _store_cursor, _writable_pass
 
@@ -34,12 +34,10 @@ REASON_BATCH_TOO_LARGE = "batch_too_large"
 
 
 def max_batch_bytes() -> int:
-    """The bytes one batch may carry: 3 MiB, or one file of the configured per-file bound when larger."""
     return max(MAX_BATCH_BYTES, max_snapshot_file_bytes())
 
 
 def git_blob_sha1(data: bytes) -> str:
-    """The git object id of ``data`` as a blob: sha1 of ``blob <len>\\0`` plus the bytes."""
     return hashlib.sha1(b"blob %d\x00" % len(data) + data, usedforsecurity=False).hexdigest()
 
 
@@ -62,12 +60,8 @@ async def _ingest_one(
     path: str,
     blob: str,
     data: bytes,
-) -> dict[str, Any]:
-    """Ingest one verified file, then record its sync item and index row.
-
-    The ledger ingestion commits its own transaction (as in the sync runner), so a failure rolls
-    back and the file stays wanted; the caller reloads its rows afterwards.
-    """
+) -> FileResult:
+    # The ledger ingestion commits its own transaction, so a failure leaves the file wanted.
     outcome = content_outcome(data)
     if outcome is not None:
         return {"path": path, "outcome": "skipped", "reason": outcome}
@@ -97,7 +91,6 @@ async def _record_file(
     db: AsyncSession, opened: _Pass, authorized: AuthorizedWorkspace, ref: ConnectorRef, pass_number: int,
     path: str, blob: str, data: bytes, external_id: str, language, ingested,
 ) -> None:
-    """Record the ingested file's sync item and its code index row; flushes only."""
     item = await load_item(db, ref, external_id)
     if item is None:
         item = new_item(ref, external_id, state=ITEM_STATE_INGESTED, outcome="created")
@@ -150,9 +143,8 @@ def _batch_entries(files: object) -> list[tuple[str, str, bytes]] | str:
 
 
 async def upload_snapshot_files(
-    db: AsyncSession, *, session: Session, workspace_id: str, user_id: str, payload: dict[str, Any]
-) -> dict[str, Any] | SnapshotRefusal:
-    """Ingest one batch of wanted files of the open pass; one result per file."""
+    db: AsyncSession, *, session: Session, workspace_id: str, user_id: str, payload: FilesRequest
+) -> FilesResponse | SnapshotRefusal:
     opened = await _writable_pass(
         db, session=session, workspace_id=workspace_id, head_commit=payload.get("head_commit")
     )
@@ -171,7 +163,7 @@ async def upload_snapshot_files(
         db, user_id=user_id, project_id=workspace_id, allowed_project_ids=[workspace_id]
     )
     ingested_count = int(snapshot.get("ingested") or 0)
-    results: list[dict[str, Any]] = []
+    results: list[FileResult] = []
     for path, blob, data in entries:
         if wanted.get(path) != blob:
             results.append({"path": path[:200], "outcome": "skipped", "reason": "not_wanted"})

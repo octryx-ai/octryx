@@ -1,25 +1,4 @@
-"""Admission of an Action's general agent turn before any session or model dispatch.
-
-The general branch of ``task_execution`` runs an agent turn for a task that is not an enabled-step
-or Work intake sync task. This module decides, from the stored task alone and before anything is
-created, whether that turn may run:
-
-* **Type.** Only ``agent_run`` is an agent turn.
-  ``webhook_relay`` and any other type are refused (``action_type_unsupported``).
-* **Raw values.** ``config`` must be an object; ``agent_definition_id`` and ``prompt`` must be
-  strings when present (arrays or objects are refused, never stringified).
-* **Configured agent.** Resolved with the task owner's visibility. A refusal the resolver already
-  types (inactive, not published, mode not configured) stays the existing
-  :class:`AgentDefinitionExecutionError`. A definition that does not resolve for the owner is
-  refused (``action_agent_not_found``) instead of degrading to an agent-less turn. Its target
-  Workspace must be global or the task's own (``action_agent_workspace_mismatch``).
-* **Instruction.** Without an agent, a non-blank string prompt is required. With an agent, the
-  configured prompt or an *authored* instruction of the agent (goal, system prompt, output prompt
-  or an enabled step's instructions) is required; the boilerplate the payload serializer builds
-  around empty fields does not count. Nothing is invented (``action_instruction_missing``).
-
-Refusals carry only a fixed code: no foreign Workspace or agent identity is persisted.
-"""
+"""Admission of an Action's general agent turn before any session or model dispatch."""
 
 from __future__ import annotations
 
@@ -57,8 +36,6 @@ REFUSAL_MESSAGES = {
 
 
 class ActionAdmissionError(RuntimeError):
-    """A general agent turn refused before any session or model dispatch; fixed code only."""
-
     def __init__(self, code: str) -> None:
         self.code = code
         super().__init__(code)
@@ -88,7 +65,6 @@ def _nonblank(value: Any) -> bool:
 
 
 def has_authored_instruction(payload: dict[str, Any]) -> bool:
-    """Whether the agent itself carries an instruction a person wrote (not serializer boilerplate)."""
     if any(_nonblank(payload.get(key)) for key in ("goal", "systemPrompt", "outputPrompt")):
         return True
     return any(
@@ -98,7 +74,6 @@ def has_authored_instruction(payload: dict[str, Any]) -> bool:
 
 
 async def admit_agent_turn(db: AsyncSession, task: Any) -> AdmittedAgentTurn:
-    """The admitted turn, or :class:`ActionAdmissionError` / :class:`AgentDefinitionExecutionError`."""
     if task.task_type not in AGENT_TURN_TASK_TYPES:
         raise ActionAdmissionError(TYPE_UNSUPPORTED)
     config = task.config if task.config is not None else {}

@@ -1,10 +1,4 @@
-"""Explicit refusals of the Model Policy registry.
-
-Every refusal carries a stable ``code`` (asserted by tests and read by the UI)
-and the HTTP status the transport renders it with. ``facts`` holds only
-identifiers and closed-vocabulary values the caller already knows; it never
-echoes document content, approval reasons, or exception text.
-"""
+"""Explicit refusals of the Model Policy registry."""
 
 from __future__ import annotations
 
@@ -49,8 +43,6 @@ _HTTP_STATUS: dict[str, int] = {
 
 
 class RegistryRefusalError(Exception):
-    """An explicit, coded refusal of a registry operation."""
-
     def __init__(self, code: str, **facts: Any) -> None:
         super().__init__(code)
         self.code = code

@@ -1,11 +1,4 @@
-"""What the agent reads of a long test run: the summary and its failures, the full report stays with the platform.
-
-A full ``flutter test`` can print 69 KB; Claude Code moves such output into a file under
-the launcher's protected home and shows the agent only the first 2 KB, so the agent cannot read the pass total
-or see which test failed. The platform parses the run it
-receives anyway (``test_output.parse``); from that it answers this brief, which the launcher puts into the agent's
-context. Limits are data (``stacks.json``: ``general.test_brief``, a runner's ``test_runner.brief`` overrides).
-"""
+"""What the agent reads of a long test run: the summary and its failures, the full report stays with the platform."""
 
 from __future__ import annotations
 
@@ -18,7 +11,6 @@ FULL_REPORT = "The full report is with the platform."
 
 
 def settings(command: str, stacks: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """The brief's limits for ``command``'s runner, or ``None`` when it runs no known test runner."""
     from .test_results import DEFAULT_TEST_PREFIXES
 
     words = command.split()
@@ -36,7 +28,6 @@ def settings(command: str, stacks: dict[str, Any] | None = None) -> dict[str, An
 
 
 def brief(command: str, output: str, stacks: dict[str, Any] | None = None) -> str:
-    """The brief of a long test run's ``output``; ``""`` for a short one (the agent reads it whole) or no test run."""
     limits = settings(command, stacks)
     if limits is None or len(output) < int(limits.get("min_chars") or 0):
         return ""
@@ -62,7 +53,6 @@ def brief(command: str, output: str, stacks: dict[str, Any] | None = None) -> st
 
 
 async def hook_brief(db: Any, workspace_id: str, hook_input: dict[str, Any]) -> str:
-    """The brief of a launcher's Bash test run (``POST /sessions/tool-executed``) with the Workspace's stacks."""
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     response = hook_input.get("tool_response") if isinstance(hook_input.get("tool_response"), dict) else {}
     command = str(tool_input.get("command") or "")

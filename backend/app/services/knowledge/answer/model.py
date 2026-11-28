@@ -1,9 +1,5 @@
-"""One governed JSON answer for the Knowledge Search answer.
-
-Like the research model (``knowledge/research/model.py``) the answer never gets a provider of its own: the
-control-plane runtimes are resolved, admitted for the searched Workspace under the registered dispatch owner
-``knowledge_search_answer`` and tried in priority order. No prompt, answer or provider message is logged.
-"""
+"""One governed JSON answer for the Knowledge Search answer. It never gets a provider of its own; no prompt, answer or
+provider message is logged."""
 
 from __future__ import annotations
 

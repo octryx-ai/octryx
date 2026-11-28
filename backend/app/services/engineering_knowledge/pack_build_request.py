@@ -1,17 +1,4 @@
-"""The explicit Engineering Knowledge Pack build request: structured fields, never prompt text.
-
-A pack build runs only when a caller passes structured fields: the ``build_engineering_knowledge_pack``
-tool arguments, the admin build-run API payload, or the planner of the explicitly selected
-``engineering_knowledge_pack_build`` workflow. The fields are:
-
-- ``target_versions`` / ``source_versions``: exact versions per closed coordinate (``java``,
-  ``spring_boot``, ``python``), e.g. ``{"java": "25", "spring_boot": "4.0.3"}``;
-- ``stack_key`` (optional): one of the closed stack keys; without it the stack follows from the
-  coordinates by a fixed mapping (``spring_boot`` -> ``java-spring``, else ``java`` / ``python``).
-
-No fields at all is the explicit ``not_requested`` state: nothing is built and nothing is read from
-the user's message. Incomplete or invalid fields are explicit blockers.
-"""
+"""The explicit Engineering Knowledge Pack build request: structured fields, never prompt text."""
 
 from __future__ import annotations
 

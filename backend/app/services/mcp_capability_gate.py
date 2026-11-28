@@ -1,26 +1,4 @@
-"""One authoritative MCP capability gate for dispatch and discovery.
-
-Direct FQN execution (``mcp__<server>__<tool>``), bridge execution
-(``call_mcp_server_tool``), model-visible discovery (``list_mcp_server_tools``),
-and tools that reach an MCP server themselves (``fetch_and_save_knowledge``, via
-``enforce_remote_mcp_capability``) all resolve through the helpers here, so no
-path can disagree with another about a capability.
-
-Evaluation order is fixed:
-
-1. project MCP **server** activation (``services/mcp_access_policy.py``) — the
-   existing first gate, unchanged;
-2. workspace **capability** governance (``services/mcp_capability_policy.py``);
-2b. the run capability class of the capability itself, from its classified risk
-   (``run_capability.escalation.mcp_capability_dispatch_refusal``): the bridge tool is a
-   static read, so this is where a write or unclassified capability meets a read_only run;
-3. the existing project approval policy, given an explicit
-   ``ToolApprovalSubject`` so the approval identity is server + capability +
-   arguments instead of the generic bridge tool name.
-
-Nothing here reads MCP connection configuration, so no environment, header,
-OAuth, or credential material can reach a result payload.
-"""
+"""One authoritative MCP capability gate for dispatch and discovery. Every path to an MCP tool resolves through it."""
 
 from __future__ import annotations
 
@@ -35,10 +13,10 @@ from .mcp_capability_decisions import (
     decide_mcp_capability,
     unverifiable_mcp_capability_decision,
 )
-from .mcp_capability_policy import load_mcp_capability_index, mcp_capability_subject_key
+from .mcp_governance.capability_policy import load_mcp_capability_index, mcp_capability_subject_key
 from .mcp_workspace_context import WorkspaceContextResolution, resolve_workspace_context
-from .tool_approval_gate import enforce_tool_approval
-from .tool_approval_rules import ToolApprovalSubject
+from .tool_approval.gate import enforce_tool_approval
+from .tool_approval.rules import ToolApprovalSubject
 
 MCP_BRIDGE_CALL_TOOL_NAME = "call_mcp_server_tool"
 _MCP_FQN_PREFIX = "mcp__"
@@ -46,8 +24,6 @@ _MCP_FQN_PREFIX = "mcp__"
 
 @dataclass(frozen=True, slots=True)
 class McpCapabilityRef:
-    """The capability a dispatch request addresses, independent of the path used."""
-
     server_name: str
     tool_name: str
     arguments: dict[str, Any]
@@ -55,8 +31,6 @@ class McpCapabilityRef:
 
 @dataclass(frozen=True, slots=True)
 class McpCapabilityGateOutcome:
-    """Either a blocking payload or the approval subject for an admitted capability."""
-
     ref: McpCapabilityRef | None = None
     decision: McpCapabilityDecision | None = None
     blocked_result: dict[str, Any] | None = None
@@ -66,7 +40,6 @@ class McpCapabilityGateOutcome:
 
 
 def resolve_mcp_capability_ref(tool_name: str, params: dict[str, Any] | None) -> McpCapabilityRef | None:
-    """Map a dispatch request onto the remote capability it addresses, or ``None``."""
     normalized_tool = str(tool_name or "").strip()
     payload = params if isinstance(params, dict) else {}
     if normalized_tool == MCP_BRIDGE_CALL_TOOL_NAME:
@@ -105,7 +78,6 @@ def _unverifiable_context_decision(
     server_name: str,
     tool_name: str,
 ) -> McpCapabilityDecision:
-    """Name why this context cannot be decided: no database, or no single workspace."""
     if context.db is None:
         return unverifiable_mcp_capability_decision(server_name, tool_name, matched_rule="missing_database_context")
     return unverifiable_mcp_capability_decision(
@@ -133,7 +105,6 @@ async def evaluate_mcp_capability_ref(
     ref: McpCapabilityRef,
     context: ToolContext,
 ) -> McpCapabilityGateOutcome:
-    """Evaluate server activation then capability governance for one capability."""
     access = mcp_access_for_context(ref.server_name, context)
     if not access.allowed:
         return McpCapabilityGateOutcome(
@@ -181,7 +152,6 @@ async def evaluate_mcp_capability_dispatch(
     params: dict[str, Any],
     context: ToolContext,
 ) -> McpCapabilityGateOutcome:
-    """Evaluate one registry dispatch; a non-MCP tool yields an empty outcome."""
     ref = resolve_mcp_capability_ref(tool_name, params)
     if ref is None:
         return McpCapabilityGateOutcome()
@@ -196,13 +166,8 @@ async def enforce_remote_mcp_capability(
     arguments: dict[str, Any] | None,
     context: ToolContext,
 ) -> dict[str, Any] | None:
-    """Full decision for a remote MCP call issued outside registry dispatch.
-
-    Tools that reach an MCP server themselves (``fetch_and_save_knowledge``)
-    must not re-implement any of this: the same server activation, capability
-    binding, and approval decision runs here, and a non-``None`` return is the
-    blocking tool result that must be returned instead of calling the server.
-    """
+    # Tools that reach an MCP server themselves run this same decision; a non-``None`` result is returned instead of
+    # calling the server.
     ref = McpCapabilityRef(
         server_name=str(server_name or "").strip(),
         tool_name=str(tool_name or "").strip(),
@@ -235,7 +200,6 @@ async def mcp_capability_dispatch_block(
     tool_name: str,
     context: ToolContext,
 ) -> dict[str, Any] | None:
-    """Last deny check immediately before a remote MCP call, or ``None`` to proceed."""
     decision = await _capability_decision_for_context(context, server_name=server_name, tool_name=tool_name)
     if decision.allowed:
         return None

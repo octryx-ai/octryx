@@ -12,6 +12,7 @@ from ...services.session.agent_selection_sources import (
     AGENT_SELECTION_SOURCE_METADATA_KEY,
     closed_agent_selection_source,
 )
+from ...services.session.session_title import TITLE_SOURCE_KEY
 from ...services.workflow_routing.proposal_decision import workflow_proposal_view
 from ._serialization_ext import _session_is_pinned
 from .serialization import _serialize_timestamp
@@ -40,7 +41,6 @@ def build_selected_chat_session_contract(
     user: User,
     can_grant_standing_confirmation: bool = False,
 ) -> dict[str, Any] | None:
-    """Build the selected-session payload still consumed by /admin/chat."""
     if selected_session is None:
         return None
 
@@ -51,15 +51,13 @@ def build_selected_chat_session_contract(
         "id": selected_session.id,
         "threadNumber": int(selected_row.get("thread_number") or 0) if selected_row else 0,
         "title": selected_row["title"] if selected_row else _session_title(selected_session, None),
+        "titleSource": str(metadata.get(TITLE_SOURCE_KEY) or "") or None,  # a prompt's title gives way to a run's
         "status": selected_status,
         "runStatus": selected_run_status,
         "runCompletionReason": selected_run_completion_reason,
         "projectId": selected_session.project_id,
-        "projectName": (
-            selected_row["project_name"]
-            if selected_row
-            else (selected_project.name if selected_project else "No project")
-        ),
+        "projectName": selected_row["project_name"] if selected_row else (
+            selected_project.name if selected_project else "No project"),
         "isPinned": bool(selected_row.get("is_pinned")) if selected_row else _session_is_pinned(selected_session),
         "runtimeTargetId": selected_runtime_target_id,
         "runtimeLabel": selected_runtime_label,

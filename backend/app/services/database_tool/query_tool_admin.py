@@ -23,13 +23,11 @@ from app.services.database_tool.common import (
     normalize_parameter_schema,
     normalize_rls_rules,
     serialize_database_query_tool,
-    tool_visible_to_context,
     validate_sql_template,
     validate_tool_name,
 )
 
-from ...models import DatabaseConnector, DatabaseQueryTool
-from ...tools.context import ToolContext
+from ...models import DatabaseQueryTool
 
 
 async def list_database_query_tools(db: AsyncSession) -> list[dict[str, Any]]:
@@ -143,39 +141,3 @@ async def delete_database_query_tool(db: AsyncSession, tool_id: str) -> dict[str
     return {"status": "deleted"}
 
 
-async def list_dynamic_database_tool_definitions(db: AsyncSession, context: ToolContext) -> list[dict[str, Any]]:
-    rows = (
-        (
-            await db.execute(
-                select(DatabaseQueryTool)
-                .options(selectinload(DatabaseQueryTool.connector))
-                .join(DatabaseConnector)
-                .where(
-                    DatabaseQueryTool.is_active.is_(True),
-                    DatabaseConnector.is_active.is_(True),
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    definitions: list[dict[str, Any]] = []
-    for tool in rows:
-        if not tool_visible_to_context(tool, context):
-            continue
-        schema = normalize_parameter_schema(tool.parameters_schema)
-        definitions.append(
-            {
-                "type": "function",
-                "function": {
-                    "name": tool.tool_name,
-                    "description": tool.description
-                    or (
-                        f"Execute the predefined database query tool {tool.tool_name}. "
-                        "This tool runs only the registered query template."
-                    ),
-                    "parameters": schema,
-                },
-            }
-        )
-    return definitions

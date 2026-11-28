@@ -1,19 +1,4 @@
-"""Authoritative Product Run and Product Run Attempt records.
-
-A Product Run is one governed unit of product work inside a Workspace. Each
-execution of it is an Attempt. Every state change of an Attempt is written to
-the append-only ``product_run_transitions`` audit; the Run's ``state`` mirrors
-its latest Attempt and is kept only for query efficiency.
-
-A Workspace is a project (D-002): ``workspace_id`` references ``projects.id``
-and is mandatory. No column holds free text.
-
-The state and end-reason vocabularies below are closed. The legal transitions
-between them are owned by ``app.services.product_run.states``.
-
-``completed`` and ``verifying`` are reserved for a verification contract; no
-transition reaches them.
-"""
+"""Product Run and Product Run Attempt records and their append-only transitions."""
 
 from __future__ import annotations
 
@@ -23,6 +8,7 @@ from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Index, Int
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 RUN_STATE_REQUESTED = "requested"
@@ -78,7 +64,7 @@ RUN_END_REASONS: tuple[str, ...] = (
     "delegated_outcome_unrecorded",
     "generator_closed",
     "task_cancelled",
-    # Runtime robustness R1: the owning process died (restart or crash) mid-turn.
+    # The owning process died (restart or crash) mid-turn.
     "interrupted_by_restart",
     # The execution gate held the turn for the user's workflow confirmation; the proposed
     # workflow waits on its governed approval record (``needs_approval`` family; appended last
@@ -87,7 +73,7 @@ RUN_END_REASONS: tuple[str, ...] = (
 )
 
 RUN_ORIGIN_CHAT_TURN = "chat_turn"
-# A child turn of a sub-agent group, and a turn the scheduler runs for a task (roadmap item 1).
+# A child turn of a sub-agent group, and a turn the scheduler runs for a task.
 RUN_ORIGIN_SUB_AGENT = "sub_agent"
 RUN_ORIGIN_SCHEDULED_TASK = "scheduled_task"
 RUN_ORIGINS: tuple[str, ...] = (RUN_ORIGIN_CHAT_TURN, RUN_ORIGIN_SUB_AGENT, RUN_ORIGIN_SCHEDULED_TASK)
@@ -112,8 +98,9 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ProductRun(Base):
+class ProductRun(WorkspaceBound, Base):
     """One governed unit of product work in exactly one Workspace."""
+    __workspace_column__ = "workspace_id"
 
     __tablename__ = "product_runs"
     __table_args__ = (
@@ -157,8 +144,9 @@ class ProductRun(Base):
     )
 
 
-class ProductRunAttempt(Base):
+class ProductRunAttempt(WorkspaceBound, Base):
     """One execution of a Product Run."""
+    __workspace_column__ = "workspace_id"
 
     __tablename__ = "product_run_attempts"
     __table_args__ = (
@@ -197,8 +185,9 @@ class ProductRunAttempt(Base):
     run = relationship("ProductRun", back_populates="attempts")
 
 
-class ProductRunTransition(Base):
+class ProductRunTransition(WorkspaceBound, Base):
     """Append-only audit of every Attempt state change."""
+    __workspace_column__ = "workspace_id"
 
     __tablename__ = "product_run_transitions"
     __table_args__ = (

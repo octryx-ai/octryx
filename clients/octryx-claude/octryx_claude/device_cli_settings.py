@@ -37,7 +37,6 @@ def run_context(args: argparse.Namespace, state: LocalState) -> int:
 
 
 def run_live(args: argparse.Namespace, state: LocalState) -> int:
-    """The live channel (Octryx Mobile): off until the person switches it on, here on this machine."""
     device = device_state.load_device(state)
     if not device.get("device_id"):
         return _fail("this device is not enabled")

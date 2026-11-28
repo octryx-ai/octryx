@@ -95,7 +95,6 @@ async def instruction_detail(db: AsyncSession, instruction_id: str) -> dict[str,
 
 
 async def workflow_instruction_keys(db: AsyncSession) -> dict[str, list[str]]:
-    """Published instructions bound to each workflow key (the Workflows page's "Instructions bound")."""
     rows = (
         await db.execute(
             select(Instruction.workflow_key, Instruction.key, InstructionVersion.version)

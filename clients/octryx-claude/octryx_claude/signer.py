@@ -1,18 +1,5 @@
-"""The session's hook signer: an HMAC key that lives only in the supervisor's memory.
-
-The launcher (the supervisor) generates a per-session ``hook_key``, registers it with
-the platform (``POST /sessions/hook-key``, set once per session) and serves signatures
-over a Unix domain socket at ``sessions/<key>/hook.sock`` (directory 0700, socket 0600).
-The key is never written to a file, an environment variable, argv or a log, so a
-process that holds only the session's tokens cannot forge a confirmation proof.
-
-Protocol: one JSON line ``{"op": "sign", "message": str}`` per connection, one JSON line
-answer ``{"mac": hex}`` or ``{"error": "<code>"}``. Only workflow confirmation and run decision messages
-of this session are signed:
-
-    v1|confirm|<session_key>|<tool_use_id>|<approval_id>|<nonce_hex32>|<unix_ts>
-    v1|decide|<session_key>|<tool_use_id>|<run_id>|<nonce_hex32>|<unix_ts>
-"""
+"""The session's hook signer: an HMAC key held only in the supervisor's memory, served over a Unix socket.
+The key is never written anywhere, so a process holding only the session's tokens cannot forge a proof."""
 
 from __future__ import annotations
 
@@ -30,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .state import LocalState
+from .state import LocalState, shared_state
 
 SOCKET_NAME = "hook.sock"
 HOOK_KEY_BYTES = 32
@@ -40,12 +27,12 @@ ACCEPT_POLL_SECONDS = 0.25
 # sockaddr_un.sun_path is 104 bytes on macOS (108 on Linux), including the NUL.
 MAX_SOCKET_PATH_BYTES = 103
 _SOCKET_MODE = 0o600
+_SHARED_SOCKET_MODE = 0o660  # a server runner's hooks run under the agent's account, in the launcher's group
 
 _MAC = re.compile(r"^[0-9a-f]{64}$")
 
 
 class SignerUnavailableError(Exception):
-    """The signer cannot be started; ``code`` is fixed."""
 
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -57,7 +44,6 @@ def new_hook_key() -> bytes:
 
 
 def encode_hook_key(hook_key: bytes) -> str:
-    """base64url without padding, as the platform expects it."""
     return base64.urlsafe_b64encode(hook_key).decode("ascii").rstrip("=")
 
 
@@ -78,7 +64,6 @@ def confirm_message(session_key: str, tool_use_id: str, approval_id: str, nonce:
 
 
 def _read_line(conn: socket.socket) -> bytes | None:
-    """The request line, or ``None`` when it exceeds ``MAX_REQUEST_BYTES``."""
     buffer = b""
     while b"\n" not in buffer:
         chunk = conn.recv(MAX_REQUEST_BYTES + 1)
@@ -92,7 +77,6 @@ def _read_line(conn: socket.socket) -> bytes | None:
 
 
 class Signer:
-    """Serves signatures for one session until ``close``; never raises out of its thread."""
 
     def __init__(self, path: Path, session_key: str, hook_key: bytes) -> None:
         self.path = path
@@ -131,7 +115,7 @@ class Signer:
         listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         try:
             listener.bind(str(self.path))
-            os.chmod(self.path, _SOCKET_MODE)
+            os.chmod(self.path, _SHARED_SOCKET_MODE if shared_state() else _SOCKET_MODE)
             listener.listen(8)
             listener.settimeout(ACCEPT_POLL_SECONDS)
         except OSError as exc:
@@ -179,11 +163,7 @@ def start_signer(state: LocalState, session_key: str, hook_key: bytes) -> Signer
     return Signer(socket_path(state, session_key), session_key, hook_key).start()
 
 
-# --- client side (the PreToolUse hook) -------------------------------------------
-
-
 def sign(state: LocalState, session_key: str, message: str, timeout: float = 3) -> str | None:
-    """The supervisor's mac for ``message``, or ``None`` when it is unreachable or refuses."""
     try:
         path = socket_path(state, session_key)
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as conn:
@@ -200,8 +180,6 @@ def sign(state: LocalState, session_key: str, message: str, timeout: float = 3) 
 
 def confirmation_proof(state: LocalState, session_key: str, tool_use_id: object,
                        approval_id: object, verb: str = "confirm") -> dict[str, Any] | None:
-    """``{"nonce", "ts", "mac"}`` for a ``workflow_confirm`` call (verb ``decide``: a ``workflow_decide`` call bound
-    to its run id), or ``None`` (fail closed)."""
     if not isinstance(tool_use_id, str) or not isinstance(approval_id, str):
         return None
     nonce = secrets.token_hex(16)

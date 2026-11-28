@@ -1,9 +1,4 @@
-"""One finding of a content detector: what was found where — in memory only.
-
-A :class:`Finding` carries the span so the masker can replace it; it has no serializer and its ``repr`` names
-the detector only. Everything that leaves the process (decision log, audit, transcripts, API answers) is the
-scan *summary* (``scanner.ScanReport.summary``): detector ids, categories, counts, sources.
-"""
+"""One finding of a content detector: what was found where, in memory only."""
 
 from __future__ import annotations
 
@@ -28,7 +23,7 @@ class Finding:
 
 
 def non_overlapping(findings: list[Finding]) -> list[Finding]:
-    """The findings to mask, in text order: of overlapping spans the earliest, then the longest wins."""
+    # Of overlapping spans the earliest wins, then the longest.
     kept: list[Finding] = []
     for finding in sorted(findings, key=lambda item: (item.start, -(item.end - item.start))):
         if kept and finding.start < kept[-1].end:

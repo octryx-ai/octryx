@@ -1,13 +1,4 @@
-"""Code graph and agent-run context for the reviewer.
-
-- **Code graph**: when the repository is indexed (code intelligence), the callers and references of the symbols the
-  change defines or removes (``build_impact_analysis``, at most ``MAX_SYMBOLS`` symbols), outside the changed files,
-  as a fenced context section. Any language the graph indexes, not only Python (the deterministic caller check,
-  ``callers``, stays as it is: the graph is context, never a finding by itself). Not indexed: nothing changes.
-- **Agent pull requests**: a pull request an Octryx run opened (``authored_by_run``) gets that run's confirmed
-  acceptance criteria and its test facts (``review.evidence``), so the review continues the run's own review instead
-  of repeating it.
-"""
+"""Code graph and agent-run context for the reviewer."""
 
 from __future__ import annotations
 
@@ -29,7 +20,6 @@ _DEFINED = re.compile(r"^[+-]\s*(?:export\s+)?(?:async\s+)?(?:(?:def|class|funct
 
 
 def changed_symbols(diff: str) -> list[str]:
-    """The names the change defines, changes or removes (added and removed definition lines), each once. Pure."""
     found: list[str] = []
     for line in diff.splitlines():
         if line.startswith(("+++", "---")):
@@ -45,7 +35,6 @@ def _where(item: dict[str, Any]) -> str:
 
 
 def graph_text(impacts: dict[str, dict[str, Any]], changed: set[str]) -> tuple[str, int, set[str]]:
-    """``(section text, caller count, files)``: per symbol, its callers and references outside the change. Pure."""
     lines, count, files = [], 0, set()
     for symbol, impact in impacts.items():
         seen, rows = set(), []
@@ -65,7 +54,6 @@ def graph_text(impacts: dict[str, dict[str, Any]], changed: set[str]) -> tuple[s
 
 
 async def code_graph(db: AsyncSession, run: WorkflowRun, root: str, base: str, head: str) -> dict[str, Any]:
-    """Add the code graph's callers of the changed symbols; ``{symbols, callers, files}`` or ``{}``."""
     from ..code_intelligence.queries import build_impact_analysis
     from .settings import repository_record
 
@@ -110,7 +98,6 @@ MAX_CALLEES, MAX_CALLEE_LINES, MAX_CALLEE_CHARS = 10, 40, 10_000
 
 
 def called_names(diff: str) -> list[str]:
-    """The functions the change's added lines call that it does not define itself, each once. Pure."""
     defined = set(changed_symbols(diff))
     found: list[str] = []
     for line in diff.splitlines():
@@ -139,8 +126,6 @@ def _python_definition(path: Path, name: str, line: int) -> str:
 
 
 async def callee_definitions(root: str, names: list[str], changed: set[str]) -> list[tuple[str, str, str]]:
-    """``(name, path:line, code)`` of each called function's definition in the pull request's head, outside the
-    changed files (the diff shows those): Python by its syntax tree, other languages as the lines that follow."""
     found = []
     for name in names:
         code, out, _err = await safe_git.git(root, "grep", "-n", "-I", "-E",
@@ -165,7 +150,6 @@ async def callee_definitions(root: str, names: list[str], changed: set[str]) -> 
 
 
 async def authoring_run(db: AsyncSession, run: WorkflowRun, run_id: str) -> dict[str, Any]:
-    """The run that opened the pull request: its confirmed criteria and test facts for the reviewer."""
     from ..workflow_runs.review.evidence import _test_facts, confirmed_contract
 
     author = await db.get(WorkflowRun, run_id) if run_id else None

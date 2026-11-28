@@ -14,10 +14,6 @@ import {
 } from "./atlassianAuthModes";
 import { atlassianAuthView } from "./atlassianAuthView";
 
-/**
- * The sign-in part of the save body: the URL and, for an explicit method, the method with its principal
- * and a typed secret. Never sends another method's fields.
- */
 export function atlassianAuthSaveFields(
   product: AtlassianProduct,
   connector: AdminConnector,
@@ -43,8 +39,6 @@ export function atlassianAuthSaveFields(
   return body;
 }
 
-/** One line about what is saved; never claims the credentials work. */
-// A field label inside a sentence: only its first letter lower case ("token endpoint URL", not "token endpoint url").
 const inSentence = (label: string) => label.charAt(0).toLowerCase() + label.slice(1);
 
 export function storedAuthSummary(
@@ -71,8 +65,6 @@ export function storedAuthSummary(
     stored === "cloud_api_token"
       ? "Atlassian Cloud"
       : `Own instance · ${fields.label}`;
-  // The method as it is named in the form ("OpenID Connect (client credentials)"); that a save
-  // does not verify the sign-in is in the Connector settings help.
   return missing.length
     ? `Saved: ${where}, incomplete (missing ${missing.join(" and ")}).`
     : `Saved: ${where}.`;

@@ -1,16 +1,4 @@
-"""The prompt texts one turn uses, resolved once, and their audit record.
-
-A :class:`PromptSet` maps every catalog key to the one body that wins the precedence
-for this turn (agent definition > Workspace > global published > seed) and records
-each key it renders as ``key@version`` with its digest and source. The turn's set is
-bound in a context variable by run preparation, so loop guards and reminders render
-through it without threading a new argument through every call site; the binding is
-scoped to one ``run_agent`` generator (``agent/core/runtime/turn_execution_binding``).
-
-Rendering outside a bound turn is refused (``prompt_set_unbound``) instead of
-silently using the seed: a published admin edit must never be skipped unnoticed.
-Code that legitimately runs outside a turn binds a set explicitly.
-"""
+"""The prompt texts one turn uses, resolved once, and their audit record."""
 
 from __future__ import annotations
 

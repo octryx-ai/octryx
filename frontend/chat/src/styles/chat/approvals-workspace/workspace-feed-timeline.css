@@ -45,7 +45,7 @@
   width: 2.5rem;
   height: 2.5rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--panel);
   color: var(--text);
   padding: 0;
@@ -66,7 +66,7 @@
   width: 2.5rem;
   height: 2.5rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--panel);
   color: var(--text);
   padding: 0;
@@ -124,11 +124,11 @@
   min-width: 12rem;
   padding: 0.5rem 1rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--highlight);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace__timeline-action:disabled {

@@ -1,13 +1,5 @@
-"""The review bot's inline threads on Bitbucket: the answer to a finding a later pass
-found fixed or still open, as a reply in its thread and, when asked, the thread resolved.
-
-- Bitbucket Cloud: a reply is a comment with ``parent``; ``POST …/comments/{id}/resolve`` resolves the thread;
-- Bitbucket Server/Data Center: a reply is a comment with ``parent``; the thread is resolved by updating the root
-  comment with ``threadResolved: true`` (its current ``version`` read first). A server that does not know the field
-  answers without it, which is named as the reason.
-
-A thread that cannot be answered is named with its reason, never a failed post: the review itself was posted.
-"""
+"""The review bot's inline threads on Bitbucket: the answer to a finding a later pass found fixed or still open, as a
+reply in its thread and, when asked, the thread resolved."""
 
 from __future__ import annotations
 

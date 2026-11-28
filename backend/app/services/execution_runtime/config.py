@@ -66,7 +66,6 @@ class ExecutionRuntimeConfig:
 
 
 def _docker_limits(project_config: Mapping[str, Any], runtime_settings: Mapping[str, Any]) -> tuple[int, int]:
-    """The container's memory (MB) and process limit, project value first, each bounded."""
     docker_memory_mb = _bounded_int(
         project_config.get("execution_runtime_docker_memory_mb")
         or runtime_settings.get("execution_runtime_docker_memory_mb"),

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import uuid
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import select
 
 import app.services.session.turn_runtime_selection as selection_module
-from app.models import AuditLog, ControlPlaneRuntimeTarget, Project, Session, User
+from app.models import AuditLog, ControlPlaneRuntimeTarget, User
 from app.services.governed_default_tool_sets import GOVERNED_DEFAULT_TOOL_SETS, governed_default_tool_set
 from app.services.model_family_policy import WEAK_CODING_MODEL_FAMILIES
 from app.services.model_selection.gates import CatalogModel, WorkspaceScope
@@ -22,7 +20,6 @@ from app.services.session.turn_runtime_requirement import UnsupportedModelCapabi
 from app.services.session.turn_runtime_selection import RuntimeChoice, RuntimeSelectionSource, resolve_turn_runtime
 from app.services.workflow_runs.phase_validation import validate_phase_payload
 from tests.conftest import ADMIN_PASSWORD
-from tests.governed_default_tool_sets_support import _prepare
 
 NOVA = "amazon.nova-2-lite-v1:0"
 CODING = {"workflow_id": "coding_change_tdd", "required_model_capability": "coding"}
@@ -56,7 +53,6 @@ def _target(target_id: str, model_id: str, priority: int, tags: tuple[str, ...] 
 
 
 async def _runtime_for_coding(monkeypatch, targets, coding: set[str]) -> str:
-    """The workflow source's pick; the coding capability is each catalog model's checkbox."""
     async def fake_targets(_db, *args, **kwargs):
         return targets
 
@@ -101,45 +97,6 @@ def test_the_seeds_are_the_current_behaviour():
     assert dict(live.model_capabilities) == {"coding": "Coding"}
 
 
-@pytest.mark.asyncio
-async def test_a_default_set_edit_is_validated_versioned_audited_and_recorded_on_the_turn(client, db, tmp_path: Path):
-    await _login(client)
-    seed = next(entry for entry in (await client.get(SETS)).json()["sets"] if entry["capability_type"] == "diagnosis")
-    edited = [family for family in seed["families"] if family["name"] != "web"]
-
-    saved = await client.put(f"{SETS}/diagnosis", json={"families": edited, "expected_version": 10})
-
-    assert saved.status_code == 200 and saved.json()["key"] == "diagnosis.v11"
-    assert governed_default_tool_set("diagnosis").key == "diagnosis.v11"
-    project = Project(id=str(uuid.uuid4()), name=f"w22b-{uuid.uuid4().hex[:6]}", config={}, is_active=True)
-    db.add(project)
-    await db.commit()
-    prepared = await _prepare(db, tmp_path, project, await _admin(db), "diagnosis")
-    plan = prepared.context_plan
-    assert plan.tool_surface_set == "diagnosis.v11"
-    # Declared order is kept for the provider cap; the family the edit dropped is absent.
-    assert plan.tool_allowlist == [tool for family in edited for tool in family["tools"]]
-    assert "web_search" not in plan.tool_allowlist
-    session = await db.get(Session, prepared.tool_context.session_id)
-    assert session.metadata_["tool_surface_source"] == "governed_default"
-    assert session.metadata_["tool_surface_set"] == "diagnosis.v11"
-
-    stale = await client.put(f"{SETS}/diagnosis", json={"families": edited, "expected_version": 10})
-    assert stale.status_code == 409 and stale.json()["detail"]["code"] == "version_conflict"
-    unknown = [*edited, {"name": "extra", "tools": ["no_such_tool"]}]
-    refused = (await client.put(f"{SETS}/diagnosis", json={"families": unknown})).json()["detail"]
-    assert refused["code"] == "unknown_tool" and refused["values"] == ["no_such_tool"]
-    without_selection = [family for family in edited if family["name"] != "workflow_selection"]
-    refused = (await client.put(f"{SETS}/diagnosis", json={"families": without_selection})).json()["detail"]
-    assert refused["code"] == "required_tool_missing"
-
-    reset = await client.post(f"{SETS}/diagnosis/reset")
-    assert reset.status_code == 200 and reset.json()["key"] == "diagnosis.v12" and reset.json()["matches_seed"]
-    assert governed_default_tool_set("diagnosis").tools == GOVERNED_DEFAULT_TOOL_SETS["diagnosis"].tools
-    assert await _audit(db, "default_tool_set.diagnosis") == [
-        ("policy_list.reset", "diagnosis.v12"),
-        ("policy_list.updated", "diagnosis.v11"),
-    ]
 
 
 @pytest.mark.asyncio
@@ -178,7 +135,6 @@ async def test_the_catalog_coding_checkbox_decides_the_coding_requirement(monkey
         _target("nova", NOVA, 3),
     ]
     assert await _runtime_for_coding(monkeypatch, targets, {"nova"}) == "nova"
-    # The platform order decides among capable models.
     assert await _runtime_for_coding(monkeypatch, targets, {"haiku", "nova"}) == "haiku"
 
 
@@ -211,3 +167,32 @@ async def test_the_capability_catalog_is_validated_for_targets_and_definitions(c
     with pytest.raises(UnsupportedModelCapabilityError):
         required_model_capability({"required_model_capability": "telepathy"})
     assert (await client.put(f"{LISTS}/no_such_list", json={"values": []})).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_a_default_set_edit_is_validated_versioned_and_audited(client, db):
+    await _login(client)
+    seed = next(entry for entry in (await client.get(SETS)).json()["sets"] if entry["capability_type"] == "diagnosis")
+    edited = [family for family in seed["families"] if family["name"] != "web"]
+    version = seed["version"]
+
+    saved = await client.put(f"{SETS}/diagnosis", json={"families": edited, "expected_version": version})
+    assert saved.status_code == 200 and saved.json()["key"] == f"diagnosis.v{version + 1}"
+    assert governed_default_tool_set("diagnosis").key == f"diagnosis.v{version + 1}"
+
+    stale = await client.put(f"{SETS}/diagnosis", json={"families": edited, "expected_version": version})
+    assert stale.status_code == 409 and stale.json()["detail"]["code"] == "version_conflict"
+    unknown = [*edited, {"name": "extra", "tools": ["no_such_tool"]}]
+    refused = (await client.put(f"{SETS}/diagnosis", json={"families": unknown})).json()["detail"]
+    assert refused["code"] == "unknown_tool" and refused["values"] == ["no_such_tool"]
+    without_selection = [family for family in edited if family["name"] != "workflow_selection"]
+    refused = (await client.put(f"{SETS}/diagnosis", json={"families": without_selection})).json()["detail"]
+    assert refused["code"] == "required_tool_missing"
+
+    reset = await client.post(f"{SETS}/diagnosis/reset")
+    assert reset.status_code == 200 and reset.json()["key"] == f"diagnosis.v{version + 2}" and reset.json()["matches_seed"]
+    assert governed_default_tool_set("diagnosis").tools == GOVERNED_DEFAULT_TOOL_SETS["diagnosis"].tools
+    assert await _audit(db, "default_tool_set.diagnosis") == [
+        ("policy_list.reset", f"diagnosis.v{version + 2}"),
+        ("policy_list.updated", f"diagnosis.v{version + 1}"),
+    ]

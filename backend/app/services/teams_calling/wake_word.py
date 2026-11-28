@@ -16,7 +16,6 @@ def _normalize_text(text: str) -> str:
 
 
 def parse_wake_words(raw: object) -> list[str]:
-    """Parse wake-word config from a string or list."""
     if isinstance(raw, str):
         words = [item.strip() for item in raw.split(",")]
     elif isinstance(raw, list):
@@ -28,14 +27,6 @@ def parse_wake_words(raw: object) -> list[str]:
 
 
 def _fuzzy_find_wake_word(text: str, wake_word: str) -> tuple[int, int] | None:
-    """Find a wake word in text using fuzzy matching.
-
-    Returns (start, end) character positions of the best match, or None.
-    Handles whisper mis-transcriptions like "beautiful worker" for "virtual worker".
-
-    Uses a sliding window approach: for each possible n-gram window in the text
-    (where n varies from ww_word_count to ww_word_count+1), compare to wake word.
-    """
     words = text.split()
     ww_words = wake_word.split()
     ww_len = len(ww_words)

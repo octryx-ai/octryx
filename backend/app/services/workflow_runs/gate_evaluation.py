@@ -36,7 +36,6 @@ def _gate_evidence(run: WorkflowRun, node: PhasedNode) -> tuple[str, TurnEvidenc
 
 
 def _fresh_review(run: WorkflowRun, phase_id: str) -> dict[str, Any] | None:
-    """The reviewer's verdict, only when it was given after the phase's newest turn (a review of this change)."""
     review = dict(_context(run).get("review") or {})
     turn = dict(dict(run.gate_results or {}).get(phase_id) or {})
     if not review or str(review.get("at") or "") < str(turn.get("at") or ""):
@@ -50,16 +49,12 @@ TEST_EVIDENCE_TYPES = frozenset({"tests_red", "tests_green", "confirmed_tests_in
 
 
 #: Checks whose failure detail the platform writes itself (test runs, lint, CI, tool calls): safe for every reader.
-OWN_WORDS = frozenset({"tests_red", "tests_green", "confirmed_tests_intact", "reproduces", "ci_green", "lint_passed",
+OWN_WORDS = frozenset({"tests_red", "tests_green", "confirmed_tests_intact", "reproduces", "ci_green",
                        "test_command_passed", "tool_called", "tool_not_called"})
 
 
 async def _evaluate_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> Any:
-    """Deterministic checks over recorded evidence. A not-applicable check is neither pass nor fail; a gate none of
-    whose blocking checks could be judged fails. A check the platform could not judge (unresolved test evidence)
-    pauses the run instead of taking the loop (``evidence_pause``), so does a declared linter that could not start."""
-    from .workspace.declared_lint import environment_failure
-
+    # A gate none of whose blocking checks could be judged fails; unjudgeable evidence pauses instead of using a round.
     phase_id, evidence = _gate_evidence(run, node)
     checks = list(node.config.get("checks") or [])
     if not await _gather_gate_evidence(db, run, node, checks, evidence):
@@ -75,19 +70,14 @@ async def _evaluate_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -
             failed = []  # the pipeline after this gate judges the tests from its own report
     source_missing = not phase_id and evidence.review is None
     # Fail open: a gate none of whose blocking checks could be judged (all not applicable:
-    # no CI result yet, no lint on a device run) passes with a ``check_uncertain`` note instead of looping the agent.
+    # no CI result yet) passes with a ``check_uncertain`` note instead of looping the agent.
     # A gate no phase ran before (and no artefact review feeds) has no evidence source at all: it stays failed.
     # Test evidence stays a finding (a green gate that judged no test run must not pass):
-    # only gates whose unjudged checks need outside evidence (CI, lint, citations) fail open.
+    # only gates whose unjudged checks need outside evidence (CI, citations) fail open.
     unjudged = bool(blocking) and not judged and not any(item.type in TEST_EVIDENCE_TYPES for item in blocking)
     value = FAILED if failed or source_missing or (blocking and not judged and not unjudged) else PASSED
     _record_gate(db, run, node, phase_id, value, results, failed)
     _note_gate(db, run, node, phase_id, value, results, blocking, failed, unjudged=unjudged)
-    if failure := environment_failure(evidence.lint):
-        from .workspace.readiness import pause_not_ready
-
-        await pause_not_ready(db, run, failure)
-        return _WAIT
     if value == FAILED and (unresolved := unresolved_blocking(results)):
         from .evidence_pause import pause_unresolved
 
@@ -98,9 +88,6 @@ async def _evaluate_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -
 
 async def _gather_gate_evidence(db: AsyncSession, run: WorkflowRun, node: PhasedNode, checks: list[Any],
                                 evidence: TurnEvidence) -> bool:
-    """The evidence the gate's checks read beyond the phase's turns; ``False`` when the run paused instead."""
-    from .workspace.declared_lint import declared_lint_run, declares_lint
-
     if any(check.get("type") == "specification_ready" for check in checks):
         from .specification.integration import readiness_states
         from .states import PAUSE_NEEDS_CONFIGURATION
@@ -115,14 +102,11 @@ async def _gather_gate_evidence(db: AsyncSession, run: WorkflowRun, node: Phased
         from .review.artefact_gate import gate_record
 
         evidence.review = await gate_record(db, run, node)
-    if declares_lint(checks):
-        evidence.lint = await declared_lint_run(db, run)  # fresh on the run's copy, before review and push
     return True
 
 
 def _record_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode, phase_id: str, value: Any,
                  results: list[Any], failed: list[Any]) -> None:
-    """The gate's state on the run and its event."""
     gate = {"state": value, "phase": phase_id or None, "results": [result.as_dict() for result in results],
             "at": utc_now().isoformat()}
     run.gate_results = {**dict(run.gate_results or {}), node.id: gate}
@@ -139,7 +123,6 @@ def _record_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode, phase_id:
 
 def _note_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode, phase_id: str, value: Any, results: list[Any],
                blocking: list[Any], failed: list[Any], *, unjudged: bool) -> None:
-    """The gate's uncertain checks, and why a phase is back (``octryx.gate_failure``)."""
     from . import uncertain
 
     if unjudged and value == PASSED:
@@ -148,7 +131,7 @@ def _note_gate(db: AsyncSession, run: WorkflowRun, node: PhasedNode, phase_id: s
     uncertain.note_results(db, run, results, source=f"gate:{node.id}")
     from .octryx import gate_failure
 
-    if value == FAILED and phase_id:  # the phase reads why it is back (``octryx.gate_failure``)
+    if value == FAILED and phase_id:
         gate_failure.record(run, gate=node.title or node.id, phase=phase_id,
                             failed=failed or [result for result in blocking if result.outcome == NOT_APPLICABLE])
     else:

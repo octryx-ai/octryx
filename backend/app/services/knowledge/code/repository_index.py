@@ -1,20 +1,5 @@
-"""The code index of a ``git_repository`` source: write one file, read a repository (code module).
-
-The one writer for both fetch modes (C-MCP ``local_snapshot`` upload, K7 ``remote_git`` fetch):
-
-- :func:`upsert_file` records one tracked file at one commit. It derives the code elements from the
-  file text itself (``scan.elements_of_text``), so the two modes cannot disagree on them. An
-  unchanged blob keeps its row and its elements; only the commits move.
-- :func:`mark_seen` moves ``last_seen_commit`` of the unchanged files of a tree listing to the new
-  head in one statement, so an incremental snapshot does not rewrite every row.
-- :func:`retire_unseen` deletes the rows of paths that the head commit no longer lists and returns
-  them. Retiring their ledger sources is the sync owner's job (``KnowledgeSourceSyncItem``).
-
-The reader :func:`load_repository_index` answers the elements of every file seen at the
-repository's head commit, bounded, for ``knowledge_code_impact``.
-
-Every function runs in the caller's transaction and never commits.
-"""
+"""The code index of a ``git_repository`` source: write one file, read a repository. Every function runs in the caller's
+transaction and never commits."""
 
 from __future__ import annotations
 
@@ -32,8 +17,6 @@ from .scan import CodeElement, elements_of_text, is_scanned_file
 
 @dataclass(frozen=True, slots=True)
 class CodeFileRecord:
-    """One indexed file as written; ``changed`` is False when the blob was already indexed."""
-
     path: str
     language: str | None
     blob_sha: str
@@ -61,12 +44,6 @@ async def upsert_file(
     revision_id: str | None,
     text: str | None,
 ) -> CodeFileRecord:
-    """Record ``path`` at ``commit_sha`` with the blob ``blob_sha``; flushes only.
-
-    ``text`` is the file's decoded text (after the caller's redaction, which preserves lines), or
-    ``None`` for a file that is tracked but not indexed (binary, too large): it then has no elements.
-    The same ``blob_sha`` as recorded keeps the row's elements and source; only the commits move.
-    """
     path = validate_repository_path(path)
     blob_sha = _sha1(blob_sha)
     commit_sha = _sha1(commit_sha)
@@ -108,7 +85,6 @@ async def upsert_file(
 async def _remember_blob(
     db: AsyncSession, *, row: KnowledgeCodeFile, source_id: str | None, revision_id: str | None, commit_sha: str
 ) -> None:
-    """Keep the path's blob with its revision, so links to this blob work after the path moves on."""
     if revision_id is None:
         return
     known = (
@@ -152,7 +128,6 @@ def _record(row: KnowledgeCodeFile, *, changed: bool) -> CodeFileRecord:
 
 
 async def mark_seen(db: AsyncSession, *, connector_id: str, commit_sha: str, paths: Iterable[str]) -> int:
-    """Move ``last_seen_commit`` of already indexed, unchanged ``paths`` to ``commit_sha``."""
     commit_sha = _sha1(commit_sha)
     digests = [path_digest(path) for path in paths]
     moved = 0
@@ -170,7 +145,6 @@ async def mark_seen(db: AsyncSession, *, connector_id: str, commit_sha: str, pat
 
 
 async def retire_unseen(db: AsyncSession, *, connector_id: str, head_commit: str) -> list[tuple[str, str | None]]:
-    """Delete the rows the head commit no longer lists; ``[(path, source_id)]`` of the deleted rows."""
     head_commit = _sha1(head_commit)
     rows = (
         await db.execute(

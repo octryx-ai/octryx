@@ -1,14 +1,5 @@
-"""The tools the launcher brings (``tools_data.TOOLS``): what this device has, getting the missing ones, and the
-folders a device run puts first on ``PATH`` (everything the platform needs comes with the launcher).
-
-- :func:`inventory` ``{id: version | None}``: what the device reports in ``hello`` and ``device status`` shows; a
-  tool that is missing or answers another version than pinned is ``None`` for the platform ("not available");
-- :func:`ensure` installs what is missing: Playwright's browser for the pinned Playwright (``playwright install
-  chromium`` in the launcher's Python), a release archive whose sha256 matches the pinned one, unpacked into
-  ``<state>/tools/bin``. pip tools come with the launcher package itself. Nothing is installed system-wide, and a
-  failure is a clear message, never a crash of the device service;
-- :func:`bin_dirs`: the launcher's own ``bin`` (pip tools) and ``<state>/tools/bin``.
-"""
+"""The tools the launcher brings: what this device has, installing the missing ones, and their ``PATH`` folders.
+Nothing is installed system-wide; a failure is a message, never a crash of the device service."""
 
 from __future__ import annotations
 
@@ -40,24 +31,18 @@ BROWSERS_ENV = "PLAYWRIGHT_BROWSERS_PATH"
 
 
 def browsers_path(state_root: Path) -> Path:
-    """Where Playwright's own browsers live: the launcher's folder, never ``~/Library/Caches`` (nothing global)."""
     return tools_root(state_root) / "ms-playwright"
 
 
 def use_own_browsers(state_root: Path) -> None:
-    """The launcher's process (its hands-on test) takes Playwright's browsers from the launcher's folder."""
     os.environ.setdefault(BROWSERS_ENV, str(browsers_path(state_root)))
 
 
 def bin_dirs(state_root: Path) -> list[str]:
-    """The folders of the launcher's tools, for the front of a device run's ``PATH``."""
     return [str(Path(sys.executable).parent), str(tools_root(state_root) / "bin")]
 
 
 def command_env(folder: Path, path: list[str], environment: dict[str, Any] | None = None) -> dict[str, str]:
-    """The environment a declared command runs with, in the pipeline and in an agent's wrapped run of it
-    (``local_tests.declared_env``): the environment file's ``path`` first, then the launcher's pinned tools (its
-    interpreter with Playwright, ast-grep, gitleaks ...), then the system; the browser default and the pytest plugin."""
     from . import browser  # noqa: PLC0415
 
     env = dict(os.environ)
@@ -90,7 +75,6 @@ def _executable(tool: dict[str, Any], state_root: Path) -> str | None:
 
 
 def _version_of(tool: dict[str, Any], state_root: Path) -> str | None:
-    """The pinned version when the tool answers it, else ``None``."""
     pinned = str(tool["version"])
     if tool["source"] == "pip" and not tool.get("bin"):
         from importlib import metadata  # noqa: PLC0415
@@ -109,7 +93,6 @@ def _version_of(tool: dict[str, Any], state_root: Path) -> str | None:
 
 
 def _browser_installed(browser: str, state_root: Path) -> bool:
-    """Whether Playwright's own browser for this Playwright version is on disk (its dry run names the folder)."""
     code, output = _run([sys.executable, "-m", "playwright", "install", "--dry-run", browser],
                         env={BROWSERS_ENV: str(browsers_path(state_root))})
     if code != 0:
@@ -120,7 +103,6 @@ def _browser_installed(browser: str, state_root: Path) -> bool:
 
 
 def inventory(state_root: Path) -> dict[str, str | None]:
-    """``{id: version}`` of the pinned tools this device has, ``None`` for each one it does not."""
     return {str(tool["id"]): _version_of(tool, state_root) for tool in TOOLS}
 
 
@@ -129,7 +111,6 @@ CACHE_SECONDS = 600
 
 
 def reported(state_root: Path) -> dict[str, str | None]:
-    """:func:`inventory`, asked at most every ten minutes (``hello`` and ``state`` report it)."""
     key = str(state_root)
     cached = _CACHE.get(key)
     if cached is None or time.monotonic() - cached[0] > CACHE_SECONDS:
@@ -171,7 +152,6 @@ def _download(tool: dict[str, Any], state_root: Path, fetch: Any) -> str:
 
 
 def _install(body: bytes, folder: Path, name: str) -> str:
-    """Write next to the target and rename into place; a failure leaves no partial file behind."""
     handle, partial_name = tempfile.mkstemp(dir=folder, prefix=f".{name}.")
     partial = Path(partial_name)
     try:
@@ -214,8 +194,6 @@ def _record_ensure(state_root: Path, data: dict[str, Any]) -> None:
 
 
 def ensure(state_root: Path, fetch: Any = _fetch) -> list[str]:
-    """Install the missing tools; the problems as sentences (empty: everything is there). Its progress is kept in
-    ``tools/ensure.json`` (:func:`tool_states` reads it)."""
     _record_ensure(state_root, {"pid": os.getpid(), "started": time.time()})
     try:
         problems = _ensure(state_root, fetch)
@@ -259,8 +237,6 @@ def _running(pid: Any) -> bool:
 
 
 def tool_states(state_root: Path) -> dict[str, str]:
-    """``{id: state}`` for the status: the version, or why it is not there yet (e.g. still being fetched in the
-    background right after ``device enable``, ``device_runtime._ensure_tools``)."""
     import json  # noqa: PLC0415
 
     try:
@@ -281,7 +257,6 @@ def tool_states(state_root: Path) -> dict[str, str]:
 
 
 def default_root() -> Path:
-    """The launcher's state folder (``OCTRYX_CLAUDE_HOME``, else the installed default)."""
     return Path(os.environ.get("OCTRYX_CLAUDE_HOME") or Path.home() / ".octryx" / "claude")
 
 

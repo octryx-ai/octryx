@@ -39,8 +39,6 @@ def serialize_change_preview(preview: ChangePreview | None) -> dict[str, Any] | 
 
 
 def offered_decisions(payload: dict[str, Any]) -> list[str]:
-    """The decisions the card offers: ``once`` and ``deny`` always, ``always`` only where a
-    standing rule may answer this request (its preview names one; never for an external write)."""
     explicit = payload.get("offered_decisions")
     if isinstance(explicit, list) and explicit:
         return [str(item) for item in explicit]

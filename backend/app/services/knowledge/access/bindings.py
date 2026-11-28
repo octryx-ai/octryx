@@ -1,20 +1,5 @@
-"""Workspace read bindings and the Knowledge scope of one read.
-
-A read runs against a :class:`KnowledgeScope`: the caller's own Workspace first, then every Workspace
-it holds an active binding to (``models/project/knowledge_bindings.py``). The scope is resolved from
-the ledger on every read, never from the prompt or a tool argument. It is bounded and closed:
-
-- at most :data:`MAX_BINDINGS` sources, in the order they were bound; bindings are not transitive;
-- a source is read with ``on_behalf_of`` set to the reader, so every remote call (embedding, rerank)
-  is admitted for the reader's data policy, and the read can never author;
-- a source's products bound the read: the requested products are intersected with the binding's,
-  and a source whose intersection is empty is not queried;
-- a source whose data classification now ranks above the reader's is skipped with a fixed reason,
-  as is one that cannot be classified; the binding stays, so the admin can see why it is inert.
-
-Creating a binding needs the authoring role in *both* Workspaces (a platform admin has it
-everywhere); either side may revoke it.
-"""
+"""Workspace read bindings and the Knowledge scope of one read. The scope comes from the ledger on every read, never
+from the prompt or a tool argument."""
 
 from __future__ import annotations
 
@@ -48,8 +33,6 @@ SKIP_CLASSIFICATION_SHARING_OFF = "classification_sharing_off"
 
 
 class BindingRefusedError(Exception):
-    """A binding request that the rules refuse; ``reason`` is a fixed token."""
-
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -57,14 +40,11 @@ class BindingRefusedError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class BoundSource:
-    """One Workspace the reader may read through a binding."""
-
     authorized: AuthorizedWorkspace
     name: str
     products: tuple[str, ...]
 
     def products_for(self, requested: tuple[str, ...]) -> tuple[str, ...] | None:
-        """The product filter for this source, or ``None`` when the request lies outside the binding."""
         if not self.products:
             return requested
         if not requested:
@@ -78,7 +58,6 @@ class KnowledgeScope:
     primary: AuthorizedWorkspace
     primary_name: str
     sources: tuple[BoundSource, ...] = ()
-    # Bound Workspaces that were not read, with the fixed reason.
     skipped: dict[str, str] = field(default_factory=dict)
 
     def name_of(self, project_id: str) -> str:
@@ -96,7 +75,6 @@ async def _classification_rank(db: AsyncSession, project_id: str) -> int | None:
 
 
 async def _compatibility(db: AsyncSession, *, reader: str, source: str) -> str | None:
-    """``None`` when ``source`` may flow into ``reader``; else the fixed reason it may not."""
     reader_rank = await _classification_rank(db, reader)
     source_rank = await _classification_rank(db, source)
     if reader_rank is None or source_rank is None:
@@ -126,7 +104,6 @@ async def active_bindings(db: AsyncSession, reader_project_id: str) -> list[Know
 
 
 async def resolve_scope(db: AsyncSession, primary: AuthorizedWorkspace) -> KnowledgeScope:
-    """The reader's own Workspace plus the sources its active bindings admit right now."""
     if primary.on_behalf_of is not None:
         # A bound read never widens further: bindings are not transitive.
         return KnowledgeScope(primary, "")
@@ -162,7 +139,6 @@ async def create_binding(
     reason: object,
     user: User,
 ) -> KnowledgeWorkspaceBinding:
-    """Bind ``reader`` to read the source Workspace; the caller must author in both."""
     if not reader.may_author:
         raise BindingRefusedError("reader_author_required")
     # Authoring the source is the source side's consent; refusal there is indistinguishable from absence.
@@ -205,7 +181,6 @@ async def create_binding(
 async def revoke_binding(
     db: AsyncSession, *, workspace: AuthorizedWorkspace, binding_id: str, user: User
 ) -> KnowledgeWorkspaceBinding | None:
-    """Either side revokes: an author of the reader or of the source Workspace."""
     binding = await db.get(KnowledgeWorkspaceBinding, binding_id)
     if binding is None or workspace.project_id not in (binding.reader_project_id, binding.source_project_id):
         return None
@@ -218,7 +193,6 @@ async def revoke_binding(
 
 
 async def bindings_of(db: AsyncSession, project_id: str) -> tuple[list, list, dict[str, str]]:
-    """``(reads_from, read_by, names)``: the Workspace's bindings in both directions, for the admin view."""
     rows = (
         (
             await db.execute(

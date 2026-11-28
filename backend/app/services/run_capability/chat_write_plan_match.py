@@ -1,23 +1,4 @@
-"""A plan-admitted chat write runs with the arguments the person confirmed, never with fewer or other ones.
-
-Example: the write plan the person confirmed says ``create_jira_ticket {issue_type: Story, description: ...,
-project_key: PROJ, summary: ...}``. A weak model then calls ``create_jira_ticket {project_key: PROJ, summary: ...}``;
-a gate that checks only tool and project admits it, Jira applies the default type and creates a **Task**, while the
-answer says "Story". The plan named the target, but nothing checked that the executed call carried the plan's own
-fields.
-
-So before a covered write runs, it is matched to the confirmed write it performs:
-
-- a field the confirmed write names and the call leaves out is filled from the plan (in the example: issue_type
-  Story and the description come back), and the result says so (``write_plan.filled_from_plan``);
-- a field that decides *what* is written (issue type, priority, labels, assignee, ...) must equal the plan's: a call
-  that sets one differently, or sets one the plan left out, is refused with ``write_plan_mismatch`` and the confirmed
-  arguments to call instead (``next_calls``);
-- free text (summary, description, comment, ...) and targets stay within the confirmed scope without asking again,
-  so a comment on another issue of the confirmed project still runs;
-- when several confirmed writes fit and they would fill different values, the call is refused with all of them rather
-  than guessed.
-"""
+"""A plan-admitted chat write runs with the arguments the person confirmed, never with fewer or other ones."""
 
 from __future__ import annotations
 
@@ -37,8 +18,6 @@ ROUTING_FIELDS = frozenset({"connection", "connection_id", "connection_name"})
 
 @dataclass
 class PlanMatch:
-    """The arguments to execute, what the plan filled in, or the refusal when the call does not match the plan."""
-
     fields: dict[str, Any]
     filled: dict[str, Any] = field(default_factory=dict)
     refusal: dict[str, Any] | None = None
@@ -49,7 +28,6 @@ def _present(value: Any) -> bool:
 
 
 def canonical_fields(tool_name: str, fields: dict[str, Any] | None) -> dict[str, Any]:
-    """The fields in the one spelling the tool executes (``issuetype`` -> ``issue_type``), empty values dropped."""
     fields = {key: value for key, value in dict(fields or {}).items() if _present(value)}
     if tool_name == "create_jira_ticket":
         from ...tools.jira_impl._jira_issue_type_args import normalize_issue_type_args
@@ -75,7 +53,6 @@ def _decides_what(key: str) -> bool:
 
 
 def mismatches(planned: dict[str, Any], call: dict[str, Any]) -> list[str]:
-    """The fields deciding what is written that the call sets differently from the plan (or that the plan omits)."""
     found = []
     for key, value in call.items():
         if not _decides_what(key):
@@ -102,7 +79,6 @@ def _refusal(tool_name: str, candidates: list[dict[str, Any]], reasons: list[str
 
 
 def match_plan_write(plan: dict[str, Any], tool_name: str, params: dict[str, Any] | None) -> PlanMatch:
-    """Match a covered call to the confirmed write it performs; fill what it left out or refuse a mismatch."""
     name = str(tool_name or "").strip()
     call = canonical_fields(name, params)
     planned_writes = [canonical_fields(name, write.get("fields")) for write in plan.get("writes") or []

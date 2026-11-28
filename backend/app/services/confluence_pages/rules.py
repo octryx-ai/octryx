@@ -1,30 +1,4 @@
-"""The Confluence page allowlist (``confluence_allowed_pages``): one decision for the tools and Source Sync.
-
-Stored entries (the shape :func:`validate_page_rules` accepts):
-
-- ``{"id": "<page id>", "title"?, "space_key"?, "enabled": true, "include_children": false}``: this page only;
-- the same with ``"include_children": true``: the page and every page below it (its subtree);
-- either with ``"enabled": false``: this page itself is excluded (the picker writes it for an excluded page whose
-  place in the tree it has not loaded);
-- ``{"space_key": "<KEY>", "whole_space": true, "enabled": true}``: every page of that space, for a space that
-  stays fully readable while other spaces are narrowed to chosen pages;
-- a subtree or whole-space entry may carry ``"excludes": ["<page id>", ...]``: each named page *and everything
-  below it* is cut out of what the entry grants ("Page1 and below, but not Page1 → Page3"). A page below an
-  exclusion can be granted again by its own entry (its own page, or its own subtree).
-
-Decision for one page (:func:`page_decision`), from its id, title, space and ancestor ids (``None``: not
-fetched, unlike ``[]`` for a top-level page):
-
-1. an entry naming the page's id decides: enabled → allowed, disabled → excluded;
-2. otherwise an enabled subtree entry among the page's ancestors, or an enabled whole-space entry of the page's
-   space (only while that space is an allowed space), grants the page, unless one of the entry's ``excludes``
-   is the page or one of its ancestors (an entry with excludes never grants a page whose ancestors are unknown);
-3. otherwise, while any page entry exists, the page is not allowed (page entries make the allowlist a page list);
-4. without page entries the decision is ``None``: the caller's space allowlist decides.
-
-The ancestor order does not matter: an excluded id below a granting entry is on the page's path exactly when it
-is one of the page's ancestors (or the page). Values are validated at save (:func:`validate_page_rules`).
-"""
+"""The Confluence page allowlist (``confluence_allowed_pages``): one decision for the tools and Source Sync."""
 
 from __future__ import annotations
 
@@ -69,7 +43,6 @@ def _excludes(raw: object) -> frozenset[str]:
 
 
 def normalize_page_rules(raw: object) -> tuple[PageRule, ...]:
-    """The stored entries as rules: a page entry names a page id, a whole-space entry a space key."""
     rules: list[PageRule] = []
     for entry in raw if isinstance(raw, list) else []:
         if not isinstance(entry, dict):
@@ -106,7 +79,6 @@ def page_decision(
     ancestor_ids: Iterable[str] | None = None,
     allowed_spaces: Iterable[str] = (),
 ) -> bool | None:
-    """Whether the page is allowed by the page rules; ``None`` without page rules (the spaces decide)."""
     if not rules:
         return None
     page = _text(page_id)
@@ -136,7 +108,6 @@ def whole_space_keys(rules: tuple[PageRule, ...]) -> tuple[str, ...]:
 
 
 def validate_page_rules(value: Any) -> None:
-    """Refuse a page allowlist the decision cannot read unambiguously (``ValueError`` naming the problem)."""
     if not isinstance(value, list):
         raise ValueError(f"{PAGES_FIELD} must be a list")
     if len(value) > MAX_PAGE_RULES:

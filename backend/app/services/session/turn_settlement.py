@@ -1,23 +1,4 @@
-"""The one completion step of a chat turn, for every entry path.
-
-``/chat/api`` (the background turn runner, including approval resumes and reruns) and
-``/api/v1/sessions/{id}/messages`` (``message_dispatch``) both finish a turn whose
-agent stream ended with :func:`settle_turn_after_stream`:
-
-1. ``finalize_chat_turn_after_agent_stream``: the turn marker is cleared (a paused turn
-   stays resumable through its approval binding), the session status is normalised and
-   the run state is settled (``awaiting_approval``, ``awaiting_subagents``, ``failed``
-   on a red validation or an unverified contract, else ``completed`` / ``stopped``),
-   including the coding pipeline sync;
-2. commit;
-3. the end-of-turn stream event (``approval_request`` or ``run_state``);
-4. for a ``completed`` turn, the follow-up (workspace sync, ``session.completed``
-   webhook, Memory and Episode capture) as a background task.
-
-The Product Run attempt is settled before this step, when ``run_agent``'s
-``ProductRunScope`` exits; both paths bind it with ``run_origin="chat_turn"``.
-A turn that raised is settled by ``turn_failure`` instead.
-"""
+"""The completion step of a prepared chat turn: clear the turn marker, settle the session and run state."""
 
 from __future__ import annotations
 
@@ -35,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 
 async def publish_agent_event(session_id: str, event: Any) -> None:
-    """Mirror one agent event onto the session stream (assistant text and tool events)."""
     role = getattr(event, "role", None)
     content = getattr(event, "content", None)
     if role == "assistant" and content:
@@ -55,7 +35,6 @@ async def settle_turn_after_stream(
     session_factory,
     request_id: str | None,
 ) -> ChatTurnCompletionResult:
-    """Finish a turn whose agent stream ended; commits."""
     result = await finalize_chat_turn_after_agent_stream(db, session_id=session_id)
     await db.commit()
     if result.session_status == "pending_approval":
@@ -78,7 +57,6 @@ async def settle_turn_after_stream(
 
 
 async def _workflow_turn_ended(session_id: str, *, failed: bool, session_factory) -> None:
-    """A Server workflow run continues with its next phase (or pauses after a failed platform turn)."""
     from ..workflow_runs.server_continuation import server_turn_ended
 
     try:
@@ -91,5 +69,4 @@ __all__ = ["publish_agent_event", "settle_turn_after_stream", "workflow_turn_fai
 
 
 async def workflow_turn_failed(*, session_factory, session_id: str) -> None:
-    """The failure settlement's counterpart of the run hook above (``turn_runner``)."""
     await _workflow_turn_ended(session_id, failed=True, session_factory=session_factory)

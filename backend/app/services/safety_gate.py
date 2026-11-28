@@ -1,8 +1,4 @@
-"""The canonical set of mutating tool names.
-
-Phase validation (``workflow_runs/phase_validation``) and instruction conflict checks (``instructions/conflicts``)
-read it to tell mutating tools from read-only ones.
-"""
+"""The canonical set of mutating tool names."""
 
 from __future__ import annotations
 

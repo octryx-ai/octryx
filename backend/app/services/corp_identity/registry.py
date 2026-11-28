@@ -61,7 +61,6 @@ async def find_profile_by_source_content_identity(
     db: AsyncSession,
     content_identity: str,
 ) -> dict[str, Any] | None:
-    """The stored profile whose upload had these exact bytes (``source_content_identity``, set by every upload)."""
     for item in await load_registry(db):
         if str(item.get("source_content_identity") or "").strip() == content_identity and _profile_root_exists(item):
             return item

@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.knowledge.projection.workspace_classification_values import (
+    DEFAULT_SOURCE_ADMIN,
     ClassificationValueError,
     checked_classification,
     instance_default_for,
@@ -70,7 +71,6 @@ def content_digest(content: Mapping[str, Any]) -> str:
 
 
 def content_policy(content: Mapping[str, Any]) -> ClassificationPolicy:
-    """The matrix a content would publish (the live loader's shape, never ``invalid``)."""
     overrides = content.get("overrides") or {}
     return ClassificationPolicy(state=STATE_CONFIGURED if overrides else STATE_DEFAULT, overrides=overrides)
 
@@ -88,12 +88,6 @@ def _without_model_list(item: Any) -> Any:
 
 async def normalized_content(db: AsyncSession, *, levels: Any, default_level: Any, base: Mapping[str, Any],
                              level_catalog: Any = None, effect_rules: Any = None) -> dict[str, Any]:
-    """Validate a submitted draft under its own levels.
-
-    ``level_catalog`` is the whole list of levels; ``None`` keeps ``base``'s. A custom level the
-    catalog leaves out is retired, which is refused while anything still names it. The per-level model lists always
-    keep ``base``'s value (derived elsewhere).
-    """
     base_registry = content_registry(base)
     registry = base_registry if level_catalog is None else normalized_catalog(level_catalog, base=base_registry)
     await _check_catalog(db, registry, base_registry)
@@ -114,7 +108,6 @@ async def normalized_content(db: AsyncSession, *, levels: Any, default_level: An
 
 
 async def _check_catalog(db: AsyncSession, registry: Any, base_registry: Any) -> None:
-    """A retired custom level must be unused; a new level may not take a rank a retired level still holds."""
     retired = {row.rank: row.key for row in (await db.execute(
         select(DataClassificationLevel).where(DataClassificationLevel.retired_at.is_not(None)))).scalars()}
     for level in registry.levels:
@@ -127,9 +120,15 @@ async def _check_catalog(db: AsyncSession, registry: Any, base_registry: Any) ->
                 raise LevelCatalogError(ERROR_LEVEL_IN_USE, f"level_catalog.{level.key}", references=references)
 
 
+# A version carries only the default an admin stored: the environment's or the platform's preset is not part of the
+# policy, so publishing a version that leaves it out never switches it off.
+async def stored_default_level(db: AsyncSession) -> str | None:
+    default, _state, source = await instance_default_for(db)
+    return default if source == DEFAULT_SOURCE_ADMIN else None
+
+
 async def live_content(db: AsyncSession) -> dict[str, Any]:
-    """What the decision points read right now, in content form (the seed of the first draft)."""
     policy = await load_classification_policy(db)
-    default, _state, _source = await instance_default_for(db)
+    default = await stored_default_level(db)
     return {"overrides": {level: dict(rules) for level, rules in policy.overrides.items()}, "default_level": default,
             "level_catalog": catalog_of(level_registry())}

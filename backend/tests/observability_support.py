@@ -60,14 +60,12 @@ async def session_for(db, user: User, *, origin: str = "chat", project: Project 
 
 
 async def run_summary(db, trace_id: str):
-    """The ``turn_trace_summaries`` row of a trace."""
     from app.models import TurnTraceSummary
 
     return (await db.execute(select(TurnTraceSummary).where(TurnTraceSummary.trace_id == trace_id))).scalar_one()
 
 
 def add_trace(db, trace, fields: dict) -> None:
-    """Add a hand-built ``TurnTrace`` with its summary row (``fields`` from ``run_summary_fields``)."""
     from app.services.observability.run_summary import summary_row
     from app.time_utils import utc_now
 

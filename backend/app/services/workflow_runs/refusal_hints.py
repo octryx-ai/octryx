@@ -1,11 +1,4 @@
-"""What a refused agent can do instead, said with the refusal: inform before, never let the agent start from zero.
-
-Without it, one run was refused `cd e2e/node && npm test` three times and paused; another was refused the same protected
-test five times, each with the same text. So the refusal names the concrete form this run allows: the run's declared
-test command in its app folder, or for a confirmed test what to change instead. A refusal the run already got for the
-same intent says so, so the agent changes its approach instead of retrying (``refusals.times_refused``). The texts are
-catalog data (``run.block.instead_*``, ``run.block.again``).
-"""
+"""What a refused agent can do instead, said with the refusal: inform before, never let the agent start from zero."""
 
 from __future__ import annotations
 
@@ -15,7 +8,6 @@ from ...models import WorkflowRun
 
 
 def _test_command(run: WorkflowRun) -> tuple[str, str]:
-    """The run's declared test command and its app folder (pinned at preparation, else the record's declaration)."""
     from .workspace.contract_pin import commands, pin
     from .workspace.run_app import APP_KEY
 
@@ -27,7 +19,6 @@ def _test_command(run: WorkflowRun) -> tuple[str, str]:
 
 
 def instead(run: WorkflowRun | None, *, reason: str, tool: str, tool_input: dict[str, Any]) -> str:
-    """The sentence the refusal gets for this run, ``""`` when there is nothing concrete to say."""
     from .refusals import times_refused
     from .run_texts import run_text
 

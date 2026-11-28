@@ -8,10 +8,8 @@ _PUBLIC_MODULES = frozenset(
     {
         "api",
         "collaboration",
-        "entity",
         "run_state",
         "stream",
-        "tool_cache",
         "workspace",
         "workspace_restore",
         "workspace_sync",

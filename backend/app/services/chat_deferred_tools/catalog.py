@@ -71,13 +71,7 @@ def lean_chat_schema(definition: dict[str, Any]) -> dict[str, Any]:
 
 
 def direct_tool_names(tool_definitions: list[dict[str, Any]]) -> list[str]:
-    """The offered tools sent in full besides the core: all of them when the turn offers at most 25, else none.
-
-    Deferral pays only for a large catalog. Sending the connected integrations' reads in full as well (Confluence,
-    Bitbucket, Jira extras: +9 schemas) saves a tool_search call but costs ~4k input tokens on every model call
-    (about +11 % input tokens over a chat eval, same score). So a large catalog keeps its connected reads behind
-    tool_search.
-    """
+    """The offered tools sent in full besides the core: all of them when the turn offers at most 25, else none."""
     offered = [name for definition in tool_definitions if (name := _name(definition))]
     if len(offered) - (TOOL_SEARCH in offered) > DIRECT_TOOL_LIMIT:
         return []
@@ -116,16 +110,18 @@ def _systems(names: Iterable[str]) -> str:
     return ", ".join(dict.fromkeys(found))
 
 
-def _family_line(family: str, names: list[str]) -> str:
-    hint = _FAMILY_HINTS.get(family)
+def _family_line(family: str, names: list[str], hints: dict[str, str]) -> str:
+    hint = hints.get(family)
     if hint is None:
         systems = _systems(names)
         hint = systems if systems else ", ".join(names[:3]) + (", ..." if len(names) > 3 else "")
     return f"- {family}: {hint}"
 
 
-def compact_catalog(deferred_names: Iterable[str], families: Iterable[Any]) -> str:
+def compact_catalog(deferred_names: Iterable[str], families: Iterable[Any], *,
+                    write_note: str = "confirmed write plan only", hints: dict[str, str] | None = None) -> str:
     """One line per family of deferred tools (connector writes in their own line); names come with a search."""
+    hints = {**_FAMILY_HINTS, **(hints or {})}
     from ..run_capability.chat_writes import is_chat_connector_write_tool
 
     remaining = list(dict.fromkeys(deferred_names))
@@ -135,13 +131,13 @@ def compact_catalog(deferred_names: Iterable[str], families: Iterable[Any]) -> s
     for family in families:
         names = [name for name in family.tools if name in remaining and name not in grouped]
         if names:
-            lines.append(_family_line(family.name, names))
+            lines.append(_family_line(family.name, names, hints))
             grouped.update(names)
     other = [name for name in remaining if name not in grouped]
     if other:
-        lines.append(_family_line("other", other))
+        lines.append(_family_line("other", other, hints))
     if writes:
-        lines.append(f"- {CONNECTOR_WRITES_GROUP}: {_systems(writes)} (confirmed write plan only)")
+        lines.append(f"- {CONNECTOR_WRITES_GROUP}: {_systems(writes)} ({write_note})")
     return "\n".join(lines)
 
 

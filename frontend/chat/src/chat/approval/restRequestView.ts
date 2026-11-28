@@ -1,33 +1,21 @@
-// A custom REST write waiting for a person (backend rest_connector/preview.py): the request as it would be sent.
-// The central gate stores it as kind "tool_execution" with toolName "rest__…" (rest_connector/preview.py itself says
-// "rest_request"); it names the method, the API and operation, the connection, the URL with its
-// path filled in, the header names, the body (secret-looking values already masked by the server) and, as a details
-// line, the scope Octryx sets. A chat's write plan carries the same details lines for a REST write, next to the raw
-// fields the model wrote; those raw fields are never shown, only the server's masked body. Pure, so the workflow
-// approval card, the write plan (desktop and phone) and their tests share it.
+// The model's raw fields are never shown, only the server's masked body.
 
 export type RestRequestField = { key: string; label: string; value: string };
 
 export type RestRequestView = {
   method: string;
-  // "/tickets?state=open": the URL without its host (the connection names where it goes).
   path: string;
   host: string;
   url: string;
   api: string;
   operation: string;
-  // "POST /tickets on Demo Tickets › create_ticket"
   title: string;
-  // "Demo Tickets › create_ticket"
   target: string;
   connection: string;
-  // The server says the call will be refused: no active connection, or outside the person's access.
   noConnection: boolean;
   outsideAccess: boolean;
-  // "assignment_group = G1", "body assignment_group = G1"
   scope: string[];
   headers: string[];
-  // The body's top-level fields (nested values as JSON), and the whole body as JSON when it has nesting.
   fields: RestRequestField[];
   bodyJson: string;
 };
@@ -38,7 +26,6 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
 
 export const isRestTool = (tool: unknown) => /^rest__/.test(text(tool));
 
-/** The details lines as "key: value" (the server writes them so); the first ": " separates. */
 function detailLines(raw: unknown): Map<string, string> {
   const lines = new Map<string, string>();
   for (const line of Array.isArray(raw) ? raw : []) {
@@ -81,7 +68,6 @@ function shownValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-/** "assignment_group=G1, body assignment_group=G1" → ["assignment_group = G1", "body assignment_group = G1"]. */
 function scopeLines(line: string | undefined): string[] {
   if (!line) return [];
   return line
@@ -94,10 +80,6 @@ function scopeLines(line: string | undefined): string[] {
     });
 }
 
-/**
- * The view of a REST write from the gate's preview (kind "rest_request") or from a write plan's REST entry (its
- * details lines). Null for anything that is not a REST request.
- */
 export function restRequestView(raw: Record<string, unknown> | null | undefined): RestRequestView | null {
   const preview = record(raw);
   if (!preview) return null;
@@ -144,7 +126,6 @@ export function restRequestView(raw: Record<string, unknown> | null | undefined)
   };
 }
 
-/** The short lines under a REST write: where it goes, the scope, the header names, and why it would be refused. */
 export function restRequestLines(view: RestRequestView): string[] {
   return [
     view.noConnection ? "No active connection for this Workspace: the call will be refused." : "",

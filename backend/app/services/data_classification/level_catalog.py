@@ -1,12 +1,4 @@
-"""The level catalog of a classification version: its registry, what uses a level, publishing.
-
-- :func:`content_registry` / :func:`content_scope` — a version's levels as a registry, and the scope in which its
-  matrix is read (draft checks, generated policies, test cases) without touching the live registry;
-- :func:`level_references` — everything that still names a level; a custom level can only be retired while this is
-  empty (``classification_level_in_use`` with the list);
-- :func:`publish_catalog` — write a published catalog into ``data_classification_levels`` (upsert, retire the
-  custom levels the catalog leaves out) and load it as the live registry.
-"""
+"""The level catalog of a classification version: its registry, what uses a level, publishing."""
 
 from __future__ import annotations
 
@@ -33,7 +25,6 @@ from .levels import (
 
 
 def content_registry(content: Mapping[str, Any]) -> LevelRegistry:
-    """The levels of a version; a version without a catalog uses the live levels."""
     catalog = content.get("level_catalog")
     if not isinstance(catalog, list) or not catalog:
         return level_registry()
@@ -42,7 +33,6 @@ def content_registry(content: Mapping[str, Any]) -> LevelRegistry:
 
 @contextmanager
 def content_scope(content: Mapping[str, Any]) -> Iterator[None]:
-    """Read ``content``'s matrix under its own levels (never the live ones)."""
     from app.services.data_classification.policy_version_content import content_policy
 
     from .effect_rules import candidate_rules, rules_from_content
@@ -53,8 +43,6 @@ def content_scope(content: Mapping[str, Any]) -> Iterator[None]:
 
 
 async def level_references(db: AsyncSession, key: str) -> list[dict[str, str]]:
-    """Everything that names ``key``: Workspaces, the level for new Workspaces, gateway models, custom policies,
-    saved policy test cases."""
     from app.services.knowledge.projection.workspace_classification_values import instance_default_for
 
     from ..model_gateway.data_policy.classification import DATA_POLICY_CONFIG_KEY, declared_classification
@@ -84,7 +72,6 @@ async def level_references(db: AsyncSession, key: str) -> list[dict[str, str]]:
 
 
 async def publish_catalog(db: AsyncSession, registry: LevelRegistry, *, actor_id: str) -> None:
-    """Upsert the catalog's levels, retire the custom ones it left out, load it as the live registry. Flushes."""
     now = utc_now()
     rows = {row.key: row for row in (await db.execute(select(DataClassificationLevel))).scalars()}
     for level in registry.levels:

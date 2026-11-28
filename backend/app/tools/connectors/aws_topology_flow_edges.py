@@ -1,16 +1,4 @@
-"""Derive high-level traffic-flow edges from the collected topology.
-
-The raw AWS evidence expresses connectivity indirectly: load balancers point at
-IP target groups (not at the cluster), and application→database reachability
-lives in security-group ingress rules. A readable architecture overview needs
-the *flow*: ingress LB → compute → datastore. This module derives those edges
-deterministically from what was already collected — it never invents a
-relationship that has no evidence chain behind it.
-
-Derived edges use dedicated types (``serves``, ``connects_to``) and carry a
-``derived`` attribute so the renderer can style them and the audit trail stays
-honest.
-"""
+"""Derive high-level traffic-flow edges from the collected topology."""
 
 from __future__ import annotations
 
@@ -38,9 +26,6 @@ def derive_flow_edges(builder: TopologyBuilder) -> None:
 
 
 def _derive_lb_to_compute(builder, nodes, edges, types) -> None:
-    """A load balancer that routes to (k8s) target groups is really fronting the
-    cluster those pods run in. With one compute cluster in the VPC, connect the
-    LB straight to it; the target-group detail stays in the data/security views."""
     clusters = [nid for nid, t in types.items() if t == "eks_cluster"]
     if len(clusters) != 1:
         return
@@ -58,10 +43,6 @@ def _derive_lb_to_compute(builder, nodes, edges, types) -> None:
 
 
 def _derive_compute_to_datastore(builder, nodes, edges, types, cluster_of) -> None:
-    """A datastore's security group whose ingress admits a compute security
-    group (or that compute's subnet CIDR) means that compute talks to the
-    datastore. Resolve the chain: datastore -uses_sg-> SG <-allows_ingress- SG
-    <-uses_sg- compute."""
     uses_sg: dict[str, set[str]] = {}
     sg_users: dict[str, set[str]] = {}
     ingress_into: dict[str, set[str]] = {}
@@ -113,8 +94,6 @@ def _derive_compute_to_datastore(builder, nodes, edges, types, cluster_of) -> No
 
 
 def _derive_proxy_to_instance(builder, nodes, types) -> None:
-    """An RDS proxy fronts the DB instances/clusters sharing its name stem
-    (``<stem>-proxy`` in front of ``<stem>-one``/``-two``/instances)."""
     proxies = [(nid, str(nodes[nid].get("label") or "")) for nid, t in types.items() if t == "rds_proxy"]
     dbs = [(nid, str(nodes[nid].get("label") or "")) for nid, t in types.items() if t in {"rds_instance", "rds_cluster"}]
     for proxy_id, proxy_label in proxies:

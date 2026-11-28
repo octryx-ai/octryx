@@ -1,14 +1,4 @@
-"""MCP tool ``agent_presence_list``: the Workspace's governed coding-client sessions.
-
-Same shape and rules as ``GET /api/v1/agent-gateway/presence``, through the shared secure-work dispatch
-(``mcp_work_access.run_secure_work_tool``: ``work:manage`` scope, rate limit, activity, audit row):
-
-- the Workspace must be in the grant's listing scope (membership narrowed by the grant binding);
-  anything else is refused before anything is read;
-- ``allowance`` is filled only for Workspace admins/owners and platform admins; every other
-  caller gets ``null``;
-- the answer is data about other agents, never instructions to follow.
-"""
+"""MCP tool ``agent_presence_list``: the Workspace's governed coding-client sessions."""
 
 from __future__ import annotations
 
@@ -52,8 +42,6 @@ AGENT_PRESENCE_TOOL_HANDLERS = {TOOL_NAME: agent_presence_list}
 
 
 def register_agent_presence_tools(server: Any, authenticated_context: Any) -> None:
-    """Register the presence tool; ``authenticated_context`` is the protocol's OAuth context reader."""
-
     @server.tool(name=TOOL_NAME, description=TOOL_DESCRIPTION)
     async def agent_presence_list_tool(project_id: str, ctx: Context | None = None) -> dict[str, Any]:
         user_id, _bound, grant_id, scopes = authenticated_context(ctx)

@@ -1,18 +1,4 @@
-"""Preview and install of a plugin package: the installer sees what it wants, confirms, and is responsible.
-
-Whoever installs a plugin is responsible for that choice. So:
-
-- **Preview** (``preview``) shows the source, version, digest, every skill, workflow, role, function and MCP server
-  the plugin brings, the connections it uses, where it may connect to and where it writes, the scanner findings of
-  its skills, and anything that collides with what exists. Its ``consent_digest`` hashes exactly that.
-- **Install** (``install``) needs that digest back (``accept``): what was confirmed is what gets installed. It runs as
-  the installer: a Workspace admin installs into their Workspace, a platform admin also for the whole platform, and the
-  plugin never gets more than the installer may do (roles and functions go through the role model's own admin check,
-  workflows are scoped to the Workspace, skills reach only the Workspaces where the plugin is installed).
-- No four-eyes review: the install is the approval (recorded as ``approval_mode: plugin_install`` on each skill and
-  workflow). Findings that no acknowledgement clears (secrets) still refuse the install.
-- Everything happens in the caller's transaction; one failure installs nothing.
-"""
+"""Preview and install of a plugin package: the installer sees what it wants, confirms, and is responsible."""
 
 from __future__ import annotations
 
@@ -75,7 +61,6 @@ async def _contributed_by(db: AsyncSession, kind: str, object_id: str) -> list[P
 
 async def _conflicts(db: AsyncSession, package: PluginPackage, scope: str, workspace_id: str | None
                      ) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """What collides with existing objects, and the skills shared with another install of this plugin."""
     manifest, conflicts, shared = package.manifest, [], {}
     existing = (await db.execute(select(PluginInstall).where(
         PluginInstall.plugin_key == manifest.id,
@@ -132,7 +117,6 @@ async def _conflicts(db: AsyncSession, package: PluginPackage, scope: str, works
 
 
 def permissions(package: PluginPackage) -> dict[str, Any]:
-    """What the installer confirms: everything the plugin brings and may reach."""
     manifest = package.manifest
     return {
         "connections": manifest.connections, "egress": manifest.egress, "writes": manifest.writes,
@@ -165,7 +149,6 @@ async def installed_here(db: AsyncSession, plugin_key: str, scope: str, workspac
 
 
 async def _plugin_category(db: AsyncSession, actor_id: str) -> str:
-    """Plugin skills sit in the catalog category "Plugins" (created on the first install)."""
     from ...models import SkillCategory
     from ..skill_catalog.categories import create_category
 
@@ -178,7 +161,6 @@ async def _plugin_category(db: AsyncSession, actor_id: str) -> str:
 
 
 def store_ui_bundle(db: AsyncSession, row: PluginInstall, package: PluginPackage) -> int:
-    """Keep the UI bundle's files with the install (served under /plugin-ui); returns the file count."""
     import mimetypes
 
     from ...models.runtime.plugin_install import PluginUiFile
@@ -198,7 +180,6 @@ def store_ui_bundle(db: AsyncSession, row: PluginInstall, package: PluginPackage
 
 
 def content_digest(value: Any) -> str:
-    """Digest of what a plugin brings for one object (a skill's files, a workflow): unchanged → no new version."""
     return "sha256:" + hashlib.sha256(json.dumps(value, sort_keys=True, default=str).encode()).hexdigest()
 
 
@@ -208,7 +189,6 @@ def skill_digest(skill) -> str:
 
 async def publish_installed(db: AsyncSession, package: PluginPackage, created: Skill, row, *, user: User,
                             findings: list[dict[str, Any]], previous=None) -> None:
-    """Publish a plugin skill's draft: the install (or upgrade) is the approval, approved by the installer."""
     from ...models import Approval
     from ..skill_catalog.adoption import approval_action
     from ..skill_catalog.lifecycle import AUDIT_PUBLISHED, AUDIT_RETIRED, _audit, publish_checks
@@ -300,10 +280,6 @@ async def _install_mcp(db: AsyncSession, server, *, user: User, workspace_id: st
 
 async def switch_contributions(db: AsyncSession, row: PluginInstall, active: bool, *,
                                actor_id: str | None = None) -> None:
-    """Switch the objects the install created (workflows, roles, MCP servers); a dropped one stays off.
-
-    A Workspace install allows its MCP servers in its Workspace, also the ones it shares with the image's install
-    (``created: False``): the server stays registered, the Workspace's toggle follows the install."""
     from ..mcp_workspace_allow import set_workspace_server
 
     for item in row.contributions_json or []:
@@ -321,10 +297,6 @@ async def switch_contributions(db: AsyncSession, row: PluginInstall, active: boo
 
 async def set_status(db: AsyncSession, row: PluginInstall, *, status: str, user: User,
                      reason: str | None = None) -> PluginInstall:
-    """Disable or enable everything the install brought (skills by reach, workflows, roles, MCP servers).
-
-    Functions have no switch of their own: a function grants nothing unless an active role carries it, and the
-    plugin's roles are switched here."""
     if status not in (STATUS_ACTIVE, STATUS_DISABLED):
         raise PluginError("plugin_status_invalid", "status is 'active' or 'disabled'.", 422)
     if row.status == status:
@@ -334,6 +306,7 @@ async def set_status(db: AsyncSession, row: PluginInstall, *, status: str, user:
     row.status, row.updated_by, row.updated_at = status, user.id, utc_now()
     db.add(AuditLog(user_id=user.id, action=AUDIT_ENABLED if active else AUDIT_DISABLED,
                     resource_type="plugin_install", resource_id=row.id,
+                    project_id=row.workspace_id,
                     details={"plugin": row.plugin_key, "version": row.version, "scope": row.scope,
                              "workspace_id": row.workspace_id, **({"reason": reason} if reason else {})}))
     await db.flush()
@@ -341,7 +314,6 @@ async def set_status(db: AsyncSession, row: PluginInstall, *, status: str, user:
 
 
 async def install_views(db: AsyncSession, rows: list[PluginInstall]) -> list[dict[str, Any]]:
-    """Install views with the names of who installed and last changed them (every viewer sees names)."""
     ids = {value for row in rows for value in (row.installed_by, row.updated_by) if value}
     users = (await db.execute(select(User).where(User.id.in_(ids)))).scalars().all() if ids else []
     names = {user.id: user.display_name or user.username for user in users}

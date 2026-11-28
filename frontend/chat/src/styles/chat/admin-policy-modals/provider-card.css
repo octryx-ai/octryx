@@ -4,7 +4,7 @@
   display: inline-block;
   width: 2rem;
   height: 1.08rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: none;
   cursor: pointer;
   transition: background 200ms ease;
@@ -93,18 +93,18 @@
 .provider-card__type-badge {
   flex-shrink: 0;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   color: var(--accent-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .provider-card__name {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-size: var(--ds-text-md);
   color: var(--text);
 }

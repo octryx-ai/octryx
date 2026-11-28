@@ -1,9 +1,5 @@
-"""Paging through one ServiceNow Scripted REST endpoint (``servicenow_scripted``).
-
-``GET <instance><path>`` with ``sysparm_limit`` / ``sysparm_offset`` until the requested number of
-records, the end of the listing or the endpoint's ``total``. Failures are the closed
-``ScriptedEndpointError`` codes, never a body or a value.
-"""
+"""Paging through one ServiceNow Scripted REST endpoint (``servicenow_scripted``). Failures are closed codes, never a
+body or a value."""
 
 from __future__ import annotations
 
@@ -45,7 +41,6 @@ async def fetch_records(
     client: httpx.AsyncClient, base_url: str, path: str, table: str, *, limit: int, page_size: int,
     headers: Mapping[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], int | None]:
-    """Page through ``path`` until ``limit`` records or the endpoint's ``total``; raw records and ``total``."""
     records: list[dict[str, Any]] = []
     total: int | None = None
     offset = 0
@@ -65,8 +60,6 @@ async def fetch_matching_records(
     client: httpx.AsyncClient, base_url: str, path: str, table: str, *, limit: int, page_size: int,
     keep: Callable[[Mapping[str, Any]], bool], max_scanned: int, headers: Mapping[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
-    """Page through ``path`` keeping only records that pass ``keep``, until ``limit`` kept records, the end of
-    the listing or ``max_scanned`` records read; ``(kept records, whether the whole listing was read)``."""
     kept: list[dict[str, Any]] = []
     offset = 0
     size = max(1, min(page_size, MAX_PAGE_SIZE))

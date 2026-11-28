@@ -1,11 +1,4 @@
-"""Content fingerprints and job keys of registered schedules.
-
-A fingerprint covers exactly the fields that decide a registration: for a Scheduler its id, cron
-expression, active flag and target task; for a Task its id, schedule and active flag. ``Task`` has
-no ``updated_at`` and ``Scheduler.updated_at`` is an application-clock value, so neither time is
-part of it: an identical re-save leaves the registration untouched. The encoding is canonical JSON
-of a fixed-order list, so no two different tuples share an encoding (no separator ambiguity).
-"""
+"""Content fingerprints and job keys of registered schedules."""
 
 from __future__ import annotations
 
@@ -33,13 +26,10 @@ def task_fingerprint(task: Any) -> str:
 
 
 def job_key(kind: str, object_id: str) -> str:
-    """The acknowledgement key: ``scheduler:<id>`` or ``task:<id>``."""
     return f"{kind}:{object_id}"
 
 
 def apscheduler_job_id(kind: str, object_id: str) -> str:
-    """The in-memory APScheduler job id (``scheduler_<id>`` / ``task_<id>``) that registration, removal and the
-    registered-jobs list use; the coordination tables key the same job as :func:`job_key`."""
     return f"{kind}_{object_id}"
 
 

@@ -1,31 +1,4 @@
-"""Typed resource and prompt discovery for one MCP server.
-
-``MCPClientManager.list_resources`` and ``list_prompts`` answer with a plain list
-and swallow every failure into ``[]``. That is fine for a listing nobody acts on,
-and wrong for the governed catalog mirror: the mirror treats "not advertised" as
-truth and retires every entry a run did not see, so a transient handshake error
-that answers ``[]`` would disable a whole workspace catalog and commit a false
-``lifecycleState="missing"`` for items the server still serves.
-
-This module is the typed half of those two calls. It returns an explicit
-``McpCatalogListing`` naming which of four things happened, so a caller that
-writes governance state can tell an empty *success* from a failure:
-
-- ``ok`` — the server answered, and ``items`` is what it advertises. An empty
-  ``items`` here really does mean "this server advertises nothing", so retiring
-  the catalog is correct.
-- ``unsupported`` — the server does not implement this capability at all
-  (JSON-RPC ``method not found``). Also a truthful empty answer, also safe to
-  retire against: a server that dropped its resource capability should not keep a
-  governed resource catalog.
-- ``not_connected`` — no live session. Nothing was asked, so nothing is known.
-- ``discovery_failed`` — the call raised. Nothing is known either.
-
-The last two must never reach the mirror. Provider error typing is preserved the
-way the rest of this plugin preserves it: the exception is logged through
-``safe_tool_error_message`` and reduced to one closed state code here, and no raw
-provider text crosses this boundary.
-"""
+"""Typed resource and prompt discovery for one MCP server."""
 
 from __future__ import annotations
 
@@ -55,20 +28,16 @@ PROMPT_KIND = "prompts"
 
 @dataclass(frozen=True, slots=True)
 class McpCatalogListing:
-    """What one discovery call learned about one server's catalog."""
-
     kind: str
     state: str
     items: tuple[Any, ...] = field(default_factory=tuple)
 
     @property
     def succeeded(self) -> bool:
-        """Whether the server actually answered, so ``items`` is the full truth."""
         return self.state in (DISCOVERY_OK, DISCOVERY_UNSUPPORTED)
 
 
 def _is_unsupported(error: BaseException) -> bool:
-    """Whether this failure means "the server does not implement this method"."""
     code = getattr(getattr(error, "error", None), "code", None)
     return code == _METHOD_NOT_FOUND
 
@@ -136,7 +105,6 @@ def _prompts(response: Any, server_name: str) -> list[MCPPrompt]:
 
 
 async def discover_mcp_resources(manager: Any, server_name: str) -> McpCatalogListing:
-    """Discover one server's resources, saying explicitly whether it answered."""
     return await _discover(
         manager,
         server_name,
@@ -147,7 +115,6 @@ async def discover_mcp_resources(manager: Any, server_name: str) -> McpCatalogLi
 
 
 async def discover_mcp_prompts(manager: Any, server_name: str) -> McpCatalogListing:
-    """Discover one server's prompts, saying explicitly whether it answered."""
     return await _discover(
         manager,
         server_name,
@@ -158,7 +125,6 @@ async def discover_mcp_prompts(manager: Any, server_name: str) -> McpCatalogList
 
 
 def failed_discovery_kinds(listings: Sequence[McpCatalogListing]) -> list[str]:
-    """Return the kinds whose discovery did not answer, in a stable order."""
     return sorted({listing.kind for listing in listings if not listing.succeeded})
 
 

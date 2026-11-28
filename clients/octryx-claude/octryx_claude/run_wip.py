@@ -1,15 +1,5 @@
-"""A workflow run's work in progress travels with the run (Octryx companion, handovers; owner: the next session
-continues where the last one stopped).
-
-- **Push** at the end of every device turn of a run: the working tree (secret paths left out, ``work_state``) is
-  committed off to the side and pushed to ``refs/heads/octryx-wip/<run id>`` on the run's remote. Each new WIP commit
-  has the previous remote WIP commit as a parent, so every push is a fast-forward: never forced, never another
-  ref, never main or master (the branch name is generated here, never taken from input).
-- **Restore** when a runtime prepares the run (this device after a restart, another person's device after a
-  handover): the WIP's own changes (against the commit it was taken on) are written into the working tree only, so
-  the next turn continues where the last one stopped. A folder with its own uncommitted changes is never overwritten,
-  and a file the branch changed since the WIP was taken keeps the branch's version (``restore_run_wip``).
-"""
+"""A workflow run's work in progress, pushed to ``octryx-wip/<run id>`` and restored by the next runtime.
+Pushes are always fast-forwards; a restore never overwrites a folder's own uncommitted changes."""
 
 from __future__ import annotations
 
@@ -35,7 +25,6 @@ def _local_ref(run_id: str) -> str:
 
 
 def _fetch(root: Path, remote: str, run_id: str) -> str:
-    """The remote WIP commit of the run (fetched to a private ref), or ``""`` when there is none."""
     git(root, "fetch", "--no-tags", "--quiet", remote, f"+refs/heads/{wip_branch(run_id)}:{_local_ref(run_id)}",
         check=False)
     sha = git(root, "rev-parse", "--verify", "--quiet", _local_ref(run_id), check=False)
@@ -43,8 +32,6 @@ def _fetch(root: Path, remote: str, run_id: str) -> str:
 
 
 def push_run_wip(folder: str, run_id: str, trailer: str = "") -> dict[str, Any]:
-    """``{state: pushed|unchanged|failed, branch, sha?, reason?}``; never raises. ``trailer``: the run's AI-output
-    trailers (``launch.run_attribution``), appended to the WIP commit's message: its changes are AI-written."""
     message = f"WIP of workflow run {run_id}" + (f"\n\n{trailer.strip()}" if trailer.strip() else "")
     branch = wip_branch(run_id)
     root = repository_root(folder)
@@ -79,14 +66,7 @@ def _names(root: Path, older: str, newer: str) -> set[str]:
 
 
 def restore_run_wip(root: Path, run_id: str) -> dict[str, Any]:
-    """``{state: restored|unchanged|stale|absent|dirty|failed, branch, sha?}``: the WIP's own changes in the working
-    tree.
-
-    Only what the WIP changed against the commit it was taken on is written, and only where the branch has not
-    changed that file since: the branch moves on without a turn of the main thread (the item merges, the work-plan
-    commits), and the WIP never carries those: checking out the whole WIP tree would take the merged items' files
-    out of the folder, and the next work-plan commit (``git add -A``) would record them as deleted. A WIP that
-    shares no commit with the branch is ``stale`` and nothing is written."""
+    # Checking out the whole WIP tree would drop files merged since, and the next git add -A would delete them.
     branch = wip_branch(run_id)
     try:
         remote = "origin" if "origin" in git(root, "remote", check=False).split() else ""
@@ -120,12 +100,6 @@ BACKUP = ("octryx-reset-backup",)
 
 
 def reset_tree(root: Path, run_id: str, sha: str) -> dict[str, Any]:
-    """Put the working tree to the run's checkpoint ``sha`` (a WIP commit of the run): a change of plan goes back
-    with the work of its time (``workflow_runs.wip_reset``). Every file that differs is first
-    copied to ``.git/octryx-reset-backup/<sha>/``; a file the checkpoint does not have is moved there, nothing is
-    deleted.
-    Only the files that differ between ``sha`` and the run's latest WIP are touched (the later phases' work), never
-    the folder's other untracked files. ``{state: done|failed, sha, files?, backup?, reason?}``."""
     try:
         if not _SHA.match(sha):
             return {"state": "failed", "sha": sha, "reason": "not_a_commit"}

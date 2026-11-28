@@ -1,10 +1,4 @@
-"""Which coding pipeline configs a work item may use.
-
-An item sees and runs only the configs of its own Workspace and the global ones (``project_id`` null): the
-item's pipeline view lists exactly those, an explicit ``config_id`` is loaded through the scoped loader
-(``related_rows``: missing and unseen are the same 404, an authorized config of another Workspace is 403),
-and the default choice prefers the item's own Workspace's newest active config over the newest global one.
-"""
+"""Which coding pipeline configs a work item may use."""
 
 from __future__ import annotations
 
@@ -23,7 +17,6 @@ def _for_item(item: WorkItem):
 
 
 async def item_pipeline_configs(db: AsyncSession, item: WorkItem) -> list[dict[str, Any]]:
-    """The active configs the item may run, by name."""
     stmt = select(WorkCodingPipelineConfig).where(_for_item(item), WorkCodingPipelineConfig.is_active.is_(True))
     rows = (await db.execute(stmt.order_by(WorkCodingPipelineConfig.name.asc()))).scalars().all()
     return [serialize_coding_pipeline_config(row) for row in rows]
@@ -32,8 +25,8 @@ async def item_pipeline_configs(db: AsyncSession, item: WorkItem) -> list[dict[s
 async def resolve_item_pipeline_config(
     db: AsyncSession, viewer: User, config_id: str | None, item: WorkItem
 ) -> WorkCodingPipelineConfig | None:
-    """An explicit config ``viewer`` may use, of the item's Workspace or a global one; by default the item's own
-    before global."""
+    # Only a config ``viewer`` may use, of the item's Workspace or a global one; by default the item's own before a
+    # global one.
     if config_id:
         return await load_related(db, viewer, PIPELINE_CONFIG, config_id, for_workspace=item.project_id)
     stmt = (

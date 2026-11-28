@@ -1,6 +1,5 @@
-"""A run's pull request asks a Workspace owner when its requester cannot review (a run started over the API can
-have a requester without a linked account, ``reviewer_skipped: requester_unresolved``, and then nobody is asked).
-The rule is data (``pr_reviewers.json`` ``fallback_roles``)."""
+"""A run's pull request asks a Workspace owner when its requester cannot review;
+the rule is data (``pr_reviewers.json`` ``fallback_roles``)."""
 
 from __future__ import annotations
 
@@ -14,7 +13,10 @@ from app.services.linked_accounts.resolution import scm_platform
 from app.services.workflow_runs.platform import repo_ref, scm
 from tests.knowledge_evidence_seed_support import seed_member
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools, _item, _repository, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CHAIN = {
     "execution_kind": "phased",
@@ -71,7 +73,7 @@ async def test_without_a_linked_owner_or_admin_the_description_says_nobody_was_a
                                                                     "status": "created", "reviewers_unresolved": []}]})
     project = await make_project(db)
     await admin_user(db)
-    await seed_member(db, workspace_id=project.id, role="owner")  # no linked account
+    await seed_member(db, workspace_id=project.id, role="owner")
     await _repository(db, project.id, "github", "payments", owners=[])
     item = await _item(db, project_id=project.id)
     run = await _run(db, CHAIN, work_item_id=item.id, project_id=project.id, repository="github:acme/payments")

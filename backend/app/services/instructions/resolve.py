@@ -1,13 +1,4 @@
-"""What a turn reads: the published instructions its scope and binding select, in the fixed order.
-
-A turn gets every active instruction with a published version whose scope matches (global, the turn's
-Workspace, the turn's agent definition) and whose binding matches (always, or the selected workflow).
-No scoring, no keyword hints, no prompt text as input. Order: agent → Workspace (global and Workspace
-scope) → workflow, each layer by key. The turn records ``key@version`` with digest and layer.
-
-``instruction_get`` (the model's tool) reads one instruction by exact key, restricted to global and the
-active Workspace.
-"""
+"""What a turn reads: the published instructions its scope and binding select, in the fixed order."""
 
 from __future__ import annotations
 
@@ -91,7 +82,6 @@ def render_instructions_section(items: list[dict[str, Any]]) -> str:
 
 
 def instructions_record(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """What the turn's metadata records: identity only, never the body."""
     return [
         {key: item[key] for key in RECORD_FIELDS}
         for item in items
@@ -99,7 +89,6 @@ def instructions_record(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def instruction_get(db: AsyncSession, *, key: str, project_id: str | None) -> dict[str, Any] | None:
-    """One published instruction by exact key, global or of the active Workspace (Workspace wins)."""
     rows = (
         await db.execute(
             select(Instruction, InstructionVersion)
@@ -125,7 +114,6 @@ async def prepare_turn_instructions(
     project_id: str | None,
     agent_definition: dict[str, Any] | None,
 ) -> str:
-    """Resolve the turn's instructions, record their identity on the session metadata, return the section."""
     from ..workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY, workflow_selection_from_resolution
 
     resolution = session_metadata.get(ROUTING_RESOLUTION_KEY)

@@ -1,17 +1,4 @@
-"""The impact of a version change on a codebase, cited and commit-pinned.
-
-``code_impact`` joins the product's change facts for a version range (``knowledge_changes`` over the
-reader's Knowledge scope, so a bound library Workspace can supply them) with the code elements of
-one resolved codebase (``codebase.resolve_codebase``):
-
-- a **checkout** on disk inside the session workspace, scanned in place (``scan.scan_checkout``);
-- a Workspace **repository source** at its ``head_commit``: the elements its sync recorded in the
-  repository file index (``repository_index.load_repository_index``), derived from the same text
-  the revisions store;
-- or (``code_impact_for_elements``) the elements of files an MCP client sent explicitly.
-
-Either way the result names the commit the elements come from. This module only reads.
-"""
+"""The impact of a version change on a codebase, cited and commit-pinned. This module only reads."""
 
 from __future__ import annotations
 
@@ -79,8 +66,6 @@ async def code_impact_for_elements(
     to_version: object,
     from_version: object = None,
 ) -> CodeImpact:
-    """The impact on elements a caller already holds: the files an MCP client sent explicitly."""
-
     async def given() -> tuple[CodeElement, ...]:
         return elements
 

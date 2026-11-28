@@ -1,39 +1,5 @@
 """The "done means verified" gate for governed clients (``POST sessions/verification``).
-
-Evaluated at Claude Code's ``Stop`` / ``SubagentStop`` from the ToolCall rows the
-model gateway recorded on the shadow session (ordered by ``created_at``, then
-``parameters.block_index``):
-
-- no successful change-tool call (``verification.change_tools``) in the session:
-  ``not_applicable``;
-- after the last one, the last Bash call whose command has a segment matching a
-  declared ``test_command_prefixes`` entry decides, using the tool result and the
-  execution evidence of the launcher's PostToolUse/PostToolUseFailure hooks
-  (``parameters.executed``, see ``tool_execution.py``):
-  - evidence ``failed``: ``blocked / last_test_failed``;
-  - green result (evidence ``succeeded`` or no evidence, which keeps clients
-    without the hook working): ``passed``;
-  - error result with evidence ``succeeded``: ``blocked / last_test_failed``;
-  - error result without evidence: ``blocked / last_test_not_run`` (the call was
-    refused before execution, e.g. at Claude Code's permission prompt);
-  - no result yet: ``blocked / last_test_unconfirmed``;
-- no such Bash call: ``blocked / no_test_after_last_change``;
-- no verification configuration: ``needs_configuration``.
-
-Not every change needs a test (a phone session that writes a ``test.txt`` must not be pushed to invent a pytest
-run):
-
-- **only code changes count:** a change to a document, text, picture or office file (:data:`NON_CODE_SUFFIXES`) needs
-  no test; changes that are all such files are ``not_applicable / no_code_change``. A change without a known path
-  counts as code;
-- **the common test runners count** (:data:`COMMON_TEST_RUNNERS`, besides the Workspace's own prefixes): npm/pnpm/
-  yarn test, vitest, jest, mvn, gradle, go test, cargo test, make test, tox, ``uv run pytest`` …;
-- **no test setup, no test:** the client's Stop hook says whether the session's folder has a test setup at all
-  (``test_setup``, ``clients/octryx-claude/octryx_claude/test_setup.py``). ``False`` makes an untested code change
-  ``not_applicable / no_test_setup`` instead of a block; a test that ran still decides.
-
-Token-prefix matching only; nothing guesses whether a command "looks like" a test.
-"""
+Token-prefix matching only; nothing guesses whether a command looks like a test."""
 
 from __future__ import annotations
 
@@ -90,7 +56,6 @@ MAX_TOOL_CALLS = 5000
 MAX_REPORTED_COMMAND_CHARS = 300
 
 def _detail(reason: str) -> str:
-    """The gate detail for ``reason`` (catalog key ``secure_work.gateway.gate.<reason>``)."""
     return render_prompt(f"secure_work.gateway.gate.{reason}")
 
 
@@ -176,8 +141,6 @@ def _is_code_change(row: ToolCall, config: VerificationConfig) -> bool:
 
 def evaluate_verification(policy: GatewayPolicy | None, rows: Sequence[ToolCall], *,
                           test_setup: bool | None = None) -> VerificationResult:
-    """The gate decision for these ToolCall rows (``test_setup``: the client's finding, ``None`` unknown). Pure."""
-
     config = policy.verification if policy is not None else None
     if config is None:
         return VerificationResult(STATE_NEEDS_CONFIGURATION, REASON_NOT_CONFIGURED, _detail(REASON_NOT_CONFIGURED))
@@ -204,8 +167,6 @@ def evaluate_verification(policy: GatewayPolicy | None, rows: Sequence[ToolCall]
 
 
 async def session_tool_calls(db: AsyncSession, session_id: str) -> list[ToolCall]:
-    """The session's ToolCall rows (bounded; the newest ``MAX_TOOL_CALLS`` when larger)."""
-
     rows = (
         (
             await db.execute(

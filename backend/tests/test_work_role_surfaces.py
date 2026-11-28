@@ -1,7 +1,5 @@
-"""Role-based tools on both surfaces: the chat's offered tools and its
-dispatch, the client's MCP tools/list and calls, the trusted role, delivery per connection, the product-owner gate,
-``function:``/``role:`` deciders and per-role phase shell rules. All inert while the Workspace switch is off.
-"""
+"""Role-based tools on the chat and the client's MCP surface, deciders, the product-owner gate and per-role
+phase shell rules; all inert while the Workspace switch is off."""
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
@@ -17,7 +15,6 @@ from app.services.work_role_model.commands import role_command_allowed, role_com
 from app.services.work_role_model.effective import HeldRole, WorkRoleGrant, effective_permission
 from app.services.work_role_model.seeds import ensure_seed_catalog
 from app.services.work_role_model.surfaces import (
-    filter_definitions,
     prompt_note,
     with_prompt_note,
     write_connection_refusal,
@@ -25,7 +22,7 @@ from app.services.work_role_model.surfaces import (
 from app.services.workflow_runs.decider import po_function_refusal, validate_decider_config
 from app.services.workflow_runs.work_roles import work_role_members
 from app.tools.context import ToolContext
-from tests.chat_connector_writes_support import CHAT_STATE, EPIC, JIRA, _offered
+from tests.chat_connector_writes_support import CHAT_STATE, EPIC, JIRA
 from tests.knowledge_evidence_seed_support import seed_member, seed_workspace
 
 pytestmark = pytest.mark.asyncio
@@ -62,15 +59,6 @@ async def _assign(db, workspace, user_id, key, *, switch=True):
 
 # --- chat ---------------------------------------------------------------------------------------------------------
 
-async def test_a_viewer_chat_offers_reads_only_and_no_role_offers_nothing(monkeypatch):
-    everything = await _offered(CHAT_STATE)
-    assert {"create_jira_ticket", "get_jira_ticket"} <= everything
-    definitions = [{"function": {"name": name}} for name in sorted(everything)]
-    viewer = {item["function"]["name"] for item in filter_definitions(definitions, _grant(_role()))}
-    assert "get_jira_ticket" in viewer and "tool_search" in viewer
-    assert "create_jira_ticket" not in viewer and "work_item_create" not in viewer
-    assert filter_definitions(definitions, _grant()) == []
-    assert filter_definitions(definitions, None) == definitions
 
 
 async def test_the_chat_names_why_it_has_no_tools_and_a_trusted_role_is_announced():
@@ -134,7 +122,9 @@ async def test_a_trusted_role_writes_without_the_per_call_card_and_an_untrusted_
     trusted = _role("engineer", entries=("risk:read", "connector:*:write"), functions=("read", "delivery"),
                     trusted=True)
     done = await execute_tool("create_jira_ticket", EPIC, context(_grant(trusted)))
-    assert done.get("key") == "CHEF-1" and calls == [EPIC]
+    # The write runs with the platform's agent marker line (anti-slop E).
+    marked = {**EPIC, "description": EPIC["description"] + "\n\n— Written by an agent (octryx) — responsible: System Administrator."}
+    assert done.get("key") == "CHEF-1" and calls == [marked]
 
 
 def test_delivery_is_granted_per_connection():
@@ -168,19 +158,19 @@ async def test_the_client_lists_and_calls_only_what_the_roles_grant(db, monkeypa
     monkeypatch.setattr(mcp_knowledge_protocol, "_connection_user", lambda server: member)
     monkeypatch.setattr(mcp_knowledge_protocol, "async_session_factory", test_session)
     server = mcp_knowledge_protocol.build_knowledge_mcp_server()
-    before = {tool.name for tool in await server.list_tools()}
+    before = {tool.name for tool in await server.visible_tools()}
     assert "work_item_create" in before, "switch off: nothing changes"
 
     db.add(WorkspaceWorkRoleSettings(project_id=workspace, role_based_tools=True))
     await db.commit()
-    assert {tool.name for tool in await server.list_tools()} == set(), "no role, no tools"
+    assert {tool.name for tool in await server.visible_tools()} == set(), "no role, no tools"
     refused = await server.call_tool("work_item_create", {"project_id": workspace, "title": "x"})
     assert refused.isError and "no role in this Workspace" in refused.content[0].text
 
     await _assign(db, workspace, member, "viewer", switch=False)
     await db.commit()
-    viewer = {tool.name for tool in await server.list_tools()}
-    assert "knowledge_search" in viewer and "work_item_create" not in viewer and "board_post" not in viewer
+    viewer = {tool.name for tool in await server.visible_tools()}
+    assert "board_read" in viewer and "work_item_create" not in viewer and "board_post" not in viewer
 
 
 # --- deciders and the product-owner gate -------------------------------------------------------------------------

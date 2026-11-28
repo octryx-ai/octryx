@@ -1,26 +1,4 @@
-"""What changed in a product between two versions, as cited graph facts.
-
-``knowledge_changes`` answers "what changed from Spring Boot 3.5 to 4.0" from the knowledge graph,
-not from a text search. It proceeds in five steps:
-
-1. Pick the product's current revisions whose subject version lies in ``(from_version,
-   to_version]``. This uses the ledger's product and version scope, which the extraction recorded
-   per revision; the model never guesses a version.
-2. Take the extraction episodes of those revisions from ``knowledge_graph_episodes``.
-3. Read the facts extracted from those episodes, from the Workspace's graph only. With a
-   ``query``, the facts are ranked by the graph's full-text and vector search and fused by
-   reciprocal rank; without one, they are listed in document order.
-4. Resolve each fact's first supporting episode back through PostgreSQL to its span, citation,
-   section and origin link. A fact that does not resolve to a current revision is dropped.
-5. Return the bounded result with an explicit state.
-
-States:
-
-- ``not_extracted``: the range has sources but no extracted episodes, so the graph was never asked.
-- ``no_sources``: nothing in the range.
-
-Neither state is ever an empty "no changes".
-"""
+"""What changed in a product between two versions, as cited graph facts."""
 
 from __future__ import annotations
 
@@ -105,7 +83,6 @@ async def knowledge_changes(
     kinds: frozenset[str] | None = None,
     max_facts: int = MAX_FACTS,
 ) -> ChangesResult:
-    """The cited facts that changed in ``product`` from ``from_version`` (exclusive) to ``to_version``."""
     product_key, through, after, bounded = _checked_request(
         runtime, product, to_version, from_version, query, limit, max_facts
     )
@@ -146,7 +123,6 @@ def _checked_request(
     limit: object,
     max_facts: int,
 ) -> tuple[str, str, str | None, int]:
-    """``(product key, through, after, page size)`` of a valid request, else the fixed refusal."""
     products = normalize_products(product)
     through = normalize_version(to_version)
     after = normalize_version(from_version)
@@ -204,7 +180,6 @@ async def _read_rows(
     kinds: frozenset[str] | None,
     max_facts: int,
 ) -> tuple[dict[str, dict[str, Any]], list[str]]:
-    """The range's fact rows by uuid and their order (ranked by the topic when there is one)."""
     driver = PostgresGraphDriver(authorized.workspace.canonical)
     try:
         # A page without a topic is chosen from the whole range, so its totals are the range's.
@@ -228,7 +203,6 @@ async def _read_rows(
 
 
 async def _whole_range_page(db, authorized, product_key: str, order, rows, episode_span, version_of):
-    """``(facts in page order, kind counts)`` of a page without a topic."""
     # Without a topic, one page must show the breadth of a release, not its longest table: every fact
     # is cited, the kind counts cover all of them, and the page takes turns across the sections.
     facts = distinct(await _cited(db, authorized, order, rows, episode_span, version_of))

@@ -1,13 +1,4 @@
-"""An admin waives hands-on scenarios of one run for every further pass.
-
-A run's fix can be verified in the running app (its scenario green) while other scenarios stay red for reasons that
-are not the run's, e.g. a generated scenario expected a text the page never shows, and a regression scenario failed
-on another open bug (persistence). The hands_on → fix loop could then never end; a one-off routing past the step
-holds only one pass. The action ``waive_hands_on_scenarios`` ({scenarios, reason}, a platform admin) keeps the waiver
-on the run (``context.hands_on_waived``, an event): the device no longer runs a waived generated scenario, a waived
-repository scenario's result does not count, and the report lists each as "waived by admin (reason)". Not a silent
-pass: the reason and the person stay on the run.
-"""
+"""An admin waives hands-on scenarios of one run for every further pass."""
 
 from __future__ import annotations
 
@@ -26,7 +17,6 @@ def waived(run: Any) -> dict[str, dict[str, Any]]:
 
 
 def waive(run: Any, scenarios: list[str], reason: str, *, user_id: str) -> dict[str, dict[str, Any]]:
-    """Add the waivers; returns the run's waivers."""
     from ..records import WorkflowRunError
 
     names = [str(item).strip()[:200] for item in scenarios if str(item).strip()][:MAX_WAIVED]

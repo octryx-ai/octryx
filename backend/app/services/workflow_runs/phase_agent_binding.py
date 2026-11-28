@@ -1,11 +1,4 @@
-"""A phase turn runs as the phase's agent.
-
-The phase resolution carries ``phase_agent`` ``{key, definition_id}``; the turn's agent selection takes it before
-any user pick (``agent_selection_source = workflow_phase``). An agent that cannot run (retired, inactive, missing,
-ceiling below the class) or a phase without one holds the turn ``needs_configuration`` — never a silent run without
-the agent. So does a change phase on the server without the run's prepared working copy (``phase_workspace``). A coding
-runtime preference becomes the phase's ``required_model_capability`` unless the phase declares one.
-"""
+"""A phase turn runs as the phase's agent."""
 
 from __future__ import annotations
 
@@ -51,7 +44,6 @@ async def bind_phase_agent(db: AsyncSession, run: WorkflowRun, node: PhasedNode,
 
 
 def phase_agent_of(policy_resolution: Any) -> dict[str, str] | None:
-    """The phase agent a turn's routing resolution names, or ``None``."""
     if not isinstance(policy_resolution, dict):
         return None
     value = policy_resolution.get(PHASE_AGENT_RESOLUTION_KEY)

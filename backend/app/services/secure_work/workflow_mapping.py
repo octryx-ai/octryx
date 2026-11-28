@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import AuditLog, User, WorkItem, WorkItemStateEvent, WorkItemWorkflowDefinition
 from ...time_utils import utc_now
 from ..access_control import require_existing_workspace
+from ..project.private_workspace import outside_foreign_private
 from .jira.jira_state_sync import will_write_jira
 from .jira_values import blank_to_none, object_value, parse_datetime, string_list
 from .serializers import serialize_state_event, serialize_transition_preview, serialize_workflow_definition
@@ -62,7 +63,7 @@ async def create_workflow_definition(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
     project_id = blank_to_none(payload.get("project_id"))
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, current_user.id, project_id)
     await require_project_access(db, current_user, project_id)
     name = str(payload.get("name") or "").strip()
     if not name:
@@ -105,7 +106,9 @@ async def list_workflow_definitions(
     if current_user is not None:
         # Global workflows and the caller's Workspaces only.
         scope = await visible_project_ids(db, current_user, project_id)
-        if scope is not None:
+        if scope is None:
+            stmt = stmt.where(outside_foreign_private(WorkItemWorkflowDefinition.project_id, current_user.id))
+        else:
             stmt = stmt.where(
                 WorkItemWorkflowDefinition.project_id.in_(scope) | WorkItemWorkflowDefinition.project_id.is_(None)
             )
@@ -163,13 +166,8 @@ async def transition_work_item(
     jira_target: dict[str, Any] | None = None,
     by_person: bool | None = None,
 ) -> dict[str, Any]:
-    """Apply a transition. ``bind_preview`` (the UI path) requires the confirmed ``effects_hash``;
-    ``check_access`` False only for internal flow points whose caller already scoped the item; the
-    workflow's Workspace scope is checked either way, before anything is read from or written to a tracker.
-    ``jira_target`` (the Close action's done status category) fills a synced mapping that names no Jira target.
-    ``by_person`` (default: ``bind_preview``, the UI apply a person confirmed) tells a source's write-back whether a
-    person decided this transition; an unattended one (a run, a sync) only proposes where the source requires it
-    (``custom_rest/write_back``)."""
+    """Apply a transition; ``check_access`` False skips the user ACL, never the workflow's Workspace scope.
+    ``by_person`` tells a source's write-back whether a person decided this transition."""
     workflow = await get_workflow_definition(db, workflow_id)
     if check_access:
         await require_workflow_access(db, current_user, workflow, change=False)  # another Workspace's: a missing one
@@ -293,7 +291,6 @@ def build_transition_preview(
 
 
 def _will_write(item: WorkItem, workflow: WorkItemWorkflowDefinition, sync_preview: dict[str, Any]) -> bool:
-    """Whether the apply writes to the item's source: Jira's rule, or the registered source's own ``will_write``."""
     from .intake.registry import source_for
 
     own = getattr(source_for(item.source_type), "will_write", None)
@@ -301,7 +298,6 @@ def _will_write(item: WorkItem, workflow: WorkItemWorkflowDefinition, sync_previ
 
 
 def _executed_mode(result: dict[str, Any]) -> str:
-    """``executed``, ``no_driver``, or ``proposed`` (an unattended write-back a person still has to apply)."""
     status = str(result.get("status") or "")
     return status if status in ("no_driver", "proposed") else "executed"
 
@@ -391,6 +387,7 @@ def _audit_log(
         action=action,
         resource_type="work_item",
         resource_id=item.id,
+        project_id=item.project_id,
         details={
             "source_key": item.source_key,
             "workflow_id": workflow.id,

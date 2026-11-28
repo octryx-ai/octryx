@@ -1,14 +1,4 @@
-"""A runtime use that the source system refuses as unauthenticated marks its connection ``failing``.
-
-The connection page and the problems list read the same ``state`` / ``state_reason`` (``services/connections``,
-``services/problems``): a Knowledge sync run ending in ``source_unauthorized``, an intake run Jira answers with HTTP
-401 or an agent tool call whose result carries ``status_code`` 401 sets ``state = failing`` and a one-sentence
-``state_reason`` naming the use. Only an explicit authentication refusal counts (no message matching); the next
-connection test sets the state again (``ok`` or ``failing``). A disabled connection keeps ``disabled``.
-
-Only real connections are marked (an id of ``connector_named_connections``); the default entry has no
-row and keeps today's health checks. The reason names the use, never a value, URL or secret.
-"""
+"""A runtime use that the source system refuses as unauthenticated marks its connection ``failing``."""
 
 from __future__ import annotations
 
@@ -30,7 +20,6 @@ USE_SENTENCES = RUNTIME_SENTENCES  # one sentence per use (``connections/error_s
 
 
 async def record_runtime_failure(db: AsyncSession | None, connection_id: str | None, use: str) -> bool:
-    """Mark the connection ``failing`` for ``use``; ``False`` when there is no such (active) connection."""
     if db is None or not connection_id:
         return False
     row = await db.get(ConnectorNamedConnection, str(connection_id))
@@ -48,7 +37,6 @@ def unauthenticated(result: Any) -> bool:
 
 async def note_tool_result(db: AsyncSession | None, routes: NamedConnectionRoutes, tool: str,
                            target: ResolvedNamedConnection | None, result: Any) -> None:
-    """After an agent tool call: an unauthenticated result marks the connection it ran on."""
     if not unauthenticated(result):
         return
     default = routes.default_of(tool)

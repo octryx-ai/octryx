@@ -1,20 +1,5 @@
 """Where a turn's tokens went, read from its transcript: one row per model call and one per tool result.
-
-"you should be able to see where tokens could be saved". The turn's ``usage`` (``transcript_usage``)
-only says how many tokens a turn used, not what filled the context. This reads the same transcript and reports, per
-turn, the facts the platform's token profile is built from (``services/observability/token_profile``):
-
-- ``calls``: per model call ``[input, cache_read, cache_write, output, subagent]``; each message counts once (Claude
-  Code writes one line per content block with the same message id);
-- ``tools``: per tool result ``[tool_use_id, tool, chars, input_digest, path_digest, call, is_error]``: its full size
-  in characters (the job event's ``output`` is cut to 4 KB), a digest of the tool's whole input (the same command or
-  read with the same arguments) and of its file path (the same file), and the index of the call that asked for it.
-  Digests only, never the input: the event's ``input_preview`` stays the only text of a tool's input;
-- ``compactions``: the call index at which the context was compacted;
-- ``prompt_chars``: the size of the turn's prompt (the contract or phase prompt the platform sent).
-
-Nothing is priced or judged here; the platform splits the tokens by category and applies its savings rules.
-"""
+Digests only, never tool inputs; the platform prices and judges."""
 
 from __future__ import annotations
 
@@ -41,7 +26,6 @@ def _digest(value: Any) -> str:
 
 
 def _chars(content: Any) -> int:
-    """The size of a tool result as the model got it: its text, or the text blocks of a list (an image counts 0)."""
     if isinstance(content, str):
         return len(content)
     if isinstance(content, list):
@@ -66,7 +50,6 @@ def _call_row(usage: dict[str, Any], subagent: bool) -> list[int]:
 
 
 def turn_profile(streams: dict[str, Path], since: float) -> dict[str, Any] | None:
-    """The facts of the messages written at or after ``since``; ``None`` when the turn made no model call."""
     calls: list[list[int]] = []
     tools: list[list[Any]] = []
     compactions: list[int] = []
@@ -116,7 +99,6 @@ def _size(value: Any) -> int:
 
 
 def events(profile: dict[str, Any]) -> list[dict[str, Any]]:
-    """The profile as job events, cut into parts below ``MAX_PART_CHARS``; ``part``/``parts`` put them together."""
     parts: list[dict[str, Any]] = [{"calls": [], "tools": []}]
     for name in ("calls", "tools"):
         for row in profile[name]:

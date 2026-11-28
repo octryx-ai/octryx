@@ -1,16 +1,9 @@
-"""PR review bot: threads, debounce, superseded runs.
-
-- every posted inline comment's id is kept with its finding (GitHub: read back from the review; Bitbucket: from the
-  create answer), so a later pass answers in its thread;
-- a finding a later pass found fixed gets "Fixed in <sha>" and its thread resolved (GitHub GraphQL
-  ``resolveReviewThread``, Bitbucket Cloud ``…/resolve``, Data Center ``threadResolved``); one still open gets one
-  reply with the reviewer's evidence, never one per push; a thread that cannot be answered is named in the footer;
-- pushes in quick succession start one review (debounce); a run whose head was pushed over posts only its status.
-"""
+"""PR review bot: threads, debounce, superseded runs."""
 
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from app.models import WorkflowRun
 from app.services.pr_review_bot import webhook as bot_webhook
@@ -26,9 +19,12 @@ from app.tools.bitbucket_impl import _bitbucket_review_threads as bb_threads
 from app.tools.connectors import github_pr_review as github
 from tests.pr_review_bot_flow_support import HEADERS, REVIEW, _origin, _payload, _tools, _workspace
 from tests.pr_review_bot_support import Recorder, cloud_api, github_api  # noqa: F401 - fixtures
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_pr_review_bot_incremental import _push
-from tests.test_pr_review_bot_tools import COMMENTS, CONTEXT, SHA
+from tests.tools.bitbucket_impl.test_pr_review_bot_tools import COMMENTS, CONTEXT, SHA
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 THREADS = "/graphql"
 
@@ -63,7 +59,7 @@ async def test_github_keeps_each_inline_comments_id_and_answers_and_resolves_thr
         {"repository": "acme/pay", "pr_number": "42", "commit": SHA, "comments": COMMENTS, "thread_answers": [
             {"comment_id": "901", "reply": "✅ Fixed in `abc1234`.", "resolve": True},
             {"comment_id": "905", "reply": "Still open.", "resolve": False}]}, CONTEXT)
-    assert result["inline_ids"] == [901, 902]  # matched by path and body, in the order sent
+    assert result["inline_ids"] == [901, 902]
     assert result["threads"] == [{"comment_id": "901", "replied": True, "resolved": True},
                                  {"comment_id": "905", "replied": False, "resolved": False,
                                   "reason": "status_code 403"}]
@@ -155,7 +151,7 @@ async def test_a_fixed_finding_gets_its_thread_resolved_on_the_next_pass(db, mon
     run = await db.get(WorkflowRun, started.run_id)
     await db.refresh(run)
     assert [(item["id"], item.get("comment_id")) for item in run.context["pr_review"]["open_findings"]] == [
-        ("F1", "4711"), ("F2", None)]  # F2 sits off the diff: summary only, no thread
+        ("F1", "4711"), ("F2", None)]
 
     second = _push(tmp_path / "origin", clone, "def total(items):\n    subtotal = sum(items)\n"
                    "    return int(subtotal + 0.5)\n")
@@ -176,7 +172,7 @@ async def test_a_run_whose_head_was_pushed_over_posts_only_its_status(db, monkey
     older = await start_review(db, project_id, pull_request_event(_payload(first), HEADERS), trigger=TRIGGER_WEBHOOK)
     second = _push(tmp_path / "origin", clone, "def total(items):\n    return sum(items)\n")
 
-    async def newer_push():  # the newer run starts while the older one is being reviewed
+    async def newer_push():
         await start_review(db, project_id, pull_request_event(_payload(second), HEADERS), trigger=TRIGGER_WEBHOOK)
 
     assert await run_due_reviews(db, model_factory=ScriptedReviewer(REVIEW, REVIEW, during=newer_push).factory) >= 1
@@ -184,7 +180,7 @@ async def test_a_run_whose_head_was_pushed_over_posts_only_its_status(db, monkey
     await db.refresh(run)
     posted = [call[1] for call in tools.calls if call[0] == "post_github_pull_request_review"
               and call[1]["commit"] == first][-1]
-    assert set(posted) == {"repository", "pr_number", "commit", "commit_status"}  # no summary, no inline comments
+    assert set(posted) == {"repository", "pr_number", "commit", "commit_status"}
     assert posted["commit_status"]["description"].startswith("Superseded by a newer push · ")
     assert run.context["pr_review"]["superseded_by"] and not run.context["pr_review"].get("posted")
 
@@ -214,7 +210,7 @@ async def test_pushes_in_quick_succession_start_one_review(db, monkeypatch):
         async def __aexit__(self, *_):
             return None
 
-    for head in ("a" * 40, "b" * 40):  # both starts wake after the window, the older one first
+    for head in ("a" * 40, "b" * 40):
         await bot_webhook.start_in_background(project_id, pull_request_event(_payload(head), HEADERS),
                                               session_factory=Session)
-    assert started == ["b" * 40]  # the older push was superseded while it waited
+    assert started == ["b" * 40]

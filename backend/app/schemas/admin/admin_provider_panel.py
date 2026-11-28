@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ...runtime_limits import MAX_COMPLETION_TOKENS, MAX_PROVIDER_CONTEXT_BUDGET, MIN_COMPLETION_TOKENS
+from ...runtime_limits import MAX_COMPLETION_TOKENS, MIN_COMPLETION_TOKENS
 
 
 class ProviderCreateRequest(BaseModel):
@@ -20,14 +20,8 @@ class ProviderCreateRequest(BaseModel):
     api_key: str | None = None
     config_json: dict[str, Any] | None = None
     capabilities_json: dict[str, Any] | None = None
-    aws_access_key_id: str | None = None
-    aws_secret_access_key: str | None = None
-    aws_session_token: str | None = None
     aws_region: str | None = None
     aws_role_arn: str | None = None
-    google_oauth_client_id: str | None = None
-    google_oauth_client_secret: str | None = None
-    google_cloud_project: str | None = None
     bootstrap_role: str | None = None
     is_global: bool = True
 
@@ -45,14 +39,8 @@ class ProviderUpdateRequest(BaseModel):
     api_key: str | None = None
     config_json: dict[str, Any] | None = None
     capabilities_json: dict[str, Any] | None = None
-    aws_access_key_id: str | None = None
-    aws_secret_access_key: str | None = None
-    aws_session_token: str | None = None
     aws_region: str | None = None
     aws_role_arn: str | None = None
-    google_oauth_client_id: str | None = None
-    google_oauth_client_secret: str | None = None
-    google_cloud_project: str | None = None
     bootstrap_role: str | None = None
     is_active: bool | None = None
 
@@ -61,7 +49,6 @@ class ProviderModelCreateRequest(BaseModel):
     model_id: str = Field(min_length=1)
     display_name: str = ""
     context_length: int | None = None
-    planner_context_budget: int | None = Field(default=None, ge=1000, le=MAX_PROVIDER_CONTEXT_BUDGET)
     max_tokens_per_request: int | None = Field(default=None, ge=MIN_COMPLETION_TOKENS, le=MAX_COMPLETION_TOKENS)
     pricing_input: float | None = Field(default=None, ge=0)
     pricing_output: float | None = Field(default=None, ge=0)
@@ -72,7 +59,6 @@ class ProviderModelCreateRequest(BaseModel):
 class ProviderModelUpdateRequest(BaseModel):
     is_active: bool | None = None
     display_name: str | None = None
-    planner_context_budget: int | None = Field(default=None, ge=1000, le=MAX_PROVIDER_CONTEXT_BUDGET)
     max_tokens_per_request: int | None = Field(default=None, ge=MIN_COMPLETION_TOKENS, le=MAX_COMPLETION_TOKENS)
     pricing_input: float | None = Field(default=None, ge=0)
     pricing_output: float | None = Field(default=None, ge=0)

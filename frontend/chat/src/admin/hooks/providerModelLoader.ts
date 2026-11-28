@@ -1,4 +1,4 @@
-// Provider models loader: fetch a provider's models once and seed the budget, output and pricing drafts.
+// Provider models loader: fetch a provider's models once and seed the output and pricing drafts.
 import type { AdminModel } from "../types/adminPanelTypes.usersProviders";
 import type { UseAdminProviderManagementArgs } from "./useAdminProviderManagement.types";
 
@@ -8,7 +8,6 @@ type ProviderModelLoaderArgs = Pick<
   | "providerModels"
   | "setModelsLoading"
   | "setProviderModels"
-  | "setModelBudgetDrafts"
   | "setModelOutputDrafts"
   | "setModelPricingInputDrafts"
   | "setModelPricingOutputDrafts"
@@ -19,7 +18,6 @@ export function createProviderModelLoader({
   providerModels,
   setModelsLoading,
   setProviderModels,
-  setModelBudgetDrafts,
   setModelOutputDrafts,
   setModelPricingInputDrafts,
   setModelPricingOutputDrafts,
@@ -32,16 +30,6 @@ export function createProviderModelLoader({
         `/admin/chat/api/panel/providers/${providerId}/models`,
       );
       setProviderModels((prev) => ({ ...prev, [providerId]: data }));
-      setModelBudgetDrafts((prev) => {
-        const next = { ...prev };
-        for (const model of data) {
-          next[model.id] =
-            model.planner_context_budget != null
-              ? String(model.planner_context_budget)
-              : "";
-        }
-        return next;
-      });
       setModelOutputDrafts((prev) => {
         const next = { ...prev };
         for (const model of data) {

@@ -1,10 +1,4 @@
-"""Deterministic extractors for semi-structured records (people, tickets, pages).
-
-The structure is already present in the record, so no LLM is used; identities
-resolve across sources via aliases. ``source_people`` entries carry every known
-identifier (username, display name, email), so the same human collapses into one
-node across Jira, Confluence, and other connectors deterministically.
-"""
+"""Deterministic extractors for semi-structured records (people, tickets, pages)."""
 
 from __future__ import annotations
 

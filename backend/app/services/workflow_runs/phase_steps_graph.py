@@ -1,15 +1,4 @@
-"""A phase's steps and checks as a Canvas graph. Pure.
-
-The graph is a view of the stored definition, never a second storage. Two kinds of nodes:
-
-- **stored**: ``step`` nodes carry the raw ``workflow_contract.source_steps`` entry unchanged (``step``), ``check``
-  nodes the raw ``workflow_contract.checks`` entry (``check``). Their order in ``nodes`` is the definition order.
-- **derived** (``derived: true``): ``start``, ``approval`` (the capability class asks the user first, or a step's
-  tool declares ``approval_required``) and ``result``. They explain the run and are ignored on the way back.
-
-``definition_from_graph(payload, definition_graph(payload)) == payload`` for every version payload: only
-``source_steps`` and ``checks`` are rebuilt, from the raw entries the graph carries.
-"""
+"""A phase's steps and checks as a Canvas graph."""
 
 from __future__ import annotations
 
@@ -31,8 +20,6 @@ DERIVED_KINDS = frozenset({NODE_START, NODE_APPROVAL, NODE_RESULT})
 
 
 class GraphShapeError(ValueError):
-    """The posted graph cannot become a definition; ``code`` names the closed reason."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -81,7 +68,6 @@ def _check_node(index: int, raw: Any) -> dict[str, Any]:
 def definition_graph(
     payload: Mapping[str, Any], *, tool_requires_approval: Callable[[str], bool] = lambda _name: False
 ) -> dict[str, Any]:
-    """``{schema, capability_class, nodes, edges}`` of one version payload (see the module docstring)."""
     contract = _contract(payload)
     tool_policy = payload.get("tool_policy") if isinstance(payload.get("tool_policy"), Mapping) else {}
     capability = declared_workflow_capability(
@@ -129,11 +115,6 @@ def _stored_entries(graph: Mapping[str, Any]) -> tuple[list[Any], list[Any]]:
 
 
 def definition_from_graph(payload: Mapping[str, Any], graph: Mapping[str, Any]) -> dict[str, Any]:
-    """``payload`` with ``source_steps`` and ``checks`` taken from the graph's stored nodes, in their order.
-
-    A key the stored definition did not have stays absent while the graph has no node of that kind, so an
-    unedited graph returns the payload unchanged.
-    """
     steps, checks = _stored_entries(graph)
     result = deepcopy(dict(payload))
     contract = dict(_contract(result))

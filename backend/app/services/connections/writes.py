@@ -1,16 +1,4 @@
-"""Create and update a connection (``POST``/``PUT /api/v1/admin/connections``).
-
-The body: ``type`` (create only), ``name``, ``access`` (the type's ``access_fields``; a secret is write-only, an empty
-one keeps the stored secret), ``available_in``, ``workspaces`` (ids; replaces the list), ``bound_scopes`` (the keys
-the account serves; replaces the list; empty means unrestricted), ``is_active``, ``owner`` (``{kind, workspace_id}``)
-and ``uses`` (``uses_write.py``). ``PUT`` is partial: a key that is not sent keeps its value.
-
-The access unit is checked exactly as a named connection's (``admin/project/named_connection_unit.py``: complete
-unit, the preset's validation, the secret-rebind rule), and a field is required only for the chosen sign-in kind
-(``auth_fields.py``). A secret is stored under ``<field>#<connection id>``. New connections are global rows
-(``project_id`` NULL) owned per ``owner_*`` with ``connection_origin`` naming where they came from; the runtime serves
-them where they are available. Every write is audited with names, keys and field names only.
-"""
+"""Create and update a connection (``POST``/``PUT /api/v1/admin/connections``)."""
 
 from __future__ import annotations
 
@@ -111,7 +99,6 @@ async def _workspace_list(db: AsyncSession, raw: object) -> list[str]:
 
 
 def _unit(tool: str, stored: dict, access: dict) -> tuple[dict, dict, object]:
-    """``(proposed unit, typed secrets, sign-in kind)``; only the chosen kind's fields are required."""
     descriptor = _descriptor(tool)
     kinds, mode_field = auth_kinds(descriptor), auth_mode_field(descriptor)
     explicit = access.get(AUTH_KEY) if mode_field is None else None
@@ -139,7 +126,6 @@ def _unit(tool: str, stored: dict, access: dict) -> tuple[dict, dict, object]:
 
 def _ownership(viewer: Viewer, body: dict, available_in: str, workspaces: list[str],
                row: ConnectorNamedConnection | None) -> tuple[str, str | None]:
-    """``(owner_kind, owner_workspace_id)``; a Workspace admin owns only ``selected`` connections of their own."""
     if not viewer.platform_admin and available_in != AVAILABLE_SELECTED:
         raise refusal(403, CODE_PLATFORM_ADMIN_REQUIRED, "Only platform admins make a connection available everywhere.",
                       "available_in")
@@ -192,14 +178,13 @@ def audit_state(row: ConnectorNamedConnection, workspaces: list[str]) -> dict[st
 
 def audit(db, actor_id: str, action: str, row: ConnectorNamedConnection, *, before=None, after=None, details=None):
     record_admin_config_audit(db, actor_user_id=actor_id, action=action, resource_type="connection",
-                              resource_id=str(row.id), before=before, after=after,
+                              resource_id=str(row.id), project_id=row.project_id, before=before, after=after,
                               details={"connection_type": row.tool_name, "connection_name": row.name,
                                        **(details or {})})
 
 
 async def save_connection(db: AsyncSession, viewer: Viewer, body: dict[str, Any],
                           row: ConnectorNamedConnection | None = None) -> ConnectorNamedConnection:
-    """Create (``row`` None) or partially update a connection; secrets stored, not returned. Not committed."""
     descriptor = _descriptor(row.tool_name if row is not None else body.get("type"))
     tool = descriptor.connector
     current_ws = sorted((await store.workspaces_of(db, [row.id]))[row.id]) if row is not None else []
@@ -250,7 +235,6 @@ async def save_connection(db: AsyncSession, viewer: Viewer, body: dict[str, Any]
 
 async def _placement(db: AsyncSession, viewer: Viewer, body: dict[str, Any], row: ConnectorNamedConnection | None,
                      descriptor: ConnectorDescriptor, current_ws: list[str]) -> tuple:
-    """``(name, available_in, workspaces, owner_kind, owner_workspace_id, bound keys)``, checked in body order."""
     name = _name(body["name"] if "name" in body or row is None else row.name)
     available_in = body.get("available_in", row.available_in if row is not None else AVAILABLE_SELECTED)
     if available_in not in AVAILABLE_IN:
@@ -275,7 +259,6 @@ async def _placement(db: AsyncSession, viewer: Viewer, body: dict[str, Any], row
 async def _check_change(db: AsyncSession, viewer: Viewer, body: dict[str, Any], row: ConnectorNamedConnection, *,
                         tool: str, name: str, access: dict, stored: dict, proposed: dict, typed: dict,
                         chosen: object) -> None:
-    """An update keeps write access only with sign-in, a free name, and a confirmed secret for a new target."""
     level_sent = ((body.get("uses") or {}).get("agent_tools") or {}).get("level") if isinstance(
         body.get("uses"), dict) else None
     if chosen == KIND_NONE and (level_sent or row.agent_tools_level) == "write":

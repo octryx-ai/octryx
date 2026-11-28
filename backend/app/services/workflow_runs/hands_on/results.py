@@ -8,9 +8,7 @@ from .scenarios import render_step
 
 
 def pre_existing(result: dict[str, Any], reported: dict[str, Any]) -> dict[str, Any]:
-    """A red regression scenario the device ran again on the run's base commit, red there too (``hands_on_base`` in
-    the launcher; Coffee acceptance finding 24): reported, never blocking. Only regression scenarios: a feature
-    scenario is red on the base by nature."""
+    # Only regression scenarios: a feature scenario is red on the base by nature.
     base = str(reported.get("pre_existing") or "")
     if result["passed"] or result.get("part") != "regression" or not base:
         return result

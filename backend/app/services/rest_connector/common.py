@@ -1,8 +1,4 @@
-"""Names, keys and the read rule of the custom REST connector.
-
-Tool names are ``rest__<definition key>__<operation name>``. Both parts are lower snake case and short enough that
-the whole name stays within the 64 characters the model APIs accept for a function name (6 + 24 + 2 + 32).
-"""
+"""Names, keys and the read rule of the custom REST connector."""
 
 from __future__ import annotations
 
@@ -25,7 +21,6 @@ IDEMPOTENT_CANDIDATE_METHODS = frozenset({"PUT", "DELETE"})
 
 
 def secret_scope(connection_id: str) -> str:
-    """The secret-store ``tool_name`` of one connection: a ref copied to another connection never resolves."""
     return f"rest_api_connection:{connection_id}"
 
 
@@ -34,7 +29,6 @@ def tool_name_for(definition_key: str, op_name: str) -> str:
 
 
 def split_tool_name(tool_name: str) -> tuple[str, str] | None:
-    """``(definition key, operation name)`` of a ``rest__`` tool name, else ``None``."""
     name = str(tool_name or "")
     if not name.startswith(REST_TOOL_PREFIX):
         return None
@@ -45,13 +39,11 @@ def split_tool_name(tool_name: str) -> tuple[str, str] | None:
 
 
 def is_read_operation(method: str, read_only: bool) -> bool:
-    """GET/HEAD, and a POST an admin marked read-only (a search endpoint); everything else writes."""
     normalized = str(method or "").upper()
     return normalized in READ_METHODS or (normalized == "POST" and bool(read_only))
 
 
 def write_capability(operation: object) -> str | None:
-    """The run class a write operation needs (``deliver`` unless the admin set ``change``); ``None`` for a read."""
     if is_read_operation(getattr(operation, "method", ""), bool(getattr(operation, "read_only", False))):
         return None
     declared = str(getattr(operation, "capability", None) or "").strip()
@@ -59,10 +51,6 @@ def write_capability(operation: object) -> str | None:
 
 
 def retry_allowed(operation: object) -> bool:
-    """A failed call may be sent again only when repeating it cannot do the write twice.
-
-    GET/HEAD read; PUT/DELETE repeat safely only if the admin says this API implements them idempotently; a POST or
-    PATCH is never repeated (a 503 after the server already created the record would create it twice)."""
     method = str(getattr(operation, "method", "") or "").upper()
     if method in READ_METHODS:
         return True
@@ -88,11 +76,6 @@ def validate_op_name(raw: object, *, field: str = "op_key") -> str:
 
 
 def http_url_problem(raw: object) -> str | None:
-    """Why ``raw`` is not an http(s) URL with a host, else ``None``.
-
-    In the SAP Business Accelerator Hub specs (e.g. Business Partner A2X), ``https://{host}:{port}/sap/opu/...`` with
-    empty variable defaults reads as ``https://:/sap/opu/...``; such a server must never be offered as a base URL.
-    """
     url = str(raw or "").strip()
     try:
         parts = urlsplit(url)
@@ -107,7 +90,6 @@ def http_url_problem(raw: object) -> str | None:
 
 
 def snake_case(raw: object, *, limit: int = 32) -> str:
-    """A model-friendly operation key from an ``operationId`` or ``method + path``."""
     text = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", str(raw or ""))
     text = re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
     if not text or not text[0].isalpha():

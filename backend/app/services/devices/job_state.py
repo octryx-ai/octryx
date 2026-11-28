@@ -21,7 +21,10 @@ STATUS_REJECTED = "rejected"
 STATUS_FAILED = "failed"
 STATUS_LOST = "device_lost"
 STATUS_CLOSED = "closed"
+# A chat turn no server runner was free for: no device yet, offered when a runner frees (``runner_queue``).
+STATUS_WAITING = "waiting_runner"
 ACTIVE_STATUSES = (STATUS_OFFERED, STATUS_RUNNING)
+BUSY_STATUSES = (STATUS_WAITING, *ACTIVE_STATUSES)
 OPEN_STATUSES = (STATUS_OFFERED, STATUS_RUNNING, STATUS_IDLE)
 
 DECISION_ALLOW_ONCE = "allow_once"
@@ -57,6 +60,7 @@ REASON_APPROVAL_DECIDED = "approval_already_decided"
 REASON_DECISION_INVALID = "approval_decision_invalid"
 REASON_JOB_EDITS_NOT_ALLOWED = "approval_job_edits_not_allowed"
 REASON_JOB_NOT_RUNNING = "device_job_not_running"
+REASON_CANCELLED = "cancelled_by_owner"
 
 
 class DeviceJobError(Exception):
@@ -69,7 +73,7 @@ class DeviceJobError(Exception):
 
 def _audit(db: AsyncSession, *, actor_id: str, action: str, job: DeviceJob, details: dict[str, Any]) -> None:
     db.add(AuditLog(user_id=actor_id, session_id=job.session_id, action=action, resource_type="device_job",
-                    resource_id=job.id, details={"device_id": job.device_id, **details}))
+                    resource_id=job.id, project_id=job.workspace_id, details={"device_id": job.device_id, **details}))
 
 
 def _clip(value: Any, limit: int) -> Any:
@@ -79,7 +83,6 @@ def _clip(value: Any, limit: int) -> Any:
 
 
 def bounded_body(body: dict[str, Any]) -> dict[str, Any]:
-    """What the platform stores of an event: strings clipped, tool results to 4 KB."""
     limit = MAX_TOOL_RESULT_CHARS if body.get("kind") == "tool_result" else MAX_TEXT_CHARS
     clipped = {key: _clip(value, limit) for key, value in body.items()}
     if len(json.dumps(clipped, default=str)) > 4 * MAX_TEXT_CHARS:

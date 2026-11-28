@@ -1,19 +1,4 @@
-"""Tool descriptions as the model sees them: the code schema with the catalog's versions applied.
-
-Tool schema descriptions are prompt catalog keys (``tool_catalog``: ``tool.<name>.description``
-and ``tool.<name>.param.<path>``, seeded by the tool definitions). Before each model request
-the offered schemas get the turn's resolved versions (``catalog_tool_descriptions``); the
-discovery tools and the Knowledge MCP use the same functions.
-
-Only versions that differ from the code are rendered and therefore listed in the turn's
-prompt record; a description served from its code seed is not listed key by key (a turn
-offers up to a few hundred tools and parameters).
-
-The Knowledge citation rule (``evidence.citation_rule``, A1) is the last sentence of the
-``knowledge_search`` and ``knowledge_changes`` descriptions. The definitions compose its seed
-(``CITATION_RULE``); the turn's version replaces that sentence, also inside an edited tool
-description that kept it.
-"""
+"""Tool descriptions as the model sees them: the code schema with the catalog's versions applied."""
 
 from __future__ import annotations
 
@@ -35,7 +20,6 @@ CITATION_RULE_TOOLS = frozenset({"knowledge_search", "knowledge_changes"})
 
 
 def catalog_override(prompt_set: PromptSet, key: str) -> str | None:
-    """The served version of ``key`` when it is a catalog version, else ``None`` (the code seed)."""
     if key not in prompt_set.prompts and key not in prompt_set.refusals:
         return None
     if prompt_set.resolved(key).source == SOURCE_SEED:
@@ -53,7 +37,6 @@ def resolved_tool_description(prompt_set: PromptSet, tool_name: str, code_descri
 
 
 def apply_tool_descriptions(prompt_set: PromptSet, tool: dict[str, Any]) -> dict[str, Any]:
-    """``tool`` with its served description and parameter descriptions; unchanged tools are returned as is."""
     function = tool.get("function") if isinstance(tool, dict) else None
     if not isinstance(function, dict):
         return tool
@@ -88,7 +71,6 @@ def _bound() -> PromptSet:
 
 
 def catalog_tool_descriptions(tools: Sequence[dict[str, Any]] | None) -> list[dict[str, Any]] | None:
-    """The offered tool schemas with the bound turn's descriptions (before each model request)."""
     if not tools:
         return tools if tools is None else list(tools)
     prompt_set = _bound()
@@ -96,7 +78,6 @@ def catalog_tool_descriptions(tools: Sequence[dict[str, Any]] | None) -> list[di
 
 
 def catalog_tool_description(tool_name: str, code_description: str) -> str:
-    """One tool's served description in the bound turn (tool discovery summaries)."""
     return resolved_tool_description(_bound(), tool_name, code_description)
 
 

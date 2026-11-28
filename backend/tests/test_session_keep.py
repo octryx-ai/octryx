@@ -1,7 +1,5 @@
-"""The team member who made the mistake fixes it, with their context. Live 4f4139ff: after the
-escalation S -> M every red green gate ended the turn and the next one started a new pass (the Claude Code session was
-resumed, but each pass cost a turn change and ~6k tokens of prompt). Every size class shares the session and changes
-phases inside the turn; an escalation keeps both; only another role or model starts a session of its own."""
+"""The team member who made the mistake fixes it, with their context: every size class shares the session,
+an escalation keeps it, and only another role or model starts a session of its own."""
 
 from __future__ import annotations
 
@@ -34,11 +32,11 @@ def test_every_shipped_class_shares_the_session_and_keeps_the_turn(key):
 
 def test_an_escalation_keeps_the_session_and_the_turn():
     classes = _classes("bug-fix-reproduction")
-    for size in ("S", "M", "L"):  # the escalation path S -> M -> L
+    for size in ("S", "M", "L"):
         assert phase_change(_run(classes, size)) == "same_turn"
-    assert shares(_run({"small": {}}, "small"))  # a class that says nothing shares too
-    assert not shares(_run({"big": {"session": "per_phase"}}, "big"))  # unless it says otherwise
-    assert not shares(SimpleNamespace(context={}))  # no class: the workflow's own behaviour
+    assert shares(_run({"small": {}}, "small"))
+    assert not shares(_run({"big": {"session": "per_phase"}}, "big"))
+    assert not shares(SimpleNamespace(context={}))
 
 
 @pytest.mark.asyncio
@@ -57,6 +55,6 @@ async def test_a_red_gate_back_into_the_phase_resumes_its_session_and_another_ro
     monkeypatch.setattr("app.services.workflow_runs.graph.graph_for_run", graph)
     monkeypatch.setattr(phase_sessions, "_session_here", here)
     last = {phase_sessions.SESSION_KEY: {"node_id": "fix", "claude_session_id": "cs-1"}}
-    run = _run(_classes("bug-fix-reproduction"), "M", **last)  # escalated to M, back in fix after a red gate
+    run = _run(_classes("bug-fix-reproduction"), "M", **last)
     assert await shared_run_session(None, run, phases["fix"], TARGET) == ("cs-1", phase_sessions.RESUME_PHASE)
     assert await run_session.shared_run_session(None, run, phases["review"], TARGET) == ("", "")

@@ -1,9 +1,4 @@
-"""Read-only chat agent guidance: identities, visibility and declared surface.
-
-The projection is display data shared by the chat bootstrap and the turn response. It must follow the
-runtime's binding rule, stay inside the caller's owner scope, and never turn an unknown into a
-capability.
-"""
+"""Read-only chat agent guidance: identities, visibility and declared surface."""
 
 from __future__ import annotations
 
@@ -84,7 +79,7 @@ async def test_a_session_without_a_binding_is_unbound_even_with_a_last_agent(db:
 
 @pytest.mark.asyncio
 async def test_foreign_and_deleted_agents_are_indistinguishable_and_disclose_nothing(db: AsyncSession):
-    # A3: "foreign" is an agent of a Workspace the (non-admin) user is not a member of.
+    # "Foreign" is an agent of a Workspace the (non-admin) user is not a member of.
     viewer = await make_user(db, label="guidance-viewer")
     other = await make_user(db, label="guidance-other")
     foreign = await make_definition(
@@ -139,7 +134,7 @@ async def test_published_mode_reports_the_published_snapshot_not_the_live_draft(
     await db.flush()
     revision = await create_draft_revision(db, definition=agent, created_by=admin.id)
     await publish_revision(db, revision=revision, published_by=admin.id)
-    agent.tool_surface = "governed"  # live drift after publication
+    agent.tool_surface = "governed"
     await _set_mode(db, "published")
     session = await _session(db, user_id=admin.id, metadata={"bound_agent_definition_id": agent.id})
 

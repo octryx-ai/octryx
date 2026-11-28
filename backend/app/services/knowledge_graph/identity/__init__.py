@@ -1,12 +1,4 @@
-"""Staged identity resolution (tier 2, P5).
-
-Deterministic identifiers (connector ids, emails, exact aliases) already merge at
-upsert time via the alias table. This module handles the WEAK signals: candidate
-pairs (same type, near-identical name or high embedding similarity) become
-``KnowledgeMergeProposal`` rows with status ``needs_review`` — never a silent
-merge. An approved proposal is applied by ``merge_nodes``, which re-points
-edges, aliases, and claims onto the kept node and retires the merged one.
-"""
+"""Staged identity resolution of weak signals into ``needs_review`` merge proposals."""
 
 from __future__ import annotations
 

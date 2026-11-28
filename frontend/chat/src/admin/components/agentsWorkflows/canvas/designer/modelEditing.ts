@@ -1,4 +1,3 @@
-// Designer model editing: add, change, move and remove boxes, and draw, move or route the arrows between them.
 import { exitValues } from "./inspector/exitValues";
 import { kindName } from "./inspector/labels";
 import { defaultConfig } from "./inspector/nodeDefaults";
@@ -8,10 +7,6 @@ import {
   type DesignModel, type Point,
 } from "./modelCore";
 
-// --- Boxes -------------------------------------------------------------------------------------------------------
-
-/** ``drawn``: where the canvas shows each box now (hand-set or automatic) and its direction, so an End the user never
- *  moved is kept after the new box (below it top to bottom, right of it left to right). */
 export type DrawnLayout = { positions: ReadonlyMap<string, Point>; direction: "tb" | "lr" };
 
 export function addNode(model: DesignModel, type: NodeKind, at?: Point, drawn?: DrawnLayout): { model: DesignModel; id: string } {
@@ -24,8 +19,7 @@ export function addNode(model: DesignModel, type: NodeKind, at?: Point, drawn?: 
 const END_GAP_LR = 280;
 const END_GAP_TB = 140;
 
-/** An End box the user never moved (no hand-set position, or one the designer set) stays right of every other box,
- *  so a new step never lands behind the End ("Done" sat between Start and Triage). */
+// An End box the user never moved stays after every other box, so a new step never lands behind it.
 function keepEndsLast(model: DesignModel, added: string | null, drawn?: DrawnLayout): DesignModel {
   const auto = new Set(model.autoEnds ?? []);
   const ends = model.nodes.filter((node) => node.type === "outcome" && node.id !== added
@@ -66,18 +60,14 @@ export function moveNodes(model: DesignModel, moves: Array<[string, Point]>): De
   return { ...model, positions, autoEnds: (model.autoEnds ?? []).filter((id) => !moved.has(id)) };
 }
 
-/** Every box at this position (the automatic layout's, so nothing jumps when the structure changes). */
 export function setPositions(model: DesignModel, positions: Map<string, Point> | Record<string, Point>): DesignModel {
   const entries = positions instanceof Map ? [...positions] : Object.entries(positions);
   const known = new Set(nodeIds(model));
   return { ...model, positions: Object.fromEntries(entries.filter(([id]) => known.has(id)).map(([id, point]) => [id, { x: Math.round(point.x), y: Math.round(point.y) }])) };
 }
 
-/** The start is the one entry: it can be neither removed nor copied. */
 export const removable = (node: DefNode | undefined) => Boolean(node && node.type !== "start");
 
-
-/** Removes the boxes (with every arrow at them) and the arrows. */
 export function removeItems(model: DesignModel, nodes: string[], edges: string[] = []): DesignModel {
   const gone = new Set(nodes.filter((id) => removable(findNode(model, id))));
   const goneEdges = new Set(edges);
@@ -92,8 +82,6 @@ export function removeItems(model: DesignModel, nodes: string[], edges: string[]
   };
 }
 
-// --- Arrows ------------------------------------------------------------------------------------------------------
-
 export type ConnectResult = { model: DesignModel; edgeId: string | null; problem?: string };
 
 function kindFor(model: DesignModel, source: string, target: string, keep?: DefEdge): Pick<DefEdge, "kind" | "max_iterations"> {
@@ -103,11 +91,6 @@ function kindFor(model: DesignModel, source: string, target: string, keep?: DefE
   return { kind: "next", max_iterations: null };
 }
 
-/**
- * An arrow from ``source`` to ``target``, taken for ``when``. A box with one way out keeps one arrow: a new one moves
- * it. A box with several results takes ``when`` (none yet: its panel asks); an arrow already taken for it is moved. An arrow to a box before
- * the source (or to the source itself) is a way back with a maximum; any other one is a way on.
- */
 export function connect(model: DesignModel, source: string, target: string, when: string | null, catalog: DesignerCatalog): ConnectResult {
   const from = findNode(model, source);
   const to = findNode(model, target);
@@ -120,7 +103,6 @@ export function connect(model: DesignModel, source: string, target: string, when
     if (existing) return { model: retarget(model, existing.id, target), edgeId: existing.id };
     when = null;
   } else {
-    // Without a result the arrow is drawn all the same; its panel asks for which result it is taken.
     const existing = model.edges.find((edge) => edge.source === source && edge.when === (when || null));
     if (existing) return { model: retarget(model, existing.id, target), edgeId: existing.id };
     when = when || null;
@@ -130,7 +112,6 @@ export function connect(model: DesignModel, source: string, target: string, when
   return { model: { ...model, edges: [...model.edges, edge] }, edgeId: id };
 }
 
-/** The arrow now ends at ``target``; whether it goes on or back follows from where the target is. */
 export function retarget(model: DesignModel, edgeId: string, target: string): DesignModel {
   const edge = findEdge(model, edgeId);
   if (!edge || !findNode(model, target)) return model;
@@ -151,10 +132,6 @@ export function updateEdge(model: DesignModel, edgeId: string, patch: EdgePatch)
   };
 }
 
-/**
- * The side panel's ``onRoute(when, target)`` (Decisions S3): the arrow of ``source`` for ``when`` is created, moved
- * or (``target`` null) removed.
- */
 export function route(model: DesignModel, source: string, when: string, target: string | null): DesignModel {
   const existing = model.edges.find((edge) => edge.source === source && edge.when === when);
   if (target === null) return existing ? removeItems(model, [], [existing.id]) : model;

@@ -1,10 +1,4 @@
-"""The base-commit proof of a size class's ``red_on_base`` before anything is pushed.
-
-A merged reproduce+fix turn binds the tests it submits (``size_class.merge.confirm_in_turn``); their red is this
-proof alone. So it may never go missing on the way to the pull request: the pipeline stays red with a delta for the
-agent when there is nothing to run on the base (:func:`missing`), the pull request names the result for its reader
-(:func:`evidence_text`), and it is not opened without a proven verdict (:func:`unproven`).
-"""
+"""The base-commit proof of a size class's ``red_on_base`` before anything is pushed."""
 
 from __future__ import annotations
 
@@ -21,7 +15,6 @@ def _asked(run: WorkflowRun) -> bool:
 
 
 def missing(run: WorkflowRun, requested: dict[str, Any] | None) -> list[str]:
-    """The pipeline's error when the class asks for the proof but no test could be asked for."""
     if not _asked(run) or requested:
         return []
     return ["no reproduction test could run on the base commit: submit the reproduction (submit_reproduction) with "
@@ -29,7 +22,6 @@ def missing(run: WorkflowRun, requested: dict[str, Any] | None) -> list[str]:
 
 
 def unproven(run: WorkflowRun) -> str:
-    """Why the pull request waits: the class asks for the proof and the last verdict is not ``proven``."""
     if not _asked(run):
         return ""
     verdict = dict(dict(run.context or {}).get(CONTEXT_KEY) or {})
@@ -40,7 +32,6 @@ def unproven(run: WorkflowRun) -> str:
 
 
 def evidence_text(run: WorkflowRun) -> str:
-    """The pull request's section on the proof: each confirmed test failed on the base and passes with the change."""
     verdict = dict(dict(run.context or {}).get(CONTEXT_KEY) or {})
     if not _asked(run) or verdict.get("state") != "proven":
         return ""
@@ -51,9 +42,6 @@ def evidence_text(run: WorkflowRun) -> str:
 
 
 async def pause_unattributed(db: Any, run: WorkflowRun, tests: list[str], *, why: str = "") -> None:
-    """Pause once, cause platform (``evidence_unresolved``), for confirmed tests the base run showed no result for;
-    the pipeline step re-runs on continue. ``why``: the base run started no test at all (its command and output end),
-    said as such instead of only "could not attribute"."""
     from .limits import pause_run
     from .states import PAUSE_EVIDENCE_UNRESOLVED
 

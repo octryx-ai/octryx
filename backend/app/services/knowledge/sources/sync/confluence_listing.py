@@ -23,8 +23,6 @@ from .source_dates import source_date
 
 
 class ConfluenceListing:
-    """Listing and ACL resolution; the connector sets the state in its ``__init__``."""
-
     _reader: SourceReader
     _spaces: tuple[str, ...]
     _trees: tuple[dict[str, str], ...]
@@ -57,7 +55,6 @@ class ConfluenceListing:
         return AclFacet.scope()
 
     def _title_and_link(self, result: dict, page_id: str, response_base: object) -> tuple[str, str]:
-        """The listed title and canonical link of one page (shared by the listing and the pinned read)."""
         title = " ".join(str(result.get("title") or "").split())[:MAX_TITLE_CHARS] or f"Confluence page {page_id}"
         links = result.get("_links") if isinstance(result.get("_links"), dict) else {}
         link = canonical_page_url(self._reader.base_url, page_id, webui=links.get("webui"), response_base=response_base)
@@ -81,7 +78,6 @@ class ConfluenceListing:
         return item, own, ancestors
 
     def _unit_cql(self, index: int) -> str:
-        """The CQL of listing unit ``index``: a whole space, or a page tree after the spaces."""
         if index < len(self._spaces):
             # Space keys are validated (``config.py``): letters, digits, ``_`` and a leading ``~`` only.
             return f'space="{self._spaces[index]}" and type=page'
@@ -117,7 +113,6 @@ class ConfluenceListing:
         return await self._page(payload, index, limit)
 
     async def list_changed_items(self, token: str | None, *, since: datetime, limit: int) -> ListingPage:
-        """The pages of each space and tree modified at or after ``since`` (CQL search), paged like the listing."""
         index, position = _parse_token(token)
         if index >= self._units:
             return ListingPage(items=(), next_token=None)
@@ -160,7 +155,8 @@ class ConfluenceListing:
         return self._trees[index - len(self._spaces)]["space_key"]
 
     def _page_listed(self, item: SourceItem, ancestors: list[str], index: int) -> bool:
-        """The page allowlist's decision (none: every page of the unit)."""
+        # A rule change does not modify the page, so the change listing never lists a newly excluded page: the next
+        # completed header pass retires it.
         decision = page_decision(
             self._page_rules,
             page_id=item.external_id,

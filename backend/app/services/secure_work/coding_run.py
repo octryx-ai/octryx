@@ -1,15 +1,4 @@
-"""Runtime envelope for scheduled coding-delivery agent runs (execution mode ``coding_delivery``).
-
-A scheduled coding run gets a platform-native work item (``source_type=
-"platform"``) as its governance envelope: its clarification state is the item's
-**confirmed Definition of Ready** (a Jira intake & triage run of the item that
-ended through the person's "ready" confirmation), it rides into the agent's context,
-and the runtime guard blocks source-code writes until it is resolved. Sessions
-are linked back to the work item for handover.
-
-The platform work item is the single task concept, and the coding pipeline / verification contracts it
-already carries own everything past clarification.
-"""
+"""Runtime envelope for scheduled coding-delivery agent runs (execution mode ``coding_delivery``)."""
 
 from __future__ import annotations
 
@@ -32,15 +21,12 @@ _MAX_RUN_SESSIONS = 50
 
 
 def is_coding_delivery_agent(agent_definition: dict[str, Any] | None) -> bool:
-    """True when the agent runs in the explicit ``coding_delivery`` mode (the built-in Coding agent does).
-
-    The mode is configuration on the definition; the agent's name decides nothing.
-    """
+    # The mode is configuration on the definition; the agent's name decides nothing.
     return str((agent_definition or {}).get("executionMode") or "").strip() == CODING_DELIVERY_EXECUTION_MODE
 
 
 async def _find_run_work_item(db: AsyncSession, *, task_id: str) -> WorkItem | None:
-    """The run's work item is bound to its task via source_id for idempotency."""
+    # Bound to its task via ``source_id`` for idempotency.
     return (
         await db.execute(
             select(WorkItem)
@@ -74,12 +60,7 @@ async def ensure_coding_run_work_item(
     prompt: str,
     trigger_type: str,
 ) -> dict[str, Any] | None:
-    """Bind a scheduled Coding Delivery Agent run to a platform work item.
-
-    Best effort: returns None (no envelope, guard stays silent) when the run
-    is not a coding delivery agent or the platform item cannot be created —
-    a scheduling run must never crash on the governance envelope.
-    """
+    # Best effort: a scheduling run must never crash on the governance envelope.
     if not is_coding_delivery_agent(agent_definition):
         return None
     if not task.project_id:
@@ -124,7 +105,7 @@ async def ensure_coding_run_work_item(
 
 
 async def definition_of_ready_gate(db: AsyncSession, item: WorkItem) -> dict[str, Any]:
-    """The item's readiness: ``ready`` only after a confirmed Definition of Ready (never guessed from text)."""
+    # Ready only after a confirmed Definition of Ready, never guessed from text.
     from ..workflow_runs.definition_of_ready import TRIAGE_WORKFLOW_KEY, confirmed_ready
 
     if await confirmed_ready(db, item.id):
@@ -149,7 +130,6 @@ async def link_coding_run_session(
     session_id: str,
     task_run_id: str,
 ) -> None:
-    """Record the runtime session on the run's work item (best effort)."""
     item = await db.get(WorkItem, work_item_id)
     if item is None:
         return

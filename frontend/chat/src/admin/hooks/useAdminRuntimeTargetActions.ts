@@ -134,3 +134,35 @@ export function createHandleDeleteRuntime({
     }
   };
 }
+
+type RuntimeTagsActionArgs = {
+  readJson: ReadJsonFn;
+  runtimeTagsInput: string;
+  setRuntimes: Dispatch<SetStateAction<AdminRuntime[]>>;
+  setEditingRuntimeTags: Dispatch<SetStateAction<string | null>>;
+};
+
+export function createHandleSaveRuntimeTags({
+  readJson,
+  runtimeTagsInput,
+  setRuntimes,
+  setEditingRuntimeTags,
+}: RuntimeTagsActionArgs) {
+  return async (runtimeId: string) => {
+    const tags = runtimeTagsInput
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+    const updated = await readJson<AdminRuntime>(
+      `/admin/chat/api/panel/runtimes/${runtimeId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ use_case_tags: tags }),
+      },
+    );
+    setRuntimes((prev) =>
+      prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
+    setEditingRuntimeTags(null);
+  };
+}

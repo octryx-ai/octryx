@@ -14,9 +14,9 @@ from ....plugins.mcp.catalog_discovery import (
     discover_mcp_resources,
     failed_discovery_kinds,
 )
-from ...mcp_resource_catalog import mirror_mcp_server_resources
-from ...mcp_resource_identity import canonical_mcp_server_identity
-from ...mcp_resource_states import STATE_AMBIGUOUS_SERVER
+from ...mcp_governance.resource_catalog import mirror_mcp_server_resources
+from ...mcp_governance.resource_identity import canonical_mcp_server_identity
+from ...mcp_governance.resource_states import STATE_AMBIGUOUS_SERVER
 
 
 async def mirror_mcp_server_resources_for_workspace(
@@ -28,24 +28,6 @@ async def mirror_mcp_server_resources_for_workspace(
     actor_user_id: str | None = None,
     auto_connect: bool = True,
 ) -> dict[str, Any]:
-    """Mirror one connected server's resources and prompts into a workspace catalog.
-
-    Only the discovered public resource and prompt lists are read. Server
-    connection configuration is never touched, so no environment, header, or OAuth
-    material can be persisted or returned, and resource URIs are redacted by the
-    catalog before they are stored.
-
-    Two preconditions are enforced here rather than inside the mirror, because
-    both are facts about the *transport* the pure catalog writer must not know:
-
-    - exactly one configured server owns the canonical (casefolded) identity the
-      catalog is keyed by, so ``demo`` and ``DEMO`` cannot write into each other's
-      catalog;
-    - both discovery calls actually answered. A mirror run retires every entry it
-      did not see, so a swallowed listing failure would disable a whole catalog
-      and record a false "missing" lifecycle. A failed discovery therefore writes
-      nothing at all and reports the failure.
-    """
     normalized_server = str(server_name or "").strip()
     normalized_workspace_id = str(workspace_id or "").strip()
     if not normalized_server:

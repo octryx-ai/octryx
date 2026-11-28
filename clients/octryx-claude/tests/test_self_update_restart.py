@@ -43,7 +43,6 @@ def test_restart_without_the_installer_shim_uses_current(installed):  # noqa: F8
 
 
 def test_restart_never_execs_the_shim_of_another_installation(installed, tmp_path):  # noqa: F811
-    """A second OCTRYX_CLAUDE_HOME must not run through the first installation's shim."""
     installed["shim"].write_text(f"#!/bin/sh\n{self_update_layout.SHIM_MARK}\n"
                                  f"exec '{tmp_path / 'other' / 'venvs' / 'current'}/bin/octryx-claude' \"$@\"\n")
     assert _updated(installed).layout.shim == installed["venvs"] / "current" / "bin" / "octryx-claude"

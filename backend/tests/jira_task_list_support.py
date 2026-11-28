@@ -1,13 +1,4 @@
-"""Shared test helpers for the Jira task list: a Server/DC-shaped Jira handler and the Cloud stub behind transports.
-
-The Cloud side is ``tests/fixtures/source_stubs/jira_stub_cloud.py`` (it ignores the JQL's
-project clause, so it proves the platform's own filtering). The DC side answers ``/rest/api/2`` only
-(``/rest/api/3`` is 404, as on an old Server), records every request, and serves transitions, label
-updates and comments for the write-back. No network: ``httpx.MockTransport`` only.
-
-``scoped_api`` (fixture) serves the secure-work routers on an ASGI app as the user in its ``state``;
-``_operator`` seeds a user with the ``operation`` role.
-"""
+"""Shared test helpers for the Jira task list: a Server/DC-shaped Jira handler and the Cloud stub behind transports."""
 
 from __future__ import annotations
 
@@ -21,10 +12,10 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
-from app.api.routes.secure_work import router as secure_work_router
-from app.api.routes.secure_work_intake import router as intake_router
-from app.api.routes.secure_work_intake_setup import router as intake_setup_router
-from app.api.routes.secure_work_workflows import router as workflows_router
+from app.api.routes.secure_work.secure_work import router as secure_work_router
+from app.api.routes.secure_work.secure_work_intake import router as intake_router
+from app.api.routes.secure_work.secure_work_intake_setup import router as intake_setup_router
+from app.api.routes.secure_work.secure_work_workflows import router as workflows_router
 from app.db import get_db
 from app.models import BuiltInToolConfig, Project, Role, User, UserRole
 from app.services.auth import get_current_user
@@ -56,8 +47,6 @@ def dc_issue(key: str, *, status: dict | None = None, project: str | None = None
 
 
 class DcJira:
-    """A Server/DC Jira: ``/rest/api/2/search`` with the given issues, whatever the JQL asks."""
-
     def __init__(self, issues: list[dict], *, refuse_jql_with: str | None = None) -> None:
         self.issues = issues
         self.refuse_jql_with = refuse_jql_with
@@ -90,8 +79,6 @@ class DcJira:
 
 
 def cloud_transport(seen: list[dict]) -> httpx.MockTransport:
-    """The Cloud stub, plus the v2 transitions endpoint Cloud still serves for the write-back."""
-
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content) if request.content else None
         target = request.url.raw_path.decode()
@@ -125,7 +112,6 @@ def dc_config(allowed: list[str] | None) -> dict:
 
 
 async def workspace_jira(db, config: dict) -> str:
-    """The seeded ``acme-orders`` Workspace with its own active Jira connection ``config``."""
     project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
     db.add(BuiltInToolConfig(tool_name="jira", project_id=project.id, config=config, is_active=True))
     await db.commit()

@@ -1,12 +1,4 @@
-"""Shared fixtures for the Agent Definition revision tests.
-
-One builder per row the revision contract needs, used by all four test modules
-(service validation, service lifecycle, API authorization, API restore) so the
-aggregate under test is described in exactly one place. The defaults are the ones
-the assertions rely on — ``DEFINITION_NAME`` and ``DEFINITION_GOAL`` are asserted
-after a restore, and the default step tool is a real registry entry so a fixture
-definition validates cleanly unless a test deliberately breaks it.
-"""
+"""Shared fixtures for the Agent Definition revision tests."""
 
 from __future__ import annotations
 
@@ -27,7 +19,6 @@ from app.models import (
 )
 from app.services.auth import create_access_token, hash_password
 
-#: Header values a restore is asserted to put back on the live row.
 DEFINITION_NAME = "Revision Fixture Agent"
 DEFINITION_GOAL = "Prove the revision contract"
 
@@ -36,7 +27,6 @@ DEFAULT_STEP_TOOL = "knowledge_search"
 
 
 async def admin_user(db: AsyncSession) -> User:
-    """Return the seeded global admin."""
     return (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
 
 
@@ -113,7 +103,6 @@ async def make_definition(
     agent_type: str = "diagnosis",
     steps: int = 2,
 ) -> AgentDefinition:
-    """Create a live definition with *steps* contiguous steps at positions 1..n."""
     definition = AgentDefinition(
         id=str(uuid.uuid4()),
         owner_id=owner.id,
@@ -165,21 +154,11 @@ async def make_step(
     return step
 
 
-# ---------------------------------------------------------------------------
-# HTTP helpers
-# ---------------------------------------------------------------------------
-
-
 def auth_headers(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
 def error_body(response) -> dict:
-    """Error payload without the per-request correlation id.
-
-    Comparing two of these is how the tests prove an out-of-scope id and an
-    unknown id are answered identically.
-    """
     return {key: value for key, value in response.json().items() if key != "request_id"}
 
 

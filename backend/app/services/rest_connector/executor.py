@@ -1,22 +1,4 @@
-"""Running one ``rest__`` tool call: authorize, scope, authenticate, send, shape, audit.
-
-Order matters and is fixed:
-
-1. a write must fit the run's class, read from the stored operation (the gates before dispatch judged the
-   same row; this repeats it so a stale view can never let a write through). Whether a person must approve it was
-   decided by the central approval gate before dispatch (chat write plan, workflow policy, unattended runs, devices);
-2. the caller's grants decide access and the data scope (``authorization``), from server-owned context only;
-3. the arguments must fit the declared parameters; the scope's values (parameters and, for a JSON body, the grant's
-   body paths) are then set last, so nothing the model sends can replace them (a contradicting value was already
-   refused in step 2);
-4. the URL is the connection's base URL plus the operation's path, the path parameters percent-encoded, and the
-   host is checked again before sending: no argument can change where the call goes;
-5. the answer is filtered to the scope and shaped; every call leaves one audit row (``runs``), a write with the
-   approval or chat write plan that admitted it. Only a call that cannot write twice is retried (``retry_allowed``).
-
-The tool result and the audit row never carry a secret: errors keep fixed codes and exception class names only,
-and any credential value is redacted from the little text that is returned.
-"""
+"""Running one ``rest__`` tool call: authorize, scope, authenticate, send, shape, audit."""
 
 from __future__ import annotations
 
@@ -71,7 +53,6 @@ class CallRefusedError(Exception):
 
 
 async def find_operation(db: AsyncSession, tool_name: str) -> tuple[RestApiDefinition, RestApiOperation] | None:
-    """The active definition and enabled operation behind a ``rest__`` tool name."""
     parts = split_tool_name(tool_name)
     if parts is None:
         return None
@@ -113,7 +94,6 @@ def _request(
     arguments: dict[str, Any], scope: AppliedScope, auth_headers: dict[str, str], auth_query: dict[str, str],
     pagination: dict[str, Any], cursor: str | None, extra_headers: dict[str, str] | None = None,
 ) -> tuple[httpx.Request, int]:
-    """The request of one call; parameter values go out under their wire names (``$filter`` for ``filter``)."""
     declared = declared_parameters(operation)
     values = {name: param["fixed"] for name, param in declared.items() if param["fixed"] is not None}
     values.update({name: value for name, value in arguments.items() if name != BODY_PARAM})
@@ -179,7 +159,6 @@ async def _caller_grants(db: AsyncSession, operation: RestApiOperation, context:
 
 
 def _refused_scope(operation: RestApiOperation, grants: list[Any], arguments: dict[str, Any]) -> dict[str, Any]:
-    """The audit of a scope refusal: the scoped parameters the call asked for, and every scope the caller holds."""
     scoped = sorted({name for grant in grants for name in grant.scope})
     return {"refused": True,
             "requested": {name: arguments[name] for name in scoped if name in arguments},
@@ -188,10 +167,6 @@ def _refused_scope(operation: RestApiOperation, grants: list[Any], arguments: di
 
 
 def check_write_class(definition: RestApiDefinition, operation: RestApiOperation, context: Any) -> None:
-    """A write runs only in a run whose class covers the operation's (``deliver`` unless the admin said ``change``).
-
-    The gates before dispatch decided this from the in-process view of the operation (``rest_tool_classes``); here
-    it is decided again from the stored row, and the view is brought up to date for the next call."""
     from ...tools.definitions.rest_tool_classes import remember_rest_tool
     from ..run_capability.chat_writes import chat_connector_write_permitted
     from ..run_capability.classes import capability_covers, enforced_run_capability_class
@@ -251,10 +226,6 @@ async def _csrf_token(client: httpx.AsyncClient, csrf: dict[str, Any], *, base_u
 async def _send_call(client: httpx.AsyncClient, build: Any, *, definition: RestApiDefinition,
                      operation: RestApiOperation, base_url: str, auth: Any, timeout: float, secrets: list[str]
                      ) -> tuple[httpx.Response, int, int]:
-    """Sends the call; a write of a definition with ``auth.csrf`` first fetches its token (``csrf``).
-
-    A 403 ``x-csrf-token: Required`` refetches once and sends once more: the first write was refused before it
-    did anything, so sending it again cannot write twice."""
     csrf = csrf_for(definition.auth, operation.method)
     extra = await _csrf_token(client, csrf, base_url=base_url, auth=auth, timeout=timeout, secrets=secrets) \
         if csrf else {}
@@ -339,7 +310,6 @@ async def _call(db: AsyncSession, *, definition: RestApiDefinition, operation: R
 
 
 async def execute_rest_tool(tool_name: str, params: dict[str, Any] | None, context: Any) -> dict[str, Any]:
-    """The ``rest__`` tool entry point (``tools/registry``); every call that names an operation is audited."""
     db = getattr(context, "db", None)
     if db is None:
         return {"error": "REST API tools require an active platform database session."}
@@ -353,7 +323,6 @@ async def execute_rest_tool(tool_name: str, params: dict[str, Any] | None, conte
 
 async def run_operation(db: AsyncSession, *, definition: RestApiDefinition, operation: RestApiOperation,
                         tool_name: str, params: dict[str, Any] | None, context: Any) -> dict[str, Any]:
-    """One audited call of ``operation`` (the tool path and the admin test call share it)."""
     workspace_id = _workspace_id(context)
     arguments = dict(params or {})
     run = await start_run(db, definition=definition, operation=operation, tool_name=tool_name, context=context,

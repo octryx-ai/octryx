@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from app.agent.core.runtime.turn_execution_binding import mark_turn_runtime_stopped
+from app.agent.runtime.turn_execution_binding import mark_turn_runtime_stopped
 from app.services.session.execution_gate import evaluate_execution_gate
 from app.services.session.turn_execution_snapshot import (
     TURN_EXECUTION_SNAPSHOT_KEY,
@@ -15,8 +15,6 @@ from app.services.session.turn_execution_summary import (
 )
 
 RUN_ID, ATTEMPT_ID = "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"
-
-
 
 
 SECRET = "sk-live-SECRET-token-123"

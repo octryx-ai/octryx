@@ -7,7 +7,6 @@ from urllib.parse import quote
 
 import httpx
 
-from ...services.ai_marking import marking_facts, with_marker
 from ...services.outbound_egress import CONNECTION_GITHUB
 from ...services.source_control import SourceControlOperation
 from ..context import ToolContext
@@ -103,7 +102,6 @@ class GetGitHubPullRequestTool:
 async def _requester_rule(
     context: ToolContext, requester: str, reviewers: list[str], body: str
 ) -> tuple[list[str], str, str, str]:
-    """Apply the requester rule; returns the reviewers, the body, the skip reason and the connection's author."""
     skipped, author = "", ""
     if requester and reviewers:
         async def login() -> str:
@@ -154,7 +152,6 @@ class CreateGitHubPullRequestTool:
             params.get("reviewers"), list) else []
         requester = _string(params.get("requester"))
         reviewers, body, skipped, author = await _requester_rule(context, requester, reviewers, body)
-        body = with_marker(body, await marking_facts(context))
         pr = await _http_json(
             "POST",
             f"{_github_base_url(context)}/repos/{owner}/{repo}/pulls",

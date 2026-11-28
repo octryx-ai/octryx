@@ -73,14 +73,16 @@ async def resolved_bitbucket_config(db: AsyncSession) -> dict[str, Any]:
     entry = await get_tool_config(db, "bitbucket", None)
     if entry is None or not entry.is_active:
         return {}
-    return await resolve_secret_refs(db, dict(entry.config or {}), tool_name="bitbucket", project_id=None)
+    return await resolve_secret_refs(db, dict(entry.config or {}), tool_name="bitbucket", project_id=None,
+                                     purpose="design_delivery.scm_sync")
 
 
 async def resolved_gitlab_config(db: AsyncSession) -> dict[str, Any]:
     entry = await get_tool_config(db, "gitlab", None)
     if entry is None or not entry.is_active:
         return {}
-    return await resolve_secret_refs(db, dict(entry.config or {}), tool_name="gitlab", project_id=None)
+    return await resolve_secret_refs(db, dict(entry.config or {}), tool_name="gitlab", project_id=None,
+                                     purpose="design_delivery.scm_sync")
 
 
 def normalize_gitlab_base_url(config: dict[str, Any]) -> str:

@@ -1,8 +1,4 @@
-"""A Workspace's named connection for tests (the sole runtime source of a connector).
-
-A flat ``jira_url`` / ``confluence_url`` / ``bitbucket_url`` in the Workspace config makes no connector active, so a
-test that wants a connector's tools offered gives the Workspace a connection.
-"""
+"""A Workspace's named connection for tests (the sole runtime source of a connector)."""
 
 from __future__ import annotations
 
@@ -20,7 +16,6 @@ URL_AND_SECRET = {
 
 
 async def connect(db, tool: str, workspace_id: str) -> str:
-    """A token connection of ``tool`` available in ``workspace_id`` (agent tools level ``write``)."""
     url_field, secret_field = URL_AND_SECRET[tool]
     row = ConnectorNamedConnection(
         id=str(uuid.uuid4()), tool_name=tool, project_id=None, scope_key="global", name=f"{tool}-{uuid.uuid4().hex[:6]}",

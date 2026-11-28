@@ -1,19 +1,4 @@
-"""A run that waits for an external state: the server observes it, never the agent.
-
-Entering a ``watch`` node binds its **target** from the run (the run's pull request, branch, ticket, a Jenkins
-job, an approval). The state then arrives two ways:
-
-- **events**: a signed ``scm_pull_request`` / ``ci_build`` webhook (``inbound_alerts.trigger``), a polled Jira
-  change (the ``jira_change`` source) or a decided approval are delivered to every run watching that target;
-- **poll** (fallback, every 5 minutes, ``WatchPollWorker``): the run's PR (its stored identity) through the
-  provider's governed read tool on the named connection, only when that connection is on the recorded host; its CI
-  status (``platform/ci``); the Work item's state.
-
-A met condition is recorded with its source. By default the run then waits for the requester's
-confirmation ("go on") before it routes on the condition; a node may say ``advance: auto`` only when no exit leads
-into a higher capability class than the run held before the watch, and never into ``deliver`` (validated at
-publish). Reminder and timeout come from ``sweep.py`` (24 h, 5 days → paused ``watch_timeout``).
-"""
+"""A run that waits for an external state: the server observes it, never the agent."""
 
 from __future__ import annotations
 
@@ -50,7 +35,6 @@ POLL_INTERVAL_SECONDS = 300
 
 
 def ci_params(run: WorkflowRun, params: dict[str, Any]) -> dict[str, Any]:
-    """The CI read of a watch: a deploy target reads exactly the build its queued deploy started."""
     if params.get("target") != "deploy":
         return params
     deploy = dict(dict(run.context or {}).get("deploy") or {})
@@ -77,8 +61,7 @@ def _same(left: Any, right: Any) -> bool:
 
 
 def event_pull_request(event: WatchEvent, number: str | None = None) -> dict[str, str]:
-    """The identity of the event's pull request (or of pull request ``number`` it names, a reverted one) on the host
-    of the pull request URL in the signed payload: an event without that host names no pull request."""
+    # The host comes from the signed payload: an event without it names no pull request.
     from ..secure_work.pull_requests.record_identity import identity_of, web_host
 
     return identity_of(event.provider, web_host(event.pr_url), event.repository,
@@ -100,9 +83,7 @@ def matches(event: WatchEvent, target: dict[str, Any]) -> bool:
 
 
 def _ci_matches(event: WatchEvent, target: dict[str, Any]) -> bool:
-    """A CI event counts only for the commit the run pushed; one workflow's success is not the commit's.
-
-    A deploy watch counts only its own build: an event without the deploy's resolved build number never does."""
+    # One workflow's success is not the commit's; a deploy counts only its own build.
     if target.get("deploy"):
         return (bool(event.job) and _same(event.job, target.get("job")) and bool(target.get("build_number"))
                 and _same(event.build_number, target.get("build_number")))
@@ -137,7 +118,6 @@ async def _watching_runs(db: AsyncSession, *, project_id: str | None = None) -> 
 
 
 async def _claimed(db: AsyncSession, run: WorkflowRun) -> WorkflowRun | None:
-    """The run claimed and current, while it still watches (a person or another event may have moved it)."""
     try:
         run = await lock_run(db, run)
     except WorkflowRunError:
@@ -147,7 +127,6 @@ async def _claimed(db: AsyncSession, run: WorkflowRun) -> WorkflowRun | None:
 
 async def record_condition(db: AsyncSession, run: WorkflowRun, condition: str, *, source: str,
                            detail: dict[str, Any] | None = None) -> bool:
-    """A watched condition is met: auto-advance, or wait for the requester's "go on" (the default)."""
     from .engine import resolve_current_node
 
     if run.status != STATUS_WAITING or run.waiting_kind != WAITING_WATCH:
@@ -179,7 +158,6 @@ async def record_condition(db: AsyncSession, run: WorkflowRun, condition: str, *
 
 
 def _target(run: WorkflowRun) -> dict[str, Any]:
-    """The watched target; a deploy's build number is the one resolved since the watch began (``record_ci``)."""
     target = dict(dict(dict(run.node_state or {}).get("waiting") or {}).get("target") or {})
     if target.get("deploy"):
         target["build_number"] = dict(dict(run.context or {}).get("deploy") or {}).get("build_number")
@@ -189,13 +167,9 @@ def _target(run: WorkflowRun) -> dict[str, Any]:
 async def deliver_event(
     db: AsyncSession, event: WatchEvent, *, source: str, project_id: str | None = None
 ) -> list[str]:
-    """Hand an observed event to every run watching its target; the ids of the runs it moved.
-
-    A webhook's event reaches only the runs of the webhook's Workspace (``project_id``); a decided approval is
-    addressed by its id.
-    """
+    # A webhook's event reaches only the runs of the webhook's Workspace.
     if event.condition == PR_MERGED and event.repository:
-        # Knowledge PR 2: a merge refreshes the repository's code graph (mirror, index), whether a run waits or not.
+        # A merge refreshes the repository's code graph (mirror, index), whether a run waits or not.
         from ..code_intelligence.graph_refresh import on_pr_merged
 
         try:
@@ -219,10 +193,6 @@ REVERT_LOOKBACK_DAYS = 90
 
 
 async def record_revert(db: AsyncSession, event: WatchEvent, *, project_id: str | None = None) -> list[str]:
-    """A merged pull request reverts a run's pull request: the run gets a ``pr_reverted`` event (trust metrics,
-    the revert rate is counted from this event, never by a query). The runs of the last
-    90 days of the webhook's Workspace whose stored pull request identity is the reverted one: same provider, host,
-    repository path and number."""
     from datetime import timedelta
 
     from ..secure_work.pull_requests.record_identity import same_pull_request, stored_identity
@@ -244,7 +214,6 @@ async def record_revert(db: AsyncSession, event: WatchEvent, *, project_id: str 
 async def work_state_for_jira_status(
     db: AsyncSession, ticket_key: str, status: str, *, project_id: str | None = None
 ) -> str:
-    """The Work state the item's write-back mapping maps a Jira status to ('' when none does)."""
     from ..secure_work.lifecycle_transitions import default_workflow_for_item
     from ..secure_work.sync_policy import mapped_status
 
@@ -260,7 +229,6 @@ async def work_state_for_jira_status(
 
 
 async def deliver_jira_change(db: AsyncSession, payload: dict[str, Any], *, project_id: str) -> list[str]:
-    """A polled Jira change of the change source's Workspace reaches that Workspace's watching runs."""
     key, status = str(payload.get("key") or ""), str(payload.get("status") or "")
     if not key or not status:
         return []
@@ -284,7 +252,6 @@ def pr_condition(provider: str, result: dict[str, Any]) -> str | None:
 
 
 async def _poll_run(db: AsyncSession, run: WorkflowRun) -> tuple[str | None, Any]:
-    """``(condition, CI result)`` read for the run; reads only (the caller records after claiming the run)."""
     from ..secure_work.pull_requests.record_identity import stored_identity
     from .platform import ci
     from .platform.pr_adoption import read_recorded_pull_request
@@ -323,7 +290,6 @@ _NO_BUILD_REASONS = ("no build status", "no Actions run", "no pipeline")
 
 
 def _no_ci_reported(run: WorkflowRun, result: Any) -> bool:
-    """No CI has reported any build for the run's commit and the watch has waited longer than the grace."""
     from datetime import datetime, timedelta
 
     from ...time_utils import utc_now
@@ -340,11 +306,7 @@ def _no_ci_reported(run: WorkflowRun, result: Any) -> bool:
 
 
 async def poll_watching_runs(db: AsyncSession) -> int:
-    """The fallback: read each watched target on its named connection; returns how many runs moved.
-
-    The reads (network) happen without the run claim; a run is claimed only to record what was read, and each
-    run commits on its own, so no row stays locked across another run's network call.
-    """
+    # Reads happen without the run claim and each run commits on its own, so no row stays locked across network calls.
     from .platform.ci import record_ci
 
     moved = 0

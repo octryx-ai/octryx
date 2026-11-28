@@ -8,10 +8,11 @@ from app.db import get_db
 from app.web._helpers.api_guards import _require_admin_api
 from app.web._helpers.workspace_artifacts import _office_template_import_root, _office_template_upload_root
 
+from ...http_multipart_route import BoundedFormRoute
 from .panel_corp_identities import router as panel_corp_identities_router
 from .panel_office_fallback import router as fallback_router
 
-router = APIRouter()
+router = APIRouter(route_class=BoundedFormRoute)
 router.include_router(fallback_router)
 
 

@@ -1,21 +1,5 @@
-"""Explicit wiring of the Evidence slice's external dependencies.
-
-The slice needs the S3-compatible object store and the application's own PostgreSQL, which holds
-the Evidence index (``evidence_index/postgres_client.py``) and the Workspace knowledge graph
-(``kg_node``/``kg_edge``). Either one missing is the typed ``needs_configuration`` state — the
-application still starts, the routes still answer, and nothing silently degrades to a filesystem
-write or to a full-corpus Python retrieval.
-
-The configuration mapping is passed in explicitly. The process-wide accessor
-reads ``os.environ`` once and caches the assembled runtime; ``reset_evidence_runtime``
-exists so a test can rebuild it.
-
-The sandboxed parser is optional too: without it, PDF and Office uploads answer
-``needs_configuration`` before anything is written, and text-native ingestion is unaffected.
-
-The embedding space is optional: without it the lexical slice works unchanged and the
-vector mode answers ``needs_configuration`` with the fixed reason kept here.
-"""
+"""Explicit wiring of the Evidence slice's external dependencies: object store, PostgreSQL evidence index,
+and the optional embedding space, reranker and sandboxed parser."""
 
 from __future__ import annotations
 
@@ -29,7 +13,7 @@ from .embedding.selection import build_embedder, embedding_config_from_environme
 from .evidence_index.base import EvidenceIndexClient
 from .ingestion.docling_client import DoclingSandboxParser, docling_config_from_environment
 from .ingestion.parser_port import DocumentParser, ParserError
-from .ledger.errors import EvidenceStoreNotConfiguredError, EvidenceStoreUnavailableError
+from .ledger.errors import EvidenceStoreNotConfiguredError
 from .objects import (
     KnowledgeObjectError,
     KnowledgeObjectNotConfiguredError,
@@ -45,16 +29,16 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class EvidenceRuntime:
-    """The configured dependencies of the Evidence slice, assembled once."""
-
     object_store: KnowledgeObjectStore
     runtime_client: EvidenceIndexClient
     query_store: EvidenceIndexQueryStore
     embedding: EmbeddingRuntime | None = None
-    # Why ``embedding`` is absent: a fixed reason token for the vector mode's explicit state.
+    # Why ``embedding`` is absent: a fixed reason token for the vector mode's explicit state; the lexical
+    # slice works without it.
     embedding_unavailable_reason: str = "space_not_configured"
     reranker: RerankerRuntime | None = None
-    # The sandboxed PDF/Office parser; absent means those uploads need configuration.
+    # The sandboxed PDF/Office parser; absent means those uploads answer needs_configuration before
+    # anything is written, and text-native ingestion is unaffected.
     parser: DocumentParser | None = None
     parser_unavailable_reason: str = "parser_not_configured"
 
@@ -75,7 +59,6 @@ def _object_config(environ: Mapping[str, str]) -> KnowledgeObjectStoreConfig:
 
 
 def _embedding(environ: Mapping[str, str]) -> tuple[EmbeddingRuntime | None, str]:
-    """The configured embedding space, or ``None`` with the fixed reason it is absent."""
     try:
         config = embedding_config_from_environment(environ)
         return EmbeddingRuntime(space=config.space, embedder=build_embedder(config)), ""
@@ -111,7 +94,8 @@ def _postgres_client() -> EvidenceIndexClient:
 
 
 def build_evidence_runtime(environ: Mapping[str, str]) -> EvidenceRuntime:
-    """Assemble the runtime from an explicit mapping, or refuse with a typed state."""
+    # A missing object store or index is needs_configuration, never a silent fallback to a filesystem
+    # write or a full-corpus Python retrieval; the application still starts and the routes still answer.
     if not isinstance(environ, Mapping):
         raise EvidenceStoreNotConfiguredError()
     object_store = KnowledgeObjectStore(_object_config(environ))
@@ -135,7 +119,6 @@ _UNCONFIGURED = False
 
 
 def get_evidence_runtime() -> EvidenceRuntime:
-    """The process-wide runtime; raises the typed state when unconfigured."""
     global _RUNTIME, _UNCONFIGURED
     if _RUNTIME is not None:
         return _RUNTIME
@@ -149,17 +132,3 @@ def get_evidence_runtime() -> EvidenceRuntime:
         logger.info("Knowledge evidence runtime is not configured; routes answer needs_configuration")
         raise
     return _RUNTIME
-
-
-def set_evidence_runtime(runtime: EvidenceRuntime | None) -> None:
-    """Install or clear the process-wide runtime. For wiring and tests only."""
-    global _RUNTIME, _UNCONFIGURED
-    if runtime is not None and type(runtime) is not EvidenceRuntime:
-        raise EvidenceStoreUnavailableError()
-    _RUNTIME = runtime
-    _UNCONFIGURED = False
-
-
-def reset_evidence_runtime() -> None:
-    """Forget the cached runtime so the next call re-reads the environment."""
-    set_evidence_runtime(None)

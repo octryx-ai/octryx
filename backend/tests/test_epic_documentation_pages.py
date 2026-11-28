@@ -1,9 +1,5 @@
-"""Unattended epic documentation: the spec page, a feature page per story, the epic overview.
-
-Real paths: the platform actions through the governed Confluence tools (named-connection routing by space, the
-connection's allowlist, pinned instance/connection) against the writable Confluence stub, the engine routing the
-optional step to ``done``, the seeds.
-"""
+"""Unattended epic documentation (spec page, a feature page per story, the epic overview) through the governed
+Confluence tools against the writable stub."""
 
 from __future__ import annotations
 
@@ -22,8 +18,9 @@ from tests.documentation_acceptance_support import PARENT, SPACE
 from tests.egress_support import public_source_dns  # noqa: F401  (fixture)
 from tests.epic_documentation_pages_support import _events, _git, _run, _workspace
 from tests.phased_workflow_fixtures import PHASE, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("public_source_dns")]
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("public_source_dns"), pytest.mark.usefixtures("scripted_pool")]
 
 
 async def _engine_run(db, admin, project, story):
@@ -83,10 +80,10 @@ async def test_the_spec_and_each_story_publish_under_the_grant_and_touch_only_th
     _outcome, route = await publish_feature(db, story1, {})
     assert route == "succeeded"
     pages = story1.context["documentation_grant"]["pages"]
-    assert story1.context["documentation_grant"]["id"] == grant["id"]  # inherited through the chain
+    assert story1.context["documentation_grant"]["id"] == grant["id"]
     feature1, overview = pages[f"feature:{s1.source_key}"], pages["overview"]
     assert {stub.pages[page["page_id"]]["parent"] for page in (feature1, overview)} == {PARENT}
-    assert spec_page["url"] in stub.pages[feature1["page_id"]]["body"]  # the feature page links the spec page
+    assert spec_page["url"] in stub.pages[feature1["page_id"]]["body"]
     assert "1 of 2 stories" in stub.pages[overview["page_id"]]["body"]
 
     story2 = _run(admin, project, s2, "epic-delivery", after=story1, pr="9")
@@ -100,7 +97,7 @@ async def test_the_spec_and_each_story_publish_under_the_grant_and_touch_only_th
     assert "All 2 stories of the epic have a pull request." in overview_body
     assert "https://bitbucket.example.test/pr/8" in overview_body and "https://bitbucket.example.test/pr/9" in (
         overview_body)
-    assert stub.pages[feature1["page_id"]]["version"] == 1  # an earlier story's page is not rewritten
+    assert stub.pages[feature1["page_id"]]["version"] == 1
     assert (stub.pages["950"]["body"], stub.pages["950"]["version"]) == ("<p>Human notes.</p>", 1)
     assert set(stub.pages) == {PARENT, "950", spec_page["page_id"], feature1["page_id"], overview["page_id"],
                                pages2[f"feature:{s2.source_key}"]["page_id"]}
@@ -115,7 +112,7 @@ async def test_a_foreign_page_with_the_storys_title_is_never_overwritten(db, mon
     db.add(story)
     await db.flush()
     _outcome, route = await publish_feature(db, story, {})
-    assert route == "succeeded"  # the overview is written; the feature page is skipped
+    assert route == "succeeded"
     assert (stub.pages["960"]["body"], stub.pages["960"]["version"]) == ("<p>Written by a person.</p>", 1)
     skipped = await _events(db, story, "documentation_skipped")
     assert skipped[0]["reason"] == "foreign_page" and skipped[0]["page_id"] == "960"
@@ -157,7 +154,7 @@ async def test_without_a_space_or_without_the_opt_in_the_step_is_skipped_and_the
 
 async def test_a_confluence_error_is_an_event_and_the_run_is_still_done(db, monkeypatch):
     admin, project, stub, _epic, (s1, _s2) = await _workspace(db, monkeypatch)
-    stub.writable = False  # Confluence refuses every write
+    stub.writable = False
     run = await _engine_run(db, admin, project, s1)
     assert run.outcome == "done"
     assert run.context["actions"]["docs"]["result"] == "failed"

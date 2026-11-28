@@ -1,10 +1,4 @@
-"""Who may read the runtime endpoints (O0).
-
-- ``/metrics``: a signed-in caller, or a scraper presenting the configured ``metrics_scrape_token`` as a bearer
-  token. Without either the endpoint answers 401; an unset token means login only.
-- ``/health`` and ``/api/v1/health``: everyone gets the status (probes keep working); only a signed-in caller gets
-  the checks, summary, version and configuration report.
-"""
+"""Who may read the runtime endpoints (O0)."""
 
 from __future__ import annotations
 
@@ -30,7 +24,6 @@ def scrape_token_matches(request: Request) -> bool:
 
 
 async def caller_is_signed_in(request: Request) -> bool:
-    """The same identity check as every authenticated route (API key, bearer or session cookie)."""
     factory = request.app.state.async_session_factory
     token = _bearer(request)
     credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token) if token else None

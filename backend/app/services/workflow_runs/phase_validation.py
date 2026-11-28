@@ -1,8 +1,4 @@
-"""Validation of one phase definition of a phased workflow: shape, checks, steps, tools, safety, capability.
-
-The phased designer validates every phase on preview and save, and graph validation refuses a phase
-with errors (``graph_node_rules``).
-"""
+"""Validation of one phase definition of a phased workflow: shape, checks, steps, tools, safety, capability."""
 
 from __future__ import annotations
 
@@ -28,8 +24,6 @@ def _string_list(value: Any) -> list[str]:
 
 
 def validate_phase_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """``{"valid", "errors", "warnings"}`` of one phase's ``workflow_id``/``workflow_class``, contract, tool
-    policy and safety constraints."""
     errors: list[dict[str, str]] = []
     warnings: list[dict[str, str]] = []
     workflow_contract = payload.get("workflow_contract")
@@ -80,7 +74,6 @@ def _check_contract_sections(
 
 
 def _mutating_tools_allowed(policy: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """The mutating tools a normalized tool policy allows: by name, and by an allow pattern no deny rule covers."""
     denylist = set(policy["denylist"])
     mutating_allowed = sorted(set(policy["allowlist"]).intersection(MUTATING_TOOL_NAMES))
     mutating_allowed_by_pattern = sorted(

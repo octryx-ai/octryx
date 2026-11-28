@@ -19,7 +19,10 @@ from tests.device_job_session_parity_support import (  # noqa: F401
 )
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import systems  # noqa: F401 - the stubbed Jira and GitHub fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -67,7 +70,6 @@ async def test_registration_refuses_a_run_the_device_owner_may_not_follow(client
 
 @pytest.mark.asyncio
 async def test_a_terminal_session_with_another_repository_cannot_attach_to_the_run(client, auth_headers, db, systems):  # noqa: F811
-    """The order binding → attach never skips the check (a terminal binds first, then selects the run)."""
     from app.services.agent_gateway.identity import GatewayIdentity
     from app.services.agent_gateway.sessions import get_or_create_gateway_session
     from app.services.workflow_runs.octryx.attach import attach

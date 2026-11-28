@@ -67,8 +67,6 @@ async def _bound_run(db, definition: dict | None = None) -> tuple[WorkflowRun, S
 
 
 async def set_tool_defaults(db, workspace_id: str, **values) -> None:
-    """The Workspace's ``device_runs.tool_defaults`` (the defaults allow; tests of the strict rules switch them
-    back)."""
     from app.models import Project
 
     project = await db.get(Project, workspace_id)
@@ -100,7 +98,6 @@ def _call(gateway: Session, tool: str, *, at, ok: bool = True, **parameters) -> 
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

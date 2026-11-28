@@ -120,7 +120,6 @@ async def _expand_context(
     direction: str,
     relation: str,
 ) -> tuple[set[str], dict[str, int], dict[str, CodeGraphEdge], bool]:
-    """Breadth-first expansion from the start node, recording the depth each node was reached at."""
     visited = {start_id}
     frontier = {start_id}
     depth_by_node = {start_id: 0}

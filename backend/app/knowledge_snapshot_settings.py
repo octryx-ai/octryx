@@ -1,10 +1,4 @@
-"""Knowledge repository snapshot settings, a base of :class:`app.config.Settings`.
-
-``OCTRYX_KNOWLEDGE_SNAPSHOT_MAX_FILE_BYTES`` (default 1 MiB) bounds one file of a local repository
-snapshot, matching the launcher, which sends files up to 1 MiB. It may be raised up to the general 8 MiB
-ingestion limit (``knowledge/ingestion/text_ingest.MAX_TEXT_BYTES``), never beyond it; the upload batch and
-request bounds follow it.
-"""
+"""Knowledge repository snapshot settings, a base of :class:`app.config.Settings`."""
 
 from __future__ import annotations
 

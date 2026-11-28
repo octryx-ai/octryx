@@ -23,12 +23,14 @@ export function getAdminAreaTabGroups(
   features: AdminPlatformFeatures = {},
   // Platform admin, or admin/owner of the active Workspace (entries marked workspaceAdmin).
   canAdminWorkspace = isAdmin,
+  // Platform admin, or admin/owner of any Workspace (entries marked anyWorkspaceAdmin).
+  canAdminAnyWorkspace = canAdminWorkspace,
 ): AdminTabGroup[] {
   return ADMIN_AREA_CONFIGS[area].groups
     .map((group) => ({
       label: group.label,
       tabs: group.tabs
-        .filter((tabRef) => isAdminTabRefVisible(tabRef, isAdmin, features, canAdminWorkspace))
+        .filter((tabRef) => isAdminTabRefVisible(tabRef, isAdmin, features, canAdminWorkspace, canAdminAnyWorkspace))
         .flatMap((tabRef): AdminTabDef[] => {
           const tab = ADMIN_TAB_BY_ID.get(tabRef.id);
           return tab ? [{ ...tab, label: tabRef.label ?? tab.label, children: undefined }] : [];

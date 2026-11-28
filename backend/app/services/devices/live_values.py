@@ -32,7 +32,6 @@ IMAGE_TEXT = "(picture)"
 
 
 def image_type(data: bytes) -> str:
-    """The picture's type from its first bytes (PNG, JPEG, WebP), ``""`` for anything else."""
     if data.startswith(b"\x89PNG\r\n\x1a\n"):
         return "image/png"
     if data.startswith(b"\xff\xd8\xff"):
@@ -43,7 +42,6 @@ def image_type(data: bytes) -> str:
 
 
 def decode_images(raw: Any) -> list[tuple[str, bytes]]:
-    """The attached pictures as ``(media type, bytes)``; anything else refuses the whole message."""
     if raw in (None, []):
         return []
     if not isinstance(raw, list) or len(raw) > MAX_IMAGES:
@@ -82,7 +80,6 @@ def _model(value: Any) -> str:
 
 
 def normalize_sessions(raw: Any) -> list[dict[str, Any]]:
-    """What a device may report about a session; anything else (or a bad address) is dropped."""
     out: list[dict[str, Any]] = []
     seen: set[str] = set()
     for item in raw if isinstance(raw, list) else []:

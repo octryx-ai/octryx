@@ -1,4 +1,3 @@
-// Plugin settings form: fields from the plugin's schema, the draft, the PUT body with problems, and refusals in words.
 import { isRecord } from "./pluginRecordGuard";
 
 export type SettingsSchema = { type?: string; title?: string; properties?: Record<string, Record<string, unknown>>; required?: string[] };
@@ -10,7 +9,6 @@ export type SettingField = {
   control: "text" | "number" | "integer" | "boolean" | "enum" | "secret";
   options: string[];
   required: boolean;
-  // Plain values as stored; a secret only says whether it is set.
   value: string | number | boolean | null;
   secretSet: boolean;
 };
@@ -24,7 +22,6 @@ export function isSecretSpec(spec: Record<string, unknown>): boolean {
   return spec.format === "password" || spec["x-secret"] === true;
 }
 
-/** The form's fields from the plugin's schema and the stored values (GET /settings), in the schema's order. */
 export function settingsFields(schema: SettingsSchema | null | undefined, values: Record<string, unknown> | null | undefined): SettingField[] {
   const properties = schema?.properties ?? {};
   const required = new Set(schema?.required ?? []);
@@ -59,10 +56,7 @@ export function settingsDraft(fields: SettingField[]): SettingsDraft {
     field.control === "boolean" ? field.value === true : field.control === "secret" || field.value === null ? "" : String(field.value)]));
 }
 
-/**
- * The PUT body and what is wrong before sending: numbers parsed, an empty plain field cleared (null), an empty secret
- * left out (the stored one stays). A required plain field must have a value; a required secret must be set or typed.
- */
+// An empty secret is left out so the stored one stays.
 export function settingsPayload(fields: SettingField[], draft: SettingsDraft): { values: Record<string, unknown>; problems: Record<string, string> } {
   const values: Record<string, unknown> = {};
   const problems: Record<string, string> = {};
@@ -101,7 +95,6 @@ const SETTINGS_WORDS: Record<string, string> = {
   plugin_setting_unknown: "The plugin does not know a setting",
 };
 
-/** A refused save in words (422 codes), followed by the server's sentence. */
 export function settingsErrorText(error: unknown): string {
   const value = isRecord(error) ? error : {};
   const code = typeof value.code === "string" ? value.code : "";

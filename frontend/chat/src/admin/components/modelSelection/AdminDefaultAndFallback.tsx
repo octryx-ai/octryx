@@ -5,7 +5,6 @@ import { takeAdminSection } from "../../config/adminPageSection";
 import "../modelCatalog/modelCatalog.css";
 import { PlatformEngineCard } from "../../../chat/engines/EngineCards";
 import { LocalModelsCard } from "../localModels/LocalModelsCard";
-import { SeatTrafficCard } from "../seatTraffic/SeatTrafficCard";
 import { ExplainTurn } from "./ExplainTurn";
 import { loadSelection, saveOrder, saveTasks } from "./modelSelectionApi";
 import {
@@ -29,7 +28,6 @@ const TABS = [
   { id: "tasks", label: "Task models" },
   { id: "engine", label: "Coding engine" },
   { id: "local", label: "Local models" },
-  { id: "seat", label: "Seat traffic" },
   { id: "explain", label: "Explain a turn" },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
@@ -66,7 +64,6 @@ export function AdminDefaultAndFallback() {
       {page && tab === "tasks" ? <TaskModels page={page} onSaved={setPage} /> : null}
       {tab === "engine" ? <PlatformEngineCard /> : null}
       {tab === "local" ? <LocalModelsCard /> : null}
-      {tab === "seat" ? <SeatTrafficCard /> : null}
       {tab === "explain" ? <ExplainTurn /> : null}
     </div>
   );

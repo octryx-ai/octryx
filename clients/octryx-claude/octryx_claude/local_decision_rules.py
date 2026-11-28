@@ -98,11 +98,6 @@ _HARD_WORDS = re.compile(r"(?<![\w.-])(?:git|curl|wget|scp|sftp|ftp|nc|ncat|netc
 
 
 def _unparseable_decision(command: str, cwd: str, policy: dict[str, Any]) -> tuple[str, str, str]:
-    """A command the structural parser cannot split (e.g. a ``sed -i '1a\\'`` inside ``{ …; } > file && …``, which
-    plain Claude Code runs). Its text still holds the hard-deny list: no credential file, no environment dump, no
-    destructive pattern and
-    none of the listed commands as a word, run from inside the repository, means it can run none of them; anything
-    else goes to the platform."""
     text = run_shell.without_data_heredocs(command)
     if run_shell.hard_denied(command) is not None or _HARD_WORDS.search(text):
         return SERVER, "", ""

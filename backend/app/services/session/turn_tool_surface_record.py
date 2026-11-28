@@ -1,12 +1,4 @@
-"""The tool surface a turn ran with, as session state.
-
-``agent/core/context/turn_tool_surface`` decides the surface from a closed precedence of explicit
-sources. The decision is recorded like ``runtime_selection_source``: the session metadata carries
-the latest turn's ``tool_surface_source`` and ``tool_surface_set`` (the governed default set's
-key and version, e.g. ``diagnosis.v2``; ``None`` for every other source), and the turn execution
-snapshot stamps both onto every trace of the turn (``turn_execution_snapshot``), so an older turn
-stays explainable after a later turn overwrote the session metadata.
-"""
+"""The tool surface a turn ran with, as session state."""
 
 from __future__ import annotations
 
@@ -36,7 +28,6 @@ TOOL_SURFACE_SOURCES = (
 
 
 def record_tool_surface_metadata(metadata: dict[str, Any], *, source: str, surface_set: str) -> None:
-    """Write the turn's surface source and set key into the session ``metadata`` in place."""
     metadata[TOOL_SURFACE_SOURCE_METADATA_KEY] = source
     metadata[TOOL_SURFACE_SET_METADATA_KEY] = surface_set or None
 

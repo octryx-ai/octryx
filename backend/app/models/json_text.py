@@ -35,8 +35,3 @@ def dump_string_list(value: list[str] | tuple[str, ...] | None) -> str:
 def dump_json_dict(value: dict[str, Any] | None) -> str:
     payload = value if isinstance(value, dict) else {}
     return json.dumps(payload)
-
-
-def dump_json_list(value: list[Any] | tuple[Any, ...] | None) -> str:
-    payload = list(value or [])
-    return json.dumps(payload)

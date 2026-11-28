@@ -78,6 +78,8 @@ type AdminPanelShellProps = {
   features?: AdminPlatformFeatures;
   // Platform admin, or admin/owner of the active Workspace (shows the Workspace-admin entries such as Costs).
   canAdminWorkspace?: boolean;
+  // Platform admin, or admin/owner of any Workspace (shows Compliance audit).
+  canAdminAnyWorkspace?: boolean;
   // Entries that open a page in another component of the same area (AdminExternalNav.tsx).
   externalNav?: AdminExternalNavEntry[];
   children: ReactNode;
@@ -95,7 +97,7 @@ function activeGroupLabelOf(groups: TabGroups, sidebarTab: AdminTab, tab: AdminT
 
 export function AdminPanelShell({
   area = "admin", onClose, tab, setTab, currentTabLabel, isAdmin = true, features, canAdminWorkspace = isAdmin,
-  externalNav = [], children,
+  canAdminAnyWorkspace = canAdminWorkspace, externalNav = [], children,
 }: AdminPanelShellProps) {
   const { sidebarCollapsed, toggleSidebarCollapsed } = useSidebarCollapsed();
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
@@ -105,8 +107,8 @@ export function AdminPanelShell({
   // Connections instead of menu entries.
   const entryArea = area === "admin";
   const sidebarExternalNav = entryArea ? [] : externalNav;
-  const visibleTabGroups = getAdminAreaTabGroups(area, isAdmin, features, canAdminWorkspace);
-  // A hidden page (e.g. Scenarios under Workflows) keeps its parent entry selected.
+  const visibleTabGroups = getAdminAreaTabGroups(area, isAdmin, features, canAdminWorkspace, canAdminAnyWorkspace);
+  // A hidden page (e.g. the workflow designer under Workflows) keeps its parent entry selected.
   const sidebarTab = resolveAdminSidebarTab(area, tab);
   const activeGroupLabel = activeGroupLabelOf(visibleTabGroups, sidebarTab, tab, areaConfig.title);
 

@@ -1,10 +1,4 @@
-// "Read through connection" of a Git repository source (Add source › Git repository, its edit form, and Work ›
-// Repositories › Add a repository, which opens the same form). The server names the candidates: the Workspace's
-// usable GitHub, GitLab and Bitbucket connections that can read the URL
-// (GET …/knowledge/connectors/_git-connection-candidates?repository_url=); an unlinked source lists them as
-// `connection_candidates`. The choice is the source's top-level `connection_id` (gitRepositoryScope). Without one the
-// server links the single candidate itself, refuses several (422 connection_choice_required) and reads anonymously
-// when there is none; an explicit `connection_id` always wins.
+// Without a connection_id the server links a single candidate itself and refuses several (connection_choice_required).
 
 export type GitConnectionCandidate = { id: string; name: string; type: string };
 
@@ -12,7 +6,6 @@ export const TYPE_LABEL: Record<string, string> = { github: "GitHub", gitlab: "G
 export const PRIVATE_HINT = "A private repository needs a connection with access.";
 export const CANDIDATES_DEBOUNCE_MS = 400;
 
-/** Whether a URL is worth asking the server about: https, a host and at least owner/repo. */
 export function candidatesQueryable(raw: string): boolean {
   try {
     const url = new URL(raw.trim());
@@ -22,24 +15,20 @@ export function candidatesQueryable(raw: string): boolean {
   }
 }
 
-/** The connection preselected for the candidates: the one candidate, else none ("None (public repository)"). */
 export function preselectConnection(candidates: GitConnectionCandidate[]): string {
   return candidates.length === 1 ? candidates[0].id : "";
 }
 
-/** The picker's options: the candidates, plus a stored connection the candidates do not list (an edited source). */
 export function connectionOptions(candidates: GitConnectionCandidate[], storedId: string): GitConnectionCandidate[] {
   if (!storedId || candidates.some((candidate) => candidate.id === storedId)) return candidates;
   return [...candidates, { id: storedId, name: "This source's connection", type: "" }];
 }
 
-/** The option label: the connection's name, with its type when the name does not say it. */
 export function connectionLabel(candidate: GitConnectionCandidate): string {
   const type = TYPE_LABEL[candidate.type] ?? candidate.type;
   return !type || candidate.name.toLowerCase().includes(type.toLowerCase()) ? candidate.name : `${candidate.name} (${type})`;
 }
 
-/** The hint under the picker for what will happen on save. */
 export function connectionHint(candidates: GitConnectionCandidate[], connectionId: string): string {
   if (connectionId) return PRIVATE_HINT;
   if (candidates.length === 1) {
@@ -49,7 +38,6 @@ export function connectionHint(candidates: GitConnectionCandidate[], connectionI
   return `${PRIVATE_HINT} None of this Workspace's connections reads it, so it is read as a public repository.`;
 }
 
-// The refusals of a save that concern the chosen connection, in words (shown next to the picker).
 const REFUSAL_TEXT: Record<string, string> = {
   connection_choice_required: "Not saved: several connections can read this repository. Pick one under Read through connection.",
   connection_not_available: "Not saved: this connection is not available in this Workspace. Pick another one, or None for a public repository.",
@@ -63,11 +51,9 @@ export function gitConnectionRefusalText(reason: string): string | null {
   return REFUSAL_TEXT[reason] ?? null;
 }
 
-/** The words for a URL the candidates lookup refused (400: no URL of a known Git host). */
 export const URL_REFUSED_TEXT = "This is no repository address Octryx can read. Use https://github.com/<owner>/<repo>, "
   + "https://bitbucket.org/<workspace>/<repo> or the address the connection lists.";
 
-/** Sources linked to no connection although connections could read them: a notice offers to choose one. */
 export function unlinkedWithCandidates<T extends { kind: string; connection_id?: string | null; connection_candidates?: GitConnectionCandidate[] }>(
   connectors: T[],
 ): T[] {

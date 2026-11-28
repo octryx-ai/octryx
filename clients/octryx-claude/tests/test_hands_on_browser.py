@@ -9,7 +9,6 @@ from tests.hands_on_support import _port, needs_chrome
 
 @needs_chrome
 def test_a_click_target_below_the_fold_is_scrolled_to(tmp_path):
-    """A target below the fold is scrolled to, as a person scrolls."""
     pytest.importorskip("playwright")
     import http.server
     import threading
@@ -39,8 +38,6 @@ def test_a_click_target_below_the_fold_is_scrolled_to(tmp_path):
 
 
 def test_a_field_whose_label_is_its_own_text_above_it_is_filled_by_clicking_the_box(tmp_path):
-    """A form showing "Name" as a text over an unlabelled field: the step clicks the box under the text, as a person
-    does, so the field takes focus."""
     pytest.importorskip("playwright")
     import http.server
     import threading
@@ -73,7 +70,6 @@ def test_a_field_whose_label_is_its_own_text_above_it_is_filled_by_clicking_the_
 
 
 def test_a_fill_on_a_choice_group_picks_the_option_like_a_person(tmp_path):
-    """"fill Roast level = Medium" on a chip group picks the chip instead of failing "took no focus"."""
     pytest.importorskip("playwright")
     import http.server
     import threading

@@ -15,8 +15,6 @@ OFFICE_TEMPLATE_AI_ARTIFACT_DIRNAME = "ai-template"
 
 @dataclass(frozen=True)
 class OfficeTemplateStorageContract:
-    """Describe how an uploaded template maps to source, cache, and active artifacts."""
-
     doc_type: str
     source_path: Path
     active_template_path: Path

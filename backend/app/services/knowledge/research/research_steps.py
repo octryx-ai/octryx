@@ -1,8 +1,4 @@
-"""The model-facing steps of package research: plan, select, and the records they leave.
-
-The web-facing steps (search, entry points, probing) stay in ``package_research.py`` so the
-pipeline there remains the one place that reaches the network.
-"""
+"""The model-facing steps of package research: plan, select, and the records they leave."""
 
 from __future__ import annotations
 
@@ -81,7 +77,6 @@ def is_pre_release(version: str | None) -> bool:
 
 
 def _documents(selection: dict, candidates: list[Candidate], versions: list[str]) -> list[dict]:
-    """The model's choices by number; a pre-release is dropped unless the package names one."""
     allow_pre_release = any(is_pre_release(version) for version in versions)
     chosen: list[dict] = []
     seen: set[int] = set()
@@ -140,7 +135,6 @@ async def _select(
 async def _propose_sources(
     db: AsyncSession, project_id: str, documents: list[dict], *, policy: SourcePolicy, product: str, title: str
 ) -> list[str]:
-    """Registry proposals for the sources of chosen documents that are not trusted yet."""
     pending: dict[str, tuple[str, str, str, str | None]] = {}
     for document in documents:
         if policy.state_of(document["url"], product) == URL_TRUSTED:

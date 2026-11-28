@@ -5,14 +5,10 @@ import { validationLabel, validationOutcome } from "./codingEvidenceModel";
 import { reviewSummaryLabel } from "./codingReviewSummary";
 import { WORK_ACTION_STATES } from "./codingWorkActionModel";
 
-// The Coding session as steps: one list read from top to bottom instead of nine tabs. Every
-// step state is mapped from recorded evidence the session already carries: a plan record, change units and a
-// prepared workspace, recorded validation results, linked pull requests, approval records and the source state. A
-// plan's intent never completes a step. Pure functions only, so the unit tests read them directly.
+// A plan's intent never completes a step: every state comes from recorded evidence.
 
 export type CodingStepKey = "plan" | "changes" | "tests" | "pullRequest" | "review" | "done";
 export type CodingSectionKey = CodingStepKey | "rules" | "details";
-// "stopped": a step that was under way when the session ended (completed or cancelled); it will not go on.
 export type CodingStepState = "done" | "active" | "problem" | "pending" | "stopped";
 export type CodingStep = { key: CodingStepKey; title: string; state: CodingStepState; summary: string; at: string | null };
 
@@ -24,7 +20,6 @@ export const STEP_STATE_LABEL: Record<CodingStepState, string> = {
   stopped: "Not finished",
 };
 
-// A session that ended: its steps say what happened, never what is still to do.
 const ENDED_STATES = new Set(["completed", "cancelled"]);
 
 type StepInput = {
@@ -65,8 +60,7 @@ function changesStep({ session, detail, preparedWorkspaces }: StepInput): Coding
   ].filter(Boolean);
   const summary = parts.length ? `${parts.join(" · ")}.` : "No change yet.";
   const at = agent?.started_at || null;
-  // Done only with something to show for it: recorded change units, or a linked pull request that holds
-  // them; never "Done · No change yet."
+  // Done only with something to show for it, never "Done · No change yet."
   const prs = session.pullRequests.length;
   if (prs > 0) {
     const delivered = parts.length ? summary : `Changes are in the linked pull request${prs === 1 ? "" : "s"}.`;
@@ -117,11 +111,7 @@ function doneStep({ session }: StepInput, nothingHappened = false): CodingStep {
   return { key: "done", title: "Done", state: "pending", summary: "Closes after the merge.", at: null };
 }
 
-/**
- * The session's steps in reading order: Plan → Changes → Tests → Pull request → Review → Done. A session that ended
- * lists only the steps that happened, a step still under way is
- * "Not finished", and Done says when nothing was changed at all; it never shows "Not started" steps.
- */
+/** An ended session lists only the steps that happened and never shows "Not started" steps. */
 export function codingSessionSteps(input: StepInput): CodingStep[] {
   const steps = [planStep(input), changesStep(input), testsStep(input), pullRequestStep(input), reviewStep(input)];
   if (!ENDED_STATES.has(input.session.state)) return [...steps, doneStep(input)];
@@ -131,12 +121,10 @@ export function codingSessionSteps(input: StepInput): CodingStep[] {
   return [...happened, doneStep(input, happened.length === 0)];
 }
 
-/** Whether a session ended (completed or cancelled): it shows its outcome, not a next action. */
 export function sessionEnded(session: Pick<CodingSessionSummary, "state">): boolean {
   return ENDED_STATES.has(session.state);
 }
 
-/** The step the session stands at: the first one needing attention or in progress, else the first not started. */
 export function currentStepKey(steps: CodingStep[]): CodingStepKey {
   return (
     steps.find((step) => step.state === "problem")?.key ??
@@ -146,7 +134,6 @@ export function currentStepKey(steps: CodingStep[]): CodingStepKey {
   );
 }
 
-// Each tab id opens the step or section that holds its content.
 const TAB_SECTION: Partial<Record<CodingSessionTab, CodingSectionKey>> = {
   plan: "plan",
   changes: "changes",
@@ -158,7 +145,6 @@ const TAB_SECTION: Partial<Record<CodingSessionTab, CodingSectionKey>> = {
   details: "details",
 };
 
-/** Which step or section a tab opens; "overview" opens the step the session stands at. */
 export function sectionForTab(tab: CodingSessionTab, steps: CodingStep[]): CodingSectionKey {
   return TAB_SECTION[tab] ?? currentStepKey(steps);
 }
@@ -180,11 +166,7 @@ export type CodingNextAction =
   | { kind: "section"; label: string; section: CodingSectionKey }
   | null;
 
-/**
- * The one primary action of the header. A session that needs a person in Work has none here: the Work action panel
- * right below names the exact place. Otherwise: start the agent once a plan is approved, follow the running
- * agent in its chat, open the pull request or the review while it waits for one.
- */
+/** A session that needs a person in Work has none here: the Work action panel names the exact place. */
 export function codingNextAction(session: CodingSessionSummary, canStartAgent: boolean): CodingNextAction {
   if (WORK_ACTION_STATES.has(session.state) || session.state === "completed" || session.state === "cancelled") return null;
   const agent = session.latestAgentSession;
@@ -200,7 +182,6 @@ export function codingNextAction(session: CodingSessionSummary, canStartAgent: b
   return null;
 }
 
-/** Why Start agent waits, shown beside the disabled button (a disabled action says why). */
 export function startBlockedReason(session: CodingSessionSummary, latestPlan: WorkChangePlan | null): string {
   if (session.state === "completed") return "The session is complete.";
   if (WORK_ACTION_STATES.has(session.state)) return "Resolve the work action below first.";

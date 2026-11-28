@@ -1,18 +1,5 @@
-"""Workspace-authorized ingestion of one repository file as a code revision.
-
-The one ingestion path of every ``git_repository`` fetch mode (the host archive and a launcher's
-local snapshot), so the same file yields the same revision either way. It follows the order of
-``text_ingest.py``: everything that can refuse runs before any byte is written.
-
-1. The bytes are bounded (``MAX_TEXT_BYTES``) and must be text-native by a binary sniff.
-2. They are decoded as strict UTF-8, and secrets are redacted line by line
-   (``code/redaction.py``), so no line moves and every cited range stays the repository's range.
-3. The normalized text is split into code-aware spans with line ranges (``code/chunking.py``).
-4. Only then is the redacted text written and the revision registered; each span gets a locator
-   row of kind ``code`` with its line range, which citations turn into ``#L<start>-L<end>``.
-
-The stored bytes are the redacted text, so a revision never holds a secret the redaction found.
-"""
+"""Workspace-authorized ingestion of one repository file as a code revision. Everything that can refuse runs before a
+byte is written; stored bytes are redacted."""
 
 from __future__ import annotations
 
@@ -56,10 +43,6 @@ async def ingest_code_source(
     language: str | None = None,
     path: str | None = None,
 ) -> IngestedSource:
-    """Ingest one repository file into an immutable Workspace revision with line-ranged spans.
-
-    ``path`` is the repository path; a configuration file also loses its secret-named setting values.
-    """
     check_ingest_payload(runtime, authorized, data, MAX_TEXT_BYTES)
     key = normalize_source_key(source_key)
     title = normalize_display_title(display_title)
@@ -99,11 +82,7 @@ async def ingest_code_source(
 
 
 def prepared_code_text(data: bytes, path: str | None = None) -> str:
-    """The text a code revision stores for ``data``: normalized and redacted, lines unchanged.
-
-    The repository file index derives its code elements from exactly this text
-    (``code/repository_index.upsert_file``), so its lines are the cited lines.
-    """
+    # Lines unchanged: the repository index derives its elements from this exact text, so its lines are the cited lines.
     return redact_repository_text(decode_text(data), path).text
 
 

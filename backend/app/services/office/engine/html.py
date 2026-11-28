@@ -1,9 +1,4 @@
-"""In-process HTML preview of Word, PowerPoint and Excel files.
-
-A structural preview: Word headings/paragraphs/lists/tables with inline pictures, Excel sheets as tables (the
-first rows and columns), PowerPoint slides with their shapes placed by geometry. Everything is escaped and the
-page carries no script. A pixel-faithful rendering is LibreOffice's job (``services/office/render.py``).
-"""
+"""In-process HTML preview of Word, PowerPoint and Excel files."""
 
 from __future__ import annotations
 

@@ -1,28 +1,4 @@
-"""The connections of a work source a Workspace can use (named connections, intake overview).
-
-A Workspace's connections of one connector are its **default** entry (the connector's tool config: the
-Workspace entry over the global one, the credential unit never mixed) when that entry has a target, and
-its **named** connections (the Workspace's own, then the global ones the Workspace does not override),
-as the one resolver (``named_connections.resolver``) lists them. Only ids, names, scopes and bound keys
-are returned; never a URL, a config value or a secret.
-
-An intake reads through exactly the connection it names (``WorkItemSyncConfig.connection_id``):
-
-- :func:`require_intake_connection` at setup (``intake/setup.save_intake``): the id must be one of the Workspace's
-  connections of the source (422 ``intake_connection_not_found`` otherwise); an intake without a Workspace is refused.
-  The source's store takes the named id as is (:func:`named_intake_connection`: a Workspace and an id, never a
-  default);
-- :func:`intake_connection_config` at run time: the connection's effective config (the resolver's
-  ``connection_config``: a named connection's own unit with the allowlist narrowed to its bound keys; the
-  default entry without the keys a named connection binds), or ``None`` when the named connection is gone
-  (the run is blocked, never moved to another connection).
-
-The connection is read through the connections available in the Workspace
-(``named_connections/linked_use.py``): the default connection's id (``named_connections/unbound_default.py``) is
-the default connection (it is listed as the default entry's alias); a disabled or unavailable connection, a
-``tickets`` deviation that turns the use off or a filter key outside the deviation's scope refuse the run with 409
-``needs_configuration`` and a fixed code. An intake naming ``default`` (or nothing) reads the default connection.
-"""
+"""The connections of a work source a Workspace can use (named connections, intake overview)."""
 
 from __future__ import annotations
 
@@ -52,7 +28,6 @@ SCOPE_GLOBAL = "global"
 
 
 async def default_connection_config(db: AsyncSession, project_id: str | None, tool: str) -> dict[str, Any]:
-    """The Workspace's effective default entry of ``tool`` (its own unit, else the global one)."""
     project_config = await merge_tool_configs_into_project_config(db, project_id, {})
     if project_id:
         global_config = await merge_tool_configs_into_project_config(db, None, {})
@@ -75,7 +50,6 @@ async def _own_entry_usable(db: AsyncSession, project_id: str, tool: str) -> boo
 
 
 async def workspace_connections(db: AsyncSession, project_id: str, tool: str) -> list[dict[str, Any]]:
-    """``[{id, name, scope, bound_scopes, default}]``: the default entry (when usable), then named ones."""
     descriptor = descriptor_of(tool)
     if descriptor is None:
         return []
@@ -111,7 +85,6 @@ def require_intake_workspace(project_id: str | None) -> str:
 
 
 def named_intake_connection(project_id: str | None, connection_id: object) -> str:
-    """The connection id an intake names; 422 when there is no Workspace or no id (no connection is assumed)."""
     require_intake_workspace(project_id)
     wanted = connection_id.strip() if isinstance(connection_id, str) else ""
     if not wanted:
@@ -123,7 +96,6 @@ def named_intake_connection(project_id: str | None, connection_id: object) -> st
 async def require_intake_connection(
     db: AsyncSession, project_id: str | None, tool: str, connection_id: object
 ) -> dict[str, Any]:
-    """The Workspace connection an intake names; 422 when there is no Workspace or no such connection."""
     project_id = require_intake_workspace(project_id)
     wanted = connection_id.strip() if isinstance(connection_id, str) else ""
     found = next((entry for entry in await workspace_connections(db, project_id, tool)
@@ -135,7 +107,6 @@ async def require_intake_connection(
 
 
 def _key_field(tool: str) -> str:
-    """The filter key whose values bind the intake to a connection's scope: its source's ``key_field``."""
     from .registry import source_for
 
     source = source_for(tool)
@@ -147,10 +118,6 @@ def connection_refused(error: LinkedConnectionRefusedError) -> HTTPException:
 
 
 async def intake_connection_config(db: AsyncSession, row: WorkItemSyncConfig, tool: str) -> dict[str, Any] | None:
-    """The effective config of the intake's connection; ``None`` when its named connection is gone.
-
-    Raises 409 (``needs_configuration``) when the connection or the Workspace's ``tickets`` deviation refuses the
-    intake (see the module doc)."""
     keys = (row.filters_json or {}).get(_key_field(tool)) or ()
     return await connection_config_of(db, row.project_id, tool, row.connection_id, keys=keys)
 
@@ -158,7 +125,6 @@ async def intake_connection_config(db: AsyncSession, row: WorkItemSyncConfig, to
 async def connection_config_of(
     db: AsyncSession, project_id: str | None, tool: str, connection_id: str | None, *, keys: Any = (),
 ) -> dict[str, Any] | None:
-    """The effective config of one Workspace connection (``None``/``default``: the default entry)."""
     base = await default_connection_config(db, project_id, tool)
     routes = await workspace_routes(db, project_id, [tool], secrets=False)
     try:
@@ -175,8 +141,6 @@ async def connection_config_of(
 
 
 async def connection_row_id(db: AsyncSession, row: WorkItemSyncConfig, tool: str) -> str | None:
-    """The connection row the intake reads through (its own id, or the default connection's); ``None`` for the
-    default entry."""
     if not row.project_id:
         return None
     routes = await workspace_routes(db, row.project_id, [tool], secrets=False)
@@ -188,7 +152,6 @@ async def connection_row_id(db: AsyncSession, row: WorkItemSyncConfig, tool: str
 
 
 async def connection_name(db: AsyncSession, row: WorkItemSyncConfig, tool: str) -> str:
-    """The display name of the intake's connection (its id when it is gone)."""
     wanted = str(row.connection_id or DEFAULT_CONNECTION_NAME)
     if not row.project_id or wanted == DEFAULT_CONNECTION_NAME:
         return wanted

@@ -1,10 +1,4 @@
-"""Schema of ``knowledge_episode_summary``: the agent saves the session's episode summary.
-
-No scope, Workspace, user or session property: all of them are the run's. The bounds mirror
-``services/knowledge/episodes/writer`` (a definition module imports no service). Merged into
-``get_knowledge_evidence_definitions``; its risk is ``write`` on internal platform state
-(``write_risk.BUILT_IN_INTERNAL_WRITE_DEFINITION_NAMES``).
-"""
+"""Schema of ``knowledge_episode_summary``: the agent saves the session's episode summary."""
 
 from __future__ import annotations
 

@@ -7,17 +7,21 @@ from datetime import timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import Session
+from ..models import AgentDefinition, Session
 from ..time_utils import utc_now
+from .agent_visibility import agent_access
+from .project.private_workspace import outside_foreign_private
 
 USAGE_WINDOW_DAYS = 30
 
 
-async def agent_usage_counts(db: AsyncSession, *, days: int = USAGE_WINDOW_DAYS) -> dict[str, int]:
+async def agent_usage_counts(db: AsyncSession, *, viewer_id: str, days: int = USAGE_WINDOW_DAYS) -> dict[str, int]:
     agent_id = Session.metadata_["agent_definition_id"].as_string()
+    unseen_agents = select(AgentDefinition.id).where(~(await agent_access(db, viewer_id)).visible_clause())
     rows = await db.execute(
         select(agent_id, func.count())
-        .where(Session.started_at >= utc_now() - timedelta(days=days), agent_id.is_not(None))
+        .where(Session.started_at >= utc_now() - timedelta(days=days), agent_id.is_not(None),
+               outside_foreign_private(Session.project_id, viewer_id), agent_id.not_in(unseen_agents))
         .group_by(agent_id)
     )
     return {str(key): int(count) for key, count in rows.all() if key}

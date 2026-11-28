@@ -1,9 +1,5 @@
-"""``device enable`` retried after a lost answer: the server can have registered
-the device while the launcher timed out (``platform_unreachable``), so its retry meets its own entry as
-``device_name_taken``. A retry that proves it holds the private key of the active namesake (same owner, same public
-key, a signature over the registration) takes that entry over: one device, a fresh credential, the old grant
-revoked. Anything less stays ``device_name_taken``.
-"""
+"""``device enable`` retried after a lost answer: the server can have registered the device while the launcher timed out
+(``platform_unreachable``), so its retry meets its own entry as ``device_name_taken``."""
 
 from __future__ import annotations
 
@@ -22,14 +18,12 @@ REGISTRATION_PROTOCOL_VERSION = 1
 
 
 def registration_payload(name: str, public_key: str) -> bytes:
-    """What the launcher signs with the new device key (``key_proof``) so a retry can take its entry over."""
     return f"octryx-device-register:v{REGISTRATION_PROTOCOL_VERSION}:{name.lower()}:{public_key}".encode()
 
 
 async def own_retry(
     db: AsyncSession, *, owner_user_id: str, name: str, public_key: str, key_proof: Any
 ) -> UserDevice | None:
-    """The owner's active namesake when this request is a proven retry of its registration, else ``None``."""
     if not isinstance(key_proof, str) or not key_proof:
         return None
     device = (
@@ -52,7 +46,6 @@ async def reissue(
     db: AsyncSession, device: UserDevice, *, owner_user_id: str, client_id: str, login_scopes: Iterable[str],
     fields: Mapping[str, Any],
 ) -> tuple[Any, str]:
-    """The retried registration's settings and a fresh device credential; the lost one is revoked."""
     for key, value in fields.items():
         setattr(device, key, value)
     await revoke_device_grant(db, device.grant_id)

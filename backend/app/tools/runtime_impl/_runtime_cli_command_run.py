@@ -27,8 +27,6 @@ from ._runtime_execution_events import build_execution_event, execution_status_f
 
 @dataclass(frozen=True, kw_only=True)
 class CliCommandPlan:
-    """A resolved ``run_cli_command`` call, ready to run: what the agent asked for and what actually runs."""
-
     tool_name: str
     params: dict
     command: Any
@@ -44,8 +42,6 @@ class CliCommandPlan:
 
 @dataclass
 class CliWorkspaceGuard:
-    """Workspace state captured before a command that may write the workspace or validate a change."""
-
     bootstrap: dict[str, Any] | None = None
     before_change_state: Any = None
     workspace_sync_policy: Any = None
@@ -53,7 +49,6 @@ class CliWorkspaceGuard:
 
 
 def validation_refusal_fields(command_is_validation: bool, *, command: Any, cwd: Any, error: str) -> dict[str, Any]:
-    """A refused validation command still reports its validation outcome."""
     outcome = build_validation_outcome(command=command, cwd=cwd, error=error) if command_is_validation else None
     return {"validation_outcome": outcome} if outcome else {}
 
@@ -76,8 +71,6 @@ def shell_operator_refusal(command: Any, cwd: Path, resolution: dict[str, Any] |
 async def prepare_workspace_guard(
     plan: CliCommandPlan, context: ToolContext, *, command_writes_workspace: bool
 ) -> tuple[CliWorkspaceGuard, dict[str, Any] | None]:
-    """Capture the workspace before the command; ``(guard, refusal)`` with a refusal for a failed bootstrap or a
-    mutating command in a dirty workspace."""
     guard = CliWorkspaceGuard()
     if command_writes_workspace or plan.command_is_validation:
         guard.before_change_state = capture_workspace_change_state(plan.workspace_root)
@@ -112,7 +105,6 @@ async def prepare_workspace_guard(
 async def finish_workspace_guard(
     plan: CliCommandPlan, guard: CliWorkspaceGuard, context: ToolContext, exit_code: int | None
 ) -> tuple[Any, Any]:
-    """``(workspace_sync, workspace_change_contract)`` after the command ran."""
     workspace_sync = None
     after_change_state = None
     if guard.before_workspace_snapshot is not None:
@@ -152,7 +144,6 @@ def redacted_outputs(runtime_result: Any) -> tuple[str, str]:
 def execution_records(
     plan: CliCommandPlan, runtime_result: Any, *, stdout_text: str, stderr_text: str, duration_ms: int
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
-    """``(validation_outcome, execution_event)`` of a command that ran."""
     validation_outcome = (
         build_validation_outcome(
             command=plan.argv,
@@ -202,7 +193,6 @@ def not_completed_result(
     plan: CliCommandPlan, runtime_result: Any, guard: CliWorkspaceGuard, *, execution_event: dict[str, Any],
     validation_outcome: Any, workspace_sync: Any, workspace_change_contract: Any,
 ) -> dict[str, Any] | None:
-    """The fixed-facts result of a timed-out or not started command, or None when it completed."""
     if runtime_result.timed_out:
         error = f"cli_command_timed_out timeout_sec={plan.timeout_sec}"
         error_code = "cli_command_timed_out"

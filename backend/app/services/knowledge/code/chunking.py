@@ -1,29 +1,4 @@
-"""Code-aware spans with line ranges.
-
-Same text in, same spans out. Each line of the file is owned by the innermost symbol that covers it
-(``symbols.py``): a method's lines by the method, the fields and the closing brace of a class by the
-class, the package and imports by no symbol. Runs of consecutive lines with the same owner are the
-units, so a method is one unit and its class's remaining lines are another. A member's annotations
-and its Javadoc or decorators belong to it (the parser's range starts there).
-
-A unit is then bounded: blank lines at its edges are trimmed, a unit without any letter or digit
-(a lone ``}``) is dropped, and a unit longer than ``MAX_UNIT_LINES`` lines or ``MAX_SPAN_CHARS``
-characters is split into windows of ``WINDOW_LINES`` lines that overlap by ``OVERLAP_LINES``. A file
-without symbols (any language without a parser) is windowed whole. A single line longer than
-``MAX_SPAN_CHARS`` becomes consecutive character pieces that all carry that line.
-
-Consecutive units of the same top-level declaration are then **merged** into one span while the
-merged lines stay within ``MERGE_MAX_LINES`` and ``MAX_SPAN_CHARS``: a member is never
-split by the merge, a window never merges, and the file preamble (package, imports) merges only
-with itself. One member per span would make spans too fine to answer a question on their own (a
-four-line ``initCreationForm`` span carrying ``/owners/new`` but not its class), so a
-span holds a class's header together with its first members, or several neighbouring members.
-A merged span's ``section_path`` is the common prefix of its units' symbol paths.
-
-Every span records its 1-based, inclusive line range and its character range in the normalized
-text, and its ``section_path`` is the owning symbol path, so a citation reads
-``Owner.java § addPet`` and links ``#L<start>-L<end>``.
-"""
+"""Code-aware spans with line ranges. Same text in, same spans out: each line belongs to its innermost symbol."""
 
 from __future__ import annotations
 
@@ -60,8 +35,6 @@ def _units(lines: list[str], owners: list[tuple[str, ...]]) -> list[tuple[int, i
 
 @dataclass(frozen=True, slots=True)
 class _Piece:
-    """A bounded unit before merging; ``length`` set only for a piece of one over-long line."""
-
     first: int
     last: int
     path: tuple[str, ...]
@@ -152,7 +125,6 @@ class _Builder:
                 self.pieces.append(_Piece(number, number, path, False, position, len(chunk)))
 
     def emit(self) -> None:
-        """Merge consecutive mergeable pieces of one top-level declaration, then add the spans."""
         group: list[_Piece] = []
         for piece in self.pieces:
             if group and not self._fits(group, piece):
@@ -182,7 +154,6 @@ class _Builder:
 
 
 def derive_code_spans(text: str, language: str | None) -> tuple[DerivedSpan, ...]:
-    """Ordered, bounded, line-ranged spans of one normalized source file. Deterministic."""
     if type(text) is not str or not text.strip():
         raise InvalidEvidenceRequestError()
     builder = _Builder(text)

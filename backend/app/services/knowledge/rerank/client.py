@@ -1,9 +1,4 @@
-"""The reranker's own Bedrock client.
-
-The shared embedding client (``embedding/bedrock.py``) waits up to 30 s per read and retries three times, which
-suits bulk indexing. The reranker sits in front of every search, so it fails fast instead (2 s to connect, 8 s to
-read, one attempt) and the search answers in fused order with ``rerank: unavailable``.
-"""
+"""The reranker's own Bedrock client. It fails fast: the reranker sits in front of every search."""
 
 from __future__ import annotations
 
@@ -19,7 +14,6 @@ RERANK_MAX_ATTEMPTS = 1
 
 
 def build_reranker_client(region: str | None) -> Any:
-    """A ``bedrock-runtime`` client for reranking: short timeouts, no retries."""
     hold = bedrock_runtime_hold(region)
     if hold is not None:
         raise EmbeddingError(EmbeddingState.NEEDS_CONFIGURATION, hold)

@@ -35,15 +35,11 @@
   min-width: 0;
 }
 
-.litellm-gateway__group--notice {
-  border-style: dashed;
-}
-
 .litellm-gateway__legend,
 .litellm-gateway__legend-inline {
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 0 0.25rem;
@@ -79,12 +75,6 @@
   margin: 0;
 }
 
-.litellm-gateway__hint--gap,
-.litellm-gateway__hint--gate {
-  border-left: 2px solid var(--border);
-  padding-left: 0.5rem;
-}
-
 .litellm-gateway__alias {
   display: grid;
   gap: 0.5rem;
@@ -103,7 +93,7 @@
 
 .litellm-gateway__alias-title {
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .litellm-gateway__alias-grid {
@@ -158,32 +148,6 @@
   font-size: var(--ds-text-xs);
 }
 
-.litellm-gateway__readiness--ready {
-  border-left-color: var(--ok, var(--border));
-}
-
-.litellm-gateway__readiness--blocked {
-  border-left-color: var(--danger, var(--border));
-}
-
-.litellm-gateway__readiness--unknown {
-  border-left-color: var(--warn, var(--border));
-}
-
-.litellm-gateway__readiness-status {
-  font-weight: 600;
-}
-
-.litellm-gateway__readiness-code {
-  font-size: var(--ds-text-xs);
-  overflow-wrap: anywhere;
-}
-
-.litellm-gateway__readiness-label,
-.litellm-gateway__readiness-attempt {
-  color: var(--muted);
-}
-
 .runtime-fallback__field {
   display: grid;
   gap: 0.25rem;
@@ -212,7 +176,7 @@
   cursor: pointer;
   font: inherit;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 /* The gateway in the provider's side panel; design-system fields, the state in one line. */

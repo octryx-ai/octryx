@@ -1,23 +1,5 @@
-"""Explicit S3-compatible configuration for the Knowledge object boundary.
-
-Deliberately separate from the shared ``artifact_store_*`` settings, whose
-default backend is ``filesystem``: this boundary must never be able to degrade
-into a host directory. Configuration is read from an explicitly passed mapping
-(never implicitly from the process environment), so callers decide the source.
-
-The endpoint URL is **required**, so no implicit AWS endpoint or region
-resolution can decide where Workspace bytes land. Real AWS S3 is configured
-with its regional endpoint (``https://s3.<region>.amazonaws.com``) like any
-other S3-compatible endpoint.
-
-Credentials are not part of this configuration at all: they stay in the boto3
-credential chain and never enter a product object, so they cannot be rendered,
-logged, pickled, or returned. Only the *name* of a dedicated shared-credentials
-profile may be configured (``OCTRYX_KNOWLEDGE_OBJECT_AWS_PROFILE``). With a
-profile, boto3 resolves the object-store keys from that profile alone and ignores
-the ``AWS_*`` environment credentials, which a process may hold for another purpose
-(for example Bedrock); without one, the default chain applies unchanged.
-"""
+"""Explicit S3-compatible configuration for the Knowledge object boundary. It can never degrade into a host directory,
+and credentials are never part of it."""
 
 from __future__ import annotations
 

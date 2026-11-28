@@ -1,7 +1,5 @@
-"""Session transcripts: the artifact store on the filesystem in a temp dir.
-
-``artifact_dir`` is autouse: a test module that imports it by name gets it for every test.
-"""
+"""Session transcripts: the artifact store on the filesystem in a temp dir; ``artifact_dir`` is autouse for a module
+that imports it by name."""
 
 from __future__ import annotations
 

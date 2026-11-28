@@ -1,10 +1,4 @@
-"""Seeds of the office texts: the corporate identity section, the composer tool messages and the
-Office file actions.
-
-The only code copy of these texts; the catalog serves the published version. *Generated
-product content* (deck and document markers such as ``[SOURCE MISSING]``) is not agent-facing prompt
-text and stays with the plan builders in ``services/office_identity``.
-"""
+"""Seeds of the office texts: the corporate identity section, the composer tool messages and the Office file actions."""
 
 from __future__ import annotations
 

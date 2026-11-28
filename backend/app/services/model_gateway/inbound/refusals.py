@@ -1,20 +1,4 @@
-"""Anthropic-shaped refusals of the inbound model gateway.
-
-Every refusal is an explicit ``(state, reason)`` pair with a fixed English hint.
-The client sees::
-
-    {"type": "error",
-     "error": {"type": "<anthropic error type>",
-               "message": "Octryx gateway: <state> (<reason>). <hint>"}}
-
-plus the ``x-octryx-gateway-state`` / ``-reason`` headers. Nothing in a
-message is derived from a prompt, an upstream body, or an exception text.
-
-Status codes are chosen for Claude Code's retry behavior: a policy block is a
-non-retried 4xx (budget is 403, not 429 — retrying cannot lift a hard budget
-block), while an upstream 429/5xx/529 keeps its status so the client backs off
-and retries as it would against the Anthropic API.
-"""
+"""Anthropic-shaped refusals of the inbound model gateway: an explicit (state, reason) and a fixed hint."""
 
 from __future__ import annotations
 
@@ -89,6 +73,8 @@ _STATE_HINTS: dict[str, str] = {
     STATE_DENIED: "The Workspace policy does not allow this request.",
 }
 
+# A policy block is a non-retried 4xx (a budget is 403, not 429: retrying cannot lift it); an upstream 429/5xx/529 keeps
+# its status so the client backs off as against the Anthropic API.
 _STATUS_FOR_STATE = {STATE_UNAUTHORIZED: 401, STATE_DENIED: 403, STATE_NEEDS_CONFIGURATION: 400}
 _TYPE_FOR_STATUS = {
     400: ERROR_TYPE_INVALID_REQUEST,
@@ -128,16 +114,15 @@ class InboundRefusal:
 
     @property
     def hint_text(self) -> str:
-        """The hint the client sees: the given one, else the reason's or the state's fixed one."""
         return self.hint or _HINTS.get(self.reason) or _STATE_HINTS.get(self.state) or _HINT_DEFAULT
 
     def message(self) -> str:
         return f"Octryx gateway: {self.state} ({self.reason}). {self.hint_text}"
 
 
+# The client sees the state, the reason and a fixed hint: never text derived from a prompt, an upstream body or an
+# exception.
 def refusal(state: str, reason: str, *, http_status: int | None = None, hint: str = "") -> InboundRefusal:
-    """A platform-side refusal; the status follows the state unless given."""
-
     return InboundRefusal(
         state=state,
         reason=reason,
@@ -147,8 +132,6 @@ def refusal(state: str, reason: str, *, http_status: int | None = None, hint: st
 
 
 def refusal_for_admission_error(exc: LiteLLMGatewayError) -> InboundRefusal:
-    """An alias/configuration refusal raised before anything was dispatched."""
-
     reason = exc.denial_reason or exc.gateway_state
     if exc.gateway_state == GATEWAY_STATE_ALIAS_DENIED:
         return refusal(STATE_DENIED, reason, hint=MODEL_NOT_ADMITTED_HINT)
@@ -194,7 +177,6 @@ def openai_error_code(item: InboundRefusal) -> str:
 
 
 def openai_error_response(item: InboundRefusal) -> JSONResponse:
-    """The same refusal (status, message, gateway headers) in the OpenAI error shape."""
     return JSONResponse(
         status_code=item.http_status,
         content={"error": {"message": item.message(), "type": openai_error_type_for_status(item.http_status),

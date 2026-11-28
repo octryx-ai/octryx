@@ -1,8 +1,5 @@
 """The seat keys of ``agent_gateway_policy``: names, defaults and validation.
-
-Kept apart from the decision (``seat_policy.py``) because ``policy.py`` validates them on every admin
-write and ``seat_policy.py`` reads the loaded policy.
-"""
+Apart from ``seat_policy`` because ``policy`` validates them on every admin write."""
 
 from __future__ import annotations
 
@@ -28,9 +25,6 @@ SEAT_MODES = frozenset({SEAT_MODE_FORBIDDEN, SEAT_MODE_ALLOWED})
 
 
 def _baseline() -> tuple[str, ...]:
-    """The Claude models a seat may call when a Workspace names none, from the data that also picks the models
-    (``workflow_runs/octryx/seat_models.json``: ``seat_baseline_also`` and every ``installation_defaults`` model;
-    ``review_models.json``: the reviewer's ``claude_code`` default). One source: a default model is always admitted."""
     import json
     from pathlib import Path
 
@@ -39,6 +33,7 @@ def _baseline() -> tuple[str, ...]:
 
     seats = json.loads((Path(__file__).parents[1] / "workflow_runs" / "octryx" / "seat_models.json").read_text(
         encoding="utf-8"))
+    # One source with the model data: every default model, the reviewer's included, is admitted.
     models = [*(seats.get("seat_baseline_also") or []), *dict(seats.get("installation_defaults") or {}).values(),
               DEFAULT_MODELS[ENGINE_CLAUDE_CODE]]
     return tuple(dict.fromkeys(str(model) for model in models if str(model).startswith("claude-")))
@@ -76,7 +71,6 @@ def _model_id(value: Any, path: str) -> str:
 
 
 def normalize_seat_policy(policy: dict[str, Any], path: str) -> dict[str, Any]:
-    """The normalized seat keys present in ``policy``; raises ``SeatPolicyError``."""
     normalized: dict[str, Any] = {}
     if SEAT_MODE_KEY in policy:
         if policy[SEAT_MODE_KEY] not in SEAT_MODES:

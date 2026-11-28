@@ -1,5 +1,3 @@
-// Coding navigation: Review Ready, Blocked and Completed are
-// filter tabs of Sessions. Where each setting is edited is page help (help/coding/rules.md), not a menu entry.
 export const CODING_NAV_ITEMS = [
   { key: "sessions", label: "Sessions", section: "Code work", purpose: "Coding sessions, from plan to review." },
   { key: "repositories", label: "Repositories", section: "Code work", purpose: "Every repository the Workspace uses: its source, branch, coding setup and runs." },
@@ -9,16 +7,12 @@ export const CODING_NAV_ITEMS = [
 
 export type CodingNavKey = (typeof CODING_NAV_ITEMS)[number]["key"];
 
-// The Delivery pipeline is not a menu entry; Coding rules open the pipeline's checks there, so that page has its own
-// address, which a reload or a shared link keeps.
 export const DELIVERY_PIPELINE_VIEW = "delivery_pipeline";
 
-/** The `coding_view` value of a Coding page. */
 export function codingViewParam(key: CodingNavKey): string {
   return key === "pipelines" ? DELIVERY_PIPELINE_VIEW : key;
 }
 
-/** The Coding page an address names (`coding_view=<key>`), else Sessions. */
 export function codingNavFromSearch(search: string): CodingNavKey {
   const view = new URLSearchParams(search).get("coding_view");
   return CODING_NAV_ITEMS.find((item) => codingViewParam(item.key) === view)?.key ?? "sessions";

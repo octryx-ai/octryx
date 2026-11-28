@@ -159,12 +159,6 @@ def _source_item_triggers(
 
 
 def _skip_boilerplate(text: str) -> str:
-    """Skip leading navigation/cookie/login boilerplate in scraped docs.
-
-    Scans lines from the top and returns the text starting from the first
-    line that looks like real content (a heading, a sentence, or a list
-    item that is not a bare hyperlink or a single short word).
-    """
     _nav_patterns = re.compile(
         r"^\s*(-\s*)?\[?(skip to|accessibility|sign.?in|sign.?out|create an account"
         r"|country|oracle account|help|cookie|privacy policy|terms of use"

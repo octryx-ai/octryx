@@ -1,9 +1,4 @@
-"""Worked example builders for corporate identity guides.
-
-The example deck uses the template's own layouts, chosen by their structural
-``content_shape`` (cover, divider, bullets, icon topics) and named as the
-template names them.
-"""
+"""Worked example builders for corporate identity guides."""
 
 from __future__ import annotations
 
@@ -133,7 +128,6 @@ def _cleanup_and_verify_steps(tmpl_count: int) -> list[str]:
 def _example(
     layouts: list[dict[str, Any]], layout_ex: dict[str, int | None], *prefixes: str
 ) -> tuple[dict[str, Any] | None, int | None, str]:
-    """The first layout of the wanted shape; else a title-only/bullets one; else any."""
     layout = first_layout(layouts, *prefixes) or first_layout(layouts, "title_only", "bullets", "")
     name = str((layout or {}).get("name") or "")
     return layout, (layout_ex.get(name) if name else None), name
@@ -148,7 +142,6 @@ def build_worked_example(
     lean_slide_map: dict[str, int] | None = None,
     sample_slides: int = 0,
 ) -> tuple[list[str], int]:
-    """Five example steps on this template's own cover, divider, bullets and icon layouts."""
     lean = lean_slide_map or {}
     layout_ex: dict[str, int | None] = {
         layout.get("name", ""): lean.get(layout.get("name", "")) or layout.get("example_slide_index")

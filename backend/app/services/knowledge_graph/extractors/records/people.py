@@ -57,16 +57,7 @@ async def ingest_person_from_source(
     person: dict[str, Any],
     source_ref: str | None = None,
 ) -> Any | None:
-    """Upsert a person node from a normalized ``source_people`` entry, feeding
-    EVERY identifier (username, name, email) into the alias table so identities
-    merge deterministically across connectors.
-
-    When one source record's identifiers resolve to SEVERAL existing nodes
-    (e.g. a 'Alice Example' node from Jira full names and an 'alice' node from
-    Confluence usernames), that record is deterministic proof they are the same
-    human — the nodes are consolidated before the upsert. This is not a fuzzy
-    merge: the evidence is a single connector record naming both identifiers.
-    """
+    """Upsert a person node from a normalized ``source_people`` entry, feeding every identifier into the alias table."""
     display = str(person.get("display_name") or person.get("name") or "").strip()
     username = str(person.get("username") or "").strip()
     email = str(person.get("email") or "").strip()

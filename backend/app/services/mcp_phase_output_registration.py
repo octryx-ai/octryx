@@ -1,10 +1,5 @@
-"""The phase output tools on the Knowledge MCP server (``workflow_runs/phase_outputs``).
-
-A run phase submits its structured artefact over MCP exactly as in chat; the handlers live in
-``mcp_workflow_run_tools`` behind ``mcp_parity_dispatch`` (scope ``workflow:execute``, which a device grant holds).
-A refusal raises :class:`ToolError`, so the session's recorded tool call is an error and never counts as a
-``tool_called`` check.
-"""
+"""The phase output tools on the Knowledge MCP server (``workflow_runs/phase_outputs``). A refusal raises ``ToolError``,
+so the recorded tool call is an error."""
 
 from __future__ import annotations
 
@@ -184,4 +179,25 @@ def register_phase_output_tools(server: FastMCP, call: Call, *, workspace_note: 
         return _recorded(await call(ctx, "submit_phase_result", {"value": value, "summary": summary}))
 
 
-__all__ = ["register_phase_output_tools"]
+def register_change_plan_tool(server: FastMCP, call: Call, *, workspace_note: str) -> None:
+    @server.tool(
+        description=(
+            "Workflow run plan phase only: submit the change plan before the build. parts: what the change consists "
+            "of; paths: the relative files or globs it will change (folder/** for a folder); endpoints: the API "
+            "endpoints it changes; expensive: the expensive path classes the paths touch (migrations, auth, "
+            "public_api, infra by default); risks; open_questions. A plan with expensive classes waits for a "
+            "person's approval; the build may only write inside its paths." + workspace_note
+        )
+    )
+    async def submit_change_plan(
+        parts: list[str] | str, paths: list[str] | str, endpoints: list[str] | str | None = None,
+        expensive: list[str] | str | None = None, risks: list[str] | str | None = None,
+        open_questions: list[str] | str | None = None, ctx: Context | None = None,
+    ) -> dict[str, Any]:
+        return _recorded(await call(ctx, "submit_change_plan", {
+            name: structured(value, name=name) for name, value in (
+                ("parts", parts), ("paths", paths), ("endpoints", endpoints), ("expensive", expensive),
+                ("risks", risks), ("open_questions", open_questions))}))
+
+
+__all__ = ["register_change_plan_tool", "register_phase_output_tools"]

@@ -50,8 +50,6 @@ from tests.model_gateway.litellm_qualification_support import (
     qualification_section,
 )
 
-# --- Positive qualification --------------------------------------------------
-
 
 async def test_every_admitted_alias_qualifies_on_usage_cost_identity_and_capabilities() -> None:
     gateway = ScriptedGateway()
@@ -105,7 +103,6 @@ async def test_a_refuted_or_unproven_capability_fails_parity_before_dispatch() -
     assert parity[PRICED_ALIAS].detail["reason"] == REASON_DECLARED_CAPABILITY_REFUTED
     assert parity[REPORTED_ALIAS].detail["reason"] == REASON_DECLARED_CAPABILITY_NOT_PROVEN
     assert parity[FREE_ALIAS].passed is True
-    # A parity failure stops that alias before a billable call is made.
     dispatched = [path for method, path in gateway.requests if method == "POST"]
     assert len(dispatched) == 1
 
@@ -168,8 +165,6 @@ async def test_a_response_violating_the_contract_is_refused(
 
 
 async def test_zero_catalog_pricing_rate_is_refused_before_dispatch() -> None:
-    """A zero per-token rate is not a partially free priced alias."""
-
     gateway = ScriptedGateway(
         chat={PRICED_GROUP: chat_response(PRICED_GROUP, usage={"prompt_tokens": 1, "completion_tokens": 0})}
     )
@@ -208,8 +203,6 @@ async def test_an_unproven_capability_request_is_refused() -> None:
 
 
 async def test_an_accepted_violation_is_the_worst_outcome_and_fails() -> None:
-    """If the client ever served a forbidden response, the check must fail."""
-
     gateway = ScriptedGateway()
     client = build_client(gateway)
     entry = next(item for item in client.config.aliases if item.alias == PRICED_ALIAS)

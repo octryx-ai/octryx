@@ -1,10 +1,4 @@
-"""MASH platform registration and heartbeat routes.
-
-POST /mash/v1/platforms/register
-GET  /mash/v1/platforms/me
-PUT  /mash/v1/platforms/me/heartbeat
-GET  /mash/v1/platforms  (admin)
-"""
+"""MASH platform registration and heartbeat routes."""
 
 from __future__ import annotations
 

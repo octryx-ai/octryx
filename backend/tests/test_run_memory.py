@@ -1,8 +1,4 @@
-"""Run memory per repository and app (the agent never starts from zero).
-
-What a run learns and the platform verified goes to the next run of the same app as information in its phase brief:
-the commands that ran green in the platform's pipeline, an environment error with what ran past it, and a refused
-call with the call that worked next. Captured at event time; the metric counts at that moment."""
+"""Run memory per repository and app (the agent never starts from zero)."""
 
 from __future__ import annotations
 
@@ -54,10 +50,10 @@ async def test_what_one_run_verified_reaches_the_next_run_of_the_same_app(record
     await run_memory.pipeline_green(None, first, [{"command": "npm test", "exit_code": 0},
                                                   {"command": "npm run lint", "exit_code": 1}])
     memory = record.config_json["run_memory"]["e2e/node"]
-    assert [entry["command"] for entry in memory["test_command"]] == ["npm test"]  # only what exited 0
+    assert [entry["command"] for entry in memory["test_command"]] == ["npm test"]
     assert memory["environment_fix"][0]["error"] == "Error: Cannot find module 'node:test'"
     assert memory["environment_fix"][0]["ran"] == "npm test"
-    assert workflow_metrics.RUN_MEMORY_LEARNED.series  # counted when kept
+    assert workflow_metrics.RUN_MEMORY_LEARNED.series
 
     second = _run(record, "run-2")
     await run_memory.entered(None, second, SimpleNamespace(id="fix"))
@@ -109,7 +105,6 @@ async def test_another_app_and_a_workspace_that_switched_it_off_get_nothing(reco
 
 @pytest.mark.asyncio
 async def test_a_too_long_output_and_its_short_form_reach_the_next_brief(record, monkeypatch):
-    """Cost levers 1 and 2 (e.g. two Flutter logs of 21 and 17 KB, about 270k tokens)."""
     run = _run(record)
 
     tools = [SimpleNamespace(tool="Bash", chars=21 * 1024, call=3, label="flutter test --reporter json"),
@@ -137,12 +132,11 @@ def test_without_a_pipeline_after_the_phase_the_agent_is_never_asked_for_less_ou
     assert "Output:" not in phase_brief(None, {"phase": phase, "preparation": {"environment": environment}})
     piped = phase_brief(None, {"phase": {**phase, "pipeline_after": "note"},
                                "preparation": {"environment": environment}})
-    assert "e.g. `flutter test 2>&1 | tail -30`" in piped  # the stack's short_output (stacks.json)
+    assert "e.g. `flutter test 2>&1 | tail -30`" in piped
 
 
 @pytest.mark.asyncio
 async def test_the_refused_and_the_working_call_are_kept_without_their_secrets(record):
-    """Run memory and the correction it passes on keep the calls redacted."""
     run = _run(record)
     secret = "ghp_" + "Z9y8X7w6V5u4T3s2R1q0P9o8N7m6L5k4J3i2"
     denial = SimpleNamespace(id="ev-9", created_at=T0 + timedelta(seconds=5), detail={

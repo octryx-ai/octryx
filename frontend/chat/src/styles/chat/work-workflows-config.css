@@ -53,7 +53,7 @@
   gap: 0.25rem;
   color: var(--muted);
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-workflow-map select,

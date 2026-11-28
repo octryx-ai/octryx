@@ -1,12 +1,4 @@
-"""The path check of the coding agent's own edit and patch tools.
-
-A write the internal tools are about to make asks the **same decision** as every other coding agent:
-
-- the Workspace's generated tool rules (``agent_gateway_policy.tool_rules``, e.g. ``path_denied``), the baseline;
-- the published Cedar policies (Settings → Governance → Policies) for ``write_path``, applied as the platform's
-  policy mode decides (``enforce``: a denial blocks; ``shadow``: recorded only; ``off``: not asked);
-- the path rules of the current phase of the workflow run the session follows.
-"""
+"""The path check of the coding agent's own edit and patch tools."""
 
 from __future__ import annotations
 
@@ -106,7 +98,6 @@ def _blocked(source: str, rule: str, reason: str, path: str, evidence: dict[str,
 
 
 async def _policy_outcomes(db: AsyncSession, subject: RuntimePolicySubject) -> list[dict[str, Any]]:
-    """The Workspace tool rules and the Cedar ``write_path`` decision, per path."""
     if not subject.project_id:
         return []
     loaded = await load_workspace_policy(db, subject.project_id)
@@ -207,6 +198,7 @@ async def _audit_decision(db: AsyncSession, *, subject: RuntimePolicySubject, de
             action=RUNTIME_POLICY_ACTION,
             resource_type="work_item" if subject.work_item_id else "coding_policy",
             resource_id=subject.work_item_id,
+            project_id=subject.project_id,
             details={
                 "project_id": subject.project_id,
                 "tool_name": subject.tool_name,

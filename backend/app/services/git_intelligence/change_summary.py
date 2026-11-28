@@ -15,7 +15,6 @@ from app.services.git_intelligence.helpers import JIRA_TICKET_RE, find_repo_root
 def _classify_commits(
     commits: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], set[str]]:
-    """Commits sorted into bug fixes, refactors and features by subject, plus the authors seen."""
     bug_fixes = []
     refactors = []
     features = []

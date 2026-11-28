@@ -1,8 +1,4 @@
-"""The published agent's tools deny holds at dispatch on server, device and MCP.
-
-Negative cases prove zero I/O (the tool's ``execute`` is never called); positive cases prove the remaining tools
-still run. The device's native equivalents follow the explicit ``NATIVE_EQUIVALENTS`` table only.
-"""
+"""The published agent's tools deny holds at dispatch on server, device and MCP, with zero I/O for a denied tool."""
 
 from __future__ import annotations
 
@@ -21,9 +17,10 @@ from app.tools import registry
 from app.tools.context import ToolContext
 from tests.agent_definition_revision_fixtures import make_project
 from tests.platform_agent_publish_support import publish_edit
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_octryx_platform_agent import _run
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 MCP = "mcp__octryx-knowledge__"
 
 
@@ -61,7 +58,6 @@ async def test_the_registry_refuses_a_denied_tool_with_zero_io_and_runs_the_othe
     assert refused["status"] == "denied" and refused["reason"] == "agent_tools_deny" and denied.calls == 0
     ran = await registry.execute_tool("web_search", {"query": "x"}, context)
     assert allowed.calls == 1, ran
-    # Without a deny the same tool runs: the gate is the agent's list, not the tool.
     context.agent_definition = {"toolsDeny": [], "toolSurface": "governed"}
     await registry.execute_tool("web_fetch", {"url": "https://example.test"}, context)
     assert denied.calls == 1
@@ -72,10 +68,9 @@ async def test_a_run_bound_device_session_cannot_call_a_denied_platform_mcp_tool
     _run_row, session = await _run(db, "engineer")
     key = await _bound_session_key(db, session)
     assert (await run_session_mcp_refusal(db, key, "knowledge_search"))["reason"] == "agent_tools_deny"
-    assert await run_session_mcp_refusal(db, key, "knowledge_read") is None  # the remaining reads run
-    assert await run_session_mcp_refusal(db, None, "knowledge_search") is None  # no run, no phase deny
+    assert await run_session_mcp_refusal(db, key, "knowledge_read") is None
+    assert await run_session_mcp_refusal(db, None, "knowledge_search") is None
 
-    # The real MCP tools/call guard: refused without calling the tool.
     @contextlib.asynccontextmanager
     async def shared():
         yield db
@@ -109,7 +104,7 @@ async def test_the_device_pre_tool_use_denies_the_mcp_tool_and_its_explicit_nati
     assert mcp is not None and mcp.reason == "agent_tools_deny"
     native = await decide("WebFetch", {"url": "https://example.test"})
     assert native is not None and native.reason == "agent_tools_deny" and "web_fetch" in native.message
-    assert await decide("Read", {"file_path": "README.md"}) is None  # no deny maps to Read here
+    assert await decide("Read", {"file_path": "README.md"}) is None
     assert await decide(MCP + "knowledge_read", {"source_key": "k"}) is None
 
 

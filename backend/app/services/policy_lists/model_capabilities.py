@@ -1,21 +1,4 @@
-"""The model capability catalog as admin-editable data (W22b, R3).
-
-A workflow definition may require a model capability (``required_model_capability``); an admin
-tags runtime targets with the capabilities they serve (``capability_tags``). Both are validated
-against this catalog (``unknown_capability``). The seed is the one capability R3 introduced,
-``coding``.
-
-``coding`` is pinned (``CODE_PINNED_MODEL_CAPABILITIES``, justified in code): the platform's
-governed coding run (``workflow_routing/platform_selection``) and the seeded coding definitions
-require it, and it is the one capability with an implicit rule for untagged runtimes (a model
-outside the weak coding families). Its label may change; it cannot be removed. Any other
-capability is removable only while no active definition requires it and no runtime target carries
-it (``capability_in_use``).
-
-Closed validation: ``invalid_payload``, ``empty_list``, ``invalid_entry`` (key outside
-``[a-z][a-z0-9_]{1,39}``, label empty or longer than 80 characters), ``duplicate_entry``,
-``capability_in_use``.
-"""
+"""The model capability catalog as admin-editable data (W22b, R3)."""
 
 from __future__ import annotations
 
@@ -86,7 +69,6 @@ def validate_model_capabilities(raw: Any) -> list[dict[str, str]]:
 
 
 def required_model_capability_errors(workflow_contract: Any) -> list[dict[str, str]]:
-    """A definition's ``required_model_capability`` must be in the live catalog (``unknown_capability``)."""
     from .live import live_policy_lists
 
     contract = workflow_contract if isinstance(workflow_contract, dict) else {}
@@ -103,7 +85,6 @@ def required_model_capability_errors(workflow_contract: Any) -> list[dict[str, s
 
 
 async def validate_runtime_capability_tags(db: AsyncSession, raw: Any) -> list[str]:
-    """A runtime target's capability tags, each in the live catalog (``unknown_capability``)."""
     from .live import refresh_live_policy_lists
 
     if not isinstance(raw, list) or not all(isinstance(item, str) for item in raw):
@@ -117,7 +98,6 @@ async def validate_runtime_capability_tags(db: AsyncSession, raw: Any) -> list[s
 
 
 async def model_capabilities_in_use(db: AsyncSession) -> set[str]:
-    """Capabilities something depends on: pinned ones, the phases of active workflows, tagged runtime targets."""
     from ...models import ControlPlaneRuntimeTarget, FlowDefinition, FlowDefinitionVersion
 
     used = set(CODE_PINNED_MODEL_CAPABILITIES)

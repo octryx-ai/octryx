@@ -1,16 +1,4 @@
-"""Literal environment values never leave the platform's Kubernetes tools.
-
-A pod template may carry a password written as a plain ``env[].value``. The tools run with the API's credentials and
-answer an agent, so every literal ``value`` of an ``env`` entry (containers, init and ephemeral containers, in pods
-and in every workload's pod template) is shown as ``<set>``; ``valueFrom`` references stay visible because they only
-name a Secret or a field. ``kubectl.kubernetes.io/last-applied-configuration`` repeats the whole spec, so that
-annotation is masked the same way.
-
-:func:`mask_kubectl_output` covers ``run_kubectl``'s text: JSON and YAML are parsed, masked and printed again (an
-answer that cannot be parsed is withheld, fail-closed); ``describe`` text has its ``Environment:`` blocks masked.
-:func:`kubectl_env_template_refusal` refuses the template formats (``jsonpath``, ``go-template``, ``custom-columns``)
-on resources with a pod template: they could print a value this module never sees as a structure.
-"""
+"""Literal environment values never leave the platform's Kubernetes tools."""
 
 from __future__ import annotations
 
@@ -39,7 +27,6 @@ _KEEP_DESCRIBE_VALUES = ("<set to ", "<none>", "(v1:")
 
 
 def mask_env(value: Any) -> Any:
-    """``value`` (any decoded Kubernetes answer) with every literal env value and the last-applied copy masked."""
     if isinstance(value, list):
         return [mask_env(item) for item in value]
     if not isinstance(value, dict):
@@ -77,7 +64,6 @@ def _leaf(args: Sequence[str]) -> str:
 
 
 def mask_kubectl_output(args: Sequence[str], stdout: str) -> str:
-    """``stdout`` of ``kubectl <args>`` with literal env values masked; withheld when JSON/YAML cannot be parsed."""
     if not stdout:
         return stdout
     output = _output_format(args)
@@ -102,7 +88,6 @@ _ENTRY = re.compile(r"^(?P<lead>\s*[A-Za-z_][A-Za-z0-9_.-]*:\s+)(?P<value>.*)$")
 
 
 def mask_describe(text: str) -> str:
-    """``kubectl describe`` text with the values in its ``Environment:`` blocks masked (references kept)."""
     lines = text.splitlines(keepends=True)
     out: list[str] = []
     block_indent: int | None = None
@@ -130,7 +115,6 @@ def mask_describe(text: str) -> str:
 
 
 def kubectl_env_template_refusal(args: Sequence[str]) -> str | None:
-    """Refuse a template output format on a resource with containers (it could print env values unmasked)."""
     parsed = parse_kubectl_args(args)
     if parsed is None or parsed.leaf != "get" or _output_format(args) not in _TEMPLATE_FORMATS:
         return None

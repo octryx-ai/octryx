@@ -1,13 +1,4 @@
-"""The examination contract itself, and one property per consumer under every cause of an unfinished scan.
-
-Contract: a report has no third state (complete, unfinished, or the explicit media exemption), a deadline overrun
-is unfinished even when the last detector returned, an examination and its clean proof are immutable, the clean
-cache re-checks the proof, and a memoized examination is recorded under the caller's source.
-
-Property (every consumer in ``test_examination_guard.CONSUMERS``, each with its own assertions, for both causes —
-every segment over the candidate limit, and the deadline passing during each segment's last detector): the
-consumer never allows, never caches, never forwards the original text, and records the examination unfinished.
-"""
+"""The examination contract itself, and one property per consumer under every cause of an unfinished scan."""
 
 from __future__ import annotations
 
@@ -49,7 +40,7 @@ from tests.model_gateway.codex_seat_support import chatgpt  # noqa: F401 - fixtu
 from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture
 from tests.model_gateway.model_gateway_openai_responses_support import responses_setup  # noqa: F401 - fixture
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 UNFINISHED_SAMPLE = "10.11.0.1 is internal"
@@ -63,7 +54,6 @@ def _candidate_limit(monkeypatch) -> None:
 
 
 def _deadline(monkeypatch) -> None:
-    """Every detector returns its findings, and the deadline passes while it runs."""
     real = scanner._find
     clock = {"now": 0.0}
 
@@ -81,19 +71,16 @@ CAUSES = {"candidate_limit": _candidate_limit, "deadline": _deadline}
 
 @pytest.fixture(params=sorted(CAUSES))
 def unfinished(request, monkeypatch):
-    """Every segment scan stays unfinished (one cause per parameter)."""
     CAUSES[request.param](monkeypatch)
     set_policy_runtime(PolicyRuntime())
 
-
-# --- the contract itself ----------------------------------------------------------------------------------------
 
 def test_a_report_has_no_third_state():
     with pytest.raises(ValueError):
         ScanReport(scanned=True, complete=True, unfinished=True)
     with pytest.raises(ValueError):
         ScanReport(scanned=True, complete=True, unreadable=True)
-    with pytest.raises(ValueError):  # incomplete without a reason: the deadline-overrun state before the contract
+    with pytest.raises(ValueError):
         ScanReport(scanned=True, complete=False)
     assert not ScanReport(scanned=True, complete=False, unfinished=True, unreadable=True).complete
 
@@ -106,7 +93,7 @@ def test_the_media_exemption_is_finished_and_a_deadline_overrun_is_not(monkeypat
 
     _deadline(monkeypatch)
     overrun = examine_text("mail a.person@example.com", "prompt", DetectorSet())
-    assert overrun.report.total and overrun.report.unfinished and not overrun.report.complete  # it returned
+    assert overrun.report.total and overrun.report.unfinished and not overrun.report.complete
     assert not overrun.finished and not overrun.permits(True)
     assert overrun.disposition(allowed=True, incomplete=DISPOSITION_WITHHOLD) == DISPOSITION_WITHHOLD
     with pytest.raises(IncompleteExaminationError):
@@ -156,7 +143,7 @@ def test_the_clean_cache_checks_the_proof_not_only_the_type():
         cache.remember(entry)
     dirty = examine_text("mail a.person@example.com", "prompt", DetectorSet())
     forged = examine_text("clean", "prompt", DetectorSet()).clean_entry("digest")
-    object.__setattr__(forged, "examination", dirty)  # a proof that does not prove
+    object.__setattr__(forged, "examination", dirty)
     with pytest.raises(IncompleteExaminationError):
         cache.remember(forged)
     with pytest.raises(ValueError):
@@ -188,11 +175,11 @@ def test_a_memoized_examination_is_recorded_under_the_callers_source(monkeypatch
     text = "mail a.person@example.com"
     examiner = RequestExaminer(DetectorSet(builtin=frozenset({"email"})), RequestBudget())
     run = TransportRun(examiner, frozenset({"email"}))
-    assert run.text(text) != text  # memoized under the history source first
+    assert run.text(text) != text
     for source in ("prompt", "system", "tool_result", "output"):
         report = examiner.report([Segment(text, source)], frozenset({"email"})).report
         assert report.sources == (source,) and report.segment_sources == (source,)
-    assert calls["count"] == 1  # one scan per distinct text per call, whatever the source
+    assert calls["count"] == 1
 
 
 async def test_the_provider_wrapper_records_the_prompt_as_the_prompt(monkeypatch):
@@ -207,8 +194,6 @@ async def test_the_provider_wrapper_records_the_prompt_as_the_prompt(monkeypatch
     (entry,) = recorded
     assert entry["content"]["sources"] == ["prompt"]
 
-
-# --- the property: every consumer, every cause of an unfinished scan ----------------------------------------------
 
 TEXT = "deploy notes for 10.11.0.1"
 
@@ -234,13 +219,13 @@ async def _request_examination(fx):
 
 async def _model_call_fields(fx):
     from app.services.content_detection.request_examination import RequestExaminer
+    from app.services.content_security.format_chat_messages import provider_messages
     from app.services.content_security.handling import SURFACE_PLATFORM, plan_for
     from app.services.content_security.model_call_fields import RecordedRun, Reports, refusing, reports
-    from app.services.content_security.model_call_masking import provider_messages
 
     run = RecordedRun(RequestExaminer(DetectorSet(), RequestBudget()), frozenset())
     copy = provider_messages([{"role": "user", "content": TEXT, "name": TEXT}], run)
-    # The extra is read with its key (C12B-02): both the name and the value were not fully examined.
+    # The extra is read with its key: both the name and the value were not fully examined.
     assert TEXT not in json.dumps(copy) and run.withheld_at == {"messages": 1, "message_extras": 2}
     plan = plan_for({"internal_ip": "refuse"}, SURFACE_PLATFORM)
     injection, refused, per_surface = refusing(run, plan)
@@ -259,12 +244,12 @@ async def _model_call(fx):
 
 
 async def _decision(fx):
-    from app.services.content_routing.decision import builtin_secret_decision, decide_model_content, scan_for
-    from app.services.model_gateway.inbound.refusals import REASON_SECRET_DETECTED
+    from app.services.content_routing.decision import decide_model_content, scan_for
+    from app.services.policy_engine.shadow import LegacyDecision
 
     scans = scan_for([Segment(TEXT, "prompt")], "ws-1")
     decision = decide_model_content(route="seat", alias="m", scans=scans, workspace_id="ws-1",
-                                    builtin_check=builtin_secret_decision(scans, REASON_SECRET_DETECTED))
+                                    builtin_check=LegacyDecision(True))
     assert not decision.allowed and decision.refusal == "content_scan_unfinished"
 
 
@@ -288,22 +273,23 @@ async def _tool_results(fx):
 
 async def _client_tool_results(fx):
     from app.services.content_routing.client_tool_results import client_tool_result_denial
-    from app.services.content_routing.gateway import scan_request
+    from app.services.content_security.format_request_body import examine_request_body
     from tests.content_detection.test_tool_results import MASK_RESULTS, _history_body
     from tests.policy_engine_support import use_custom_policies
 
     use_custom_policies(MASK_RESULTS, mode="enforce")
-    results = scan_request(_history_body(TEXT), "ws-1", RequestBudget()).tool_results
+    results = examine_request_body(_history_body(TEXT), "ws-1", RequestBudget()).tool_results
     assert results and not any(item.finished for item in results.values())
     denial = client_tool_result_denial(results, workspace_id="ws-1", principal=None)
     assert denial is not None, "an unfinished tool result is never permitted"
 
 
-async def _gateway_plan(fx):
+async def _enforcement_inbound(fx):
     from tests.model_gateway.conftest import ALIAS
     from tests.model_gateway.test_inbound_anthropic_gateway import ROUTE, _request_body
+
     body = {**_request_body(), "model": ALIAS}
-    body["messages"][0]["content"] = TEXT  # re-sent history only
+    body["messages"][0]["content"] = TEXT
     fake, build = fx.gateway
     response = await fx.client.post(ROUTE, json=body, headers=await build())
     assert response.status_code == 400 and "content_scan_unfinished" in response.text
@@ -329,8 +315,14 @@ async def _codex_seat(fx):
     assert fx.chatgpt.requests == []
 
 
-async def _gateway(fx):
+async def _request_body(fx):
     from app.services.content_routing import gateway, gateway_outcome
+    from app.services.content_security import format_request_body
+
+    kinds = frozenset({"internal_ip"})
+    masked = format_request_body.mask_gateway_body({"messages": [{"role": "user", "content": TEXT}]},
+                                                   DetectorSet(builtin=kinds), kinds, RequestBudget())
+    assert masked.withheld == 1 and TEXT not in json.dumps(masked.body), "unexamined text is never sent"
 
     entries: list[dict] = []
     fx.monkeypatch.setattr(gateway_outcome, "record_decision", entries.append)
@@ -341,7 +333,7 @@ async def _gateway(fx):
             "input": [{"type": "reasoning", "summary": [{"type": "summary_text", "text": TEXT}]},
                       {"type": "function_call_output", "call_id": "c", "output": TEXT},
                       {"type": "message", "role": "user", "content": "next"}]}
-    scanned = gateway.scan_request(body, "ws-1", RequestBudget())
+    scanned = format_request_body.examine_request_body(body, "ws-1", RequestBudget())
     assert not scanned.finished and not scanned.body.live.finished
     assert not any(item.finished for item in scanned.tool_results.values()), "the tool results too"
     refused = gateway.fixed_refusal(scanned, outcome, scanned.finished)
@@ -365,11 +357,11 @@ async def _seat(fx):
     assert fake.requests == []
 
 
-async def _body_masking(fx):
-    from app.services.content_routing.body_masking import MaskRun
+async def _chat_messages(fx):
+    from app.services.content_security.format_chat_messages import mask_chat_messages
 
-    run = MaskRun(DetectorSet(), frozenset({"email"}), None)
-    assert run.text(TEXT) == WITHHELD_TEXT and run.withheld == 1
+    masked = mask_chat_messages([{"role": "user", "content": TEXT}], DetectorSet(), frozenset({"email"}), None)
+    assert masked.body[0]["content"] == WITHHELD_TEXT and masked.withheld == 1
 
 
 async def _message_trust(fx):
@@ -396,22 +388,23 @@ async def _preview(fx):
 CASES = {
     "app.services.content_security.transport": _transport,
     "app.services.content_security.model_call": _model_call,
+    "app.services.content_security.enforcement_call": _model_call,
     "app.services.content_security.model_call_fields": _model_call_fields,
     "app.services.content_detection.request_examination": _request_examination,
     "app.services.content_routing.decision": _decision,
     "app.services.content_routing.chat": _chat,
     "app.services.content_routing.tool_results": _tool_results,
     "app.services.content_routing.client_tool_results": _client_tool_results,
-    "app.services.content_routing.gateway_plan": _gateway_plan,
+    "app.services.content_security.enforcement_inbound": _enforcement_inbound,
     "app.services.model_gateway.inbound.openai_service": _openai_service,
     "app.services.model_gateway.inbound.codex_seat": _codex_seat,
     "app.services.model_gateway.inbound.seat": _seat,
-    "app.services.content_routing.gateway": _gateway,
-    "app.services.content_routing.body_masking": _body_masking,
+    "app.services.content_security.format_chat_messages": _chat_messages,
+    "app.services.content_security.format_request_body": _request_body,
     "app.services.content_security.message_trust": _message_trust,
     "app.services.security_analyzer.content_command": _command,
     "app.services.content_detection.preview": _preview,
-    "app.api.routes.agent_gateway": launcher_route_case,
+    "app.api.routes.agent_gateway.agent_gateway": launcher_route_case,
     "octryx_claude.content_hooks": launcher_disposition_case,
     "octryx_claude.post_tool_use_hook": launcher_hook_case,
     **BOUNDARY_CASES,

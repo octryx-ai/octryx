@@ -1,28 +1,4 @@
-"""Server-owned Workspace scope for the knowledge dispatch owners.
-
-The knowledge tools resolve their project through ``_resolve_project``, which
-*prefers the model-supplied* ``project_id`` parameter (``_knowledge_common.py``
-``_current_project_id``). For a read inside the caller's own Workspaces that is
-acceptable, but it must never be what decides whose ``model_policy`` governs a
-provider dispatch: a model could otherwise name a Workspace with a wider alias
-grant and borrow it for the turn it is running in.
-
-So the scope this module builds has two parts, and both come from the server:
-
-- ``anchor_ids`` — the Workspaces whose policy must admit the alias. The
-  ToolContext's own project (stamped into ``project_config`` server-side when the
-  turn was prepared) always comes first, so it is the Workspace whose verified
-  admission is carried to the driver; the project the tool resolved is added, and
-  because the admission boundary admits a multi-Workspace scope by *intersection*,
-  an alias then needs both grants. Adding a Workspace can only narrow the result.
-- ``authorized_ids`` — the actor's own Workspaces (``ToolContext.project_ids``,
-  membership- and group-derived, plus the server-stamped anchor). Passed to the
-  boundary as ``authorized_project_ids``, so a project outside it is refused as
-  ``project_context_not_authorized`` before any policy row is trusted.
-
-``cross_workspace`` is the same check made available to the tool itself, for the
-owners that must refuse the whole call rather than only the dispatch.
-"""
+"""Server-owned Workspace scope for the knowledge dispatch owners."""
 
 from __future__ import annotations
 
@@ -57,8 +33,6 @@ def _normalized(values: Any) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class KnowledgeWorkspaceScope:
-    """One knowledge tool call's server-owned Workspace scope."""
-
     anchor_ids: tuple[str, ...]
     authorized_ids: tuple[str, ...]
     selected_project_id: str
@@ -71,12 +45,6 @@ class KnowledgeWorkspaceScope:
         return self.state == DISPATCH_STATE_ALLOWED
 
     def denial_result(self, *, owner: str) -> dict[str, Any]:
-        """The bounded payload a tool returns instead of acting cross-Workspace.
-
-        Shaped like ``DispatchAdmission.to_result()`` so an operator reads one
-        vocabulary whether the refusal came from the boundary or from the tool.
-        """
-
         return {
             "error": (
                 CROSS_WORKSPACE_ERROR
@@ -91,16 +59,6 @@ class KnowledgeWorkspaceScope:
 
 
 def knowledge_workspace_scope(context: ToolContext, *, project_id: Any) -> KnowledgeWorkspaceScope:
-    """Authorize a model-requested project before any project row is read.
-
-    ``project_id`` is the raw tool argument, not a value already resolved from
-    the database. The turn's server-stamped project is mandatory: without it a
-    model could choose whichever one of the actor's Workspaces has the widest
-    model grant. A requested secondary Workspace is accepted only when it is in
-    the server-owned authorization set, after which callers may safely load that
-    exact id.
-    """
-
     requested = str(project_id or "").strip()
     server_anchor = str((context.project_config or {}).get("project_id") or "").strip()
     # The server-stamped anchor is authorized by construction: the turn was

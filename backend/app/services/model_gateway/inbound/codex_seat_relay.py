@@ -1,8 +1,4 @@
-"""The Codex seat route's upstream call and the relay of ChatGPT's answer back unchanged (``codex_seat``).
-
-The answer is observed for the transcript (``codex_seat_observer``) and recorded after the response
-(``seat_transcript``).
-"""
+"""The Codex seat route's upstream call and the relay of ChatGPT's answer back unchanged."""
 
 from __future__ import annotations
 
@@ -28,6 +24,7 @@ from .seat import (
     REASON_UPSTREAM_TIMEOUT,
     REASON_UPSTREAM_UNREACHABLE,
     _bounded_bytes,
+    no_seat_route,
 )
 from .seat_transcript import SeatCallRecord, record_seat_call
 
@@ -36,8 +33,6 @@ REASON_CODEX_SEAT_PATH_DENIED = "codex_seat_path_denied"
 
 async def send_codex_seat(client: httpx.AsyncClient, content: bytes, headers: Mapping[str, str],
                           outcome: GatewayOutcome):
-    """``content``: the bytes the content decision read; a send that fails before the upstream answers is not a
-    content refusal (``GatewayOutcome.stopped``)."""
     try:
         request = client.build_request(
             "POST", CODEX_SEAT_RESPONSES_PATH, content=content,
@@ -50,6 +45,8 @@ async def send_codex_seat(client: httpx.AsyncClient, content: bytes, headers: Ma
                                STAGE_UPSTREAM)
     try:
         return await client.send(request, stream=True)
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        return outcome.stopped(no_seat_route(), STAGE_UPSTREAM)
     except httpx.TimeoutException:
         return outcome.stopped(InboundRefusal(GATEWAY_STATE_TIMEOUT, REASON_UPSTREAM_TIMEOUT, 504), STAGE_UPSTREAM)
     except httpx.HTTPError:

@@ -81,8 +81,6 @@ async def _ingest_terraform_stacks(
     db: AsyncSession, *, project_id: str | None, record: dict[str, Any], repo_node: Any, repository: str,
     source_ref: str,
 ) -> tuple[int, int]:
-    """``(nodes, edges)``: a stack node whose description summarizes what it provisions, plus
-    resource nodes (via the shared terraform extractor) so exact addresses stay alias-addressable."""
     nodes = edges = 0
     for stack in record.get("terraform_stacks") or []:
         if not isinstance(stack, dict):

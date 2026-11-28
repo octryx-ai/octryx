@@ -49,6 +49,7 @@ def record_admin_config_audit(
     resource_id: str,
     before: dict[str, Any] | None,
     after: dict[str, Any] | None,
+    project_id: str | None,
     details: dict[str, Any] | None = None,
 ) -> None:
     if not actor_user_id:
@@ -59,6 +60,7 @@ def record_admin_config_audit(
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
+            project_id=project_id,
             details=build_admin_config_audit_details(before=before, after=after, extra=details),
         )
     )

@@ -1,11 +1,4 @@
-"""What makes phases end unfinished and loops run on.
-
-- With the system test left to the pipeline (``agent_system_test: "pipeline"``) the rule must not say "run it
-  before you finish" while the brief says "do not run it", and the Stop must not flag "never run in this pass".
-- The code style's warnings reach the agent with a word that they are not its task, so it runs the tests
-  instead of working through them.
-- An agent that changes nothing after a red hands-on test does not get the same tree's scenarios run again.
-"""
+"""What makes phases end unfinished and loops run on."""
 
 from __future__ import annotations
 
@@ -16,6 +9,9 @@ from app.services.workflow_runs.octryx.system_tests import phase_system_tests
 from app.services.workflow_runs.phase_contract import WARNINGS_RULE
 from app.services.workflow_runs.pipeline import CONTEXT_KEY as PIPELINE_KEY
 from tests.hands_on_support import _answer, _at_hands_on, _Model
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SYSTEM = "npx playwright test"
 ENVIRONMENT = {"test": "flutter test", "system_test": SYSTEM}
@@ -25,7 +21,7 @@ ENVIRONMENT = {"test": "flutter test", "system_test": SYSTEM}
 def test_left_to_the_pipeline_the_rule_never_asks_the_agent_to_run_the_system_test(plain):
     asked = phase_system_tests("change", ENVIRONMENT, plain=plain)
     left = phase_system_tests("change", ENVIRONMENT, plain=plain, by_pipeline=True)
-    assert left["by_pipeline"] is True and left["command"] == SYSTEM  # the launcher still knows the command
+    assert left["by_pipeline"] is True and left["command"] == SYSTEM
     assert "do not run" in left["rule"].lower() and "pipeline" in left["rule"]
     assert "by_pipeline" not in asked and asked["rule"] != left["rule"]
 
@@ -53,7 +49,7 @@ async def test_an_unchanged_tree_after_a_red_hands_on_pauses_instead_of_running_
 
     await step.start(db, run, node)  # the agent's pass changed nothing: same tree
     assert run.status == "paused" and run.pause_reason == "agent_loop"
-    assert step.state(run)["state"] == "red"  # nothing was offered to the device
+    assert step.state(run)["state"] == "red"
 
     await step.start(db, run, node)  # a person retries after the pause: it runs
     assert step.state(run)["state"] == "pending"

@@ -1,10 +1,4 @@
-"""The stored text of one revision and where each offset or line is cited.
-
-Extractors that parse a whole file or record (a configuration file, a ServiceNow record, an
-inventory document) read the revision's stored object: span texts tile it with small gaps and can
-cut a table row in two. Citations still point at spans: an offset maps to the span whose character
-range starts at or before it, a line to the code span whose line range starts at or before it.
-"""
+"""The stored text of one revision and where each offset or line is cited."""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ from .sources import Candidate
 
 
 async def read_revision_text(context, candidate: Candidate) -> str:
-    """The revision's stored bytes as UTF-8; a fixed ``StructuredSourceError`` token otherwise."""
     from app.services.knowledge.structured.build_states import StructuredSourceError
 
     runtime = context.runtime
@@ -39,8 +32,6 @@ async def read_revision_text(context, candidate: Candidate) -> str:
 
 @dataclass(frozen=True)
 class SpanIndex:
-    """Offset and line lookups over one revision's spans, in document order."""
-
     char_starts: list[tuple[int, int]]
     line_starts: list[tuple[int, int]]
 

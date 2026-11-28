@@ -1,22 +1,15 @@
-"""Which kind of secret the gateway refused, on the run's timeline.
-
-Without this a refused call (``secret_detected_in_prompt``) names nothing, and a false alarm cannot be told from a real
-secret. The run records the fixed kinds (``secret_scan``: private_key, aws_access_key_id, vendor_token, jwt, …) —
-never the matched text. They come from the request's scan (``content_routing.gateway_plan.InboundPlan.found``:
-bounded and redacted); the request is never scanned a second time.
-"""
+"""Which kind of secret the gateway refused, on the run's timeline: the fixed kinds, never the text."""
 
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...content_routing.gateway_plan import InboundPlan
+from ...content_security.enforcement_inbound import InboundPlan
 
 EVENT = "secret_refused"
 
 
 async def note_secret_refusal(db: AsyncSession, session_id: str | None, plan: InboundPlan) -> None:
-    """Record the kinds on the session's active run when the refusal is the secret scan's (else nothing)."""
     from .refusals import REASON_SECRET_DETECTED
 
     if getattr(plan.refusal, "reason", None) != REASON_SECRET_DETECTED or not session_id:

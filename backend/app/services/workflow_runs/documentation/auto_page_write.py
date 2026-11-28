@@ -47,9 +47,6 @@ async def _parent_ok(db: AsyncSession, run: WorkflowRun, target: dict[str, Any])
 
 async def _put(db: AsyncSession, run: WorkflowRun, grant: dict[str, Any], slot: str, title: str,
                body: str) -> ToolOutcome:
-    """Create under the granted parent, or update the grant's own page: ``succeeded`` (the page), ``failed``,
-    ``approval_pending`` or :class:`_StopError` for this page (a title a foreign page has, a page that left the
-    parent)."""
     target, mark = dict(grant["target"]), _mark(grant, slot)
     content = f"<p><em>Published by Octryx workflow run {escape(run.id)} ({escape(mark)}).</em></p>{body}"
     known = dict(dict(grant.get("pages") or {}).get(slot) or {})
@@ -101,7 +98,6 @@ async def _put(db: AsyncSession, run: WorkflowRun, grant: dict[str, Any], slot: 
 
 async def _bind_item(db: AsyncSession, run: WorkflowRun, item: WorkItem | None, grant: dict[str, Any],
                      page: dict[str, Any]) -> None:
-    """The page on its Work item's documentation list (``work_item_documents``), with its connection/instance."""
     if item is None:
         return
     target = grant["target"]

@@ -1,7 +1,4 @@
-"""Which code-quality settings a repository declares or implies, tried in a fixed order.
-
-Each detector returns the base payload of its repository kind, or ``None`` so the next one is tried.
-"""
+"""Which code-quality settings a repository declares or implies, tried in a fixed order."""
 
 from __future__ import annotations
 

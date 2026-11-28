@@ -45,7 +45,7 @@
   color: inherit;
   padding: 0 0.25rem 0 0.25rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -58,11 +58,11 @@
   height: 1rem;
   padding: 0 0.25rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }

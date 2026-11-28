@@ -11,7 +11,7 @@ from typing import Any
 from app.models import Project, User, WorkItem
 from app.tools.registry import TOOL_REGISTRY
 from tests.knowledge_evidence_seed_support import seed_member, seed_workspace
-from tests.model_policy_support import publish_model_policy
+from tests.support.model_policy_support import publish_model_policy
 
 ALIAS = "analysis-alias"
 POLICY = "analysis-policy"
@@ -50,8 +50,6 @@ def analysis(**overrides: Any) -> dict[str, Any]:
 
 @dataclass
 class Scripted:
-    """A provider factory answering from ``script``; every request is kept in ``seen``."""
-
     script: list[dict[str, Any]]
     seen: list[dict[str, Any]] = field(default_factory=list)
 

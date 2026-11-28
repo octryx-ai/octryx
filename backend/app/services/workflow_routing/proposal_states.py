@@ -1,16 +1,11 @@
-"""Closed vocabulary of workflow proposals, shared by the resolver, the gate and the read models.
-
-Constants only (no imports), so the execution gate, the trace snapshot and the turn execution
-summary can depend on it without pulling in the proposal machinery.
-"""
+"""Closed vocabulary of workflow proposals, shared by the resolver, the gate and the read models."""
 
 from __future__ import annotations
 
 WORKFLOW_PROPOSAL_KEY = "workflow_proposal"
 WORKFLOW_PROPOSAL_SOURCE = "workflow_proposal"
 WORKFLOW_PROPOSAL_VERSION = "workflow_proposal.v1"
-# Explicit "no workflow" selection (composer option, "continue without workflow"): no
-# proposal call, no workflow. A published workflow cannot be selected under this key.
+# Explicit "no workflow" selection: no proposal call; a published workflow cannot be selected under this key.
 WORKFLOW_KEY_NONE = "none"
 
 STATUS_NEEDS_CONFIRMATION = "needs_confirmation"
@@ -41,11 +36,9 @@ PROPOSAL_REASON_CODES = frozenset(
         "proposal_failed",
         "policy_disabled",
         "user_selected_no_workflow",
-        # The proposal resolved before the chat preparation lock no longer matches the turn
-        # (Workspace or message changed in between); no call is made under the lock.
+        # Workspace or message changed between the proposal and the preparation lock; no call under the lock.
         "proposal_scope_changed",
-        # An admitted agent the user chose directly (explicit, exact mention, the session's bound
-        # agent) controls the turn and no workflow was chosen: no automatic proposal call.
+        # A directly chosen admitted agent controls the turn and no workflow was chosen: no proposal call.
         "direct_agent_selected",
         # A proposal that would wait for the user, but the user's words do not ask for the
         # workflow's outcome: the turn runs as a plain chat, the workflow is offered next to it.

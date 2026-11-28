@@ -1,20 +1,5 @@
 """Split a turn's input tokens by what filled the context: system prompt and tool definitions, the phase prompt, tool
-results (per tool), conversation history, subagents; output apart. Pure, no database.
-
-The API counts a call's input as a whole (uncached + cache read + cache write); what is in it follows from the order
-of the turn:
-
-- measured (a ``token_profile`` from the launcher): per main-thread call, the fixed start (the session's smallest
-  call minus the prompt: system prompt and tool definitions), the prompt, every tool result asked for by an earlier
-  call since the last compaction (its full size), and the rest as history. A result is paid again in every later call
-  that carries it: 69 KB of test output read early costs its size in each following call;
-- estimated (a turn without a ``token_profile``: the launcher sends none when it finds no transcript stream): one
-  call per tool use plus one, the job's first context reading as the fixed start, tool results as stored (cut at
-  4 KB: a lower bound), the prompt inside the history.
-
-When the parts would exceed the measured input, tool results are scaled down first, then the fixed start: the
-measured total always wins.
-"""
+results (per tool), conversation history, subagents; output apart."""
 
 from __future__ import annotations
 
@@ -83,14 +68,12 @@ class Split:
 
 
 def fixed_start(turns: list[Turn]) -> int:
-    """System prompt and tool definitions of one job's session: its smallest call minus that turn's prompt."""
     sizes = [call.total_input - tokens_of(turn.prompt_chars) for turn in turns if turn.measured
              for call in turn.main_calls[:1]]
     return max(min(sizes), 0) if sizes else 0
 
 
 def _fit(total: int, fixed: int, prompt: int, results: list[int]) -> tuple[int, int, list[int], int]:
-    """The parts scaled into ``total``: results first, then the fixed start and prompt; the rest is history."""
     used = sum(results)
     if fixed + prompt + used > total:
         room = max(total - fixed - prompt, 0)
@@ -155,7 +138,5 @@ __all__ = ["CATEGORY_KEYS", "Call", "Split", "ToolResult", "Turn", "fixed_start"
 
 
 def hit_rate(cache: dict[str, int]) -> float | None:
-    """The share of input tokens read from the prompt cache: read / (read + write + uncached); ``None`` without
-    input. The order of a request decides it: what stays the same between calls belongs first, what changes last."""
     total = cache.get("read", 0) + cache.get("write", 0) + cache.get("uncached", 0)
     return round(cache.get("read", 0) / total, 4) if total else None

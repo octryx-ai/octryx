@@ -1,27 +1,4 @@
-"""One repository commit as a bounded, classified file list.
-
-The ``remote_git`` fetch mode reads the host's gzip archive at a sha (its entries under one
-top-level directory, which is stripped). ``strip_top_level=False`` reads entries relative to the
-repository root, as ``git archive HEAD`` writes them, so the same classification can serve a
-launcher's local snapshot too.
-
-Every regular file gets exactly one closed outcome, in this order:
-
-1. ``path_too_long``: longer than a display title may be (the title is the path);
-2. ``skipped_unsupported_path``: not a plain relative POSIX path (``git_paths.supported_path``);
-3. ``excluded``: outside the include globs or inside an exclude glob;
-4. ``skipped_too_large``: above ``max_file_bytes``, judged by the tar header, never read;
-5. ``skipped_empty``: nothing but whitespace;
-6. ``skipped_binary``: a NUL byte, not strict UTF-8, or a known binary signature;
-7. otherwise the file is an item. Its identity is the git blob sha1 of its bytes, so a re-sync of
-   the same commit, or of a later commit where the file did not change, is ``unchanged``. Secret
-   redaction happens at ingestion (``ingestion/code_ingest.py``), the same for every fetch mode.
-
-Directories, symlinks and other non-regular entries are no files and get no outcome. Bounds are
-explicit refusals (``repository_too_large``): the archive's entry count, the bytes its headers
-declare, the bytes kept in memory, and ``max_files`` items after the globs. A corrupt archive is
-``source_contract_violation``.
-"""
+"""One repository commit as a bounded, classified file list."""
 
 from __future__ import annotations
 
@@ -60,15 +37,12 @@ MAX_TITLE_PATH_CHARS = 300
 
 @dataclass(frozen=True, slots=True)
 class SnapshotEntry:
-    """One regular file: ``skip`` is its skip outcome, or ``None`` for an item with its text."""
-
     path: str
     skip: str | None
     data: bytes | None = field(default=None, repr=False)
 
     @property
     def blob_sha(self) -> str:
-        """The git blob id of the bytes (``sha1("blob <size>\\0" + bytes)``), as ``git hash-object`` prints it."""
         data = self.data or b""
         return hashlib.sha1(b"blob %d\x00" % len(data) + data, usedforsecurity=False).hexdigest()
 
@@ -81,7 +55,6 @@ class SnapshotLimits:
 
 
 def _relative(name: str, *, strip_top_level: bool) -> str | None:
-    """The entry's repository path; ``None`` for the top-level directory entry itself."""
     name = name.removeprefix("./")
     if not strip_top_level:
         return name
@@ -119,7 +92,6 @@ def _classify(member: tarfile.TarFile, entry: tarfile.TarInfo, path: str, limits
 
 
 def _titled(path: str) -> bool:
-    """The path is its own display title, unchanged by the title rule (whitespace, unsafe characters)."""
     try:
         return normalize_display_title(path) == path
     except EvidenceLedgerError:
@@ -127,7 +99,6 @@ def _titled(path: str) -> bool:
 
 
 def read_snapshot(archive: bytes, *, limits: SnapshotLimits, strip_top_level: bool) -> tuple[SnapshotEntry, ...]:
-    """Every regular file of a gzip tarball with its outcome, sorted by path; bounded."""
     entries: dict[str, SnapshotEntry] = {}
     declared = kept = items = 0
     try:

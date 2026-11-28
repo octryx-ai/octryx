@@ -1,4 +1,4 @@
-"""C's new shipped graph earns native lint and exact-pushed-commit CI gates."""
+"""C's new shipped graph earns exact-pushed-commit CI gates; lint is the pipeline's, never a server gate."""
 from __future__ import annotations
 
 import copy
@@ -9,21 +9,21 @@ from app.services.flow_definitions import validate_flow_definition
 from app.services.workflow_runs.seeding import phased_seeds
 from app.services.workflow_runs.watch import deliver_event, poll_watching_runs
 from app.services.workflow_runs.watch_events import WatchEvent
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def c_definition():
     return copy.deepcopy(next(s['definition'] for s in phased_seeds() if s['key'] == 'bug-fix-reproduction'))
 
 
-def test_c_ships_native_lint_and_ci_before_merge():
+def test_c_ships_ci_before_merge_and_no_server_lint_gate():
     definition = c_definition()
     assert validate_flow_definition(definition)['valid']
     nodes = {n['id']: n for n in definition['nodes']}
-    for phase in ('reproduce', 'fix'):
-        assert any(c['type'] == 'lint_passed' and c['blocking']
-                   for c in nodes[phase]['config']['workflow_contract']['checks'])
-    assert any(c['type'] == 'lint_passed' and c['blocking'] for c in nodes['green']['config']['checks'])
+    assert 'lint_passed' not in str(definition)
     assert nodes['ci']['config'] == {'conditions': ['ci.succeeded', 'ci.failed'], 'advance': 'auto'}
     assert not any(e['source_node_id'] == 'in_review' and e['target_node_id'] == 'merged'
                    for e in definition['edges'])
@@ -76,7 +76,6 @@ async def test_c_native_ci_waits_for_the_pushed_sha_then_uses_its_real_edges(db,
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

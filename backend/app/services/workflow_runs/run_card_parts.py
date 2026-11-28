@@ -11,9 +11,6 @@ from ...models import WorkflowRun
 
 
 def task_list_view(run: WorkflowRun) -> list[dict[str, Any]]:
-    """The work item's tasks for the run card, each with its status (``task_status``: open, in_progress, done,
-    changes, verified) and, for ``changes``, the review finding as ``note``. ``done`` stays for the card's check mark:
-    ``True`` for done or verified, ``False`` otherwise, ``None`` while a list without statuses has no known change."""
     from .task_list import missing_proofs, proofs_of, run_task_list
     from .task_status import DONE, OPEN, VERIFIED
 
@@ -34,8 +31,6 @@ def task_list_view(run: WorkflowRun) -> list[dict[str, Any]]:
 
 
 async def model_usage(db: AsyncSession, session_ids: list[str]) -> dict[str, Any]:
-    """What the run's sessions spent on models: calls, tokens in and out, cost (weak models must not
-    waste tokens — the number per run, and so per merged ticket, is visible)."""
     from sqlalchemy import func
 
     from ...models.runtime.audit import UsageEvent
@@ -52,7 +47,6 @@ async def model_usage(db: AsyncSession, session_ids: list[str]) -> dict[str, Any
 
 
 def spec_studio_summary(run: WorkflowRun) -> dict[str, Any] | None:
-    """Whether the run has a Spec Studio and its state, for the run card's "Open Spec Studio"."""
     from .spec_studio.service import evaluate
 
     view = evaluate(run)

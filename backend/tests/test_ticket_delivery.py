@@ -1,8 +1,4 @@
-"""Every workflow: an independent review that lists the assumptions the change makes beyond the spec, and the product owner's answers going back to the agent.
-
-A gap the product owner finds in review is often a behaviour the spec left open that the agent decided silently; the
-review names those as questions, and the answers reach the agent's next pass.
-"""
+"""Every workflow: an independent review that lists the assumptions the change makes beyond the spec, and the product owner's answers going back to the agent."""
 
 from __future__ import annotations
 
@@ -19,6 +15,9 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from app.services.workflow_runs.review.verdict import parse_verdict
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SEEDS = Path(__file__).resolve().parents[1] / "app/services/workflow_runs/seeds/phased_workflows.json"
 
@@ -87,18 +86,16 @@ async def test_the_product_owners_answer_is_required_and_reaches_the_agents_next
     node = (await graph_for_run(db, run)).nodes["work"]
     facts = phase_definition(run, node)["workflow_contract"]["workflow_run_phase"]
     assert facts["product_owner_answers"] == [answer]
-    assert "previous_change" not in facts  # no change reported yet: nothing to start from
+    assert "previous_change" not in facts
 
-    # The follow-up pass starts from its own change (token costs), not from a fresh orientation.
     from app.services.workflow_runs.phase_contract import MAX_PREVIOUS_PATCH
 
     patch = "diff --git a/src/api.py b/src/api.py\n+x = 1\ndiff --git a/SPEC.md b/SPEC.md\n+rule\n"
-    # As live: the device reports its change, the review sends it back, the engine enters the next pass.
     from app.services.workflow_runs.node_activation import _activate
 
     run.context = {**dict(run.context or {}), "device_change": {"patch": patch, "node_id": "work"}}
     await _activate(db, run, await graph_for_run(db, run), node, None)
-    assert "device_change" not in run.context  # never reviewed or pushed again
+    assert "device_change" not in run.context
     previous = phase_definition(run, node)["workflow_contract"]["workflow_run_phase"]["previous_change"]
     assert previous["files"] == ["src/api.py", "SPEC.md"] and previous["patch"] == patch
     assert "Do not read whole files" in previous["note"]
@@ -152,8 +149,7 @@ async def test_answers_to_the_readiness_questions_reach_the_build(client, auth_h
     assert [action["label"] for action in view["actions"]][:2] == ["Ready: start building",
                                                                  "Answer the questions, then build"]
     change = next(action for action in view["actions"] if action["key"] == "change")
-    assert change["input"]["max_length"] == 100_000  # the card offers room for real answers (a textarea)
-    # Answers to five questions are longer than a stop reason: 500+ characters reach the agent.
+    assert change["input"]["max_length"] == 100_000
     answers = "1. Seed items default seasons to 1-12. " + "2. The server generates the ids. " * 20
     assert len(answers) > 500
     answered = await client.post(f"/api/v1/workflow-runs/{run.id}/actions", headers=auth_headers,
@@ -165,7 +161,6 @@ async def test_answers_to_the_readiness_questions_reach_the_build(client, auth_h
 
 @pytest.mark.asyncio
 async def test_the_reviewer_checks_every_product_owner_answer_and_a_spec_review_uses_its_checklist(db, tmp_path):
-    """An answer the agent leaves out must not pass the review: the answers are part of the review task."""
     from sqlalchemy import select
 
     from app.models import UsageEvent
@@ -201,19 +196,16 @@ async def test_the_reviewer_checks_every_product_owner_answer_and_a_spec_review_
     reviewer = ScriptedReviewer(audit, {"verdict": "changes", "summary": "C missing.", "findings": [
         {"severity": "high", "file": "tests/test_api.py", "line": 1, "fix": "PO answer 2, point C: add it"}]})
     assert await run_due_reviews(db, model_factory=reviewer.factory) == 1
-    # Stage 1 lists the candidates without judging; stage 2 judges them with the audit in its task.
     (first, first_user), (system, user) = reviewer.tasks
     assert SPEC_AUDIT_RULE in first and SPEC_REVIEW_RULE in first and PO_ANSWERS_RULE in first
     assert "PO answer 2:\nC. The plan test" in first_user
     assert SPEC_JUDGE_RULE in system and PO_ANSWERS_RULE in system and ASSUMPTIONS_RULE not in system
     assert "PO answer 1:\nA. Add GET /api/trips." in user and "no inventory in the plan test" in user
     usage = (await db.execute(select(UsageEvent).where(UsageEvent.dispatch_owner == "workflow_run_review"))).scalars()
-    assert [(row.tokens_in, row.tokens_out) for row in usage] == [(80, 20)]  # both calls, one review attempt
+    assert [(row.tokens_in, row.tokens_out) for row in usage] == [(80, 20)]
 
 
 def test_spec_writing_interviews_the_product_owner_writes_reviews_with_a_checklist_and_splits_the_stories():
-    """A spec agent that helps write the spec and a spec review before anything is built. With the
-    teamwork split a coordinator plans the stories and the server creates them (``test_team_delivery``)."""
     seed = next(item for item in seed_definitions() if item["key"] == "spec-writing")
     definition = seed["definition"]
     assert validate_phased_definition(definition)["errors"] == []
@@ -229,19 +221,16 @@ def test_spec_writing_interviews_the_product_owner_writes_reviews_with_a_checkli
         contract["draft"]["when_to_use"])
     assert contract["split"]["checks"][0]["params"]["tools"] == ["submit_story_plan"]
     assert graph.nodes["answers"].config == {"decider": "requester", "subject": "interview"}
-    # No reviewer model pinned in the seed; the Workspace or installation chooses it.
     assert graph.nodes["spec_review"].config == {"phase": "draft", "checklist": "spec", "assumptions": True}
     assert graph.nodes["decisions"].config["auto_revise"] == 2 and graph.nodes["decisions"].config["tasks"] is False
     routes = {(edge["source_node_id"], edge.get("when")): edge["target_node_id"] for edge in definition["edges"]}
     assert routes[("answers", "changed")] == routes[("answers", "confirmed")] == "draft"
     assert (routes[("decisions", "confirmed")], routes[("decisions", "changed")]) == ("split", "draft")
-    # The stories only once the spec is accepted, never per loop pass.
     assert (routes[("split", None)], routes[("stories", "succeeded")]) == ("stories", "push")
 
 
 @pytest.mark.asyncio
 async def test_an_answer_lands_on_the_platform_work_item_as_a_note(client, auth_headers, db):
-    """Whoever opens the ticket sees every product owner decision, also after the run is gone."""
     from app.models.runtime.secure_work import WorkItem
 
     admin = await admin_user(db)
@@ -267,13 +256,11 @@ async def test_an_answer_lands_on_the_platform_work_item_as_a_note(client, auth_
     await db.refresh(item)
     note = item.source_fields_json["platform_notes"][-1]["note"]
     assert note.startswith(f"Product owner answer (spec questions, workflow run {run.id}):") and note.endswith(
-        answer.strip())  # the whole answer, not cut at a progress note's 2000 characters
+        answer.strip())
 
 
 @pytest.mark.asyncio
 async def test_accepting_all_proposals_is_an_answer_the_next_phase_and_the_spec_review_see(client, auth_headers, db):
-    """Proposals accepted with "accept all" reach the draft as product_owner_answers, so it does not drop or
-    reverse them."""
     from app.services.workflow_runs.graph import graph_for_run
     from app.services.workflow_runs.po_answers import ACCEPTED_PREFIX
     from app.services.workflow_runs.review.verdict import SPEC_DECISIONS_RULE
@@ -294,7 +281,7 @@ async def test_accepting_all_proposals_is_an_answer_the_next_phase_and_the_spec_
     assert accepted.status_code == 200, accepted.text
     await db.refresh(run)
     [answer] = [item["text"] for item in run.context["po_answers"]]
-    assert answer == f"{ACCEPTED_PREFIX}Done."  # the phase's proposals ("Done." in this harness) as accepted
+    assert answer == f"{ACCEPTED_PREFIX}Done."
     node = next(node for node in (await graph_for_run(db, run)).nodes.values()
                 if node.kind == "phase" and node.id != "readiness")
     facts = phase_definition(run, node)["workflow_contract"]["workflow_run_phase"]

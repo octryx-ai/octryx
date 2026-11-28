@@ -1,21 +1,5 @@
-"""Find candidate sources the way a researcher does, grounded in pages that exist (research packages).
-
-Web search is never open here: it runs through the governed search, restricted to the trusted
-sources and the entry points that were just verified (``package_research.py``). The candidate list is
-built from three kinds of evidence, every one of them observed on the web:
-
-1. **Seed pages.** The planning model names the vendor's official entry points it knows (a docs
-   index, a project wiki, a release-notes overview). Each is fetched; a seed that does not answer is
-   dropped, so a remembered URL only counts when it is real.
-2. **Links of the seeds.** Every link on a fetched seed that stays on the seed's host and mentions
-   the product or one of the versions becomes a candidate. That is how a wiki's list of all release
-   notes, or a docs index's migration page, is found.
-3. **Search results**, which the governed search already restricted to trusted and entry-point hosts.
-
-A candidate the registry blocks never enters the list. The selection model then chooses only from
-this list, and each chosen URL is probed again before it enters the package. Bounded:
-:data:`MAX_SEEDS` seeds, :data:`MAX_CANDIDATES` candidates.
-"""
+"""Find candidate sources the way a researcher does, grounded in pages that exist. Web search is never open here; every
+candidate was observed on the web."""
 
 from __future__ import annotations
 
@@ -94,7 +78,6 @@ async def _seed_page(url: str, gate: asyncio.Semaphore, policy: SourcePolicy) ->
 
 
 async def entry_points(seeds: list[str], policy: SourcePolicy) -> list[EntryPoint]:
-    """The model-named entry points that answer and are not blocked: ``(final url, title, links)``."""
     gate = asyncio.Semaphore(_CONCURRENCY)
     seed_urls = [
         url for url in (_safe_url(raw) for raw in seeds[:MAX_SEEDS]) if url and policy.state_of(url) != URL_BLOCKED
@@ -145,7 +128,6 @@ def discover(
 
 
 async def verified(urls: list[str]) -> set[str]:
-    """The URLs that answer as an ingestible public document right now."""
     gate = asyncio.Semaphore(_CONCURRENCY)
 
     async def probe(url: str) -> str | None:

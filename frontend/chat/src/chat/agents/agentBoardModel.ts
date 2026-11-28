@@ -1,20 +1,4 @@
-// Agent message board and claims of the "Agents" area. Pure: no requests, no React.
-//
-// Contract (backend agent-board messages endpoint):
-//   GET  /api/v1/agent-board/messages?project_id=&cursor=&work_item_id=&kind=&agent_hash=&limit=
-//        -> {items: [envelope + acks], next_cursor, viewer}, newest first
-//   GET  /api/v1/agent-board/messages/{id}/thread -> {root, replies[], viewer}
-//   GET  /api/v1/agent-board/claims?project_id= -> {items: [{id, work_item: {id, key, title},
-//        holder: {user: {id, display_name}, agent_hash, kind}, epoch, lease_until, paths, claimed_at}], viewer}
-// Exact shapes (root addendum D-F1..D-F3):
-//   viewer       = {user_id, can_admin}  (can_admin: Workspace admin/owner or platform admin; it only decides what the
-//                  UI offers, the server authorizes every action)
-//   envelope     = {id, kind, author: {type: agent|human, user: {id, display_name}, agent_hash: str|null},
-//                  on_behalf_of: {id, display_name}|null, to: {user: {id, display_name}|null, agent_hash: str|null,
-//                  role: admins|null}|null, work_item: {id, key, title}|null, reply_to, created_at, body, options,
-//                  acked_by_me, decided (decision_request only): null|{by: {id, display_name}, at, option, text},
-//                  acks: [{recipient: {kind: user|agent, user: {id, display_name}|null, agent_hash: str|null}, acked_at}]}
-// Bodies are data written by agents or people: they are kept as plain strings and rendered as text only.
+// Bodies are written by agents or people: kept as plain strings and rendered as text only.
 
 import { BOARD_KINDS } from "./agentBoardTypes";
 import type { BoardAck, BoardClaim, BoardDecided, BoardMessage, BoardUser, BoardViewer, BoardWorkItem } from "./agentBoardTypes";
@@ -25,7 +9,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
 const strings = (value: unknown) => (Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : []);
 
-/** A user reference `{id, display_name}`; a missing display name shows the id. Anything else is no user. */
 export function readBoardUser(value: unknown): BoardUser | null {
   if (!isRecord(value)) return null;
   const id = text(value.id);
@@ -38,7 +21,6 @@ function readWorkItem(value: unknown): BoardWorkItem | null {
   return { id: text(value.id), key: text(value.key), title: text(value.title) };
 }
 
-/** An ack: a user reads as their name, an agent as "agent of <user>" (or its hash when no user is given). */
 function readAck(value: unknown): BoardAck | null {
   if (!isRecord(value) || !isRecord(value.recipient)) return null;
   const user = readBoardUser(value.recipient.user);
@@ -54,13 +36,12 @@ function readDecided(value: unknown): BoardDecided | null {
   return { by: readBoardUser(value.by), at: text(value.at) || null, option: text(value.option), text: text(value.text) };
 }
 
-/** The caller as the server sees them; null when the answer carries no viewer (then nothing admin is offered). */
+// can_admin only decides what the UI offers; the server authorizes every action.
 export function readViewer(payload: unknown): BoardViewer | null {
   if (!isRecord(payload) || !isRecord(payload.viewer) || !text(payload.viewer.user_id)) return null;
   return { userId: text(payload.viewer.user_id), canAdmin: payload.viewer.can_admin === true };
 }
 
-/** One envelope read strictly; null without a stable id. The body stays the exact string the server sent. */
 export function readBoardMessage(value: unknown): BoardMessage | null {
   if (!isRecord(value) || !text(value.id)) return null;
   const author = isRecord(value.author) ? value.author : {};
@@ -89,19 +70,17 @@ export function readBoardMessage(value: unknown): BoardMessage | null {
 const readMessages = (value: unknown) =>
   (Array.isArray(value) ? value : []).map(readBoardMessage).filter((entry): entry is BoardMessage => entry !== null);
 
-/** A page of the board; null when the answer is not a listing. */
 export function readBoardPage(payload: unknown): { items: BoardMessage[]; nextCursor: string | null } | null {
   if (!isRecord(payload) || !Array.isArray(payload.items)) return null;
   return { items: readMessages(payload.items), nextCursor: text(payload.next_cursor) || null };
 }
 
-/** A thread; null when the answer has no readable root. */
 export function readBoardThread(payload: unknown): { root: BoardMessage; replies: BoardMessage[] } | null {
   const root = isRecord(payload) ? readBoardMessage(payload.root) : null;
   return root && isRecord(payload) ? { root, replies: readMessages(payload.replies) } : null;
 }
 
-/** The fresh first page, then the older pages already loaded (polling keeps "Load older" results). */
+// Polling refreshes the first page and keeps the older pages already loaded.
 export function mergeNewest(fresh: BoardMessage[], existing: BoardMessage[]): BoardMessage[] {
   const seen = new Set(fresh.map((message) => message.id));
   return [...fresh, ...existing.filter((message) => !seen.has(message.id))];
@@ -128,7 +107,6 @@ export function readClaims(payload: unknown): BoardClaim[] | null {
   return payload.items.map(readClaim).filter((entry): entry is BoardClaim => entry !== null);
 }
 
-/** Address of the work item in the Work area (opens it on load; workDetailLink.ts reads it). */
 export function workItemHref(projectId: string, workItemId: string): string {
   const params = new URLSearchParams({ area: "work", workspace_id: projectId, work_item_id: workItemId });
   return `?${params.toString()}`;
@@ -143,7 +121,7 @@ const errorParts = (error: unknown) => {
   };
 };
 
-/** Load refusals in words. Rule 1: out of scope answers like missing, so a 404 cannot say which. */
+// Out of scope answers like missing, so a 404 cannot say which.
 export function boardLoadErrorText(error: unknown, what: string): string {
   const { status, message } = errorParts(error);
   if (status === 404) return `No ${what} shown: this server does not offer the agent board yet, or you are not a member of this Workspace.`;
@@ -151,7 +129,6 @@ export function boardLoadErrorText(error: unknown, what: string): string {
   return `The ${what} could not be loaded: ${message}.`;
 }
 
-/** Refusals of a board action (decide, release, redact, request a handoff) in words. */
 export function boardActionErrorText(error: unknown): string {
   const { status, code, message } = errorParts(error);
   if (code === "already_decided") return "This request has already been decided.";

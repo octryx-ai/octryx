@@ -102,10 +102,11 @@ test("each run is in exactly one group: Needs you > Problems > Running > Done", 
   assert.equal(companionLabel(attention), "Octryx: 2 needs you, 2 working, 1 done, 1 problem");
 });
 
-test("an item's run is read from run.id, else from a run, done or handover key; other items have none", () => {
+test("an item's run is read from run.id, else from a run or done key; a handover names its run only by reference", () => {
   assert.equal(readAttentionItem(APPROVAL).runId, "run-12");
   assert.equal(readAttentionItem({ ...FINISHED, run: undefined }).runId, "run-7");
-  assert.equal(readAttentionItem({ key: "handover:run-3:1", kind: "handover", id: "run-3", title: "Take over" }).runId, "run-3");
+  assert.equal(readAttentionItem({ key: "handover:h-3", kind: "handover", id: "run-3", run: { id: "run-3" }, title: "Take over" }).runId, "run-3");
+  assert.equal(readAttentionItem({ key: "handover:h-4", kind: "handover", id: "s-4", title: "Take over" }).runId, null);
   assert.equal(readAttentionItem(QUESTION).runId, null);
   assert.equal(readAttentionItem({ key: "tool_approval:a1", kind: "gate", id: "a1", title: "Allow write" }).runId, null);
 });
@@ -143,7 +144,7 @@ async function renderPanel(attention, extra = {}) {
   return { view, closed };
 }
 
-test("the panel is the side panel over the dimmed page, with Now / Jobs as segmented tabs and jobs as table rows", async () => {
+test("the panel is the side panel over the dimmed page, with Now / Jobs / Pool as segmented tabs and jobs as table rows", async () => {
   const attention = readAttention({ items: [APPROVAL, KAN14_DONE, FINISHED], running: RUNNING });
   const { view, closed } = await renderPanel(attention);
   try {
@@ -154,7 +155,7 @@ test("the panel is the side panel over the dimmed page, with Now / Jobs as segme
     await act(async () => backdrop.props.onMouseDown({ target: backdrop, currentTarget: backdrop }));
     assert.equal(closed.length, 1, "a click on the dimmed page closes it");
     const tabs = view.root.findAll((node) => node.props.role === "tab" && typeof node.type === "string");
-    assert.deepEqual(tabs.map(text), ["Now", "Jobs"]);
+    assert.deepEqual(tabs.map(text), ["Now", "Jobs", "Pool"]);
     assert.deepEqual(view.root.findAll((node) => node.type === "h3").map(text), ["Needs you (1)", "Running (3)", "Done in the last 3 days (1)"]);
     assert.equal(text(byTestId(view, "octryx-needs")[0]).match(/Go on\?/g)?.length, 1, "'Go on?' once per card");
     await act(async () => tabs[1].props.onClick());

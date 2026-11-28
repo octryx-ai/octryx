@@ -1,32 +1,13 @@
-"""``octryx codex``: Codex CLI in the terminal, governed like ``octryx claude``.
-
-Starts only when the Workspace allows Codex (``engine_choice``). The session is registered with the platform like a
-Claude Code session (governed profile; Codex never gets a Claude seat), its hook key lives in this process only, and
-Codex runs with a ``CODEX_HOME`` of its own (``codex_driver.prepare_home``): models only through the platform's
-Responses gateway with the launcher's token command, the platform's MCP server, and the launcher's hooks. In the
-terminal Codex may ask the person before a command (``approval_policy = "on-request"``); the hooks still deny what
-the Workspace forbids.
-
-    octryx codex [--profile governed|seat] [--workspace ID|NAME] [--model ALIAS] [--work-item KEY] [-- <codex args>]
-    octryx codex login [--device-auth]     your own ChatGPT login for the seat profile (Codex's official login)
-    octryx codex status                    engine, and whether the seat login exists (never its contents)
-
-``--profile seat`` runs Codex on the person's own ChatGPT login through the platform's seat route (``codex_seat``):
-the Workspace must allow it (``codex_seat_mode``), the hooks, transcript and evidence stay the same. With the
-platform's ``seat_traffic`` on ``device`` the calls leave from this device instead, through a loopback seat proxy that
-lives as long as the session (``codex_seat_proxy``).
-"""
+"""``octryx codex``: Codex CLI in the terminal, governed like ``octryx claude``."""
 
 from __future__ import annotations
 
 import argparse
-import contextlib
 import os
 import sys
 import uuid
-from collections.abc import Iterator, Sequence
+from collections.abc import Sequence
 from types import SimpleNamespace
-from typing import Any
 
 import httpx
 
@@ -63,7 +44,6 @@ def parser() -> argparse.ArgumentParser:
 
 
 def refused_arg(codex_args: Sequence[str]) -> str:
-    """An argument that would bypass the platform (its own provider, config or sandbox); ``""`` if none."""
     for arg in codex_args:
         name = arg.split("=", 1)[0]
         if name in REFUSED_ARGS:
@@ -72,8 +52,6 @@ def refused_arg(codex_args: Sequence[str]) -> str:
 
 
 def seat_command(argv: Sequence[str], state: LocalState) -> int | None:
-    """``login`` / ``status``; ``None`` for a session start."""
-
     if argv[:1] not in (["login"], ["status"]):
         return None
     try:
@@ -109,7 +87,6 @@ def run(argv: Sequence[str], state: LocalState) -> int:
 
 def _open_session(args: argparse.Namespace,
                   state: LocalState) -> tuple[str, SessionContext, SimpleNamespace, str] | int:
-    """Target, policy, seat login, registration and the prepared turn of a terminal Codex session, or a refusal."""
     target = session_target(args, state)
     if isinstance(target, int):
         return target
@@ -143,12 +120,11 @@ def _open_session(args: argparse.Namespace,
         shim=SHIM)
     if refused := workspace_prep.prepare_terminal(state, context, os.getcwd(), env):
         return cli_session.fail(f"session not started: {refused}")
-    return codex, context, _prepared(args, state, context, env, policy.body, credential), label
+    return codex, context, _prepared(args, state, context, env, credential), label
 
 
 def _prepared(args: argparse.Namespace, state: LocalState, context: SessionContext, env: dict[str, str],
-              policy: dict, credential: str) -> SimpleNamespace:
-    """The turn as ``codex_driver`` prepares a Codex home for it."""
+              credential: str) -> SimpleNamespace:
     profile, session_key = args.profile, context.session_key
     folder = state.session_dir(session_key)
     folder.mkdir(parents=True, exist_ok=True)
@@ -157,15 +133,14 @@ def _prepared(args: argparse.Namespace, state: LocalState, context: SessionConte
                            str(state.config().get("codex_model") or "") or cli_session.aliases(state.config())["main"])
     return SimpleNamespace(
         session_key=session_key, model=model, profile=profile, settings_path=folder / "settings.json", env=env,
-        extra={**({"codex_seat": True, "seat_credential": credential, "state_root": str(state.root),
-                   codex_seat.EXTRA_TRAFFIC: codex_seat.seat_traffic(policy)} if profile == "seat" else {}),
+        extra={**({"codex_seat": True, "seat_credential": credential, "state_root": str(state.root)}
+                  if profile == "seat" else {}),
                "gateway": {"base_url": context.base_url, "session_key": session_key,
                            "workspace_id": context.workspace_id, "workflow_run": ""}, "hook_shim": str(SHIM)})
 
 
 def _run_session(state: LocalState, codex: str, context: SessionContext, prepared: SimpleNamespace, label: str,
                  codex_args: Sequence[str]) -> int:
-    """Register the hook key, start the hook signer and run Codex until it ends."""
     session_key, profile, model, base_url = context.session_key, prepared.profile, prepared.model, context.base_url
     hook_key = signer.new_hook_key()  # in this process only: never in a file, env var, argv or log
     with httpx.Client() as http:
@@ -181,28 +156,13 @@ def _run_session(state: LocalState, codex: str, context: SessionContext, prepare
     sys.stderr.write(f"octryx: session {session_key} | engine Codex | profile {shown}"
                      f" | model {model or 'Codex default'} | workspace {label} | {base_url}\n")
     sys.stderr.flush()
-    with hook_signer, presence_heartbeat.running(state, context), _seat_proxy(prepared, base_url) as proxy:
-        # The seat's calls leave from this device (``seat_traffic: device``): through the session's loopback proxy.
-        home = codex_driver.prepare_home(prepared, sandboxed=True, interactive=True,
-                                         seat_proxy=proxy.url if proxy is not None else "")
+    with hook_signer, presence_heartbeat.running(state, context):
+        home = codex_driver.prepare_home(prepared, sandboxed=True, interactive=True)
         try:
             return supervisor.supervise([codex, "--dangerously-bypass-hook-trust", *codex_args],
-                                        codex_driver.environment(prepared, home,
-                                                                 proxy_token=proxy.token if proxy is not None else ""))
+                                        codex_driver.environment(prepared, home))
         except OSError:
             return cli_session.fail("session not started: codex_not_startable")
-
-
-@contextlib.contextmanager
-def _seat_proxy(prepared: SimpleNamespace, base_url: str) -> Iterator[Any]:
-    """The terminal session's loopback seat proxy (``codex_seat_proxy``) when its seat sends from this device."""
-    if not codex_seat.sends_from_device(prepared.extra):
-        yield None
-        return
-    from . import codex_seat_proxy  # noqa: PLC0415
-
-    with codex_seat_proxy.running(base_url) as proxy:
-        yield proxy
 
 
 __all__ = ["parser", "refused_arg", "run"]

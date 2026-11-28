@@ -1,9 +1,5 @@
-"""Seeds of the texts the platform sends an agent between the phases of a workflow run (kept
-in the catalog, not in the code; a workflow's owner overrides them per workflow, a Workspace per
-Workspace). The code only fills the placeholders with the run's facts.
-
-Every seed is today's text word for word (``tests/test_run_prompt_texts.py`` holds the snapshot).
-"""
+"""Seeds of the texts the platform sends an agent between the phases of a workflow run (kept in the catalog, not in the
+code; a workflow's owner overrides them per workflow, a Workspace per Workspace)."""
 
 from __future__ import annotations
 
@@ -16,7 +12,7 @@ AREA = "run"
 GROUPS = (("launcher.", "Pipeline and launcher", 20), ("device.", "Pipeline and launcher", 20),
           ("pipeline_red", "Pipeline and launcher", 20), ("hands_on_red", "Pipeline and launcher", 20),
           ("evidence.", "Evidence", 30), ("item.", "Team and coordinator", 40),
-          ("coordinator.", "Team and coordinator", 40), ("server_item.", "Team and coordinator", 40),
+          ("coordinator.", "Team and coordinator", 40),
           ("light.", "Light path", 50), ("model.", "Models", 60), ("block.", "Blocks and pauses", 70),
           ("protected.", "Blocks and pauses", 70),
           ("pause.", "Blocks and pauses", 70), ("remedy.", "Blocks and pauses", 70), ("brief.", "Phase brief", 15),
@@ -38,8 +34,7 @@ PLACEHOLDERS = {
     "run_state": "The run's state in one line (paused, waiting, its phase and loops).",
     "loop": "The loop's title (the edge the run took back).",
     "used": "How often the run took that loop.",
-    "limit": "The loop's limit.",
-    "keys": "The budget keys the run used up.",
+    "limit": "The loop's limit.", "keys": "The budget keys the run used up.",
     "gate": "The gate's title (a check step after a phase).",
     "failed": "The gate's failed checks with their detail.",
     "run_id": "The workflow run's id.",
@@ -52,8 +47,7 @@ PLACEHOLDERS = {
     "resumed": "The rendered run.resumed text this one continues.",
     "details": "The changed contract fields as indented JSON.",
     "lead": "run.plain_story.epic_lead for a further story of the epic, else empty.",
-    "key": "The work item's key.",
-    "title": "The work item's (or story's) title.",
+    "key": "The work item's key.", "title": "The work item's (or story's) title.",
     "description": "The work item's description.",
     "tests": "The environment file note or run.plain_story.tests, with its blank line; empty without tests.",
     "brief": "The phase's own brief (its when_to_use).",
@@ -66,8 +60,7 @@ PLACEHOLDERS = {
     "files": "The files with merge conflicts, comma separated.",
     "messages": "The board message ids addressed to the coordinator.",
     "open_items": "The ids of the plan's items not merged yet, or none.",
-    "role": "The item's role in the team.",
-    "ticket": "The run's ticket key or title.",
+    "role": "The item's role in the team.", "ticket": "The run's ticket key or title.",
     "summary": "The red commands with their failed tests and output tail.",
     "file": "The environment file's path.",
     "folder": "The app folder the pipeline runs in.",
@@ -420,6 +413,9 @@ SPECS: tuple[PromptKeySpec, ...] = (
     _spec("pause.device_unreachable", "Pause: The device did not answer",
           "Next: check or restart the launcher on the device (octryx-claude device start), then continue: the step "
           "runs again, no loop round is spent."),
+    _spec("pause.seat_required", "Pause: The run needs your seat",
+          "This step needs a person's seat (subscription), and the server runners never hold one. Next: take the run "
+          "over on your device with that seat, change where it runs, or abort."),
     _spec("pause.watch_timeout", "Pause: A watched state did not arrive",
           "The state the run waits for (a merge, a CI result) did not arrive in time. "
           "Next: check the pull request or CI, then continue or abort."),
@@ -504,6 +500,10 @@ SPECS: tuple[PromptKeySpec, ...] = (
     _spec("pause.loop_limit", "Pause: a loop reached its limit",
           "'{loop}' reached its limit: the work went back {used} of {limit} times. Next: read the last round's "
           "reason on the run, then continue once more, change the plan or abort.", "loop", "used", "limit"),
+    _spec("pause.checks_failed", "Pause: the checks stayed red", "The checks after '{loop}' failed {used} of "
+          "{limit} attempts: not offered as done. Next: read them, retry, re-plan or abort.", "loop", "used", "limit"),
+    _spec("pause.needs_approval", "Pause: a change needs a person's approval", "The run wants to change an "
+          "expensive path or one outside its approved plan. Next: approve the plan or the path, or change the plan."),
     _spec("pause.budget_limit", "Pause: the run used up its budget",
           "The run used up its budget ({keys}). Next: raise the budget and continue, or abort.", "keys"),
     _spec("system_tests.rule", "System tests: the rule of a building phase",
@@ -691,8 +691,7 @@ SPECS: tuple[PromptKeySpec, ...] = (
           "later call of this session.", "command"),
     _spec("brief.short_output_general", "Phase brief: print only the result, no command known",
           "- Output: the pipeline after this phase makes the full test evidence itself, so print only the result "
-          "(pipe test, build and log output into tail). A long output is carried in every later call of this "
-          "session."),
+          "(pipe test, build and log output into tail). A long output is carried in every later call of this session."),
     _spec("brief.memory_large_output", "Phase brief: a command whose output was too long",
           "- `{command}` printed {kb} KB in an earlier run: print only its result.", "command", "kb"),
     _spec("brief.memory_large_output_shorter", "Phase brief: a too-long command and the short form that worked",
@@ -729,8 +728,7 @@ SPECS: tuple[PromptKeySpec, ...] = (
           "change the code (not the confirmed tests) until they pass, then run `{command}` after your"
           " last change.", "command"),
     _spec("remedy.confirmed_tests_intact", "Remedy: a confirmed test changed or is missing",
-          "restore the confirmed test as it was confirmed (git restore <file>) and make the code pass"
-          " it instead."),
+          "restore the confirmed test as it was confirmed (git restore <file>) and make the code pass it instead."),
     _spec("remedy.ci_green", "Remedy: the CI result is not green",
           "read the CI failure in your run contract, fix it, and finish; the platform reruns CI on "
           "the pushed change."),
@@ -749,15 +747,10 @@ SPECS: tuple[PromptKeySpec, ...] = (
           "fill the missing parts of the Definition of Ready the check names, then submit it again."),
     _spec("remedy.specification_ready", "Remedy: the specification is not ready",
           "complete the specification sections the check names, then submit it again."),
-    _spec("remedy.lint_passed", "Remedy: the declared lint command is red",
-          "run the declared lint command, fix what it reports in the files you changed, and run it "
-          "again."),
     _spec("remedy.ci_findings_addressed", "Remedy: the CI failure is not fixed on fresh evidence",
-          "fix the CI failure named in your run contract and run the failing command again after your"
-          " change."),
+          "fix the CI failure named in your run contract and run the failing command again after your change."),
     _spec("remedy.evidence_families", "Remedy: an evidence family is unanswered",
-          "gather the evidence family the check names for the alert's target and window, then submit "
-          "it."),
+          "gather the evidence family the check names for the alert's target and window, then submit it."),
     _spec("remedy.judge", "Remedy: the judge's note (advisory)",
           "read the judge's note and improve what it names; it does not block the phase."),
     _spec("remedy.code_style", "Remedy: the code style found errors",
@@ -776,11 +769,6 @@ SPECS: tuple[PromptKeySpec, ...] = (
     # The run event that names the seat turn's model and where it came from.
     _spec("model.chosen", "Models: the seat turn's model and its source", "Model {model} from {source}.",
           "model", "source"),
-    _spec("server_item.build", "A server-side team item starts",
-          "Build item '{item_id}' ({role}) of the {workflow_key} workflow run ({ticket}): {title}. Your run contract "
-          "has the item's instructions, the paths you own, the shared contract and your proof tests; work only "
-          "within it and end with submit_phase_result (done, or blocked with what you need).",
-          "item_id", "role", "workflow_key", "ticket", "title"),
 )
 
 __all__ = ["AREA", "SPECS"]

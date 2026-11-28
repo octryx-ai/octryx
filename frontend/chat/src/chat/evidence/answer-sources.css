@@ -12,7 +12,7 @@
   color: var(--muted-strong);
   font: inherit;
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
@@ -52,7 +52,7 @@
 }
 .answer-sources__eyebrow {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--muted);
@@ -77,7 +77,7 @@
 .answer-sources__section h3 {
   margin: 0 0 0.5rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--muted);
@@ -85,7 +85,7 @@
 .answer-sources__list { margin: 0; padding-left: 1.5rem; }
 .answer-sources__item { padding: 0.5rem 0.1rem; border-top: 1px solid var(--border-soft); min-width: 0; }
 .answer-sources__item:first-child { border-top: 0; }
-.answer-sources__item a { color: var(--accent-strong); font-weight: 600; font-size: var(--ds-text-md); overflow-wrap: anywhere; }
+.answer-sources__item a { color: var(--accent-strong); font-weight: var(--ds-weight-strong); font-size: var(--ds-text-md); overflow-wrap: anywhere; }
 .answer-sources__location { display: block; margin-top: 0.25rem; font-size: var(--ds-text-xs); color: var(--muted); overflow-wrap: anywhere; }
 .answer-sources__statement { margin: 0.25rem 0 0; font-size: var(--ds-text-sm); color: var(--muted-strong); }
 .answer-sources__statement summary { cursor: pointer; }

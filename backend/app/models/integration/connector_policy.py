@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class ConnectorPolicy(Base):
+class ConnectorPolicy(WorkspaceBound, Base):
     __tablename__ = "connector_policies"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

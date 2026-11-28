@@ -1,8 +1,4 @@
-"""Use learned layout usage to choose among equally capable layouts.
-
-Usage records come from ``layout_usage``; this module only reads them. A
-layout without usage evidence is never ranked by usage.
-"""
+"""Use learned layout usage to choose among equally capable layouts."""
 
 from __future__ import annotations
 
@@ -15,11 +11,6 @@ _LINE_WEIGHT = 30
 
 
 def usage_text_volume(usage: dict[str, Any] | None) -> tuple[int, int] | None:
-    """Typical (lines, characters) this layout's text slots carry, summed.
-
-    Title slots are included: a layout's title length is part of how it is used.
-    ``None`` when the layout has no usage evidence at all.
-    """
     if not isinstance(usage, dict):
         return None
     slots = usage.get("slots")
@@ -38,18 +29,6 @@ def usage_text_volume(usage: dict[str, Any] | None) -> tuple[int, int] | None:
 def pick_layout_by_usage(
     layouts: list[dict[str, Any]], *, lines: int, chars: int
 ) -> dict[str, Any] | None:
-    """Among equally capable layouts, the one whose learned usage fits best.
-
-    Layouts the template author actually used come first — a demonstrated
-    layout is better evidence than an unused one of the same shape. Within
-    those, the smaller distance to the learned text volume wins. Ties fall back
-    to the template's own layout order, exactly like the composer's ranking, so
-    the choice stays deterministic.
-
-    Returns ``None`` when *no* candidate carries usage evidence. Usage decides
-    only where usage exists; a template without sample slides keeps the
-    composer's capacity ranking untouched.
-    """
     scored = [
         (layout, volume)
         for layout in layouts

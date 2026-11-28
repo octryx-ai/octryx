@@ -74,6 +74,32 @@ async def test_invalid_definitions_and_unknown_workspace_are_refused(client, db)
 
 
 @pytest.mark.asyncio
+async def test_a_stored_draft_with_an_invalid_detector_set_is_refused_at_submit(client, db):
+    admin = await make_user(db, admin=True)
+    draft = await _first_draft(client, admin)
+    row = (await db.execute(select(PolicySetVersion).where(
+        PolicySetVersion.version == draft["version"]))).scalar_one()
+    clean = row.content_detectors
+    row.content_detectors = {**clean, "detectors": [
+        {**clean["detectors"][0], "pattern": "(a+)+"}]}
+    await db.commit()
+    refused = await client.post(f"{BASE}/policy-sets/{draft['version']}/submit", headers=bearer(admin))
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert detail["code"] == "content_detectors_invalid"
+    [issue] = detail["issues"]
+    assert issue["code"] == "pattern_unsafe" and issue["detector_id"] == "custom.case_ref"
+    await db.refresh(row)
+    assert row.state == "draft" and row.approval_id is None
+
+    row.content_detectors = clean
+    await db.commit()
+    submitted = await client.post(f"{BASE}/policy-sets/{draft['version']}/submit", headers=bearer(admin))
+    assert submitted.status_code == 200, submitted.text
+    assert submitted.json()["state"] == "in_review"
+
+
+@pytest.mark.asyncio
 async def test_policy_edits_keep_detectors_through_publish_new_draft_and_rollback(client, db):
     author, reviewer = await make_user(db, admin=True), await make_user(db, admin=True)
     draft = await _first_draft(client, author)

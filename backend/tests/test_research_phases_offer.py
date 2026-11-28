@@ -1,9 +1,5 @@
-"""Web research in a phase a Workspace lists (``device_runs.research_phases``).
-
-A phase whose allowlist has no ``web_search`` / ``web_fetch`` is never offered them, so spec-writing ``draft``
-writes SPEC.md "without a live web search". The Workspace switch reaches a running run pinned to its version; the
-seed offers them to new runs.
-"""
+"""Web research in a phase a Workspace lists (``device_runs.research_phases``); the switch reaches a running
+run pinned to its version, and the seed offers it to new runs."""
 
 from __future__ import annotations
 
@@ -17,9 +13,10 @@ from app.services.workflow_runs.octryx.research import RESEARCH_NOTE, with_resea
 from app.services.workflow_runs.octryx.stop import run_stop
 from app.time_utils import utc_now
 from tests.research_phases_support import SOURCES, _draft_definition, _list, _patch, _seed
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import ROOT, _bound_run, _call
 
-# --- the Workspace keys ---------------------------------------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_research_keys_default_off_and_are_validated():
@@ -35,9 +32,6 @@ def test_the_research_keys_default_off_and_are_validated():
         with pytest.raises(DeviceRunsPolicyError) as refused:
             normalize_device_runs({"research_min_sources": bad}, "p")
         assert (refused.value.reason, refused.value.path) == ("invalid_number", "p.research_min_sources")
-
-
-# --- the definition at runtime --------------------------------------------------------------------------------------
 
 
 def test_a_listed_phase_gets_the_web_tools_the_note_and_two_blocking_checks_first():
@@ -59,9 +53,6 @@ def test_a_listed_phase_gets_the_web_tools_the_note_and_two_blocking_checks_firs
     assert contract["when_to_use"] == "Write SPEC.md."  # the device reads ``research``; a server turn the brief
     assert with_research(definition, 4, brief=True)["workflow_contract"]["when_to_use"].endswith(RESEARCH_NOTE)
     assert definition["tool_policy"]["allowlist"] == ["read_workspace_file", "edit_workspace_file"]  # not mutated
-
-
-# --- a running device run picks up the switch ----------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -162,9 +153,6 @@ async def test_a_server_turn_of_a_listed_phase_gets_the_tools_and_the_note_in_it
     assert [check["type"] for check in contract["checks"]][:2] == ["evidence_count", "urls_cited"]
 
 
-# --- the seed -------------------------------------------------------------------------------------------------------
-
-
 def test_the_spec_draft_seed_offers_the_web_tools_and_asks_for_sources():
     from app.services.workflow_runs.graph_validation import validate_phased_definition
 
@@ -204,9 +192,6 @@ async def test_the_device_runs_put_patch_stores_the_research_keys_and_the_get_sh
 
 @pytest.mark.asyncio
 async def test_the_offer_of_a_listed_research_phase_carries_web(db):
-    """Without an offer the session answers "WebSearch / WebFetch I do not have in this session" while the
-    platform's web tools cannot leave a restricted egress. The offer tells the launcher to add Claude Code's
-    own web tools to the phase turn."""
     from app.models import DeviceJob
     from app.services.devices.job_offer import offer_body
     from app.services.workflow_runs.octryx.research import research_min_sources
@@ -224,9 +209,6 @@ async def test_the_offer_of_a_listed_research_phase_carries_web(db):
 
 @pytest.mark.asyncio
 async def test_codexs_own_web_search_runs_in_every_phase_by_default_and_counts(db):
-    """Codex offers web.run; a hook that refuses it as tool_not_classified (and the ChatGPT apps search next to it)
-    sends Codex to fetch google.com/search instead. Web is allowed in every phase by default (logged);
-    ``web_tools: research_only`` keeps it to the research phases; counted as search."""
     from app.services.workflow_runs.octryx.stop_evidence import phase_evidence
     from tests.workflow_run_octryx_support import _decide, _hook, set_tool_defaults
 
@@ -250,7 +232,6 @@ async def test_codexs_own_web_search_runs_in_every_phase_by_default_and_counts(d
 
 @pytest.mark.asyncio
 async def test_every_phase_is_told_how_to_fetch_from_the_web_in_the_sandbox(db):
-    """curl and Python HTTPS fail their certificate check inside the sandbox; WebFetch and Node work."""
     from app.services.workflow_runs.octryx.hooks import session_contract
     from app.services.workflow_runs.run_texts import run_text
 

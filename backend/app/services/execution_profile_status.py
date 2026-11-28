@@ -1,7 +1,4 @@
-"""Status, decision source and reason of a turn's execution profile.
-
-:mod:`app.services.execution_profile_service` builds the profile envelope around this decision.
-"""
+"""Status, decision source and reason of a turn's execution profile."""
 
 from __future__ import annotations
 
@@ -79,7 +76,6 @@ def _derive_profile_status_and_source(
 
 
 def _resolution_status_and_source(resolution: dict[str, Any]) -> tuple[ExecutionProfileStatus, str, str] | None:
-    """The decision the routing resolution alone makes, or ``None`` when it leaves the turn open."""
     if resolution.get("status") == PROJECT_INACTIVE:
         return EXECUTION_PROFILE_STATUS_DENIED, PROJECT_INACTIVE, str(resolution.get("unmatched_reason") or "")
     if resolution.get("status") == WORKFLOW_ARCHIVED:  # an archived workflow is a typed denial
@@ -121,7 +117,6 @@ def _decide_status(
     workflow_contract: dict[str, Any] | None,
     governed_origin: str | None,
 ) -> tuple[ExecutionProfileStatus, str, str]:
-    """The routing decision, narrowed by the selected workflow's capability and contract gates."""
     status, decision_source, reason = _derive_profile_status_and_source(
         prompt=prompt,
         agent_type_explicit=agent_type_explicit,

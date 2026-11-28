@@ -1,5 +1,7 @@
 // The phone's openers from lists: a chat (or its taken-over Mac session), a local session and an attention entry.
 import { useCallback } from "react";
+import { sendAttentionAction } from "../chat/companion/companionApi";
+import { acceptedSessionId, isHandoverAccept } from "../chat/companion/companionHandoverModel";
 import type { AttentionItem } from "../chat/companion/companionTypes";
 import { takeOverTarget, type DeviceThread, type LocalSession } from "./mobileDeviceChats";
 import { type LiveSession } from "./mobileLiveSessions";
@@ -56,5 +58,18 @@ export function useMobileOpeners({
     [threads, liveSessions, openPage, openThread],
   );
 
-  return { openThread, openLocal, openItem };
+  // A session handed over to the person, or waiting in the pool: taking it over opens it as theirs.
+  const takeOver = useCallback(
+    (item: AttentionItem) => {
+      const accept = item.actions.find((action) => isHandoverAccept(item, action));
+      if (!accept) return Promise.resolve();
+      return sendAttentionAction(accept.request).then((answer) => {
+        const id = acceptedSessionId(answer);
+        if (id) openPage({ kind: "chat", id, title: item.title, projectId: item.workspace?.id ?? "", onServer: true });
+      });
+    },
+    [openPage],
+  );
+
+  return { openThread, openLocal, openItem, takeOver };
 }

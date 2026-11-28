@@ -1,16 +1,4 @@
-"""What the launcher shows a user about their own usage.
-
-``octryx-claude``'s status block reads, with the user's own gateway login:
-
-- the **daily budget** of the Workspace (``daily_budget.check_daily_budget``: the user's gateway spend of the UTC
-  day against the Workspace's ``session_budget.per_user_daily_usd``), with its explicit state;
-- the user's **own seat allowance**: the latest 5h/7d utilization Anthropic reported on one of the user's seat
-  sessions (``presence.record_allowance``). It is the user's own subscription, so any Workspace's presence row
-  counts; only the numbers travel, never the Workspace or session of the row. The presence read model keeps other
-  users' allowances for Workspace admins; this read never returns another user's row;
-- the user's own **Codex seat allowance** (``codex_seat_allowance``): the same fields from ChatGPT's windows on one of
-  the user's Codex seat sessions (``sessions.metadata.engine == codex``), kept apart from the Claude seat's.
-"""
+"""What the launcher shows a user about their own usage: the daily budget and their own seat allowances."""
 
 from __future__ import annotations
 
@@ -40,7 +28,6 @@ def _engine(metadata: object) -> str:
 
 async def own_seat_allowance(db: AsyncSession, *, user_id: str, engine: str = ENGINE_CLAUDE_CODE
                              ) -> dict[str, Any] | None:
-    """The newest allowance of the user's own seat sessions of ``engine`` (Claude Code: the Claude seat)."""
     rows = (
         await db.execute(
             select(AgentPresence, Session.metadata_)
@@ -68,8 +55,6 @@ async def own_seat_allowance(db: AsyncSession, *, user_id: str, engine: str = EN
 
 
 async def own_gateway_usage(db: AsyncSession, *, user_id: str, workspace_id: str) -> dict[str, Any]:
-    """``{state, reason, workspace_id, limit_usd, spent_usd, resets_at, seat_allowance, codex_seat_allowance}``;
-    amounts in USD."""
     budget = await check_daily_budget(db, user_id=user_id, workspace_id=workspace_id)
     configured = budget.limit_usd is not None
     return {

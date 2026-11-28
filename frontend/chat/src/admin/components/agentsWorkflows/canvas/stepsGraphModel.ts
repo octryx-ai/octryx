@@ -192,7 +192,7 @@ export function updateCheck(nodes: StepsGraphNode[], id: string, patch: Json): S
   return nodes.map((node) => (node.id === id && node.kind === "check" ? { ...node, check: patched(node.check, patch) } : node));
 }
 
-// --- Rendering on the flow builder's canvas (FlowNode): one flow node per graph node, chained in order. ---
+// --- Rendering on the steps canvas (FlowNode): one canvas node per graph node, chained in order. ---
 
 export type NodeBadge = { label: string; kind: BadgeKind };
 
@@ -208,7 +208,7 @@ function approvalText(node: StepsGraphNode): [string, string] {
 }
 
 export function canvasNode(node: StepsGraphNode): StepsCanvasNode {
-  const base = { id: node.id, config: {} };
+  const base = { id: node.id };
   switch (node.kind) {
     case "start":
       return { ...base, type: "trigger", label: "Start", subLabel: "Phase starts", badges: [] };

@@ -1,7 +1,6 @@
 
 
 def test_a_folder_that_is_not_a_git_checkout_gets_a_clone_note(tmp_path):
-    """Fresh-install test: the first run paused on an empty device folder; enable now says what to do."""
     from octryx_claude import device_state
 
     empty = tmp_path / "demo-shop"

@@ -1,18 +1,4 @@
-"""The repository record and its coding setup: read, list and save.
-
-The coding setup is stored on the repository record (``code_repositories.config_json.coding_setup``) and is the
-only place it is written. Coding reads it at run time through the record's **runtime projection**, a
-``work_repository_profiles`` row linked by ``code_repository_id``: it is (re)written from the record on every save,
-never edited on its own (no route writes it), so change units, pull requests and CI references keep their ids.
-
-The declared test **environment** (``environment``: setup, test, lint, path, check) is
-stored with it, validated by ``workflow_runs.workspace.spec`` (no installs outside the folder).
-``environment_file`` (a repository-relative path to a JSON file of the same schema) makes that file in the run's
-branch the declaration instead: the story declares its own tests in its folder.
-
-Not part of the setup: the Jira project keys (the link runs through work items) and the technology baseline. A secret
-reference is masked on read and an unchanged mask keeps the stored value.
-"""
+"""The repository record and its coding setup: read, list and save."""
 
 from __future__ import annotations
 
@@ -51,7 +37,6 @@ def stored_setup(repo: CodeRepository) -> dict[str, Any]:
 
 
 def setup_summary(setup: dict[str, Any]) -> dict[str, list[str]]:
-    """``{configured, missing}`` of build · test · lint."""
     configured = [label for label, key in SUMMARY_COMMANDS if setup.get(key)]
     return {"configured": configured, "missing": [label for label, _key in SUMMARY_COMMANDS if label not in configured]}
 
@@ -108,12 +93,6 @@ async def workspace_repositories(db: AsyncSession, project_id: str) -> list[dict
 
 
 async def _source_branches(db: AsyncSession, project_id: str, repos: list[CodeRepository]) -> dict[str, str]:
-    """The branch a record's Knowledge git source follows (``scope.ref``), for records without a default branch.
-
-    Without it such a record shows "–" although its source follows a branch (e.g. main or master). The source is
-    the record's own (``central_source.connector_id``) or, without one, the Workspace source
-    whose remote ends with the record's ``<owner>/<repo>``.
-    """
     from ...workflow_runs.platform.repo_ref import record_path
 
     missing = [repo for repo in repos if not repo.default_branch]
@@ -168,7 +147,7 @@ def _setup_from_normalized(normalized: dict[str, Any]) -> dict[str, Any]:
 
 
 async def read_setup(db: AsyncSession, repo: CodeRepository, *, scope: set[str] | None) -> dict[str, Any]:
-    """The coding setup as the drawer edits it; secret references masked unless the reader is a platform admin."""
+    # Secret references stay masked unless the reader is a platform admin.
     setup = stored_setup(repo)
     shown = {key: setup.get(key, [] if key in (*LIST_FIELDS, *OBJECT_LIST_FIELDS) else "") for key in SETUP_FIELDS}
     shown[ENVIRONMENT_KEY] = setup.get(ENVIRONMENT_KEY)
@@ -180,7 +159,6 @@ async def read_setup(db: AsyncSession, repo: CodeRepository, *, scope: set[str] 
 
 
 def _environment(payload: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any] | None:
-    """The declared test environment (``workflow_runs.workspace.spec``): validated, or kept when not sent."""
     from ...workflow_runs.workspace.spec import validate_environment
 
     if ENVIRONMENT_KEY not in payload:
@@ -192,8 +170,6 @@ def _environment(payload: dict[str, Any], previous: dict[str, Any]) -> dict[str,
 
 
 def _environment_file(payload: dict[str, Any], previous: dict[str, Any]) -> str | None:
-    """The repository-relative environment file (``workflow_runs.workspace.spec``): validated, or kept when not sent;
-    ``null`` / ``""`` clears it."""
     from ...workflow_runs.workspace.spec import validate_environment_file
 
     if ENVIRONMENT_FILE_KEY not in payload:
@@ -206,12 +182,11 @@ def _environment_file(payload: dict[str, Any], previous: dict[str, Any]) -> str 
 
 
 async def save_setup(db: AsyncSession, *, user: User, repo: CodeRepository, payload: dict[str, Any]) -> dict[str, Any]:
-    """Validate and store the coding setup on the record; rewrite its runtime projection."""
     previous = stored_setup(repo)
     projection = await projection_of(db, repo)
     incoming = unmasked({key: payload[key] for key in SETUP_FIELDS if key in payload}, previous)
     merged = {**previous, **incoming}
-    normalized = await normalized_profile_payload(db, {
+    normalized = await normalized_profile_payload(db, user.id, {
         **merged, "project_id": repo.project_id, "code_repository_id": repo.id, "name": repo.name,
         "provider": repo.provider, "repository_url": repo.remote_url, "default_branch": repo.default_branch,
         "profile_source": PROJECTION_SOURCE, "review_status": "reviewed",

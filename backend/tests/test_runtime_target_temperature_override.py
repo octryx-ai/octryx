@@ -1,16 +1,12 @@
-"""A runtime target overrides the sampling catalog (``accepts_temperature``).
-
-- The admin sets ``temperature_support`` (catalog / accepts / rejects) on a target; the column holds
-  None / True / False and the serializer shows it.
-- The selection payload carries the override to the provider client the engine builds.
-"""
+"""A runtime target overrides the sampling catalog (``accepts_temperature``): the admin setting, its stored
+value, and the override reaching the provider client."""
 
 from __future__ import annotations
 
 import pytest
 from sqlalchemy import select
 
-from app.agent.engine.runtime._engine_runtime_fallback import _runtime_client_kwargs_for_turn
+from app.agent.runtime.runtime_fallback import _runtime_client_kwargs_for_turn
 from app.models import ControlPlaneRuntimeTarget
 from app.services.control_plane.selection_policy import build_runtime_selection_payload
 from tests.conftest import ADMIN_PASSWORD
@@ -54,4 +50,4 @@ def test_the_selection_payload_hands_the_override_to_the_provider_client(overrid
         request_timeout_seconds=None,
     )
     assert payload["accepts_temperature"] is override
-    assert _runtime_client_kwargs_for_turn(payload, reasoning_effort=None)["accepts_temperature"] is override
+    assert _runtime_client_kwargs_for_turn(payload)["accepts_temperature"] is override

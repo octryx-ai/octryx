@@ -1,7 +1,5 @@
-"""Refusals inform first and are reused (block less, never start from zero):
-(a) refusals count per run and intent, across entries of the phase, and the refusal names the concrete alternative;
-(b) a refused confirmed test reaches the fix phase's refusal rule; (c) an unfinished or stalled pass goes on in the
-same pass with what is missing; (d) the stall threshold is workflow data."""
+"""Refusals inform first and are reused: they count per run and intent and name the concrete alternative,
+and an unfinished or stalled pass goes on with what is missing (the stall threshold is workflow data)."""
 
 from __future__ import annotations
 
@@ -12,7 +10,10 @@ import pytest
 from app.services.workflow_runs.refusals import _matches, react, times_refused
 from app.services.workflow_runs.seeding import SEEDS_PATH
 from tests.phased_workflow_fixtures import admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_size_class_merge import _definition
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SHELL = {"command": "cd e2e/node && npm test 2>&1 | tail -15"}
 
@@ -40,8 +41,8 @@ async def test_a_refusal_counts_per_run_across_entries_and_says_what_to_do_inste
                                     "commands": {"test": "npm test"}}}
     assert await react(db, run, tool="Bash", reason="outside_phase_tools", tool_input=SHELL) == ""
     first = instead(run, reason="outside_phase_tools", tool="Bash", tool_input=SHELL)
-    assert "`npm test`" in first and "`e2e/node`" in first and "refused" not in first  # the alternative at once
-    await restart_at(db, run, "write", actor_id=None)  # a new entry of the phase (a change of plan)
+    assert "`npm test`" in first and "`e2e/node`" in first and "refused" not in first
+    await restart_at(db, run, "write", actor_id=None)
     assert await react(db, run, tool="Bash", reason="outside_phase_tools", tool_input=SHELL) == "pause"
     assert times_refused(run, "Bash", SHELL) == 2
     assert "refused 2 times" in instead(run, reason="outside_phase_tools", tool="Bash", tool_input=SHELL)
@@ -54,7 +55,6 @@ def test_a_refused_confirmed_test_reaches_the_fix_phases_rule():
     rules = [rule for rule in fix["config"]["refusals"] if rule.get("test_file")]
     confirmed = [rule for rule in rules if _matches(rule, "Edit", "confirmed_test_protected",
                                                     {"file_path": "tests/test_split.py"})]
-    # The first refusal names what to do instead (change the code); the second sends the run back to reproduce.
     assert [rule["repeat"] for rule in confirmed] == [2]
     assert any(_matches(rule, "Edit", "protected_path", {"file_path": "tests/test_split.py"}) for rule in rules)
 
@@ -67,9 +67,9 @@ async def test_a_stalled_pass_goes_on_in_the_same_pass_with_what_is_missing(db):
     run = await _run(db, {})
     missing = "The confirmed failing test was not submitted"
     assert await _stalled(db, run, "write", missing, 4) is False
-    assert await _stalled(db, run, "write", missing, 4) is True  # the default: the second identical stop
+    assert await _stalled(db, run, "write", missing, 4) is True
     assert run.node_state["pause"]["resume"] == {"kind": "continue", "node_id": "write"}
-    assert missing in current(run, "write")["failed"]  # the next prompt names it first
+    assert missing in current(run, "write")["failed"]
 
 
 @pytest.mark.asyncio

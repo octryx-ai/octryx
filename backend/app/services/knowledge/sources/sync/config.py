@@ -1,22 +1,5 @@
-"""Validation of a connector's per-Workspace configuration.
-
-Values are refused, never cleaned up: a connector key is a short slug, Confluence space keys (and
-page trees, ``confluence_scope.py``) and
-Jira project keys are the keys those systems use, a JQL filter is bounded and may not carry its own
-``ORDER BY`` (the connector owns the order its offset paging depends on), and the product scope is
-validated like any upload's. A configured scope must also lie inside the Workspace connection's own
-allowlist (``confluence_allowed_spaces``, ``jira_allowed_projects``, ``servicenow_allowed_tables``),
-so Source Sync never reads more than the Confluence, Jira and ServiceNow tools of the same Workspace
-may. ServiceNow scopes and their encoded queries are validated in ``servicenow_scope.py``, a
-``git_repository`` scope (a public repository at a ref, or one read through its linked Bitbucket connection,
-whose host is checked at save by ``service.configure_connector``) in ``git_config.py``. A
-``kubernetes`` scope is one cluster (the binding of its named connection) and optionally namespaces,
-which must lie inside the connection's ``k8s_allowed_namespaces`` when it sets them.
-
-A schedule is off unless ``schedule_enabled`` is true; its interval is bounded
-(``MIN_SCHEDULE_INTERVAL_MINUTES`` to ``MAX_SCHEDULE_INTERVAL_MINUTES``), so a connector can never
-poll its source system more often than every 15 minutes.
-"""
+"""Validation of a connector's per-Workspace configuration. Values are refused, never cleaned up; a scope must fit the
+connection's allowlist."""
 
 from __future__ import annotations
 
@@ -137,7 +120,6 @@ def _finish(
     max_items_per_run: object, state: object, schedule_enabled: object, schedule_interval_minutes: object,
     connection_id: str | None = None, git_fields: dict[str, object] | None = None,
 ) -> ConnectorConfig:
-    """The settings every kind shares: products, run budget, state and schedule."""
     limit = DEFAULT_ITEMS_PER_RUN if max_items_per_run is None else max_items_per_run
     if type(limit) is not int or not 1 <= limit <= MAX_ITEMS_PER_RUN:
         raise InvalidEvidenceRequestError()

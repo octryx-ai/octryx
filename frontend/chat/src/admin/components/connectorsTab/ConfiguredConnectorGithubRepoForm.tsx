@@ -24,7 +24,6 @@ const INDEX_BACKENDS: Choice[] = [
 ];
 const SEMANTIC_BACKENDS: Choice[] = [
   { value: "auto", label: "Auto" },
-  { value: "scip", label: "SCIP" },
   { value: "lsp", label: "LSP" },
   { value: "regex", label: "Regex" },
 ];

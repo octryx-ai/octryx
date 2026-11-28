@@ -1,8 +1,4 @@
-"""Field validators of a structured profile document, one per kind of value.
-
-Each refuses with :class:`.profile_types.StructuredProfileError` naming the rule, never the content;
-:func:`.profile.parse_profile` composes them.
-"""
+"""Field validators of a structured profile document, one per kind of value."""
 
 from __future__ import annotations
 

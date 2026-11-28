@@ -8,7 +8,6 @@ from .refusals import RunRefusal, failed
 
 
 async def harness_final_text(runtime: Any, task: str) -> str:
-    """The run's final text; any failure of the run itself is ``agent_runtime_error``."""
     try:
         output = await runtime.run(task)
     except RunRefusal:

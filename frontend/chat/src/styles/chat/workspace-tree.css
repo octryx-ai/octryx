@@ -136,7 +136,7 @@
 .workspace-sidepanel__tree-name {
   color: var(--text);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.2;
   overflow: hidden;
   text-overflow: ellipsis;

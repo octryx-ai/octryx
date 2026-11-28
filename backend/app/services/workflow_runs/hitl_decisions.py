@@ -1,35 +1,4 @@
-"""Deciding a waiting human-in-the-loop node.
-
-- **User conversation**: entering the node opens a clarification question in the run's session, so it is listed
-  in the requester's Inbox and the next message in the thread answers it (``clarification_service``); the run
-  records the reply and continues (``hitl.record_reply``).
-- **User confirmation**: a typed payload per subject (``test_contract``, ``ticket_draft``, ``reproduction``,
-  ``retry_choice``, ``advance``) with fixed actions *confirm* / *change* / *stop*. The decision stores the hash of
-  the payload it decided on; a confirm for another hash (the payload changed) is refused, so a changed payload
-  always needs a new confirmation. The payload is rebuilt from current data at decision time: when it changed
-  while the run waited (a new plan version, new change units), the waiting payload is refreshed and confirm
-  answers ``payload_changed``. The payloads are built from recorded artefacts (``confirmation_payloads``). The
-  **test contract** is the change plan the run drafted from its phase's submitted contract: confirm is its
-  ``approve`` decision through the change-plan service under the same checks as its route (work operator role,
-  the item's Workspace scope), so the acceptance-coverage gate (every criterion maps to an enforceable command,
-  or the confirmer takes it over explicitly) decides; the payload's manual-only criteria are taken over by the
-  confirm itself (they are in its hash); change is its ``request_clarification``. The decision's hash covers the
-  criteria the confirmer took over (``human_verified_criteria``).
-- **Approval (four-eyes)**: entering the node files a pending approval (a governance review bound to the run);
-  an approver decides under the platform approval rule (``governance/four_eyes``; the single-admin rule allows
-  self-approval). A decision made elsewhere (the approvals API) reaches the run the same way, and an expired
-  approval pauses the run (``approval_timeout``).
-
-- **Publish & prove** (``documentation/acceptance``): statement (a) ``functional_acceptance`` is
-  accepted / not testable yet / rejected (with a reason), on its card or later while the run waits
-  (``functional_acceptance``); statement (b) ``publication`` binds the reserved write intent on confirm; the
-  ``followup`` card authorises (or changes the summary of) the exact follow-up issue; the ``exception`` card closes a
-  declared missing-proof pause. The requester checks a waiting audience receipt or asks for a new one.
-
-Authored node policies select the human decider; confirmations without one go to the requester and the run's
-responsible person (``responsible``), as does a run's tool approval. Approvals retain the existing
-admin and four-eyes checks, in addition to authored policy.
-"""
+"""Deciding a waiting human-in-the-loop node."""
 
 from __future__ import annotations
 
@@ -77,7 +46,6 @@ from .states import (
 
 
 async def decide(db: AsyncSession, run: WorkflowRun, *, user: User, action: str, body: dict[str, Any]) -> bool:
-    """Apply a confirmation or approval action; ``False`` when ``action`` is none of them."""
     waiting = _waiting(run)
     if action == "reply":
         await _decide_reply(db, run, user, body)
@@ -109,7 +77,6 @@ async def decide(db: AsyncSession, run: WorkflowRun, *, user: User, action: str,
 
 
 async def _decide_reply(db: AsyncSession, run: WorkflowRun, user: User, body: dict[str, Any]) -> None:
-    """The answer to a waiting user conversation."""
     if run.status != STATUS_WAITING or run.waiting_kind != WAITING_REPLY:
         raise WorkflowRunError("not_awaiting_reply", "The run does not wait for a reply.", 409)
     from .decider import require_node_decider
@@ -126,7 +93,6 @@ async def _decide_reply(db: AsyncSession, run: WorkflowRun, user: User, body: di
 
 async def _decide_confirmation(db: AsyncSession, run: WorkflowRun, user: User, value: str,
                                body: dict[str, Any]) -> bool:
-    """A confirm / change / stop on a waiting confirmation, decided on the payload as it is now."""
     from .decider import require_node_decider
     from .engine import resolve_current_node
 
@@ -165,7 +131,6 @@ async def _decide_confirmation(db: AsyncSession, run: WorkflowRun, user: User, v
 
 async def _check_confirmable(db: AsyncSession, run: WorkflowRun, user: User, waiting: dict[str, Any],
                              payload: dict[str, Any], body: dict[str, Any]) -> None:
-    """A confirm must name the payload's current hash and find nothing missing (an approved spec is frozen)."""
     if str(body.get("payload_hash") or "") != str(waiting.get("payload_hash") or ""):
         raise WorkflowRunError("payload_changed", "What you confirm changed; review it again and confirm.")
     if payload.get("missing") or payload.get("blockers"):
@@ -176,13 +141,11 @@ async def _check_confirmable(db: AsyncSession, run: WorkflowRun, user: User, wai
     if payload.get("subject") == SUBJECT_DECISIONS:
         from .spec_studio.hooks import on_decisions_confirmed
 
-        # Spec Studio: approving the spec freezes it and writes the decisions into SPEC.md.
         await on_decisions_confirmed(db, run, user)
 
 
 async def _confirmation_answers(db: AsyncSession, run: WorkflowRun, user: User, value: str, payload: dict[str, Any],
                                 answer: str) -> None:
-    """The product owner's answers a confirmation carries: a change request, typed answers or accepted proposals."""
     if value == CHANGED and answer and payload.get("subject") not in _ANSWER_INPUTS:
         from .corrections import change_request
 
@@ -202,7 +165,6 @@ async def _confirmation_answers(db: AsyncSession, run: WorkflowRun, user: User, 
 
 async def _decide_approval(db: AsyncSession, run: WorkflowRun, user: User, action: str, body: dict[str, Any],
                            waiting: dict[str, Any]) -> None:
-    """Approve or reject a waiting four-eyes approval under the approval rule."""
     if run.status != STATUS_WAITING or run.waiting_kind != WAITING_APPROVAL:
         raise WorkflowRunError("not_awaiting_approval", "The run does not wait for an approval.")
     if await authored_decider(db, run):
@@ -224,7 +186,6 @@ async def _decide_approval(db: AsyncSession, run: WorkflowRun, user: User, actio
 
 
 async def approval_decided(db: AsyncSession, approval: Approval, *, run: WorkflowRun | None = None) -> None:
-    """A decided run approval moves its run: approved / rejected route on; expired pauses it."""
     from .engine import resolve_current_node
 
     if run is None:

@@ -10,7 +10,6 @@ from tests.work_git_support import RUN_BRANCH, _main, _op
 
 
 def _conflicting_items(tmp_path, monkeypatch) -> tuple[Path, str]:
-    """Items a and b both change app.py; a is merged, b's merge conflicts (and is aborted)."""
     main, base = _main(tmp_path, monkeypatch)
     work_git.run({"ops": [_op("branch", "a"), _op("branch", "b")]}, main, base=base, run_id="run-1")
     (main / ".octryx-items" / "a" / "app.py").write_text("ROUTES = ['a']\n")
@@ -26,8 +25,6 @@ def _conflicting_items(tmp_path, monkeypatch) -> tuple[Path, str]:
 
 @requires_git
 def test_test_reports_caches_venvs_and_databases_never_enter_an_items_merge_or_the_change(tmp_path, monkeypatch):
-    """M1: octryx/kitchen ignored only ``TEST*.xml``; ``git add -A`` committed every Playwright screenshot and the
-    pipeline's JUnit into the story, the review and the PR."""
     main, base = _main(tmp_path, monkeypatch)
     work_git.run({"ops": [_op("branch", "api")]}, main, base=base)
     item = main / ".octryx-items" / "api"
@@ -61,8 +58,6 @@ def test_test_reports_caches_venvs_and_databases_never_enter_an_items_merge_or_t
 
 @requires_git
 def test_a_conflicted_item_gets_the_storys_work_merged_in_and_resolves_its_markers(tmp_path, monkeypatch):
-    """D1: the retried item resumed its stale worktree, never saw the merged main folder and conflicted again until
-    the loop limit. Now its branch op (``sync``) merges the main folder's HEAD in and leaves the markers to it."""
     main, base = _conflicting_items(tmp_path, monkeypatch)
     item = main / ".octryx-items" / "b"
 
@@ -95,7 +90,6 @@ def test_a_conflicted_item_whose_worktree_is_gone_gets_it_back_on_its_own_branch
 
 @requires_git
 def test_an_earlier_runs_worktree_is_never_kept_for_a_new_run(tmp_path, monkeypatch):
-    """D3: the rerun of an aborted story got ``kept: true`` for the old run's worktree, with its old files."""
     main, base = _main(tmp_path, monkeypatch)
     work_git.branch(main, "api", f"{RUN_BRANCH}--api", run_id="run-1")
     (main / ".octryx-items" / "api" / "old.txt").write_text("the aborted run's work\n")
@@ -110,9 +104,6 @@ def test_an_earlier_runs_worktree_is_never_kept_for_a_new_run(tmp_path, monkeypa
 
 @requires_git
 def test_a_work_plan_commit_never_deletes_what_a_merged_item_brought_in(tmp_path, monkeypatch):
-    """Regression: a work-plan commit after merging an item must never delete files that
-    the merged item added when the folder loses them before ``git add -A``.
-    The platform's commit restores them and reports what was restored."""
     main, base = _main(tmp_path, monkeypatch)
     work_git.run({"ops": [_op("branch", "backend")]}, main, base=base)
     (main / ".octryx-items" / "backend" / "server.py").write_text("SERVE = True\n")
@@ -135,7 +126,6 @@ def test_a_work_plan_commit_never_deletes_what_a_merged_item_brought_in(tmp_path
 
 @requires_git
 def test_a_kept_item_worktree_gets_the_items_merged_since_it_was_branched(tmp_path, monkeypatch):
-    """A kept worktree that lacks the main folder's HEAD (the items merged since it was branched) gets it."""
     main, base = _main(tmp_path, monkeypatch)
     work_git.run({"ops": [_op("branch", "api"), _op("branch", "tests")]}, main, base=base, run_id="run-1")
     (main / ".octryx-items" / "api" / "server.py").write_text("SERVE = True\n")
@@ -152,9 +142,7 @@ def test_a_kept_item_worktree_gets_the_items_merged_since_it_was_branched(tmp_pa
 
 @requires_git
 def test_an_item_uses_the_main_folders_prepared_environment_and_never_commits_or_deletes_it(tmp_path, monkeypatch):
-    """Without the link every item job built its own venv and installed pytest,
-    Playwright and the package, 8-10 s per item, for an environment the main folder already had. The item gets a link
-    to it: never part of its merge, and removing its worktree removes the link, never the main folder's venv."""
+    # Without the link every item built its own venv, 8-10 s per item.
     main, base = _main(tmp_path, monkeypatch)
     (main / ".venv" / "bin").mkdir(parents=True)
     (main / ".venv" / "bin" / "python").write_text("#!/bin/sh\n")
@@ -176,8 +164,7 @@ def test_an_item_uses_the_main_folders_prepared_environment_and_never_commits_or
 
 
 def test_an_item_with_a_linked_environment_tests_its_own_sources_first(tmp_path):
-    """An editable install in the shared venv points at the main folder's ``src``; the item's agent must import its
-    own (``PYTHONPATH``). A folder with its own venv, or the main folder, is left as it was."""
+    # An editable install in the shared venv points at the main folder's src.
     from octryx_claude.workspace_prep import own_sources_first
 
     main = tmp_path / "kitchen"

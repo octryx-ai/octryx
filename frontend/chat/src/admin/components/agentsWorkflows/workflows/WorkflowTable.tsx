@@ -1,16 +1,15 @@
-// The Workflows list, the page's entry: every workflow of both execution kinds with what tells them apart at a
-// glance (name, kind, status and version, when it last changed and by whom, how often it ran). A row opens the
-// workflow on the canvas.
+// The Workflows list, the page's entry: every workflow with what tells them apart at a glance (name, status and
+// version, when it last changed and by whom, how often it ran). A row opens the workflow on the canvas.
 import type { KeyboardEvent } from "react";
 
 import { StatusLabel } from "../../../../layout/StatusLabel";
-import { KIND_LABELS, lastChangedLabel, listedStatusLabel, type ListedWorkflow } from "./workflowListModel";
+import { lastChangedLabel, listedStatusLabel, type ListedWorkflow } from "./workflowListModel";
 
 type WorkflowTableProps = {
   items: ListedWorkflow[];
   usageWindowDays: number;
   onOpen: (item: ListedWorkflow) => void;
-  // Switches a graph workflow on or off; a row whose switch is being saved is busy. Without it there is no switch.
+  // Switches a workflow on or off; a row whose switch is being saved is busy. Without it there is no switch.
   onToggleActive?: (item: ListedWorkflow, active: boolean) => void;
   busyId?: string | null;
 };
@@ -24,17 +23,16 @@ export function WorkflowTable({ items, usageWindowDays, onOpen, onToggleActive, 
     <table className="admin-panel__table aw-cards aw-table">
       <thead>
         <tr>
-          <th>Workflow</th><th>Kind</th><th>Status</th>{onToggleActive ? <th>On</th> : null}<th>Last changed</th><th>By</th><th>{runs}</th>
+          <th>Workflow</th><th>Status</th>{onToggleActive ? <th>On</th> : null}<th>Last changed</th><th>By</th><th>{runs}</th>
         </tr>
       </thead>
       <tbody>
         {items.map((item) => {
           const changed = lastChangedLabel(item);
           return (
-            <tr key={`${item.kind}-${item.id}`} tabIndex={0} onClick={() => onOpen(item)} onKeyDown={(event) => onRowKey(event, item)}
+            <tr key={item.id} tabIndex={0} onClick={() => onOpen(item)} onKeyDown={(event) => onRowKey(event, item)}
               data-testid={`workflow-row-${item.key}`} aria-label={`Open ${item.title || item.key}`}>
               <td data-l="Workflow"><div className="aw-name">{item.title || item.key}</div><div className="aw-sub aw-mono">{item.key}</div></td>
-              <td data-l="Kind">{KIND_LABELS[item.kind]}</td>
               <td data-l="Status">
                 <StatusLabel label={listedStatusLabel(item)} tone={item.row.status === "published" ? "neutral" : "attention"} />
               </td>

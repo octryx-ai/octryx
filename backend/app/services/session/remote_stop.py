@@ -1,18 +1,4 @@
-"""Stop a chat turn that runs in another process.
-
-A turn runs as an asyncio task in the process that started it (``turn_tasks.CHAT_RUN_TASKS``):
-an API process, a sibling API process under several uvicorn workers, or the platform worker
-(approval resumes by the timeout sweeper, channel turns). ``turn_stop`` cancels a local task
-directly. When the session's turn is owned by another live process, the stop additionally
-records a durable request: an ``audit_log`` row (append-only, so no write of the running turn can
-overwrite it) naming the owning process and the turn's start marker.
-
-Every platform process runs :class:`RemoteTurnStopWatcher`. While this process has live turn
-tasks it reads, every ``poll_seconds``, the stop requests addressed to it for those sessions and
-cancels the matching task; the turn then settles as user-stopped exactly as a local stop does.
-A request whose turn marker differs from the session's current marker belonged to an earlier
-turn and is ignored, as is any request already handled.
-"""
+"""Stop a chat turn that runs in another platform process."""
 
 from __future__ import annotations
 
@@ -40,17 +26,13 @@ REQUEST_WINDOW = timedelta(minutes=15)
 
 
 def turn_marker(session: Any) -> str | None:
-    """The start marker of the session's current turn, as stored in its metadata."""
     metadata = session.metadata_ if isinstance(getattr(session, "metadata_", None), dict) else {}
     value = metadata.get(CURRENT_TURN_STARTED_AT_KEY) or metadata.get("run_started_at")
     return str(value) if value else None
 
 
 def record_remote_stop_request(db: Any, session: Any) -> bool:
-    """Add a stop request when ``session``'s running turn is owned by another process; ``True`` if added.
-
-    Call before the stop finalizes the session (which drops the turn marker); the caller commits.
-    """
+    # Call before the stop finalizes the session, which drops the turn marker; the caller commits.
     owner = str(getattr(session, "turn_owner_process_id", None) or "")
     if str(session.status or "").strip().lower() != "running" or not owner or owner == current_process_id():
         return False
@@ -70,8 +52,6 @@ def record_remote_stop_request(db: Any, session: Any) -> bool:
 
 
 class RemoteTurnStopWatcher:
-    """Cancels this process's turn tasks for which another process recorded a stop request."""
-
     def __init__(self, session_factory, *, poll_seconds: float = DEFAULT_POLL_SECONDS) -> None:
         self._session_factory = session_factory
         self._poll_seconds = poll_seconds
@@ -105,7 +85,6 @@ class RemoteTurnStopWatcher:
                 logger.warning("remote_turn_stop_check_failed", extra={"error_type": type(exc).__name__})
 
     async def check_once(self) -> list[str]:
-        """Cancel the local turns with an unhandled stop request addressed to this process; returns their ids."""
         live = {session_id: task for session_id, task in list(CHAT_RUN_TASKS.items()) if not task.done()}
         if not live:
             return []

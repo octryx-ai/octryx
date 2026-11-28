@@ -1,7 +1,4 @@
-"""Section builders for the corporate identity LLM guide.
-
-Each helper returns the lines of one guide section; ``generate_llm_guide`` joins them in order.
-"""
+"""Section builders for the corporate identity LLM guide."""
 
 from __future__ import annotations
 
@@ -72,7 +69,6 @@ _OTHER_RULES: list[str] = [
 
 
 def layout_selection_lines(layout_catalog: dict[str, Any], layouts: list[dict[str, Any]]) -> list[str]:
-    """List corporate-safe layout names grouped by category with each category's purpose."""
     by_cat = (layout_catalog.get("summary") or {}).get("by_category") or {}
     selection_lines = []
     for cat in sorted(by_cat):
@@ -122,7 +118,6 @@ def _icon_zone_lines(zones: list[dict[str, Any]]) -> list[str]:
 
 
 def layout_detail_lines(safe_layouts: list[dict[str, Any]], lean_slide_map: dict[str, int] | None) -> list[str]:
-    """Describe each corporate-safe layout: hint, how to clone it, placeholders and icon zones."""
     lines: list[str] = []
     for layout in safe_layouts:
         lname = layout.get("name") or ""
@@ -146,7 +141,6 @@ def layout_detail_lines(safe_layouts: list[dict[str, Any]], lean_slide_map: dict
 
 
 def icon_reference_lines(icon_categories_data: dict[str, list[dict[str, Any]]]) -> list[str]:
-    """Summarise each icon category with its folder and a few example slugs."""
     icon_ref_lines = []
     for cat_name in sorted(icon_categories_data):
         items = icon_categories_data[cat_name]
@@ -158,7 +152,6 @@ def icon_reference_lines(icon_categories_data: dict[str, list[dict[str, Any]]]) 
 
 
 def core_rules_section(profile_name: str, tmpl_count: int) -> list[str]:
-    """Return the guide heading and the core rules on adding and cleaning up slides."""
     return [
         f"# Corporate Identity Guide: {profile_name}",
         "",
@@ -189,7 +182,6 @@ def brand_section(
     profile_root: str,
     layout_catalog: dict[str, Any],
 ) -> list[str]:
-    """Return the brand facts and the colour palette table."""
     theme_name = summary.get("theme_name") or "-"
     font_family = summary.get("font_family") or "Arial"
     dims = layout_catalog.get("slide_dimensions") or {}
@@ -215,7 +207,6 @@ def brand_section(
 
 
 def icons_section(profile_root: str, icon_ref_lines: list[str]) -> list[str]:
-    """Return the available-icons section."""
     return [
         "## Available Icons",
         f"Icons are SVG files under `{profile_root}/icons/<category>/<slug>.svg`.",

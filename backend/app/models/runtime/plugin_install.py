@@ -1,10 +1,4 @@
-"""Installed plugins: who installed which version where, what they confirmed, and what the plugin brought.
-
-Whoever installs a plugin is responsible for that choice. One row per plugin and scope
-(one Workspace, or the platform). ``contributions_json`` lists every object the install created or reused
-(``{kind, id, key}``), so disabling, and later upgrade, rollback and removal, act on exactly those.
-``permissions_json`` is what the installer saw and confirmed (``consent_digest`` is its hash).
-"""
+"""Installed plugins: who installed which version where, what they confirmed and what the plugin brought."""
 
 from __future__ import annotations
 
@@ -13,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 SCOPE_WORKSPACE, SCOPE_PLATFORM = "workspace", "platform"
@@ -21,7 +16,8 @@ STATUS_ACTIVE, STATUS_DISABLED = "active", "disabled"
 PLATFORM_SCOPE_KEY = "platform"
 
 
-class PluginInstall(Base):
+class PluginInstall(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "plugin_installs"
     __table_args__ = (UniqueConstraint("plugin_key", "scope_key", name="uq_plugin_installs_plugin_scope"),)
 
@@ -49,8 +45,10 @@ class PluginInstall(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class PluginUiFile(Base):
+class PluginUiFile(WorkspaceBound, Base):
     """One file of a plugin's UI bundle, kept at install and served under ``/plugin-ui``."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"install_id": "plugin_installs"}
 
     __tablename__ = "plugin_ui_files"
     __table_args__ = (UniqueConstraint("install_id", "path", name="uq_plugin_ui_files_install_path"),)

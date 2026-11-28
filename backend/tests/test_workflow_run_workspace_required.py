@@ -1,14 +1,5 @@
-"""A workflow run starts only in a Workspace: every live entry path answers ``needs_configuration`` with the reason
-``workspace_required`` at its public boundary, before anything is written.
-
-- REST start (``POST /api/v1/workflow-runs``): without a Workspace, or for a Work item without one, for every caller
-  scope (``access.require_start_workspace`` runs before the scope check); a Work item of another Workspace stays
-  ``work_item_scope`` for a caller outside it.
-- Chat start card (``POST /chat/api/sessions/{id}/workflow-proposal``): the Allow and its retry record
-  ``started.state`` / ``started.reason``; nothing (no Jira issue, no Work item) is created.
-- MCP ``workflow_select`` over the native protocol: a connection without a Workspace.
-- Actions: creation (panel and package import) and the scheduler (Run now, and the queued run's result).
-"""
+"""A workflow run starts only in a Workspace: every live entry path answers ``needs_configuration`` /
+``workspace_required`` at its public boundary, before anything is written."""
 
 from __future__ import annotations
 
@@ -23,8 +14,20 @@ from tests.chat_phased_workflow_start_support import fakes  # noqa: F401
 from tests.knowledge_evidence_seed_support import seed_member, seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
+
+
+@pytest.fixture(autouse=True)
+def _no_workspace_to_default_to(monkeypatch):
+    # A chat that names no Workspace starts in the person's default one; these starts have none to default to.
+    import app.web.routers.chat_upload_send as chat_upload_send
+
+    async def as_requested(_db, *, user, project_id, active_workspace_ids=None):
+        return str(project_id or "").strip()
+
+    monkeypatch.setattr(chat_upload_send, "new_chat_workspace", as_requested)
 
 DEFINITION = {
     "execution_kind": "phased",
@@ -52,9 +55,6 @@ async def _item(db, project_id: str | None) -> WorkItem:
     db.add(item)
     await db.flush()
     return item
-
-
-# --- REST start ----------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("caller", ["admin", "member"])
@@ -106,7 +106,27 @@ async def test_a_rest_start_in_a_workspace_still_starts(client, db, auth_headers
     assert (await db.get(WorkflowRun, response.json()["run"]["id"])).project_id == workspace_id
 
 
-# --- chat start card -----------------------------------------------------------------------------------------------
+async def test_a_bug_fix_start_in_the_own_private_workspace_is_refused_typed(client, db):
+    from app.models import Session
+    from app.services.auth import create_access_token
+    from app.services.project.private_workspace import ensure_private_workspace
+    from tests.devices.device_support import user_named
+    from tests.policy_engine_support import grant_role
+
+    owner = await user_named(db, f"dev-{uuid.uuid4().hex[:6]}")
+    await db.commit()
+    await grant_role(db, owner.id, "developer")
+    private = await ensure_private_workspace(db, owner)
+    await db.commit()
+    runs, sessions = await _count(db, WorkflowRun), await _count(db, Session)
+
+    response = await client.post(
+        "/api/v1/workflow-runs", json={"workflow_key": "bug-fix-reproduction", "project_id": private.id},
+        headers={"Authorization": f"Bearer {create_access_token(owner.id)}"})
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "private_workspace_has_no_work"
+    assert (await _count(db, WorkflowRun), await _count(db, Session)) == (runs, sessions)
 
 
 @pytest.mark.committed_db
@@ -132,8 +152,6 @@ async def test_the_chat_start_card_answer_and_its_retry_are_refused_typed_and_cr
 @pytest.mark.committed_db
 async def test_a_chat_start_allowed_on_the_approval_route_records_the_typed_refusal(
         client, db, auth_headers, fakes):  # noqa: F811
-    """The generic approval route (gateway, admin panel) resumes the held start: ``started`` carries the state and
-    reason, the chat says what to configure (no "Press Start again"), and nothing is created."""
     from tests.chat_phased_workflow_start_support import _approval, _record, _send, _settle
 
     state = fakes("spec-writing")
@@ -153,9 +171,6 @@ async def test_a_chat_start_allowed_on_the_approval_route_records_the_typed_refu
     assert await _count(db, WorkItem) == items
 
 
-# --- MCP workflow_select -------------------------------------------------------------------------------------------
-
-
 @pytest.mark.committed_db
 async def test_mcp_workflow_select_without_a_workspace_answers_needs_configuration(db, monkeypatch):
     from tests.mcp_claude_code_parity_support import SCOPES, _native
@@ -168,9 +183,6 @@ async def test_mcp_workflow_select_without_a_workspace_answers_needs_configurati
     answer = await mcp_call(token, "workflow_select", {"workflow_key": "spec-writing", "work_item": "WR-1"})
     assert _typed(answer) == TYPED, answer
     assert "Workspace" in answer["error"]
-
-
-# --- Actions: creation and the scheduler ---------------------------------------------------------------------------
 
 
 def _workflow_action(project_id: str | None) -> dict:
@@ -232,7 +244,7 @@ async def test_run_now_of_an_action_without_its_workspace_answers_needs_configur
 
 
 async def test_a_queued_workflow_action_that_lost_its_workspace_records_the_typed_refusal(db, monkeypatch):
-    from tests.test_action_runtime_admission import _run
+    from tests.scheduler.test_action_runtime_admission import _run
 
     task = await _stored_action(db)
     await db.commit()
@@ -249,7 +261,6 @@ async def test_a_queued_workflow_action_that_lost_its_workspace_records_the_type
 
 
 async def test_an_action_run_start_without_a_workspace_is_refused_before_any_lookup(db):
-    """``automation.start_action_run`` (the scheduler's run start) refuses before resolving the workflow or owner."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.automation import start_action_run
@@ -264,15 +275,10 @@ async def test_an_action_run_start_without_a_workspace_is_refused_before_any_loo
     assert (refused.value.state, refused.value.code) == TYPED
 
 
-# --- REST approvals that resume a chat's workflow start ------------------------------------------------------------
-
-
 @pytest.mark.committed_db
 @pytest.mark.parametrize("route", ["api", "channel"])
 async def test_an_approval_that_resumes_a_start_reports_the_typed_start_outcome_beside_its_own(
         client, db, auth_headers, fakes, route):  # noqa: F811
-    """``POST /api/v1/approvals/{id}/approve`` (and a chat channel's ``approve <id>``): the approval is approved, and
-    the start it resumed is reported apart from it, typed."""
     from app.services.channel_router_runtime.approval_commands import handle_approval_command
     from tests.chat_phased_workflow_start_support import _approval, _send, _settle
     from tests.mcp_native_support import session_factory
@@ -316,9 +322,6 @@ async def test_a_rejected_or_started_start_reports_its_own_outcome(client, db, a
     assert started.status_code == 200, started.text
     start = started.json()["workflow_start"]
     assert start["state"] == "started" and start["run_id"] and start["reason"] is None
-
-
-# --- an explicit Workspace ID that resolves to nothing -------------------------------------------------------------
 
 
 @pytest.mark.parametrize("caller", ["admin", "member"])
@@ -373,8 +376,6 @@ async def test_an_unknown_work_item_is_not_found_before_anything_is_written(clie
 
 @pytest.mark.parametrize("caller", ["admin", "member"])
 async def test_a_session_for_an_unknown_or_foreign_workspace_is_never_written(client, db, auth_headers, caller):
-    """``POST /api/v1/sessions`` resolves a named Workspace (``project_not_found``) and the caller's role in it before
-    it writes the session."""
     from app.models import Session as ChatSession
 
     mine, foreign = await seed_workspace(db), await seed_workspace(db)
@@ -400,9 +401,6 @@ async def test_a_chat_turn_for_an_unknown_workspace_writes_no_session_even_for_a
     assert response.status_code == 404, response.text
     assert "project_not_found" in response.text or "does not exist" in response.text
     assert await _count(db, ChatSession) == sessions
-
-
-# --- precedence: an unknown named Workspace next to a Work item --------------------------------------------------
 
 
 @pytest.mark.parametrize("caller", ["admin", "member"])
@@ -452,9 +450,6 @@ async def test_a_visible_item_of_another_existing_workspace_is_a_scope_refusal(c
     response = await client.post("/api/v1/workflow-runs", json={
         "workflow_key": key, "work_item_id": item.id, "project_id": second}, headers=headers)
     assert response.status_code == 403 and response.json()["detail"]["code"] == "work_item_scope"
-
-
-# --- an explicitly empty Workspace ID is absent; a required one refuses it ----------------------------------------
 
 
 @pytest.mark.parametrize("caller", ["admin", "member"])

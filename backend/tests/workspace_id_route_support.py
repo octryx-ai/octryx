@@ -6,6 +6,8 @@ from __future__ import annotations
 import json
 import re
 import uuid
+from dataclasses import dataclass
+from typing import Any, get_args
 
 import pytest
 from sqlalchemy import select
@@ -16,6 +18,10 @@ from tests.workspace_id_route_inventory import build_request, changed, record_si
 
 FOREIGN_MARKER = "foreign-workspace-marker"
 DELEGATED_ROLE = "delegated-admin-panel"
+ANONYMOUS_ID = "00000000-0000-0000-0000-000000000000"
+PER_REQUEST_HEADERS = frozenset({"date", "content-length", "x-request-id", "x-ratelimit-remaining",
+                                 "x-chat-view-elapsed-ms", "x-chat-bootstrap-elapsed-ms",
+                                 "x-chat-bootstrap-payload-bytes"})
 # A timestamp of the answer itself ("as of", a report window) differs per request anyway.
 _TIMESTAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?")
 
@@ -26,7 +32,7 @@ def refusal_code(response) -> str:
     except ValueError:
         return ""
     if not isinstance(payload, dict):
-        return ""  # a list answer (a read's items) carries no refusal
+        return ""
     detail = payload.get("detail")
     if isinstance(detail, dict):
         return str(detail.get("reason") or detail.get("code") or detail.get("state") or "")
@@ -34,8 +40,6 @@ def refusal_code(response) -> str:
 
 
 def answer_text(response, *masked: str) -> str:
-    """The answer without what differs per request anyway (the request id, timestamps) and with the named ids
-    masked."""
     try:
         payload = response.json()
     except ValueError:
@@ -49,16 +53,25 @@ def answer_text(response, *masked: str) -> str:
     return _TIMESTAMP.sub("<time>", text)
 
 
+def stable_headers(response, *masked: str) -> tuple[tuple[str, str], ...]:
+    headers = []
+    for name, value in response.headers.items():
+        if name.lower() in PER_REQUEST_HEADERS:
+            continue
+        for item in masked:
+            value = value.replace(item, "<id>")
+        headers.append((name.lower(), value))
+    return tuple(sorted(headers))
+
+
 @pytest.fixture(autouse=True)
 def _fixtures_on(monkeypatch):
-    monkeypatch.setenv("OCTRYX_ENABLE_TEST_FIXTURES", "true")  # the acceptance-fixture route answers
-    monkeypatch.setenv("OCTRYX_ENABLE_TEST_HOOKS", "true")  # the agent board's presence-limit hook answers
+    monkeypatch.setenv("OCTRYX_ENABLE_TEST_FIXTURES", "true")
+    monkeypatch.setenv("OCTRYX_ENABLE_TEST_HOOKS", "true")
 
 
 @pytest.fixture(autouse=True)
 async def _platform_configured(db):
-    """The platform's control-plane defaults exist, as on every installed platform (its first chat turn creates
-    them): that platform bootstrap is no write for the named Workspace."""
     from app.services.control_plane_service import ensure_control_plane_defaults
 
     await ensure_control_plane_defaults(db)
@@ -79,10 +92,6 @@ async def platform_role(db, name: str, permissions=()) -> str:
 
 
 async def personas_of(db, workspace_role: str, names=("member", "operator", "delegated")) -> tuple[str, dict[str, str]]:
-    """Non-admin personas, all holding ``workspace_role`` in one Workspace of their own (returned first): an ordinary
-    member (``member``/``owner``), a Work operator (the platform role ``operation`` that admits the work-management
-    surfaces) and a delegated admin (every admin-panel permission, ``ADMIN_PANEL_PERMISSIONS``, without the platform
-    admin role). Each has their private Workspace, so a request never creates it as a side effect."""
     from app.models import User, UserRole
     from app.services.admin.governance.admin_access_service import ADMIN_PANEL_PERMISSIONS
     from app.services.project.private_workspace import ensure_private_workspace
@@ -100,8 +109,6 @@ async def personas_of(db, workspace_role: str, names=("member", "operator", "del
 
 
 async def foreign_workspaces(db) -> dict[str, str]:
-    """A shared Workspace and somebody else's private one, neither the personas'; both carry the marker their data
-    must never show."""
     from app.services.project.private_workspace import ensure_private_workspace
     from tests.devices.device_support import user_named
 
@@ -112,23 +119,88 @@ async def foreign_workspaces(db) -> dict[str, str]:
     return {"shared": shared, "private": private.id}
 
 
-async def compare_answers(client, db, case, caller: str, named: dict[str, str], label: str, **request_kwargs) -> dict:
-    """Each named Workspace's answer for ``caller`` (status and body without the request id, the id masked); nothing
-    is written or sent for any of them, and no answer carries a foreign Workspace's data."""
+async def compare_answers(client, db, case, caller: str | None, named: dict[str, str], label: str,
+                          **request_kwargs) -> dict:
     before = await snapshot(db)
     answers = {}
     for kind, workspace_id in named.items():
-        request = build_request(case, workspace_id, caller, **request_kwargs)
+        request = build_request(case, workspace_id, caller or ANONYMOUS_ID, **request_kwargs)
         with pytest.MonkeyPatch.context() as patch:
             effects = record_side_effects(patch)
-            response = await client.request(case.method, headers=bearer(caller), **request)
+            response = await client.request(case.method, headers=bearer(caller) if caller else {}, **request)
         assert effects.calls == [], f"{label} sent for the {kind} Workspace: {effects.calls}"
         assert FOREIGN_MARKER not in response.text, f"{label} disclosed the {kind} Workspace: {response.text[:300]}"
-        answers[kind] = (response.status_code, refusal_code(response), answer_text(response, workspace_id))
+        answers[kind] = (response.status_code, refusal_code(response), answer_text(response, workspace_id),
+                         stable_headers(response, workspace_id))
     db.expire_all()
-    assert changed(before, await snapshot(db)) == [], f"{label} wrote"
+    written = changed(before, await snapshot(db))
+    assert written == [], f"{label} wrote {written}"
     return answers
 
 
-__all__ = ["DELEGATED_ROLE", "FOREIGN_MARKER", "_fixtures_on", "_platform_configured", "answer_text",
-           "compare_answers", "foreign_workspaces", "personas_of", "platform_role", "refusal_code"]
+# A ``scope_id`` names a Workspace when its ``scope_type`` is one of these (Engineering Knowledge scopes).
+WORKSPACE_SCOPE_TYPES = ("workspace", "project")
+
+
+@dataclass(frozen=True)
+class ScopeCase:
+    method: str
+    path: str
+    location: str
+    scope_types: tuple[str, ...]
+    body_model: type | None = None
+    query: tuple[tuple[str, Any], ...] = ()
+    path_types: tuple[tuple[str, Any], ...] = ()
+
+
+def _scope_types(annotation: Any) -> tuple[str, ...]:
+    return tuple(value for value in WORKSPACE_SCOPE_TYPES if value in get_args(annotation))
+
+
+def scope_routes() -> list[ScopeCase]:
+    from fastapi.routing import APIRoute
+
+    from app.main import app
+    from tests.workspace_id_route_inventory import _dependants, _scalar
+
+    cases = []
+    for route in app.routes:
+        if not isinstance(route, APIRoute):
+            continue
+        path_types = tuple((param.name, param.field_info.annotation) for param in route.dependant.path_params)
+        for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
+            for dependant in _dependants(route.dependant):
+                for param in dependant.body_params:
+                    fields = getattr(param.field_info.annotation, "model_fields", None) or {}
+                    if "scope_id" in fields and "scope_type" in fields:
+                        if types := _scope_types(fields["scope_type"].annotation):
+                            cases.append(ScopeCase(method, route.path, "body", types, param.field_info.annotation,
+                                                   path_types=path_types))
+                queries = {param.name: param for param in dependant.query_params}
+                if "scope_id" in queries and "scope_type" in queries:
+                    required = tuple((param.alias, _scalar(param.field_info.annotation))
+                                     for name, param in queries.items()
+                                     if name not in ("scope_id", "scope_type") and param.field_info.is_required())
+                    cases.append(ScopeCase(method, route.path, "query", WORKSPACE_SCOPE_TYPES, query=required,
+                                           path_types=path_types))
+    return sorted(cases, key=lambda case: (case.path, case.method))
+
+
+def build_scope_request(case: ScopeCase, scope_type: str, workspace_id: str) -> dict[str, Any]:
+    from tests.workspace_id_route_inventory import _payload
+
+    types = dict(case.path_types)
+    url = case.path
+    while "{" in url:
+        start, end = url.index("{"), url.index("}")
+        url = url[:start] + ("1" if types.get(url[start + 1:end]) is int else uuid.uuid4().hex) + url[end + 1:]
+    scope = {"scope_type": scope_type, "scope_id": workspace_id}
+    if case.location == "query":
+        return {"url": url, "params": {**dict(case.query), **scope}}
+    schema = case.body_model.model_json_schema()
+    return {"url": url, "json": {**_payload(schema, schema.get("$defs") or {}), **scope}}
+
+
+__all__ = ["DELEGATED_ROLE", "FOREIGN_MARKER", "WORKSPACE_SCOPE_TYPES", "ScopeCase", "_fixtures_on",
+           "_platform_configured", "answer_text", "build_scope_request", "compare_answers", "foreign_workspaces",
+           "personas_of", "platform_role", "refusal_code", "scope_routes", "stable_headers"]

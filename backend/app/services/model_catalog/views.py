@@ -1,11 +1,4 @@
-"""Read the Model catalog: one row per ``llm_models`` row with its provider, usage, status and issues.
-
-A row "needs attention" when it cannot do what its switch says: a gateway model with no alias or an alias the
-admission refuses ("not callable"), a model the provider no longer lists ("gone upstream"), a disabled provider
-connection, or an enabled model cleared for no data class. Prices of a model whose cost is owned by a governed
-cost source are read-only (``admin/provider/model_price_edit``) unless the model is a gateway model, whose
-cost contract the catalog edits (``update.py``).
-"""
+"""Read the Model catalog: one row per ``llm_models`` row with its provider, usage, status and issues."""
 
 from __future__ import annotations
 
@@ -80,9 +73,6 @@ _COST_FIELDS = (
 
 
 def _cost_drift(provider: LLMProvider, model: LLMModel) -> str:
-    """The row fields whose price the gateway does not charge (live: cache prices only on the row), else ``""``.
-
-    The gateway prices calls from the alias cost contract, so a row-only price is shown but never applied."""
     contract = dict(dict(alias_entries(provider).get(model.model_id) or {}).get("cost") or {})
     if contract.get("source") not in (None, "catalog_pricing"):
         return ""
@@ -92,7 +82,6 @@ def _cost_drift(provider: LLMProvider, model: LLMModel) -> str:
 
 
 def cost_editable(provider: LLMProvider, model: LLMModel) -> bool:
-    """A gateway model's contract is edited here; any other model only while no governed source owns its price."""
     return is_gateway(provider) or not model.cost_source
 
 
@@ -158,7 +147,6 @@ async def _rows(db: AsyncSession) -> list[tuple[LLMProvider, LLMModel]]:
 
 
 async def list_catalog(db: AsyncSession) -> dict[str, Any]:
-    """``GET /api/v1/admin/model-catalog``: every row, the provider filter options and the vocabularies."""
     usage = await load_usage(db)
     rows = await _rows(db)
     providers = (await db.execute(select(LLMProvider).order_by(LLMProvider.display_name))).scalars().all()

@@ -12,14 +12,11 @@ import {
 
 type WorkspaceRef = { id: string; isDefault?: boolean; is_default?: boolean };
 
-// The Instance's default workspace among the projects, if an administrator set one.
 export function defaultWorkspaceIdOf(projects: WorkspaceRef[]): string {
   return projects.find((project) => project.isDefault || project.is_default)?.id || "";
 }
 
-// The Workspace the app may pick by itself while the person has made no choice (fresh-install review): the
-// Instance's default, else the only one. With several and no default nothing is guessed; pages then offer the
-// choice inline (ChooseWorkspaceLine).
+// With several Workspaces and no default nothing is guessed.
 export function automaticWorkspaceIdOf(projects: WorkspaceRef[]): string {
   return defaultWorkspaceIdOf(projects) || (projects.length === 1 ? projects[0].id : "");
 }
@@ -28,11 +25,7 @@ function initialPreference(): WorkspacePreference {
   return readUrlWorkspaceId() || readStoredWorkspacePreference();
 }
 
-// The Workspace "New chat" starts in: the active Workspace (the address's workspace_id or the person's last choice,
-// which the global switch sets), else the chat's own when it is an active one, else the default or the only one.
-// The chat on screen can live in an archived Workspace (after a login the latest chat opens, wherever it is); a new
-// chat never starts there. `projects` holds only active Workspaces. An explicit "no workspace" choice stays one
-// where Global is allowed.
+// A new chat never starts in an archived Workspace, though the chat on screen can live in one.
 export function newChatWorkspaceId(projects: WorkspaceRef[], chatProjectId: string, allowGlobal = false): string {
   const known = (id: string | null | undefined) => Boolean(id) && projects.some((project) => project.id === id);
   const preference = initialPreference();
@@ -42,8 +35,7 @@ export function newChatWorkspaceId(projects: WorkspaceRef[], chatProjectId: stri
   return automaticWorkspaceIdOf(projects);
 }
 
-// newChatWorkspaceId for the shell, current after a choice made anywhere (the global switch in another area does not
-// otherwise re-render the chat shell).
+// The global switch in another area does not otherwise re-render the chat shell.
 export function useNewChatWorkspaceId(
   userId: string | null | undefined,
   projects: WorkspaceRef[],
@@ -60,18 +52,12 @@ export function useNewChatWorkspaceId(
   return newChatWorkspaceId(projects, chatProjectId, allowGlobal);
 }
 
-// Shared workspace selection for area pages. `fallbackId` is usually the chat's
-// selected workspace and applies only while the user has no preference; without
-// one, the Instance's default workspace is the starting point.
-// Returns "" when nothing valid is known or the user chose no workspace, so
-// callers show an explicit "Select a workspace" state instead of guessing.
+// Returns "" rather than guessing, so callers show an explicit "Select a workspace" state.
 export function useActiveWorkspace(projects: WorkspaceRef[], fallbackId?: string | null) {
   const [preference, setPreference] = useState<WorkspacePreference>(initialPreference);
 
   useEffect(() => {
     const onChange = (event: Event) => setPreference((event as CustomEvent<string>).detail ?? "");
-    // Back/forward shows exactly what a fresh load of that history entry shows:
-    // its workspace_id, or — without one — the user's last explicit choice.
     const onPopState = () => setPreference(initialPreference());
     window.addEventListener(ACTIVE_WORKSPACE_EVENT, onChange);
     window.addEventListener("popstate", onPopState);
@@ -81,8 +67,6 @@ export function useActiveWorkspace(projects: WorkspaceRef[], fallbackId?: string
     };
   }, []);
 
-  // The chat's workspace when it is known, else the default or the only Workspace. An explicit "no workspace"
-  // choice ("") and a URL workspace_id always win (resolveActiveWorkspaceId).
   const knownFallback = fallbackId && projects.some((project) => project.id === fallbackId) ? fallbackId : "";
   const workspaceId = resolveActiveWorkspaceId(projects, preference, knownFallback || automaticWorkspaceIdOf(projects));
   const setWorkspaceId = useCallback((next: string) => {
@@ -92,14 +76,7 @@ export function useActiveWorkspace(projects: WorkspaceRef[], fallbackId?: string
   return [workspaceId, setWorkspaceId] as const;
 }
 
-// Keeps the chat composer's workspace and the shared active workspace aligned.
-// The first value the chat bootstraps with does not overwrite an earlier
-// explicit choice; later composer changes do. A choice made in another area
-// moves a new (not yet started) chat along, never an existing session, and an
-// explicit "no workspace" choice elsewhere leaves the chat untouched.
-// One context for the whole app: an existing chat on screen is the context, so opening it
-// (from a link or the list) makes its Workspace the active one; choosing another Workspace in the global switch
-// while that chat is on screen leaves it for a new chat in the chosen Workspace (`onLeaveSession`).
+// The bootstrap's first value never overwrites an earlier explicit choice; a choice elsewhere moves only a new, unstarted chat.
 export function useChatWorkspaceSync(
   userId: string | null | undefined,
   selectedProjectId: string,
@@ -116,8 +93,7 @@ export function useChatWorkspaceSync(
 
   useEffect(() => {
     if (!projects.length || !userId) return;
-    // `projects` holds only active Workspaces: the chat's Workspace can be an archived one (its latest session
-    // lives there), and that one never becomes the active Workspace of the other areas.
+    // projects holds only active Workspaces; an archived chat Workspace never becomes the active one elsewhere.
     const known = (id: string) => projects.some((project) => project.id === id);
     if (!bootstrapped.current) {
       bootstrapped.current = true;
@@ -129,8 +105,6 @@ export function useChatWorkspaceSync(
       if ((preferred || explicitGlobal) && preferred !== selectedProjectId && !hasSelectedSession) {
         setSelectedProjectId(preferred);
       } else if (stale) {
-        // A choice (address or storage) for an archived Workspace is replaced by what every area shows instead: the
-        // chat's Workspace when it is an active one, else the Instance's default (or the only one).
         const start = known(selectedProjectId) ? selectedProjectId : automaticWorkspaceIdOf(projects);
         if (start) storeWorkspacePreference(start);
         else forgetWorkspacePreference();
@@ -138,9 +112,7 @@ export function useChatWorkspaceSync(
       return;
     }
     if (selectedProjectId !== previous.current) {
-      // An explicit Global/no-workspace choice in a new chat is a choice too
-      // (judge J-A-004); switching to an existing session only moves along when
-      // that session has a workspace, so its scope is never rewritten.
+      // An existing session moves along only when it has a workspace, so its scope is never rewritten.
       const explicitNone = !selectedProjectId && !hasSelectedSession;
       if (((selectedProjectId && known(selectedProjectId)) || explicitNone)
         && selectedProjectId !== readStoredWorkspacePreference()) {
@@ -150,7 +122,6 @@ export function useChatWorkspaceSync(
     previous.current = selectedProjectId;
   }, [allowGlobalSelection, hasSelectedSession, projects, selectedProjectId, setSelectedProjectId, userId]);
 
-  // The chat on screen is the context: its Workspace becomes the active one.
   useEffect(() => {
     if (!chatVisible || !hasSelectedSession || !selectedProjectId || !userId) return;
     if (!projects.some((project) => project.id === selectedProjectId)) return;
@@ -166,8 +137,6 @@ export function useChatWorkspaceSync(
         onLeaveSession(next);
         return;
       }
-      // "Global · no workspace" from the switch (administrators; the composer has no Workspace select of its own since
-      // review): a new chat takes it; an open chat of a Workspace is left for a new chat without one.
       if (!next && allowGlobalSelection) {
         if (hasSelectedSession) {
           if (chatVisible && onLeaveSession && selectedProjectId) {

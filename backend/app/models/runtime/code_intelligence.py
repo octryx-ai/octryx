@@ -4,6 +4,7 @@ from sqlalchemy import JSON, BigInteger, Boolean, Column, DateTime, ForeignKey, 
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class CodeRepository(Base):
+class CodeRepository(WorkspaceBound, Base):
     __tablename__ = "code_repositories"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -46,7 +47,9 @@ class CodeRepository(Base):
     )
 
 
-class CodeIndexRun(Base):
+class CodeIndexRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"repository_id": "code_repositories"}
     __tablename__ = "code_index_runs"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -71,7 +74,9 @@ class CodeIndexRun(Base):
     repository = relationship("CodeRepository", back_populates="index_runs")
 
 
-class CodeGraphRepository(Base):
+class CodeGraphRepository(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_repositories"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -101,7 +106,9 @@ class CodeGraphRepository(Base):
     )
 
 
-class CodeGraphRun(Base):
+class CodeGraphRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_runs"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -310,7 +317,9 @@ class CodeGraphUnresolvedReference(Base):
         UniqueConstraint("run_id", "symbol_text", "line_start", name="uq_code_graph_unresolved_reference"),
     )
 
-class CodeGraphSymbol(Base):
+class CodeGraphSymbol(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_symbols"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -351,7 +360,9 @@ class CodeGraphSymbol(Base):
     )
 
 
-class CodeGraphReference(Base):
+class CodeGraphReference(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_references"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -394,7 +405,9 @@ class CodeGraphReference(Base):
     )
 
 
-class CodeGraphRoute(Base):
+class CodeGraphRoute(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_routes"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -425,7 +438,9 @@ class CodeGraphRoute(Base):
     )
 
 
-class CodeGraphChunk(Base):
+class CodeGraphChunk(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_chunks"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -463,7 +478,9 @@ class CodeGraphChunk(Base):
     )
 
 
-class CodeGraphSnapshot(Base):
+class CodeGraphSnapshot(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_snapshots"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -487,7 +504,9 @@ class CodeGraphSnapshot(Base):
     )
 
 
-class CodeGraphStaleness(Base):
+class CodeGraphStaleness(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"code_repository_id": "code_repositories"}
     __tablename__ = "code_graph_staleness"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

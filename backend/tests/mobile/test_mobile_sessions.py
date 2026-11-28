@@ -1,11 +1,5 @@
-"""Octryx Mobile: the person's open octryx-claude sessions on the phone.
-
-- a registered session is open while its launcher sends heartbeats; without one for two minutes it leaves the list,
-  and a finalized session never shows;
-- the activity follows the session's own calls (a tool check: working; Claude Code asking: approval; the Stop hook:
-  waiting, with the title and the last answer the client sends);
-- the list is the caller's own sessions only, with the Workspace, the billing profile and the activity.
-"""
+"""Octryx Mobile: the caller's own open octryx-claude sessions on the phone, kept open by heartbeats, with their
+activity."""
 
 from __future__ import annotations
 
@@ -48,12 +42,12 @@ async def test_an_open_session_is_listed_with_its_activity_and_leaves_without_he
     assert item["activity"] == "working"
 
     row = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == key))).scalar_one()
-    row.last_seen_at = utc_now() - timedelta(minutes=3)  # the terminal was closed without a clean end
+    row.last_seen_at = utc_now() - timedelta(minutes=3)
     await db.commit()
     assert await open_sessions(db, user_id=user_id) == []
     beat = await client.post("/api/v1/agent-gateway/sessions/heartbeat", headers=headers)
     assert beat.status_code == 200 and beat.json() == {"state": "ok"}
-    assert len(await open_sessions(db, user_id=user_id)) == 1  # the heartbeat brings it back
+    assert len(await open_sessions(db, user_id=user_id)) == 1
 
 
 @pytest.mark.asyncio
@@ -83,7 +77,6 @@ async def test_unknown_activities_and_oversized_texts_are_bounded(client, db):
 
 @pytest.mark.asyncio
 async def test_the_heartbeat_keeps_the_phone_list_only_never_claims_or_liveness(client, db, monkeypatch):
-    # An idle open terminal must neither renew work-item claims nor hold off auto-takeover
     _user_id, _workspace_id, headers = await _open_session(client, db)
     key = headers["x-octryx-session"]
     row = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == key))).scalar_one()
@@ -117,7 +110,6 @@ async def test_a_stopped_session_drops_its_answer(client, db):
 
 @pytest.mark.asyncio
 async def test_only_the_main_stop_means_waiting_for_the_person(client, db):
-    # A subagent's end leaves the session working
     user_id, _workspace_id, headers = await _open_session(client, db)
     base = "/api/v1/agent-gateway/sessions/verification"
     sub = await client.post(base, headers=headers, json={"hook_event_name": "SubagentStop", "stop_hook_active": False,
@@ -134,7 +126,6 @@ async def test_only_the_main_stop_means_waiting_for_the_person(client, db):
 
 @pytest.mark.asyncio
 async def test_each_open_session_names_the_engine_it_was_registered_with(client, db):
-    # The phone's run line: a Codex terminal session reads as Codex, every other one as Claude Code.
     user_id, workspace, _headers = await _open_session(client, db, "engine-owner")
     codex_headers = await _gateway_headers(db, user_id, workspace)
     registered = await client.post("/api/v1/agent-gateway/sessions/register", headers=codex_headers,

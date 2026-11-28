@@ -1,12 +1,4 @@
-"""One bounded governed JSON answer from the Model Control Plane, for workflow proposals.
-
-The proposal call never gets a provider of its own: the control-plane runtimes are resolved,
-narrowed to the Workspace's runtime assignment (its default runtime first, only its selected
-runtimes when the Workspace is ``selected_only``), admitted for the one Workspace of the turn
-(``workflow_proposal`` is a registered dispatch owner), and at most ``MAX_RUNTIME_ATTEMPTS`` of
-them are tried in priority order, ``routing``-tagged runtimes first. No prompt, answer or provider
-message is logged; usage is accumulated as bounded counters only.
-"""
+"""One bounded governed JSON answer from the Model Control Plane, for workflow proposals."""
 
 from __future__ import annotations
 
@@ -31,8 +23,6 @@ MAX_ANSWER_TOKENS = 300
 
 
 class ProposalModelUnavailableError(Exception):
-    """A fixed, bounded refusal: ``state`` and ``reason`` are constants, never provider text."""
-
     def __init__(self, state: str, reason: str) -> None:
         super().__init__(f"workflow proposal model {state}: {reason}")
         self.state = state
@@ -41,13 +31,6 @@ class ProposalModelUnavailableError(Exception):
 
 @dataclass(slots=True)
 class ProposalUsage:
-    """Bounded counters of the one answered call.
-
-    ``usage_id`` identifies the answered call. The session that runs the turn writes its
-    ``UsageEvent`` from this record once (``proposal_usage.record_workflow_proposal_usage``),
-    because the proposal resolves before a new chat session row exists.
-    """
-
     calls: int = 0
     input_tokens: int = 0
     output_tokens: int = 0
@@ -82,8 +65,6 @@ class ProposalUsage:
 
 @dataclass(frozen=True, slots=True)
 class ProposalModelAnswer:
-    """The first JSON object of the answer, or ``None`` when the model gave no structured answer."""
-
     answer: dict[str, Any] | None
 
 
@@ -150,7 +131,6 @@ async def _workspace_runtimes(db: AsyncSession, project_id: str | None) -> list[
 
 
 async def governed_proposal_model(db: AsyncSession, *, project_id: str | None) -> ProposalModel:
-    """The admitted runtimes for a proposal in this Workspace, or a fixed refusal."""
     runtimes = await _workspace_runtimes(db, project_id)
     if not runtimes:
         raise ProposalModelUnavailableError("needs_configuration", "no_runtime_configured")

@@ -35,9 +35,6 @@ def _ids(findings):
     return [item.detector for item in findings]
 
 
-# --- validators ---------------------------------------------------------------------------------------------
-
-
 def test_mod10_accepts_the_check_digit_and_rejects_a_changed_digit_and_non_digits():
     assert mod10_valid(MOD10_VALID)
     assert not mod10_valid(MOD10_INVALID)
@@ -61,9 +58,6 @@ def test_iban_rejects_bad_check_wrong_length_and_unknown_country():
     assert not iban_valid("DE8937040044053201300")
     assert not iban_valid("ZZ89370400440532013000")
     assert not iban_valid("DEXX370400440532013000")
-
-
-# --- iban, email, phone, secrets --------------------------------------------------------------------------
 
 
 def test_iban_compact_and_grouped():
@@ -103,9 +97,6 @@ def test_find_builtin_runs_the_enabled_detectors_in_order():
     text = "mail someone@example.org iban GB82WEST12345698765432 tel +49 30 1234567"
     assert _ids(find_builtin(text, frozenset({"phone", "email"}))) == ["email", "phone"]
     assert _ids(find_builtin(text, BUILTIN_DETECTOR_IDS)) == ["iban", "email", "phone"]
-
-
-# --- scanner ----------------------------------------------------------------------------------------------
 
 
 def test_scan_report_cedar_record_and_summary_carry_no_values():
@@ -173,10 +164,6 @@ def test_merge_reports():
 
 
 def test_performance_budget_100kb_of_ordinary_text():
-    """100 kB of ordinary text costs well under the default deadline.
-
-    Measured as this thread's CPU time, not wall time: a busy machine (a full parallel suite) stretches wall time and
-    would trip the deadline by scheduling alone. The deadline itself is covered by the deadline tests above."""
     chunk = "def handler(event):\n    return {'status': 200, 'id': 1234567, 'user': name}\n"
     text = (chunk * (100_000 // len(chunk) + 1))[:100_000]
     unlimited = ScanBudget(deadline_ms=float("inf"))
@@ -189,9 +176,6 @@ def test_performance_budget_100kb_of_ordinary_text():
     samples.sort()
     p95 = samples[int(len(samples) * 0.95) - 1]
     assert p95 < DEFAULT_DEADLINE_MS / 1000  # fits the default deadline (50 ms); the target is 5 ms locally
-
-
-# --- masking ----------------------------------------------------------------------------------------------
 
 
 def _mask(text, mask, style, masker=None):
@@ -213,7 +197,6 @@ def test_last4_type_token_and_country_last4():
     assert _mask(text, {"phone"}, "last4").text.startswith("tel [PHONE *******4567 #1]")
     assert "[EMAIL #1]" in _mask(text, {"email"}, "type_token").text
     assert "[IBAN DE…3000]" in _mask(text, {"iban"}, "country_last4").text
-    # a style the detector does not offer falls back to its first style
     assert "[EMAIL #1]" in _mask(text, {"email"}, "last4").text
 
 

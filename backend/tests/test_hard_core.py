@@ -1,6 +1,5 @@
-"""The hard core of a run's shell (guiding principle): whatever the default shell runs,
-no command writes or removes git's own files, an environment or anything outside the repository. .git/hooks and
-.git/config would run code on the platform's git or bend its remote and credentials."""
+"""The hard core of a run's shell: no command writes or removes git's own files (hooks and config would run code on
+the platform's git), an environment or anything outside the repository."""
 
 from app.services.workflow_runs.octryx.hard_core import refusal, written_paths
 from app.services.workflow_runs.protected_paths import KIND_ENVIRONMENT, KIND_GIT
@@ -27,7 +26,7 @@ def test_writing_into_git_an_environment_or_outside_is_refused_in_every_form():
     for command in ("echo x > ../other/file", "cp a ~/.bashrc", "echo x >> /etc/hosts", "mv a /usr/local/bin/b",
                     "tee $HOME/.profile < a"):
         assert _kind(command) == "outside", command
-    assert _kind("echo x > hooks/pre-commit", cwd=f"{ROOT}/.git") == KIND_GIT  # relative to a cwd inside .git
+    assert _kind("echo x > hooks/pre-commit", cwd=f"{ROOT}/.git") == KIND_GIT
 
 
 def test_normal_developer_work_and_the_temp_folders_pass():
@@ -36,5 +35,5 @@ def test_normal_developer_work_and_the_temp_folders_pass():
                     "git config --get remote.origin.url", "git config -l", "git remote -v", "git status",
                     "pytest 2>&1 >/dev/null", "rm tests/test_totals.py", "echo x > src/.gitkeep"):
         assert _kind(command) is None, command
-    assert written_paths("cp a b c dest/") == ["dest/"]  # cp's target
-    assert set(written_paths("mv a b dest/")) == {"dest/", "a", "b"}  # mv removes its sources too
+    assert written_paths("cp a b c dest/") == ["dest/"]
+    assert set(written_paths("mv a b dest/")) == {"dest/", "a", "b"}

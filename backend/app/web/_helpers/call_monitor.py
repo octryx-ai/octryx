@@ -9,10 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _active_calls_info(plugin_manager: Any) -> dict[str, dict]:
-    """Calls the Teams channel plugins currently hold, keyed by call id."""
     active_calls_info = {}
     try:
-        # Find the Teams channel plugin
         for ch_id, plugin in plugin_manager._channels.items():
             if hasattr(plugin, "_active_calls"):
                 for call_id, call_info in plugin._active_calls.items():
@@ -80,7 +78,6 @@ def _tracked_call(
 
 
 def _untracked_call(call_id: str, info: dict, playback_locks: Any) -> dict:
-    """A call the plugin holds that has no call state yet (just established)."""
     return {
         "call_id": call_id,
         "project_id": info.get("project_id", ""),
@@ -119,7 +116,6 @@ def _enrolled_speakers() -> dict[str, dict]:
 
 
 def build_live_calls_payload() -> dict[str, Any]:
-    """Live state of all active Teams calls, their transcripts, enrollments and queues."""
     from ...plugins import plugin_manager
     from ...services.speaker.voice_enrollment import (
         _enrollment_sessions,
@@ -192,10 +188,8 @@ async def _session_messages(db: AsyncSession, session_id: str) -> list[dict]:
 
 
 async def _ended_call_events(db: AsyncSession, call_id: str) -> dict[str, Any]:
-    """Events of an ended call, looked up by the call id in the session metadata."""
     from ...models import Session
 
-    # Find session where metadata contains this call_id (SQLite-safe json_extract)
     result = await db.execute(
         select(Session)
         .where(Session.agent_type == "teams_call")
@@ -207,7 +201,6 @@ async def _ended_call_events(db: AsyncSession, call_id: str) -> dict[str, Any]:
     if not session:
         return {"messages": [], "transcript": "", "segments": []}
 
-    # Get persisted segments from session metadata
     meta = dict(session.metadata_ or {})
     return {
         "messages": await _session_messages(db, session.id),
@@ -217,7 +210,6 @@ async def _ended_call_events(db: AsyncSession, call_id: str) -> dict[str, Any]:
 
 
 async def build_call_events_payload(db: AsyncSession, call_id: str) -> dict[str, Any]:
-    """Messages, transcript and segments of one call: from memory while live, from the DB once ended."""
     from ...services.teams_calling.call_session_state import _call_states
 
     state = _call_states.get(call_id)

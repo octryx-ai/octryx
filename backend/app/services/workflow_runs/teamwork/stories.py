@@ -1,24 +1,4 @@
-"""The coordinator splits an epic into stories; the server creates them.
-
-- **``story_plan``** (the ``split`` phase's output, submitted by the coordinator): ``{"stories": [{title, goal,
-  criteria[], spec_sections[], depends_on_titles[]}]}`` in build order. :func:`validate_story_plan` refuses it with
-  every problem listed: titles present and unique, every story with at least one criterion, dependencies only on
-  stories before it (the chain builds them one after another). No upper limit on stories (no artificial
-  limits); "S1 = design system and app shell, 3 to 6 stories" lives in the phase's instructions.
-- **``work.create_stories``** (:func:`create_stories`, a server step, never a model call) turns the recorded plan into
-  the epic's stories:
-
-  - a Jira epic: ``create_jira_ticket`` with ``parent_key`` = the epic (Jira Cloud ``fields.parent``), then at once a
-    Work item with ``epic_key`` (the sync would find the story only on its next pass; the chain needs it now);
-  - a platform epic: ``create_platform_work_item(epic_key=...)``;
-  - an epic that already has stories (made by a person, or an earlier run) keeps them: they are adopted and nothing
-    is created.
-
-  It records the keys in build order (``context.stories``), which drives the epic chain (``epic_chain``), and the
-  stories' workflow (``context.story_workflow``, from the step's ``story_workflow`` param when the run has none).
-  A step that waits for a tool approval or failed halfway runs again without creating a story twice: what it created
-  is kept per title (``context.story_split``).
-"""
+"""The coordinator splits an epic into stories; the server creates them."""
 
 from __future__ import annotations
 
@@ -33,7 +13,7 @@ from ..epic_chain import STORIES_KEY, STORY_WORKFLOW_KEY
 from ..platform.dispatch import APPROVAL_PENDING, FAILED, SUCCEEDED, ToolOutcome, dispatch_tool
 
 OUTPUT_KIND = "story_plan"
-PROGRESS_KEY = "story_split"  # ``{"created": {title: key}}`` of this run's step
+PROGRESS_KEY = "story_split"
 DEFAULT_JIRA_ISSUE_TYPE = "Story"
 PLATFORM_STORY_TYPE = "task"  # platform items know no "story" type
 
@@ -47,7 +27,6 @@ def _texts(value: Any) -> list[str]:
 
 
 def validate_story_plan(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """``(record, problems)`` of a submitted story plan; an empty ``problems`` means it is recorded."""
     stories_raw = raw.get("stories") if isinstance(raw, dict) else None
     if not isinstance(stories_raw, list) or not stories_raw:
         return {"stories": []}, ["stories: at least one story, in build order"]
@@ -76,7 +55,6 @@ def validate_story_plan(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
 
 
 def story_description(story: dict[str, Any]) -> str:
-    """The story's ticket text: goal, acceptance criteria, the specification sections it builds, what it needs."""
     parts = [story.get("goal") or ""]
     if story.get("criteria"):
         parts.append("Acceptance criteria:\n" + "\n".join(f"- {item}" for item in story["criteria"]))
@@ -109,7 +87,6 @@ def _record(run: WorkflowRun, keys: list[str], params: dict[str, Any], created: 
 
 async def _jira_story(db: AsyncSession, run: WorkflowRun, epic: WorkItem, story: dict[str, Any],
                       issue_type: str) -> tuple[ToolOutcome, WorkItem | None]:
-    """Create the story under the Jira epic; on success its Work item at once (the sync updates it later)."""
     description = story_description(story)
     outcome = await dispatch_tool(db, run, "create_jira_ticket", {
         "project_key": _text(epic.source_project_key) or epic.source_key.split("-")[0],
@@ -128,14 +105,8 @@ async def _jira_story(db: AsyncSession, run: WorkflowRun, epic: WorkItem, story:
 
 
 async def _insert_or_synced(db: AsyncSession, item: WorkItem, epic: WorkItem) -> WorkItem:
-    """The new story's Work item, or the row the Jira sync inserted for the same key meanwhile.
-
-    The sync (every 15 min) can insert the story between
-    ``create_jira_ticket``
-    and this insert; the unique index on source type, instance and key then raised an uncaught IntegrityError and the
-    step failed after Jira had the story. The insert runs in a savepoint; on that conflict the synced row is the
-    story, tied to the epic when the sync has not done so yet. A row of another Workspace with that key is never
-    touched: the step fails with the 409 ``workspace_immutable``, the same way an intake update does."""
+    # The Jira sync can insert the same key between the ticket creation and this insert; a row of another Workspace
+    # is never touched.
     from ...secure_work.workspace_immutable import insert_source_item
 
     synced = await insert_source_item(db, item)
@@ -157,7 +128,6 @@ async def _platform_story(db: AsyncSession, run: WorkflowRun, epic: WorkItem, st
 
 
 async def create_stories(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> ToolOutcome:
-    """``work.create_stories``: the epic's stories from the recorded ``story_plan`` (see the module docstring)."""
     from ...secure_work.platform_items import is_platform_work_item
     from ..phase_outputs import recorded_output
 

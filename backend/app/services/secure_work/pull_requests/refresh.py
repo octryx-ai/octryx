@@ -1,14 +1,4 @@
-"""Refresh a recorded pull request from its host (status, reviewers, build, timestamps).
-
-Internal only (no HTTP route): the periodic worker (``refresh_worker``: open PRs not read for ``REFRESH_INTERVAL``,
-plus every row a trigger requested) and a workflow watch that observed the PR merged or declined
-(``request_refresh_for_run``: marks the row, the worker reads it on its next tick, outside the run's claim).
-
-A successful read stores the host's state (``refresh_status = ok``, ``last_synced_at`` now); a read whose build
-status could not be read stores the rest and says so (``partial`` + the build error's code). A failed read never
-touches the recorded state: the last known status stays, ``refresh_status = failed`` with the closed error code and
-a bounded message (``host_target.PullRequestHostError``).
-"""
+"""Refresh a recorded pull request from its host (status, reviewers, build, timestamps)."""
 
 from __future__ import annotations
 
@@ -72,12 +62,12 @@ def _apply(row: WorkPullRequest, read: HostRead, connection_id: str) -> None:
 
 
 async def refresh_pull_request(db: AsyncSession, row: WorkPullRequest, *, source: str) -> dict[str, Any]:
-    """Read ``row`` from its host and store the outcome; returns ``{"ok", "previous_status", "status", ...}``."""
     previous = row.status
     row.refresh_attempted_at = utc_now()
     row.refresh_requested_at = None
     try:
         read, connection_id = await _read(db, row)
+    # A failed read never touches the recorded state
     except PullRequestHostError as error:
         row.refresh_status, row.refresh_error_code, row.refresh_error = REFRESH_FAILED, error.code, error.message
         await db.flush()
@@ -89,6 +79,7 @@ async def refresh_pull_request(db: AsyncSession, row: WorkPullRequest, *, source
     if previous != row.status:
         db.add(AuditLog(user_id=row.created_by, action="secure_work.pull_request_refreshed",
                         resource_type="secure_work_pull_request", resource_id=row.id,
+                        project_id=row.scope_key,
                         details={"pr_id": row.pr_id, "repository_slug": row.repository_slug, "provider": row.provider,
                                  "actor": SYSTEM_ACTOR, "source": source, "previous_status": previous,
                                  "status": row.status}))
@@ -97,8 +88,7 @@ async def refresh_pull_request(db: AsyncSession, row: WorkPullRequest, *, source
 
 
 def due_pull_requests_query(*, now=None, batch: int = SWEEP_BATCH):
-    """Rows a trigger requested, then open rows not read for ``REFRESH_INTERVAL`` (never read first); only records
-    bound to their Work Item's Workspace (``in_item_workspace``)."""
+    # Only records bound to their Work Item's Workspace.
     now = now or utc_now()
     due_open = (WorkPullRequest.status.in_(REFRESHABLE_OPEN_STATUSES)
                 & or_(WorkPullRequest.refresh_attempted_at.is_(None),
@@ -112,7 +102,7 @@ def due_pull_requests_query(*, now=None, batch: int = SWEEP_BATCH):
 
 
 async def sweep_pull_requests(db: AsyncSession, *, batch: int = SWEEP_BATCH) -> dict[str, int]:
-    """One bounded pass; each row commits on its own so one slow host never holds another row's write."""
+    # Each row commits on its own so one slow host never holds another row's write.
     counts = {"refreshed": 0, "failed": 0}
     for row_id in list((await db.execute(due_pull_requests_query(batch=batch))).scalars().all()):
         row = await db.get(WorkPullRequest, row_id)
@@ -132,10 +122,6 @@ async def sweep_pull_requests(db: AsyncSession, *, batch: int = SWEEP_BATCH) -> 
 
 
 async def request_refresh_for_run(db: AsyncSession, run: WorkflowRun) -> int:
-    """A workflow watch observed the run's PR merged/declined: mark its record for the worker's next tick.
-
-    Only the record ``pr_details`` wrote for the run: the run's Work Item in the run's Workspace (``project_id``), the
-    identity the run stored when it opened the pull request (``run.pull_request["identity"]``)."""
     identity = stored_identity(run.pull_request)
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
     if item is None or not run.project_id or item.project_id != run.project_id or identity is None:

@@ -17,7 +17,6 @@ async def latest_failed_test_validation_summary(
     session_id: str,
     created_at_or_after: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Return the latest red test-suite result if it is the current validation state."""
     query = select(ToolCall).where(ToolCall.session_id == session_id, ToolCall.tool_name == "run_test_suite")
     if created_at_or_after is not None:
         query = query.where(ToolCall.created_at >= created_at_or_after)
@@ -55,13 +54,7 @@ async def unverified_verification_contract_summary(
     session_metadata: dict[str, Any] | None,
     created_at_or_after: datetime | None = None,
 ) -> dict[str, Any] | None:
-    """Block completion when a coding session carries an approved verification
-    contract that was never proven green in this turn.
-
-    Guards BOTH directions of agent claims: "done" and "nothing to do" — a
-    no-op claim still requires a passing ``run_validation_commands``.
-    Returns None when no contract exists or the latest contract run is green.
-    """
+    # Guards both claims, done and nothing to do: a no-op claim still requires a passing ``run_validation_commands``.
     execution = (session_metadata or {}).get("secure_work_execution")
     contract = execution.get("verification_contract") if isinstance(execution, dict) else None
     commands = list((contract or {}).get("commands") or []) if isinstance(contract, dict) else []

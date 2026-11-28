@@ -1,15 +1,13 @@
-// Agents & workflows → Overview → Effective setup: what a session actually gets, assembled by the run's own
-// preparation (rolled back), each part with source, version and enforcement. Opened from a turn's trace it compares
-// that turn's recorded prompt versions with what a turn gets now.
+// Agents & workflows → Overview → Effective setup: what an octryx-claude session gets, each part with source,
+// version and enforcement.
 import { Fragment } from "react";
 
 import { useAdminNavigation } from "../../../adminNavigation";
 import { resolveAdminAreaForTab } from "../../../config/adminPanelAreas";
 import type { AdminTab } from "../../../types/adminPanelTypes.governance";
-import { SettingsDrawer } from "../../projectsTab/SettingsDrawer";
-import { Badge, ClassBadge, EnforcedBadge } from "../awBadges";
+import { ClassBadge, EnforcedBadge } from "../awBadges";
 import "../agentsWorkflows.css";
-import { RUNTIME_LABELS, budgetShares, type EffectiveSetup, type SetupPart, type SetupRuntime } from "./effectiveSetupModel";
+import { budgetShares, type EffectiveSetup, type SetupPart } from "./effectiveSetupModel";
 import { SetupPartBody } from "./SetupPartBody";
 import { useEffectiveSetup } from "./useEffectiveSetup";
 
@@ -20,7 +18,7 @@ type Page = ReturnType<typeof useEffectiveSetup>;
 export function EffectiveSetupPage() {
   const { openAdminTab } = useAdminNavigation();
   const page = useEffectiveSetup();
-  const { setup, problem, loading, compareOpen } = page;
+  const { setup, problem, loading } = page;
   const openSource = (tab: string | null) => {
     if (tab) openAdminTab(tab as AdminTab);
   };
@@ -28,12 +26,11 @@ export function EffectiveSetupPage() {
   return (
     <div className="aw-page" data-testid="effective-setup">
       <p className="admin-panel__hint">
-        What a session actually gets, assembled by the same preparation the run uses. Every part names its source,
-        version and what enforces it. Open it from any turn's trace as <b>"What did this turn get?"</b>.
+        What an octryx-claude session gets for the chosen Workspace, user, agent and workflow. Every part names its
+        source, version and what enforces it.
       </p>
       <section className="admin-panel__card" aria-label="Setup inputs">
         <SetupPickers page={page} />
-        <SetupRuntimeRow page={page} />
       </section>
       {problem ? <p className="admin-panel__error" role="alert">{problem}</p> : null}
       {!setup && loading ? <p className="admin-panel__hint" role="status">Preparing the setup…</p> : null}
@@ -47,7 +44,6 @@ export function EffectiveSetupPage() {
           <SetupSide setup={setup} />
         </div>
       ) : null}
-      {compareOpen ? <CompareDrawer page={page} /> : null}
     </div>
   );
 }
@@ -90,36 +86,6 @@ function SetupPickers({ page: { query, options, change } }: { page: Page }) {
   );
 }
 
-function SetupRuntimeRow({ page: { setup, query, change, setCompareOpen } }: { page: Page }) {
-  const runtime = setup?.runtime ?? query.runtime;
-  return (
-    <div className="aw-between">
-      <div className="aw-row">
-        <span className="aw-sub aw-sub--flush">Runtime</span>
-        {/* A value choice, so a select like the fields above it, not a row of tab-like buttons. */}
-        <select className="admin-users__toolbar-select" aria-label="Runtime" value={runtime}
-          onChange={(event) => change({ runtime: event.target.value as SetupRuntime })}>
-          {(Object.keys(RUNTIME_LABELS) as SetupRuntime[]).map((value) => (
-            <option key={value} value={value}>{RUNTIME_LABELS[value]}</option>
-          ))}
-        </select>
-      </div>
-      <div className="aw-row">
-        {setup?.comparison ? (
-          setup.comparison.matches ? (
-            <Badge kind="active">{`Matches turn ${setup.turn?.traceId.slice(0, 4) ?? ""}… (key@version identical)`}</Badge>
-          ) : (
-            <Badge kind="attention">{`${setup.comparison.changed} text(s) changed since turn ${setup.turn?.traceId.slice(0, 4) ?? ""}…`}</Badge>
-          )
-        ) : null}
-        <button type="button" className="admin-panel__action-btn" onClick={() => setCompareOpen(true)}>
-          Compare with a past turn
-        </button>
-      </div>
-    </div>
-  );
-}
-
 type LayerProps = { part: SetupPart; index: number; setup: EffectiveSetup; openSource: (tab: string | null) => void };
 
 function SetupPartLayer({ part, index, setup, openSource }: LayerProps) {
@@ -157,7 +123,7 @@ function SetupSide({ setup }: { setup: EffectiveSetup }) {
       <section className="admin-panel__card">
         <div className="admin-panel__section-header"><span>Summary</span></div>
         <dl className="aw-kv">
-          <dt>Runtime</dt><dd>{setup.runtime === "chat" ? "Platform chat" : "octryx-claude (Claude Code)"}</dd>
+          <dt>Runtime</dt><dd>octryx-claude (Claude Code)</dd>
           <dt>Capability</dt><dd><ClassBadge value={setup.capabilityClass} /></dd>
           <dt>Workflow</dt><dd>{setup.workflowKey || "none"}</dd>
           <dt>Turn state</dt><dd>{setup.profileStatus || "–"}</dd>
@@ -193,31 +159,5 @@ function SetupSide({ setup }: { setup: EffectiveSetup }) {
         <b> tools offered / forbidden</b> with the rule that decides.
       </div>
     </aside>
-  );
-}
-
-function CompareDrawer({ page: { setCompareOpen, compareDraft, setCompareDraft, setSessionId } }: { page: Page }) {
-  return (
-    <SettingsDrawer eyebrow="Effective setup" title="Compare with a past turn" size="edit"
-      onClose={() => setCompareOpen(false)}
-      footer={(
-        <>
-          <button type="button" className="admin-panel__action-btn" onClick={() => setCompareOpen(false)}>Cancel</button>
-          <button type="button" className="admin-panel__action-btn admin-panel__action-btn--primary"
-            disabled={!compareDraft.trim()}
-            onClick={() => { setSessionId(compareDraft.trim()); setCompareOpen(false); }}>
-            Compare
-          </button>
-        </>
-      )}>
-      <p className="admin-panel__hint">
-        The session's latest turn is prepared again with its Workspace, agent and workflow. Every prompt text it
-        used is compared with the version a turn gets now.
-      </p>
-      <label className="admin-panel__field">
-        <span>Session ID</span>
-        <input value={compareDraft} onChange={(event) => setCompareDraft(event.target.value)} />
-      </label>
-    </SettingsDrawer>
   );
 }

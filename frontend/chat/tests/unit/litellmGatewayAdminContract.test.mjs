@@ -467,6 +467,8 @@ describe("no gateway surface asks for or renders a key", () => {
     "frontend/chat/src/admin/components/providerTab/LiteLlmGatewayConfigFields.tsx",
     "frontend/chat/src/admin/components/providerTab/LiteLlmGatewayAliasRow.tsx",
     "frontend/chat/src/admin/components/providerTab/LiteLlmGatewayAddForm.tsx",
+    "frontend/chat/src/admin/components/providerTab/AddProviderForm.tsx",
+    "frontend/chat/src/admin/components/providerTab/ProvidersList.tsx",
     "frontend/chat/src/admin/components/providerTab/LiteLlmGatewaySecretNotice.tsx",
     "frontend/chat/src/admin/components/providerTab/ProviderLiteLlmGatewaySection.tsx",
     "frontend/chat/src/admin/hooks/useAdminLiteLlmGatewayActions.ts",
@@ -511,30 +513,6 @@ describe("no gateway surface asks for or renders a key", () => {
     // The copy says the key is never shown, in user words: no issue numbers or reason codes.
     assert.match(notice, /never shown/);
     assert.doesNotMatch(notice, /#\d{3}|litellm_gateway_virtual_key_secret_ref_not_configured/);
-  });
-
-  test("the raw-key editor is excluded for the gateway driver", () => {
-    const authSection = source(
-      "frontend/chat/src/admin/components/providerTab/ProviderAuthSection.tsx",
-    );
-    assert.match(authSection, /p\.driver !== LITELLM_GATEWAY_DRIVER/);
-    const keyGuard = authSection.slice(
-      authSection.indexOf("p.driver !== \"copilot_api\" &&\n      p.driver !== \"gemini_api\" &&"),
-      authSection.indexOf("<ProviderApiKeyAuth"),
-    );
-    assert.match(keyGuard, /LITELLM_GATEWAY_DRIVER/);
-  });
-
-  test("the add form routes the gateway away from the credential form", () => {
-    const addForm = source(
-      "frontend/chat/src/admin/components/providerTab/AddProviderForm.tsx",
-    );
-    const branch = addForm.indexOf("LiteLlmGatewayAddForm ctx={ctx}");
-    assert.notEqual(branch, -1);
-    assert.ok(
-      branch < addForm.indexOf('type="password"'),
-      "the gateway branch must return before any password input is rendered",
-    );
   });
 });
 

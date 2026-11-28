@@ -1,11 +1,4 @@
-"""Governed classification policy: every change is a versioned draft.
-
-``classification_policy_versions`` holds the classification policy as a whole — the matrix overrides, the level a new
-Workspace gets, and (later slices) the level catalog and the added rules — one row per version, in the shared governed
-lifecycle ``draft -> in_review -> published -> retired`` (``runtime/governed_revision``). Publishing needs an approved
-review under the platform approval rule and writes the published content into the live stores the decision points
-read (``system_config`` matrix and default level); a published or retired row is immutable.
-"""
+"""Governed classification policy: its versions and the classification levels."""
 
 from __future__ import annotations
 
@@ -64,11 +57,7 @@ install_immutability_guard(ClassificationPolicyVersion)
 
 
 class DataClassificationLevel(Base):
-    """One classification level: the five built-ins plus the levels admins added.
-
-    ``key`` never changes; ``rank`` is the stored, gapped sensitivity order every comparison and generated policy uses;
-    a level is retired (``retired_at``), never deleted. Written only by publishing a governed classification version.
-    """
+    """One classification level, built in or added by an admin."""
 
     __tablename__ = "data_classification_levels"
     __table_args__ = (CheckConstraint("rank >= 1", name="ck_data_classification_levels_rank"),)

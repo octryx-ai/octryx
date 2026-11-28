@@ -1,7 +1,5 @@
-"""A person's own choice of coding engine (Claude Code or Codex), ``services/agent_gateway/engine_policy``.
-
-One row per user; no row means "the Workspace default". The choice counts only in Workspaces that allow the engine.
-"""
+"""A person's own choice of coding engine (Claude Code or Codex). One row per user, none means the Workspace default; it
+counts only where the Workspace allows the engine."""
 
 from __future__ import annotations
 

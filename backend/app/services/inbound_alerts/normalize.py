@@ -1,16 +1,4 @@
-"""One shape for an incoming alert, whatever sent it.
-
-Each source's payload is read into a :class:`NormalizedAlert`: a title, firing/resolved, a severity
-(critical | warning | info | unknown), a stable fingerprint (repeat grouping) and an optional
-reference (a Jira issue key, a PagerDuty incident id). The payload itself stays data: it is attached
-to the run, never pasted into the Action's instructions.
-
-An Alertmanager or Grafana alert also keeps when it started (``starts_at``, the
-earliest ``startsAt`` of the shown alerts) and ended (``ends_at``, a resolved group only), one
-``(alert fingerprint, startsAt)`` pair per shown alert (``occurrences``, the dedup and reopen key),
-the group's ``common_labels`` (what target mapping matches, exactly) and its ``annotations``. All of
-them are bounded and data only; none of them is ever an instruction.
-"""
+"""One shape for an incoming alert, whatever sent it."""
 
 from __future__ import annotations
 
@@ -84,7 +72,6 @@ class NormalizedAlert:
     annotations: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:
-        """JSON-safe: the occurrence pairs become lists."""
         return {
             "title": self.title, "status": self.status, "severity": self.severity, "fingerprint": self.fingerprint,
             "source_type": self.source_type, "reference": self.reference, "summary": self.summary,
@@ -111,7 +98,6 @@ def _status(value: Any) -> str:
 
 
 def parse_instant(value: Any) -> datetime | None:
-    """An RFC 3339 / ISO instant as an aware UTC datetime; ``None`` for empty, invalid or Go's zero time."""
     text = str(value or "").strip()
     if not text:
         return None
@@ -216,7 +202,6 @@ def _sentry(payload: dict) -> NormalizedAlert:
 
 
 def _change(payload: dict, source_type: str) -> NormalizedAlert:
-    """A change a connector poll reported: one record per changed item."""
     key = _text(payload.get("key") or payload.get("number") or payload.get("id"), 80)
     title = _text(payload.get("summary") or payload.get("short_description") or key or "Change")
     updated = _text(payload.get("updated") or payload.get("sys_updated_on"), 40)

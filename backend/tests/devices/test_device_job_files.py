@@ -102,9 +102,8 @@ async def test_html_is_never_rendered_and_downloads_are_attachments(cookie_clien
 
 
 @pytest.mark.asyncio
-async def test_refusals(cookie_client, client, db, auth_headers):
-    owner = await _admin(db)
-    device_id, job_id = await _job_with_files(db, owner)
+async def test_refusals(cookie_client, client, db, auth_headers, auth_user):
+    device_id, job_id = await _job_with_files(db, auth_user)
     _, foreign_job = await _job_with_files(db, await user_named(db, "someone"))
 
     async def ask(job=job_id, path="out/report.md", **kw):
@@ -133,7 +132,6 @@ async def test_bad_transfers_fail_and_requests_time_out(cookie_client, db):
     await handlers.tick(db, RecordingConnection(device_id))
     await db.commit()
 
-    # A wrong checksum, another device's chunk, the device's own refusal.
     connection = RecordingConnection(device_id)
     await handlers.message(db, connection, {"type": "file_chunk", "body": {
         "request_id": first, "seq": 0, "data": base64.b64encode(b"abc").decode(), "last": True, "size": 3,
@@ -158,7 +156,6 @@ async def test_bad_transfers_fail_and_requests_time_out(cookie_client, db):
 
 @pytest.mark.asyncio
 async def test_expired_files_are_purged_without_a_new_request(cookie_client, db):
-    """The housekeeping deletes a day-old file even if its owner never asks again."""
     from app.services.devices.job_files import purge_expired
 
     device_id, job_id = await _job_with_files(db, await _admin(db))

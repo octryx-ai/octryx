@@ -1,8 +1,4 @@
-"""Readable run events for the companion's watch view: a sentence per event and whether it is technical.
-
-``technical`` events (sessions bound, preparation reports, continuations, loop counters, WIP pushes, …) are
-bookkeeping a watcher can hide; the rest say what happened in words, never with template placeholders.
-"""
+"""Readable run events for the companion's watch view: a sentence per event and whether it is technical."""
 
 from __future__ import annotations
 
@@ -38,7 +34,6 @@ def _words(value: Any) -> str:
 
 
 def _size_text(kind: str, detail: dict[str, Any]) -> str:
-    """The team sees why a run takes a lighter path and what it leaves out."""
     skips = ", ".join(str(node) for node in detail.get("skips") or [])
     tail = f"; skips {skips}" if skips else ""
     if kind == "size_escalated":
@@ -50,7 +45,6 @@ def _size_text(kind: str, detail: dict[str, Any]) -> str:
 
 
 def event_text(event: WorkflowRunEvent, titles: dict[str, str]) -> tuple[str, bool]:
-    """``(text, technical)`` for one run event."""
     detail = dict(event.detail or {})
     node = titles.get(event.node_id or "", _words(event.node_id))
     kind = event.kind

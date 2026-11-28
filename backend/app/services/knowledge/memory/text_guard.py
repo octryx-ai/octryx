@@ -1,12 +1,4 @@
-"""What may become a memory text: bounded, visible characters, and never a secret.
-
-The secret check reuses the shared redaction policy (``services/redaction_policy``): a text the
-redactor would change carries a credential URL, an auth header or token, a ``password=``-style
-assignment or a private key block. Its substring prefix heuristic (``looks_like_secret_value``) is
-deliberately not used, because "risk-based" or "task-list" contain ``sk-``; the vendor token prefixes
-are matched here as whole tokens with a realistic length instead. A secret is refused, not redacted:
-a redacted memory would silently say something other than what the user stated.
-"""
+"""What may become a memory text: bounded, visible characters, and never a secret. A secret is refused, not redacted."""
 
 from __future__ import annotations
 
@@ -36,7 +28,6 @@ def contains_secret(text: str) -> bool:
 
 
 def normalize_memory_text(raw: object) -> str:
-    """The stored form of one memory text, or a fixed refusal."""
     if type(raw) is not str:
         raise MemoryRefusedError("invalid_text")
     text = raw.strip()
@@ -48,7 +39,6 @@ def normalize_memory_text(raw: object) -> str:
 
 
 def content_hash(text: str) -> str:
-    """Identity of a statement for consolidation: case and whitespace do not make a new memory."""
     canonical = _WHITESPACE.sub(" ", text.casefold()).strip()
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

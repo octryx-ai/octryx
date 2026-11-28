@@ -1,8 +1,4 @@
-"""Publish-time retrieval indexing for Engineering Knowledge Packs.
-
-The per-record builders live in :mod:`.retrieval_index_records`; this module keeps the index
-lifecycle (rebuild, deactivate) and decides which versions are active.
-"""
+"""Publish-time retrieval indexing for Engineering Knowledge Packs."""
 
 from __future__ import annotations
 

@@ -32,8 +32,9 @@ class InstructionRefusal(Exception):  # noqa: N818 - a closed refusal, not an er
 
 
 def _audit(db: AsyncSession, *, user_id: str, action: str, instruction: Instruction, details: dict[str, Any]) -> None:
+    workspace = instruction.scope_id if instruction.scope_type == INSTRUCTION_SCOPE_WORKSPACE else None
     db.add(AuditLog(user_id=user_id, action=action, resource_type="instruction", resource_id=instruction.id,
-                    details=details))
+                    project_id=workspace, details=details))
 
 
 def _facts(version: InstructionVersion) -> dict[str, Any]:

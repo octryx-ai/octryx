@@ -1,31 +1,4 @@
-"""Documentation publish & prove: durable documentation write intents and audience receipts.
-
-These are the shared records only; every service rule (who reserves, claims, reconciles, issues or
-consumes) lives in the slices and.
-
-``DocumentationWriteIntent`` (``documentation_write_intents``): one approved Confluence write attempt.
-- The ``operation_id`` and ``marker`` are reserved before the publication card (b) is rendered, so the confirmed
-  body (which carries the marker) is byte-for-byte the body that is sent (addendum 2).
-- The intent is bound to the run, node and the pass it was reserved in, and to the documentation ``slot``; it is
-  never keyed by the pass alone, so it survives a retried pass key.
-- The target is pinned: named connection, instance, ``space_id``, direct parent, title, create or update, base
-  and expected version.
-- ``send_started`` is written and committed before any mutating provider request ("may have sent"). A crash can
-  leave ``send_started`` as well as ``pending_reconcile``; both are potentially sent and must reconcile before
-  any new write. Only ``never_started_certified`` (executor-certified no-send) is sendable again.
-- One claimed sender: a claim exists exactly in the claimed states, and is taken by the compare-and-set
-  ``approved|never_started_certified -> send_started`` on one row.
-- At most one active intent per run and slot (partial unique index).
-
-``DocumentationAudienceReceipt`` (``audience_receipts``): a server-owned proof challenge and its single use.
-- Every binding (run/node/pass, the confirmed (b) hash, page/version/instance/connection/source, revision and
-  digest, the content-assertion/query set and its digest, the expected principal P) is set by the server when it
-  issues the challenge; a caller's ``proof_request`` only names coordinates (addendum 1).
-- P's real retrieval records the result facts (hit ids and digests, positive or negative). The run consumes the
-  receipt once, under a row lock, with a re-check; the state check and the unique challenge id make a second
-  consume fail.
-- No token, credential or session column exists on purpose: P's authority is never exported or stored.
-"""
+"""Documentation publish and prove: durable documentation write intents and audience receipts."""
 
 from __future__ import annotations
 
@@ -34,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Text, text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from .governed_revision import in_list
 
@@ -41,8 +15,6 @@ from .governed_revision import in_list
 def uuid_pk() -> str:
     return str(uuid.uuid4())
 
-
-# --- Write intents -------------------------------------------------------------------------------------------
 
 INTENT_RESERVED = "reserved"
 INTENT_APPROVED = "approved"
@@ -107,7 +79,7 @@ MARKER_PREFIX = "octryx-documentation"
 
 
 def intent_marker(run_id: str, operation_id: str) -> str:
-    """The body marker of an intent (proposal §3.6): it correlates, it never authorises."""
+    # The marker correlates, it never authorises.
     return f"{MARKER_PREFIX}:{run_id}:{operation_id}"
 
 
@@ -115,7 +87,9 @@ def intent_transition_allowed(current: str, target: str) -> bool:
     return target in INTENT_TRANSITIONS.get(current, frozenset())
 
 
-class DocumentationWriteIntent(Base):
+class DocumentationWriteIntent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"run_id": "workflow_runs"}
     __tablename__ = "documentation_write_intents"
     __table_args__ = (
         CheckConstraint(in_list("state", INTENT_STATES), name="ck_documentation_write_intents_state"),
@@ -171,7 +145,6 @@ class DocumentationWriteIntent(Base):
     id = Column(String(36), primary_key=True, default=uuid_pk)
     operation_id = Column(String(64), nullable=False, unique=True)
     marker = Column(String(255), nullable=False, unique=True)
-    # Binding
     run_id = Column(String(36), ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False)
     slot = Column(String(64), nullable=False, default=DOCUMENTATION_SLOT)
     node_id = Column(String(128), nullable=False)
@@ -183,7 +156,6 @@ class DocumentationWriteIntent(Base):
     card_hash = Column(String(71), nullable=True)
     output_hash = Column(String(71), nullable=True)
     body_hash = Column(String(71), nullable=True)
-    # Pinned target
     connection_id = Column(String(64), nullable=False)
     instance = Column(String(500), nullable=False)
     space_id = Column(String(64), nullable=False)
@@ -204,7 +176,6 @@ class DocumentationWriteIntent(Base):
     # Executor certification that a claimed send never started (the only way back to a sendable state).
     certified_by = Column(String(128), nullable=True)
     certified_at = Column(DateTime, nullable=True)
-    # Provider result
     result_kind = Column(String(32), nullable=True)
     result_page_id = Column(String(64), nullable=True)
     result_version = Column(Integer, nullable=True)
@@ -213,7 +184,6 @@ class DocumentationWriteIntent(Base):
     last_error_class = Column(String(40), nullable=True)
     last_error = Column(Text, nullable=True)
     superseded_by_id = Column(String(36), ForeignKey("documentation_write_intents.id"), nullable=True)
-    # Timestamps
     created_at = Column(DateTime, default=utc_now, nullable=False)
     approved_at = Column(DateTime, nullable=True)
     send_started_at = Column(DateTime, nullable=True)
@@ -222,8 +192,6 @@ class DocumentationWriteIntent(Base):
     superseded_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
 
-
-# --- Audience receipts ---------------------------------------------------------------------------------------
 
 RECEIPT_ISSUED = "issued"
 RECEIPT_RECORDED = "recorded"
@@ -248,7 +216,8 @@ def receipt_transition_allowed(current: str, target: str) -> bool:
     return target in RECEIPT_TRANSITIONS.get(current, frozenset())
 
 
-class DocumentationAudienceReceipt(Base):
+class DocumentationAudienceReceipt(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "audience_receipts"
     __table_args__ = (
         CheckConstraint(in_list("state", RECEIPT_STATES), name="ck_audience_receipts_state"),
@@ -287,7 +256,7 @@ class DocumentationAudienceReceipt(Base):
     id = Column(String(36), primary_key=True, default=uuid_pk)
     # Server-generated challenge identifier: an id, never a bearer secret (P must be signed in as P).
     challenge_id = Column(String(64), nullable=False, unique=True)
-    # Server-owned bindings (addendum 1)
+    # Server-owned bindings.
     run_id = Column(String(36), ForeignKey("workflow_runs.id", ondelete="CASCADE"), nullable=False)
     node_id = Column(String(128), nullable=False)
     pass_key = Column(String(128), nullable=False)

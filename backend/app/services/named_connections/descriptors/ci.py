@@ -1,8 +1,4 @@
-"""Jenkins: one named connection per CI server, bound to instance labels.
-
-The CI connection is declared once, in Workspace → Connectors (or globally), like every other connector. A connection is
-its URL, the user and the API token; a call names one with ``instance`` (or the ``connection``).
-"""
+"""Jenkins: one named connection per CI server, bound to instance labels."""
 
 from __future__ import annotations
 

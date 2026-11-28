@@ -1,10 +1,4 @@
-"""Resolve a configured (provider, model) into a concrete embedding driver.
-
-Driver instances are cached: real backends load a model or open a client, which
-is expensive, so we keep one per (provider, model, version). Failures are not
-cached — a misconfigured provider re-attempts on the next call and keeps raising
-loudly.
-"""
+"""Resolve a configured (provider, model) into a concrete embedding driver."""
 
 from __future__ import annotations
 

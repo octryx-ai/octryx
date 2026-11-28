@@ -1,156 +1,122 @@
-// Work › Epics (the agreed mock "Work: epic, stories, tasks"): one epic, its stories (work items whose
-// `epic_key` is the epic's key; one story = one branch, one pull request), each with its tasks, status, pull request and
-// model cost. Composed from existing reads: the Work item list (lean rows with `epic_key`, `issue_type`), the item
-// detail per story (`task_list`) and GET /api/v1/workflow-runs?view=work (pull_request, cost, status per run).
-
 import type { StatusTone } from "../../layout/StatusLabel";
-import type { SeatFigures } from "../cost/seatEquivalent";
-import type { RunTaskItem } from "../workflowRun/workflowRunTypes";
-import { taskStatus } from "../workflowRun/taskListModel";
-import { hasPullRequest, needsPerson, totalSeat, type WorkRunRow } from "./workRunsModel";
 import type { WorkItem } from "./workItemTypes";
 
-export type EpicRun = WorkRunRow & { work_item_id?: string | null };
-export type EpicStory = { item: WorkItem; tasks: RunTaskItem[]; runs: EpicRun[] };
-export type StoryStatus = { label: string; tone: StatusTone };
+// The lanes and their counts come from the backend (`/work-items/{id}/progress`); this module only shapes them for display.
+export type EpicLane = "done" | "in_review" | "in_progress" | "open";
+export type EpicChecks = "failed" | "green" | "running";
+export type EpicProgressRow = {
+  id: string;
+  key: string;
+  title: string;
+  issueType: string;
+  url: string;
+  lane: EpicLane;
+  reason: string;
+  checks: EpicChecks | null;
+  needsYou: boolean;
+  runPhase: string;
+  pullRequest: { url: string; status: string } | null;
+};
+export type EpicProgressStory = EpicProgressRow & { tasks: EpicProgressRow[]; tasksDone: number };
+export type EpicProgressSummary = Record<EpicLane, number> & { total: number; needsYou: number };
+export type EpicProgress = {
+  epic: { id: string; key: string; title: string; url: string };
+  summary: EpicProgressSummary;
+  stories: EpicProgressStory[];
+};
+export type EpicBarSegment = { lane: EpicLane; label: string; count: number; share: number };
 
-const DONE_STATES = new Set(["done", "closed", "resolved"]);
+export const EPIC_LANES: EpicLane[] = ["done", "in_review", "in_progress", "open"];
+const LANE_LABELS: Record<EpicLane, string> = { done: "Done", in_review: "In review", in_progress: "In progress", open: "Open" };
+const LANE_TONES: Record<EpicLane, StatusTone> = { done: "success", in_review: "attention", in_progress: "info", open: "neutral" };
+const CHECK_TONES: Record<EpicChecks, StatusTone> = { failed: "problem", green: "success", running: "info" };
+
+export const laneLabel = (lane: EpicLane) => LANE_LABELS[lane];
+export const laneTone = (lane: EpicLane) => LANE_TONES[lane];
+export const checksTone = (checks: EpicChecks) => CHECK_TONES[checks];
+export const checksLabel = (checks: EpicChecks) => `Checks ${checks}`;
+
+export function epicProgressPath(epicId: string): string {
+  return `/api/v1/secure-work/work-items/${encodeURIComponent(epicId)}/progress`;
+}
+
+export function reasonText(reason: string): string {
+  const text = reason.replace(/_/g, " ").trim();
+  return text ? text[0].toUpperCase() + text.slice(1) : "";
+}
+
+const text = (value: unknown) => (typeof value === "string" ? value : "");
+const num = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : 0);
+const record = (value: unknown) => (value && typeof value === "object" ? (value as Record<string, unknown>) : {});
+const lane = (value: unknown): EpicLane => (EPIC_LANES.includes(value as EpicLane) ? (value as EpicLane) : "open");
+const checks = (value: unknown): EpicChecks | null =>
+  value === "failed" || value === "green" || value === "running" ? value : null;
+
+function readRow(raw: unknown): EpicProgressRow {
+  const row = record(raw);
+  const pr = row.pull_request ? record(row.pull_request) : null;
+  return {
+    id: text(row.id), key: text(row.key), title: text(row.title) || text(row.key), issueType: text(row.issue_type),
+    url: text(row.url), lane: lane(row.lane), reason: text(row.reason), checks: checks(row.checks),
+    needsYou: row.needs_you === true, runPhase: row.run ? text(record(row.run).phase) : "",
+    pullRequest: pr ? { url: text(pr.url), status: text(pr.status) } : null,
+  };
+}
+
+// Needs-you first, then in review, in progress, open, and done last: what still moves is on top.
+const SORT_ORDER: EpicLane[] = ["in_review", "in_progress", "open", "done"];
+const sortRank = (row: EpicProgressRow) => (row.needsYou ? -1 : SORT_ORDER.indexOf(row.lane));
+const byLane = (left: EpicProgressRow, right: EpicProgressRow) =>
+  sortRank(left) - sortRank(right) || compareKeys(left.key, right.key);
+
+export function readEpicProgress(raw: unknown): EpicProgress {
+  const payload = record(raw);
+  const epic = record(payload.epic);
+  const summary = record(payload.summary);
+  const stories = (Array.isArray(payload.stories) ? payload.stories : []).map((entry) => {
+    const tasks = (Array.isArray(record(entry).tasks) ? (record(entry).tasks as unknown[]) : []).map(readRow);
+    return { ...readRow(entry), tasks: tasks.sort(byLane), tasksDone: num(record(entry).tasks_done) };
+  });
+  return {
+    epic: { id: text(epic.id), key: text(epic.key), title: text(epic.title) || text(epic.key), url: text(epic.url) },
+    summary: {
+      done: num(summary.done), in_review: num(summary.in_review), in_progress: num(summary.in_progress),
+      open: num(summary.open), total: num(summary.total), needsYou: num(summary.needs_you),
+    },
+    stories: stories.sort(byLane),
+  };
+}
+
+export function barSegments(summary: EpicProgressSummary): EpicBarSegment[] {
+  const total = summary.total || EPIC_LANES.reduce((sum, key) => sum + summary[key], 0);
+  return EPIC_LANES.map((key) => ({
+    lane: key, label: LANE_LABELS[key], count: summary[key],
+    share: total ? Math.round((summary[key] / total) * 1000) / 10 : 0,
+  }));
+}
+
+export function needsYouText(summary: EpicProgressSummary): string {
+  return summary.needsYou ? `${summary.needsYou} ${plural(summary.needsYou, "needs", "need")} you` : "";
+}
+
+export function tasksDoneText(story: EpicProgressStory): string {
+  return story.tasks.length ? `${story.tasksDone}/${story.tasks.length} tasks done` : "";
+}
 
 export function isEpic(item: Pick<WorkItem, "issue_type">): boolean {
   return String(item.issue_type || "").trim().toLowerCase() === "epic";
 }
 
-/** "" sorts after "": the key's text, then its number. */
 export function compareKeys(left: string, right: string): number {
   return String(left || "").localeCompare(String(right || ""), undefined, { numeric: true, sensitivity: "base" });
 }
 
-/** The epics in the list, in the list's order (most recently changed first). */
 export function epicsOf(items: WorkItem[]): WorkItem[] {
   return items.filter(isEpic);
 }
 
-/** The epic to show: the one the address names, else the first. */
 export function chooseEpic(epics: WorkItem[], wanted: string | null | undefined): WorkItem | null {
   return epics.find((epic) => epic.source_key === wanted) ?? epics[0] ?? null;
 }
 
-/** The epic's stories (work items with its key in `epic_key`), by key. */
-export function storiesOf(items: WorkItem[], epicKey: string): WorkItem[] {
-  if (!epicKey) return [];
-  return items.filter((item) => item.epic_key === epicKey && !isEpic(item))
-    .sort((left, right) => compareKeys(left.source_key, right.source_key));
-}
-
-/** Runs per work item id, newest first (the list comes newest first). */
-export function runsByItem(runs: EpicRun[]): Map<string, EpicRun[]> {
-  const byItem = new Map<string, EpicRun[]>();
-  for (const run of runs) {
-    if (!run.work_item_id) continue;
-    byItem.set(run.work_item_id, [...(byItem.get(run.work_item_id) ?? []), run]);
-  }
-  return byItem;
-}
-
-const count = (tasks: RunTaskItem[], wanted: string[]) => tasks.filter((task) => wanted.includes(taskStatus(task))).length;
-
-/** The bar under a story: the share of done (✓ or ✓✓) and of tasks with requested changes, in percent. */
-export function progressShares(tasks: RunTaskItem[]): { done: number; changes: number } {
-  if (!tasks.length) return { done: 0, changes: 0 };
-  const share = (value: number) => Math.round((value / tasks.length) * 100);
-  return { done: share(count(tasks, ["done", "verified"])), changes: share(count(tasks, ["changes"])) };
-}
-
-const isShipped = (story: EpicStory) => DONE_STATES.has(String(story.item.work_state || "").toLowerCase())
-  || (story.runs[0]?.status === "completed" && hasPullRequest(story.runs[0]?.pull_request));
-
-/** One word for the story: what waits for a person first, then what is running, then how its newest run ended. */
-export function storyStatus(story: EpicStory): StoryStatus {
-  const { runs, tasks } = story;
-  if (runs.some(needsPerson)) return { label: "Needs you", tone: "attention" };
-  if (runs.some((run) => run.status === "running")) return { label: "Building", tone: "info" };
-  if (isShipped(story)) return { label: "Shipped", tone: "success" };
-  const latest = runs[0];
-  if (latest?.status === "failed") return { label: "Failed", tone: "problem" };
-  if (latest && (["stopped", "aborted", "cancelled"].includes(latest.status) || latest.outcome === "stopped")) {
-    return { label: "Stopped", tone: "neutral" };
-  }
-  if (latest?.status === "completed") return { label: "Done", tone: "success" };
-  return tasks.length ? { label: "Ready to build", tone: "neutral" } : { label: "Draft", tone: "neutral" };
-}
-
-/** The line under the story's title: "4/7 done · 2 verified · 1 changes · 1 in progress", "4 tasks · nothing built
- * yet", or "No task list yet" before the readiness check agreed one. */
-export function storyProgress(tasks: RunTaskItem[]): string {
-  if (!tasks.length) return "No task list yet";
-  if (!tasks.some((task) => taskStatus(task) !== "open")) {
-    return `${tasks.length} task${tasks.length === 1 ? "" : "s"} · nothing built yet`;
-  }
-  const parts = [`${count(tasks, ["done", "verified"])}/${tasks.length} done`];
-  const verified = count(tasks, ["verified"]);
-  if (verified) parts.push(`${verified} verified`);
-  const changes = count(tasks, ["changes"]);
-  if (changes) parts.push(`${changes} changes`);
-  const running = count(tasks, ["in_progress"]);
-  if (running) parts.push(`${running} in progress`);
-  return parts.join(" · ");
-}
-
-/** The story's pull request: the newest run that opened one. */
-export function storyPullRequest(runs: EpicRun[]): { label: string; url: string | null } | null {
-  const pr = runs.find((run) => hasPullRequest(run.pull_request))?.pull_request;
-  if (!pr) return null;
-  return { label: pr.id ? `PR #${pr.id}` : "Pull request", url: pr.url || null };
-}
-
-/** The API cost of all the story's runs. */
-export function storyCost(runs: EpicRun[]): number {
-  return runs.reduce((sum, run) => sum + (typeof run.cost === "number" ? run.cost : 0), 0);
-}
-
-/** What the story's seat calls would cost via the API (list price), summed apart from `storyCost`. */
-export function storySeat(runs: EpicRun[]): SeatFigures {
-  return totalSeat(runs);
-}
-
-/** The run with the decision a person has to take (newest first), for "Open decision". */
-export function decisionRun(runs: EpicRun[]): EpicRun | null {
-  return runs.find((run) => needsPerson(run) && run.session_id) ?? null;
-}
-
-export type EpicSummary = {
-  stories: number;
-  shipped: number;
-  tasks: number;
-  tasksDone: number;
-  tasksWithChanges: number;
-  decisions: number;
-  // The API cost, and apart from it the seat's API equivalent (never added together).
-  cost: number;
-  seat: SeatFigures;
-};
-
-/** The epic header's counts: stories shipped, tasks done, tasks with changes, decisions waiting, API cost, seat. */
-export function epicSummary(stories: EpicStory[]): EpicSummary {
-  const tasks = stories.flatMap((story) => story.tasks);
-  const runs = stories.flatMap((story) => story.runs);
-  return {
-    stories: stories.length,
-    shipped: stories.filter(isShipped).length,
-    tasks: tasks.length,
-    tasksDone: count(tasks, ["done", "verified"]),
-    tasksWithChanges: count(tasks, ["changes"]),
-    decisions: runs.filter(needsPerson).length,
-    cost: storyCost(runs),
-    seat: storySeat(runs),
-  };
-}
-
-/** The story to show open first: the one that needs a person, else the one building; none when all are quiet. */
-export function initiallyOpen(stories: EpicStory[]): string | null {
-  const first = (label: string) => stories.find((story) => storyStatus(story).label === label)?.item.id;
-  return first("Needs you") ?? first("Building") ?? null;
-}
-
-/** "1 task", "2 tasks"; "stories" where the plural is not word + s. */
 export const plural = (value: number, word: string, many = `${word}s`) => (value === 1 ? word : many);

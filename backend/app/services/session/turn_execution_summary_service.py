@@ -1,19 +1,4 @@
-"""Owner-scoped loading of per-turn evidence for ``turn_execution_summary.v1``.
-
-Read-only: loading a summary performs no writes and triggers no workflow-gate or
-verification evaluation. The session's mutable metadata is never consulted.
-
-Turn scoping: every trace of one user turn carries the same server-stamped
-``turn.user_message_id``. The loader gathers the same-session traces with that
-exact token (bounded, newest first, re-validated in Python) and orders them by
-creation time and per-turn sequence. The newest one is the turn's final trace:
-only it aggregates tool calls, approvals and artifacts across every assistant
-message of the turn and may carry a terminal state. Any earlier trace is
-intermediate and reports only its own message's evidence. A trace without a turn
-token is treated as a turn of its own. Tool results are inspected only for the
-explicit approval and clarification markers the runtime already uses and are
-never returned.
-"""
+"""Owner-scoped, read-only loading of the per-turn evidence of ``turn_execution_summary.v1``."""
 
 from __future__ import annotations
 
@@ -52,7 +37,6 @@ def _timestamp(value: Any) -> str | None:
 
 
 def _result_markers(result: Any) -> dict[str, Any]:
-    """Return the tool result dict holding runtime markers (inline or externalized preview)."""
     if not isinstance(result, dict):
         return {}
     if result.get("_artifact_storage"):
@@ -74,7 +58,6 @@ def _is_clarification_pause(result: dict[str, Any]) -> bool:
 
 
 def _decision_request(raw_output: Any) -> Any:
-    """The final trace's structured workflow decision request; re-validated by the builder."""
     return raw_output.get(WORKFLOW_DECISION_REQUEST_KEY) if isinstance(raw_output, dict) else None
 
 
@@ -92,7 +75,6 @@ def _usage_count(usage: Any, *keys: str) -> int | None:
 
 
 def _turn_usage(traces: list[TurnTrace]) -> dict[str, int | None]:
-    """Sum the valid token counts of the given traces; ``None`` when none is recorded."""
     totals: dict[str, int | None] = {"prompt_tokens": None, "completion_tokens": None}
     for row in traces:
         for total_key, keys in (
@@ -127,7 +109,6 @@ def _turn_order(trace: TurnTrace) -> tuple[datetime, int]:
 
 
 async def _turn_traces(db: AsyncSession, trace: TurnTrace) -> list[TurnTrace]:
-    """Return the same-session traces of ``trace``'s user turn, oldest first."""
     token = _turn_token(trace)
     if token is None:
         return [trace]
@@ -257,7 +238,6 @@ async def load_turn_execution_evidence(db: AsyncSession, trace: TurnTrace) -> Tu
 
 
 def _workflow_run_started(context_snapshot: Any, session_metadata: Any) -> bool:
-    """Whether the phased start this turn was held for started its run (``phased_start.STARTS_METADATA_KEY``)."""
     from ..workflow_routing.phased_start_run import started_run_of
 
     _status, snapshot = read_turn_execution_snapshot(context_snapshot)
@@ -271,7 +251,7 @@ async def load_user_turn_execution_summary(
     user_id: str,
     trace_id: str,
 ) -> dict[str, Any] | None:
-    """Return the summary for an owned trace, or ``None`` (unknown or not owned alike)."""
+    # Unknown and not owned answer alike.
     trace = await load_user_turn_trace(db, user_id=user_id, trace_id=trace_id)
     if trace is None:
         return None

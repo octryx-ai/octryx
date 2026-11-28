@@ -3,7 +3,6 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from urllib.parse import urljoin, urlparse
 
 import httpx
 from sqlalchemy import select
@@ -13,13 +12,6 @@ from app.services.error_facts import error_text
 from ...time_utils import utc_now
 
 logger = logging.getLogger(__name__)
-
-
-def _build_provider_url(base_url: str, endpoint_path: str) -> str:
-    parsed = urlparse(base_url)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError("TTS base URL must be an absolute http(s) URL")
-    return urljoin(base_url.rstrip("/") + "/", endpoint_path.lstrip("/"))
 
 
 class TTSProvider(ABC):
@@ -156,6 +148,14 @@ class AwsPollyTTSProvider(TTSProvider):
 
 
 _BROWSER_PROVIDER_ID = "browser"
+_SYNTHESIS = "tts.synthesis"
+_PROVIDER_STATUS = "tts.provider_status"
+
+
+async def _tts_key(db, field_name: str, purpose: str) -> str | None:
+    from ..secret import get_secret_value
+
+    return await get_secret_value(db, tool_name="tts", field_name=field_name, purpose=purpose)
 
 
 @dataclass(frozen=True)
@@ -234,31 +234,19 @@ def normalize_tts_config(config: TTSConfig) -> TTSConfig:
 
 
 async def load_tts_config(db, project_id: str | None = None) -> TTSConfig:
-    """Load TTS configuration from database.
+    """Load TTS configuration from database."""
+    import json
 
-    If project_id is provided and the project has a tts override in its config,
-    that override is merged on top of the global config (secrets always come
-    from global storage regardless of project_id).
-    """
-    from ...models import Project, StoredSecret
+    from ...models import Project
+    from ..secret import get_secret_value
 
-    # Always load global config as the base
-    stmt = select(StoredSecret).where(
-        StoredSecret.tool_name == "tts_config",
-        StoredSecret.project_id.is_(None),
-    )
-    result = await db.execute(stmt)
-    config_secret = result.scalar_one_or_none()
-
+    stored = await get_secret_value(db, tool_name="tts_config", field_name="config", project_id=None,
+                                    purpose="tts.settings")
     config_data: dict = {}
-    if config_secret:
-        import json
-
-        from ..secret import decrypt_secret
-
+    if stored:
         try:
-            config_data = json.loads(decrypt_secret(config_secret.encrypted_value))
-        except Exception:
+            config_data = json.loads(stored)
+        except ValueError:
             pass
 
     # Project-scoped override: merge project.config.tts on top of global
@@ -348,13 +336,11 @@ async def save_tts_config(db, config: TTSConfig) -> None:
 
 
 async def _build_tts_provider(db, provider: TTSProviderConfig) -> tuple[TTSProvider | None, str | None]:
-    from ..secret import get_secret_value
-
     if provider.provider == _BROWSER_PROVIDER_ID:
         return None, "client_side_only"
 
     if provider.provider == "openai":
-        api_key = await get_secret_value(db, tool_name="tts", field_name="openai_api_key")
+        api_key = await _tts_key(db, "openai_api_key", _SYNTHESIS)
         if not api_key:
             return None, "missing_credentials"
         return (
@@ -367,7 +353,7 @@ async def _build_tts_provider(db, provider: TTSProviderConfig) -> tuple[TTSProvi
         )
 
     if provider.provider == "elevenlabs":
-        api_key = await get_secret_value(db, tool_name="tts", field_name="elevenlabs_api_key")
+        api_key = await _tts_key(db, "elevenlabs_api_key", _SYNTHESIS)
         if not api_key:
             return None, "missing_credentials"
         return (
@@ -380,8 +366,8 @@ async def _build_tts_provider(db, provider: TTSProviderConfig) -> tuple[TTSProvi
         )
 
     if provider.provider == "aws_polly":
-        access_key = await get_secret_value(db, tool_name="tts", field_name="aws_access_key_id")
-        secret_key = await get_secret_value(db, tool_name="tts", field_name="aws_secret_access_key")
+        access_key = await _tts_key(db, "aws_access_key_id", _SYNTHESIS)
+        secret_key = await _tts_key(db, "aws_secret_access_key", _SYNTHESIS)
         if not access_key or not secret_key:
             return None, "missing_credentials"
         return (
@@ -458,26 +444,19 @@ async def resolve_tts_provider(
 
 
 async def get_tts_provider(db, provider_name: str | None = None, project_id: str | None = None) -> TTSProvider | None:
-    """Get a specific TTS provider or the first available one.
-
-    If project_id is provided, the project-scoped TTS config is used
-    (defaults + enabled/disabled, provider selection). Provider credentials
-    are always resolved from global secrets.
-    """
+    """Get a specific TTS provider or the first available one."""
     return (await resolve_tts_provider(db, provider_name, project_id=project_id)).provider
 
 
 async def list_tts_providers(db) -> list[dict]:
     """List available TTS providers with their status."""
-    from ..secret import get_secret_value
-
     config = await load_tts_config(db)
     providers = []
 
-    openai_key = await get_secret_value(db, tool_name="tts", field_name="openai_api_key")
-    elevenlabs_key = await get_secret_value(db, tool_name="tts", field_name="elevenlabs_api_key")
-    aws_key = await get_secret_value(db, tool_name="tts", field_name="aws_access_key_id")
-    aws_secret = await get_secret_value(db, tool_name="tts", field_name="aws_secret_access_key")
+    openai_key = await _tts_key(db, "openai_api_key", _PROVIDER_STATUS)
+    elevenlabs_key = await _tts_key(db, "elevenlabs_api_key", _PROVIDER_STATUS)
+    aws_key = await _tts_key(db, "aws_access_key_id", _PROVIDER_STATUS)
+    aws_secret = await _tts_key(db, "aws_secret_access_key", _PROVIDER_STATUS)
 
     all_providers = {
         "openai": {"id": "openai", "name": "OpenAI", "voices": OpenAITTSProvider.VOICES, "has_key": bool(openai_key)},
@@ -515,15 +494,13 @@ async def is_tts_provider_available(db, provider: TTSProviderConfig) -> bool:
     """Return whether an installed provider can be activated."""
     if provider.provider == _BROWSER_PROVIDER_ID:
         return True
-    from ..secret import get_secret_value
-
     if provider.provider == "openai":
-        return bool(await get_secret_value(db, tool_name="tts", field_name="openai_api_key"))
+        return bool(await _tts_key(db, "openai_api_key", _PROVIDER_STATUS))
     if provider.provider == "elevenlabs":
-        return bool(await get_secret_value(db, tool_name="tts", field_name="elevenlabs_api_key"))
+        return bool(await _tts_key(db, "elevenlabs_api_key", _PROVIDER_STATUS))
     if provider.provider == "aws_polly":
-        access_key = await get_secret_value(db, tool_name="tts", field_name="aws_access_key_id")
-        secret_key = await get_secret_value(db, tool_name="tts", field_name="aws_secret_access_key")
+        access_key = await _tts_key(db, "aws_access_key_id", _PROVIDER_STATUS)
+        secret_key = await _tts_key(db, "aws_secret_access_key", _PROVIDER_STATUS)
         return bool(access_key and secret_key)
     return False
 
@@ -538,13 +515,7 @@ async def has_active_tts_provider(db, config: TTSConfig | None = None, project_i
 
 
 def serialize_tts_overview(config: TTSConfig, resolution: TTSProviderResolution, *, effective_enabled: bool) -> dict:
-    """Shared response body for the TTS config/providers overview.
-
-    Callers pass the ``providers`` field themselves because the endpoints differ:
-    the providers listing returns catalogue metadata from ``list_tts_providers``
-    while the config view returns the saved provider rows. This helper covers the
-    identical scalar/resolution fields both responses share.
-    """
+    """Shared response body for the TTS config/providers overview."""
     return {
         "enabled": effective_enabled,
         "default_voice": config.default_voice,
@@ -572,11 +543,7 @@ async def upsert_tts_provider(
     priority: int,
     config: dict,
 ) -> TTSConfig:
-    """Add or replace a provider, enforcing single-active activation.
-
-    Raises ``ValueError`` if an enabled provider lacks configured credentials so
-    thin route handlers can translate it into their own HTTP error contract.
-    """
+    """Add or replace a provider, enforcing single-active activation."""
     tts_config = await load_tts_config(db)
     requested_provider = TTSProviderConfig(
         provider=provider,
@@ -610,11 +577,7 @@ async def remove_tts_provider(db, *, provider_id: str) -> TTSConfig:
 
 
 async def move_tts_provider(db, *, provider_id: str, direction: str) -> TTSConfig:
-    """Swap a provider's priority with its neighbour in the given direction.
-
-    Raises ``KeyError`` if the provider is missing. A no-op move (already at the
-    edge) returns the config unchanged without persisting.
-    """
+    """Swap a provider's priority with its neighbour in the given direction."""
     config = await load_tts_config(db)
     sorted_providers = sorted(config.providers, key=lambda p: p.priority)
     idx = next((i for i, p in enumerate(sorted_providers) if p.provider == provider_id), -1)

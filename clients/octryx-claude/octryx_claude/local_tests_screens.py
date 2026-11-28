@@ -1,6 +1,5 @@
 """Screenshots outside the sandbox (``local_tests``) and what a session hears when its browser could not start
-inside it. Stdlib only.
-"""
+inside it. Stdlib only."""
 
 from __future__ import annotations
 
@@ -27,7 +26,6 @@ _SCREENSHOT_REFUSED_OPTIONS = frozenset({"--proxy-server", "--proxy-bypass", "--
 
 
 def screenshot(words: list[str], root: str = "") -> bool:
-    """A Playwright CLI screenshot of a loopback page into the repository (comment above)."""
     name = posixpath.basename(words[0]) if words else ""
     if name == "npx":
         words = words[1:]
@@ -72,7 +70,6 @@ def _port(url: str) -> int | None:
 
 
 def _platform_page(url: str) -> bool:
-    """``url`` is on the platform's port while the platform listens on loopback."""
     platform = str(os.environ.get(PLATFORM_URL_ENV) or "").strip()
     if not platform or not _LOOPBACK_URL.match(platform.rstrip("/") + "/"):
         return False
@@ -93,8 +90,6 @@ SANDBOX_BROWSER_MESSAGE = (
 
 
 def sandbox_browser_text(contract: dict[str, Any] | None) -> str:
-    """The catalog's text for a browser that cannot start in the sandbox (two of three
-    paths sent this module's own copy, so a Workspace's override reached only one)."""
     texts = contract.get("prompt_texts") if isinstance(contract, dict) else None
     found = texts.get(SANDBOX_BROWSER_KEY) if isinstance(texts, dict) else None
     return str(found) if isinstance(found, str) and found.strip() else SANDBOX_BROWSER_MESSAGE
@@ -103,7 +98,6 @@ _SANDBOX_CHROMIUM = re.compile(r"MachPortRendezvousServer|BrowserType\.launch\b.
 
 
 def sandbox_browser_failure(hook_input: dict[str, Any]) -> bool:
-    """A Bash call that ran inside the sandbox (not the test-run wrapper) and whose browser could not start there."""
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     if hook_input.get("tool_name") != "Bash" or unwrap(str(tool_input.get("command") or "")) is not None:
         return False
@@ -114,8 +108,6 @@ def sandbox_browser_failure(hook_input: dict[str, Any]) -> bool:
 
 
 def sandbox_tool_failure(hook_input: dict[str, Any], tools: list[tuple[list[str], bool]] | None) -> str | None:
-    """The style tool that could not run inside the sandbox ("Operation not permitted" in its output), or ``None``.
-    The session hears it even when it filtered that line away (silence is no clean format)."""
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     command = " " + " ".join(str(tool_input.get("command") or "").split()) + " "
     if hook_input.get("tool_name") != "Bash" or unwrap(command.strip()) is not None:

@@ -58,13 +58,11 @@ async def test_the_layout_round_trips_through_a_draft_and_survives_a_phase_edit(
     assert body["published_version"] == view["version"]
     assert body["layout"] == {"positions": {"work": {"x": 320.0, "y": 140.2}}}
 
-    # Never published: the workflow still runs the version it ran before.
     await db.refresh(flow)
     assert flow.current_version_id == published_id
     stored = await db.get(FlowDefinitionVersion, body["version_id"])
     assert stored.definition_json["layout"] == {"positions": {"work": {"x": 320.0, "y": 140.2}}}
 
-    # The same positions again: no new version.
     same = (await client.post(f"{url}/layout", headers=auth_headers,
                               json={"base_version_id": body["version_id"], "positions": body["layout"]["positions"]}))
     assert same.json()["version"] == body["version"]
@@ -73,7 +71,6 @@ async def test_the_layout_round_trips_through_a_draft_and_survives_a_phase_edit(
                               json={"base_version_id": view["version_id"], "positions": {}})
     assert stale.status_code == 409
 
-    # A phase edit (Steps canvas) keeps where the boxes are drawn.
     phase = (await client.get(f"{url}/phases/work/graph", headers=auth_headers)).json()
     checks = [node for node in phase["graph"]["nodes"] if node["kind"] == "check"]
     edited = await client.post(f"{url}/phases/work/graph", headers=auth_headers,
@@ -83,7 +80,6 @@ async def test_the_layout_round_trips_through_a_draft_and_survives_a_phase_edit(
     assert after["version"] == body["version"] + 1
     assert after["layout"] == body["layout"]
 
-    # Auto-arrange: an empty layout removes the block.
     cleared = (await client.post(f"{url}/layout", headers=auth_headers,
                                  json={"base_version_id": after["version_id"], "positions": {}})).json()
     assert cleared["layout"] == {"positions": {}}
@@ -99,9 +95,8 @@ async def test_moved_boxes_keep_a_shipped_seed_upgradable_and_move_along(db):
     admin = await admin_user(db)
     flow = (await db.execute(select(FlowDefinition).where(FlowDefinition.key == seed["key"]))).scalar_one()
     current = await db.get(FlowDefinitionVersion, flow.current_version_id)
-    earlier = {**seed["definition"], "plan_node": "fix"}  # the seed this installation was seeded with
+    earlier = {**seed["definition"], "plan_node": "fix"}
     current.runtime_settings = {**dict(current.runtime_settings or {}), "seed_digest": definition_digest(earlier)}
-    # The admin only moved two boxes of the shipped seed and published that.
     current.definition_json = with_layout(earlier, {"fix": {"x": 40.0, "y": 900.0}, "gone": {"x": 1.0, "y": 1.0}})
     await db.flush()
 
@@ -115,8 +110,6 @@ async def test_moved_boxes_keep_a_shipped_seed_upgradable_and_move_along(db):
 
 @pytest.mark.asyncio
 async def test_a_seed_that_ships_its_own_layout_stays_upgradable_and_its_seed_draft_is_published(db):
-    """team-delivery ships ``layout: {direction: tb}``; its seed digest and the stored version's digest must both
-    include the layout, or the seeded version counts as admin-owned and a changed seed waits as a draft."""
     from app.services.workflow_runs.seeding import definition_digest, phased_seeds, seed_phased_workflows
     from tests.phased_workflow_fixtures import admin_user
 
@@ -125,10 +118,9 @@ async def test_a_seed_that_ships_its_own_layout_stays_upgradable_and_its_seed_dr
     admin = await admin_user(db)
     flow = (await db.execute(select(FlowDefinition).where(FlowDefinition.key == seed["key"]))).scalar_one()
     current = await db.get(FlowDefinitionVersion, flow.current_version_id)
-    earlier = {**seed["definition"], "plan_node": "earlier"}  # the seeded version, with its layout
+    earlier = {**seed["definition"], "plan_node": "earlier"}
     current.definition_json = earlier
     current.runtime_settings = {**dict(current.runtime_settings or {}), "seed_digest": definition_digest(earlier)}
-    # A changed seed is pending as a seed draft.
     db.add(FlowDefinitionVersion(flow_id=flow.id, version=99, status="draft", definition_json=earlier,
                                  validation_report={}, publish_metadata={}, policy_bindings={},
                                  runtime_settings={"seed": "phased_seed", "seed_digest": "sha256:old"},
@@ -144,8 +136,6 @@ async def test_a_seed_that_ships_its_own_layout_stays_upgradable_and_its_seed_dr
 
 @pytest.mark.asyncio
 async def test_changed_seeds_replace_the_seeded_versions_as_new_published_versions(db):
-    """A changed team-delivery and spec-writing seed: each published version that was seeded (its ``seed_digest``)
-    is replaced by the new seed as the next published version on the next start."""
     import copy
 
     from app.services.workflow_runs.seeding import definition_digest, phased_seeds, seed_phased_workflows
@@ -158,7 +148,7 @@ async def test_changed_seeds_replace_the_seeded_versions_as_new_published_versio
         current = await db.get(FlowDefinitionVersion, flow.current_version_id)
         earlier = copy.deepcopy(seed["definition"])
         for node in earlier["nodes"]:
-            node.get("config", {}).pop("model_class", None)  # the seeded version: no phase model on interview / draft
+            node.get("config", {}).pop("model_class", None)
         current.definition_json = earlier
         current.runtime_settings = {**dict(current.runtime_settings or {}), "seed_digest": definition_digest(earlier)}
         before[key] = (flow, current.version)

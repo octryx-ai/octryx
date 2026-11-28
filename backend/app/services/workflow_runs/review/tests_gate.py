@@ -1,11 +1,4 @@
-"""A review of a phase that may not change tests never blocks on a test request.
-
-The bug flow's fix phase protects the confirmed tests (``path_rules.protect_confirmed_tests``): it changes no test and
-adds none (a new test module could patch what the confirmed tests import). The review after it asked twice for "a
-unit test for GrinderScale.initial" (medium, blocking), the phase's Write was refused ("is a test file: phase 'Minimal
-fix' … changes no test"), the WIP stayed unchanged and the review ended at its loop limit: no legal move. Such a
-finding stays visible but low (not blocking), marked for a follow-up; the reviewer is told the phase's limit.
-"""
+"""A review of a phase that may not change tests never blocks on a test request."""
 
 from __future__ import annotations
 
@@ -28,7 +21,6 @@ def asks_for_test(finding: Any) -> bool:
 
 
 def tests_gate(settled: Any) -> Any:
-    """The settled verdict with every test request low and marked; ``pass`` when nothing blocking is left."""
     from .verdict import BLOCKING_SEVERITIES, VERDICT_CHANGES, VERDICT_PASS
 
     if settled is None:

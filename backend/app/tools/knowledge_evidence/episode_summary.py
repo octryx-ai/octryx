@@ -1,14 +1,4 @@
-"""``knowledge_episode_summary``: the agent saves this platform session's episode summary on request.
-
-The same governed writer as the REST endpoint, the MCP ``episode_summary`` and the automatic turn
-capture (``services/knowledge/episodes/writer``): role, the Workspace switch, the public origin,
-bounds, redaction and deduplication by (session, digest). The session is the run's own, never a
-model argument: it must belong to the run's user and Workspace. A sub-agent never writes its
-parent's episode.
-
-Risk ``write`` on internal platform state (``definitions/write_risk.py``), so it needs the ``change``
-run capability. Every refusal is a fixed state with a fixed message.
-"""
+"""``knowledge_episode_summary``: the agent saves this platform session's episode summary on request."""
 
 from __future__ import annotations
 

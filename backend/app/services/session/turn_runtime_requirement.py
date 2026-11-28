@@ -1,18 +1,4 @@
-"""The model capability a selected workflow requires of the turn's runtime (R3, W22b).
-
-A workflow definition may declare ``required_model_capability`` on its contract. The
-capability must be in the admin-editable capability catalog (``policy_lists.model_capabilities``,
-seeded with ``coding``). A runtime target meets a capability when it is active and:
-
-1. an admin tagged the target with the capability (``capability_tags``); or
-2. the target carries no capability tag at all, the capability is ``coding`` and the model is
-   not a weak coding family (``model_family_policy``, admin-editable). This is the seed
-   behaviour for untagged targets.
-
-A target with explicit capability tags is judged by them alone. A change workflow such as a
-framework upgrade therefore never lands on a weak runtime because of an implicit default; the
-requirement is configuration, never a guess from the prompt.
-"""
+"""The model capability a selected workflow requires of the turn's runtime."""
 
 from __future__ import annotations
 
@@ -25,11 +11,10 @@ REQUIRED_MODEL_CAPABILITY_KEY = "required_model_capability"
 
 
 class UnsupportedModelCapabilityError(ValueError):
-    """A definition declares a capability outside the catalog (a configuration error)."""
+    pass
 
 
 def required_model_capability(workflow_contract: dict[str, Any] | None) -> str:
-    """The capability the selected workflow's contract requires, or ``""``."""
     contract = workflow_contract if isinstance(workflow_contract, dict) else {}
     capability = str(contract.get(REQUIRED_MODEL_CAPABILITY_KEY) or "").strip().lower()
     if capability and capability not in live_policy_lists().model_capabilities:
@@ -42,7 +27,6 @@ def _capability_tags(target: Any) -> set[str]:
 
 
 def target_satisfies(target: Any, capability: str) -> bool:
-    """Whether an active runtime target meets ``capability`` (no capability: always)."""
     if not bool(getattr(target, "is_active", False)):
         return False
     if not capability:
@@ -53,7 +37,6 @@ def target_satisfies(target: Any, capability: str) -> bool:
 
 
 def best_target_for(targets: Iterable[Any], capability: str, *, allowed: Any) -> str:
-    """The highest-priority allowed target meeting ``capability``; explicitly tagged ones first."""
     candidates = [target for target in targets if target_satisfies(target, capability) and allowed(target)]
     if not candidates:
         return ""

@@ -1,10 +1,4 @@
-"""Server-side thread selection for the chat sidebar: search clause, scope resolution, counts.
-
-A *scope* is "all chats of this Workspace that match ``query`` and started at or before ``as_of``,
-except ``except_ids``" — the client never has to hold the ids of unloaded rows. Every resolution
-goes through the same ownership/visibility filter as the sidebar list, so a scope or an id can never
-reach another user's threads or a Workspace the user cannot see.
-"""
+"""Server-side thread selection for the chat sidebar: search clause, scope resolution, counts."""
 
 from __future__ import annotations
 
@@ -50,7 +44,6 @@ async def _visibility_clause(db: AsyncSession, *, user: User) -> Any | None:
 
 
 def _archived_top_level_filter(user: User) -> tuple[Any, ...]:
-    """Restore works on the archived top-level threads of the user (the undo of an archive)."""
     return (
         AgentSession.user_id == user.id,
         AgentSession.parent_session_id.is_(None),
@@ -81,7 +74,7 @@ async def resolve_thread_targets(
     scopes: list[ThreadScope],
     archived: bool = False,
 ) -> tuple[list[AgentSession], list[str]]:
-    """The owned, visible top-level threads named by ``ids`` or ``scopes``, plus the ids not found."""
+    # Only the caller's own, visible top-level threads.
     visibility = await _visibility_clause(db, user=user)
     requested_ids = list(dict.fromkeys(str(item) for item in ids if str(item or "").strip()))
     if visibility is None:
@@ -107,7 +100,6 @@ async def resolve_thread_targets(
 
 
 async def count_thread_scope(db: AsyncSession, *, user: User, scope: ThreadScope) -> int:
-    """How many threads a scope covers right now (the banner numbers of the sidebar)."""
     visibility = await _visibility_clause(db, user=user)
     if visibility is None:
         return 0
@@ -124,7 +116,6 @@ async def count_thread_scope(db: AsyncSession, *, user: User, scope: ThreadScope
 
 
 async def count_archived_threads(db: AsyncSession, *, user: User) -> int:
-    """Archived chats the user can restore from the sidebar ("Archived chats · N")."""
     visibility = await _visibility_clause(db, user=user)
     if visibility is None:
         return 0

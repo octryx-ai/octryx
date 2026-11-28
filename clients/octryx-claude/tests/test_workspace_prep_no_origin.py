@@ -1,5 +1,3 @@
-"""Preparing a folder without origin access: the run's branch, foreign folders, excludes and named stashes."""
-
 from __future__ import annotations
 
 import json
@@ -106,9 +104,6 @@ def test_a_local_branch_that_diverged_from_the_runs_branch_is_reported_not_used(
 
 @requires_git
 def test_leftovers_of_an_earlier_runs_branch_are_set_aside_in_a_named_stash(tmp_path, monkeypatch):
-    """A run that left SPEC.md modified on its branch (the platform pushed the change from its server copy) must not
-    keep the next story of the epic from starting. On a branch the platform named for a
-    run the leftovers go into a named stash (nothing lost); on a person's own branch nothing changes."""
     folder = _origin(tmp_path, monkeypatch)
     git(folder, "checkout", "-q", "-b", "docs/OCX-19-benchmark-web-v1-spec-run-4")
     (folder / "textkit.py").write_text("def slugify(text):\n    return text.lower()  # the spec run's edit\n")
@@ -121,7 +116,6 @@ def test_leftovers_of_an_earlier_runs_branch_are_set_aside_in_a_named_stash(tmp_
 
 @requires_git
 def test_new_files_left_by_an_earlier_run_are_stashed_too(tmp_path, monkeypatch):
-    """New files an earlier run left untracked in the folder are stashed, so they do not block the checkout."""
     folder = _origin(tmp_path, monkeypatch)
     git(folder, "checkout", "-q", "-b", "feature/OCX-21-s2")
     (folder / "NOTES.md").write_text("the earlier run's new file\n")  # the run's branch has NOTES.md as well

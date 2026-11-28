@@ -1,9 +1,5 @@
-"""What one intake run really did with the source's items, beyond imported/updated/unchanged.
-
-The per-run limit and paging leave items for the next run; they are *pending*, not filtered out. The
-automation label never filters the import: it only marks which imported items the agent may start, so it
-is reported as its own count.
-"""
+"""What one intake run really did with the source's items, beyond imported/updated/unchanged. Items left by the per-run
+limit are pending, not filtered; the automation label never filters the import."""
 
 from __future__ import annotations
 
@@ -19,7 +15,6 @@ def _has(labels: list[str], candidates: list[str]) -> bool:
 
 
 def run_counts(*, normalized: list[dict[str, Any]], source: dict[str, Any], sync_options: Any) -> dict[str, Any]:
-    """`pending_next_run` (None when the source does not report its total), `more_pending`, `automation`."""
     metadata = object_value(source.get("metadata"))
     returned = metadata.get("returned")
     total = source.get("source_count")

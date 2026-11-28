@@ -14,8 +14,6 @@ from ._code_common import MAX_MATCHES, _resolve_workspace_path
 
 
 def _resolve_search_root(raw_path: str, context: ToolContext) -> Path:
-    """Resolve relative search paths against the active tool workspace, not process CWD."""
-
     requested_path = str(raw_path or "").strip() or "."
     return _resolve_workspace_path(
         requested_path,

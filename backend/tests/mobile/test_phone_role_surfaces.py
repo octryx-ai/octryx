@@ -1,7 +1,5 @@
-"""Roles on the phone: "My role" and, for Workspace admins, the Workspace's assignments, read-only. Every
-write of the roles API (assignments, the switch, roles, functions, SSO mapping) and the admin preview of another
-person's permission stay off the phone; the routes keep their own access checks.
-"""
+"""Roles on the phone are read-only: every write of the roles API and the admin preview of another person's
+permission stay off the phone."""
 
 from __future__ import annotations
 

@@ -1,16 +1,10 @@
-"""PR review bot: incremental passes.
-
-- after a push the reviewer gets only ``last reviewed head..head`` and the open findings of the last pass, and
-  answers each id ``fixed`` / ``not_fixed`` (the platform's follow-up review, ``review.convergence``);
-- a force push, a rebase, another target branch or a target branch merged into the pull request gets a full pass;
-- the summary says what was fixed, what is still open and what is new; open findings get no second inline comment;
-- a new finding below high is posted inline but does not block (never swallowed); an open finding on a
-  file the delta does not touch stays open.
-"""
+"""PR review bot: incremental passes."""
 
 from __future__ import annotations
 
 from pathlib import Path
+
+import pytest
 
 from app.models import WorkflowRun
 from app.services.pr_review_bot.events import pull_request_event
@@ -20,7 +14,10 @@ from app.services.pr_review_bot.starter import TRIGGER_WEBHOOK, start_review
 from app.services.workflow_runs.review.convergence import Scope, previous_findings, settle_follow_up
 from app.services.workflow_runs.review.runner import run_due_reviews
 from tests.pr_review_bot_flow_support import HEADERS, REVIEW, _git, _origin, _payload, _tools, _workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 BRANCH = "feature/PAY-1-totals"
 OPEN = [{"id": "F1", "severity": "high", "file": "totals.py", "line": 3, "fix": "Round half away from zero."},
@@ -61,13 +58,13 @@ async def test_only_a_plain_continuation_of_the_last_reviewed_head_is_incrementa
     assert reasons == ["first pass", "the target branch changed",
                        "the target branch was merged into the pull request or moved its merge base",
                        "the head was reviewed before"]
-    rewritten = _push(origin, clone, "def total(items):\n    return 0\n", amend=True)  # a force push
+    rewritten = _push(origin, clone, "def total(items):\n    return 0\n", amend=True)
     forced = await delta_base(root, "r1", _previous(second, base), head=rewritten, merge_base=base, target="main")
     assert forced.full_because == "the history was rewritten (force push or rebase)"
 
 
 def test_the_open_findings_become_the_review_nodes_previous_verdict():
-    assert seed({"open_findings": []}) is None  # nothing open: the delta gets a first-round review
+    assert seed({"open_findings": []}) is None
     record = seed({"open_findings": [{**OPEN[0], "carried": True, "nonblocking": True}]})
     run = type("Run", (), {"context": {"review": record}})()
     node = type("Node", (), {"id": "independent_review"})()
@@ -81,19 +78,19 @@ def _follow_up(answer: dict, changed: tuple[str, ...], root: Path) -> dict:
 
 
 def test_what_the_follow_up_drops_for_convergence_the_pull_request_still_shows(tmp_path):
-    (tmp_path / "rates.py").write_text("x = 1\n")  # an existing file the delta does not touch
+    (tmp_path / "rates.py").write_text("x = 1\n")
     record = _follow_up({"summary": "F1 is fixed.", "previous": [{"id": "F1", "status": "fixed"}], "findings": [
         {"severity": "medium", "file": "totals.py", "line": 4, "fix": "Name the rounding mode."}]},
         ("totals.py",), tmp_path)
     passed = effective(record, {"open_findings": OPEN})
     assert [item["id"] for item in passed.fixed] == ["F1"]
     by_id = {item["id"]: item for item in passed.review["findings"]}
-    assert by_id["F2"]["carried"] and not by_id["F2"].get("nonblocking")  # untouched file: still open, blocking
-    assert by_id["F3"]["nonblocking"] and by_id["F3"]["severity"] == "medium"  # new below high: shown, not blocking
+    assert by_id["F2"]["carried"] and not by_id["F2"].get("nonblocking")
+    assert by_id["F3"]["nonblocking"] and by_id["F3"]["severity"] == "medium"
     assert passed.review["verdict"] == "changes" and (passed.still_open, passed.new) == (1, 1)
     later = effective({"verdict": "pass", "summary": "", "findings": [{**by_id["F3"]}]},
                       {"open_findings": [by_id["F3"]]})
-    assert later.review["verdict"] == "pass"  # it did not block when new; a later push does not change that
+    assert later.review["verdict"] == "pass"
 
 
 def test_the_summary_names_the_pass_and_open_findings_get_no_second_inline_comment():
@@ -137,13 +134,13 @@ async def test_a_push_after_a_review_is_reviewed_incrementally_until_everything_
         "findings": [{"severity": "medium", "file": "totals.py", "line": 3, "fix": "Negative totals round wrong."}]})
     system, task = reviewer.tasks[0]
     assert "This is a follow-up review" in system and '"id": "F2"' in task
-    assert "-    return round(subtotal)\n+    return int(subtotal + 0.5)" in task  # only the delta
+    assert "-    return round(subtotal)\n+    return int(subtotal + 0.5)" in task
     assert "-    return int(subtotal)" not in task
     posted = [call[1] for call in tools.calls if call[0] == "post_github_pull_request_review"][-1]
-    assert posted["commit_status"]["state"] == "failure"  # F2 (medium) is still open
+    assert posted["commit_status"]["state"] == "failure"
     assert f"`{first[:7]}..{second[:7]}`: 1 fixed, 1 still open, 1 new." in posted["summary"]
     assert [(item["line"], item["body"].split("\n")[0]) for item in posted["comments"]] == [
-        (3, "**🟠 Medium** · F3")]  # the new one inline; F2 is in the summary only
+        (3, "**🟠 Medium** · F3")]
     assert "| `rates.py:9` | Rates must round the same way. |" in posted["summary"]
     assert run2.context["pr_review"]["incremental"]["previous_run"] == run.id
 
@@ -151,5 +148,5 @@ async def test_a_push_after_a_review_is_reviewed_incrementally_until_everything_
     await _review(db, project_id, third, {"summary": "F2 is fixed.", "previous": [
         {"id": "F2", "status": "fixed"}, {"id": "F3", "status": "not_fixed"}], "findings": []})
     posted = [call[1] for call in tools.calls if call[0] == "post_github_pull_request_review"][-1]
-    assert posted["commit_status"]["state"] == "success"  # only the non-blocking F3 is left
+    assert posted["commit_status"]["state"] == "success"
     assert "1 fixed, 1 still open, 0 new." in posted["summary"] and posted["comments"] == []

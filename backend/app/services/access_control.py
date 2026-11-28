@@ -1,16 +1,5 @@
-"""Project-level access control helpers.
-
-Provides FastAPI-compatible helpers for enforcing project membership
-and role-based boundaries consistently across all API routes.
-
-All routes that accept a ``project_id`` parameter (either as a query
-parameter or inside a request body) MUST call ``require_project_access``
-before proceeding with any service call.
-
-Admin users bypass project membership checks; all other users must be an
-explicit member (direct ``user_projects`` row or group-derived via
-``project_groups``/``user_groups``).
-"""
+"""Project-level access control helpers. Every route that takes a ``project_id`` must call ``require_project_access``
+first."""
 
 from __future__ import annotations
 
@@ -32,7 +21,6 @@ class ProjectScopeContext:
 
 
 async def _user_is_admin(db: AsyncSession, user_id: str) -> bool:
-    """Return True if *user_id* holds the ``admin`` role."""
     rows = await db.execute(
         select(Role.name)
         .join(UserRole, UserRole.role_id == Role.id)
@@ -46,11 +34,7 @@ async def get_project_role_for_user(
     user_id: str,
     project_id: str,
 ) -> str | None:
-    """Return the user's role string in *project_id*, or ``None`` if no access.
-
-    Admins are returned ``"admin"`` regardless of explicit membership, except in somebody else's private
-    Workspace: there nobody but its owner has a role (``project.private_workspace``).
-    """
+    # Admins get ``admin`` everywhere except in somebody else's private Workspace, where only its owner has a role.
     from .project.private_workspace import private_project, private_role  # noqa: PLC0415
 
     private = await private_project(db, project_id)
@@ -72,35 +56,32 @@ WORKSPACE_NOT_FOUND_MESSAGE = "The named Workspace does not exist."
 
 
 def workspace_not_found() -> HTTPException:
-    """The one answer for a Workspace the caller may not see: an unknown id and a Workspace the caller is no member of
-    answer the same 404, so an outsider never learns whether a Workspace exists."""
+    # Unknown and not-a-member answer the same 404, so an outsider never learns whether a Workspace exists.
     return HTTPException(status_code=404, detail={"code": "project_not_found", "message": WORKSPACE_NOT_FOUND_MESSAGE})
 
 
-async def require_existing_workspace(db: AsyncSession, project_id: str | None) -> None:
-    """The existence check of a caller-supplied Workspace id on a platform-admin route, before anything is written for
-    it: an id that names no Workspace is 404 ``project_not_found``; an absent one passes. Platform admins see every
-    Workspace, so existence reveals nothing to them; who may act in an existing Workspace stays the route's own rule
-    (e.g. a private Workspace's owner-only refusal). A route other callers reach uses ``require_visible_workspace``."""
-    if project_id and await db.get(Project, project_id) is None:
+async def require_existing_workspace(db: AsyncSession, user_id: str, project_id: str | None) -> None:
+    # Somebody else's private Workspace does not exist for the caller, platform admins included.
+    from .project.private_workspace import foreign_private  # noqa: PLC0415
+
+    if not project_id:
+        return
+    project = await db.get(Project, project_id)
+    if project is None or foreign_private(project, user_id):
         raise workspace_not_found()
 
 
 async def require_visible_workspace(db: AsyncSession, user_id: str, project_id: str | None) -> None:
-    """The check of a caller-supplied Workspace id on a route that callers other than platform admins reach: an id
-    that names no Workspace and a Workspace the caller is no member of answer the same 404 ``project_not_found``,
-    before the route's own permission rule can answer differently. Platform admins pass for every existing Workspace,
-    so the route's own rule (e.g. a private Workspace's owner-only refusal) still answers them."""
+    # Unknown and not-a-member answer the same 404 before the route's own permission rule can answer differently.
     if project_id and not await workspace_visible(db, user_id, project_id):
         raise workspace_not_found()
 
 
 async def workspace_visible(db: AsyncSession, user_id: str, project_id: str) -> bool:
-    """Whether ``project_id`` names a Workspace ``user_id`` sees: an existing one, and for anyone but a platform admin
-    one they are a member of. A record bound to a Workspace the caller does not see answers like a missing record."""
+    # A record bound to a Workspace the caller does not see answers like a missing record.
     if await db.get(Project, project_id) is None:
         return False
-    return await _user_is_admin(db, user_id) or await get_project_role_for_user(db, user_id, project_id) is not None
+    return await get_project_role_for_user(db, user_id, project_id) is not None
 
 
 async def require_project_access(
@@ -110,14 +91,9 @@ async def require_project_access(
     *,
     require_admin: bool = False,
 ) -> None:
-    """Require that *user_id* may act in *project_id*; an absent id passes (optional Workspace parameters).
-
-    An unknown id and a Workspace the caller is no member of both answer 404 ``project_not_found``
-    (``workspace_not_found``); a member without the admin/owner role that ``require_admin`` asks for gets 403.
-    """
     if not project_id:
         return
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, user_id, project_id)
 
     role = await get_project_role_for_user(db, user_id, project_id)
     if role is None:
@@ -137,7 +113,7 @@ async def require_project_scope(
     *,
     require_admin: bool = False,
 ) -> ProjectScopeContext:
-    """Resolve a required project scope or fail closed when scope is missing."""
+    # Fail closed when the scope is missing.
 
     resolved_project_id = str(project_id or "").strip()
     if not resolved_project_id:
@@ -167,10 +143,6 @@ async def assert_user_owns_resource(
     *,
     error_detail: str = "Access denied: you do not own this resource.",
 ) -> None:
-    """Raise 403 if *requesting_user_id* is not the resource owner and is not admin.
-
-    Useful for task/run access where ownership is the primary boundary.
-    """
     if resource_user_id == requesting_user_id:
         return
     if await _user_is_admin(db, requesting_user_id):

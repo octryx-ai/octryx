@@ -7,13 +7,14 @@ from typing import Any
 from ...models import WorkflowRun
 
 TIMING_STEPS = ("tree", "green_before", "setup", "commands", "screenshots", "red_on_base", "code_style", "total")
-TAIL_CHARS = 20_000  # the end of a command's output kept on the run (its JUnit report is kept as per-test results)
+TAIL_CHARS = 20_000
+REPORT_CHARS = 2_000_000  # the device's cap of a verbose run's whole output
+_REPORT_KEYS = ("junit_xml", "junit_files", "report_text")
 FLAKY_KEY = "pipeline_flaky"
 MAX_FLAKY_IDS = 500  # a guard against a broken report, far above a real suite's flaky tests
 
 
 def _timings(value: Any) -> dict[str, float]:
-    """The device's seconds per step (:data:`TIMING_STEPS`), anything else dropped."""
     if not isinstance(value, dict):
         return {}
     return {step: round(float(value[step]), 1) for step in TIMING_STEPS
@@ -21,8 +22,6 @@ def _timings(value: Any) -> dict[str, float]:
 
 
 def _file_audit(pointer: dict[str, Any], report: dict[str, Any]) -> dict[str, Any]:
-    """The device's account of the environment file, validated again here: ``file_state`` ``ok`` with the
-    ``commands`` it declares, else the state and errors the agent gets."""
     from .workspace.spec import FILE_INVALID, FILE_OK, refused_command, validate_environment
 
     reported = report.get("environment_file") if isinstance(report.get("environment_file"), dict) else {}
@@ -42,13 +41,13 @@ def _file_audit(pointer: dict[str, Any], report: dict[str, Any]) -> dict[str, An
     if state_ != FILE_OK:
         return {**audit, "file_state": state_ or FILE_INVALID, "file_errors": errors}
     environment, again = validate_environment(reported.get("environment"))
-    commands = [str((environment or {}).get(key) or "") for key in ("test", "system_test")]
+    commands = [str((environment or {}).get(key) or "") for key in ("test", "lint", "system_test")]
     commands = [command for command in commands if command]
     again += [f"'{command[:80]}' is refused: {why}" for command in [str(item) for item in reported.get(
         "commands") or []] if (why := refused_command(command))]
     if again or not commands or [str(item) for item in reported.get("commands") or []] != commands:
         return {**audit, "file_state": FILE_INVALID,
-                "file_errors": again or ["the reported commands are not the file's test and system_test"]}
+                "file_errors": again or ["the reported commands are not the file's test, lint and system_test"]}
     return {**audit, "file_state": FILE_OK, "commands": commands}
 
 
@@ -57,11 +56,7 @@ PYTEST_USAGE = 4  # pytest: usage error, among them "file or directory not found
 
 
 def _no_tests(command: str, code: int, output: str) -> bool:
-    """A pytest command that collected nothing: exit 5, or exit 4 because its test path does not exist.
-
-    Without this, a story without system tests (no ``tests/system`` yet, exit 4) or without
-    unit tests (exit 5) was red, looped three times and paused. Nothing collected is "no tests", not a failure; a task
-    whose proof test should have run there stays unproven, so the pipeline is red for that reason alone."""
+    # Nothing collected is "no tests", not a failure; an unproven task still keeps the pipeline red.
     if "pytest" not in command:
         return False
     text = output.lower()
@@ -70,8 +65,6 @@ def _no_tests(command: str, code: int, output: str) -> bool:
 
 
 def _green(item: dict[str, Any]) -> bool:
-    """The command is green: it passed, it collected nothing, or its re-run passed and every test that flipped is
-    flaky for the first time in this run."""
     if item.get("exit_code") == 0 or item.get("no_tests"):
         return True
     rerun = item.get("rerun") or {}
@@ -84,7 +77,9 @@ def _run_part(item: dict[str, Any]) -> dict[str, Any]:
             "seconds": item.get("seconds") if isinstance(item.get("seconds"), (int, float)) else None,
             "output_tail": str(item.get("output_tail") or "")[-TAIL_CHARS:],
             "junit_xml": item.get("junit_xml") if isinstance(item.get("junit_xml"), str) else None,
-            "junit_files": [str(file) for file in item.get("junit_files") or [] if isinstance(file, str)]}
+            "junit_files": [str(file) for file in item.get("junit_files") or [] if isinstance(file, str)],
+            **({"report_text": item["report_text"][-REPORT_CHARS:]}
+               if isinstance(item.get("report_text"), str) else {})}
 
 
 def _ids(value: Any) -> list[str]:
@@ -114,14 +109,12 @@ def _results(report: dict[str, Any], commands: list[str]) -> list[dict[str, Any]
         rerun = item.get("rerun")
         if isinstance(rerun, dict) and part["exit_code"] != 0:
             result["rerun"] = {**_run_part(rerun), "tests": _ids(rerun.get("tests"))}
-            result["flaky"] = _ids(item.get("flaky"))  # failed, then passed in the re-run
+            result["flaky"] = _ids(item.get("flaky"))
         results.append(result)
     return results
 
 
 def _judge_flaky(run: WorkflowRun, results: list[dict[str, Any]]) -> list[str]:
-    """Split each command's flaky tests into first-time (not counted) and again (red); record them on the run.
-    Returns every flaky test id of this pass."""
     history = dict(dict(run.context or {}).get(FLAKY_KEY) or {})
     seen: list[str] = []
     for item in results:
@@ -136,8 +129,6 @@ def _judge_flaky(run: WorkflowRun, results: list[dict[str, Any]]) -> list[str]:
 
 
 def _test_run(run: WorkflowRun, item: dict[str, Any], proofs: list[str]) -> dict[str, Any]:
-    """One command as a recorded test run with a result per test: its JUnit report first (resolved with the test
-    files the launcher found and the task list's proof files), else what its output printed."""
     from ..workflow_checks.test_output import hint_files, parse, parse_junit
     from .test_resolution import resolver_for
 
@@ -145,7 +136,7 @@ def _test_run(run: WorkflowRun, item: dict[str, Any], proofs: list[str]) -> dict
     resolver = resolver_for(run, proofs, files)
     parsed = parse_junit(item["junit_xml"], resolver) if item["junit_xml"] else None
     if parsed is None or not (parsed.results or parsed.unresolved):
-        printed = parse(item["output_tail"], resolver, item["command"])
+        printed = parse(item.get("report_text") or item["output_tail"], resolver, item["command"])
         printed.problems = [*(parsed.problems if parsed else []), *printed.problems]
         parsed = printed
     return {"source": "pipeline", "command": item["command"], "exit_code": item["exit_code"],
@@ -166,8 +157,7 @@ def _failed_line(item: dict[str, Any]) -> str:
 
 
 def _stored(item: dict[str, Any]) -> dict[str, Any]:
-    """A command's result as the run keeps it: no JUnit text (its tests are recorded as test runs)."""
-    kept = {key: value for key, value in item.items() if key not in ("junit_xml", "junit_files")}
+    kept = {key: value for key, value in item.items() if key not in _REPORT_KEYS}
     if isinstance(kept.get("rerun"), dict):
-        kept["rerun"] = {key: value for key, value in kept["rerun"].items() if key not in ("junit_xml", "junit_files")}
+        kept["rerun"] = {key: value for key, value in kept["rerun"].items() if key not in _REPORT_KEYS}
     return kept

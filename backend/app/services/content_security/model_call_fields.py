@@ -1,29 +1,4 @@
-"""The provider wrapper's one field-aware disposition of a whole request (``model_call``).
-
-Every provider-bound field of a model call — message texts, every sibling of a recognized block, message extras,
-replayed tool-call names and arguments, offered tool definitions — is examined once (``RequestExaminer``: one
-request-wide budget) by the walk of the provider copy (``model_call_masking``) and recorded here with its context
-(:class:`FieldExam`: surface, new content or older history, trust). Only a finished examination selects anything;
-an unfinished field keeps its fixed disposition (withheld). The disposition per finished field:
-
-========================  ===================  ==================  ===================  =====================
-field                     prompt injection     ``refuse`` kind     ``mask`` kinds       ``report`` kind
-========================  ===================  ==================  ===================  =====================
-new message text/extras   refused (fixed)      refused             masked               reported
-offered tool definitions  refused (fixed)      refused             masked               reported
-older history text/extras refused (fixed)      masked (fallback)   masked               reported unless known
-replayed tool calls       refused (fixed)      masked (fallback)   masked               reported unless known
-========================  ===================  ==================  ===================  =====================
-
-Prompt injection is refused in every field; in administrator-authored system text its role phrasing ("Act as …")
-is exempt (``message_trust``); platform instructions are sent verbatim and not walked. A refused kind left in older
-history or a replayed call is masked: that text was judged when it was new. The call's record is derived from the
-final check's reading of the bytes actually sent (``model_call_outcome``): a report only for a kind present there, a
-mask only for a kind found here and absent there. A report is recorded once: a text whose report an earlier decision
-record of this process stated for the same scope (:data:`REPORTED`: ``request_examination.Evidence``, keyed to that
-record's id) is not reported again, and the call's record names that earlier record (``reported_before``); without
-that evidence it is reported.
-"""
+"""The provider wrapper's one field-aware disposition of every field of a whole model request."""
 
 from __future__ import annotations
 
@@ -48,11 +23,10 @@ from .transport import TransportRun
 REPORTED = Evidence()
 #: The surfaces where a ``refuse`` kind refuses the call when the field is new content (offered tools always are).
 _REFUSING_SURFACES = frozenset({SURFACE_MESSAGES, SURFACE_MESSAGE_EXTRAS})
+# In older history and replayed calls a refused kind is masked instead: that text was judged when it was new.
 
 
 def structure_examination(examiner: RequestExaminer, value: Any, fields: list[Finding] | None = None) -> Examination:
-    """The aggregate field-aware examination of a structure: its readable text (field names with values, every
-    credential field's value blanked) plus one finding per credential field (also added to ``fields``)."""
     fields = [] if fields is None else fields
     readable = argument_text(value, fields)
     parts: list[Examination | tuple[str, tuple[Finding, ...]]] = [(SOURCE_HISTORY, tuple(fields))]
@@ -63,8 +37,6 @@ def structure_examination(examiner: RequestExaminer, value: Any, fields: list[Fi
 
 @dataclass(frozen=True, slots=True)
 class FieldExam:
-    """One provider-bound field and its examination (a leaf text, or a structure's aggregate)."""
-
     surface: str
     new: bool
     trust: str
@@ -75,17 +47,12 @@ class FieldExam:
     key: str = ""  # a structure's evidence text (its values included): what a report of its fields is keyed to
 
     def findings(self) -> Examination:
-        """The finished examination as the rules read it (authored role phrasing exempt from injection)."""
         if self.trust == TRUST_AUTHORED and not self.structure:
             return without_role_phrasing(self.examination, [Segment(self.text, SOURCE_HISTORY)])
         return self.examination
 
 
 class RecordedRun(TransportRun):
-    """The input transport run of a provider copy (``model_call_masking``): every field it disposed, with its
-    context, every structure's aggregate and what was withheld, per surface. ``keep_trust``: the copy keeps the
-    system messages' trust markers (the probe's copy, which the governed Cedar decision reads)."""
-
     def __init__(self, examiner: RequestExaminer, mask: frozenset[str], *, keep_trust: bool = False) -> None:
         super().__init__(examiner, mask)
         self.keep_trust = keep_trust
@@ -129,12 +96,10 @@ class RecordedRun(TransportRun):
         return result
 
     def withdraw_last(self) -> None:
-        """The last text's masked copy is not sent (its value is replaced whole): none of its masks happened."""
         self.masked -= self._last_masked
         self._last_masked = 0
 
     def structure(self, value: Any) -> bool:
-        """Whether the aggregate examination of ``value`` finished (recorded; an unfinished one counts withheld)."""
         fields: list[Finding] = []
         examination = structure_examination(self.examiner, value, fields)
         self.fields.append(FieldExam(self.surface, self.new, self.trust, argument_text(value, []), examination,
@@ -150,7 +115,6 @@ class RecordedRun(TransportRun):
         return [item for item in self.fields if item.examination.finished]
 
     def detected(self) -> dict[str, frozenset[str]]:
-        """Per surface, the kinds the finished examinations found (partial findings choose nothing)."""
         found: dict[str, frozenset[str]] = {}
         for item in self.finished():
             found[item.surface] = found.get(item.surface, frozenset()) | item.findings().detected
@@ -158,7 +122,6 @@ class RecordedRun(TransportRun):
 
     @property
     def completion(self) -> Examination:
-        """Every examination behind a disposition of the copy, for its completion only."""
         return compose([item.examination for item in self.fields], domain=DOMAIN_TEXT).restricted(frozenset())
 
 
@@ -174,10 +137,6 @@ def _refusing(item: FieldExam) -> bool:
 
 
 def refusing(run: RecordedRun, plan: HandlingPlan) -> tuple[Examination, Examination, dict[str, frozenset[str]]]:
-    """``(injection, refused kinds, refused kinds per surface)`` over the finished fields: prompt injection in any
-    field, a ``refuse`` kind in new message texts and extras and in the offered tool definitions. Every finding of a
-    refusing field refuses; it is counted once — a structure's aggregate counts only a kind no refusing leaf of its
-    surface (for injection: no leaf) already counted."""
     kinds = plan.kinds(ACTION_REFUSE)
     injection: list[Examination] = []
     refused: list[Examination] = []
@@ -206,17 +165,11 @@ def refusing(run: RecordedRun, plan: HandlingPlan) -> tuple[Examination, Examina
 
 @dataclass(frozen=True, slots=True)
 class Reports:
-    """The ``report`` kinds a provider copy carries (see the module doc): per kind, the evidence keys of its texts no
-    earlier record reported (remembered once the call's record is written), and the kinds an earlier record already
-    reported (that record's id)."""
-
     keys: dict[str, list[Hashable]]
     before: dict[str, str]
 
 
 def reports(run: RecordedRun, plan: HandlingPlan, scope: Hashable) -> Reports:
-    """The ``report`` kinds of every finished leaf and of every finished structure's credential fields, each either
-    new (its evidence key) or named by :data:`REPORTED` (the earlier record)."""
     kinds = plan.kinds(ACTION_REPORT)
     keys: dict[str, list[Hashable]] = {}
     before: dict[str, str] = {}
@@ -234,8 +187,6 @@ def reports(run: RecordedRun, plan: HandlingPlan, scope: Hashable) -> Reports:
 
 
 def counted(run: RecordedRun, kinds: frozenset[str]) -> list[Examination | tuple[str, tuple[Finding, ...]]]:
-    """The findings of ``kinds`` the copy acted on, each distinct leaf text once, and the structures' credential
-    fields."""
     seen: set[str] = set()
     found: list[Examination | tuple[str, tuple[Finding, ...]]] = []
     for item in run.finished():

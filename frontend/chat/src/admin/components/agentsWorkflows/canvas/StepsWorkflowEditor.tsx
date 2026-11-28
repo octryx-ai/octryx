@@ -9,7 +9,6 @@ import { ReactFlowProvider } from "@xyflow/react";
 
 import type { ReadJsonFn } from "../../../hooks/useAdminTabLoader.types";
 import "../../flowBuilder/flowBuilder.css";
-import "../../flowBuilder/flowEditorDetails.css";
 import { StepsCanvas } from "./StepsCanvas";
 import { StepsEditorHeader } from "./StepsEditorHeader";
 import { StepsAddPanel, StepsEditorNotices, StepsNodePanel } from "./StepsWorkflowPanels";

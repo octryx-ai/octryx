@@ -1,11 +1,4 @@
-"""The companion's queue (``GET /api/v1/attention``) and its live nudges.
-
-Contract: every entry carries the exact requests that answer it through the existing endpoints; a paused run is a
-``problem`` with its pause message, a confirmation a ``gate`` with the payload hash in the confirm request, an agent
-question offers its options as separate actions, a device approval offers the owner's decisions, a finished run is
-``done`` until dismissed; ``running`` lists the person's runs with a state. The WebSocket accepts only the session
-cookie from an allowed origin and nudges after a commit.
-"""
+"""The companion's queue (``GET /api/v1/attention``) and its live nudges."""
 
 from __future__ import annotations
 
@@ -21,7 +14,10 @@ from app.services.devices.job_events import apply_event
 from app.services.workflow_runs.limits import pause_run
 from app.time_utils import utc_now
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _device_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +35,7 @@ def _by_kind(body: dict, kind: str) -> list[dict]:
 
 @pytest.mark.asyncio
 async def test_the_queue_lists_gates_problems_questions_device_approvals_and_finished_runs(client, db):
-    admin, _device, thread, run = await _device_run(db)  # waits for the "Go on?" confirmation
+    admin, _device, thread, run = await _device_run(db)
     gate_hash = run.node_state["waiting"]["payload_hash"]
     db.add(ClarificationQuestion(session_id=thread.id, project_id=thread.project_id, question_id="q1",
                                  question_text="Which branch?", context_json={"options": ["main", "develop"]},
@@ -158,7 +154,7 @@ async def test_a_run_event_nudges_the_requesters_socket_only_after_the_commit(db
     await db.commit()
     await asyncio.sleep(0.05)
     assert {"type": "attention_changed", "run_id": run.id, "event": "reminder"} in socket.sent
-    assert nudge_after_commit(db, None) is None  # nobody to nudge: a no-op
+    assert nudge_after_commit(db, None) is None
 
 
 class _Socket:
@@ -174,7 +170,6 @@ class _Socket:
 
 @pytest.mark.asyncio
 async def test_tool_and_phase_events_reach_only_the_runs_watchers_a_waiting_event_nudges_once(db):
-    """17 parallel runs nudged every tab on every tool call; each nudge is a full queue read."""
     import asyncio
 
     from app.services.workflow_runs.records import record_event
@@ -190,7 +185,7 @@ async def test_tool_and_phase_events_reach_only_the_runs_watchers_a_waiting_even
     await db.commit()
     await asyncio.sleep(0.05)
     assert [m for m in companion.sent if m["type"] == "attention_changed"] == []
-    assert {"type": "job_changed", "run_id": run.id} in watcher.sent  # the run's live view still follows
+    assert {"type": "job_changed", "run_id": run.id} in watcher.sent
 
     record_event(db, run, "waiting", node_id="go")
     await db.commit()
@@ -200,7 +195,6 @@ async def test_tool_and_phase_events_reach_only_the_runs_watchers_a_waiting_even
 
 
 def test_every_nudging_event_kind_is_one_the_platform_records():
-    """A typo in nudge_events.json would silently drop a person's nudge."""
     import re
     from pathlib import Path
 

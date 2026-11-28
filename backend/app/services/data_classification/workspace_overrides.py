@@ -1,13 +1,4 @@
-"""Stricter-only Workspace overrides of the classification rules (Classification → Workspaces).
-
-A Workspace has one level; ``projects.config.data_policy.overrides = {rule: value}`` may only make a rule of that
-level *stricter*: a switch only in its restrictive direction, a connector family at most the level's access, a shorter
-retention, ``requires_*`` only on. The effective rules are the meet of the level's rules and the overrides
-(:func:`apply_overrides`), read through :func:`workspace_level_rules` at every decision point that holds a Workspace,
-so an override can never widen a rule by construction. A looser value is refused on write with the reason
-(:func:`checked_overrides`); a stored override that has become equal or looser (the level changed) simply has no
-effect.
-"""
+"""Stricter-only Workspace overrides of the classification rules (Classification → Workspaces)."""
 
 from __future__ import annotations
 
@@ -61,7 +52,6 @@ def stored_overrides(config: Any) -> dict[str, Any]:
 
 
 def shape_checked(raw: Any) -> dict[str, Any]:
-    """Known rules with well-typed values (no comparison with a level). Raises :class:`OverrideError`."""
     if not isinstance(raw, Mapping):
         raise OverrideError(ERROR_OVERRIDES_INVALID, OVERRIDES_FIELD)
     checked: dict[str, Any] = {}
@@ -86,7 +76,6 @@ def shape_checked(raw: Any) -> dict[str, Any]:
 
 
 def checked_overrides(raw: Any, rules: LevelRules) -> dict[str, Any]:
-    """Only values stricter than ``rules``; a looser one raises with the level's value as the reason."""
     overrides = shape_checked(raw)
     kept: dict[str, Any] = {}
     for key, value in overrides.items():
@@ -119,7 +108,6 @@ def checked_overrides(raw: Any, rules: LevelRules) -> dict[str, Any]:
 
 
 def apply_overrides(rules: LevelRules, overrides: Mapping[str, Any]) -> LevelRules:
-    """The meet of a level's rules and a Workspace's overrides: never looser than ``rules``."""
     if not overrides:
         return rules
     values: dict[str, Any] = {}
@@ -139,12 +127,10 @@ def apply_overrides(rules: LevelRules, overrides: Mapping[str, Any]) -> LevelRul
 
 
 async def workspace_level_rules(db: AsyncSession, config: Any, level: str) -> LevelRules:
-    """The rules a Workspace at ``level`` runs under: the level's rules met with its stricter overrides."""
     return apply_overrides(await level_rules(db, level), stored_overrides(config))
 
 
 async def workspace_rules_by_id(db: AsyncSession, workspace_id: str | None, level: str) -> LevelRules:
-    """:func:`workspace_level_rules` for a Workspace id (its stored config row)."""
     from sqlalchemy import select
 
     from ...models import Project
@@ -159,10 +145,6 @@ WORKSPACE_OVERRIDES_AUDIT_ACTION = "admin.data_classification.workspace_override
 
 
 async def set_workspace_overrides(db: AsyncSession, *, project: Any, overrides: Any, actor_id: str) -> dict[str, Any]:
-    """Store a Workspace's stricter overrides against its current level (governed config path + audit). Flushes.
-
-    Raises :class:`OverrideError` for an unknown rule, a bad value or a looser one (with the level's value).
-    """
     from ...models import AuditLog
     from ..admin.project.admin_project_config_service import apply_project_config_patch
     from ..model_gateway.data_policy.classification import declared_classification

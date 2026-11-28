@@ -1,16 +1,4 @@
-"""The Work item list: lean rows, paginated (``GET /api/v1/secure-work/work-items``).
-
-A list row carries only what a row, the list filters and the list search need. The heavy parts of an
-item stay on the detail read (``GET /work-items/{id}``, :func:`serializers.serialize_work_item`):
-``description``, ``source_fields`` (with the raw source issue), ``comments``, ``watchers``,
-``watchers_display``, ``components`` and ``linked_issues`` are never in a list row.
-``automation_eligibility`` is computed on the server from those fields, so rows keep their badge.
-
-Pagination is ``limit``/``offset`` over ``updated_at desc, id desc`` (deterministic). The answer is
-``{items, total, limit, offset, next_offset}``; ``next_offset`` is ``null`` on the last page. Filters on
-JSON columns (labels, fix versions, sprints) are applied in Python over at most
-:data:`JSON_FILTER_SCAN_LIMIT` newest rows; ``total`` then counts the matches in that window.
-"""
+"""The Work item list: lean rows, paginated."""
 
 from __future__ import annotations
 
@@ -43,7 +31,6 @@ DETAIL_ONLY_FIELDS = (
 
 
 def serialize_work_item_row(row: WorkItem) -> dict[str, Any]:
-    """One list row: identity, source, state, people, planning metadata and cheap counts."""
     details = work_item_detail_fields(row)
     return {
         "id": row.id,
@@ -115,14 +102,9 @@ async def list_work_items(
     search: str | None = None,
     with_state_counts: bool = False,
 ) -> dict[str, Any]:
-    """One page of lean Work item rows. Authorization is the caller's (``project_scope``: None = platform admin).
-
-    ``open_only``: no finished item (:data:`TERMINAL_STATES`). ``assignee_identifiers``: the person's own items (their
-    username, email or linked account ids, compared case-insensitively). ``search``: the key or the title contains it.
-    ``with_state_counts``: the answer adds ``state_counts`` (per ``work_state``) for the same filters but the state.
-    """
+    """One page of lean Work item rows; ``project_scope`` ``None`` is a platform admin."""
     conditions = []
-    if project_scope is not None:  # r8 C-8: the caller's Workspaces only (None: platform admin)
+    if project_scope is not None:  # the caller's Workspaces only (None: platform admin)
         conditions.append(WorkItem.project_id.in_(project_scope))
     for column, value in (
         (WorkItem.project_id, project_id),

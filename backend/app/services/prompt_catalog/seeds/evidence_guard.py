@@ -1,8 +1,4 @@
-"""Seeds of the answer evidence guard: the markers on a short-falling answer; the reminder and refusal texts.
-
-The only code copy of these texts. ``REMINDER_MARKER`` stays in code and is prepended to the
-reminder: the turn counts its reminders by it.
-"""
+"""Seeds of the answer evidence guard: the markers on a short-falling answer; the reminder and refusal texts."""
 
 from __future__ import annotations
 

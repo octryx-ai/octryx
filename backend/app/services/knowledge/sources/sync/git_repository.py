@@ -1,47 +1,5 @@
-"""The ``git_repository`` Source Sync connector in its ``remote_git`` fetch mode.
-
-A listing pass reads one commit of a public repository on a known host:
-
-1. at the pass start, ``ref`` resolves to a commit sha once (a configured full sha is used as is);
-   every later page of the same pass carries that sha in its token (``<sha>:<offset>``), so a pass
-   that spans several bounded runs never mixes two commits;
-2. the host's archive at that sha is fetched over the pinned ``git_repository`` egress transport
-   (``git_http.py``) and classified (``git_snapshot.py``);
-3. pages walk the sorted file list: items become ``SourceItem`` headers, every skipped file is
-   reported with its closed outcome (``excluded``, ``skipped_too_large``, ``skipped_binary``, ...).
-
-Per file: ``external_id`` is ``sha256(path)[:40]``, the display title is the path, the version
-marker is the git blob sha1, and the source URL is the host blob at the commit
-(``https://github.com/<owner>/<repo>/blob/<sha>/<path>``). The runner therefore reports a re-sync of
-the same commit as ``unchanged`` without a fetch. ``fetch`` hands the file to ingestion as code
-(``ItemContent.code_file``) with its repository, path, language, commit and blob facets.
-
-A Bitbucket Server/Data Center repository has no archive URL: its commit is fetched with ``git`` and the
-linked connection's credential (``git_clone.py``), and the same classification reads ``git archive``'s tree.
-
-A Data Center repository **without any commit** lists no item and ends its pass: the run completes
-with 0 items and the reason ``repository_empty`` (:attr:`GitRepositoryConnector.completed_reason`), never as a
-failure. Its first commit is listed by the next run.
-
-GitHub the same way (a private repository with two commits and no file must not end
-``source_not_found``), decided by GitHub's own status codes, never by a message text:
-
-- a repository without any commit answers the commit lookup ``409`` (GitHub: "Git Repository is empty"): the run
-  completes as ``repository_empty``, as above;
-- a commit whose tree has no file is an empty snapshot *at that commit*: when the archive is not served (``404``) or
-  arrives empty, the tree of the commit is read (``git/trees/<sha>``) and an answer ``200`` with no entry lists no
-  item. The run completes without a reason and records the commit (``head_commit``), so the source can be set up
-  for code navigation and a run can branch from it;
-- a ref that names nothing while the repository has commits (``422``), a missing repository or one the reader may
-  not see (``404``) stay failures (``source_not_found``, ``source_unauthorized``).
-
-A GitHub repository read through a GitHub connection with a token (``git_bitbucket.linked_git_connection``) sends
-the token to ``api.github.com`` only; its archive comes from the API's redirect to ``codeload.github.com``, fetched
-without the token (``git_http.py``).
-
-Every item has the scope-wide audience (a repository read through a connection is visible to the Workspace that
-registered it), and nothing an item carries holds a credential.
-"""
+"""The ``git_repository`` Source Sync connector in its ``remote_git`` fetch mode. A pass resolves its ref once, so it
+never mixes two commits."""
 
 from __future__ import annotations
 
@@ -106,22 +64,18 @@ class GitRepositoryConnector:
 
     @property
     def repository_empty(self) -> bool:
-        """The repository has no commit yet (``git_clone.RepositoryEmptyError``): this run listed nothing."""
         return self._empty
 
     @property
     def completed_reason(self) -> str | None:
-        """The fixed reason a completed run of this connector carries (``repository_empty``), else ``None``."""
         return REASON_REPOSITORY_EMPTY if self._empty else None
 
     @property
     def commit(self) -> str | None:
-        """The commit this run listed, once a page was read."""
         return self._commit
 
     @property
     def item_paths(self) -> tuple[str, ...]:
-        """Every file of the listed commit that is an item (not skipped), in path order."""
         return tuple(entry.path for entry in self._entries if entry.skip is None)
 
     async def _load(self, commit: str | None) -> None:
@@ -139,7 +93,7 @@ class GitRepositoryConnector:
                 )
             except HostStatusError as error:
                 if github and error.status == _GITHUB_EMPTY_REPOSITORY:
-                    self._commit, self._entries, self._by_id, self._empty = None, (), {}, True  # module doc
+                    self._commit, self._entries, self._by_id, self._empty = None, (), {}, True  # an empty repository
                     return
                 if github and error.status == _GITHUB_UNKNOWN_REF:
                     raise ConnectorError(REASON_SOURCE_NOT_FOUND) from None
@@ -153,7 +107,6 @@ class GitRepositoryConnector:
         self._by_id = {external_id_of(entry.path): entry for entry in entries if entry.skip is None}
 
     async def _archive(self, path: str, commit: str) -> bytes:
-        """The archive at ``commit``; ``b""`` for a GitHub commit whose tree has no entry (module doc)."""
         host = self._scope.location.host
         assert host is not None
         try:
@@ -173,7 +126,6 @@ class GitRepositoryConnector:
         return archive
 
     async def _tree_empty(self, path: str, commit: str) -> bool:
-        """GitHub answers the commit's tree ``200`` with no entry (any other answer: not known to be empty)."""
         try:
             tree = await self._reader.json(GITHUB.tree_url(path, commit), max_bytes=MAX_TREE_JSON_BYTES)
         except ConnectorError:
@@ -192,7 +144,7 @@ class GitRepositoryConnector:
                 max_bytes=MAX_ARCHIVE_BYTES,
             )
         except RepositoryEmptyError:
-            # No commit to read: an empty listing that completes the pass (module doc).
+            # No commit to read: an empty listing that completes the pass.
             self._commit, self._entries, self._by_id, self._empty = None, (), {}, True
             return
         entries = await asyncio.to_thread(read_snapshot, archive, limits=self._scope.limits, strip_top_level=False)

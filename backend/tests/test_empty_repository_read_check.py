@@ -1,10 +1,5 @@
-"""A read check on an empty repository (spec-writing ``interview``).
-
-A repository can have commits on ``main`` but no file; the phase's blocking "the work item, the existing spec and
-the code were read" (``tool_called`` over ``read_workspace_file``) could then never pass, and the run would pause
-``runtime_failed`` after three refused Stops although the agent's answer was right. A read-only ``tool_called`` is
-``not_applicable`` when the platform knows the working copy holds no file; with any file it stays.
-"""
+"""A read-only ``tool_called`` check is ``not_applicable`` on a working copy the platform knows holds no file,
+so a spec-writing interview on an empty repository can pass."""
 
 from __future__ import annotations
 
@@ -27,7 +22,10 @@ from app.services.workflow_runs.octryx.stop import run_stop
 from app.services.workflow_runs.platform.repo_ref import EMPTY_TREE
 from app.services.workflow_runs.workspace.empty_copy import base_is_empty, server_copy_empty
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import _bound_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 READ_CHECK = {"type": "tool_called", "params": {"tools": ["read_workspace_file"]}, "blocking": True,
               "description": "The work item, the existing spec and the code were read"}
@@ -36,11 +34,11 @@ READ_CHECK = {"type": "tool_called", "params": {"tools": ["read_workspace_file"]
 def test_a_read_only_check_is_not_applicable_only_when_the_platform_knows_there_is_nothing_to_read():
     empty = evaluate_check(READ_CHECK, TurnEvidence(workspace_empty=True))
     assert (empty.outcome, empty.detail) == (NOT_APPLICABLE, NOTHING_TO_READ)
-    assert evaluate_check(READ_CHECK, TurnEvidence()).outcome == FAILED  # a repository with files:
+    assert evaluate_check(READ_CHECK, TurnEvidence()).outcome == FAILED
     read = TurnEvidence(tools=[ToolUse("read_workspace_file", True)], workspace_empty=True)
     assert evaluate_check(READ_CHECK, read).outcome == PASSED
     mixed = {**READ_CHECK, "params": {"tools": ["read_workspace_file", "knowledge_search"]}}
-    assert evaluate_check(mixed, TurnEvidence(workspace_empty=True)).outcome == FAILED  # not only reads
+    assert evaluate_check(mixed, TurnEvidence(workspace_empty=True)).outcome == FAILED
     tests = {**READ_CHECK, "params": {"tools": ["run_test_suite"]}}
     assert evaluate_check(tests, TurnEvidence(workspace_empty=True)).outcome == FAILED
 
@@ -66,11 +64,11 @@ async def test_the_base_and_the_server_copy_are_judged_by_git(tmp_path):
     empty = tmp_path / "empty"
     head = await _repository(empty)
     assert await base_is_empty(_Run({"base_sha": head, "local_path": str(empty)}))
-    assert await base_is_empty(_Run({"base_sha": EMPTY_TREE}))  # a repository without any commit
-    assert not await base_is_empty(_Run({"base_sha": head}))  # no server copy: unknown
+    assert await base_is_empty(_Run({"base_sha": EMPTY_TREE}))
+    assert not await base_is_empty(_Run({"base_sha": head}))
     assert await server_copy_empty(_Run({"local_path": str(empty)}))
     (empty / "notes.md").write_text("new\n")
-    assert not await server_copy_empty(_Run({"local_path": str(empty)}))  # an untracked file is a file
+    assert not await server_copy_empty(_Run({"local_path": str(empty)}))
     full = tmp_path / "full"
     head = await _repository(full, "README.md")
     assert not await base_is_empty(_Run({"base_sha": head, "local_path": str(full)}))
@@ -131,8 +129,6 @@ async def test_a_device_without_the_base_proves_nothing(db, tmp_path):
 
 @pytest.mark.asyncio
 async def test_a_lost_server_copy_is_prepared_again_through_the_prepare_tool(tmp_path, monkeypatch):
-    """After a deploy restart the run's server copy can be gone; the rule must not depend on it surviving.
-    Without a repository or when the prepare fails, it stays unknown."""
     from app.services.workflow_runs.platform import scm
     from app.services.workflow_runs.workspace import empty_copy
 
@@ -159,7 +155,7 @@ async def test_a_lost_server_copy_is_prepared_again_through_the_prepare_tool(tmp
     run = _RunWithRepo(dict(gone))
     assert await empty_copy.base_is_empty(run, db=object())
     assert calls == [("prepare_github_repository", "spec/caf-1")] and run.context["local_path"] == str(empty)
-    assert not await empty_copy.base_is_empty(_RunWithRepo(dict(gone)))  # no db: unknown
+    assert not await empty_copy.base_is_empty(_RunWithRepo(dict(gone)))
     assert not await empty_copy.base_is_empty(_RunWithRepo(dict(gone), repository=""), db=object())
 
     async def failing(*_args, **_kwargs):
@@ -170,8 +166,6 @@ async def test_a_lost_server_copy_is_prepared_again_through_the_prepare_tool(tmp
 
 
 def test_a_question_round_that_asks_nothing_does_not_pass():
-    """An interview that answers only "I can't read the run contract" must not pass (empty repository: the read
-    check is not applicable) and then wait for answers to no question."""
     from app.services.workflow_runs.octryx.stop_checks import _questions_missing
 
     [missing] = _questions_missing("I can't read the run contract. The workflow_run_status tool isn't available.")

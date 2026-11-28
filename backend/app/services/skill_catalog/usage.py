@@ -1,16 +1,4 @@
-"""Skill usage from octryx-claude and the usage read model of the catalog.
-
-Recorded per use: the skill name, the catalog skill and version (when it is one), the delivered digest, the
-Workspace, the gateway session and the user — never the prompt or the arguments.
-
-- **model**: the PreToolUse tool-check sees ``tool_name == "Skill"``; the skill reference is read from the hook's
-  ``tool_input`` (``skill``, then ``name``, then ``command`` — the schema is undocumented, so the first present
-  field wins and the order is fixed);
-- **slash**: the ``UserPromptExpansion`` hook posts ``command_name``/``command_source`` to ``/sessions/skill-used``.
-
-A name in the ``octryx:`` plugin namespace that matches a published catalog skill is a catalog use; any
-other name (a project's own ``.claude/skills``) is recorded as ``unmanaged``, by name only.
-"""
+"""Skill usage from octryx-claude and the usage read model of the catalog."""
 
 from __future__ import annotations
 
@@ -70,7 +58,6 @@ async def record_claude_use(db: AsyncSession, *, reference: str, invocation: str
 
 async def record_tool_check(db: AsyncSession, *, hook_input: dict[str, Any], answer: dict[str, Any],
                             user_id: str, project_id: str | None, session_id: str) -> None:
-    """Called after every tool-check; records only ``Skill`` calls."""
     if hook_input.get("tool_name") != SKILL_TOOL:
         return
     await record_claude_use(db, reference=skill_reference(hook_input.get("tool_input")),
@@ -80,9 +67,6 @@ async def record_tool_check(db: AsyncSession, *, hook_input: dict[str, Any], ans
 
 async def usage_summary(db: AsyncSession, *, since: datetime | None = None, skill_id: str | None = None
                         ) -> dict[str, Any]:
-    """Simple counts: uses and refusals per catalog skill, split by ``surface:invocation``, plus the
-    unmanaged names. Searches are not uses; a refused chat ``skill_get`` names no skill and counts only in the
-    totals (it must not leak which skill was asked for)."""
     filters = [SkillUsageEvent.event_type.in_(["get", "use", "policy_denied"])]
     if since is not None:
         filters.append(SkillUsageEvent.created_at >= since)
@@ -119,7 +103,6 @@ async def usage_summary(db: AsyncSession, *, since: datetime | None = None, skil
 
 
 async def use_counts(db: AsyncSession) -> dict[str, int]:
-    """Uses per catalog skill id (all time), for the catalog list."""
     rows = (await db.execute(
         select(SkillUsageEvent.skill_id, func.count(SkillUsageEvent.id))
         .where(SkillUsageEvent.event_type.in_(["get", "use"]), SkillUsageEvent.skill_id.is_not(None))

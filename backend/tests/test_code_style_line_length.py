@@ -38,7 +38,6 @@ def test_a_language_or_workspace_sets_its_own_limit():
 
 
 def test_a_written_specification_is_prose_and_never_judged_by_the_code_style():
-    """A spec phase's SPEC.md is red on 316 lines, a 1,349-character line and a TODO."""
     sizes = {"files": {"app/SPEC.md": 316, "app/lib/main.dart": 320},
              "long_lines": [["app/SPEC.md", 221, 1349], ["app/lib/main.dart", 9, 200]],
              "todos": [["app/SPEC.md", 117, "TODO decide later"]]}
@@ -48,8 +47,6 @@ def test_a_written_specification_is_prose_and_never_judged_by_the_code_style():
 
 
 def test_the_generated_flutter_platform_scaffold_is_never_judged():
-    """``flutter create``'s project.pbxproj, storyboards, AndroidManifest and Gradle scripts must not hold the
-    story red, or the agent re-wraps Xcode files by hand. The app's own code still is judged."""
     app = "coffee/flutter/codex"
     scaffold = [f"{app}/ios/Runner.xcodeproj/project.pbxproj", f"{app}/ios/Runner/Base.lproj/Main.storyboard",
                 f"{app}/android/app/src/main/AndroidManifest.xml", f"{app}/android/app/build.gradle.kts",

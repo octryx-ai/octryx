@@ -1,15 +1,5 @@
-"""Save a catalog model: General (enabled, display name, capabilities), Data (clearance, approved for),
-Generation (temperature, max output) and Cost (``cost.py``).
-
-Every save is validated before anything is written, audited once (``admin.model_catalog.model_updated`` with
-before/after) and, for a gateway model, mirrored into its alias entry (``alias_mirror``), which the gateway
-admission and Cedar keep reading.
-
-Raising a clearance (the model may see more sensitive data than before) is audited with the platform approval rule
-in effect. It applies directly: no reusable pending-change mechanism exists for a single model field (the four-eyes
-gates are bound to versioned artifacts: policy sets, skills, governed revisions), so a second-admin step for
-clearance is left to a follow-up slice and the audit row marks ``approval: applied_directly``.
-"""
+"""Save a catalog model: General (enabled, display name, capabilities), Data (clearance, approved for), Generation
+(temperature, max output) and Cost (``cost.py``)."""
 
 from __future__ import annotations
 
@@ -21,7 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import LLMModel, LLMProvider
 from ..admin.governance.admin_config_audit_service import record_admin_config_audit
 from ..governance.approval_rule import load_approval_rule
-from ..provider.usage_repricing import reprice_after_price_edit
 from .alias_mirror import mirror_into_alias
 from .clearance import is_raise, normalized_clearance
 from .contract import (
@@ -131,7 +120,6 @@ def _context_length(provider: LLMProvider, value: Any) -> int | None:
 
 
 def _apply(provider: LLMProvider, model: LLMModel, payload: dict[str, Any]) -> None:
-    """Validate everything first, then write (a refused field leaves the row unchanged)."""
     values: dict[str, Any] = {}
     if "enabled" in payload:
         if not isinstance(payload["enabled"], bool):
@@ -169,7 +157,6 @@ def _apply(provider: LLMProvider, model: LLMModel, payload: dict[str, Any]) -> N
 async def update_catalog_model(
     db: AsyncSession, *, model_id: str, payload: Any, actor_id: str
 ) -> tuple[LLMProvider, LLMModel]:
-    """Apply one catalog save; raises ``ModelCatalogError``. Flushes, the caller commits."""
     if not isinstance(payload, dict) or not payload or set(payload) - FIELDS:
         raise ModelCatalogError(ERROR_FIELD_UNKNOWN)
     provider, model = await load_row(db, model_id)
@@ -192,11 +179,10 @@ async def update_catalog_model(
         }
     record_admin_config_audit(
         db, actor_user_id=actor_id, action=AUDIT_ACTION, resource_type=AUDIT_RESOURCE, resource_id=model.id,
+                                                                                       project_id=None,
         before=before, after=after, details=details,
     )
     await db.flush()
-    if "cost" in payload:  # a saved price re-prices this model's past unpriced usage
-        await reprice_after_price_edit(db, model=model, actor_user_id=actor_id)
     return provider, model
 
 

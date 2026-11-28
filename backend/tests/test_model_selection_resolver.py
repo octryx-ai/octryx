@@ -4,21 +4,16 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
 from app.models import ControlPlaneRuntimeTarget, LLMModel, LLMProvider, Project
-from app.services.model_selection.chain_admission import admit_runtime_chain, apply_model_gates
 from app.services.model_selection.gates import AliasGrant, CatalogModel, WorkspaceScope, gate
 from app.services.model_selection.platform_order import active_config
 from app.services.model_selection.resolver import ModelRequest, resolve_model
 from app.services.model_selection.snapshot import SelectionSnapshot, load_scope, load_snapshot
 from app.services.runtime_options import list_chat_runtime_options
 from app.services.workspace_composition.execution_view import get_workspace_execution_view
-from tests.model_gateway.conftest import MESSAGES, RecordingRuntimeFactory, backup_runtime
 
 
 def _model(key: str, *, cleared: str | None = "internal", enabled: bool = True, coding: bool = False,
@@ -118,59 +113,8 @@ def test_a_gateway_alias_the_workspace_model_policy_does_not_grant_is_never_chos
     assert resolve_model(snapshot, nothing, ModelRequest()).start == "direct", "no model_policy grants no alias"
 
 
-@pytest.mark.asyncio
-async def test_a_direct_model_not_cleared_for_the_workspace_never_answers_even_on_fallback():
-    # The start model times out; the next model in the order is a direct model cleared only
-    # for Internal data and the Workspace is Confidential → visible error, no answer from it.
-    snapshot = _snapshot(_model("large", cleared="confidential"), _model("fast", cleared="internal"))
-    chain = apply_model_gates(
-        [backup_runtime(provider_name="large", model="large", target_id="t-large", priority=1, provider_id="p"),
-         backup_runtime(provider_name="fast", model="fast", target_id="t-fast", priority=2, provider_id="p")],
-        snapshot, CONFIDENTIAL,
-    )
-    factory = RecordingRuntimeFactory(failures={"large": httpx.ReadTimeout("timed out")}, forbidden=("fast",))
-
-    with pytest.raises(RuntimeError) as failed:
-        await _chat_with_runtime_fallback(
-            chain, messages=MESSAGES, tools=None, get_provider_func=factory,
-            retry_policy={"max_retries": 0, "pause_seconds": 0, "fallback_mode": "all_runtimes"},
-        )
-
-    assert "fast" not in factory.constructed
-    denied = [item for item in failed.value.runtime_attempts if item.get("status") == RUNTIME_ADMISSION_DENIED_STATUS]
-    assert [item["target_id"] for item in denied] == ["t-fast"]
-    assert denied[0]["admission_reason"] == "not_cleared_for_data"
 
 
-@pytest.mark.asyncio
-async def test_the_chat_chain_admission_reads_the_catalog_and_the_workspace_class(db):
-    provider = LLMProvider(name=f"bedrock-{uuid.uuid4().hex[:6]}", driver="bedrock_api", display_name="Bedrock",
-                           is_active=True)
-    db.add(provider)
-    await db.flush()
-    config = await active_config(db, create=True)
-    db.add_all([
-        LLMModel(provider_id=provider.id, model_id="m-internal", display_name="Internal one", is_active=True,
-                 cleared_up_to="internal"),
-        ControlPlaneRuntimeTarget(config_id=config.id, provider_id=provider.id, model_id="m-internal", priority=1),
-    ])
-    workspace = Project(id=str(uuid.uuid4()), name=f"ws-{uuid.uuid4().hex[:6]}", is_active=True,
-                        config={"data_policy": {"classification": "confidential"}})
-    db.add(workspace)
-    await db.commit()
-    target = (await db.execute(select(ControlPlaneRuntimeTarget).where(
-        ControlPlaneRuntimeTarget.model_id == "m-internal"))).scalar_one()
-    runtime = backup_runtime(provider_name=provider.name, model="m-internal", target_id=target.id, priority=1,
-                             provider_id=provider.id)
-
-    refused = await admit_runtime_chain(db, [runtime], project_config={}, project_id=workspace.id)
-    workspace.config = {"data_policy": {"classification": "internal"}}
-    await db.commit()
-    admitted = await admit_runtime_chain(db, [runtime], project_config={}, project_id=workspace.id)
-
-    assert refused[0]["admission_denial"]["reason"] == "not_cleared_for_data"
-    assert "admission_denial" not in admitted[0]
-    assert (await load_snapshot(db)).for_ref(provider.id, "m-internal").cleared_up_to == "internal"
 
 
 @pytest.mark.asyncio

@@ -1,38 +1,4 @@
-"""The device service's side of Octryx Mobile "live": the person's phone talks to Claude Code sessions running here.
-
-Off until the person switches it on on this machine (``octryx-claude device live on``). Then, over the device
-channel the service already holds:
-
-- **``live_sessions``** (device → platform): the running sessions of every profile (:mod:`live_sessions`), when
-  the list changes and at least every :data:`REPORT_SECONDS`, so the phone can tell a fresh list from a stale one.
-  Switched off, one empty list goes out and nothing more.
-- **``live_send``** (platform → device) ``{message_id, peer, text, sender}``: the person's text for one session.
-  The service checks the address against its own list again (the platform reaches only sessions this machine
-  lists right now), drops a ``message_id`` it has seen, and hands the text to the relay (:mod:`mobile_relay`).
-- **``live_delivery``** (device → platform) ``{message_id, state, reason}``: ``delivered`` (the session got the
-  text exactly as written), ``altered`` (the relay's call differed: shown as not delivered as written) or
-  ``failed`` with a reason (``live_off``, ``session_gone``, ``invalid``, ``relay_failed``).
-- **``live_incoming``** (device → platform) ``{from, name, text, at}``: what a session sent back to the relay.
-- **``live_progress``** (device → platform) ``{peer, events}``: what a listed session is doing, read-only from its
-  transcript (:mod:`live_progress`): narration, tool calls, whether they worked, prompts; never thinking or file
-  contents. Off with ``octryx-claude device live progress off``.
-- **``live_attachment``** (platform → device) ``{message_id, attachment_id, index, total, data}``: a picture the
-  phone attached, in chunks before the ``live_send`` that names it (``attachments: [{id, media_type, size,
-  sha256}]``). The service joins the chunks, checks size, hash and that the bytes really are a PNG, JPEG or WebP,
-  and writes the picture to :func:`inbox_dir` (the user's own temp folder, 0700; the file 0600, kept
-  :data:`INBOX_KEEP_SECONDS`). The session gets the text plus the paths, so Claude can open the picture with its Read
-  tool. A missing or wrong picture fails the message (``attachment_missing``); nothing half-received is delivered.
-
-While live is on, the relay runs from the service's start (and again after it ended), not only from the phone's
-first message: a session can write to ``octryx-mobile`` and reach the phone at any time, also right after an update
-restarted the service.
-
-What could not go out while the channel was down waits in memory (at most :data:`MAX_BUFFER`) and goes out after
-the next ``connected``. Nothing here reads transcripts or key files; the texts are what the two sides wrote.
-
-The Mac shows a notification for every text the phone sends to one of its sessions, so input
-from outside never reaches a running session unseen.
-"""
+"""The device service's side of Octryx Mobile "live": the phone talks to Claude Code sessions running here."""
 
 from __future__ import annotations
 
@@ -219,7 +185,6 @@ class LiveBridge(AttachmentInbox):
 
     @staticmethod
     def notify(text: str) -> None:
-        """A macOS notification from "Octryx" (:mod:`mac_notify`); best effort, never raises."""
         from .mac_notify import notify  # noqa: PLC0415
 
         notify("Octryx", text[:200])

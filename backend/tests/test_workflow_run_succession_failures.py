@@ -9,7 +9,10 @@ from app.services.secure_work.pull_requests.record_identity import pull_request_
 from app.services.workflow_runs.actions import perform_action
 from app.services.workflow_runs.records import WorkflowRunError
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_succession_support import BRANCH, Tools, _definition, _item, _origin, _start
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio

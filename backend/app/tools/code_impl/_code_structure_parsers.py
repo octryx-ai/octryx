@@ -1,10 +1,4 @@
-"""Deterministic per-language declaration parsers for code structure snapshots.
-
-These parsers read LITERAL declarations only (package/module statements, import
-statements, `class X extends Y implements Z`, explicit field and method
-declarations). They never guess or infer content that is not written in the
-file: every emitted name, field, and relation maps to a declaration line.
-"""
+"""Deterministic per-language declaration parsers for code structure snapshots."""
 
 from __future__ import annotations
 
@@ -26,12 +20,6 @@ LANGUAGE_SUFFIXES: dict[str, tuple[str, ...]] = {}
 
 
 def register_language_parser(language: str, suffixes: tuple[str, ...], parser: LanguageParser) -> None:
-    """Register a per-language declaration parser.
-
-    Extension point for additional languages (e.g. a project-specific DSL):
-    register a collector here and ``code_structure_snapshot`` picks it up
-    without changes to the core collector.
-    """
     normalized = str(language or "").strip().lower()
     if not normalized:
         raise ValueError("language is required")
@@ -48,7 +36,6 @@ def language_for_suffix(suffix: str) -> str:
 
 
 def parse_file_structure(relative_path: str, text: str, language: str) -> dict[str, Any]:
-    """Return {package, imports, types:[{name, kind, extends, implements, fields, methods}]}."""
     parser = _LANGUAGE_PARSERS.get(str(language or "").strip().lower())
     if parser is None:
         return {"package": "", "imports": [], "types": []}
@@ -56,7 +43,6 @@ def parse_file_structure(relative_path: str, text: str, language: str) -> dict[s
 
 
 def _strip_comments(text: str, *, line_marker: str = "//") -> list[str]:
-    """Remove block and line comments so declaration regexes see code only."""
     without_blocks = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
     lines = []
     for line in without_blocks.splitlines():
@@ -67,7 +53,6 @@ def _strip_comments(text: str, *, line_marker: str = "//") -> list[str]:
 
 
 def _split_type_list(raw: str) -> list[str]:
-    """Split `A, B<T>, c.d.E` into base type names without generics/packages."""
     names: list[str] = []
     depth = 0
     current = ""
@@ -108,7 +93,6 @@ _JAVA_KEYWORD_RETURNS = {"new", "return", "if", "while", "for", "switch", "throw
 
 
 def _java_declaration_text(lines: list[str], start_index: int) -> str:
-    """Join the declaration from its first line until `{` (or a bounded lookahead)."""
     collected: list[str] = []
     for offset in range(0, 6):
         if start_index + offset >= len(lines):

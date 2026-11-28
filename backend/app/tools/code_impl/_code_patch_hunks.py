@@ -1,10 +1,4 @@
-"""Unified-diff hunks: parse them and apply them to a file's lines, reporting a miss as facts.
-
-A hunk carries its old block (context and removed lines) and its new block (context and added
-lines). It applies where the header says, shifted by the earlier hunks; when the old block is not
-there, it applies at the one other place the old block occurs. Otherwise the hunk did not apply and
-the caller gets platform-written facts (hunk index, header line, closed reason), never library text.
-"""
+"""Unified-diff hunks: parse them and apply them to a file's lines, reporting a miss as facts."""
 
 from __future__ import annotations
 
@@ -29,8 +23,6 @@ class PatchHunk:
 
 
 class PatchHunkError(Exception):
-    """A hunk that cannot be applied; ``facts`` is the platform-written result for the agent."""
-
     def __init__(self, facts: dict[str, Any]) -> None:
         super().__init__(facts.get("error_code", HUNK_DID_NOT_APPLY))
         self.facts = facts
@@ -50,7 +42,6 @@ def _body_ends(lines: list[str], index: int) -> bool:
 
 
 def parse_hunks(lines: list[str], index: int) -> tuple[list[PatchHunk], int]:
-    """The hunks of one file section starting at ``index``, and the index after them."""
     hunks: list[PatchHunk] = []
     while index < len(lines) and lines[index].startswith("@@"):
         match = _HEADER.match(lines[index])
@@ -118,7 +109,6 @@ def _position(content: list[str], hunk: PatchHunk, expected: int) -> int:
 
 
 def apply_hunks(original: list[str], hunks: list[PatchHunk]) -> tuple[list[str], list[dict[str, Any]]]:
-    """The patched lines and one fact per hunk (``applied_at_line``, ``offset_lines``)."""
     newline = "\r\n" if original and original[0].endswith("\r\n") else "\n"
     content = list(original)
     shift = 0

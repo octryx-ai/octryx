@@ -1,11 +1,4 @@
-"""An inbound webhook bound to a Work intake's sync task triggers that intake's sync.
-
-A source that can push ("a ticket changed") should not wait for the next schedule, and must not start an agent turn
-either: the call only queues the intake's own deterministic sync task (``run_task_now``, ``trigger_type`` ``webhook``),
-which reads the API itself through the intake's scope. The webhook's payload never reaches the run (third-party text,
-nothing to act on). A disabled intake is answered ``intake_not_enabled`` and nothing runs: it is enabled only after a
-preview, and a webhook must not bypass that. Signature, replay and pause checks ran before (``trigger.receive_alert``).
-"""
+"""An inbound webhook bound to a Work intake's sync task triggers that intake's sync."""
 
 from __future__ import annotations
 

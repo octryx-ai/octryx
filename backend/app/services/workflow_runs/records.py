@@ -1,14 +1,4 @@
-"""Create, bind, read and record workflow runs.
-
-A run starts for a published workflow, optionally anchored on a Work item (its ticket key becomes the
-run's ticket). It pins the version it started with: a later publish never changes a running run. A run
-is bound to one active main session at a time; binding a new session resumes the run there (the old
-binding stays as history).
-
-Access is decided in ``access.py``. Every state change first claims the run row (:func:`lock_run`): a
-compare-and-set on ``state_version`` that serialises concurrent decisions, sweeps, watch events and turn reports;
-whoever comes second re-reads the run and decides against its current state.
-"""
+"""Create, bind, read and record workflow runs."""
 
 from __future__ import annotations
 
@@ -41,10 +31,6 @@ _CLAIMS = "workflow_run_claims"
 
 
 class WorkflowRunError(ValueError):
-    """A run cannot be started or changed; ``code`` is closed, ``status_code`` the HTTP answer.
-
-    ``state``: the typed execution state of a refusal that names one (``needs_configuration``), else ``None``."""
-
     def __init__(self, code: str, message: str, status_code: int = 409, *, persist: bool = False,
                  state: str | None = None) -> None:
         super().__init__(message)
@@ -62,12 +48,7 @@ def _forget_claims(session: OrmSession) -> None:
 
 
 async def lock_run(db: AsyncSession, run: WorkflowRun) -> WorkflowRun:
-    """Claim the run row for this transaction and return its current state.
-
-    A compare-and-set bumps ``state_version``; on PostgreSQL the update also holds the row until commit, so a
-    concurrent claimer waits, then sees the new version, re-reads the run and claims again. Claim before any
-    change: a re-read discards unflushed changes. A run claimed earlier in this transaction is returned as is.
-    """
+    # Claim before any change: a re-read discards unflushed changes.
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -89,9 +70,7 @@ async def lock_run(db: AsyncSession, run: WorkflowRun) -> WorkflowRun:
 
 
 async def reclaim_run(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Take the claim back after a step committed mid-way (the claim ends at every commit): one compare-and-set on
-    the version this caller held. ``False`` when another writer changed the run meanwhile — the caller must stop
-    (it no longer owns the run), never re-read and go on."""
+    # False means another writer changed the run: the caller no longer owns it and must stop, never re-read and go on.
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -125,17 +104,16 @@ def record_event(
     run.updated_at = utc_now()
     from ..attention.stream import NUDGE_EVENT_KINDS, job_changed_after_commit, nudge_after_commit
 
-    if kind not in NUDGE_EVENT_KINDS:  # tool, phase, session, push: only the run's watchers re-read it
+    if kind not in NUDGE_EVENT_KINDS:
         job_changed_after_commit(db, run.id)
         return event
-    nudge_after_commit(db, run.requested_by, run_id=run.id, event=kind)  # the requester's companion re-reads its queue
+    nudge_after_commit(db, run.requested_by, run_id=run.id, event=kind)
     if run.responsible_user_id and run.responsible_user_id != run.requested_by:
-        nudge_after_commit(db, run.responsible_user_id, run_id=run.id, event=kind)  # and the responsible person's
+        nudge_after_commit(db, run.responsible_user_id, run_id=run.id, event=kind)
     return event
 
 
 def ticket_key_of(item: WorkItem | None) -> str | None:
-    """A Jira Work item's key is the run's ticket; other sources get one through a ``jira.create_issue`` step."""
     if item is None or str(item.source_type or "").lower() != "jira":
         return None
     return item.source_key
@@ -159,16 +137,7 @@ async def start_run(
     automatic: bool = False,
     responsible: tuple[str | None, str | None] | None = None,
 ) -> WorkflowRun:
-    """Start a run of a published phased workflow through the engine.
-
-    ``ticket_key`` / ``context``: what a sub-workflow inherits from its parent (the ticket it works on) or an
-    automation start carries (the alert as data, the Action's Jira project) — set before the first node runs.
-    ``runtime_target``: where the run executes (``runtime_target.target``), validated and set on the run and its chat
-    thread before the first node runs, so every runtime step (``workspace.prepare``, phases) runs there.
-    ``automatic``: no person started the run (spec B/C §2): its responsible person comes from the Work item's chain
-    (``responsible.responsible_for``); a person's start keeps the requester, a sub-workflow its parent's.
-    ``responsible``: ``(user id, source)`` carried over as is, never resolved again (a triage's follow-up,
-    ``triage_routing``)."""
+    # The runtime target is set before the first node runs, so every runtime step runs there.
     from .engine import start_phased_run
     from .run_start import plan_start
 
@@ -183,7 +152,6 @@ async def start_run(
 
 
 def has_done_criteria(contract: dict[str, Any]) -> bool:
-    """A phase needs declared checks or steps to know when it is done."""
     from ..workflow_checks.library import workflow_checks
     from ..workflow_checks.steps import step_checks
 
@@ -201,11 +169,6 @@ async def bind_session(
     db: AsyncSession, run: WorkflowRun, session: Session, *, actor_id: str | None = None,
     role: str = ROLE_MAIN, runtime: str = RUNTIME_CHAT,
 ) -> WorkflowRunSession:
-    """Bind ``session`` as the run's active session of ``role``; an earlier binding of that role ends.
-
-    A run that waits for its sub-workflow hands the session on to the active child: the child's phases are
-    what the session works on (the session returns to the parent when the child ends).
-    """
     from .run_sessions import _active_descendant, _name_thread, _refuse_foreign_binding
 
     run = await _active_descendant(db, run)
@@ -240,7 +203,6 @@ async def bind_session(
 
 
 async def active_run_for_session(db: AsyncSession, session_id: str | None) -> WorkflowRun | None:
-    """The run the session is bound to while the run is active (running, waiting or paused)."""
     if not session_id:
         return None
     row = (await db.execute(

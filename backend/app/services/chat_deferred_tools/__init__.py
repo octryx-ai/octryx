@@ -1,21 +1,4 @@
-"""A chat sends its core tools in full and every other offered tool by name.
-
-Sending ~52k characters of tool schemas per chat request is too much, so the chat does what the Octryx client does. An
-interactive client session defers its MCP tools: the model sees their names, ``ToolSearch`` loads the schemas it needs,
-and those tools are callable from then on. The chat does the same:
-
-- **core** (``CHAT_CORE_TOOLS``, about ten): sent with full schemas on every request;
-- **deferred**: every other tool the turn offers. It is already filtered by catalog, connections and Workspace policy
-  (``run_context_tooling``). The tool_search description lists the deferred tools by name, grouped by the governed
-  set's families;
-- ``tool_search`` (``select:<a,b>`` or keywords) returns the matching deferred tools' full schemas. They are sent from
-  the next model call of the turn on, and for the rest of the session: a later turn re-derives what the session loaded
-  from its stored messages (``session_loaded_tool_names``), so nothing depends on a session-metadata write that a turn
-  could overwrite.
-
-A workflow run's phase turn keeps its phase-only surface (``run_context`` defers only chat turns of a governed default
-or Workspace-policy surface).
-"""
+"""A chat sends its core tools in full and every other offered tool by name."""
 
 from __future__ import annotations
 

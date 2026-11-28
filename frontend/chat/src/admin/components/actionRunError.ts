@@ -1,30 +1,13 @@
 import type { PanelTaskRunRow } from "./taskTypes";
 
-// Plain-language guidance for an Action run's error. Presentation only: it explains what a
-// failed run's stored error means and what to check, and never changes how anything runs.
-//
-// The scheduler stores these exact agent refusal codes as the run's error, with status "error"
-// (scheduler/execution/task_execution.py, codes from services/agent_definition_execution.py). Only an
-// exact match on an error run is explained. Every other value, including lookalikes with a prefix,
-// suffix or different case, stays unclassified and is shown as the original text. Nothing here claims
-// what a run cost or whether it was retried, and the current Action config is never read to name the
-// agent a past run used.
-//
-// The checked reply format stores its closed codes the same way (task_execution.py via
-// turn_final_outcome.action_reply_verdict, and REASON_PATH_UNSUPPORTED for step runs); the wording
-// follows the chat status card (turn_execution_summary._REASONS). A runtime stop of a free-text agent
-// Stores the closed stop reason; those, and any stop the run's own output records as its
-// turn outcome, get one generic explanation. The raw code always stays in the technical details.
+// Only an exact match on an error run is explained; lookalikes stay unclassified and show the original text.
 
 export type KnownRunError = {
-  /** Short cause for the history table. */
   summary: string;
-  /** What to check or do, for the run's details. */
   guidance: string;
 };
 
-// The cause, the next step, and the next step while the Action is paused: a paused Action
-// cannot run, so its guidance says to resume it first instead of advising to run it again.
+// A paused Action cannot run, so its guidance says to resume it first instead of running it again.
 type RunErrorText = {
   summary: string;
   cause: string;
@@ -97,7 +80,6 @@ const KNOWN_RUN_ERRORS: Record<string, RunErrorText> = {
   },
 };
 
-/** The closed runtime stop reasons a free-text agent's run can store (turn_execution_snapshot.RUNTIME_STOP_REASONS). */
 const RUNTIME_STOP_REASONS = new Set([
   "step_tool_required",
   "step_stalled",
@@ -116,7 +98,6 @@ const STOPPED_BY_CHECK: RunErrorText = {
 
 const STOP_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 
-/** True when the run's own output records a stopped turn whose reason is exactly the stored error. */
 function outputRecordsStop(output: unknown, error: string): boolean {
   if (!output || typeof output !== "object" || Array.isArray(output))
     return false;
@@ -137,7 +118,6 @@ function explain(text: RunErrorText, paused: boolean): KnownRunError {
 export function knownRunError(
   // `output` is read only if the server sends it (the run list does not today).
   run: Pick<PanelTaskRunRow, "status" | "error"> & { output?: unknown },
-  // The Action is paused, so the next step starts with resuming it.
   { paused = false }: { paused?: boolean } = {},
 ): KnownRunError | null {
   if (run.status !== "error" || typeof run.error !== "string") return null;

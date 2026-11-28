@@ -71,12 +71,6 @@ async def _cancel(db: AsyncSession, *, ids_of: Any) -> None:
 
 
 async def _require_still_applicable(db: AsyncSession, takeover: WorkItemTakeover, now: Any) -> None:
-    """A confirm moves only the claim it was requested against, to a current member.
-
-    The item's live claim must still be ``from_claim_id`` (an admin request made without a claim: there must still
-    be no live claim); otherwise the takeover is stored ``cancelled`` and the answer is 409
-    ``takeover_not_pending``. A requester who left the Workspace is 409 ``requester_not_member``.
-    """
     current = await active_claim(db, takeover.work_item_id)
     if takeover.from_claim_id:
         stale = current is None or current.id != takeover.from_claim_id

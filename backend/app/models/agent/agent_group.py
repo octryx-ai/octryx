@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, T
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class AgentGroup(Base):
+class AgentGroup(WorkspaceBound, Base):
     __tablename__ = "agent_groups"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

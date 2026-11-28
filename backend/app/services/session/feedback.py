@@ -23,8 +23,6 @@ from ...time_utils import utc_isoformat
 
 @dataclass(frozen=True, slots=True)
 class SessionFeedbackRecord:
-    """One person's feedback on one answer, as kept in the Memory lobe (``knowledge_answer_feedback``)."""
-
     id: str
     message_id: str
     rating: str
@@ -40,8 +38,6 @@ REFUSAL_HTTP_STATUS = {"invalid_request": 422, "denied": 422, "not_found": 404, 
 
 
 class SessionFeedbackRefusedError(ConflictError):
-    """The feedback was refused for one fixed reason of the Memory lobe (``MemoryRefusedError``)."""
-
     def __init__(self, error: MemoryRefusedError) -> None:
         super().__init__(error.message)
         self.reason = error.reason
@@ -53,7 +49,6 @@ class SessionFeedbackRefusedError(ConflictError):
 
 
 def refused_feedback(error: MemoryRefusedError) -> Exception:
-    """The contract-carrying refusal for a lobe refusal, raised by the service and by the routes' parsing."""
     return _with_feedback_contract(SessionFeedbackRefusedError(error), error_code=f"session_feedback_{error.reason}")
 
 
@@ -72,12 +67,7 @@ async def submit_session_message_feedback(
     aspects: object = None,
     user_id: str,
 ) -> SessionFeedbackRecord:
-    """Record or replace the user's feedback on an assistant answer, in the Workspace's Memory lobe.
-
-    The payload is validated first (``feedback_contract.parse_answer_feedback``: closed values, bounded
-    texts, secrets refused). The lobe record and the integer transport row (``message_feedbacks``, read
-    by analytics) commit together; the transport row keeps no text. A refusal writes nothing.
-    """
+    # The lobe record and the transport row (read by analytics, no text) commit together; a refusal writes nothing.
     try:
         feedback = parse_answer_feedback(rating=rating, liked=liked, disliked=disliked, aspects=aspects)
     except MemoryRefusedError as error:

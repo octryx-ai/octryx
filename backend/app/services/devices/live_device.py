@@ -73,7 +73,6 @@ async def _record_incoming(db: AsyncSession, device: UserDevice, body: dict[str,
 
 
 async def _drop_attachments(db: AsyncSession, message_id: str) -> None:
-    """A settled message keeps no picture on the platform (the device has its copy, or it failed)."""
     await db.execute(delete(LiveAttachment).where(LiveAttachment.message_id == message_id))
 
 
@@ -91,7 +90,6 @@ async def _record_delivery(db: AsyncSession, device: UserDevice, body: dict[str,
 
 
 async def deliver_pending(db: AsyncSession, connection: Any) -> None:
-    """One channel tick: pending messages go to the device; unsettled ones time out."""
     now = utc_now()
     rows = (await db.execute(select(LiveMessage).where(
         LiveMessage.device_id == connection.device_id, LiveMessage.direction == LIVE_OUT,
@@ -128,8 +126,6 @@ async def deliver_pending(db: AsyncSession, connection: Any) -> None:
 
 
 async def _send_attachments(db: AsyncSession, connection: Any, message: LiveMessage) -> list[dict[str, Any]]:
-    """The message's pictures as ``live_attachment`` chunks; returns what the ``live_send`` then names
-    (id, type, size, hash)."""
     rows = (await db.execute(select(LiveAttachment).where(LiveAttachment.message_id == message.id)
                              .order_by(LiveAttachment.position))).scalars().all()
     named = []

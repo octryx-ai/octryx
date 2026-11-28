@@ -1,28 +1,4 @@
-"""ServiceNow incidents and changes from the instance's Scripted REST endpoints, on the Source Sync contract.
-
-With ``servicenow_api_style=scripted`` the connection has no Table API access, so the sync reads the configured
-endpoints (``services/servicenow_scripted.py``) instead: one target per configured record table (``incident``
-through ``servicenow_incidents_path``, ``change_request`` through ``servicenow_changes_path``), each paged by
-``sysparm_offset``; the token is ``"<target index>:<offset>"``. Knowledge base articles and encoded-query filters
-have no Scripted REST equivalent: a scope that asks for them is refused (``scope_not_allowed``), never silently
-narrowed or widened.
-
-**Items.** The external id is the ``sys_id`` (32 hex characters); the version marker is
-``<sys_mod_count>@<sys_updated_on>`` when the endpoint sends them, else a hash of the record, so any change of
-the record is a new revision. The link opens the record (``nav_to.do?uri=<table>.do?sys_id=``).
-
-**ACL.** The endpoint answers after the instance's ACLs for the integration user. A record that names its domain
-keeps the Table API rule (outside ``global``: restricted, domain separation). A record without ``sys_domain``
-(the endpoint does not expose it) is readable by the connector's audience, like a ``global`` record: the
-endpoint is the customer's curated read-only view. That is a deliberate decision.
-
-**Record limit.** With the connector's ``servicenow_assignment_groups``/``servicenow_services`` only records
-inside the limit are listed (``servicenow_record_limit``, client-side: the endpoint lists what it lists); paging
-follows the endpoint's pages.
-
-**Content.** The listing already carries the full record (display values), so ``fetch`` renders the record
-listed in this run as Markdown (``servicenow_render.py``); nothing is read twice and nothing is written.
-"""
+"""ServiceNow incidents and changes from the instance's Scripted REST endpoints, on the Source Sync contract."""
 
 from __future__ import annotations
 
@@ -73,7 +49,6 @@ def _marker(record: dict) -> str:
 
 
 def scripted_acl(record: dict) -> AclFacet:
-    """The Table API domain rule when the record names its domain; else the connector's audience."""
     return record_acl(record) if "sys_domain" in record else AclFacet.scope()
 
 

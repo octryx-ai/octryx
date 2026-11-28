@@ -1,10 +1,4 @@
-"""The schedule jobs the scheduling owner registered, read from its acknowledgements.
-
-A process without the scheduler lease (an API process next to the platform worker) has no
-APScheduler jobs of its own; the owner acknowledges every job it holds in
-``scheduler_job_applications`` under its lease epoch. This lists those of the live owner in
-the shape of ``TaskScheduler.get_jobs``.
-"""
+"""The schedule jobs the scheduling owner registered, read from its acknowledgements."""
 
 from __future__ import annotations
 

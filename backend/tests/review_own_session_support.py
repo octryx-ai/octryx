@@ -24,7 +24,6 @@ def _runtime(model: str, **extra) -> dict:
 
 @pytest.fixture
 def workspace_runtimes(monkeypatch):
-    """The Workspace's governed runtimes (all admitted) and a provider client that records the model it ran."""
     import app.agent.providers as providers
     import app.services.workflow_routing.proposal_model as proposal_model
     import app.services.workflow_runs.review.model as review_model

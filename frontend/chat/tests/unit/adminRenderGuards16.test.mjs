@@ -14,17 +14,17 @@ test("the LiteLLM gateway add form reports its state, refuses an incomplete draf
   const contract = { emptyGatewayDraft: () => ({ endpoint: "" }), isGatewayDraftSubmittable: (draft) => Boolean(draft.displayName && draft.endpoint),
     buildGatewayCreatePayload: (draft) => ({ built: draft }) };
   const { LiteLlmGatewayAddForm } = loadStubbed("admin/components/providerTab/LiteLlmGatewayAddForm.tsx", ["./LiteLlmGatewayConfigFields",
-    "./LiteLlmGatewaySecretNotice", "./ProviderTypeSelect"], {}, { "./litellmGatewayContract": contract, "./litellmGatewayDrafts": contract, "./litellmGatewayPayload": contract, "./litellmGatewayTypes": contract, "./litellmGatewayValidation": contract });
+    "./LiteLlmGatewaySecretNotice"], {}, { "./litellmGatewayContract": contract, "./litellmGatewayDrafts": contract, "./litellmGatewayPayload": contract, "./litellmGatewayTypes": contract, "./litellmGatewayValidation": contract });
   let answer = { ok: false, error: "Taken" };
   const display = [];
   const ctx = { handleCreateLiteLlmGatewayProvider: async (payload) => { created.push(payload); return answer; }, newProviderDisplay: "GW",
-    newProviderDriver: "litellm_gateway", setNewProviderDisplay: (value) => display.push(value), setNewProviderDriver() {} };
+    setNewProviderDisplay: (value) => display.push(value) };
   const onStateChange = (state) => states.push(state);
   const view = create(createElement(LiteLlmGatewayAddForm, { ctx, formId: "f1", onStateChange }));
   assert.equal(all(view, "form")[0].props.id, "f1");
   assert.equal(all(view, "input")[0].props.value, "GW");
   assert.equal(stubs(view, "LiteLlmGatewaySecretNotice")[0].props.idPrefix, "litellm-gateway-new");
-  assert.equal(hostCount(view), 7);
+  assert.equal(hostCount(view), 6);
   await act(async () => all(view, "form")[0].props.onSubmit({ preventDefault() {} }));
   includesAll(text(view.root), ["The governed fields are incomplete."]);
   act(() => stubs(view, "LiteLlmGatewayConfigFields")[0].props.onChange({ endpoint: "https://gw" }));

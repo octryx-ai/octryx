@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, T
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import dump_string_list, safe_string_list
 
@@ -12,7 +13,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class OutboundWebhook(Base):
+class OutboundWebhook(WorkspaceBound, Base):
     __tablename__ = "outbound_webhooks"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -42,7 +43,8 @@ class OutboundWebhook(Base):
         self.event_types_json = dump_string_list(list(value or []))
 
 
-class OutboundWebhookDelivery(Base):
+class OutboundWebhookDelivery(WorkspaceBound, Base):
+    __workspace_owners__ = {"webhook_id": "outbound_webhooks"}
     __tablename__ = "outbound_webhook_deliveries"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

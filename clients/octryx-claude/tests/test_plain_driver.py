@@ -1,6 +1,3 @@
-"""epic-delivery runs its story session as ``claude -p``: a same-hour plain control built a story in 9:28,
-the Agent SDK session in 20-30 min. The command must be plain Claude Code's plus the platform's settings file."""
-
 from __future__ import annotations
 
 import asyncio
@@ -42,8 +39,6 @@ def test_the_turn_is_claude_p_with_the_platforms_settings_and_nothing_of_the_sdk
 
 
 def test_the_prompt_goes_in_on_stdin_and_never_into_the_process_list(tmp_path):
-    """A subagent's ``pkill -f "tinytasks.run --port 0"`` stopped every session whose argv carried the story (live
-    Token-gap mini test): the story names the app's command line."""
     fake = tmp_path / "claude"
     fake.write_text('#!/bin/sh\necho "$@" > "$0.argv"\ncat > "$0.stdin"\n'
                     'echo \'{"type": "result", "is_error": false, "result": "ok", "session_id": "cs-1"}\'\n')
@@ -62,8 +57,6 @@ def test_the_prompt_goes_in_on_stdin_and_never_into_the_process_list(tmp_path):
 
 
 def test_the_run_note_names_the_one_screenshot_form_that_leaves_the_sandbox(tmp_path):
-    """Own Playwright scripts cannot start Chromium in the sandbox (run 5b: 21 sandbox refusals, a frontend told to
-    "verify by careful reading"); the note names the wrapped CLI form up front."""
     from octryx_claude import local_tests
     from octryx_claude.plain_session import PLAIN_NOTE
 
@@ -93,17 +86,15 @@ def test_the_json_result_is_the_turns_result(tmp_path):
 
 
 def test_the_run_note_starts_backend_frontend_and_system_tests_as_three_parallel_subagents():
-    """The run note starts backend, frontend and system tests as three parallel subagents."""
     from octryx_claude.plain_session import PLAIN_NOTE
 
-    # Prompt audit (#8): the three in parallel where the story has them, never a forced backend agent on a
+    # The three in parallel where the story has them, never a forced backend agent on a
     # frontend-only story.
     assert "backend, frontend and system tests where the story has them, in one message so they run in parallel" \
         in PLAIN_NOTE
 
 
 def test_the_frontend_subagent_owns_the_screen_look_and_the_lead_runs_the_suite_once():
-    """The frontend subagent owns the screen look; the lead runs the declared suite once."""
     from octryx_claude.plain_session import PLAIN_NOTE
 
     assert "The frontend subagent owns the look at the screens" in PLAIN_NOTE
@@ -112,7 +103,6 @@ def test_the_frontend_subagent_owns_the_screen_look_and_the_lead_runs_the_suite_
 
 
 def test_a_subagent_named_sonnet_or_opus_runs_on_the_phases_model(tmp_path):
-    """A subagent started with model "sonnet" or "opus" runs on the phase's model, never escalated to Opus."""
     from octryx_claude.plain_session import PLAIN_NOTE, SUBAGENT_ALIAS_ENV
 
     seen = tmp_path / "seen.json"
@@ -151,7 +141,6 @@ def test_a_session_without_a_phase_model_keeps_its_settings(tmp_path):
 
 
 def test_a_story_whose_phase_opted_in_gets_its_own_browser_in_this_turns_mcp_config_only(tmp_path):
-    """Epic-delivery's plain story session gets the phase's browser too."""
     (tmp_path / "mcp.json").write_text(json.dumps({"mcpServers": {"octryx-knowledge": {"type": "http"}}}))
     plain = command(_prepared(tmp_path), resume=None)
     assert plain[plain.index("--mcp-config") + 1] == str(tmp_path / "mcp.json")  # not opted in: unchanged
@@ -170,7 +159,6 @@ def test_a_phase_with_a_browser_names_the_browser_tools_not_the_screenshot_comma
 
 
 def test_claude_codes_own_rate_limit_error_is_the_turns_error_code(tmp_path):
-    """Coordinator: Claude Code's ``error`` of the turn, never the text, marks the seat's limit."""
     rows = [{"type": "assistant", "error": "rate_limit", "message": {"content": []}},
             {"type": "result", "subtype": "success", "is_error": True, "result": "You've hit your session limit",
              "session_id": "cs-1"}]

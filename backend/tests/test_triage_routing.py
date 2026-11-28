@@ -1,14 +1,4 @@
-"""Routing by type after the triage.
-
-Contract: a triage run that completes ``done`` starts exactly one follow-up run of the workflow its Definition of
-Ready's ``type`` maps to (defaults feature → epic-delivery, bug → bug-fix-reproduction, incident →
-incident-analysis; the Workspace setting overrides them, a ``routing`` block on the triage definition's outcome
-overrides that). The follow-up carries the Work item, the repository, the requester, the responsible person (copied,
-never resolved again) and the Definition of Ready (``context.handoff``); it runs where the triage ran when that is
-still the requester's own target, else on the Server. An unknown or switched-off type starts nothing and records
-"No route for type X". ``routed_to`` / ``routed_from`` events link both runs; finishing again never starts a second
-one. ``entry_workflow_for``: a Jira Incident and a ServiceNow ``incident`` skip the triage.
-"""
+"""Routing by type after the triage."""
 
 from __future__ import annotations
 
@@ -25,9 +15,12 @@ from app.services.workflow_runs.records import main_session_id, new_chat_session
 from app.services.workflow_runs.triage_routing import ROUTING_KEY, route_after_triage
 from tests.knowledge_evidence_seed_support import seed_outsider, seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.test_workflow_run_platform_actions import FakeTools
 from tests.triage_routing_support import _item, _server_pipeline, _triage_seed  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FEATURE = {"type": "feature", "summary": "Round totals", "acceptance_criteria": ["Totals round half up"],
            "repository": "github:acme/pay"}
@@ -39,7 +32,6 @@ BUG = {"type": "bug", "summary": "Totals wrong", "reproduction_steps": ["Add 0.0
 
 async def _at_ready(db, monkeypatch, record: dict, *, project_id: str | None = None,
                     workflow_key: str = "jira-intake-triage", context: dict | None = None):
-    """A triage run waiting at its "Start delivery?" confirmation with ``record`` as its Definition of Ready."""
     FakeTools(monkeypatch, {"get_jira_ticket": [{"key": "PAY-1"}]})
     admin = await admin_user(db)
     item = await _item(db, project_id=project_id)
@@ -68,17 +60,14 @@ async def _events(db, run: WorkflowRun, kind: str) -> list[WorkflowRunEvent]:
         WorkflowRunEvent.run_id == run.id, WorkflowRunEvent.kind == kind))).scalars())
 
 
-# ---- after the triage ---------------------------------------------------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_a_ready_feature_starts_one_feature_delivery_run_carrying_item_requester_responsible_and_dor(
         db, monkeypatch):
     run, item, admin = await _at_ready(db, monkeypatch, FEATURE, context={"jira_project_key": "PAY"})
     other = await db.get(User, await seed_outsider(db))
-    # A platform admin took the run over; the requester of this Workspace-less run is no decider of its own.
     admin_role = (await db.execute(select(Role).where(Role.name == "admin"))).scalar_one()
     db.add(UserRole(user_id=other.id, role_id=admin_role.id))
-    run.responsible_user_id, run.responsible_source = other.id, "taken_over"  # copied, never resolved again
+    run.responsible_user_id, run.responsible_source = other.id, "taken_over"
     await _confirm(db, run, other)
 
     assert (run.status, run.outcome) == ("completed", "done")
@@ -92,7 +81,7 @@ async def test_a_ready_feature_starts_one_feature_delivery_run_carrying_item_req
     handed = available_inputs(child, [])["definition_of_ready"]
     assert (handed["type"], handed["acceptance_criteria"], handed["complete"]) == (
         "feature", ["Totals round half up"], True)
-    assert await main_session_id(db, child) is not None  # its own chat thread
+    assert await main_session_id(db, child) is not None
 
     [routed_to] = await _events(db, run, "routed_to")
     assert routed_to.detail["workflow_key"] == "epic-delivery" and routed_to.detail["run_id"] == child.id
@@ -108,10 +97,10 @@ async def test_finishing_again_or_a_lost_marker_never_starts_a_second_follow_up(
     [child] = await _follow_ups(db, run)
     assert child.workflow_key == "bug-fix-reproduction"
 
-    assert await route_after_triage(db, run, actor_id=admin.id) is None  # a retry / sweep
+    assert await route_after_triage(db, run, actor_id=admin.id) is None
     context = dict(run.context)
     context.pop(ROUTING_KEY)
-    run.context = context  # the marker lost: the follow-up's routed_from still names this triage
+    run.context = context
     assert await route_after_triage(db, run, actor_id=admin.id) is None
     assert [item.id for item in await _follow_ups(db, run)] == [child.id]
     assert run.context[ROUTING_KEY]["run_id"] == child.id
@@ -180,9 +169,9 @@ async def test_the_follow_up_never_runs_on_another_persons_device(db, monkeypatc
     run, _item_, admin = await _at_ready(db, monkeypatch, FEATURE, context={"runtime_target": foreign})
     await _confirm(db, run, admin)
     [child] = await _follow_ups(db, run)
-    assert child.context["runtime_target"]["kind"] == "server"
+    assert child.context["runtime_target"].get("pool") is True, "the server's runners, never their device"
     [routed_to] = await _events(db, run, "routed_to")
-    assert routed_to.detail["runtime_target"] == "server"
+    assert routed_to.detail["runtime_target"] == "server"  # requested; the follow-up's start resolves it
     assert routed_to.detail["runtime_target_fallback"] == "runtime_device_not_owner"
 
 
@@ -191,7 +180,7 @@ async def test_a_triage_on_the_server_hands_the_server_on(db, monkeypatch):
     run, _item_, admin = await _at_ready(db, monkeypatch, FEATURE, context={"runtime_target": {"kind": "server"}})
     await _confirm(db, run, admin)
     [child] = await _follow_ups(db, run)
-    assert child.context["runtime_target"]["kind"] == "server"
+    assert child.context["runtime_target"].get("pool") is True, "the server's agents are its runners"
     [routed_to] = await _events(db, run, "routed_to")
     assert "runtime_target_fallback" not in routed_to.detail
 

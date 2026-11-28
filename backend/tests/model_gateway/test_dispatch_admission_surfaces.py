@@ -1,14 +1,4 @@
-"""What a refused dispatch owner actually surfaces, and what it still passes.
-
-Two properties that admission propagation can silently get wrong:
-
-- **the refusal survives.** A typed, bounded denial has to reach the owner's own
-  result — a spoken CallAgent answer, a knowledge tool payload, a session row, a
-  pre-turn HTTP detail — instead of being flattened into a generic failure. And it
-  must not be lost when something *else* fails afterwards.
-- **nothing else changes.** The admission argument is an alias decision, not a
-  constructor field, so a non-gateway driver is built from its own kwargs only.
-"""
+"""What a refused dispatch owner actually surfaces, and what it still passes."""
 
 from __future__ import annotations
 
@@ -34,9 +24,6 @@ class _FailingClient:
 
 async def _gateway_chain() -> list[dict[str, Any]]:
     return [gateway_runtime()]
-
-
-# --- the refusal survives ----------------------------------------------------
 
 
 async def test_call_agent_run_keeps_the_typed_denial_instead_of_a_generic_apology(
@@ -107,7 +94,6 @@ async def test_the_pre_turn_denial_is_not_lost_behind_a_later_provider_failure()
     assert also_failed.detail["dispatch_owner"] == "chat_turn_task_extraction"
     assert also_failed.detail["runtime_failure"] is True
 
-    # Provider-only errors return a plain-text detail.
     plain = _pre_turn_dispatch_failure(None, RuntimeError("upstream timeout"))
     assert plain.status_code == 502
     assert isinstance(plain.detail, str)
@@ -116,8 +102,6 @@ async def test_the_pre_turn_denial_is_not_lost_behind_a_later_provider_failure()
 async def test_knowledge_retrieval_keeps_the_graph_denial_as_a_typed_payload(
     db: AsyncSession, monkeypatch
 ):
-    """``global_answer_error`` keeps the typed refusal, never a free-text string."""
-
     from app.services import control_plane_service
     from app.tools.context import ToolContext
     from app.tools.knowledge_impl._knowledge_retrieve import KnowledgeRetrieveTool
@@ -150,12 +134,6 @@ async def test_knowledge_retrieval_keeps_the_graph_denial_as_a_typed_payload(
 async def test_a_partial_refusal_is_not_lost_when_the_admitted_runtime_fails(
     db: AsyncSession, monkeypatch
 ):
-    """One gateway target refused, the fallback dispatched and failed.
-
-    The chain error has to carry the refusal too; otherwise an operator reading
-    "all runtimes failed" cannot see that one of them was a policy decision.
-    """
-
     from app.services import control_plane_service
     from app.services.knowledge_graph.llm_runtime import (
         KnowledgeLLMUnavailableError,

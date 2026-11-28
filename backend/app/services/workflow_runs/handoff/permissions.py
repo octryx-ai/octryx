@@ -121,11 +121,7 @@ async def _sources(db: AsyncSession, scope: dict, actor: User) -> None:
 
 async def rights_evaluator(*, db: AsyncSession, actor: User, scope: dict, envelopes: dict,
                            runtime_target: dict | None) -> dict:
-    """Prove ordinary resource scope, not model/provider admission.
-
-    Model dispatch still admits the actual receiver under its normal provider policy;
-    acceptance may therefore hold before agent execution. Work roles grant no rights.
-    """
+    # Proves resource scope only; model dispatch still admits the receiver under its own provider policy.
     _scope(scope, envelopes)
     current = await active_human(db, actor.id)
     if current is None or current.id not in await workspace_humans(db, scope["workspace_id"]):

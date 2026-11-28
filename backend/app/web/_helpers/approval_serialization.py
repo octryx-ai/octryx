@@ -28,7 +28,6 @@ def _summarize_change_preview(preview: dict | None) -> str:
 
 
 async def approver_names(db: AsyncSession, approvals: list[Approval]) -> dict[str, str]:
-    """Who decided each approval, by name (the write plan card says who confirmed it)."""
     ids = {str(approval.approved_by) for approval in approvals if approval.approved_by}
     if not ids:
         return {}

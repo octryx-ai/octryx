@@ -1,16 +1,4 @@
-"""One corporate identity from all of a profile's templates.
-
-A brand ships more than one template — decks *and* documents — and they share a
-core (typeface, neutral palette, logo, company name) while deliberately using
-different accent palettes: presentation accents are vivid, document accents are
-subdued. Merging every accent into one list would erase that distinction, so this
-builds a *unified* identity instead: one shared core across every source, plus a
-separate accent palette per medium. Disagreements in the core (a different
-typeface between two templates) are recorded as conflicts, never averaged away.
-
-The builder is pure — it takes already-extracted brand signals, not files — so it
-is deterministic and testable without any template on disk.
-"""
+"""One corporate identity from all of a profile's templates."""
 
 from __future__ import annotations
 
@@ -30,12 +18,6 @@ _MEDIUM_BY_KIND = {"presentation": "presentation", "pptx": "presentation", "docu
 
 
 def _consensus(values: list[tuple[str, str]]) -> tuple[str, dict[str, Any] | None]:
-    """Agreed value across ``(value, source_file)`` pairs, plus any conflict.
-
-    Empty values are ignored. When the non-empty values disagree, the most common
-    wins and the disagreement is returned so the caller can surface it rather than
-    silently picking one.
-    """
     present = [(value, source) for value, source in values if str(value or "").strip()]
     if not present:
         return "", None
@@ -108,12 +90,7 @@ def _letterhead(clean: list[dict[str, Any]]) -> Any:
 
 
 def build_corporate_identity(sources: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build one identity from many template brand signals.
-
-    Each source is ``{"kind": "presentation"|"document", "source_file": str,
-    "theme": {"fonts": {...}, "colors": {...}}, "branding": {...}}`` — the shape
-    the pptx and docx snapshots already expose. Returns the unified identity brief.
-    """
+    """Build one identity from many template brand signals."""
     clean = [source for source in sources if isinstance(source, dict)]
     conflicts: list[dict[str, Any]] = []
     fonts = {
@@ -199,11 +176,7 @@ def _document_source(path: str | Path) -> dict[str, Any] | None:
 def corporate_identity_from_templates(
     *, presentation_paths: list[str] | None = None, document_paths: list[str] | None = None
 ) -> dict[str, Any]:
-    """Build the unified identity from a profile's template files on disk.
-
-    Unreadable templates are skipped rather than aborting the whole identity —
-    one broken upload never hides the rest of the brand.
-    """
+    """Build the unified identity from a profile's template files on disk."""
     sources: list[dict[str, Any]] = []
     for path in presentation_paths or []:
         source = _presentation_source(path)

@@ -1,16 +1,4 @@
-"""Team-rule proposals from ``@octryx ignore``.
-
-An ignored finding proposes a rule (``propose``): the file, the finding's text and the reason given. Nothing changes
-until a Workspace admin or owner decides (``decide``, ``api/routes/pr_review_bot.py``):
-
-- **accept**: the rule text (as proposed, or as the admin edited it) is appended to the repository's code style
-  ``rules`` (``code_style.store.set_repository_profile``, validated and audited). Every later review of the
-  repository reads it in its code style checklist as a team rule, the bot's too;
-- **reject**: the proposal is closed; the ignored finding stays ignored on its pull request.
-
-Proposals live in the Workspace's ``config["pr_review_bot"]["rule_proposals"]`` (the section the bot owns), the newest
-``MAX_PROPOSALS``.
-"""
+"""Team-rule proposals from ``@octryx ignore``."""
 
 from __future__ import annotations
 
@@ -43,7 +31,6 @@ def _store(project: Project, rows: list[dict[str, Any]]) -> None:
 
 
 def rule_text(finding: dict[str, Any], reason: str) -> str:
-    """``Do not report in pay/bulk.py: <the finding> (reason: <why>)``, at most ``MAX_RULE`` characters."""
     text = " ".join(str(finding.get("fix") or "").split())
     why = " ".join(reason.split())
     return (f"Do not report in {finding.get('file')}: {text}" + (f" (reason: {why})" if why else ""))[:MAX_RULE]
@@ -61,8 +48,6 @@ def propose(project: Project, *, repository_id: str, finding: dict[str, Any], re
 
 async def decide(db: AsyncSession, project: Project, proposal_id: str, *, accept: bool, actor_id: str,
                  rule: str = "") -> dict[str, Any] | str:
-    """The decided proposal, or a refusal reason (``proposal_not_found``, ``proposal_decided``,
-    ``repository_not_found``, or the code style's own validation reason)."""
     from app.services.code_style.schema_values import CodeStyleError
 
     from ..code_style.store import repository_profile, set_repository_profile

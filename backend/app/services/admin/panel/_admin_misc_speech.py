@@ -8,6 +8,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _MASK = "••••••••"
+_SETTINGS_VIEW = "admin.speech_settings"
 
 
 async def get_tts_masked_config(
@@ -23,13 +24,15 @@ async def get_tts_masked_config(
     ]
     result: dict[str, str] = {}
     for key in tts_keys:
-        value = await get_secret_value_func(db, tool_name="tts", field_name=key, project_id=None)
+        value = await get_secret_value_func(db, tool_name="tts", field_name=key, project_id=None,
+                                            purpose=_SETTINGS_VIEW)
         public_key = {
             "aws_access_key_id": "aws_polly_access_key_id",
             "aws_secret_access_key": "aws_polly_secret_key",
         }.get(key, key)
         result[public_key] = _MASK if value else ""
-    stt_val = await get_secret_value_func(db, tool_name="stt", field_name="openai_api_key", project_id=None)
+    stt_val = await get_secret_value_func(db, tool_name="stt", field_name="openai_api_key", project_id=None,
+                                         purpose=_SETTINGS_VIEW)
     result["stt_openai_api_key"] = _MASK if stt_val else ""
     return result
 
@@ -39,13 +42,9 @@ async def get_stt_config(
     *,
     get_secret_value_func: Callable[..., Any],
 ) -> dict[str, Any]:
-    """Return full STT provider configuration (masked secrets + non-secret settings).
-
-    Returns which provider is active and its configuration fields.
-    """
-
     async def stt(field_name: str) -> Any:
-        return await get_secret_value_func(db, tool_name="stt", field_name=field_name, project_id=None)
+        return await get_secret_value_func(db, tool_name="stt", field_name=field_name, project_id=None,
+                                           purpose=_SETTINGS_VIEW)
 
     # Determine active provider by checking what's configured (same priority as get_stt_service)
     whisper_url = await stt("whisper_base_url")
@@ -159,24 +158,6 @@ async def save_stt_config(
     payload: dict[str, Any],
     set_secret_value_func: Callable[..., Any],
 ) -> dict[str, Any]:
-    """Save STT provider configuration.
-
-    Accepts a payload like:
-    {
-        "active_provider": "aws_transcribe",
-        "language": "en-US",
-        "providers": {
-            "aws_transcribe": {
-                "access_key_id": "AKIA...",
-                "secret_access_key": "...",
-                "region": "eu-central-1",
-                "language_code": "en-US",
-                "enable_diarization": true
-            },
-            ...
-        }
-    }
-    """
     # Save shared language
     language = payload.get("language", "")
     if language:
@@ -207,7 +188,6 @@ async def save_stt_config(
 
 
 def _collect_save(provider_data, src_key, field_name, tool_name, set_func, db, saves_list):
-    """Queue a secret save if the value is new (not masked)."""
     value = provider_data.get(src_key, "")
     if value and not str(value).startswith("••"):
         saves_list.append(

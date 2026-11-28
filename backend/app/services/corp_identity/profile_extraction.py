@@ -11,18 +11,11 @@ from .normalized_template_resolve import normalization_record_fields
 
 
 def _normalization_fields(source_path: Path, profile_root: Path) -> dict[str, Any]:
-    """Derived-template artefacts for the registry record.
-
-    Additive: it never touches ``brand-profile.json`` and friends, and it never
-    raises — a template we cannot normalise yields ``status: "failed"`` and the
-    profile keeps using the original.
-    """
     result = build_profile_normalization(source_path, profile_root)
     return normalization_record_fields(profile_root, result)
 
 
 def _extraction_fields(extraction: dict[str, Any], ai_ready: dict[str, Any]) -> dict[str, Any]:
-    """The registry fields of a presentation profile's extraction and AI-ready template, in record order."""
     return {
         "summary": extraction["summary"],
         "brand_profile_path": extraction["brand_profile_path"],
@@ -47,7 +40,6 @@ def _extract_office_template(
     safe_name: str,
     doc_type: str,
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
-    """Unpack a docx/xlsx template and read its theme: ``(brand, summary, guide)``."""
     import zipfile
 
     from .office_doc_parsing import (

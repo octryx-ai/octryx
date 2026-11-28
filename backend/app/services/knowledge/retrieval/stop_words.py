@@ -1,10 +1,5 @@
-"""Function words that carry no retrieval signal (English), for lexical recall.
-
-The lexical plan fetches at most a few terms per query, so a question such as "When is the
-failover drill?" must not spend that budget on "when", "is" and "the". This is fixed text
-normalization, not intent detection: the list is closed, and a query made only of function words
-keeps them, so no query is emptied by the filter.
-"""
+"""Function words that carry no retrieval signal (English), for lexical recall. A query made only of function words
+keeps them."""
 
 from __future__ import annotations
 
@@ -22,7 +17,6 @@ STOP_WORDS = frozenset(
 
 
 def content_terms(terms: tuple[str, ...], fold) -> tuple[str, ...]:
-    """``terms`` without function words, compared in folded form; all of them when nothing remains."""
     kept = tuple(term for term in terms if fold(term) not in STOP_WORDS)
     return kept or terms
 

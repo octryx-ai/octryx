@@ -1,9 +1,4 @@
-"""Admission: nothing dispatches until endpoint, alias, and project all admit it.
-
-Every denial in this suite must produce *zero* HTTP requests, and the virtual
-key must never reach a repr, an evidence payload, an error text, or a host the
-endpoint allowlist did not approve.
-"""
+"""Admission: nothing dispatches until endpoint, alias, and project all admit it."""
 
 from __future__ import annotations
 
@@ -11,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
-from app.agent.core.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, classify_runtime_error
+from app.agent.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIAL_KEY
+from app.agent.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, classify_runtime_error
 from app.services.model_gateway.litellm import (
     LiteLLMGatewayError,
     apply_model_policy_to_runtimes,
@@ -37,10 +32,9 @@ from tests.model_gateway.conftest import (
     workspace_classification,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
-# Endpoint contract: one fixed denial reason per rejected endpoint shape.
 ENDPOINT_DENIALS = {
     f"https://user:pass@{GATEWAY_HOST}/v1": "endpoint_userinfo_present",
     f"https://{GATEWAY_HOST}/v1?team=alpha": "endpoint_query_present",
@@ -94,12 +88,6 @@ def test_endpoint_host_allowlist_is_required(gateway, build_gateway_client) -> N
 
 
 def test_loopback_http_endpoint_is_accepted_when_allowlisted(gateway, build_gateway_client) -> None:
-    """A plaintext endpoint needs the matching plaintext trust mode.
-
-    ``public_ca_bundle`` against ``http://`` is a configuration conflict, not a
-    silently ignored trust store, so the loopback case has to say so explicitly.
-    """
-
     client = build_gateway_client(
         gateway,
         endpoint_url="http://127.0.0.1:4000/v1",
@@ -170,12 +158,12 @@ async def test_admitted_alias_sends_only_its_model_group(gateway, build_gateway_
     assert response["usage"]["gateway_evidence"]["model_group_verified"] is True
 
 
-def test_model_policy_is_deny_by_default_and_annotates_instead_of_dropping() -> None:
+def test_a_saved_model_policy_is_deny_by_default_and_annotates_instead_of_dropping() -> None:
     runtimes = [gateway_runtime(), backup_runtime()]
 
     denied = apply_model_policy_to_runtimes(
         runtimes,
-        project_config={},
+        project_config={"model_policy": {"allowed_aliases": []}},
         project_id=PROJECT_ID,
         data_classification=workspace_classification(),
     )
@@ -200,3 +188,16 @@ def test_model_policy_is_deny_by_default_and_annotates_instead_of_dropping() -> 
     assert all(RUNTIME_ADMISSION_DENIAL_KEY not in runtime for runtime in granted)
     # An explicit denial wins over a grant for the same alias.
     assert revoked[0][RUNTIME_ADMISSION_DENIAL_KEY]["reason"] == "explicit_alias_denial"
+
+
+def test_without_a_saved_model_policy_every_admitted_alias_is_allowed_and_the_data_class_still_gates() -> None:
+    from tests.model_gateway.test_admission_types import SECRET_ALIAS_CONFIG
+
+    [allowed] = apply_model_policy_to_runtimes([gateway_runtime()], project_config={}, project_id=PROJECT_ID,
+                                               data_classification=workspace_classification())
+    [wrong_class] = apply_model_policy_to_runtimes([gateway_runtime(config_json=SECRET_ALIAS_CONFIG)],
+                                                   project_config={}, project_id=PROJECT_ID,
+                                                   data_classification=workspace_classification("confidential"))
+
+    assert RUNTIME_ADMISSION_DENIAL_KEY not in allowed
+    assert wrong_class[RUNTIME_ADMISSION_DENIAL_KEY]["error_class"] == "data_policy_denied"

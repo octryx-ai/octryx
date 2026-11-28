@@ -1,24 +1,15 @@
-"""``GET /api/v1/admin/connection-types``: the connection types, from the named-connection descriptors.
-
-Per type: ``type``, ``label``, ``auth_kinds``, ``access_fields`` (``key``, ``label``, ``required`` - for the sign-in
-kinds the field belongs to -, ``secret``, ``kind``, ``options``, ``placeholder``, ``auth_kinds``, ``auth_fields.py``),
-``uses`` (which of ``knowledge``, ``tickets``, ``agent_tools``, ``repositories`` the type serves), ``scope_key``
-(``projects`` | ``spaces`` | ``tables`` | ``repositories`` | ``None``) and, for types with the tickets use,
-``ticket_states`` (the server's work item states, ``secure_work/workflow_mapping.py``).
-
-Only types with a descriptor exist; which uses and scope key a type has is declared here per type, never guessed.
-"""
+"""``GET /api/v1/admin/connection-types``: the connection types, from the named-connection descriptors."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.services.atlassian_auth_modes import AUTH_MODES as ATLASSIAN_AUTH_MODES
-from app.services.atlassian_auth_modes import BITBUCKET_AUTH_MODES
+from app.services.connector_auth.atlassian_modes import AUTH_MODES as ATLASSIAN_AUTH_MODES
+from app.services.connector_auth.atlassian_modes import BITBUCKET_AUTH_MODES
 
+from ..connector_auth.servicenow import AUTH_MODES as SERVICENOW_AUTH_MODES
 from ..named_connections.descriptor import ConnectorDescriptor
 from ..named_connections.descriptors import DESCRIPTORS, descriptor_of, routed_tool_names
-from ..servicenow_auth import AUTH_MODES as SERVICENOW_AUTH_MODES
 from .auth_fields import KIND_NONE, KIND_TOKEN, PUBLIC_TYPES, field_kinds
 from .contract import USE_AGENT_TOOLS, USE_KNOWLEDGE, USE_REPOSITORIES, USE_TICKETS
 

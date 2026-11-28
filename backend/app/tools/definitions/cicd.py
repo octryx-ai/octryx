@@ -224,6 +224,5 @@ CICD_DEFINITIONS: dict[str, dict] = {
 
 
 def get_cicd_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for cicd tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(CICD_DEFINITIONS)

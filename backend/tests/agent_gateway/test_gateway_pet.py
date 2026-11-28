@@ -1,15 +1,4 @@
-"""``GET /api/v1/agent-gateway/pet``: the Octryx pet's state, a view over the attention queue.
-
-- one state in the companion's order: needs_you (action or threshold) > problem (other warning) > working (a run
-  in state ``working``) > done (info) > resting; ``reason`` only for a problem and only a fixed code;
-- items are the leading group's entries (at most five) with the queue's stable key as ``id``;
-- a login bound to Workspaces sees only their entries (and the user-wide seat allowance); ``project_id`` narrows to
-  one authorized Workspace, a foreign one is 403;
-- the answer has an ETag and ``If-None-Match`` is answered 304.
-
-The examples in ``tests/fixtures/agent_gateway/pet_v1.json`` are the seam to the client: this test checks that the
-view of each case equals its example, and ``clients/octryx-claude/tests/test_pet_contract.py`` parses the same file.
-"""
+"""``GET /api/v1/agent-gateway/pet``: the Octryx pet's state, a view over the attention queue."""
 
 from __future__ import annotations
 
@@ -50,7 +39,6 @@ def _queue(items=(), running=(), quiet=QUIET_OFF) -> dict:
             "needs_you": sum(1 for item in items if item["severity"] == "action"), "cursor": None}
 
 
-# The cases behind the fixture's examples (attention answer → pet view).
 CASES = {
     "resting": _queue(running=[_run("r-done", "done")]),
     "working": _queue(running=[_run("r-1", "working", title="RIVER-412 Rule import keeps decimals"),
@@ -158,7 +146,6 @@ async def test_the_launcher_login_reads_the_pet_state(client, db):
 
 
 def write_fixture() -> None:
-    """Rewrite the shared examples after a deliberate contract change (then update the client test too)."""
     document = json.loads(FIXTURE.read_text(encoding="utf-8"))
     document["examples"] = {name: pet_view(queue) for name, queue in CASES.items()}
     FIXTURE.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

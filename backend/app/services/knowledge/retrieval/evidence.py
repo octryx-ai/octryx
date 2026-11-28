@@ -1,28 +1,5 @@
-"""Governed, bounded retrieval whose citations resolve back to PostgreSQL.
-
-Two boundaries, in this order:
-
-1. **Gate.** The Workspace must carry Evidence schema v1 according to its
-   PostgreSQL projection record. A Workspace without a current projection answers
-   ``no_sources`` (never ingested) or ``projection_pending`` (``readiness``) instead
-   of provoking a query against a type that does not exist yet.
-2. **Facade.** The request goes through ``knowledge.retrieve_bundle``, so the
-   request bounds, the per-mode limits, and the single-Workspace rule are enforced
-   by the contract rather than by this module, and an unavailable index fails the
-   whole request instead of degrading to a partial answer.
-
-Citations are re-resolved, never trusted. The projection returns only an
-evidence key and the text it indexed; the citation, the revision, the source object
-and the span's own text (the one a hit quotes) are read back from PostgreSQL, scoped
-to this Workspace. A code span is indexed by more than its lines (its retrieval text,
-``code/retrieval_text``), and that never leaks into the quoted evidence. Evidence whose key does not
-resolve is **dropped**, because a key present in the projection but absent from the
-ledger is not citable — and a key belonging to another Workspace can only ever
-land in that category.
-
-There is no fallback to another retrieval path from here. Every failure is an
-explicit typed state.
-"""
+"""Governed, bounded retrieval whose citations resolve back to PostgreSQL. Unresolved keys are dropped; there is no
+fallback to another retrieval path."""
 
 from __future__ import annotations
 
@@ -71,8 +48,6 @@ VECTOR_MODES = frozenset({RetrievalMode.VECTOR})
 
 @dataclass(frozen=True, slots=True)
 class CitedEvidence:
-    """One retrieved span with its re-resolved lineage."""
-
     evidence_key: str
     text: str
     citation: str
@@ -100,8 +75,6 @@ class CitedEvidence:
 
 @dataclass(frozen=True, slots=True)
 class EvidenceRetrieval:
-    """The bounded answer to one Workspace retrieval request."""
-
     workspace_id: str
     query_text: str
     limit: int
@@ -142,11 +115,7 @@ async def retrieve_workspace_evidence(
     products: object = None,
     version: object = None,
 ) -> EvidenceRetrieval:
-    """Run one bounded retrieval in the given modes and return only citable evidence.
-
-    One mode per request until hybrid merging: the facade refuses the same evidence
-    key twice in one bundle, so lexical and vector are not combined here yet.
-    """
+    # One mode per request: the facade refuses the same evidence key twice in one bundle.
     if type(runtime) is not EvidenceRuntime or type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     if modes not in (LEXICAL_MODES, VECTOR_MODES):
@@ -188,7 +157,6 @@ async def retrieve_workspace_evidence(
 
 
 def _cited_evidence(bundle: RetrievalBundle, resolved: dict) -> list[CitedEvidence]:
-    """The bundle's hits whose key resolved in the ledger, in bundle order, quoting the ledger's span."""
     cited: list[CitedEvidence] = []
     for item in bundle.evidence:
         citation = resolved.get(item.evidence_id)
@@ -225,7 +193,6 @@ def _cited_evidence(bundle: RetrievalBundle, resolved: dict) -> list[CitedEviden
 
 
 async def _admit_vector_mode(db: AsyncSession, runtime: EvidenceRuntime, authorized: AuthorizedWorkspace) -> None:
-    """The query text leaves the process for a remote space, so the Workspace is admitted first."""
     if runtime.embedding is None:
         raise EvidenceStoreNotConfiguredError()
     if not await vector_space_ready(db, authorized.project_id, runtime.embedding.space.key):

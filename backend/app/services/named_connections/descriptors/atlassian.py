@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.services.atlassian_auth_modes import AtlassianAuthConfigError
-from app.services.atlassian_auth_validation import validate_auth_config
+from app.services.connector_auth.atlassian_modes import AtlassianAuthConfigError
+from app.services.connector_auth.atlassian_validation import validate_auth_config
 
 from ...connector_test.visible_scopes import confluence_spaces, jira_projects
 from ...tool_config.connection_fields import auth_mode_fields, target_fields
@@ -35,8 +35,6 @@ def issue_project(value: object) -> str | None:
 
 
 def complete_unit(tool_name: str):
-    """An own Atlassian or ServiceNow connection is a full unit: URL, explicit auth mode and its credential."""
-
     def check(config: dict) -> None:
         url_field, mode_field = target_fields(tool_name)[0], auth_mode_fields(tool_name)[0]
         for required in (url_field, mode_field):

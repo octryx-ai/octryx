@@ -1,14 +1,3 @@
-// The Model catalog (Runtime → Models → Model catalog). Pure: no requests, no React.
-//
-// Contract (backend api/routes/model_catalog.py, services/model_catalog):
-//   GET   /api/v1/admin/model-catalog -> {models: [row], providers: [{id, display_name, is_active}],
-//         clearance_levels: [level], capability_keys: [key]}
-//   PATCH /api/v1/admin/model-catalog/models/{id} {enabled?, display_name?, capabilities?, cleared_up_to?,
-//         approved_data_categories?, temperature?, max_output_tokens?, context_length? (direct models), cost?} -> row; refusal 422 {detail: {code}}
-//   POST  /api/v1/admin/model-catalog/sync -> {providers, new: [proposal], gone: [summary], gateway_without_alias}
-//   POST  /api/v1/admin/model-catalog/sync/add {selected: [{provider_id, model_id}]} -> {created, gone, ...}
-//   POST  /api/v1/admin/model-catalog/models/{id}/alias -> row
-
 import { isRecord, num, str, strings } from "./modelCatalogReaders";
 
 export const CAPABILITY_KEYS = ["tools", "vision", "coding", "long_context"] as const;
@@ -87,11 +76,8 @@ export function readCatalog(payload: unknown): Catalog {
   return { models, providers, levels: strings(body.clearance_levels) };
 }
 
-// ---- presentation ----------------------------------------------------------------------------------------------
-
 export const levelLabel = (level: string | null): string => (level ? level.charAt(0).toUpperCase() + level.slice(1) : "—");
 
-/** Attention tone for the sensitive levels (confidential and above), neutral below. */
 export function levelTone(level: string | null, levels: string[]): "attention" | "neutral" {
   const index = level ? levels.indexOf(level) : -1;
   return index >= 2 ? "attention" : "neutral";
@@ -124,9 +110,6 @@ const ISSUE_TEXT: Record<string, string> = {
 };
 export const issueText = (issue: CatalogIssue): string => ISSUE_TEXT[issue.code] ?? "Needs attention";
 
-// A model that is off is a normal state: it reads
-// "Off" in neutral, with what would stop it as a tooltip. Only an enabled model with an issue is amber, and only while
-// its provider is active (the models of a disabled provider do not read "Needs attention").
 export const providerOff = (row: CatalogRow): boolean => !row.provider.isActive;
 export const isOn = (row: CatalogRow): boolean => row.enabled && !providerOff(row);
 export const needsAttention = (row: CatalogRow): boolean => isOn(row) && row.status === "needs_attention";
@@ -142,11 +125,8 @@ export function statusView(row: CatalogRow): { label: string; tone: "active" | "
 }
 
 export type StatusFilter = "" | "on" | "off" | "issue";
-// The catalog opens on the models that matter (used by a Workspace, or enabled at an active provider); "all"
-// shows every model the providers list.
 export type CatalogScope = "inUse" | "all";
 
-/** Used by a Workspace, or enabled at an active provider. */
 export const inUse = (row: CatalogRow): boolean => row.usedBy > 0 || isOn(row);
 
 export function filterRows(rows: CatalogRow[], providerId: string, status: StatusFilter, scope: CatalogScope = "all"): CatalogRow[] {
@@ -154,10 +134,6 @@ export function filterRows(rows: CatalogRow[], providerId: string, status: Statu
     !status || (status === "on" ? isOn(row) : status === "off" ? !isOn(row) : needsAttention(row))));
 }
 
-/**
- * The reading order: used models first, in the platform order,
- * then enabled ones at an active provider, then the rest; the catalog's own order within each group.
- */
 export function sortRows(rows: CatalogRow[]): CatalogRow[] {
   const group = (row: CatalogRow) => (row.usedBy > 0 ? 0 : isOn(row) ? 1 : 2);
   const order = (row: CatalogRow) => row.orderPosition ?? Number.MAX_SAFE_INTEGER;
@@ -166,8 +142,6 @@ export function sortRows(rows: CatalogRow[]): CatalogRow[] {
     .sort((a, b) => group(a.row) - group(b.row) || order(a.row) - order(b.row) || a.index - b.index)
     .map(({ row }) => row);
 }
-
-// ---- the drawer draft ------------------------------------------------------------------------------------------
 
 export type ModelDraft = {
   enabled: boolean; displayName: string; capabilities: Record<CapabilityKey, boolean>; clearedUpTo: string | null;
@@ -193,7 +167,6 @@ export function draftFromRow(row: CatalogRow): ModelDraft {
 const priceValue = (text: string): number | null => (text.trim() === "" ? null : Number(text.trim()));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Only the fields that changed; an empty object means there is nothing to save. */
 export function catalogPatch(row: CatalogRow, draft: ModelDraft): Record<string, unknown> {
   const base = draftFromRow(row);
   const patch: Record<string, unknown> = {};
@@ -206,7 +179,7 @@ export function catalogPatch(row: CatalogRow, draft: ModelDraft): Record<string,
   if (draft.maxOutputTokens.trim() !== base.maxOutputTokens) {
     patch.max_output_tokens = draft.maxOutputTokens.trim() === "" ? null : Number(draft.maxOutputTokens.trim());
   }
-  // A gateway model's context window comes from its gateway contract; only a direct model's is set here.
+  // A gateway model's context window comes from its gateway contract.
   if (!row.provider.isGateway && draft.contextLength.trim() !== base.contextLength) {
     patch.context_length = draft.contextLength.trim() === "" ? null : Number(draft.contextLength.trim());
   }
@@ -223,7 +196,6 @@ export function catalogPatch(row: CatalogRow, draft: ModelDraft): Record<string,
   return patch;
 }
 
-/** Problems the server would refuse anyway, in words, so the admin sees them before saving. */
 export function draftProblems(draft: ModelDraft, row: CatalogRow): string[] {
   const problems: string[] = [];
   const name = draft.displayName.trim();
@@ -245,7 +217,6 @@ export function draftProblems(draft: ModelDraft, row: CatalogRow): string[] {
   return problems;
 }
 
-/** Raising the clearance lets the model see more sensitive data; the drawer says so before saving. */
 export function isClearanceRaise(row: CatalogRow, draft: ModelDraft, levels: string[]): boolean {
   const before = row.clearedUpTo ? levels.indexOf(row.clearedUpTo) : -1;
   const after = draft.clearedUpTo ? levels.indexOf(draft.clearedUpTo) : -1;

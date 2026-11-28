@@ -43,12 +43,10 @@ def knowledge_projection_enabled(*, env: Mapping[str, str] | None = None) -> boo
 
 
 def knowledge_source_sync_scheduler_enabled(*, env: Mapping[str, str] | None = None) -> bool:
-    """Scheduled Source Sync runs are opt-in per Instance (default off), then per connector."""
     return env_flag(ENABLE_KNOWLEDGE_SOURCE_SYNC_SCHEDULER_ENV, env=env)
 
 
 def api_worker_count(*, env: Mapping[str, str] | None = None) -> int:
-    """The number of API server processes; 1 when unset. A value that is not a positive integer is refused."""
     source = os.environ if env is None else env
     raw = str(source.get(API_WORKERS_ENV) or "").strip()
     if not raw:

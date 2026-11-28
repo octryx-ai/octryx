@@ -138,6 +138,5 @@ CONFLUENCE_DEFINITIONS: dict[str, dict] = {
 
 
 def get_confluence_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for confluence tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(CONFLUENCE_DEFINITIONS)

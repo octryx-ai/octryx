@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...models import AuditLog, EngineeringKnowledgeGraphNode
+from ...models import AuditLog, CodeRepository, EngineeringKnowledgeGraphNode
 from ...time_utils import utc_now
 
 ACTIVE_LIFECYCLE_STATUSES = {"active", "draft"}
@@ -18,8 +19,6 @@ MAX_LIFECYCLE_HISTORY = 25
 
 @dataclass(frozen=True)
 class EngineeringKnowledgeLifecycleResult:
-    """Compact result for lifecycle operations."""
-
     action: str
     matched_count: int
     affected_node_ids: tuple[str, ...]
@@ -65,12 +64,26 @@ def _transition_node(
         node.valid_until = now
 
 
+async def nodes_by_workspace(
+    db: AsyncSession, nodes: list[EngineeringKnowledgeGraphNode]
+) -> dict[str | None, list[str]]:
+    # The model's owner order: the node's own Workspace, else its repository's.
+    repositories = {node.repository_id for node in nodes if not node.workspace_id and node.repository_id}
+    of_repository = dict((await db.execute(select(CodeRepository.id, CodeRepository.project_id).where(
+        CodeRepository.id.in_(repositories)))).tuples().all()) if repositories else {}
+    grouped: dict[str | None, list[str]] = {}
+    for node in nodes:
+        grouped.setdefault(node.workspace_id or of_repository.get(node.repository_id), []).append(node.id)
+    return grouped
+
+
 def _add_lifecycle_audit(
     db: AsyncSession,
     *,
     actor_id: str,
     action: str,
     resource_id: str,
+    project_id: str | None,
     details: dict[str, Any],
 ) -> None:
     db.add(
@@ -79,6 +92,7 @@ def _add_lifecycle_audit(
             action=action,
             resource_type="engineering_knowledge_graph",
             resource_id=resource_id,
+            project_id=project_id,
             details=details,
         )
     )

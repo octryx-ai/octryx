@@ -1,17 +1,4 @@
-"""``list_jenkins_builds``: the recent builds of the alert target's Jenkins jobs, read-only.
-
-The CI/deploy family of incident analysis asks "what was built or deployed around the alert?". The tool reads the
-Workspace's ``jenkins`` connection through the one server factory (``platform.deploy.jenkins_client``):
-
-- ``job`` must be one of the alert target's ``ci.jenkins_jobs``; without an alert scope only the Workspace's
-  configured deploy job (``deploy_job``) — the model never reaches another job;
-- ``since``/``until`` (RFC3339 or ``since: 6h``) default to the alert window; the window is clamped to it under a scope;
-- at most ``limit`` (≤ 20) builds in the window, newest first: number, status, timestamp, commit, url and, with
-  ``include_tests``, the test summary of each build (counts only);
-- no connection, an unreachable or failing Jenkins → ``unavailable``.
-
-It only reads (``list_builds``, ``get_test_report``); it never triggers, re-runs or cancels a build.
-"""
+"""``list_jenkins_builds``: the recent builds of the alert target's Jenkins jobs, read-only."""
 
 from __future__ import annotations
 
@@ -52,7 +39,6 @@ def _envelope(status: str, scope: AlertScope | None, window: dict | None, count:
 
 
 async def _run_or_workspace(context: ToolContext) -> Any | None:
-    """The session's active run, or a Workspace stand-in for the factory (it reads only ``project_id``)."""
     from ..services.workflow_runs.records import active_run_for_session
 
     run = await active_run_for_session(context.db, context.session_id) if context.db is not None else None

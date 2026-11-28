@@ -18,7 +18,7 @@
   gap: 0.25rem;
   padding: 0.1rem 0.25rem 0.1rem 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay);
   font-size: var(--ds-text-xs);
   color: var(--text);

@@ -1,12 +1,4 @@
-"""One chain from a built-in tool's output to the next provider-bound request (``launcher_chain_support``).
-
-Claude Code runs ``Bash``; its output is too dense to examine (the candidate limit, no forcing). The launcher's
-PostToolUse hook reports it to the platform's ``/sessions/tool-executed`` route, the platform answers ``withhold``,
-and the hook tells the model why (Claude Code keeps a built-in tool's output). The next request — the output as the
-newest turn — is refused before any provider call; once the model answered, the output is re-sent history and the
-request is refused just the same (the gateway changes nothing: an unfinished examination refuses wherever it is). The
-original never reaches the provider.
-"""
+"""One chain from a built-in tool's output to the next provider-bound request (``launcher_chain_support``)."""
 
 from __future__ import annotations
 
@@ -25,7 +17,7 @@ from tests.content_security.launcher_chain_support import (
 )
 from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture
 
-# Credential assignments (a gateway kind, C12F-08) past a detector's candidate limit: no scan finishes.
+# Credential assignments (a gateway kind) past a detector's candidate limit: no scan finishes.
 FRAGMENT = "password=Value0x"
 DENSE = " ".join(f"password=Value{index}x" for index in range(5200))
 

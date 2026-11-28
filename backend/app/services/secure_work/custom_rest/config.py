@@ -1,22 +1,4 @@
-"""The configuration of a Custom REST intake, validated and refused, never cleaned up.
-
-Stored as a ``WorkItemSyncConfig`` with ``source_type`` ``custom_rest`` and ``source_instance`` = the definition key
-(decision: one fixed source type keeps every registry lookup, index and query exact; the key as the instance keeps
-two definitions' items apart exactly like two ServiceNow instances, and a definition key never changes):
-
-- ``filters_json``: ``operation`` (the list operation's ``op_key`` or tool name), ``role`` (the Octryx role whose
-  grant scopes the sync, see ``listing``), ``arguments`` (fixed arguments of the list call, e.g. ``state=open``);
-- ``field_mapping_json``: ``fields`` (Work item field -> dotted path in a record: ``key``, ``title`` and ``status``
-  required; ``id``, ``description``, ``type``, ``priority``, ``reporter``, ``assignee``, ``url``, ``parent``,
-  ``labels``, ``updated_at``, ``created_at`` optional), ``state_mapping`` (source status -> work state, matched
-  case-insensitively; an unmapped status is ``intake`` and reported), ``closed_statuses`` (a record in one of them
-  closes its item);
-- ``sync_options_json``: ``schedule`` (default ``every_15_min`` like the other intakes; ``manual`` with a webhook),
-  ``max_items`` and ``max_pages`` (the bounded read per run; a cut read is incomplete, so nothing is closed for
-  leaving it), ``auto_analyze_new`` (automatic analysis of new items, off by default) and ``write_back``
-  (``operation`` of the same definition plus ``arguments``/``body`` templates with ``{source_key}``, ``{source_id}``,
-  ``{target_status}``, ``{to_state}``).
-"""
+"""The configuration of a Custom REST intake, validated and refused, never cleaned up."""
 
 from __future__ import annotations
 
@@ -56,7 +38,6 @@ def _status(raw: object, field: str) -> str:
 
 
 def status_key(raw: object) -> str:
-    """How a status is matched: whitespace-normalized, case-insensitive."""
     return " ".join(str(raw).split()).casefold() if raw not in (None, "") else ""
 
 
@@ -140,7 +121,6 @@ def _schedule(raw: object) -> dict[str, Any]:
 
 
 def normalize_config(what: Mapping[str, Any], how: Mapping[str, Any], schedule: object) -> dict[str, Any]:
-    """The validated intake configuration from a setup draft's ``what``, raw ``how`` and ``schedule``."""
     operation = str(what.get("operation") or "").strip()
     if not operation:
         raise refused("what.operation", "is required: the list operation of the API")
@@ -166,7 +146,6 @@ def normalize_config(what: Mapping[str, Any], how: Mapping[str, Any], schedule: 
 
 
 def intake_of_row(row: Any) -> dict[str, Any]:
-    """The stored configuration of an intake row, in :func:`normalize_config`'s shape."""
     filters = dict(row.filters_json or {})
     mapping = dict(row.field_mapping_json or {})
     options = dict(row.sync_options_json or {})
@@ -187,7 +166,6 @@ def intake_of_row(row: Any) -> dict[str, Any]:
 
 
 def mapped_state(status: object, intake: Mapping[str, Any]) -> tuple[str, str]:
-    """``(work_state, source)``: the configured mapping (``configured``) or ``intake`` (``unmapped``)."""
     target = dict(intake.get("state_mapping") or {}).get(status_key(status))
     return (target, "configured") if target else ("intake", "unmapped")
 

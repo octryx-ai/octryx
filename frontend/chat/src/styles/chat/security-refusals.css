@@ -55,13 +55,13 @@
 
 .security-refusal__text--strong {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .security-refusal__error {
   margin: 0;
   color: var(--status-error-ink);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .security-refusal__fields {
@@ -77,7 +77,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   align-self: center;
 }
 

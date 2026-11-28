@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.atlassian_auth_validation import validate_auth_config
 from app.services.confluence_pages.rules import validate_page_rules
+from app.services.connector_auth.atlassian_validation import validate_auth_config
 from app.services.servicenow_record_limit import (
     GROUPS_FIELD,
     MODE_FIELD,

@@ -1,14 +1,4 @@
-"""``GET /v1/models`` on the governed and the seat route: what Claude Code's ``/model`` picker offers.
-
-Claude Code asks for it at startup when ``CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`` is set and a gateway
-credential resolves (the governed profile's ``apiKeyHelper``). A seat session's subscription login is not such a
-credential, so the launcher writes the seat picker into its own settings from the client policy instead; the seat
-route answers the same list to any client that does ask. Rows and their order come from ``model_listing``.
-
-Both routes identify the caller exactly like a Messages call and read nothing but the query string. Neither
-creates a session: the governed route decides for the launcher's session when it exists and for the launch
-(by the session key's hash, like the client policy) before the first model call.
-"""
+"""GET /v1/models on the governed and the seat route: what Claude Code's /model picker offers."""
 
 from __future__ import annotations
 
@@ -43,7 +33,6 @@ def _page(models: list[PickerModel], request: Request) -> Response:
 async def governed_models(
     request: Request, db: AsyncSession, *, render: Callable[[InboundRefusal], Response] = anthropic_error_response
 ) -> list[PickerModel] | Response:
-    """The governed route's rows for the caller (shared with the ``/openai`` route, which renders its own shape)."""
     identity = await resolve_gateway_identity(db, request.headers)
     if isinstance(identity, GatewayRefusal):
         return render(refusal(identity.state, identity.reason, http_status=identity.http_status))
@@ -77,12 +66,9 @@ async def handle_seat_list_models(request: Request, db: AsyncSession) -> Respons
     return _page(seat_models(decision.models, entries), request)
 
 
+# Each list is decided for a launch with that profile (Cedar's call_model tells the profiles apart); the seat list is
+# empty when the Workspace refuses seat sessions.
 async def launcher_picker(db: AsyncSession, identity: GatewayIdentity, seat: SeatDecision) -> dict[str, Any]:
-    """The client policy's ``models``: both profiles' picker rows, for the launcher's own ``modelPicker``.
-
-    Each list is decided for the launch with that profile (Cedar's ``call_model`` can tell the profiles apart);
-    the seat list is empty when the Workspace refuses seat sessions.
-    """
     launch = f"launch:{session_key_hash(identity.session_key)}"
     async with policy_principal_scope(identity.user.id, session_id=launch, metadata={"client": GATEWAY_CLIENT}):
         governed = company_models(await admitted_tool_aliases(db, identity.workspace_id))

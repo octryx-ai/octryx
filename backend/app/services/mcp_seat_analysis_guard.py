@@ -1,15 +1,5 @@
-"""The native-protocol wiring of the seat analysis gate (``work_item_analysis.seat_mcp_gate``).
-
-The Knowledge MCP server (``CatalogFastMCP``) passes every ``tools/call`` through :func:`seat_analysis_tool_guard`:
-
-1. no ``X-Octryx-Session`` header, or a key that names no pinned analysis session: the call runs as is;
-2. a pinned analysis session and a tool outside its set: an ``isError`` result carrying the closed refusal
-   (``analysis_tool_not_allowed``); the tool never runs;
-3. a pinned analysis session and one of its read tools: the call runs, then the text the server returned is
-   recorded as the session's evidence (only for the session's own user while it is active);
-4. a session that follows a workflow run: a tool its phase denies (the phase's and the published agent's tools
-   deny, ``agent_tools_deny``) is refused the same way; nothing runs (AFS-5).
-"""
+"""The native-protocol wiring of the seat analysis gate (``work_item_analysis.seat_mcp_gate``). A pinned analysis
+session's call outside its tool set is refused."""
 
 from __future__ import annotations
 
@@ -35,7 +25,6 @@ AuthenticatedContext = Callable[[Context | None], tuple[str, Any, Any, Any]]
 
 
 def connection_session_key(ctx: Context | None) -> str | None:
-    """The connection's launcher session key header, or ``None``."""
     try:
         request = getattr(ctx.request_context, "request", None) if ctx is not None else None
     except (LookupError, ValueError):
@@ -56,7 +45,6 @@ def _content_and_structured(result: Any) -> tuple[Sequence[Any], Any, bool]:
 
 
 def result_text(result: Any) -> tuple[str, bool]:
-    """The text a converted tool result carries and whether it is an error (``isError`` or an ``error`` key)."""
     content, structured, is_error = _content_and_structured(result)
     text = "\n".join(block.text for block in content if isinstance(block, TextContent))
     if structured is None:
@@ -74,8 +62,6 @@ def _refused(refusal: dict[str, str]) -> CallToolResult:
 
 
 def seat_analysis_tool_guard(authenticated_context: AuthenticatedContext) -> ToolCallGuard:
-    """The guard ``CatalogFastMCP`` runs around every tool call (see the module doc)."""
-
     async def guard(server: Any, name: str, arguments: dict[str, Any], call: CallTool) -> Any:
         ctx = server.get_context()
         session_key = connection_session_key(ctx)
@@ -83,7 +69,7 @@ def seat_analysis_tool_guard(authenticated_context: AuthenticatedContext) -> Too
             return await call(name, arguments)
         async with async_session_factory() as db:
             pinned = await pinned_analysis(db, session_key)
-            # AFS-5: a run-bound session's phase deny (phase ∪ the published agent's tools deny) refuses here.
+            # A run-bound session's phase deny (phase ∪ the published agent's tools deny) refuses here.
             run_refusal = await run_session_mcp_refusal(db, session_key, name)
         refusal = analysis_tool_refusal(pinned, name)
         if refusal is not None:

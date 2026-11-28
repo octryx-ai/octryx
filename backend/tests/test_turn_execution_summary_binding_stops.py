@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.agent.core.runtime.turn_execution_binding import (
+from app.agent.runtime.turn_execution_binding import (
     bind_turn_execution_snapshot,
     bound_turn_execution_snapshot,
     clear_turn_execution_snapshot,
@@ -165,31 +165,6 @@ def test_a_stop_without_a_closed_reason_is_never_recorded_or_read() -> None:
     assert runtime_outcome_from_trace(foreign, {}) == "unknown"
 
 
-@pytest.mark.asyncio
-async def test_the_persisted_stop_answer_carries_the_stop_on_its_own_trace(db) -> None:
-    from sqlalchemy import select
-
-    from app.agent.core.assistant_message import persist_traced_assistant_message
-    from app.models import TurnTrace
-
-    session_id = "stop-session"
-    bind_turn_execution_snapshot(session_id, _snapshot())
-    try:
-        message = await persist_traced_assistant_message(
-            db=db,
-            session_id=session_id,
-            content="Agent stopped because the step needs a tool.",
-            provider="test",
-            model="m",
-            input_messages=[{"role": "user", "content": "x"}],
-            context_snapshot={},
-            update_thread_context=False,
-            runtime_stop_reason="step_tool_required",
-        )
-    finally:
-        clear_turn_execution_snapshot(session_id)
-    trace = (await db.execute(select(TurnTrace).where(TurnTrace.message_id == message.id))).scalar_one()
-    assert runtime_outcome_from_trace(trace.context_snapshot_json, trace.raw_output) == "stopped"
 
 
 @pytest.mark.parametrize(

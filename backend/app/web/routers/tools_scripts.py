@@ -1,16 +1,11 @@
-"""The server-rendered ``/admin/tools`` panel: built-in tool configs and saved Python scripts.
-
-Every route is admin-only: a tool config names where a stored credential is sent and a
-saved script is code the platform runs, so an active non-admin user is refused with 403. A save
-or connection test that would move a kept secret to a changed target is refused with the explicit
-state ``secret_rebind_required`` (``services/tool_config/secret_rebind.py``).
-"""
+"""The server-rendered ``/admin/tools`` panel: built-in tool configs and saved Python scripts (admin only)."""
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
+from app.http_multipart_route import BoundedFormRoute
 from app.models import SavedPythonScript
 from app.services.access_control import require_existing_workspace
 from app.services.connector_test_service import run_connector_connection_test
@@ -23,7 +18,7 @@ from app.web._helpers._tool_config_payload import _build_tool_config_payload
 from app.web._helpers.control_plane import _build_tools_context
 from app.web._helpers.page_admin_guard import LoginRequiredError, require_page_admin
 
-router = APIRouter()
+router = APIRouter(route_class=BoundedFormRoute)
 
 
 def _login_redirect() -> RedirectResponse:
@@ -31,7 +26,7 @@ def _login_redirect() -> RedirectResponse:
 
 
 def _refuse_secret_rebind(refused: SecretRebindRequiredError) -> JSONResponse:
-    """Nothing of the request was kept; the refusal's audit row (names only) is already committed."""
+    # Nothing of the request was kept; the refusal's audit row (names only) is already committed.
     return JSONResponse(status_code=409, content={"detail": refused.detail()})
 
 
@@ -114,7 +109,7 @@ async def tools_config_save(
         user = await require_page_admin(request, db)
     except LoginRequiredError:
         return _login_redirect()
-    await require_existing_workspace(db, project_id or None)
+    await require_existing_workspace(db, user.id, project_id or None)
     try:
         parsed_config = await _build_tool_config_payload(
             request,
@@ -154,7 +149,7 @@ async def tools_config_test(
         user = await require_page_admin(request, db)
     except LoginRequiredError:
         return _login_redirect()
-    await require_existing_workspace(db, project_id or None)
+    await require_existing_workspace(db, user.id, project_id or None)
     try:
         parsed_config = await _build_tool_config_payload(
             request,
@@ -168,7 +163,8 @@ async def tools_config_test(
         )
     except SecretRebindRequiredError as refused:
         return _refuse_secret_rebind(refused)
-    resolved_config = await resolve_secret_refs(db, parsed_config, tool_name=tool_name, project_id=project_id or None)
+    resolved_config = await resolve_secret_refs(db, parsed_config, tool_name=tool_name, project_id=project_id or None,
+                                            purpose="connector.connection_test")
 
     context = await _build_tools_context(
         request,

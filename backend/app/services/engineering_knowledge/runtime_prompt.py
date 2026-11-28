@@ -1,13 +1,4 @@
-"""Build the Engineering Knowledge runtime request from explicit inputs.
-
-A coding migration is known only from an explicit :class:`EngineeringUpgradeTarget` (the selected
-upgrade profile, or the structured fields of a request; see :mod:`.runtime_target`). The prompt
-text is not an input at all: without a target the request is ``general`` with
-``target_source = "not_specified"``, and no Engineering Knowledge Pack context is resolved for it.
-
-A pack build is never a runtime request either: it runs only through its explicit structured
-entry points (:mod:`.pack_build_request`).
-"""
+"""Build the Engineering Knowledge runtime request from explicit inputs."""
 
 from __future__ import annotations
 

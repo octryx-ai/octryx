@@ -1,26 +1,4 @@
-"""Validation of a workflow definition's ``size_classes`` block (refused with a code and a clear text).
-
-The block (all of it the workflow owner's data, editable like the rest of the definition)::
-
-    "size_classes": {
-      "default": "<class>",
-      "rules": [{"class": "<class>", "when": {"issue_type_in": [...], "labels_any": [...], ...}}],
-      "classes": {"<class>": {"session": "shared" | "per_phase", "context_cap_tokens": <int>,
-                              "phase_change": "same_turn" | "new_turn", "red_on_base": true | false,
-                              "merge": {"<phase>": "<later phase>"}, "builtin_tools": ["<tool>", ...],
-                              "agent_tests": "affected" | "full",
-                              "pipeline_scope": {"system_test": "always" | "labels", "system_test_labels": [...]},
-                              "skip_nodes": [{"node": "<node id>", "unless_labels": [...]}],
-                              "max_rounds": <int> | {"<loop edge id>" | "*": <int>},
-                              "escalate_to": "<class>", "agent_note": "<text>"}}}
-
-A skipped node must be a platform action the catalog marks skippable (a check whose result no later step needs as
-evidence, never a push, a pull request or a report) and must have a ``succeeded`` exit, which the run then takes.
-``phase_change: same_turn`` carries a passed phase into the next one inside the running turn and needs the shared
-session (``octryx/same_turn``). ``red_on_base`` runs the confirmed tests on the base commit in the pipeline; each
-must fail there (``workflow_runs/red_on_base``). ``merge`` does a phase inside a later one (``size_class/merge``):
-only between two phases whose way holds nothing but platform actions and gates, and only with ``red_on_base``.
-"""
+"""Validation of a workflow definition's ``size_classes`` block (refused with a code and a clear text)."""
 
 from __future__ import annotations
 
@@ -139,8 +117,6 @@ def _class_errors(name: str, settings: Any, names: set[str], graph: Any) -> list
 
 
 def _agent_tests_errors(name: str, value: Any, graph: Any) -> list[dict[str, str]]:
-    """``affected`` leaves the whole suite to a pipeline after each phase that changes code; without one nobody would
-    run it."""
     if value not in ("affected", "full"):
         return [_error(f"class {name}: agent_tests is affected or full.")]
     if value == "full":
@@ -163,7 +139,6 @@ MERGE_STEPS = 12  # a guard: the way between two merged phases is short
 
 
 def _way(graph: Any, source: str, target: str) -> bool:
-    """Whether ``source``'s plain exit reaches ``target`` over platform actions (succeeded) and gates (passed)."""
     from ..graph import NODE_GATE, NODE_PLATFORM_ACTION, PASSED, SUCCEEDED
 
     route = {None: None, NODE_PLATFORM_ACTION: SUCCEEDED, NODE_GATE: PASSED}
@@ -209,7 +184,6 @@ def _cycle(classes: dict[str, Any]) -> bool:
 
 
 def size_class_errors(block: Any, graph: Any) -> list[dict[str, str]]:
-    """The block's validation errors (``[]`` without a block: the workflow runs as it always did)."""
     if block is None:
         return []
     if not isinstance(block, dict) or set(block) - {"default", "rules", "classes"}:

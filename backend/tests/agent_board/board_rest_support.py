@@ -15,8 +15,6 @@ BOARD = "/api/v1/agent-board"
 
 
 class Team:
-    """A Workspace with an owner, an admin, two members (Anna runs an agent), and an outsider."""
-
     async def build(self, db):
         self.ws = await _workspace(db)
         self.owner = await seed_member(db, workspace_id=self.ws, role="owner")

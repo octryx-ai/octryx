@@ -1,18 +1,4 @@
-"""Always for this Workspace on any pending session approval: grant, then approve.
-
-One entry point for every surface (``/chat/api/approvals/{id}/always``,
-``/api/v1/approvals/{id}/always``, the Claude Code gateway): the approval is checked first
-(write access to its session, still pending), then the standing rule is recorded (Workspace admin
-or owner only, audited project-config write), then the same record is approved through
-``session/approval_decision.decide_session_approval``, which resumes the paused turn once.
-
-- A **tool approval** records the scope its change preview names (``standing_rule``, decided by
-  the server when the approval was requested, never by the caller). An approval whose preview
-  names no scope (a compound command, a content-analyzer review, a workflow start) is not eligible.
-
-Not eligible is ``409`` with the closed detail ``{"code": "standing_rule_not_eligible"}``. The
-whole decision commits once: a refused grant decides nothing.
-"""
+"""Always for this Workspace on any pending session approval: grant, then approve."""
 
 from __future__ import annotations
 
@@ -39,7 +25,6 @@ def _not_eligible() -> HTTPException:
 
 
 async def _tool_scope(db: AsyncSession, approval_id: str) -> StandingRuleScope | None:
-    """The scope the approval's change preview recorded when the approval was requested."""
     previews = (
         await db.execute(
             select(ChangePreview.preview_json)
@@ -71,7 +56,6 @@ async def _grant(db: AsyncSession, *, approval: Approval, session: AgentSession,
 async def decide_approval_always(
     db: AsyncSession, *, approval_id: str, decider_id: str, session_factory=None
 ) -> Approval:
-    """Grant the approval's standing rule as ``decider_id`` and approve the record; commits."""
     approval = (await db.execute(select(Approval).where(Approval.id == approval_id))).scalar_one_or_none()
     if approval is None or not approval.session_id:
         raise HTTPException(status_code=404, detail="Approval not found")

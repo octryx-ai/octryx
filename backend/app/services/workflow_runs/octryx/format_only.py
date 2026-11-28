@@ -1,18 +1,4 @@
-"""A formatting-only edit of a protected test is allowed.
-
-Example: a fix phase's pipeline was red only on style: `ruff format --check` wanted tests/test_pricing.py, the
-reproduction test the agent had written and submitted, reformatted. The phase may not change that confirmed test, so
-the agent's Edit that joined a three-line call into one line was refused three times and the run paused at its loop
-limit, with no way out. An Edit whose old and new text are the same program text, apart from layout, changes no test:
-the same tokens after dropping line breaks inside brackets, indentation width, trailing commas before a closing
-bracket and the spelling of string literals (quotes). Which comparison a file gets is stack data (stacks.json
-``formatting``: ``python`` for Python's own tokenizer, ``tokens`` for a generic one); anything else stays protected.
-
-:func:`program_fingerprint` is that comparison as one value, and it is the only one: the edit guard compares the old
-and new text's fingerprints, and the confirmed tests' intact check compares the file's fingerprint at its confirmation
-with its latest one (comparing bytes instead would fail a green gate after a layout-only Edit the guard let
-through).
-"""
+"""A formatting-only edit of a protected test is allowed."""
 
 from __future__ import annotations
 
@@ -69,7 +55,6 @@ def _without_trailing_commas(tokens: list[tuple[str, str]]) -> list[tuple[str, s
 
 
 def comparison(path: str) -> str:
-    """The stack's comparison for ``path`` (stacks.json ``formatting.compare`` by its code suffixes), else ``""``."""
     from ...engineering_knowledge.stacks import built_in
 
     suffix = path.rsplit(".", 1)[-1].lower() if "." in path else ""
@@ -81,8 +66,6 @@ def comparison(path: str) -> str:
 
 
 def program_fingerprint(text: str, path: str) -> str | None:
-    """``text`` without its layout as one value, by the stack's comparison of ``path``; ``None`` when ``path`` has no
-    comparison or does not tokenize (then only identical bytes are the same program)."""
     compare = comparison(path)
     tokens = _python(text) if compare == "python" else _generic(text) if compare == "tokens" else None
     if tokens is None:
@@ -91,13 +74,11 @@ def program_fingerprint(text: str, path: str) -> str | None:
 
 
 def same_program(old: str, new: str, path: str) -> bool:
-    """Whether ``new`` is ``old`` with only its layout changed, by the stack's comparison of ``path``."""
     before = program_fingerprint(old, path)
     return before is not None and before == program_fingerprint(new, path)
 
 
 def formatting_only(tool_input: dict[str, Any], path: str) -> bool:
-    """An Edit (or each edit of a MultiEdit) that changes only the layout of ``path``."""
     edits = tool_input.get("edits") if isinstance(tool_input.get("edits"), list) else [tool_input]
     pairs = [(item.get("old_string"), item.get("new_string")) for item in edits if isinstance(item, dict)]
     return bool(pairs) and all(isinstance(old, str) and old.strip() and isinstance(new, str)

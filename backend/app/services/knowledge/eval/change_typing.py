@@ -34,6 +34,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from ....models import User
+from ...data_access import as_viewer
 from ..access.authorization import authorize_workspace
 from ..temporal.change_types import CHANGE_EDGE_TYPES, CHANGE_RECORDS_PROFILE, change_instructions
 from ..temporal.errors import GraphStoreError, GraphStoreState
@@ -70,7 +71,6 @@ class TypingGolden:
 
 
 def load_typing_golden(name: str) -> TypingGolden:
-    """Load ``golden/<name>.json``; every label is a change type or ``NONE`` and ids are unique."""
     raw = json.loads((GOLDEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
     sentences = tuple(TypingSentence(item["id"], item["text"], item["expected"]) for item in raw["sentences"])
     if len({item.id for item in sentences}) != len(sentences):
@@ -82,7 +82,6 @@ def load_typing_golden(name: str) -> TypingGolden:
 
 
 def score(golden: TypingGolden, predicted: dict[str, set[str]]) -> dict:
-    """Per-type precision and recall over sentences, and the false-change rate of ``NONE`` sentences."""
     per_type = {}
     for kind in sorted(CHANGE_EDGE_TYPES):
         labeled = {item.id for item in golden.sentences if item.expected == kind}
@@ -110,8 +109,6 @@ def score(golden: TypingGolden, predicted: dict[str, set[str]]) -> dict:
 
 
 class _NoGraph(GraphDriver):
-    """Graphiti's driver slot for a run that must write nothing: every statement is refused."""
-
     def _refuse(self, *args, **kwargs):
         raise GraphStoreError(GraphStoreState.CONTRACT_VIOLATION)
 
@@ -130,7 +127,6 @@ class _NoEmbedder(EmbedderClient):
 
 
 async def _typed_facts(clients: GraphitiClients, golden: TypingGolden, sentence: TypingSentence) -> list[dict]:
-    """The facts Graphiti extracts from one sentence under the change-record profile, as add_episode would."""
     instructions = change_instructions(golden.product, golden.version)
     episode = EpisodicNode(
         name=sentence.id,
@@ -165,8 +161,9 @@ async def main(args: argparse.Namespace) -> dict:
     failed: list[str] = []
     async with database.async_session_factory() as db:
         admin = (await db.execute(select(User).where(User.username == args.user))).scalar_one()
-        authorized = await authorize_workspace(db, current_user=admin, workspace_id=args.workspace)
-        llm = await governed_graph_llm(db, project_id=authorized.project_id, check_change_edges=True)
+        with as_viewer(admin.id):
+            authorized = await authorize_workspace(db, current_user=admin, workspace_id=args.workspace)
+            llm = await governed_graph_llm(db, project_id=authorized.project_id, check_change_edges=True)
     clients = GraphitiClients(
         driver=_NoGraph(),
         llm_client=llm,

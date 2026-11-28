@@ -39,8 +39,6 @@ def _recommendations(layouts: list[dict[str, Any]], slides: list[dict[str, Any]]
 
 
 def _prepare_package_root(source: Path, output_root: str | Path) -> tuple[Path, Path, Path]:
-    """A fresh package folder with a copy of the template and its extracted parts: (package root, copied template,
-    extracted root)."""
     package_root = Path(output_root).expanduser().resolve() / _slugify(source.stem)
     if package_root.exists():
         shutil.rmtree(package_root)
@@ -57,7 +55,6 @@ def _prepare_package_root(source: Path, output_root: str | Path) -> tuple[Path, 
 
 
 def _tag_named_icons(media: dict[str, Any], icon_catalog: dict[str, Any], package_root: Path) -> None:
-    """Mark the exported media files that are named icons with their icon name, slug, category and path."""
     named_icons_by_file = {
         str(item.get("original_file") or ""): item for group in icon_catalog["categories"].values() for item in group
     }

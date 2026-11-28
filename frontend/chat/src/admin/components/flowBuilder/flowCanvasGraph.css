@@ -1,4 +1,3 @@
-/* Flow canvas: graph container, toolbar, React Flow controls and minimap. */
 /* ── React Flow Canvas ─────────────────────────────────────────────────────── */
 .flow-canvas {
   position: relative;
@@ -7,12 +6,11 @@
   flex: 1;
   min-height: 0; /* allow shrinking in flex context */
   overflow: hidden;
-  width: 100%; /* fill the panel width */
-  /* Same surface as the graph, so the palette column reads as part of the canvas. */
+  width: 100%;
   background: var(--panel-strong);
 }
 
-/* Graph container: fills remaining space after palette */
+/* Graph container: fills the canvas */
 .flow-canvas__graph {
   position: relative;
   flex: 1 1 auto; /* grow to fill remaining space */
@@ -56,54 +54,6 @@
   background: color-mix(in srgb, var(--danger, #c24141) 12%, transparent);
   color: var(--danger-strong, var(--ds-tone-problem-ink));
   padding: 4px 8px;
-  font-size: var(--ds-text-xs);
-}
-
-.flow-canvas__connect-select {
-  max-width: 150px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--ds-radius-md);
-  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  color: var(--text);
-  padding: 4px 0.5rem;
-  font-size: var(--ds-text-xs);
-}
-
-.flow-canvas__edge-editor {
-  display: grid;
-  grid-template-columns: minmax(120px, 1.1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr);
-  align-items: end;
-  gap: 8px;
-  max-width: min(760px, calc(100vw - 220px));
-}
-
-.flow-canvas__edge-editor-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-}
-
-.flow-canvas__edge-editor label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.flow-canvas__edge-editor label span {
-  color: var(--muted);
-  font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
-}
-
-.flow-canvas__edge-editor input {
-  min-width: 0;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--ds-radius-md);
-  background: color-mix(in srgb, var(--panel-strong) 86%, transparent);
-  color: var(--text);
-  padding: 4px 0.5rem;
   font-size: var(--ds-text-xs);
 }
 
@@ -151,11 +101,8 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-/* React Flow's own zoom controls inside the graph (live judge, screenshot 23). The shared
-   `.flow-builder button` rule (padding 6px 12px, 1px border, radius; specificity 0,1,1) out-ranks
-   React Flow's `.react-flow__controls-button` (0,1,0) and squeezed the 26px border-box buttons to
-   a 2px content box, so every icon computed 0×0. Two classes win outright and restore React
-   Flow's geometry with the theme tokens; the buttons keep React Flow's accessible names. */
+/* The shared `.flow-builder button` rule (0,1,1) out-ranks React Flow's `.react-flow__controls-button` (0,1,0) and
+   squeezed its icons to 0×0; two classes win outright and restore React Flow's geometry. */
 .flow-canvas .react-flow__controls-button {
   padding: 4px;
   border: 0;
@@ -176,13 +123,6 @@
   max-width: 12px;
   max-height: 12px;
   fill: currentColor;
-}
-
-/* The "Run & results" dock toggle (.flow-builder__dock-toggle: left/bottom 14px, 34px tall) floats
-   over the canvas's lower-left corner; the controls stack starts above it, not under it. The
-   minimap (only on graphs with 7+ nodes) stays bottom-right, clear of both. */
-.flow-canvas .react-flow__panel.react-flow__controls {
-  margin-bottom: calc(14px + 34px + 10px);
 }
 
 /* MiniMap styling */

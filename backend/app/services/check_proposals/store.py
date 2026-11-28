@@ -1,9 +1,5 @@
-"""Proposed checks kept in the database: made when a signature reaches the Workspace's threshold, edited, approved
-under four eyes, rejected with a reason, switched on and off. The same calls as the fixtures (``stub``), so the routes
-and the UI do not change; every decision goes through ``rules`` (the four-eyes rule), plus what only real proposals
-have: approving needs a drafted check, and one proposal per signature, its evidence refreshed by later repeats
-(also after a decision).
-"""
+"""Proposed checks kept in the database: made when a signature reaches the Workspace's threshold, edited, approved under
+four eyes, rejected with a reason, switched on and off."""
 
 from __future__ import annotations
 
@@ -32,7 +28,6 @@ MAX_OCCURRENCES = 20
 
 
 def evidence(signature: dict[str, Any], sources: list[str]) -> dict[str, Any]:
-    """The signature's occurrences from the Workspace's sources: repeats, runs, count by source, the newest 20."""
     found = [item for item in signature.get("occurrences") or [] if isinstance(item, dict)
              and item.get("source") in sources]
     by_source: dict[str, int] = {}
@@ -45,7 +40,6 @@ def evidence(signature: dict[str, Any], sources: list[str]) -> dict[str, Any]:
 
 async def signature_seen(db: AsyncSession, workspace_id: str, config: dict[str, Any] | None,
                          signature: dict[str, Any]) -> CheckProposal | None:
-    """The signature's proposal: refreshed, or made when the signature reached the threshold; ``None`` below it."""
     found = evidence(signature, list(value(config, "sources")))
     existing = (await db.execute(select(CheckProposal).where(
         CheckProposal.workspace_id == workspace_id, CheckProposal.signature_id == str(signature["id"]))
@@ -68,7 +62,6 @@ async def signature_seen(db: AsyncSession, workspace_id: str, config: dict[str, 
 
 
 def view(proposal: CheckProposal, *, full: bool = True) -> dict[str, Any]:
-    """The proposal in the contract's shape; the list leaves the occurrences out."""
     found = dict(proposal.evidence or {})
     return {"id": proposal.id, "workspace_id": proposal.workspace_id, "signature_id": proposal.signature_id,
             "state": proposal.state,

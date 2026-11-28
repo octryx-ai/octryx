@@ -1,17 +1,4 @@
-"""A fresh ``python -c`` probe that fails on a hang, not on a slow machine.
-
-Several tests import the application in a fresh interpreter (import boundaries, dotenv, table registration). They
-used a wall-clock ``timeout`` of 120-300 s. On a saturated machine (full suite on 14 cores, pytest.ini ``-n auto``)
-such probes time out at random while each passes alone in about one second. A faulthandler dump taken every 45 s
-shows every probe still importing, in a different module each time: the machine is saturated (14 workers, each
-starting its own subprocesses and SQLite migrations on the same disk; the slowest ordinary tests take 200-1,400 s),
-the probes are slow, not stuck.
-
-``run_python_probe`` therefore waits as long as the probe makes progress. A daemon thread in the probe writes the
-main thread's current file, line and module count to a heartbeat file every second; the probe fails only when that
-position stays the same for ``stall_seconds`` (a deadlock, a blocking read, an endless wait), and the failure carries
-the position and the probe's stderr.
-"""
+"""A fresh ``python -c`` probe that fails on a hang, not on a slow machine."""
 
 from __future__ import annotations
 
@@ -63,7 +50,6 @@ def _position(path: Path) -> str:
 
 def run_python_probe(code: str, *args: str, cwd: str | Path | None = None, env: Mapping[str, str] | None = None,
                      stall_seconds: float = STALL_SECONDS) -> subprocess.CompletedProcess[str]:
-    """Runs ``python -c code *args`` in a fresh interpreter and returns its result (text, both streams captured)."""
     with tempfile.TemporaryDirectory() as directory:
         heartbeat = Path(directory) / "heartbeat"
         environment = dict(os.environ if env is None else env)
@@ -92,14 +78,6 @@ _PYTEST_MAIN = "import runpy, sys\nsys.argv[0] = 'pytest'\nrunpy.run_module('pyt
 
 
 def run_pytest_probe(cwd: str | Path, *targets: str) -> subprocess.CompletedProcess[str]:
-    """``python -m pytest -rA <targets>`` in a small fixture repository, as a run's test step reports it.
-
-    Only the named targets run, with no ini options from elsewhere (``-o addopts=``) and without the installed pytest
-    plugins (``PYTEST_DISABLE_PLUGIN_AUTOLOAD``: the fixture tests are plain functions; asyncio, xdist and coverage
-    only cost import time). Under a full parallel suite an inner run of a two-file suite can outlast a fixed 120 s;
-    it takes a quarter second alone. Like every probe here it fails on a stall,
-    not on a slow machine.
-    """
     environment = {**os.environ, "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1"}
     return run_python_probe(_PYTEST_MAIN, "-rA", "-p", "no:cacheprovider", "-o", "addopts=", *targets, cwd=cwd,
                             env=environment)

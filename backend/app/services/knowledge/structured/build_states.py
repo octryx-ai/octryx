@@ -23,20 +23,16 @@ FAILURE_BUILD = "build_failed"
 
 @dataclass(frozen=True, slots=True)
 class BuildLease:
-    """The claim a slice writes under: ``store.write_revision`` checks and renews it in its transaction."""
-
     build_id: str
     worker_id: str
     lease_seconds: float
 
 
 class BuildLeaseLostError(Exception):
-    """Another worker claimed the build (or it ended): the write is rolled back, the slice stops."""
+    pass
 
 
 class StructuredSourceError(Exception):
-    """One revision could not be read; it is recorded with a fixed token and not retried until it changes."""
-
     def __init__(self, token: str) -> None:
         super().__init__(token)
         self.token = token

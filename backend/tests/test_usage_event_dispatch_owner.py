@@ -1,9 +1,5 @@
-"""``usage_events.dispatch_owner``: the governed call's owner is a column.
-
-The column is written by
-every governed platform call that records a ``UsageEvent`` with a registered owner; the proposal's
-own write is asserted in ``test_workflow_proposal.py``. ``request_id`` keeps its value.
-"""
+"""``usage_events.dispatch_owner``: the governed call's owner is a column written by every governed platform
+call with a registered owner; ``request_id`` keeps its value."""
 
 from __future__ import annotations
 
@@ -14,7 +10,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-import app.agent.core.execution_support as execution_support_module
+import app.agent.runtime.execution_support as execution_support_module
 from app.models import UsageEvent, User
 from app.services.budget import UsageCostAttribution
 from tests.alembic_model_parity_support import (
@@ -46,8 +42,7 @@ async def test_governed_usage_writers_record_their_registered_owner(db, monkeypa
     common = {"db": db, "session_id": session_id, "user_id": admin.id, "provider": "fake"}
     usage = {"prompt_tokens": 3, "completion_tokens": 2}
 
-    # The main chat turn (engine runtime chain), a work item analysis, and a call without an owner.
-    await execution_support_module.record_engine_turn_usage_event(**common, model="turn", usage=usage, request_id="r1")
+    # A work item analysis and a call without an owner.
     await execution_support_module.record_usage_event(
         **common, model="node", usage=usage, dispatch_owner="work_item_analysis"
     )
@@ -57,7 +52,6 @@ async def test_governed_usage_writers_record_their_registered_owner(db, monkeypa
 
     rows = (await db.execute(select(UsageEvent).where(UsageEvent.session_id == session_id))).scalars().all()
     owners = {row.model: (row.dispatch_owner, row.request_id) for row in rows}
-    assert owners["turn"] == ("engine_runtime_chain", "r1")
     assert owners["node"][0] == "work_item_analysis"
     assert owners["plain"][0] is None
     assert "bad" not in owners

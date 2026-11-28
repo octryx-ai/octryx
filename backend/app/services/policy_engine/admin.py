@@ -1,14 +1,4 @@
-"""Instance settings and status of the policy engine for the admin API.
-
-- Mode ``off | shadow | enforce`` (``runtime.MODE_CONFIG_KEY``), audited on every change. Selecting ``shadow``
-  starts the shadow window (``enforce.SHADOW_SINCE_CONFIG_KEY``) and resets the dropped-record counter;
-  ``enforce`` is accepted only when ``enforce.enforce_readiness`` is ready (else
-  ``policy_engine_enforce_not_ready`` with the reasons).
-- Settings: the enforce window in hours (1..720) and the decision-log retention in days (1..365), audited.
-- Status: mode, engine availability, schema version, published custom version (with the shadow fallback when it
-  no longer parses), the baseline digest, the per-point decision and fallback counters, the shadow latency (and the
-  draft-shadow evaluation's own latency) and the decision-log buffer.
-"""
+"""Instance settings and status of the policy engine for the admin API."""
 
 from __future__ import annotations
 
@@ -57,7 +47,6 @@ class PolicyEngineSettingError(ValueError):
 
 
 async def set_mode(db: AsyncSession, *, mode: Any, actor_id: str) -> str:
-    """Store the instance mode and audit it; flushes. The caller commits, then refreshes the runtime."""
     value = str(mode or "").strip().lower()
     if value not in MODES:
         raise PolicyEngineSettingError(ERROR_MODE_INVALID)
@@ -78,8 +67,7 @@ async def set_mode(db: AsyncSession, *, mode: Any, actor_id: str) -> str:
 
 
 async def _store(db: AsyncSession, key: str, value: str, description: str, actor_id: str) -> None:
-    await set_system_config_value(db, key=key, value=value, description=description, updated_by=actor_id,
-                                  record_prompt_revision=False)
+    await set_system_config_value(db, key=key, value=value, description=description)
 
 
 _SETTINGS = {
@@ -89,7 +77,6 @@ _SETTINGS = {
 
 
 async def set_settings(db: AsyncSession, *, values: Any, actor_id: str) -> dict[str, int]:
-    """Store the window and the retention (each optional, whole numbers in range); flushes."""
     if not isinstance(values, dict) or not values or set(values) - set(_SETTINGS):
         raise PolicyEngineSettingError(ERROR_SETTING_INVALID)
     saved: dict[str, int] = {}

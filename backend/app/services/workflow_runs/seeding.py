@@ -1,12 +1,4 @@
-"""Ship the generic phased workflows: created once, updated only while nobody changed them.
-
-A missing seeded workflow is created and its version published. An existing one is updated by a changed seed
-only while its published version still is the seed this code wrote (its definition's digest is the version's
-``runtime_settings.seed_digest``) and no draft is pending: the new seed becomes a new published version. An admin's
-version is never overwritten: the changed seed waits next to it as one draft version for review,
-and an archived workflow stays archived. The definitions are generic — no customer
-values; a Workspace binds them through its own Jira, repository and CI connections.
-"""
+"""Ship the generic phased workflows: created once, updated only while nobody changed them."""
 
 from __future__ import annotations
 
@@ -24,7 +16,6 @@ from ...models import FlowDefinition, User
 logger = logging.getLogger(__name__)
 SEEDS_PATH = Path(__file__).resolve().parent / "seeds" / "phased_workflows.json"
 SEED_MARKER = "phased_workflows"
-# The shipped fragments (``sf-publish-prove``), seeded before the workflows whose source pins them.
 FRAGMENT_SEEDS_PATH = Path(__file__).resolve().parent / "seeds" / "phased_fragments.json"
 FRAGMENT_SEED_MARKER = "phased_fragments"
 
@@ -42,7 +33,6 @@ def phased_fragment_seeds() -> list[dict[str, Any]]:
 
 
 def _seed_composition(seed: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """A ``definition_source`` seed compiled with the fragment seed file (pure, pinned by checksum)."""
     from .fragments.compiler import compile_composite, composition_settings
     from .fragments.format import FragmentError, ResolvedFragment, fragment_refs, parse_fragment
     from .handoff.contract import canonical_hash
@@ -63,18 +53,15 @@ def _seed_composition(seed: dict[str, Any]) -> tuple[dict[str, Any], dict[str, A
 
 
 def phased_seeds() -> list[dict[str, Any]]:
-    """The shipped workflows; a ``definition_source`` seed (B) also gets its compiled ``definition``."""
     return [compiled_seed(seed) for seed in json.loads(SEEDS_PATH.read_text(encoding="utf-8"))]
 
 
 def compiled_seed(seed: dict[str, Any]) -> dict[str, Any]:
-    """A seed with its ``definition``: a ``definition_source`` seed is compiled with the shipped fragments."""
     return {**seed, "definition": _seed_composition(seed)[0]} if "definition_source" in seed else seed
 
 
 async def _pinned_composition(db: AsyncSession, seed: dict[str, Any]) -> dict[str, Any] | None:
-    """The composition block of a NEW version of a ``definition_source`` seed, with the seeded fragment versions'
-    ids and numbers (resolved by key + checksum). Never written onto an existing version."""
+    # Never written onto an existing version.
     if "definition_source" not in seed:
         return None
     from ...models.runtime.flow_definition import FlowDefinitionVersion
@@ -98,7 +85,6 @@ async def _pinned_composition(db: AsyncSession, seed: dict[str, Any]) -> dict[st
 
 
 def _fragment_keys(node: Any) -> set[str]:
-    """The ``fragment_key`` every fragment box of a definition (or its source) names."""
     if isinstance(node, dict):
         own = {str(node["fragment_key"])} if node.get("fragment_key") else set()
         return own.union(*(_fragment_keys(value) for value in node.values()))
@@ -108,17 +94,13 @@ def _fragment_keys(node: Any) -> set[str]:
 
 
 def _used_fragments() -> set[str]:
-    """The fragments a shipped workflow uses: a fresh installation is not shown a part no workflow of it runs."""
     return _fragment_keys(json.loads(SEEDS_PATH.read_text(encoding="utf-8")))
 
 
 async def seed_phased_fragments(db: AsyncSession, *, admin_user: User) -> dict[str, int]:
-    """Create and publish the shipped fragments once (seeds are exempt from fragment four-eyes); a changed
-    fragment seed follows the same admin-overwrite rules as a workflow seed (:func:`_update_seed`)."""
     from ..flow_definitions import create_flow_definition, publish_flow_definition_version
 
     counts = {"created": 0, "updated": 0, "unchanged": 0}
-    hidden = {"capability_enabled": False, "llm_visible": False}
     used = _used_fragments()
     for seed in phased_fragment_seeds():
         digest = definition_digest(seed["definition"])
@@ -128,7 +110,7 @@ async def seed_phased_fragments(db: AsyncSession, *, admin_user: User) -> dict[s
             continue  # no workflow of this installation uses it: a fresh one is not shown a part nobody runs
         if existing is not None:
             updated = await _update_seed(db, existing, seed, digest, admin_user, marker=FRAGMENT_SEED_MARKER,
-                                         publish_metadata=hidden)
+                                         publish_metadata={})
             counts["updated" if updated else "unchanged"] += 1
             continue
         created = await create_flow_definition(db, current_user=admin_user, payload={
@@ -137,7 +119,7 @@ async def seed_phased_fragments(db: AsyncSession, *, admin_user: User) -> dict[s
             "runtime_settings": {"seed": FRAGMENT_SEED_MARKER, "seed_digest": digest},
         })
         await publish_flow_definition_version(db, version_id=created["versions"][0]["id"], current_user=admin_user,
-                                              publish_metadata=hidden, shipped=True)
+                                              publish_metadata={}, shipped=True)
         counts["created"] += 1
         logger.info("Seeded phased fragment: key=%s", seed["key"])
     await db.flush()
@@ -173,7 +155,7 @@ async def seed_phased_workflows(db: AsyncSession, *, admin_user: User) -> dict[s
         })
         await publish_flow_definition_version(db, version_id=created["versions"][0]["id"], current_user=admin_user,
                                               shipped=True)  # shipped content: exempt from four-eyes
-        if seed.get("availability") == AVAILABILITY_OPTIONAL:  # shipped, published, and off until an admin wants it
+        if seed.get("availability") == AVAILABILITY_OPTIONAL:
             flow = await db.get(FlowDefinition, created["id"])
             if flow is not None:
                 flow.is_active = False
@@ -187,7 +169,6 @@ async def seed_phased_workflows(db: AsyncSession, *, admin_user: User) -> dict[s
 async def _update_seed(db: AsyncSession, flow: FlowDefinition, seed: dict[str, Any], digest: str,
                        admin_user: User, *, marker: str = SEED_MARKER,
                        publish_metadata: dict[str, Any] | None = None) -> bool:
-    """A changed seed becomes a new published version while the current one is still a shipped seed."""
     from ...models.runtime.flow_definition import FlowDefinitionVersion
     from ..flow_definitions import next_flow_version_number, publish_flow_definition_version, validate_flow_definition
 
@@ -264,7 +245,6 @@ def with_layout_of(definition: dict[str, Any], current: dict[str, Any], parse: A
 
 
 async def _seed_version_exists(db: AsyncSession, flow: FlowDefinition, digest: str) -> bool:
-    """This seed was already offered (as a draft an admin since published, discarded or kept): never again."""
     from ...models.runtime.flow_definition import FlowDefinitionVersion
 
     versions = (await db.execute(select(FlowDefinitionVersion.runtime_settings).where(

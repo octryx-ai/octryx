@@ -1,10 +1,5 @@
-"""The independent reviewer runs as its own session on a configurable model.
-
-Locally the only admitted runtime was a 9B Qwen stub: the reviewer ran on it, timed out and distorted every
-measurement. Now the reviewer's model and route are chosen per engine (node > Workspace > platform default
-``review_models.json``: ``claude-sonnet-5-5`` / ``gpt-6.1-terra``), ``company`` runs exactly that model or gives no verdict, and ``seat`` is a
-separate tool-less device turn on the person's own subscription with a visible, budgeted company fallback.
-"""
+"""The independent reviewer runs as its own session on a model chosen per engine (node > Workspace > platform
+default); ``company`` runs exactly that model, ``seat`` a tool-less device turn with a budgeted fallback."""
 
 from __future__ import annotations
 
@@ -31,8 +26,9 @@ from tests.review_own_session_support import (  # noqa: F401
     _runtime,
     workspace_runtimes,
 )
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-# --- configuration ---------------------------------------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_workspace_review_section_is_per_engine_and_never_mixes_families():
@@ -94,9 +90,6 @@ async def test_a_codex_run_is_reviewed_by_a_codex_model_never_a_claude_one(db, t
     assert (workspace.model, workspace.route, workspace.route_source) == ("gpt-6-sol", "seat", "workspace")
 
 
-# --- company route ---------------------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_company_runs_exactly_the_chosen_model_or_says_it_is_not_admitted(db, workspace_runtimes):  # noqa: F811
     model = await company_review_model(db, project_id=None, model=DEFAULT)
@@ -126,12 +119,69 @@ async def test_by_default_the_review_runs_on_the_platform_default_and_not_on_ano
 
 
 @pytest.mark.asyncio
-async def test_company_with_no_runtime_serving_the_model_pauses_with_the_clear_reason(db, tmp_path,
-                                                                                    workspace_runtimes):  # noqa: F811
+async def test_a_platform_default_the_installation_lacks_reviews_on_its_own_model_and_says_so(db, tmp_path,
+                                                                                         workspace_runtimes):  # noqa: F811
     workspace_runtimes.runtimes = [_runtime("qwen3.5-9b")]
     run, _ = await _awaiting_review(db, tmp_path)
     assert await run_due_reviews(db) == 1
     await db.refresh(run)
+    assert run.status == "completed"
+    assert {model for model, _ in workspace_runtimes.called} == {"qwen3.5-9b"}
+    review = run.context["review"]
+    assert (review["reviewer_model"], review["reviewer_model_source"], review["reviewer_model_requested"]) == (
+        "qwen3.5-9b", "installation_default", DEFAULT)
+
+
+@pytest.mark.asyncio
+async def test_a_model_chosen_explicitly_that_is_not_admitted_still_pauses_with_the_clear_reason(
+        db, tmp_path, workspace_runtimes):  # noqa: F811
+    workspace_runtimes.runtimes = [_runtime("qwen3.5-9b")]
+    run, _ = await _awaiting_review(db, tmp_path, workspace_policy={"review": {"claude_code": {"model": DEFAULT}}})
+    assert await run_due_reviews(db) == 1
+    await db.refresh(run)
     assert (run.status, run.pause_reason) == ("paused", "review_no_decision")
     assert REASON_MODEL_NOT_ADMITTED in run.node_state["pause"]["message"]
-    assert workspace_runtimes.called == []  # nothing ran on the Qwen stub
+    assert workspace_runtimes.called == []  # a Workspace's own choice is never replaced silently
+
+
+@pytest.mark.asyncio
+async def test_a_model_an_admin_added_reviews_although_the_workspace_chain_does_not_list_it(
+        db, workspace_runtimes):  # noqa: F811
+    provider = await _catalog_provider(db)
+    workspace_runtimes.runtimes = [_runtime("stub-model")]  # the environment's model, no provider
+    model = await company_review_model(db, project_id=None, model="r2-stub")
+    assert [(runtime["model"], runtime["provider_id"]) for runtime in model._runtimes] == [("r2-stub", provider.id)]
+
+
+@pytest.mark.asyncio
+async def test_a_provider_scoped_to_another_workspace_never_serves_this_workspaces_review(db):
+    import uuid
+
+    from app.services.workflow_runs.review.model_catalog import catalog_runtimes
+
+    own, other = (Project(id=str(uuid.uuid4()), name=f"scope-{uuid.uuid4().hex[:6]}", is_active=True, config={})
+                  for _ in range(2))
+    db.add_all([own, other])
+    await db.flush()
+    scoped = await _catalog_provider(db, project_id=other.id)
+    unscoped = await _catalog_provider(db)
+    for project_id in (own.id, None):
+        found = await catalog_runtimes(db, project_id, "r2-stub", set())
+        assert [runtime["provider_id"] for runtime in found] == [unscoped.id]
+    found = await catalog_runtimes(db, other.id, "r2-stub", set())
+    assert {runtime["provider_id"] for runtime in found} == {scoped.id, unscoped.id}
+
+
+async def _catalog_provider(db, *, project_id: str | None = None):
+    import uuid
+
+    from app.models import LLMModel, LLMProvider
+
+    provider = LLMProvider(name=f"bundled-{uuid.uuid4().hex[:6]}", driver="litellm", display_name="Bundled",
+                           endpoint_url="http://127.0.0.1:4000/v1", is_active=True, project_id=project_id)
+    db.add(provider)
+    await db.flush()
+    db.add(LLMModel(provider_id=provider.id, model_id="r2-stub", display_name="R2 Stub", is_active=True,
+                    cleared_up_to="internal"))
+    await db.flush()
+    return provider

@@ -14,7 +14,7 @@ from ..secret import get_secret_value
 async def _provider_client_secret(db: AsyncSession, provider: IdentityProvider) -> str | None:
     if not provider.client_secret_secret_ref:
         return None
-    return await get_secret_value(db, secret_id=provider.client_secret_secret_ref)
+    return await get_secret_value(db, secret_id=provider.client_secret_secret_ref, purpose="oidc.sign_in")
 
 
 async def _discover_provider_configuration(provider: IdentityProvider) -> dict[str, Any]:

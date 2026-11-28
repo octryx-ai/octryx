@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
@@ -20,6 +19,7 @@ from ..sync.git_config import HEAD_COMMIT, HEAD_DIRTY
 from ..sync.git_repository import external_id_of
 from ..sync.items import ConnectorRef, load_item, retire_item
 from .binding import SnapshotRefusal
+from .protocol_types import CompleteRequest, CompleteResponse
 from .snapshot_pass import REASON_NO_OPEN_PASS, _open_snapshot, _Pass, _store_cursor, _writable_pass
 
 # The upload module's logger, so the completion's log line keeps its origin.
@@ -29,9 +29,8 @@ SNAPSHOT_AUDIT_ACTION = "knowledge.repository_snapshot.indexed"
 
 
 async def complete_snapshot_pass(
-    db: AsyncSession, *, session: Session, workspace_id: str, user_id: str, payload: dict[str, Any]
-) -> dict[str, Any] | SnapshotRefusal:
-    """Close the pass when nothing is wanted any more: retire removed paths, move the source's head."""
+    db: AsyncSession, *, session: Session, workspace_id: str, user_id: str, payload: CompleteRequest
+) -> CompleteResponse | SnapshotRefusal:
     opened = await _writable_pass(
         db, session=session, workspace_id=workspace_id, head_commit=payload.get("head_commit")
     )
@@ -76,7 +75,6 @@ async def complete_snapshot_pass(
 
 
 async def _retire_removed(db: AsyncSession, connector: KnowledgeSourceConnector, head_commit: str) -> list:
-    """Paths HEAD no longer lists: index rows deleted, sources tombstoned."""
     ref = ConnectorRef.of(connector)
     removed = await repository_index.retire_unseen(db, connector_id=connector.id, head_commit=head_commit)
     for path, _source_id in removed:
@@ -87,7 +85,6 @@ async def _retire_removed(db: AsyncSession, connector: KnowledgeSourceConnector,
 
 
 def _move_head(connector: KnowledgeSourceConnector, opened: _Pass) -> dict:
-    """The source's head becomes the pass's HEAD and the pass completes; the new scope."""
     scope = dict(connector.scope or {})
     scope.update({
         HEAD_COMMIT: opened.head_commit,
@@ -104,12 +101,12 @@ def _completion_audit(
     connector: KnowledgeSourceConnector, opened: _Pass, scope: dict, session: Session, workspace_id: str,
     user_id: str, counts: dict,
 ) -> AuditLog:
-    """Audited with counts only."""
     return AuditLog(
         user_id=user_id,
         action=SNAPSHOT_AUDIT_ACTION,
         resource_type="knowledge_source_connector",
         resource_id=connector.id,
+        project_id=workspace_id,
         details={
             "workspace_id": workspace_id,
             "connector_key": connector.connector_key,

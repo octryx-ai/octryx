@@ -1,14 +1,4 @@
-"""The spec-origin decider and actual-viewer authority of a spec-bound engineering child.
-
-``decider: spec_origin`` routes an interactive decision to the exact human who confirmed the accepted spec: the
-``decided_by`` of the latest current human spec confirmation held in the child's accepted durable handoff. It is
-derived only after the accepted owner's lifecycle and source authority are proved again, and only while that person
-is still an active human member of the Workspace. It never reads the child requester, a role label, model arguments
-or the idea confirmation, and it grants nothing else: owner, execution, Session and runtime stay with the engineer.
-
-A spec-bound run's source-backed projections are a read by their actual viewer: the viewer's own current source
-authority over the accepted spec is resolved independently (``resolve_viewer_spec``); the owner's proof is no grant.
-"""
+"""The spec-origin decider and actual-viewer authority of a spec-bound engineering child."""
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +13,6 @@ INACTIVE = "spec_origin_inactive"
 
 
 async def spec_bound(db: AsyncSession, run: WorkflowRun) -> bool:
-    """The run consumes an accepted spec: its pinned graph declares it, or a typed spec handoff binds it."""
     from ..data_flow import receives_spec
     from ..graph import graph_for_run
     from ..handoff.specification import has_spec_handoff
@@ -39,7 +28,7 @@ async def spec_bound(db: AsyncSession, run: WorkflowRun) -> bool:
 
 
 async def spec_origin(db: AsyncSession, run: WorkflowRun, members: dict[str, User]) -> tuple[tuple[str, ...], str]:
-    """``((user_id,), "")`` for the current spec-origin human, else ``((), reason)``; never a requester fallback."""
+    # Never a requester fallback.
     from ..handoff.specification import has_spec_handoff, resolve_accepted_spec
     from ..work_roles import active_human
 
@@ -49,7 +38,6 @@ async def spec_origin(db: AsyncSession, run: WorkflowRun, members: dict[str, Use
     if owner is None:
         return (), UNRESOLVED
     try:
-        # The accepted owner's lifecycle, the exact durable proof and its source authority, as the owner.
         snapshot = await resolve_accepted_spec(db, run, principal=owner)
     except WorkflowRunError:
         return (), UNRESOLVED
@@ -69,7 +57,6 @@ async def spec_origin(db: AsyncSession, run: WorkflowRun, members: dict[str, Use
 
 
 async def viewer_spec(db: AsyncSession, run: WorkflowRun, viewer: Any) -> dict:
-    """The accepted spec snapshot as ``viewer`` may read it now, else ``SpecificationUnavailable``."""
     from ..handoff.specification import resolve_viewer_spec
     from .lineage import SpecificationUnavailable
 
@@ -82,7 +69,6 @@ async def viewer_spec(db: AsyncSession, run: WorkflowRun, viewer: Any) -> dict:
 
 
 async def require_decider_spec_authority(db: AsyncSession, run: WorkflowRun, user: User) -> None:
-    """Final decision recheck: a spec-bound decision needs its decider's own current source authority."""
     from .lineage import SpecificationUnavailable
 
     if not await spec_bound(db, run):

@@ -23,7 +23,7 @@
 }
 
 .model-catalog__name {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .model-catalog__sub {
@@ -40,7 +40,7 @@
 .model-catalog__tag {
   font-size: var(--ds-text-2xs);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .model-catalog__chips {
@@ -122,7 +122,7 @@
 
 .model-catalog__kv b {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--muted);
@@ -136,7 +136,7 @@
 .provider-connection__icon {
   background: var(--muted);
   color: var(--surface);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .provider-connection__icon--gateway {
@@ -189,7 +189,7 @@
     content: attr(data-label);
     color: var(--muted);
     font-size: var(--ds-text-2xs);
-    font-weight: 600;
+    font-weight: var(--ds-weight-strong);
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-align: left;
@@ -213,7 +213,7 @@
 }
 
 /* Global › Models overview. */
-.models-overview__heading { margin: 0; font-size: var(--ds-text-lg); font-weight: 600; flex: 1 1 auto; }
+.models-overview__heading { margin: 0; font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); flex: 1 1 auto; }
 .models-overview__providers { display: grid; gap: 0.5rem; margin-bottom: 1.5rem; }
 .models-overview__provider {
   display: flex;

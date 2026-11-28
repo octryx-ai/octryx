@@ -1,17 +1,4 @@
-"""Deterministic evidence-diagram set for the deck, built from the snapshot.
-
-The deck must not depend on how many times the model happened to call
-``create_diagram``: a run that drew the overview once left a deck with a single
-diagram slide, while the detail set (service inventory, per-tier/per-app views)
-was never rendered. This module derives the full set — overview first, then the
-substantive detail diagrams — from the AWS topology snapshot using the SAME
-builders the diagram pipeline uses (no second render path), renders each to PNG,
-and hands them to the planner as one slide per diagram.
-
-It is used only when the snapshot carries a ``diagram_brief`` (the selection the
-renderer draws from). Without one it yields nothing and the caller falls back to
-the diagrams the turn already produced.
-"""
+"""Deterministic evidence-diagram set for the deck, built from the snapshot."""
 
 from __future__ import annotations
 
@@ -37,12 +24,6 @@ def _slug(value: str, fallback: str) -> str:
 
 
 def _full_aws_shape_library() -> dict[str, Any]:
-    """The aws4 library with every shape matched, so no icon degrades to a stub.
-
-    The turn history keeps only a 20-shape compacted library (fine for the
-    model); rendering the full topology needs every type mapped, so load it
-    fresh rather than reuse the compacted copy.
-    """
     from .._diagram_shape_library import _SHAPE_LIBRARY_DIR, _extract_shape_library_metadata, load_shape_library
 
     content = (_SHAPE_LIBRARY_DIR / "aws4.md").read_text(encoding="utf-8")
@@ -51,7 +32,6 @@ def _full_aws_shape_library() -> dict[str, Any]:
 
 
 def _evidence_diagram_calls(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
-    """Overview + inventory + substantive detail diagrams, as create_diagram calls."""
     from ...services.diagrams.aws_topology_diagram import (
         build_aws_topology_detail_diagram_tool_calls,
         build_aws_topology_diagram_tool_call,
@@ -74,11 +54,6 @@ async def evidence_diagram_images(
     output_dir: Path,
     max_images: int,
 ) -> tuple[list[dict[str, str]], list[str]]:
-    """Render the deterministic evidence-diagram set to PNG, one entry per diagram.
-
-    Returns ``(images, warnings)`` in the same shape the planner consumes from
-    the turn's own diagrams. Empty when the snapshot has no ``diagram_brief``.
-    """
     from ...services.diagram_export_service import (
         DiagramRenderError,
         DiagramRendererUnavailableError,

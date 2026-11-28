@@ -1,18 +1,4 @@
-"""Custom REST's record-level part of the shared intake pipeline (``intake/pipeline``).
-
-A record becomes a Work item through the intake's field mapping (dotted paths, ``config``). What it refuses or drops,
-and why:
-
-- a record without a stable key (``key``; ``id`` when mapped) is ``skipped_invalid``: an item imported under a
-  made-up key would be imported again on the next run and could never be closed or written back;
-- texts are bounded to the Work item's columns like the other intakes (title 500, description 20000, keys 220);
-- the reporter must be an identifier (an e-mail address, a user name or id): a person is matched by identifier only
-  (``workflow_runs.responsible``), so a display name ("Rita Muster") is not kept as the reporter;
-- a link is kept only as an ``http(s)`` URL.
-
-The records are third-party content: where an item reaches a model (the analysis prompt) it goes inside the shared
-untrusted fence (``work_item_analysis.prompt``), like every other source's.
-"""
+"""Custom REST's record-level part of the shared intake pipeline."""
 
 from __future__ import annotations
 
@@ -45,7 +31,6 @@ def _scalar(value: Any) -> Any:
 
 
 def identifier(value: Any) -> str | None:
-    """An identifier of a person (no whitespace: an e-mail, user name or id), else ``None``."""
     if isinstance(value, Mapping):
         value = next((value[key] for key in _IDENTIFIER_KEYS if isinstance(value.get(key), str | int)), None)
     candidate = text(value, 220) if isinstance(value, str | int) and not isinstance(value, bool) else None
@@ -64,8 +49,6 @@ def _labels(value: Any) -> list[str]:
 
 
 class CustomRestRecords:
-    """The :class:`~..intake.protocol.RecordSource` of a Custom REST list operation."""
-
     source_type = SOURCE_TYPE
     label = LABEL
     sync_audit_action = SYNC_AUDIT_ACTION
@@ -95,6 +78,7 @@ class CustomRestRecords:
 
         key = text(_scalar(at("key")), 220)
         source_id = text(_scalar(at("id")), 220) if fields.get("id") else key
+        # An item under a made-up key would be imported again on every run and could never be closed
         if key is None or source_id is None:
             return None
         status = text(_scalar(at("status")), 120)
@@ -119,7 +103,7 @@ class CustomRestRecords:
         return is_closed(_scalar(get_path(record, path)) if path else None, intake)
 
     def in_scope(self, item: WorkItem, listed: Listed) -> bool:
-        """The read is the intake's whole scope (the role's grant already narrowed it server-side)."""
+        # The role's grant already narrowed the read server-side.
         return True
 
     def query_preview(self, intake: Mapping[str, Any]) -> str:

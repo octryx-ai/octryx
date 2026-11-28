@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,9 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class Scheduler(Base):
+class Scheduler(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"task_id": "tasks"}
     __tablename__ = "schedulers"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

@@ -1,29 +1,4 @@
-"""The seat allowance as Anthropic reports it on every subscription call.
-
-Seat traffic carries these response headers:
-
-- ``anthropic-ratelimit-unified-5h-utilization`` / ``-7d-utilization``: a fraction (``0.05`` = 5 %),
-  above 1 when the window is exceeded;
-- ``anthropic-ratelimit-unified-5h-reset`` / ``-7d-reset``: epoch seconds;
-- ``anthropic-ratelimit-unified-5h-status`` / ``-7d-status`` and ``-status``: ``allowed``,
-  ``allowed_warning`` or ``rejected``.
-
-Parsing never trusts the shape: a value that is not a finite number, a plausible epoch or a short
-lower-case word is ignored, and a missing header leaves the stored value unchanged.
-
-The Codex seat (a person's own ChatGPT login, ``model_gateway/inbound/codex_seat``) gets its windows from ChatGPT's
-``x-codex-*`` response headers (codex-rs ``codex-api/src/rate_limits.rs``), read by :func:`parse_codex_allowance`
-into the same fields:
-
-- ``x-codex-primary-used-percent`` / ``x-codex-secondary-used-percent``: a percentage (``12.5`` = 12.5 %); the
-  primary window is the short one (5 h), the secondary the long one (7 d);
-- ``x-codex-primary-reset-at`` / ``-secondary-reset-at``: epoch seconds; a ``-reset-after-seconds`` value (seconds
-  from now) is used when no ``-reset-at`` is sent;
-- ``x-codex-rate-limit-reached-type``: one of codex-rs' known words means the call was refused for a limit
-  (``rejected``).
-
-Only these numbers and the one word are read; no other header (and never a token) is kept.
-"""
+"""The seat allowance windows read from Anthropic's and Codex's rate-limit response headers."""
 
 from __future__ import annotations
 
@@ -92,13 +67,11 @@ _SEVERITY = {STATUS_REJECTED: 3, "allowed_warning": 2, "allowed": 0}
 
 
 def _worst(*statuses: str | None) -> str | None:
-    """The most severe status: ``rejected`` > ``allowed_warning`` > any other word > ``allowed``."""
     present = [status for status in statuses if status]
     return max(present, key=lambda status: _SEVERITY.get(status, 1)) if present else None
 
 
 def parse_allowance(headers: Mapping[str, str]) -> Allowance:
-    """The allowance in one upstream response's headers (names are matched case-insensitively)."""
     lowered = {str(name).lower(): str(value) for name, value in headers.items()}
 
     def get(suffix: str) -> str | None:
@@ -141,7 +114,6 @@ def _reset_after(raw: str | None, now: datetime) -> datetime | None:
 
 
 def parse_codex_allowance(headers: Mapping[str, str], *, now: datetime | None = None) -> Allowance:
-    """The Codex seat's windows in one ChatGPT response's ``x-codex-*`` headers (primary = 5 h, secondary = 7 d)."""
     lowered = {str(name).lower(): str(value) for name, value in headers.items()}
     moment = now or datetime.now(UTC).replace(tzinfo=None)
 

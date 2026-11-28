@@ -1,10 +1,5 @@
-"""A running workflow run whose Server turn a restart interrupted pauses instead of hanging.
-
-Contract: when the ownership sweep settles the main chat thread of a ``running`` phased run as
-``interrupted_by_restart``, the run pauses ``runtime_failed`` with that code and a ``restart`` resume at its
-current node. A run on a device thread, a run that is not ``running`` and a session that was not settled are left
-exactly as they are.
-"""
+"""A running workflow run whose Server turn a restart interrupted pauses ``runtime_failed`` with a
+``restart`` resume instead of hanging; unaffected runs are left as they are."""
 
 from __future__ import annotations
 

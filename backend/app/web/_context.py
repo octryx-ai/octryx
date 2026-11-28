@@ -14,8 +14,7 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 
 def local_demo() -> bool:
-    """The local demo (``docker-compose.demo.yml`` sets ``OCTRYX_DEMO_NOTICE=1`` on the api): the sign-in and setup
-    pages say "Local demo, not for production". A notice only; it changes no behaviour."""
+    # A notice only; it changes no behaviour.
     import os
 
     return os.environ.get("OCTRYX_DEMO_NOTICE") == "1"

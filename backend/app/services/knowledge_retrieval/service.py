@@ -1,14 +1,4 @@
-"""Hybrid knowledge retrieval — the single entry point over tiers 1 and 2.
-
-LightRAG-faithful dual-level flow:
-1. The KEYWORDS role splits the question into low-level terms (specific
-   entities) and high-level terms (themes) — deterministic fallback when no
-   runtime is configured.
-2. Low-level terms rank ENTITIES (node embeddings); high-level terms rank
-   RELATIONS (edge embeddings); the raw question ranks text chunks (naive).
-3. The source chunks of retrieved entities are pulled in as evidence
-   (provenance), and the entities' claims (versioned facts) join the context.
-"""
+"""Hybrid knowledge retrieval — the single entry point over tiers 1 and 2."""
 
 from __future__ import annotations
 
@@ -33,7 +23,6 @@ _VALID_MODES = {MODE_NAIVE, MODE_LOCAL, MODE_MIX}
 async def _provenance_chunks(
     db: AsyncSession, entities: list[dict[str, Any]], *, limit: int
 ) -> list[dict[str, Any]]:
-    """Fetch the source chunks of retrieved entities (LightRAG evidence step)."""
     refs = []
     for entity in entities:
         for ref in entity.get("source_refs") or []:

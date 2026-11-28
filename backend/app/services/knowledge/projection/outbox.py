@@ -1,37 +1,5 @@
-"""Transactional-outbox claim, retry, and dead-letter transitions.
-
-No fire-and-forget. A committed revision leaves exactly one ``pending`` entry; a
-projector claims it with a **bounded lease**, applies it idempotently, and marks
-it ``applied``. A failure records a *fixed failure token* (never a server
-message), increments the attempt count, and schedules the next attempt; once the
-bounded maximum is reached the entry becomes ``dead_letter`` and is never retried.
-
-Claiming is a conditional ``UPDATE`` whose ``WHERE`` still contains the state the
-row was read in, and the claim only counts when it changed exactly one row. That
-works on PostgreSQL and SQLite alike without ``SELECT ... FOR UPDATE``, so two
-projectors cannot hold the same entry: the loser sees ``rowcount == 0`` and moves on.
-
-An expired lease is reclaimable, which is why a projector that crashed
-mid-application does not strand its entry — and that is exactly why **every**
-transition out of a claim is conditional on still owning it.
-
-The ownership token is the *exact lease deadline this claim installed*, not the
-worker identity: ``claimed_by`` alone is not a generation counter, and the manual
-trigger derives one identity per user (``api:<user_id>``), so two claims of the
-same entry routinely carry the same worker id. Every owned transition therefore
-compares entry id, ``state == 'claimed'``, ``claimed_by``, ``claimed_until ==
-ClaimedProjection.lease_until`` and a still-live deadline, and checks ``rowcount``.
-A worker whose lease expired — whether it was reclaimed by another identity, by the
-same identity, or not yet reclaimed at all — reports :data:`LEASE_LOST` instead of
-overwriting the new holder's attempt count, its failure token, its lease, or its
-cursor. Losing a lease is not an error of the projection: the spans were written
-idempotently, the new holder owns the outcome.
-
-Because the deadline *is* the token, :func:`renew_lease` returns a **new**
-``ClaimedProjection`` carrying the advanced deadline and invalidates the previous
-one; a long bounded run keeps its claim alive instead of relying on an unwritten
-"the run budget is shorter than the lease" coupling between two modules.
-"""
+"""Transactional-outbox claim, retry, and dead-letter transitions. The exact installed lease deadline is the ownership
+token of a claim."""
 
 from __future__ import annotations
 
@@ -70,7 +38,6 @@ async def claim_next(
     lease_seconds: int = DEFAULT_LEASE_SECONDS,
     project_id: str | None = None,
 ) -> ClaimedProjection | None:
-    """Lease the next due entry, or return ``None`` when nothing is due."""
     if type(worker_id) is not str or not 0 < len(worker_id) <= MAX_CLAIMED_BY_CHARS:
         raise EvidenceLedgerContractError()
     if type(lease_seconds) is not int or not 0 < lease_seconds <= MAX_LEASE_SECONDS:
@@ -177,15 +144,7 @@ async def _claim(
 async def renew_lease(
     db: AsyncSession, claimed: ClaimedProjection, *, lease_seconds: int = DEFAULT_LEASE_SECONDS
 ) -> ClaimedProjection | str:
-    """Extend a still-owned claim and answer the claim value that replaces it.
-
-    Returns a new :class:`ClaimedProjection` whose ``lease_until`` is the advanced
-    deadline, or :data:`LEASE_LOST` when this claim generation no longer owns the
-    row. The previous value is stale from here on: its deadline is no longer the one
-    stored, so every transition made with it is refused. Callers must keep the
-    returned value, which is what makes a long bounded run explicit instead of
-    silently racing its own lease.
-    """
+    # Callers must keep the returned claim: the previous value's deadline is stale and its transitions are refused.
     if type(claimed) is not ClaimedProjection:
         raise EvidenceLedgerContractError()
     if type(lease_seconds) is not int or not 0 < lease_seconds <= MAX_LEASE_SECONDS:
@@ -200,7 +159,6 @@ async def renew_lease(
 
 
 async def mark_failed(db: AsyncSession, claimed: ClaimedProjection, failure: str) -> str:
-    """Record a fixed failure token and schedule or dead-letter the entry."""
     if type(claimed) is not ClaimedProjection:
         raise EvidenceLedgerContractError()
     if failure not in ALL_PROJECTION_FAILURES:

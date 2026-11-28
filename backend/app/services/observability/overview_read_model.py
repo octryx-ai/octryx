@@ -1,10 +1,4 @@
-"""Observability → Overview (O7): what needs my attention, at a glance.
-
-Built only from the other Observability read models (Health, Usage & costs, Decisions) plus the pending approvals and
-clarifications they already show: no data source of its own. Every attention item has a severity (with a word,
-never colour alone), a one-line cause, its age and exactly one link into the screen that owns the fix. Nothing is
-decided on the Overview.
-"""
+"""Observability → Overview (O7): what needs my attention, at a glance."""
 
 from __future__ import annotations
 
@@ -17,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import Approval, ClarificationQuestion, PolicyDecisionLog, Session
 from ...time_utils import ensure_utc, utc_now
 from ..decisions.timeline import decisions_today
+from ..project.private_workspace import outside_foreign_private
 from .health_read_model import health_overview
 from .usage_read_model import usage_overview
 
@@ -67,11 +62,11 @@ def _health_items(health: dict[str, Any], now: datetime) -> list[dict[str, Any]]
     return items
 
 
-async def _waiting_items(db: AsyncSession, now: datetime) -> list[dict[str, Any]]:
+async def _waiting_items(db: AsyncSession, now: datetime, viewer_id: str) -> list[dict[str, Any]]:
     items = []
     reviews = (await db.execute(select(func.count(), func.min(Approval.created_at)).where(
         Approval.status == "pending", Approval.session_id.is_(None), Approval.task_run_id.is_(None),
-        Approval.created_at < now - REVIEW_STALE))).one()
+        Approval.created_at < now - REVIEW_STALE, outside_foreign_private(Approval.workspace_id, viewer_id)))).one()
     if reviews[0]:
         items.append(_item(ATTENTION, "! waiting", f"{reviews[0]} governance review(s) wait for a second reviewer",
                            "Pending for more than 24 hours; under four-eyes the requester cannot approve.",
@@ -79,7 +74,7 @@ async def _waiting_items(db: AsyncSession, now: datetime) -> list[dict[str, Any]
                            {"tab": "observabilityDecisions", "label": "Observability → Decisions"}))
     idle = (await db.execute(select(func.count(), func.min(Approval.created_at)).join(
         Session, Session.id == Approval.session_id).where(
-        Approval.status == "pending",
+        Approval.status == "pending", outside_foreign_private(Session.project_id, viewer_id),
         func.coalesce(Session.last_activity_at, Session.started_at) < now - SESSION_IDLE))).one()
     if idle[0]:
         items.append(_item(ATTENTION, "! waiting", f"{idle[0]} approval(s) wait on sessions without activity",
@@ -88,7 +83,10 @@ async def _waiting_items(db: AsyncSession, now: datetime) -> list[dict[str, Any]
                            {"tab": "observabilityDecisions", "label": "Observability → Decisions"}))
     questions = (await db.execute(select(func.count(), func.min(ClarificationQuestion.created_at)).where(
         ClarificationQuestion.status == "open",
-        ClarificationQuestion.created_at < now - CLARIFICATION_STALE))).one()
+        ClarificationQuestion.created_at < now - CLARIFICATION_STALE,
+        outside_foreign_private(ClarificationQuestion.project_id, viewer_id),
+        ClarificationQuestion.session_id.in_(
+            select(Session.id).where(outside_foreign_private(Session.project_id, viewer_id)))))).one()
     if questions[0]:
         items.append(_item(ATTENTION, "! waiting", f"{questions[0]} clarification(s) unanswered for more than a day",
                            "The run waits for the requester's answer in the chat thread.", _age(questions[1], now),
@@ -96,11 +94,11 @@ async def _waiting_items(db: AsyncSession, now: datetime) -> list[dict[str, Any]
     # Workflow runs that wait for a person.
     from ..workflow_runs.attention import RUNS_LINK, attention_counts
 
-    for kind, count, oldest, cause in await attention_counts(db, now):
+    for kind, count, oldest, cause in await attention_counts(db, now, viewer_id=viewer_id):
         title = f"{count} workflow run(s) paused" if kind == "paused" else f"{count} workflow run(s) waiting > 1 day"
         items.append(_item(ATTENTION, "! waiting", title, cause, _age(oldest, now), "Open workflow runs", RUNS_LINK))
     dropped = int((await db.execute(select(func.count()).select_from(PolicyDecisionLog).where(
-        PolicyDecisionLog.outcome == "dropped",
+        PolicyDecisionLog.outcome == "dropped", outside_foreign_private(PolicyDecisionLog.workspace_id, viewer_id),
         PolicyDecisionLog.created_at >= now - timedelta(days=1)))).scalar() or 0)
     if dropped:
         items.append(_item(DANGER, "✕ failing", "Decision records were dropped",
@@ -144,12 +142,12 @@ def _strip(health: dict[str, Any]) -> list[dict[str, Any]]:
     return strip
 
 
-async def overview(db: AsyncSession, *, checks: dict[str, dict[str, Any]]) -> dict[str, Any]:
+async def overview(db: AsyncSession, *, checks: dict[str, dict[str, Any]], viewer_id: str) -> dict[str, Any]:
     now = utc_now()
     health = await health_overview(db, checks=checks)
     usage = await usage_overview(db, window="month")
     today = await decisions_today(db)
-    attention = [*_health_items(health, now), *await _waiting_items(db, now), *_cost_items(usage)]
+    attention = [*_health_items(health, now), *await _waiting_items(db, now, viewer_id), *_cost_items(usage)]
     rank = {DANGER: 0, ATTENTION: 1}
     attention.sort(key=lambda item: rank.get(item["severity"], 2))
     return {

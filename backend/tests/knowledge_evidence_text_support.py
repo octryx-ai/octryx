@@ -19,7 +19,6 @@ _MID_NUMBER = frozenset(".,;'\u2019")
 
 
 def _joins(text: str, index: int) -> bool:
-    """Whether the punctuation at ``index`` sits inside one token (UAX #29 WB6/7 and WB11/12)."""
     if index == 0 or index + 1 >= len(text):
         return False
     before, mark, after = text[index - 1], text[index], text[index + 1]
@@ -29,7 +28,6 @@ def _joins(text: str, index: int) -> bool:
 
 
 def _tokens(text: object) -> set[str]:
-    """The analysed token set of one indexed body or one query parameter (lower-cased)."""
     value = str(text)
     found: set[str] = set()
     start: int | None = None
@@ -49,8 +47,6 @@ _CONCEPTS = {"drill": 0, "exercise": 0, "rehearsal": 0, "failover": 1, "switchov
 
 
 class ConceptEmbedder:
-    """Words of one concept share a dimension; other words spread thinly over the rest."""
-
     def __init__(self, space) -> None:
         self.space = space
         self.calls: list[tuple[EmbeddingPurpose, int]] = []
@@ -77,8 +73,6 @@ _FENCED_TEXT = re.compile(r"\A<<<(?P<label>[^\n]*) (?P<fence>[0-9a-f]{16})>>>\n(
 
 
 def unfenced(value):
-    """A Knowledge result as its tool produced it: the untrusted fence (``content_security/knowledge_fence``) that the
-    model-facing paths put around retrieved text taken off again, so a test can compare the text itself."""
     if isinstance(value, str):
         match = _FENCED_TEXT.match(value)
         return match.group("body") if match else value

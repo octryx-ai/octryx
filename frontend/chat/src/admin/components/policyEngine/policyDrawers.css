@@ -64,7 +64,7 @@
 
 .policies__kpi-label {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -73,7 +73,7 @@
 .policies__kpi-value {
   margin-top: 0.25rem;
   font-size: var(--ds-text-xl);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.03em;
 }
 

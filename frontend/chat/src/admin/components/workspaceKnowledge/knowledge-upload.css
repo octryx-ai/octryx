@@ -1,6 +1,6 @@
 /* Upload fields of the Knowledge → Documents upload drawer. Tokens only. */
 .knowledge-upload__file { display: grid; gap: 0.25rem; min-width: 0; }
-.knowledge-upload__label { font-size: var(--ds-text-xs); font-weight: 600; color: var(--muted-strong); }
+.knowledge-upload__label { font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); color: var(--muted-strong); }
 .knowledge-upload__input { max-width: 100%; font: inherit; font-size: var(--ds-text-sm); color: var(--muted-strong); }
 .knowledge-upload__input::file-selector-button {
   margin-right: 0.5rem;
@@ -12,7 +12,7 @@
   color: var(--text);
   font: inherit;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 .knowledge-upload__input::file-selector-button:hover { background: var(--surface-overlay-hover); }

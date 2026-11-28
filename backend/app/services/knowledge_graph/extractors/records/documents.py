@@ -14,7 +14,6 @@ from .people import _CONTRIBUTION_EDGE_BY_ROLE, ingest_person_from_source
 async def _link_contributors(
     db: AsyncSession, *, project_id: str | None, page: dict[str, Any], document: Any, title: str, source_ref: str
 ) -> str:
-    """Link the page's people to the document; returns the display name of its last updater."""
     linked: set[tuple[str, str]] = set()
     updated_by_display = ""
     for person in page.get("source_people") or []:
@@ -48,10 +47,8 @@ async def ingest_document_record(
     project_id: str | None,
     page: dict[str, Any],
 ) -> Any | None:
-    """Deterministically map a documentation page record (e.g. a Confluence
-    bronze value) into the graph: a document node, its authors/contributors from
-    ``source_people`` (creator → authored, editors/commenters → contributed_to),
-    and a version claim recording who last changed the page and when."""
+    """Map a documentation page record into the graph: a document node, its authors and contributors, and a version
+    claim."""
     title = str(page.get("title") or "").strip()
     page_id = str(page.get("page_id") or "").strip()
     if not (title or page_id):

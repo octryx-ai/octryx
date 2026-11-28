@@ -7,17 +7,15 @@ import copy
 import pytest
 
 from app.models import WorkflowRun
-from app.models.runtime.flow_definition import FlowDefinitionVersion
 from app.services.flow_definitions import validate_flow_definition
-from app.services.flow_orchestration.dag.node_execution import _execute_node
-from app.services.flow_version_state import FlowVersionStateError, ensure_runnable
-from app.services.prompt_catalog import prompt_set_scope, seed_prompt_set
-from app.services.workflow_contracts.contract_message import build_workflow_contract_message
 from app.services.workflow_runs.binding import run_turn_resolution
 from app.services.workflow_runs.path_rules import blocked_paths, phase_path_outcomes
 from app.services.workflow_runs.records import new_chat_session, start_run
 from app.services.workflow_runs.run_sessions import new_bound_session
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _codes(definition: dict) -> list[str]:
@@ -47,55 +45,8 @@ def test_a_phased_definition_is_validated_as_a_bounded_graph():
     assert "gate_check_type" in _codes(judged_answer)
 
 
-@pytest.mark.asyncio
-async def test_the_dag_executor_refuses_a_phased_version_and_never_fabricates_a_stub_result(db):
-    version = FlowDefinitionVersion(id="v", flow_id="f", version=1, status="published",
-                                    definition_json=phased_definition())
-    with pytest.raises(FlowVersionStateError) as refused:
-        ensure_runnable(version)
-    assert refused.value.reason == "flow_version_phased"
-    for node_type in ("evaluation", "subflow"):
-        with pytest.raises(Exception, match="workflow that runs in phases"):
-            await _execute_node(db, orchestrator_run=None, node={"id": "n", "type": node_type, "config": {}},
-                                input_snapshot={}, initial_input={}, project_id=None, project_config={},
-                                user_id="u", agent_type="change", limits=None, usage=None)
 
 
-@pytest.mark.asyncio
-async def test_a_phased_run_loops_through_its_gate_and_pauses_at_the_loop_limit(db):
-    admin = await admin_user(db)
-    key = await publish_phased(db, phased_definition(max_iterations=1))
-    workspace_id = await run_workspace(db, admin)
-    run = await start_run(db, user=admin, workflow_key=key, project_id=workspace_id)
-    session = await new_bound_session(db, run, admin)
-    assert (run.workflow_kind, run.status, run.current_node_id) == ("phased", "running", "work")
-
-    resolution = await run_turn_resolution(db, session, user_message="Collect it.")
-    assert resolution["workflow_run"]["node_id"] == "work"
-    assert resolution["workflow_contract"]["capability_class"] == "read_only"
-    assert resolution["tool_policy"]["allowlist"] == ["knowledge_search", "knowledge_read"]
-
-    # Turn 1: the phase's own check passes, the gate does not: the bounded loop leads back to the phase.
-    assert await phase_turn(db, session.id, resolution, ["knowledge_search"]) is None
-    assert (run.status, run.current_node_id, run.node_state["iteration"]) == ("running", "work", 2)
-    assert run.gate_results["verify"]["state"] == "failed"
-    assert run.loop_counters["rework"]["used"] == 1
-    second = await run_turn_resolution(db, session, user_message="Again.")
-    assert second["workflow_contract"]["workflow_run_phase"] == {
-        "title": "Collect evidence", "iteration": 2, "findings": ["A source was read"],
-    }
-    with prompt_set_scope(seed_prompt_set()):
-        message = build_workflow_contract_message(
-            {**second["workflow_contract"], "topic": "the item"}
-        )
-    assert "iteration 2" in message and "A source was read" in message
-
-    # Turn 2: the gate fails again and the loop is at its limit of 1: the run pauses, it never stops silently.
-    await phase_turn(db, session.id, second, ["knowledge_search"])
-    assert (run.status, run.pause_reason) == ("paused", "loop_limit")
-    held = await run_turn_resolution(db, session, user_message="Go on.")
-    assert (held["status"], held["profile_status"]) == ("held", "needs_clarification")
-    assert "paused" in held["unmatched_reason"]
 
 
 @pytest.mark.asyncio

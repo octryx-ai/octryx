@@ -1,5 +1,3 @@
-"""Screenshots of the local app and the declared test and lint commands run outside the sandbox, nothing else."""
-
 from __future__ import annotations
 
 import pytest
@@ -24,7 +22,6 @@ def _app(tmp_path, environment: dict) -> str:
     "npx playwright screenshot http://[::1]:8000/?tab=week /repo/shots/week.png 2>&1 | tail -3",
 ])
 def test_a_screenshot_of_the_local_app_runs_outside_the_sandbox(command):
-    """Chromium cannot start in the sandbox: no screen was looked at."""
     assert local_tests.is_test_run(command, "/repo")
     output = hook_outputs.test_run_output(_hook_input(command), PHASE, SHIM)
     assert local_tests.unwrap(output["hookSpecificOutput"]["updatedInput"]["command"]) == command
@@ -51,8 +48,6 @@ def test_other_playwright_commands_stay_in_the_sandbox(command):
     "python -m playwright screenshot --load-storage=s.json http://127.0.0.1:8765/ shot.png",
 ])
 def test_a_screenshot_never_looks_at_the_platform_or_a_foreign_host(command, monkeypatch):
-    """Outside the sandbox only the session's own app on loopback, never the platform's ports
-    (a local stack listens on 127.0.0.1 too), with a fresh browser profile each time."""
     monkeypatch.setenv(local_tests_screens.PLATFORM_URL_ENV, "http://127.0.0.1:24600")
     assert not local_tests.is_test_run(command, "/repo")
     assert hook_outputs.test_run_output(_hook_input(command), PHASE, SHIM) is None
@@ -65,7 +60,6 @@ def test_a_platform_elsewhere_leaves_every_loopback_port_to_the_app(monkeypatch)
 
 
 def test_a_screenshot_outside_the_sandbox_is_stopped_at_its_deadline(tmp_path, monkeypatch):
-    """A screenshot outside the sandbox has a timeout; a test run keeps its own."""
     monkeypatch.setattr(local_tests, "SCREENSHOT_SECONDS", 1)
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -82,7 +76,6 @@ def test_a_screenshot_outside_the_sandbox_is_stopped_at_its_deadline(tmp_path, m
 
 
 def test_a_screenshot_may_first_make_its_folder_inside_the_repository():
-    """``mkdir -p ... && playwright screenshot`` is a test run form and leaves the sandbox."""
     shot = "python3 -m playwright screenshot --viewport-size 1280,800 http://127.0.0.1:8811/ tests/system/shots/a.png"
     assert local_tests.is_test_run(f"mkdir -p tests/system/shots && {shot}", "/repo")
     assert local_tests.is_test_run(f"mkdir -p /repo/shots && {shot}", "/repo")
@@ -108,8 +101,6 @@ def test_the_declared_test_command_runs_outside_the_sandbox_like_pytest(tmp_path
 
 
 def test_another_python_interpreter_runs_the_same_declared_script_outside_the_sandbox(tmp_path):
-    """Declared `.venv/bin/python …` or `python3 …`, typed `python system_test/run_system_test.py`: the same declared
-    script runs outside the sandbox."""
     from octryx_claude.local_tests_forms import is_test_run
 
     venv = _app(tmp_path / "a", {"system_test": ".venv/bin/python system_test/run_system_test.py"})
@@ -136,7 +127,6 @@ def test_a_shell_or_inline_code_is_never_a_declared_test_command(tmp_path):
 
 
 def test_each_step_of_the_declared_lint_runs_outside_the_sandbox_like_the_tests(tmp_path):
-    """`flutter analyze` in the sandbox cannot write Flutter's engine stamp, so each declared lint step runs outside."""
     from octryx_claude.local_tests_forms import is_test_run
 
     lint = "dart format --output=none --set-exit-if-changed . && flutter analyze && dart run tool/check_lines.dart"
@@ -158,8 +148,6 @@ def test_a_shell_in_the_declared_lint_is_never_run_outside(tmp_path):
 
 
 def test_the_system_test_inside_a_longer_command_is_refused_at_once_with_the_form_that_runs():
-    """Heredocs, a format run and the system test in one command would run inside the sandbox, where the browser
-    cannot start: refused at once with the form that runs."""
     pinned = {"environment": {"test": "flutter test", "system_test": "python3 system_test/run_system_test.py"}}
     contract = {**PHASE, "environment_pin": pinned}
     compound = ("python3 - <<'EOF'\np='CHANGELOG.md'\nEOF\ndart format .; "

@@ -1,10 +1,5 @@
 # ruff: noqa: E501
-"""Agent invocation for Teams calls.
-
-Runs the CallAgent for a transcribed voice command (using per-channel
-configuration) and generates end-of-meeting summaries from the rolling
-call transcript.
-"""
+"""Agent invocation for Teams calls."""
 
 from __future__ import annotations
 
@@ -30,7 +25,6 @@ async def agent_response(
     db: AsyncSession,
     project_id: str | None = None,
 ) -> str:
-    """Run the CallAgent using settings from the Teams channel config."""
     import sys as _sys
     from types import SimpleNamespace
 
@@ -121,7 +115,6 @@ async def agent_response(
 async def generate_meeting_summary(
     transcript: str, channel_id: str | None, project_id: str | None, db: AsyncSession
 ) -> str:
-    """Generate an end-of-meeting summary with action items from the full transcript."""
     from types import SimpleNamespace
 
     from ...services.call_agent import CallAgentService

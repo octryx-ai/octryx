@@ -6,7 +6,7 @@
 # Needs network (the advisory database) and the backend venv (`uv sync --extra dev` brings pip-audit). Exit 0 only when
 # no advisory is reported; there is no blanket allowance. Every advisory it ignores below is bound to
 # dependency_gates/audit_exceptions.py by
-# backend/tests/test_dependency_audit_exceptions.py in both directions (no unrecorded ignore, no stale record).
+# backend/tests/repo_contracts/test_dependency_audit_exceptions.py in both directions (no unrecorded ignore, no stale record).
 set -euo pipefail
 
 BACKEND=$(cd "$(dirname "$0")/../backend" && pwd)

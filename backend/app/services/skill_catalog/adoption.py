@@ -1,7 +1,4 @@
-"""Shared pieces of the skill catalog writers: top-level categories by label and the publish approval action.
-
-A free ``category`` label becomes a top-level category with a stable key.
-"""
+"""Shared pieces of the skill catalog writers: top-level categories by label and the publish approval action."""
 
 from __future__ import annotations
 

@@ -4,7 +4,6 @@ import type { ReadJsonFn } from "../hooks/useAdminTabLoader.types";
 export type AdminPanelContentProps = {
   loadingTab: boolean;
   tabError: string | null;
-  // Loads the tab again after a failed load.
   onRetry?: () => void;
   tab: string;
   projects: Array<{ id: string; name: string }>;
@@ -13,7 +12,6 @@ export type AdminPanelContentProps = {
   projectsTabCtx: Record<string, unknown>;
   providersTabCtx: Record<string, unknown>;
   runtimesTabCtx: Record<string, unknown>;
-  scenariosTabCtx: Record<string, unknown>;
   connectorsTabCtx: Record<string, unknown>;
   toolCatalogTabCtx: Record<string, unknown>;
   knowledgeTabCtx: Record<string, unknown>;

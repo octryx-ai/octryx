@@ -1,29 +1,4 @@
-"""A pinned ``httpx`` transport: a credentialed request connects only to the address the policy checked.
-
-A policy check that resolves a hostname and then lets ``httpx`` resolve it again when it
-connects is open to DNS rebinding: the second answer may be a pod-local or private address
-the first one was not. :class:`PinnedEgressTransport` closes that gap:
-
-1. before every request (each redirect hop is its own request), it checks the target with the
-   connection's rule (``target_check.py``), which resolves the hostname **once**;
-2. it records the checked addresses for that ``host:port``;
-3. its connection pool uses a network backend that connects to a recorded address and never
-   resolves anything. A target without a recorded address is refused (``unpinned_target``).
-
-The URL is not rewritten, so the ``Host`` header, TLS SNI and certificate hostname
-verification all stay with the original hostname, and pooled connections stay keyed by it.
-Environment proxies are not used: a pinned client connects directly. The one proxy is the web
-fetch proxy an admin names explicitly (``public_web.py``).
-
-The only loopback exemption is the loopback stub allowlist
-(``app/loopback_stub_policy.py``): the transport asks it for its own connection type
-on every request, so the stubbed connection types (Confluence, Jira) reach exactly the listed
-literal ``host:port`` pairs on a local development stack, and no caller can pass another one.
-
-A refusal raises :class:`EgressRefusedError` before anything is sent. It is an
-``httpx.TransportError`` (connectors report a failed call) and an ``OutboundURLPolicyError``
-(the fixed ``reason`` stays available); its message names the reason only, never the host.
-"""
+"""A pinned ``httpx`` transport: a credentialed request connects only to the address the policy checked."""
 
 from __future__ import annotations
 
@@ -53,8 +28,6 @@ class EgressRefusedError(httpx.TransportError, OutboundURLPolicyError):
 
 
 class _PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
-    """Connects a ``host:port`` only to an address the transport checked; resolves nothing."""
-
     def __init__(self, pins: dict[tuple[str, int], tuple[str, ...]], inner: httpcore.AsyncNetworkBackend) -> None:
         self._pins = pins
         self._inner = inner
@@ -88,12 +61,6 @@ class _PinnedNetworkBackend(httpcore.AsyncNetworkBackend):
 
 
 class _PinnedHTTPTransport(httpx.AsyncHTTPTransport):
-    """``httpx``'s own request mapping, over a pool whose network backend is the pinned one.
-
-    ``AsyncHTTPTransport`` keeps all its state in ``_pool``; the parent initializer is not run
-    because it would build a second, unpinned pool.
-    """
-
     def __init__(self, *, verify: Any, network_backend: httpcore.AsyncNetworkBackend) -> None:
         self._pool = httpcore.AsyncConnectionPool(
             ssl_context=httpx.create_ssl_context(verify=verify),
@@ -110,17 +77,7 @@ def _pin_key(url: httpx.URL) -> tuple[str, int]:
 
 
 class PinnedEgressTransport(httpx.AsyncBaseTransport):
-    """Checks every request with the connection's egress rule and connects only to checked addresses.
-
-    The loopback stub exemption of the connection type is re-read per request
-    (``loopback_stub_exemption``); it is the only exemption and not a parameter. ``inner`` replaces the pinned
-    pool with another transport after the check (the named web fetch proxy of ``public_web.py``,
-    or a test's recorded responses);
-    ``network_backend`` replaces the socket layer under the pinned pool (a test seam for the
-    connect address). Neither can skip the check. ``target_rule`` is a caller's stricter rule on
-    the checked target (it raises :class:`OutboundURLPolicyError`); it runs after the connection's
-    rule and before anything is pinned or sent, on every request and redirect hop.
-    """
+    """Checks every request with the connection's egress rule and connects only to checked addresses."""
 
     def __init__(
         self,

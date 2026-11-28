@@ -51,6 +51,7 @@ async def update_global_exec_policy_payload(
         action="admin.governance.exec_policy.global_updated",
         resource_type="exec_policy_config",
         resource_id=updated.id,
+        project_id=updated.project_id,
         before=before,
         after=_exec_policy_audit_snapshot(updated),
         details={
@@ -97,6 +98,7 @@ async def create_exec_policy_payload(
         action="admin.governance.exec_policy.created",
         resource_type="exec_policy_config",
         resource_id=created.id,
+        project_id=created.project_id,
         before=None,
         after=_exec_policy_audit_snapshot(created),
         details={
@@ -139,6 +141,7 @@ async def update_exec_policy_payload(
         action="admin.governance.exec_policy.updated",
         resource_type="exec_policy_config",
         resource_id=updated.id,
+        project_id=updated.project_id,
         before=before,
         after=_exec_policy_audit_snapshot(updated),
         details={
@@ -170,6 +173,7 @@ async def delete_exec_policy_payload(
         action="admin.governance.exec_policy.deleted",
         resource_type="exec_policy_config",
         resource_id=config_id,
+        project_id=existing.project_id if existing else None,
         before=before,
         after=None,
         details={"operation": "delete_exec_policy_payload"},

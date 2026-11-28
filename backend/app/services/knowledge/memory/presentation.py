@@ -1,10 +1,4 @@
-"""How a memory item is shown: never as a source.
-
-A recall entry has ``kind: "memory"`` and ``not_source_evidence: true``, carries no ``source_url`` and
-no ``cite_as``, and says how to present it: "from session of <date> (confirmed|unconfirmed)", with the
-session as its provenance link. Knowledge evidence reads "Source: …" with its link; the two lobes are
-never rendered the same way.
-"""
+"""How a memory item is shown: never as a source."""
 
 from __future__ import annotations
 
@@ -38,7 +32,6 @@ def _iso(value: datetime | None) -> str | None:
 
 
 def recall_entry(row: KnowledgeMemoryItem, *, recorded_by: str | None) -> dict[str, Any]:
-    """One recalled memory for the model."""
     return {
         "memory_id": row.id,
         "kind": MEMORY_KIND,
@@ -63,7 +56,6 @@ def recall_entry(row: KnowledgeMemoryItem, *, recorded_by: str | None) -> dict[s
 def control_entry(
     row: KnowledgeMemoryItem, *, now: datetime, may_change: bool, recorded_by: str | None
 ) -> dict[str, Any]:
-    """One memory item for the user-control API; a forgotten item is a tombstone without text."""
     state = (
         MemoryState.EXPIRED.value
         if row.state in (MemoryState.OBSERVED, MemoryState.CONFIRMED) and is_expired(row, now)

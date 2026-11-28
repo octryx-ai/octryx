@@ -137,7 +137,6 @@ def used_keys(record: dict) -> list[str]:
 
 
 def record_readiness(kind: str, record: Any) -> tuple[bool, str]:
-    """Shape and explicit open questions only; current refs/ACL/review are separate server checks."""
     _, errors = proposal_from_record(kind, record)
     if errors:
         return False, "The current specification output is invalid."

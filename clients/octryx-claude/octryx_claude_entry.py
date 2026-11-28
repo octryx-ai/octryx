@@ -1,11 +1,5 @@
-"""Entry script for bin/octryx-claude.
-
-Running this file puts its directory on ``sys.path``, so the package imports without
-touching ``PYTHONPATH`` (which Claude Code and its tools would otherwise inherit).
-
-A tool hook of a session that decides on the device (``local_decisions``, epic-delivery) is answered before the CLI
-and its dependencies are imported: the full import would cost a noticeable fraction of a second per tool call.
-"""
+"""Entry script for bin/octryx-claude; its directory on ``sys.path`` keeps ``PYTHONPATH`` clean.
+A device-decided tool hook is answered before the CLI is imported, which would cost time on every call."""
 
 import io
 import sys

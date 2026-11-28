@@ -22,14 +22,9 @@ export const LIMIT_ROWS: readonly LimitRow[] = [
     appliesTo: "Chat, workflows, Claude Code (company models)" },
   { key: REQUEST_CAP, label: "Cost per request", unit: "usd", costCap: true,
     appliesTo: "Chat, workflows, Claude Code (company models)" },
-  { key: "default_completion_tokens", label: "Standard answer length", unit: "tokens", appliesTo: "Chat, agents" },
-  { key: "extended_completion_tokens", label: "Extended answer length", unit: "tokens",
-    appliesTo: "Change and deep-thinking runs" },
   { key: "max_output_tokens_default", label: "Longest answer (models without their own)", unit: "tokens",
     appliesTo: "Every model call" },
   { key: "runtime_request_timeout_seconds", label: "Model request timeout", unit: "seconds", appliesTo: "Every model call" },
-  { key: "llm_cache_ttl_seconds", label: "Answer cache", unit: "seconds", appliesTo: "Chat without tools" },
-  { key: "llm_cache_tools_ttl_seconds", label: "Answer cache with tools", unit: "seconds", appliesTo: "Chat with tools" },
   { key: "approx_chars_per_token", label: "Characters per token (estimate)", unit: "chars", technical: true,
     appliesTo: "Budget estimates before a call" },
   { key: "saved_script_max_output_chars", label: "Saved script output", unit: "chars", technical: true,
@@ -37,10 +32,6 @@ export const LIMIT_ROWS: readonly LimitRow[] = [
   { key: "trace_max_string", label: "Trace text length", unit: "chars", technical: true, appliesTo: "Run traces" },
   { key: "trace_max_list_items", label: "Trace list items", unit: "items", technical: true, appliesTo: "Run traces" },
   { key: "trace_max_dict_items", label: "Trace object fields", unit: "items", technical: true, appliesTo: "Run traces" },
-  { key: "llm_tool_planner_max_tokens", label: "Tool planner answer length", unit: "tokens", technical: true,
-    appliesTo: "Traced tool planning" },
-  { key: "llm_tool_planner_timeout_seconds", label: "Tool planner timeout", unit: "seconds", technical: true,
-    appliesTo: "Traced tool planning" },
 ];
 
 export const UNIT_SUFFIX: Record<LimitUnit, string> = { usd: "USD", tokens: "tokens", seconds: "s", chars: "characters", items: "items" };

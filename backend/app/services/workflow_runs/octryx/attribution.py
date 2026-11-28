@@ -1,12 +1,5 @@
-"""A run-bound gateway session's run context for metrics (token metrics fully attributed without
-reading the database at scrape time).
-
-``Session.metadata["attribution"]``: ``run``, ``ticket`` (the Work item's key), ``workflow``, ``workspace``, ``epic``
-(the item's epic, else its parent), ``role`` (``spec`` for spec-writing, ``review`` for a reviewer session, else
-``work``), ``item`` (a teamwork item's key) and ``phase`` (the run's current node). Kept when the session binds
-(``attach``) and on every node entry of its run; the gateway's session resolution puts it into
-``observability.attribution`` for the request.
-"""
+"""A run-bound gateway session's run context for metrics (token metrics fully attributed without reading the database at
+scrape time)."""
 
 from __future__ import annotations
 
@@ -31,7 +24,6 @@ def _role(run: WorkflowRun, session: Session) -> str:
 
 
 async def stamp(db: AsyncSession, run: WorkflowRun, session: Session, *, item: str = "") -> None:
-    """Write the session's run context (when it binds to ``run``)."""
     work = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
     labels = {
         "run": run.id, "workflow": str(run.workflow_key or ""), "workspace": str(run.project_id or ""),
@@ -44,7 +36,6 @@ async def stamp(db: AsyncSession, run: WorkflowRun, session: Session, *, item: s
 
 
 async def moved_to(db: AsyncSession, run: WorkflowRun) -> None:
-    """The run entered a node: its bound sessions' ``phase`` follows."""
     from ....models import WorkflowRunSession
 
     sessions = (await db.execute(select(Session).join(
@@ -60,7 +51,6 @@ async def moved_to(db: AsyncSession, run: WorkflowRun) -> None:
 
 
 def use_for(session: Any) -> None:
-    """The request's attribution from its resolved session (``observability.attribution``)."""
     from ...observability import attribution
 
     labels = (getattr(session, "metadata_", None) or {}).get(METADATA_KEY)

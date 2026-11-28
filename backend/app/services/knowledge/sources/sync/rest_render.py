@@ -1,25 +1,4 @@
-"""A Custom REST record as a Knowledge item: its header (id, title, link, version marker) and its content bytes.
-
-**Header.** Read through the source's field mapping (dotted paths, ``rest_config``):
-
-- the external id is the mapped id when it is a ledger-safe key; any other id (spaces, slashes, 200+ characters)
-  becomes ``h-<sha256>`` of it, stable across runs, and the original id is kept for the detail call;
-- the version marker is ``<version>@<updated_at>`` of what is mapped; one longer than the runner's 80 characters is
-  hashed, never cut (two versions sharing a prefix must not look unchanged). A record with neither value cannot be
-  versioned and is skipped (``record_unversioned``), like one without an id (``record_without_id``);
-- the link is kept only as an openable ``http(s)`` URL (``normalize_source_url``), else the item has none.
-
-**Content** (what the ledger stores and hashes, so it is deterministic):
-
-- ``application/json`` (default): Markdown, the title as heading and then the mapped ``content`` value, or the whole
-  record without the mapped ``updated_at``/``version`` (a touch without a change yields identical bytes), as nested
-  lists in key order. Capped like ServiceNow records (``servicenow_render.MAX_BODY_CHARS``);
-- ``text/markdown``, ``text/plain``, ``text/html``: the mapped field's text as is (HTML through the parser sandbox);
-- ``application/pdf``: the mapped field holds the PDF base64-encoded (the executor reads JSON answers only).
-
-Synced text is third-party content: it is stored as data and reaches a model only through the consumers that read
-Knowledge, never as an instruction of this connector.
-"""
+"""A Custom REST record as a Knowledge item: its header (id, title, link, version marker) and its content bytes."""
 
 from __future__ import annotations
 
@@ -90,7 +69,6 @@ def _link(value: Any) -> str | None:
 
 def record_header(record: Mapping[str, Any], mapping: Mapping[str, str], fallback_title: str
                   ) -> RecordHeader | str:
-    """The record's header, or the fixed reason it is skipped."""
     original = _scalar(_at(record, mapping, "id"))
     if original is None or len(original) > MAX_ID_CHARS:
         return SKIP_WITHOUT_ID
@@ -104,7 +82,6 @@ def record_header(record: Mapping[str, Any], mapping: Mapping[str, str], fallbac
 
 
 def _without(record: Mapping[str, Any], paths: list[str]) -> Any:
-    """A copy of ``record`` without the volatile mapped paths (top level or nested dotted keys)."""
     copied = copy.deepcopy(dict(record))
     for path in paths:
         node: Any = copied
@@ -151,7 +128,6 @@ def render_json(record: Mapping[str, Any], mapping: Mapping[str, str], title: st
 
 
 def item_content(record: Mapping[str, Any], mapping: Mapping[str, str], media_type: str, title: str) -> bytes:
-    """The bytes of one record's content in its declared media type; a missing or wrong field is a contract fault."""
     if media_type == MEDIA_JSON:
         return render_json(record, mapping, title)
     value = _at(record, mapping, "content")

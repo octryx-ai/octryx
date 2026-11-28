@@ -1,21 +1,12 @@
-"""A person's private Workspace.
-
-- Every person gets exactly one, created on first use (:func:`ensure_private_workspace`): a project with
-  ``access_mode == "private"`` and ``owner_user_id``; the owner is its only member (``UserProject`` role ``owner``).
-- It is the person's default Workspace (the chat's start and the phone's start).
-- **Only the owner has a role in it.** Platform admins get none: not through the admin role, not through a group,
-  a global-role rule or an added membership (:func:`private_role`, used by ``access_control`` and
-  ``project.service``). Admin surfaces that list or open projects leave other people's private Workspaces out
-  (:func:`hidden_private_ids`, :func:`refuse_foreign_private`); they may show that one exists, never its content.
-- Its name is unique per person (``projects.name`` is unique); the UI shows it as "Private".
-"""
+"""A person's private Workspace."""
 
 from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable
+from dataclasses import dataclass
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, column, select, table
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,48 +25,62 @@ def is_private(project: Project | None) -> bool:
 
 
 def private_role(project: Project | None, user_id: str) -> str | None:
-    """The only role anybody has in a private Workspace: ``owner`` for its owner, nothing for everyone else."""
     if not is_private(project):
         return None
     return OWNER_ROLE if project.owner_user_id and str(project.owner_user_id) == str(user_id) else None
 
 
-async def private_project(db: AsyncSession, project_id: str) -> Project | None:
-    """The project when it is a private Workspace, else ``None`` (one indexed lookup)."""
+def foreign_private(project: Project | None, user_id: str) -> bool:
+    return is_private(project) and private_role(project, user_id) is None
+
+
+# Which Workspaces are private and whose, whoever reads: the Workspace filter hides other people's private Workspaces,
+# and a check that must tell them apart from shared ones cannot read them through it.
+_PRIVACY = table("projects", column("id"), column("access_mode"), column("owner_user_id"))
+_SESSION_WORKSPACE = table("sessions", column("id"), column("project_id"))
+
+
+@dataclass(frozen=True)
+class PrivateWorkspace:
+    id: str
+    owner_user_id: str | None
+    access_mode: str = PRIVATE_ACCESS_MODE
+
+
+async def private_project(db: AsyncSession, project_id: str) -> PrivateWorkspace | None:
     if not project_id:
         return None
-    project = await db.get(Project, project_id)
-    return project if is_private(project) else None
+    row = (await db.execute(select(_PRIVACY.c.owner_user_id).where(
+        _PRIVACY.c.id == str(project_id), _PRIVACY.c.access_mode == PRIVATE_ACCESS_MODE))).first()
+    return PrivateWorkspace(str(project_id), row[0]) if row is not None else None
+
+
+def _foreign_private_ids(user_id: str):
+    return select(_PRIVACY.c.id).where(_PRIVACY.c.access_mode == PRIVATE_ACCESS_MODE,
+                                       (_PRIVACY.c.owner_user_id != str(user_id)) | _PRIVACY.c.owner_user_id.is_(None))
 
 
 async def hidden_private_ids(db: AsyncSession, user_id: str) -> set[str]:
-    """Every private Workspace that is not ``user_id``'s own: what admin lists and scopes leave out."""
-    rows = await db.execute(
-        select(Project.id).where(Project.access_mode == PRIVATE_ACCESS_MODE,
-                                 (Project.owner_user_id != str(user_id)) | Project.owner_user_id.is_(None))
-    )
-    return {str(row[0]) for row in rows.all()}
+    return {str(row[0]) for row in (await db.execute(_foreign_private_ids(user_id))).all()}
+
+
+def outside_foreign_private(column, user_id: str):
+    return column.is_(None) | column.not_in(_foreign_private_ids(user_id))
 
 
 def foreign_private_filter(user_id: str):
-    """A SQL condition on ``Project`` that keeps everything except other people's private Workspaces."""
     return (Project.access_mode != PRIVATE_ACCESS_MODE) | and_(
         Project.access_mode == PRIVATE_ACCESS_MODE, Project.owner_user_id == str(user_id))
 
 
 async def refuse_foreign_private(db: AsyncSession, project_id: str, user_id: str) -> bool:
-    """``True`` when ``project_id`` is somebody else's private Workspace (the caller answers 404)."""
-    project = await private_project(db, project_id)
-    return project is not None and private_role(project, user_id) is None
+    return foreign_private(await private_project(db, project_id), user_id)
 
 
 async def refuse_foreign_private_session(db: AsyncSession, session_id: str | None, user_id: str) -> bool:
-    """``True`` when the session lies in somebody else's private Workspace."""
-    from ...models import Session  # noqa: PLC0415
-
-    session = await db.get(Session, str(session_id)) if session_id else None
-    return bool(session is not None and session.project_id
-                and await refuse_foreign_private(db, session.project_id, user_id))
+    workspace_id = (await db.execute(select(_SESSION_WORKSPACE.c.project_id).where(
+        _SESSION_WORKSPACE.c.id == str(session_id)))).scalar_one_or_none() if session_id else None
+    return bool(workspace_id and await refuse_foreign_private(db, workspace_id, user_id))
 
 
 def without_foreign_private(project_ids: Iterable[str], hidden: set[str]) -> list[str]:
@@ -114,11 +119,6 @@ async def template_policy(db: AsyncSession) -> dict:
 
 
 async def sync_template_policy(db: AsyncSession, project: Project) -> bool:
-    """Apply the default Workspace's policy when **it** changed since the last time. ``True`` when it changed.
-
-    Keys the default does not have are left alone (the creation defaults stay: trace capture,
-    the instance classification), and between two changes of the default the owner's own narrowing stays.
-    """
     if not is_private(project):
         return False
     import hashlib  # noqa: PLC0415
@@ -144,28 +144,41 @@ def _new(user: User, name: str) -> Project:
 
 
 async def _create(db: AsyncSession, user: User, name: str) -> Project:
+    # Like every Workspace at creation (project_lifecycle_service): the Instance default classification level.
+    from ..knowledge.projection.workspace_classification_default import (  # noqa: PLC0415
+        new_workspace_default,
+        stamp_new_workspace_default,
+    )
+
+    default = await new_workspace_default(db)
     project = _new(user, name)
     async with db.begin_nested():
+        stamp_new_workspace_default(db, project, default, str(user.id))
         db.add(project)
         await db.flush()
         db.add(UserProject(user_id=str(user.id), project_id=project.id, role=OWNER_ROLE, granted_by=str(user.id),
                            granted_at=utc_now()))
         await db.flush()
-    # Like every Workspace at creation (project_lifecycle_service): the Instance default classification level.
-    from ..knowledge.projection.workspace_classification_default import (  # noqa: PLC0415
-        apply_instance_default_classification,
-    )
+    # Without an Instance default Workspace there is no template grant; a fresh install still needs a usable model.
+    from ..project_lifecycle_service import allow_all_cleared_models  # noqa: PLC0415
 
-    await apply_instance_default_classification(db, project_id=project.id, actor_id=str(user.id))
+    await allow_all_cleared_models(db, project.id, actor_id=str(user.id))
     return project
 
 
 async def ensure_private_workspace(db: AsyncSession, user: User) -> Project:
-    """The person's private Workspace, created on first use (idempotent, race-safe) with the default Workspace's
-    policy (:data:`TEMPLATE_KEYS`). Flushes."""
     existing = await owned_private_workspace(db, str(user.id))
     if existing is not None:
         return existing
+    if (await db.execute(select(_PRIVACY.c.id).where(_PRIVACY.c.access_mode == PRIVATE_ACCESS_MODE,
+                                                     _PRIVACY.c.owner_user_id == str(user.id)))).first():
+        # A parallel request of the same person may have committed it between the two reads: then it is visible now.
+        existing = await owned_private_workspace(db, str(user.id))
+        if existing is not None:
+            return existing
+        from ..data_access.read_filter import HiddenWorkspaceError  # noqa: PLC0415
+
+        raise HiddenWorkspaceError(f"the private Workspace of {user.id}")
     try:
         project = await _create(db, user, _name(user))
     except IntegrityError:
@@ -179,8 +192,9 @@ async def ensure_private_workspace(db: AsyncSession, user: User) -> Project:
 
 
 __all__ = [
-    "DISPLAY_NAME", "OWNER_ROLE", "PRIVATE_ACCESS_MODE", "REASON_PRIVATE_WORKSPACE", "ensure_private_workspace",
-    "foreign_private_filter", "hidden_private_ids", "is_private", "owned_private_workspace", "private_project",
-    "private_role", "refuse_foreign_private", "refuse_foreign_private_session", "sync_template_policy",
-    "template_policy", "without_foreign_private",
+    "DISPLAY_NAME", "OWNER_ROLE", "PRIVATE_ACCESS_MODE", "REASON_PRIVATE_WORKSPACE", "PrivateWorkspace",
+    "ensure_private_workspace",
+    "foreign_private", "foreign_private_filter", "hidden_private_ids", "is_private", "outside_foreign_private",
+    "owned_private_workspace", "private_project", "private_role", "refuse_foreign_private",
+    "refuse_foreign_private_session", "sync_template_policy", "template_policy", "without_foreign_private",
 ]

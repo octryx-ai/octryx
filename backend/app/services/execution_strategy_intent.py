@@ -1,8 +1,4 @@
-"""Routing intent of a turn: its sources, the policy override and the coding-mode promotion.
-
-:mod:`app.services.execution_strategy_service` turns the routing intent into an execution
-strategy.
-"""
+"""Routing intent of a turn: its sources, the policy override and the coding-mode promotion."""
 
 from __future__ import annotations
 
@@ -57,14 +53,8 @@ def _coerce_routing_intent_confidence(value: float | int | str | None) -> float:
 
 
 async def support_request_signature_applies(prompt: str, *, db=None) -> bool:
-    """Whether this turn's prompt carries a support-request error signature and the switch is on.
-
-    The single allowed matcher (``workflow_routing.support_signature``): pattern
-    recognition on factual error evidence, with its own config switch. Every entry
-    path evaluates it for the current turn (chat preparation and runtime
-    re-resolution), so neither a stored hint nor an earlier turn's switch state
-    decides. It never calls a model and never selects a workflow.
-    """
+    # Evaluated for the current turn on every entry path, so no stored hint or earlier switch state decides. It never
+    # calls a model or selects a workflow.
     text = str(prompt or "").strip()
     return bool(text) and match_support_request_signature(text) and await support_request_signature_enabled(db)
 
@@ -73,8 +63,6 @@ def resolve_workflow_routing_policy_intent_override(
     *,
     workflow_routing_policy_resolution: dict[str, Any] | None,
 ) -> tuple[str | None, str | None]:
-    """Return a routing override that forces non-coding execution for matched policy constraints."""
-
     resolution = workflow_routing_policy_resolution if isinstance(workflow_routing_policy_resolution, dict) else {}
     if resolution.get("source") != "db" or resolution.get("status") != "matched":
         return None, None
@@ -103,12 +91,7 @@ def should_auto_promote_to_coding_mode(
     routing_intent_confidence: float | None = None,
     routing_intent_source: str | None = None,
 ) -> bool:
-    """Decide whether an implicit turn is promoted to the coding agent mode.
-
-    Promotion happens only when the POLICY source (matched DB routing / an
-    explicit definition) classified the turn as coding. No other
-    classification preloads or narrows the toolset.
-    """
+    # Only the policy source (matched routing or an explicit definition) may promote a turn to coding.
     text = str(prompt or "").strip()
     confidence = _coerce_routing_intent_confidence(routing_intent_confidence)
     source = str(routing_intent_source or "").strip().lower()
@@ -125,8 +108,6 @@ def should_auto_promote_to_coding_mode(
 
 
 class _Routing(NamedTuple):
-    """A turn's routing intent with the reason, source and confidence that decided it."""
-
     intent: str
     reason: str
     source: str
@@ -143,7 +124,6 @@ def _routing_for_turn(
     support_request_signature: bool,
     workflow_routing_policy_resolution: dict[str, Any] | None,
 ) -> _Routing:
-    """Routing intent, reason, source and confidence, in the explicit-first decision order."""
     policy_intent, policy_reason = resolve_workflow_intent_from_resolution(
         resolution=workflow_routing_policy_resolution,
         fallback_route_reason=None,
@@ -182,7 +162,6 @@ def _effective_agent_type(
     agent_type_explicit: bool,
     explicit_target_selected: bool,
 ) -> tuple[str, _Routing]:
-    """The effective agent type, and the routing a promotion to the coding mode rewrites."""
     routing_intent, routing_reason, routing_source, routing_confidence = routing
     auto_promote_to_coding = not agent_type_explicit and should_auto_promote_to_coding_mode(
         prompt=clean_prompt,

@@ -10,11 +10,12 @@ import {
   resolveAdminAreaForTab,
   resolveAdminAreaTabLabel,
   WORKSPACE_ADMIN_ENTRY_AREAS,
+  ANY_WORKSPACE_ADMIN_ENTRY_AREAS,
   type AdminAreaKey,
 } from "./config/adminPanelAreas";
 import { AdminNavigationContext } from "./adminNavigation";
 import { resolveAdminEntryTab } from "./config/adminEntries";
-import { useWorkspaceAdmin } from "./components/operations/useWorkspaceAdmin";
+import { useAnyWorkspaceAdmin, useWorkspaceAdmin } from "./components/operations/useWorkspaceAdmin";
 import type { AdminTab } from "./types/adminPanelTypes.governance";
 import type { ChatState } from "../types";
 import type { ProjectOption } from "../chatOptionTypes";
@@ -56,6 +57,7 @@ export function AdminPanelContainer({
   // Workspace-admin entries (Operations › Costs, Knowledge › Sources): platform admins, and admins/owners of the
   // active Workspace.
   const canAdminWorkspace = useWorkspaceAdmin(isAdmin, projects, WORKSPACE_ADMIN_ENTRY_AREAS.has(area));
+  const canAdminAnyWorkspace = useAnyWorkspaceAdmin(isAdmin, ANY_WORKSPACE_ADMIN_ENTRY_AREAS.has(area), currentUserId);
   const openAdminTab = (requested: AdminTab) => {
     const target = resolveAdminEntryTab(requested);
     if (resolveAdminAreaForTab(target) === area || !onOpenAdminTab) setTab(target);
@@ -73,6 +75,7 @@ export function AdminPanelContainer({
       isAdmin={isAdmin}
       features={{ branding: brandingEnabled }}
       canAdminWorkspace={canAdminWorkspace}
+      canAdminAnyWorkspace={canAdminAnyWorkspace}
       externalNav={externalNav}
     >
       <AdminPanelTabContent

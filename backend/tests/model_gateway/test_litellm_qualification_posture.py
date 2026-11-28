@@ -25,8 +25,6 @@ from app.services.redaction_policy import is_sensitive_key
 from tests.model_gateway.conftest import CONTENT_LOGGING_POSTURE, gateway_section
 from tests.model_gateway.litellm_qualification_support import PLATFORM_GATEWAY_POSTURE
 
-# --- Content-logging posture -------------------------------------------------
-
 
 def test_the_admitted_posture_records_how_it_was_verified() -> None:
     declared, denial = resolve_content_logging_posture(gateway_section())
@@ -118,14 +116,11 @@ def test_key_identity_in_an_internal_platform_gateway_spend_log_is_admitted_and_
     # The value itself must not trip the credential-key scan of the section.
     assert config_contains_credential_material(gateway_section(content_logging=dict(PLATFORM_GATEWAY_POSTURE))) is False
 
-    # ``disabled`` keeps its meaning.
     plain, _ = resolve_content_logging_posture(gateway_section())
     assert plain.key_metadata_retained is False
 
 
 def test_key_identity_retention_admits_nothing_else() -> None:
-    """Prompts, responses, headers and every callback stay forbidden with it."""
-
     cases: list[tuple[dict[str, Any], str]] = [
         ({**PLATFORM_GATEWAY_POSTURE, "success_callbacks": ["prometheus"]},
          CONTENT_LOGGING_DENIAL_KEY_METADATA_RETENTION_REQUIRES_NO_CALLBACKS),
@@ -144,7 +139,6 @@ def test_key_identity_retention_admits_nothing_else() -> None:
         ({**PLATFORM_GATEWAY_POSTURE, "mode": "content_logged"}, CONTENT_LOGGING_DENIAL_MODE_NOT_ADMITTED),
         ({**PLATFORM_GATEWAY_POSTURE, "attestation_reference": ""}, CONTENT_LOGGING_DENIAL_ATTESTATION_MISSING),
         ({**PLATFORM_GATEWAY_POSTURE, "attested_on": "today"}, CONTENT_LOGGING_DENIAL_ATTESTED_ON_INVALID),
-        # Only the one named value; nothing that sounds like it.
         ({**PLATFORM_GATEWAY_POSTURE, "key_metadata_retention": "retained_by_external_saas_gateway"},
          CONTENT_LOGGING_DENIAL_KEY_METADATA_RETENTION),
         ({**PLATFORM_GATEWAY_POSTURE, "key_metadata_retention": "retained"},
@@ -174,15 +168,6 @@ def test_the_admitted_posture_records_every_retention_surface() -> None:
 
 
 def test_no_posture_field_name_looks_like_credential_material() -> None:
-    """The posture must not make a correct config look like it embeds a key.
-
-    The gateway section is scanned for credential-looking keys at admission and at
-    readiness, and that scan is deliberately broad — it matches ``credential``,
-    ``token`` and ``virtual_key`` as substrings. A retention field named after one
-    of them would deny every correctly configured provider, so the names are part
-    of the contract and are pinned here.
-    """
-
     section = gateway_section()
     assert config_contains_credential_material(section) is False
     for key in CONTENT_LOGGING_POSTURE:

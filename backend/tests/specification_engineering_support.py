@@ -1,9 +1,4 @@
-"""Actual accepted-spec engineering child on the NEW authored B graph, for SQLite and PostgreSQL tests.
-
-Real producer chain, Knowledge ledger and ACL, real confirmations, the native offer/accept/allocator and the pinned
-published new graph; no authority doubles. The spec's confirmer is a third member (``pm``), neither the parent's
-requester (the producer, who confirmed the idea) nor the receiving engineer.
-"""
+"""Actual accepted-spec engineering child on the NEW authored B graph, for SQLite and PostgreSQL tests."""
 from __future__ import annotations
 
 import copy
@@ -34,9 +29,6 @@ async def spec_decision(db, parent) -> WorkflowRunDecision:
 
 
 async def engineering_child_case(db, *, criteria=None, runtime_target=None):
-    """``runtime_target``: where the receiver runs the child (the action's choice); default the server, which the
-    SQLite suite allows by lifting the server build lock. A building child on the server is refused, so a test
-    without that lift chooses a terminal."""
     from tests.test_specification_handoff_authority import offer, prepared_spec_case
 
     # The PM's and a denied viewer's source access are fixed before the brief freezes its ACL snapshot.
@@ -62,7 +54,6 @@ async def engineering_child_case(db, *, criteria=None, runtime_target=None):
 
 
 async def enter_node(db, child, node_id: str) -> None:
-    """Enter one node of the pinned graph through the real engine (no platform step runs before it)."""
     from app.services.workflow_runs.engine import restart_at
 
     await restart_at(db, child, node_id, actor_id=None)

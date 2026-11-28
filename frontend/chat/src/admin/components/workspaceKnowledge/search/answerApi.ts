@@ -1,8 +1,6 @@
 import { knowledgeBase, request } from "../workspaceKnowledgeRequest";
 
-// The short cited answer above the hits (POST …/knowledge/answer). The page sends the evidence keys of
-// its top hits, never their text: the server reads them again with the reader's own access and keeps only sentences
-// that cite them. Every outcome is a fixed state; anything the page does not understand counts as unavailable.
+// Only evidence keys are sent: the server rereads them with the reader's own access.
 
 export const ANSWER_PASSAGES = 10;
 
@@ -13,13 +11,11 @@ export type KnowledgeAnswer = { state: AnswerState; sentences: AnswerSentence[];
 const STATES: AnswerState[] = ["ok", "no_answer", "needs_configuration", "denied", "unavailable"];
 export const UNAVAILABLE_ANSWER: KnowledgeAnswer = { state: "unavailable", sentences: [], cited_keys: [] };
 
-/** The keys the answer may rest on: the top hits in ranked order, without repeats. */
 export function answerEvidenceKeys(hits: { evidence_key: string }[]): string[] {
   return [...new Set(hits.map((hit) => hit.evidence_key).filter(Boolean))].slice(0, ANSWER_PASSAGES);
 }
 
-// Passage numbers a model wrote into the text ("… is 16 [1][2].") number the prompt, not the page: removed, the
-// citations are `cites` (the server removes them too).
+// Inline [n] markers number the prompt, not the page; the citations are in cites.
 const INLINE_MARKERS = /\s*(?:\[\s*\d+(?:\s*[,;]\s*\d+)*\s*\])+/g;
 
 export function plainSentence(text: string): string {
@@ -29,7 +25,6 @@ export function plainSentence(text: string): string {
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string" && entry !== "") : [];
 
-/** The server's answer, checked: an "ok" without one cited sentence is "no_answer"; unknown shapes are unavailable. */
 export function readKnowledgeAnswer(payload: unknown): KnowledgeAnswer {
   if (!payload || typeof payload !== "object") return UNAVAILABLE_ANSWER;
   const raw = payload as { state?: unknown; sentences?: unknown };
@@ -43,7 +38,6 @@ export function readKnowledgeAnswer(payload: unknown): KnowledgeAnswer {
   return { state, sentences, cited_keys: [...new Set(sentences.flatMap((sentence) => sentence.cites))] };
 }
 
-/** The one plain sentence shown instead of an answer; "" for an answer with sentences. */
 export function answerStateText(state: AnswerState): string {
   switch (state) {
     case "ok": return "";
@@ -56,7 +50,6 @@ export function answerStateText(state: AnswerState): string {
 
 export type AnswerMarker = { key: string; number: number | null };
 
-/** Each cited key with its number in the list on the page; null when the filters hide that hit. */
 export function answerMarkers(cites: string[], numberOf: ReadonlyMap<string, number>): AnswerMarker[] {
   return cites.map((key) => ({ key, number: numberOf.get(key) ?? null }));
 }

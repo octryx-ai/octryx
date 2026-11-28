@@ -17,8 +17,6 @@ CHANGES = {"verdict": "changes", "summary": "Rounding still wrong for negatives.
 
 
 class ScriptedReviewer:
-    """The governed reviewer model, scripted: records what it was shown."""
-
     def __init__(self, *answers, during=None):
         self.answers, self.tasks, self.during = list(answers), [], during
 
@@ -56,7 +54,6 @@ def _reviewed_definition(max_iterations: int = 1) -> dict:
 
 
 def changed_repo(path):
-    """A git working copy with one uncommitted change (what the reviewer reviews)."""
     path.mkdir(parents=True, exist_ok=True)
     for args in (["init", "-q", "-b", "main"], ["commit", "-q", "--allow-empty", "-m", "init"]):
         subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *args], cwd=path, check=True)

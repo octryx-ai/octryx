@@ -1,5 +1,3 @@
-"""Per-session settings, MCP config, child environment and claude argv."""
-
 from __future__ import annotations
 
 import json
@@ -82,7 +80,7 @@ def test_settings_pin_helper_policy_rules_and_fail_closed_hooks():
         state_root=Path("/s"), base_url="https://octryx.example.test", policy=system)
     assert unsandboxed["excludedCommands"] == [".venv/bin/python -m pytest -v tests/system"]
     assert "excludedCommands" not in configured
-    # B12: ``sandbox.network: open`` keeps the same lists (Claude Code refuses "*" in
+    # ``sandbox.network: open`` keeps the same lists (Claude Code refuses "*" in
     # allowedDomains); the device turn answers the sandbox's question for another host (``device_sdk``).
     opened = {"sandbox": {"network": "open", "allowed_domains": ["*.npmjs.org"]}}
     assert launch_sandbox.sandbox_network(opened) == "open" and launch_sandbox.sandbox_network(workspace) == "allowlist"
@@ -180,7 +178,6 @@ def test_argv_carries_generated_config_and_refuses_overriding_flags():
 
 
 def test_mcp_headers_carry_the_session_so_board_posts_are_the_session_agent(state, monkeypatch, capsys):
-    """Freeze 2: the MCP headersHelper sends X-Octryx-Session (and Workspace) from the child env."""
     from octryx_claude import cli_account
 
     monkeypatch.setattr(cli_account, "get_access_token", lambda state, audience, http: "mcp-token")
@@ -194,7 +191,6 @@ def test_mcp_headers_carry_the_session_so_board_posts_are_the_session_agent(stat
                        "x-octryx-workspace": "ws-1", "x-octryx-work-item": "BRD-6"}
 
 
-
 def test_a_workspace_can_switch_bypass_mode_off(tmp_path):
     from octryx_claude.launch_settings import build_settings
 
@@ -206,7 +202,6 @@ def test_a_workspace_can_switch_bypass_mode_off(tmp_path):
 
 
 def test_a_workflow_runs_turns_keep_claude_codes_own_compaction():
-    """A workflow run's turns get no forced compaction window from the launch environment."""
     from octryx_claude import launch
 
     run = launch.model_env(base_url="https://octryx.example", session_key="00000000-0000-0000-0000-000000000001",
@@ -218,7 +213,6 @@ def test_a_workflow_runs_turns_keep_claude_codes_own_compaction():
 
 
 def test_a_run_sessions_commits_carry_the_ai_output_trailers():
-    """EU AI Act Art. 50(2) (board 11): AI-Generated-By-octryx + Octryx-Run on every run commit."""
     from octryx_claude import launch
 
     got = launch.run_attribution("claude-haiku-5-5", {"run": {"ticket_key": "OCX-14", "id": "r1"}})
@@ -229,15 +223,12 @@ def test_a_run_sessions_commits_carry_the_ai_output_trailers():
 
 
 def test_node_goes_through_the_sandboxs_proxy():
-    """Node ignored the sandbox's HTTP(S)_PROXY and failed at DNS (getaddrinfo ENOTFOUND)."""
     settings = launch_settings.build_settings(shim=SHIM, state_root=Path("/Users/u/.octryx/claude"),
                                      env=_model_env(), policy={}, base_url="https://octryx.example.test")
     assert settings["env"]["NODE_USE_ENV_PROXY"] == "1"
 
 
 def test_a_turn_gets_its_profiles_config_dir_whatever_the_launcher_inherited(tmp_path, monkeypatch):
-    """(cold demo): the launcher ran with CLAUDE_CONFIG_DIR=~/.claude-private inherited from the
-    shell that started it; a turn must never write its transcripts into a person's own Claude folder."""
     from octryx_claude.state import seat_config_dir
 
     monkeypatch.setenv("OCTRYX_CLAUDE_SEAT_CONFIG_DIR", str(tmp_path / "seat"))

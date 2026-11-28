@@ -1,7 +1,3 @@
-"""The device's status says what is known, and a path that cannot run says so (outsider walk first-run
-steps 6-7 on a fresh demo: "chromium missing" while the service was fetching it, "governed: ready" next to "company
-models: none admitted", and no word that nothing could run a session)."""
-
 from __future__ import annotations
 
 import json

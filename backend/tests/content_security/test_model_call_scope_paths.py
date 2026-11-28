@@ -1,11 +1,5 @@
-"""Each independent dispatch path supplies its Workspace to the provider wrapper (B-01, captured upstream).
-
-Every path runs its real factory and dispatch site against a captured driver (``model_call_driver_support``; the
-real ``openai_compatible`` driver class under the provider wrapper, a fake HTTP upstream). The Workspace stores a
-stricter action than the shipped default: internal IPs ``mask`` (shipped: ``report``, the plain address is sent).
-The address must not reach the upstream: the stored action applied, so the path named its Workspace. A control
-shows the shipped default would have sent it.
-"""
+"""Each independent dispatch path supplies its Workspace to the provider wrapper: a Workspace action stricter than the
+shipped default is applied on the captured upstream."""
 
 from __future__ import annotations
 
@@ -17,7 +11,7 @@ import pytest
 
 from app.models import Project, WorkspaceContentHandling
 from app.services.content_security.model_call_scope import model_call_scope, session_call
-from tests.content_security.model_call_driver_support import DRIVERS, Harness, Reply
+from tests.content_security.model_call_driver_support import DIRECT, DRIVERS, Harness, Reply
 
 IP = "10.20.30.40"
 PROMPT = f"the build host is {IP}"
@@ -25,7 +19,6 @@ ANSWER = '{"answer": "ok", "memories": [], "summary": "ok"}'
 
 
 async def _workspace(db) -> str:
-    """A Workspace whose stored action for internal IPs is ``mask`` (the shipped default reports them)."""
     project = Project(id=str(uuid.uuid4()), name=f"ws-{uuid.uuid4().hex[:6]}", is_active=True)
     db.add(project)
     db.add(WorkspaceContentHandling(workspace_id=project.id, kind="internal_ip", action="mask"))
@@ -34,10 +27,9 @@ async def _workspace(db) -> str:
 
 
 def _captured(monkeypatch, reply: str = ANSWER) -> tuple[Harness, dict[str, Any]]:
-    """Every provider the paths build is the captured driver; the runtime they resolve names it."""
-    harness = DRIVERS["openai_compatible"](monkeypatch, Reply(reply))
+    harness = DRIVERS[DIRECT](monkeypatch, Reply(reply))
     monkeypatch.setattr("app.agent.providers.get_provider", lambda **_kwargs: harness.driver)
-    runtime = {"provider_name": "direct", "driver": "openai_compatible", "model": harness.model,
+    runtime = {"provider_name": "direct", "driver": DIRECT, "model": harness.model,
                "use_case_tags": ["memory", "extract", "workflow_proposal"]}
 
     async def runtimes(_db, **_kwargs):
@@ -68,7 +60,7 @@ async def test_chat_pre_turn_task_extraction(client, db, monkeypatch):
     monkeypatch.setattr(chat_turn_start, "gate", lambda *_args: None)
 
     async def client_kwargs(_db, _provider):
-        return {"driver": "openai_compatible", "provider_name": "direct"}
+        return {"driver": DIRECT, "provider_name": "direct"}
 
     monkeypatch.setattr(chat_turn_start, "build_provider_client_kwargs_async", client_kwargs)
     session = SimpleNamespace(id=str(uuid.uuid4()), project_id=workspace, user_id=None)

@@ -1,15 +1,4 @@
-"""``octryx-claude mobile pair``: connect a phone to Octryx Mobile with a QR code.
-
-1. The platform creates a one-time pairing for this login (``POST /api/v1/agent-gateway/mobile/pairings``); the QR
-   code holds its URL, with the code in the fragment. It is valid for two minutes.
-2. The phone scans it (the camera opens Safari on the platform's pairing page, over the VPN) and shows a two-digit
-   number. This command shows the phone and the same number and opens the confirmation page in the person's
-   browser, where they are signed in to the platform: only that web session confirms, never this login's token
-   (a token a tool or an agent on this Mac may hold can start a pairing but never complete one).
-3. After the confirmation the phone adds the app to its Home Screen; on its first start the app is signed in.
-
-Exit codes: 0 confirmed, 1 refused/expired/declined, 2 not possible here (no terminal, not configured, offline).
-"""
+"""``octryx-claude mobile pair``: connect a phone to Octryx Mobile with a QR code."""
 
 from __future__ import annotations
 
@@ -39,7 +28,6 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def platform_url(state: LocalState) -> str:
-    """The login's platform (where the token is valid), else the configured one."""
     return str(state.credentials().get("base_url") or state.config().get("base_url") or "").rstrip("/")
 
 

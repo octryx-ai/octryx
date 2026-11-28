@@ -19,8 +19,6 @@ _MAX_PASSAGE_CHARS = 1800
 
 
 def answer_prompt(question: str, passages: Sequence[tuple[str, str]]) -> str:
-    """The user message: the question and the passages as ``[n] title`` blocks, numbered from 1."""
-
     blocks = [
         f"[{number}] {title}\n{text[:_MAX_PASSAGE_CHARS]}" for number, (title, text) in enumerate(passages, start=1)
     ]

@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...system_config import (
     AGENT_AUTH_LOGIN_MODE_KEY,
-    AGENT_LLM_TOOL_PLANNER_TRACE_CALL_ENABLED_KEY,
     ARTIFACT_STORE_BACKEND_KEY,
     ARTIFACT_STORE_BUCKET_KEY,
     ARTIFACT_STORE_PREFIX_KEY,
@@ -20,8 +19,7 @@ from ...system_config import (
 from ._admin_runtime_fallback_policy import apply_runtime_fallback_mode_setting
 from ._admin_runtime_update_limits import (
     AGENT_LIMIT_SETTINGS,
-    COST_AND_CACHE_SETTINGS,
-    PLANNER_SETTINGS,
+    COST_LIMIT_SETTINGS,
     apply_bounded_settings,
 )
 
@@ -32,18 +30,7 @@ async def apply_core_runtime_settings(db: AsyncSession, *, payload: dict[str, An
     await apply_bounded_settings(db, payload, AGENT_LIMIT_SETTINGS)
     # Closed-enum setting with its own writer and validation.
     await apply_runtime_fallback_mode_setting(db, payload=payload)
-    await apply_bounded_settings(db, payload, COST_AND_CACHE_SETTINGS)
-    if "llm_tool_planner_trace_call_enabled" in payload:
-        await set_system_config_value(
-            db,
-            key=AGENT_LLM_TOOL_PLANNER_TRACE_CALL_ENABLED_KEY,
-            value="true" if bool(payload.get("llm_tool_planner_trace_call_enabled")) else None,
-            description=(
-                "Enables the trace-only LLM tool planner call. The generated plan is recorded for review "
-                "and is not executed."
-            ),
-        )
-    await apply_bounded_settings(db, payload, PLANNER_SETTINGS)
+    await apply_bounded_settings(db, payload, COST_LIMIT_SETTINGS)
     await _apply_artifact_store_settings(db, payload)
 
 

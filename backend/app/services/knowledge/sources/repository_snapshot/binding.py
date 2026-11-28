@@ -1,39 +1,9 @@
-"""The recorded binding session → Workspace → repository of one launcher session (C-MCP).
-
-On session start, ``octryx-claude`` reports the git repository of the user's cwd:
-
-- a credential-free remote;
-- the HEAD commit;
-- whether the working tree is dirty;
-- whether HEAD is on a remote-tracking branch;
-- the branch.
-
-:func:`bind_session_repository` records it on the gateway shadow session
-(``metadata.repository_binding``). That binding is the session's deterministic "this codebase". A
-dirty working tree is recorded as such, never hidden.
-
-The binding names the Workspace's ``git_repository`` source for that remote:
-
-- the existing source whose ``remote`` is that repository, whatever its fetch mode or key;
-- otherwise a new ``local_snapshot`` source (``repo-<hash>``), created only when the Workspace
-  allows local snapshots (``policy.py``).
-
-A ``remote_git`` source (K7) is never written by an upload, but code impact still reads it.
-
-An optional display ``name`` and ``version`` label (``labels.py``) are stored on a ``local_snapshot``
-source and name it in citations and source lists; an invalid one refuses the binding
-(``repository_label_invalid``), it is never cleaned up.
-
-Link mode:
-
-- **host** links only for a known host, a clean tree and a pushed HEAD;
-- the platform's source viewer otherwise, because the host would not serve exactly that content.
-"""
+"""The recorded binding session, Workspace and repository of one launcher session. The binding is the session's
+deterministic "this codebase"."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,8 +15,9 @@ from .....time_utils import utc_now
 from ...code.codebase import HEAD_PUSHED
 from ..sync.git_config import FETCH_LOCAL_SNAPSHOT, HEAD_COMMIT, HEAD_DIRTY
 from ..sync.git_hosts import RepositoryLocation
-from .labels import RepositoryLabelError, display_label, validate_labels, with_labels
+from .labels import display_label
 from .policy import REASON_LOCAL_SNAPSHOTS_NOT_ALLOWED, local_snapshots_allowed
+from .protocol_types import BindRequest, BindResponse, LinkMode, SessionBinding
 from .remote import RemoteRefusedError, parse_remote, snapshot_connector_key
 
 BINDING_METADATA_KEY = "repository_binding"
@@ -62,8 +33,6 @@ _HEX = frozenset("0123456789abcdef")
 
 @dataclass(frozen=True, slots=True)
 class SnapshotRefusal:
-    """An explicit refusal of the binding or the upload: ``denied`` or ``needs_configuration``."""
-
     state: str
     reason: str
 
@@ -72,7 +41,7 @@ def valid_commit(value: object) -> str | None:
     return value if type(value) is str and len(value) == 40 and set(value) <= _HEX else None
 
 
-def link_mode(location: RepositoryLocation, *, dirty: bool, pushed: bool) -> str:
+def link_mode(location: RepositoryLocation, *, dirty: bool, pushed: bool) -> LinkMode:
     return LINKS_HOST if location.host is not None and not dirty and pushed else LINKS_PLATFORM
 
 
@@ -134,13 +103,12 @@ def fetch_mode_of(connector: KnowledgeSourceConnector) -> str:
 
 
 async def bind_session_repository(
-    db: AsyncSession, *, session: Session, user_id: str, workspace_id: str, payload: dict[str, Any]
-) -> dict[str, Any] | SnapshotRefusal:
-    """Record the launcher's repository on ``session``; the answer the launcher prints. Flushes only."""
+    db: AsyncSession, *, session: Session, user_id: str, workspace_id: str, payload: BindRequest
+) -> BindResponse | SnapshotRefusal:
     reported = _reported(payload)
     if isinstance(reported, SnapshotRefusal):
         return reported
-    location, head_commit, name, version = reported
+    location, head_commit = reported
     dirty = payload.get("head_dirty") is True
     pushed = payload.get("head_pushed") is True
     branch = payload.get("branch")
@@ -150,10 +118,10 @@ async def bind_session_repository(
     valid_root = type(root) is str and root.startswith("/") and len(root) <= 1024 and root.isprintable()
     root = root.rstrip("/") if valid_root else None
 
-    connector, snapshot_reason = await _snapshot_source(db, workspace_id, location, user_id, name, version)
+    connector, snapshot_reason = await _snapshot_source(db, workspace_id, location, user_id)
     connector_key = connector.connector_key if connector is not None else snapshot_connector_key(location)
     links = link_mode(location, dirty=dirty, pushed=pushed)
-    binding = {
+    binding: SessionBinding = {
         "connector_key": connector_key,
         "connector_id": connector.id if connector is not None else None,
         "repository": location.path,
@@ -189,8 +157,7 @@ async def bind_session_repository(
     }
 
 
-def _reported(payload: dict[str, Any]):
-    """The reported remote, HEAD commit and labels, or the refusal of the first invalid one."""
+def _reported(payload: BindRequest):
     try:
         location = parse_remote(payload.get("remote_url"))
     except RemoteRefusedError as error:
@@ -198,17 +165,12 @@ def _reported(payload: dict[str, Any]):
     head_commit = valid_commit(payload.get("head_commit"))
     if head_commit is None:
         return SnapshotRefusal("denied", REASON_HEAD_COMMIT_INVALID)
-    try:
-        name, version = validate_labels(payload.get("name"), payload.get("version"))
-    except RepositoryLabelError as error:
-        return SnapshotRefusal("denied", error.reason)
-    return location, head_commit, name, version
+    return location, head_commit
 
 
 async def _snapshot_source(
-    db: AsyncSession, workspace_id: str, location: RepositoryLocation, user_id: str, name, version
+    db: AsyncSession, workspace_id: str, location: RepositoryLocation, user_id: str
 ) -> tuple[KnowledgeSourceConnector | None, str | None]:
-    """The Workspace's source for the remote (created when snapshots are allowed), and why it takes no upload."""
     allowed = await local_snapshots_allowed(db, workspace_id)
     connector = await _connector_for_remote(db, workspace_id, location)
     if connector is None and allowed:
@@ -220,13 +182,10 @@ async def _snapshot_source(
         snapshot_reason = REASON_LOCAL_SNAPSHOTS_NOT_ALLOWED
     elif connector is not None and fetch_mode_of(connector) != FETCH_LOCAL_SNAPSHOT:
         snapshot_reason = REASON_REPOSITORY_SOURCE_IS_REMOTE
-    if connector is not None and snapshot_reason is None and (name or version):
-        connector.scope = with_labels(dict(connector.scope or {}), name, version)
-        flag_modified(connector, "scope")
     return connector, snapshot_reason
 
 
-def session_binding(session: Session) -> dict[str, Any] | None:
+def session_binding(session: Session) -> SessionBinding | None:
     metadata = session.metadata_ if isinstance(session.metadata_, dict) else {}
     binding = metadata.get(BINDING_METADATA_KEY)
     return dict(binding) if isinstance(binding, dict) else None

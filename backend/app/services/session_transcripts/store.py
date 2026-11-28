@@ -1,15 +1,4 @@
-"""Storing one launcher batch of transcript lines (``POST /agent-gateway/sessions/transcript``).
-
-The launcher sends the redacted lines of one stream (``main`` or ``agent-<id>``) from ``first_line`` on. The batch is
-stored only while the Workspace's switch is on (``off`` otherwise, and the launcher stops at once), redacted again
-(``redaction``), written as one gzip JSON-lines object to the artifact store the platform already uses for large
-tool results (``artifact_store``: ``data/artifacts`` locally, the artifact bucket in a cloud deployment) and
-indexed by one ``SessionTranscriptChunk`` row linked to the gateway session, the run the session works on and
-the device job.
-
-A batch the platform already holds (same Workspace, Claude session, stream and first line: the launcher sent it again
-after a sleep or a lost answer) is acknowledged as ``duplicate`` and stored nothing twice.
-"""
+"""Storing one launcher batch of transcript lines (``POST /agent-gateway/sessions/transcript``)."""
 
 from __future__ import annotations
 
@@ -106,7 +95,6 @@ async def transcripts_enabled(db: AsyncSession, project_id: str) -> bool:
 
 
 async def _device_job(db: AsyncSession, job_id: str, session: Session) -> str | None:
-    """The device job the batch names, only when it is the session owner's job in the same Workspace."""
     if not job_id:
         return None
     job = await db.get(DeviceJob, job_id)
@@ -123,7 +111,6 @@ async def _run_id(db: AsyncSession, session: Session) -> str | None:
 
 
 async def _previous_secret_calls(db: AsyncSession, project_id: str, batch: TranscriptBatch) -> set[str]:
-    """The secret tool calls of the stream's previous batch: a secret command's output may arrive in this one."""
     previous = (await db.execute(select(SessionTranscriptChunk).where(
         SessionTranscriptChunk.project_id == project_id,
         SessionTranscriptChunk.claude_session_id == batch.claude_session_id,
@@ -139,7 +126,6 @@ async def _previous_secret_calls(db: AsyncSession, project_id: str, batch: Trans
 
 
 async def store_batch(db: AsyncSession, *, session: Session, batch: TranscriptBatch) -> dict[str, Any]:
-    """Store the batch for the gateway ``session``; ``{state, stream, last_line}``. Flushes only."""
     if not await transcripts_enabled(db, session.project_id):
         return {"state": STATE_OFF}
     existing = (await db.execute(select(SessionTranscriptChunk.id).where(

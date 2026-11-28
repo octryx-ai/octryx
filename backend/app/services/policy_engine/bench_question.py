@@ -58,7 +58,6 @@ def _text(value: Any, path: str, *, required: bool = True) -> str:
 
 
 def parse_question(raw: Any) -> BenchQuestion:
-    """A validated question; raises :class:`BenchError` naming the field."""
     if not isinstance(raw, Mapping):
         raise BenchError(ERROR_INVALID, path="")
     action = raw.get("action")

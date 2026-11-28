@@ -1,11 +1,4 @@
-"""Teams call recordings on disk: owner-only, in the configured data directory, removed after use.
-
-A downloaded recording is spooled while the call turn is processed so an operator can inspect a
-live turn. It lives under the data directory (the parent of ``artifact_store_dir``, like the other
-platform data), in a directory only the service user can open (0700), as a file only the service
-user can read (0600) under a random name. The file is deleted when processing ends, whatever the
-outcome. A spool failure never stops the call turn; it is logged as a closed code.
-"""
+"""Teams call recordings on disk: owner-only, in the configured data directory, removed after use."""
 
 from __future__ import annotations
 
@@ -46,7 +39,6 @@ def _write_owner_only(directory: Path, audio_bytes: bytes) -> Path:
 
 @contextmanager
 def spooled_recording(audio_bytes: bytes, *, directory: Path | None = None) -> Iterator[Path | None]:
-    """Yield the spooled file (``None`` when spooling failed) and delete it afterwards."""
     path: Path | None = None
     try:
         path = _write_owner_only(directory or recordings_dir(), audio_bytes)

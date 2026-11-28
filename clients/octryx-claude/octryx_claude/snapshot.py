@@ -1,15 +1,4 @@
-"""Code intelligence in the launch folder: bind the git repository, upload HEAD.
-
-``run_code_intelligence`` detects the repository of the launch folder, registers the
-binding session -> Workspace -> repository (``POST /sessions/repository``) and, when
-the Workspace allows local snapshots, uploads the tracked files at HEAD as a governed
-repo@commit snapshot: the manifest names every blob, the platform answers which paths
-it still wants (re-ingest is incremental by blob sha), the wanted contents follow in
-bounded batches, and ``/complete`` closes the snapshot.
-
-It never raises and never blocks the launch. It writes exactly one summary line with
-fixed codes only; response bodies, tokens and raw remotes are never printed.
-"""
+"""Code intelligence in the launch folder: bind the git repository, upload HEAD."""
 
 from __future__ import annotations
 
@@ -64,11 +53,6 @@ def _count(value: object) -> int:
 
 def plan_batches(files: Iterable[TreeFile], *, max_files: int = MAX_BATCH_FILES,
                  max_bytes: int = MAX_BATCH_BYTES, max_file_bytes: int = MAX_FILE_BYTES) -> list[list[TreeFile]]:
-    """Group files into upload batches of at most ``max_files`` and ``max_bytes`` raw bytes.
-
-    A file larger than ``max_file_bytes`` is never sent (the manifest carried its size,
-    so the platform has already listed it as skipped).
-    """
     batches: list[list[TreeFile]] = []
     current: list[TreeFile] = []
     current_bytes = 0
@@ -86,8 +70,6 @@ def plan_batches(files: Iterable[TreeFile], *, max_files: int = MAX_BATCH_FILES,
 
 
 class _Run:
-    """One code-intelligence pass for one session; every step returns an outcome."""
-
     def __init__(self, state: LocalState, context: SessionContext, http: httpx.Client) -> None:
         self.state = state
         self.context = context
@@ -100,7 +82,6 @@ class _Run:
         )
 
     def upload(self, repo: RepositoryInfo, wanted: list[TreeFile]) -> str:
-        """Upload the wanted contents; returns ``""`` or the code of the first failure."""
         for batch in plan_batches(wanted):
             contents = read_blobs(repo.root, [item.blob_sha for item in batch])
             files = [

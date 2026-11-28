@@ -1,15 +1,4 @@
-"""Pure rules of a Model Policy: entry shape, digest, and alias admission.
-
-A Model Policy is an explicit, ordered list of gateway aliases. The order is the
-author's and is kept verbatim; there is no implicit default and no "cheap"
-fallback. Each entry names the capabilities its user requires of that alias
-(from the gateway's closed capability vocabulary).
-
-Admission asks the LiteLLM alias catalog (``services/model_gateway/litellm/
-alias_catalog``) of every active gateway provider visible to the Workspace. An
-alias no catalog admits, or one that lacks a required capability, is
-``needs_configuration`` with a fixed reason code - never skipped.
-"""
+"""Pure rules of a Model Policy: entry shape, digest, and alias admission."""
 
 from __future__ import annotations
 
@@ -39,7 +28,6 @@ def _refuse(reason: str, index: int | None = None) -> RegistryRefusalError:
 
 
 def normalize_entries(raw: Any) -> list[dict[str, Any]]:
-    """Return the canonical entry list or refuse with a fixed reason (never echoing input)."""
     if not isinstance(raw, list) or not raw:
         raise _refuse("entries_empty")
     if len(raw) > MAX_ENTRIES:
@@ -118,7 +106,6 @@ def _admit_one(entry: dict[str, Any], gateway_configs: list[Any]) -> AliasAdmiss
 
 
 def evaluate_admission(entries: Iterable[dict[str, Any]], gateway_configs: list[Any]) -> ModelPolicyAdmission:
-    """Admission of every entry, in policy order, against the given gateway catalogs."""
     return ModelPolicyAdmission(tuple(_admit_one(entry, gateway_configs) for entry in entries))
 
 

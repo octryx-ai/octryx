@@ -1,19 +1,4 @@
-// The Workspace's automatic-handoff policy (root freeze 3b). Pure: no requests, no React.
-//
-// Contract (backend workspace handoff-policy endpoint):
-//   GET /api/v1/workspaces/{project_id}/agent-gateway/handoff-policy (members; non-members 404)
-//     -> {project_id, handoff: {mode, auto_threshold_pct, require_spare_pct, allowed_requesters},
-//         source: 'workspace'|'default', can_edit}
-//   PUT  same path, body: any subset of the handoff fields (missing ones take the defaults: confirm, 90, 50, members);
-//        Workspace admin/owner or platform admin, members 403; answers the GET shape. Invalid values:
-//        422 {detail: {errors: [{code, field}]}} with invalid_handoff_mode, invalid_percentage (threshold 1..100,
-//        spare 0..99), invalid_allowed_requesters, unknown_field, agent_gateway_policy_invalid.
-// Freeze 3c adds `push` (branch | bundle_only | off, default branch) and `auto_trigger_pct` (1..100, default 99;
-// error codes invalid_push_mode, invalid_percentage). Because a PUT resets missing fields to their defaults, both are
-// sent back whenever the server sent them, so saving the card never silently resets them.
-// Judge-s4 F1 ("offer, never assign") adds `offer_timeout_minutes` (1..1440, default 10; invalid_minutes): under `auto`
-// the item is offered to the agent with the most spare allowance and moves to the next one after that time; it changes
-// hands only when an agent requests it. It is sent back on save for the same reason.
+// A PUT resets missing fields to their defaults, so every field the server sent goes back on save.
 
 export type HandoffMode = "confirm" | "auto";
 export type AllowedRequesters = "members" | "admins_and_owners";
@@ -24,7 +9,7 @@ export type HandoffPolicy = {
   autoThresholdPct: number;
   requireSparePct: number;
   allowedRequesters: AllowedRequesters;
-  // Freeze 3c; null when the server does not send them (then they are not sent back either).
+  // null when the server does not send them; then they are not sent back either.
   push: PushMode | null;
   autoTriggerPct: number | null;
   offerTimeoutMinutes: number | null;
@@ -39,10 +24,8 @@ export const DEFAULT_HANDOFF_POLICY: HandoffPolicy = {
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-// The server sends percentages as numbers (90.0 in Python, 90 once parsed) and checks only their range.
 const percent = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
-/** The policy as the server sent it; null when the answer is not a handoff policy (nothing is guessed). */
 export function readHandoffPolicy(payload: unknown): HandoffPolicyAnswer | null {
   if (!isRecord(payload) || !isRecord(payload.handoff)) return null;
   const raw = payload.handoff;
@@ -65,7 +48,6 @@ export function readHandoffPolicy(payload: unknown): HandoffPolicyAnswer | null 
   };
 }
 
-/** The PUT body: every field, in the server's names. */
 export function policyBody(policy: HandoffPolicy): Record<string, unknown> {
   return {
     mode: policy.mode,
@@ -78,7 +60,6 @@ export function policyBody(policy: HandoffPolicy): Record<string, unknown> {
   };
 }
 
-/** The same bounds as the server (range only), checked before saving; [] when the draft is valid. */
 export function policyProblems(policy: HandoffPolicy): string[] {
   const problems: string[] = [];
   if (!Number.isFinite(policy.autoThresholdPct) || policy.autoThresholdPct < 1 || policy.autoThresholdPct > 100) {
@@ -97,7 +78,6 @@ export function policyProblems(policy: HandoffPolicy): string[] {
   return problems;
 }
 
-// The server names a refused field by its full policy path (agent_gateway_policy.handoff.auto_threshold_pct).
 const FIELD_LABEL: Record<string, string> = {
   mode: "Mode",
   auto_threshold_pct: "Holder threshold",
@@ -122,7 +102,6 @@ const CODE_TEXT: Record<string, string> = {
   agent_gateway_policy_invalid: "the Workspace's stored agent gateway policy is broken; an admin has to repair it",
 };
 
-/** A refused save in words: the coded 422 errors (with their field), 403, 404, or the message. */
 export function policySaveErrorText(status: number, body: unknown): string {
   const detail = isRecord(body) ? body.detail : null;
   if (status === 422 && isRecord(detail) && Array.isArray(detail.errors)) {
@@ -140,7 +119,6 @@ export function policySaveErrorText(status: number, body: unknown): string {
   return `Not saved: ${message}.`;
 }
 
-/** When automatic handoff happens, in plain language, from the policy's own values. */
 export function policyExplanation(policy: HandoffPolicy): string[] {
   if (policy.mode === "confirm") {
     return [
@@ -164,10 +142,6 @@ export function policyExplanation(policy: HandoffPolicy): string[] {
   ];
 }
 
-/**
- * Freeze 3c in plain language: when an agent hands its work over by itself, and how uncommitted work travels. [] when
- * the server sent neither field.
- */
 export function workStateExplanation(policy: HandoffPolicy): string[] {
   const lines: string[] = [];
   if (policy.autoTriggerPct !== null) {

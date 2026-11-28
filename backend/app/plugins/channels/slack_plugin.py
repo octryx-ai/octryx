@@ -15,10 +15,7 @@ _SLACK_AUTH_TEST_URL = "https://slack.com/api/auth.test"
 
 
 class SlackPlugin(ChannelPlugin):
-    """
-    Slack channel plugin using Slack Events API and Web API.
-    Receives messages via webhook (Events API); sends via chat.postMessage.
-    """
+    """Slack channel plugin using Slack Events API and Web API."""
 
     def __init__(self, plugin_id: str, config: dict[str, Any]):
         super().__init__(plugin_id, config)
@@ -118,10 +115,7 @@ class SlackPlugin(ChannelPlugin):
     # ----------------------------------------------------------------- webhook
 
     async def receive_webhook(self, payload: dict) -> None:
-        """
-        Called when Slack Events API posts to our endpoint.
-        Extracts message events and queues them.
-        """
+        """Called when Slack Events API posts to our endpoint."""
         event = payload.get("event", {})
         event_type = event.get("type", "")
 

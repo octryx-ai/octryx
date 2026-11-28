@@ -1,10 +1,4 @@
-"""ServiceNow's record-level part of the shared intake pipeline (``intake/pipeline``).
-
-What is ServiceNow's own and stays here: reading the open records per table through the intake's connection
-(``source.list_open_records``) and the records closed since the last sync (``changed_since``, Table API only), the
-mapping of a record (``sys_id`` is the ``source_id``, the number the ``source_key``, the caller the reporter), the
-closed states (``excluded_states``), and the record limit an item must be inside to leave the open set.
-"""
+"""ServiceNow's record-level part of the shared intake pipeline (``intake/pipeline``)."""
 
 from __future__ import annotations
 
@@ -34,7 +28,6 @@ def intake_of(row: WorkItemSyncConfig) -> dict[str, Any]:
 
 
 async def intake_connection(db: AsyncSession, row: WorkItemSyncConfig) -> dict[str, Any]:
-    """The intake's connection (``connection_id``); raises ``IntakeSourceError`` when it is gone."""
     try:
         config = await intake_connection_config(db, row, SOURCE_TYPE)
     except HTTPException as error:  # the connection refuses the intake: its fixed code
@@ -60,9 +53,7 @@ def _fields(record: Mapping[str, Any], table: str, state_source: str) -> dict[st
 
 
 def _caller(record: Mapping[str, Any]) -> str | None:
-    """The caller as an identifier when the answer carries one (a dot-walked ``caller_id.email`` /
-    ``caller_id.user_name``), else its reference value as given. A person is matched by identifier only
-    (``workflow_runs.responsible``): a display name stays unmatched."""
+    # A person is matched by identifier only: a display name stays unmatched.
     for key in ("caller_id.email", "caller_id.user_name"):
         if text(record.get(key), 220):
             return text(record.get(key), 220)
@@ -73,8 +64,6 @@ def _caller(record: Mapping[str, Any]) -> str | None:
 
 
 class ServiceNowRecords:
-    """The :class:`~..intake.protocol.RecordSource` of ServiceNow."""
-
     source_type = SOURCE_TYPE
     label = "ServiceNow"
     sync_audit_action = SYNC_AUDIT_ACTION
@@ -114,7 +103,6 @@ class ServiceNowRecords:
         return is_closed(record.get("state"), intake)
 
     def in_scope(self, item: WorkItem, listed: Listed) -> bool:
-        """Whether the item belongs to the listed limit (always, without one), by its stored group and service."""
         listing: Listing = listed.detail
         if listing.limit is None:
             return True

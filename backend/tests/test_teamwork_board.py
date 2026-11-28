@@ -1,9 +1,4 @@
-"""The board wakes the coordinator while the items run; the team block tells each item who is who.
-
-A post addressed to the coordinator's hash starts one coordinator turn on the run's main device thread: at once when
-the thread is free, else when its busy job ends; never twice for one message, never when the run is not at its
-``parallel_work`` node.
-"""
+"""The board wakes the coordinator while the items run; the team block tells each item who is who."""
 
 from __future__ import annotations
 
@@ -22,7 +17,10 @@ from app.services.workflow_runs.octryx.continuation_marker import CONTEXT_KEY
 from app.services.workflow_runs.records import new_chat_session
 from app.services.workflow_runs.teamwork import coordinator
 from app.services.workflow_runs.teamwork.team_block import team_block
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _confirm, _device_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 ITEM_HASH = "b" * 24
 
@@ -35,7 +33,6 @@ def _hub():
 
 
 async def _split(db, *, at_parallel_work=True):
-    """A device run standing at its split: the items run, the coordinator's turn (the plan pass) has ended."""
     admin, device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = list((await db.execute(select(DeviceJob).where(DeviceJob.session_id == thread.id))).scalars())
@@ -47,8 +44,9 @@ async def _split(db, *, at_parallel_work=True):
                        "coordinator_session_id": gateway.id, "route": None,
                        "items": {"api": {"id": "api", "role": "backend", "status": "running", "paths": ["server/**"],
                                          "agent_hash": ITEM_HASH},
+                                 # Waits for api: no item starts, so no git work takes the main thread here.
                                  "ui": {"id": "ui", "role": "frontend", "status": "pending", "paths": ["web/**"],
-                                        "agent_hash": None}}}
+                                        "depends_on": ["api"], "agent_hash": None}}}
     run.context = context
     await db.flush()
     return admin, device, thread, run, job, session_key_hash(key)
@@ -68,7 +66,7 @@ async def _finish(db, job):
 async def test_a_post_to_the_coordinator_waits_for_the_busy_main_thread_then_wakes_it_once(db):
     admin, _device, _thread, run, job, coordinator_hash = await _split(db)
     question = await _ask(db, run, admin, coordinator_hash)
-    assert job.turn_count == 1  # the main thread's turn is still running: nothing interrupts it
+    assert job.turn_count == 1
     assert run.context[coordinator.WAKE_KEY]["pending"] == [question.id]
     assert run.context["work"]["coordinator_hash"] == coordinator_hash
 
@@ -78,19 +76,19 @@ async def test_a_post_to_the_coordinator_waits_for_the_busy_main_thread_then_wak
     wake = run.context[coordinator.WAKE_KEY]
     assert (wake["pending"], wake["woken"], wake["job_id"]) == ([], [question.id], job.id)
 
-    assert await coordinator.board_posted(db, question) is None  # the same message never wakes it twice
+    assert await coordinator.board_posted(db, question) is None
     assert job.turn_count == 2
 
 
 @pytest.mark.asyncio
 async def test_a_free_main_thread_wakes_at_once_and_a_later_question_rides_on_the_next_wake(db):
     admin, _device, _thread, run, job, coordinator_hash = await _split(db)
-    await _finish(db, job)  # the plan pass ended; the main thread is free
+    await _finish(db, job)
     turns = job.turn_count
     first = await _ask(db, run, admin, coordinator_hash)
     assert job.turn_count == turns + 1 and first.id in job.turn_prompt
     second = await _ask(db, run, admin, coordinator_hash, body="And the test id?")
-    assert job.turn_count == turns + 1  # the wake turn is running: the second question waits for it
+    assert job.turn_count == turns + 1
     await _finish(db, job)
     assert job.turn_count == turns + 2 and second.id in job.turn_prompt and first.id not in job.turn_prompt
 

@@ -17,7 +17,7 @@ def test_a_long_item_key_binds_within_the_role_column():
     from app.services.workflow_runs.octryx.attach import item_role
 
     limit = WorkflowRunSession.role.type.length
-    assert item_role("core-domain") == "octryx:core-domain"  # short keys stay readable
+    assert item_role("core-domain") == "octryx:core-domain"
     long_roles = {item_role(key) for key in ("frontend-shell", "frontend-components", "frontend-profile",
                                               "a" * 40, "a" * 39 + "b")}
     assert len(long_roles) == 5 and all(len(role) <= limit for role in long_roles)
@@ -25,8 +25,6 @@ def test_a_long_item_key_binds_within_the_role_column():
 
 @pytest.mark.asyncio
 async def test_a_platform_epic_splits_into_platform_stories_and_the_chain_starts_the_first(db, monkeypatch):
-    """The rehearsal epic is a platform Work item (no Jira): ``work.create_stories`` makes platform stories with the
-    epic's key and the chain starts the stories' workflow (epic-delivery) on the first one."""
     from app.models import WorkflowRun
     from app.services.workflow_runs import epic_chain
     from app.services.workflow_runs.teamwork.stories import create_stories
@@ -48,7 +46,6 @@ async def test_a_platform_epic_splits_into_platform_stories_and_the_chain_starts
 
 
 @pytest.mark.parametrize("command", [
-    # The coordinator's and the items' reads that must not be refused.
     "git -C /Users/x/kitchen-helper log --oneline -5 && git -C /Users/x/kitchen-helper status --short | head -20",
     "cd /Users/x/kitchen-helper; git status --short | head; wc -l docs/stories/CHEF-2.md; grep -n '^#' docs/stories/CHEF-2.md",
     "git branch --list", "git diff HEAD~1 --stat", "git show HEAD", "git rev-parse --abbrev-ref HEAD",

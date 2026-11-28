@@ -1,20 +1,4 @@
-"""Scanner results as review findings (tool runner).
-
-The device runs the stack's scanners (``stacks.json`` ``scanners``: linters, SAST, secret scanners, pinned in the
-launcher) on the pull request's changed files only, never on repository code it would execute. Every scanner reports
-**SARIF 2.1** (gitleaks, opengrep, ruff, osv-scanner and eslint's formatter all write it), so one parser serves all;
-which kind a scanner is (``lint``, ``sast``, ``secrets``, ``dependencies``) is data of its entry. Pure:
-
-- **secrets** are always ``high`` and never quoted: the finding names the rule and the place, never the matched text
-  or a snippet (SARIF carries the secret in its region snippet and often in the message);
-- **sast** and **dependencies** map the SARIF level by the entry's ``severity_map`` (default error→high,
-  warning→medium, note→low);
-- **lint** counts only on lines the pull request changed and never above ``medium``: an old warning next to the
-  change is not this pull request's finding.
-
-A result outside the changed files is dropped (the scan only got those). Each finding gets the id ``S<n>`` and the
-source ``scan``; at most :data:`MAX_FINDINGS` per review, the rest counted in the footer.
-"""
+"""Scanner results as review findings (tool runner)."""
 
 from __future__ import annotations
 
@@ -39,8 +23,6 @@ class ScanResult:
 
 
 def _relative(uri: str, root: str) -> str:
-    """The repository path of a reported file: below ``root``, an absolute folder or the name of the unpacked
-    archive's folder (a device job reports ``files/pay/x.py`` or ``/<temp>/files/pay/x.py``)."""
     path = str(uri or "").removeprefix("file://").removeprefix("./")
     root = str(root or "").rstrip("/")
     if root and path.startswith(root + "/"):
@@ -61,7 +43,6 @@ def _location(result: dict[str, Any], root: str) -> tuple[str, int]:
 
 
 def _rule_texts(run: dict[str, Any]) -> dict[str, tuple[str, str]]:
-    """Per rule id: its short description and default level."""
     driver = dict(dict(run.get("tool") or {}).get("driver") or {})
     texts = {}
     for rule in driver.get("rules") or []:
@@ -92,7 +73,6 @@ def _fix(kind: str, tool: str, rule: str, message: str) -> str:
 
 def findings_from_sarif(scanner: dict[str, Any], sarif: dict[str, Any], *, root: str,
                         changed: dict[str, set[int]]) -> list[dict[str, Any]]:
-    """One scanner's SARIF report as findings (``changed``: per changed file, the lines it added or changed)."""
     kind = str(scanner.get("kind") or "lint")
     kind = kind if kind in KINDS else "lint"
     tool = str(scanner.get("id") or "scanner")
@@ -120,7 +100,6 @@ def findings_from_sarif(scanner: dict[str, Any], sarif: dict[str, Any], *, root:
 
 def scan_findings(reports: list[tuple[dict[str, Any], dict[str, Any]]], *, root: str,
                   changed: dict[str, set[int]]) -> ScanResult:
-    """Every scanner's findings, the same place and rule once, highest severity first, numbered ``S<n>``."""
     result, seen = ScanResult(), set()
     every: list[dict[str, Any]] = []
     for scanner, sarif in reports:
@@ -138,13 +117,11 @@ def scan_findings(reports: list[tuple[dict[str, Any], dict[str, Any]]], *, root:
 
 
 def changed_lines(files: dict[str, FileChange]) -> dict[str, set[int]]:
-    """Per file the pull request keeps, the new-side lines it added (a deleted file is not scanned)."""
     return {path: {line for line, kind in change.lines.items() if kind == ADDED}
             for path, change in files.items() if change.status not in ("deleted", "binary")}
 
 
 def to_facts(result: ScanResult) -> dict[str, Any]:
-    """What ``pr_review.scan`` keeps on the run (``context.pr_review.scan``) for the reviewer and the post."""
     return {"findings": result.findings, "tools": result.tools, "dropped": result.dropped, "notes": result.notes}
 
 

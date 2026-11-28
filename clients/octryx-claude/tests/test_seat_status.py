@@ -1,12 +1,4 @@
-"""Seat and governance status, seat login and seat failures (Alice).
-
-1. Every start prints the status block on stderr before Claude Code starts; ``status`` shows it too.
-2. ``octryx-claude login --seat`` (``seat-login``) signs the seat profile in without the platform login; ``auto``
-   offers it once on a terminal.
-3. A rejected subscription login or a reached limit (Claude Code's ``StopFailure``) is said with its fix: on the next
-   prompt, when the session ends, and in the next start's status block.
-4. The main model defaults to ``claude-opus-5-5``.
-"""
+"""Seat and governance status, seat login and seat failures."""
 
 from __future__ import annotations
 

@@ -96,15 +96,11 @@ async def _seat_session(client, db, *, classification="internal", policy=None, r
     return workspace_id, user_id, gateway, registered.json()["seat_credential"]
 
 
-# --- presence read model -------------------------------------------------------------------------------
-
-
 async def _bearer(user_id: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(user_id)}"}
 
 
 async def _found_anywhere(db, needle: str) -> list[str]:
-    """Every table/column whose text contains ``needle`` (the whole test database is searched)."""
     found = []
     tables = (await db.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))).scalars().all()
     for table in tables:

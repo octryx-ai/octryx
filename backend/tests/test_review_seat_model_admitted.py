@@ -1,8 +1,5 @@
-"""The default models are always admitted on a seat, from one source.
-
-claude-sonnet-5-5 is the reviewer default (review_models.json). The seat baseline is derived from the same data, so a
-fresh installation with a seat admits it; a review model a Workspace's own list leaves out is named with the admitted
-ones before any device is asked, never a bare 400 seat_model_not_allowed."""
+"""The default review models are always admitted on a seat, derived from review_models.json; a model a
+Workspace leaves out is named with the admitted ones before any device is asked."""
 
 from __future__ import annotations
 

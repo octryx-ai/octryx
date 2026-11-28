@@ -1,6 +1,5 @@
-"""Claude Code compacts a long run session itself (the platform never rebuilds what Claude Code does):
-the offer carries the class's context cap as the window, a Claude Code session past the cap keeps going instead of a
-fresh start with a handoff note, and each compaction is the run's ``session_compacted`` event."""
+"""Claude Code compacts a long run session itself: the offer carries the class's context cap as the window, a session
+past the cap keeps going instead of restarting with a handoff note, and each compaction is a ``session_compacted``."""
 
 from __future__ import annotations
 
@@ -12,6 +11,9 @@ from sqlalchemy import select
 from app.models import WorkflowRunEvent
 from app.services.devices.job_offer import offer_body
 from app.services.workflow_runs.octryx import compaction
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _run(cap):

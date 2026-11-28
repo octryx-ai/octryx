@@ -1,8 +1,4 @@
-"""Admin service for project access assignments.
-
-Role-name handling, the read-side serializers and the row replacement live in the
-``_admin_project_access_*`` modules next to this one.
-"""
+"""Admin service for project access assignments."""
 
 from __future__ import annotations
 
@@ -32,8 +28,6 @@ from ._admin_project_access_write import (
 
 
 async def require_administrable_project(db: AsyncSession, project_id: str, viewer_id: str) -> None:
-    """A project-access route is reached through a delegated admin-panel permission, not membership: somebody else's
-    private Workspace answers exactly like a missing project, since nobody but its owner administers it."""
     if await refuse_foreign_private(db, project_id, viewer_id):
         raise HTTPException(status_code=404, detail=PROJECT_NOT_FOUND)
 

@@ -1,9 +1,4 @@
-"""Where corrections are kept (``correction_signatures``) and the Workspace's settings for them.
-
-``capture`` is called at the moment a correction happens (never by reading events back): it redacts, normalises,
-finds the signature for the Workspace, repository and app, counts the repeat and keeps the occurrence. It never
-stands in the way of what triggered it: a failure is logged and dropped.
-"""
+"""Where corrections are kept (``correction_signatures``) and the Workspace's settings for them."""
 
 from __future__ import annotations
 
@@ -135,8 +130,6 @@ async def _capture(db: Any, project_id: str, repository: str, app: str,
 
 
 async def _updated(db: Any, signature_id: str) -> None:
-    """``check_proposals.signature_updated`` decides on a proposal after every update. Until that
-    function ships there is nobody to tell; its failure never undoes the capture (its own savepoint)."""
     import importlib
 
     try:

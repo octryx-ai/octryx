@@ -36,7 +36,6 @@ def _first_line(text: str, limit: int = 240) -> str:
 
 
 async def followup_payload(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
-    """The exact follow-up issue the requester authorises (never written because a draft asked for it)."""
     from ..platform.jira import _project_key
 
     followup = dict(facts(run).get("followup") or {})
@@ -79,7 +78,6 @@ async def authorise_followup(db: AsyncSession, run: WorkflowRun, decision: Workf
 
 
 def change_followup(run: WorkflowRun, text: Any) -> None:
-    """The requester's own summary for the follow-up; the card shows it again for a new authorisation."""
     summary = _first_line(str(text or ""))
     if not summary:
         raise WorkflowRunError("followup_summary_required", "Say what the follow-up should be called instead.", 422)
@@ -116,8 +114,6 @@ async def followup_create(db: AsyncSession, run: WorkflowRun) -> ToolOutcome:
 
 
 async def followup_readback(db: AsyncSession, run: WorkflowRun) -> tuple[ToolOutcome, str]:
-    """The created follow-up must read back as authorised; then a rejection ends ``blocked``, an exception goes on
-    to its confirmation."""
     from ..platform.dispatch import dispatch_tool
 
     followup = dict(facts(run).get("followup") or {})
@@ -169,7 +165,6 @@ async def exception_payload(db: AsyncSession, run: WorkflowRun) -> dict[str, Any
 
 
 async def take_exception(db: AsyncSession, run: WorkflowRun, *, user: User) -> None:
-    """From a declared missing-proof pause only: open the follow-up intent the exception will be bound to."""
     from ..engine import restart_at
     from ..graph import NODE_CONFIRMATION, graph_for_run
     from ..pause import record_decision

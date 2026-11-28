@@ -1,21 +1,5 @@
-"""The workflows of a Workspace for an external agent over MCP.
-
-Claude Code has no modes. Its capability comes from the workflow run it follows and from a governed
-approval only:
-
-- ``workflow_catalog``: the Workspace's published phased workflows, each with its class; each runs as
-  a workflow run for a Work item.
-- ``workflow_select``: follows a Work item's run or starts one once the user confirmed it
-  (``mcp_workflow_run_tools``). A key that names no published workflow is an explicit state:
-  ``needs_clarification`` with the available keys, or ``denied: workflow_archived``.
-- ``workflow_confirm(approval_id)``: approves the pending confirmation **only** with a ticket from the
-  gateway's PreToolUse ``ask`` (``agent_gateway/confirmation``), i.e. after the user accepted Claude
-  Code's own permission prompt. Without a ticket it answers ``needs_confirmation`` with the
-  platform link.
-
-One confirmation covers one workflow for one connection: the launcher session key or, without
-one, the OAuth grant. A rejected confirmation stays rejected for that connection.
-"""
+"""The workflows of a Workspace for an external agent over MCP. Its capability comes only from the workflow run it
+follows and from a governed approval."""
 
 from __future__ import annotations
 

@@ -1,9 +1,4 @@
-"""A run's hard limits at the model gateway.
-
-A session that starts its subagents with model "sonnet" can have it mapped to Opus by the session settings, so most
-calls run on a far more expensive model than the phase's. The gateway maps any model above the run's own to the
-phase's model and pauses the run when its model budget is used up, whatever the session asks for.
-"""
+"""A run's hard limits at the model gateway."""
 
 from __future__ import annotations
 
@@ -25,6 +20,9 @@ from app.services.workflow_runs.octryx.model_guard import (
 from app.services.workflow_runs.records import main_session_id, new_chat_session, start_run
 from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 HAIKU = "claude-haiku-5-5"
 
@@ -36,11 +34,11 @@ def _nodes(**models: str) -> dict:
 def test_a_model_above_the_runs_own_runs_on_the_phases_model():
     models = run_models(_nodes(implement=HAIKU), "implement")
     assert models.replacement("claude-opus-5-5") == HAIKU
-    assert models.replacement("opus") == HAIKU  # an alias of unknown spelling but a known family
-    assert models.replacement("claude-sonnet-5") == HAIKU  # Claude Code's small-fast model in the seat settings
+    assert models.replacement("opus") == HAIKU
+    assert models.replacement("claude-sonnet-5") == HAIKU
     assert models.replacement(HAIKU) is None
-    assert models.replacement("claude-haiku-4-5-20251001") is None  # a cheaper or equal tier passes
-    assert models.replacement("gpt-5.5") == HAIKU  # an unknown model that the run does not name
+    assert models.replacement("claude-haiku-4-5-20251001") is None
+    assert models.replacement("gpt-5.5") == HAIKU
 
 
 def test_a_team_run_may_use_each_of_its_role_models_but_nothing_above():
@@ -93,7 +91,6 @@ async def test_a_session_outside_any_run_is_unchanged(db):
 @pytest.mark.asyncio
 async def test_a_run_past_its_budget_pauses_and_refuses_every_further_call(db):
     run, session_id, admin = await _haiku_run(db)
-    # $5 of real API cost (a governed call); a seat call's list-price equivalent never pauses (next test).
     db.add(UsageEvent(id=str(uuid.uuid4()), session_id=session_id, user_id=admin.id, provider="anthropic",
                       model=HAIKU, tokens_in=1_000, tokens_out=10_000_000, cost=5))
     await db.flush()
@@ -104,9 +101,9 @@ async def test_a_run_past_its_budget_pauses_and_refuses_every_further_call(db):
     pause = run.node_state["pause"]
     assert pause["keys"] == ["cost_usd"] and pause["budget_usd"] == DEFAULT_RUN_BUDGET_USD
     assert pause["spent_usd"] > DEFAULT_RUN_BUDGET_USD and "Continue with more budget" in pause["message"]
-    assert run.limits["budget_ceiling"]["cost_usd"] == DEFAULT_RUN_BUDGET_USD * 3  # a person may raise it
+    assert run.limits["budget_ceiling"]["cost_usd"] == DEFAULT_RUN_BUDGET_USD * 3
     again = await guard_model_call(db, session_id, {"model": HAIKU, "messages": []})
-    assert again.refusal == REASON_RUN_BUDGET  # no silent work on, also while paused
+    assert again.refusal == REASON_RUN_BUDGET
 
 
 @pytest.mark.asyncio
@@ -126,8 +123,6 @@ async def test_the_seat_route_refuses_a_run_past_its_budget_with_the_reason(db):
 
 @pytest.mark.asyncio
 async def test_a_seat_calls_list_price_equivalent_only_warns_and_never_pauses_the_run(db):
-    """API cost and a seat's API equivalent stay strictly apart, no limit that cuts off: a run must not pause at
-    "$4.16 (list price)" on seat calls that cost $0."""
     from sqlalchemy import select
 
     from app.models import WorkflowRunEvent
@@ -144,7 +139,7 @@ async def test_a_seat_calls_list_price_equivalent_only_warns_and_never_pauses_th
     assert run.status != "paused" and run.budget_usage["list_cost_usd"] > DEFAULT_RUN_BUDGET_USD
     events = (await db.execute(select(WorkflowRunEvent).where(WorkflowRunEvent.run_id == run.id,
                                                               WorkflowRunEvent.kind == EVENT_SEAT_EQUIVALENT))).scalars()
-    assert len(list(events)) == 1  # once per run
+    assert len(list(events)) == 1
 
 
 # A Codex seat request (gpt-6-luna) compared with the Claude phase model would send claude-haiku-5-5 to ChatGPT and
@@ -153,7 +148,7 @@ async def test_a_seat_calls_list_price_equivalent_only_warns_and_never_pauses_th
 @pytest.mark.parametrize("requested", ["gpt-6-luna", "gpt-6.1-sol"])
 def test_a_codex_seat_turn_in_a_claude_phase_runs_its_own_model(phase_model, requested):
     models = run_models(_nodes(draft=phase_model, review="claude-haiku-5-5"), "draft")
-    assert models.replacement(requested, engine="codex") is None  # never mapped to a Claude model
+    assert models.replacement(requested, engine="codex") is None
 
 
 def test_a_codex_model_above_the_runs_codex_model_runs_on_it_and_never_on_a_claude_model():
@@ -161,11 +156,10 @@ def test_a_codex_model_above_the_runs_codex_model_runs_on_it_and_never_on_a_clau
     assert models.replacement("gpt-6-astra", engine="codex") == "gpt-6.1-sol"
     assert models.replacement("gpt-6-luna", engine="codex") is None
     assert models.replacement("gpt-6.1-sol", engine="codex") is None
-    assert models.replacement("claude-opus-5-5") == "claude-haiku-5-5"  # the Claude path is unchanged
+    assert models.replacement("claude-opus-5-5") == "claude-haiku-5-5"
 
 
 def test_codex_models_count_for_the_budget():
-    # Official OpenAI list price: $0.10/M up to a 272k-token prompt, $0.20/M above it.
     assert list_cost("gpt-6-luna", tokens_in=200_000, tokens_out=0) == pytest.approx(0.02)
     assert list_cost("gpt-6-luna", tokens_in=1_000_000, tokens_out=0) == pytest.approx(0.20)
     assert list_cost("gpt-6.1-sol", tokens_in=0, tokens_out=1_000_000) == pytest.approx(10.0)

@@ -5,7 +5,7 @@ import {
   ACTION_EXPLANATIONS, DEFAULT_CHOICE, NO_ALIASES_TEXT, READ_ONLY_TEXT, actionText, aliasBody, aliasProblem, aliasText,
   choiceBody, choicePreviewLines, choiceProblem, choiceUnchanged, contentHandlingLoadErrorText,
   contentHandlingSaveErrorText, defaultOptionText, effectiveText, initialChoice, readContentHandling, readHandlingKind,
-  surfaceDefaultLines,
+  shippedDefaultText, surfaceDefaultLines,
 } from "./workspaceContentHandlingModel";
 import type { ContentHandling, HandlingChoice, HandlingKind } from "./workspaceContentHandlingModel";
 
@@ -125,7 +125,7 @@ function KindEditor({ workspaceId, kind, data, onSaved }: {
   );
 }
 
-// Where the kind's action in effect acts otherwise (e.g. credentials refused on the coding-agent gateway).
+// Where the kind's action in effect acts otherwise (e.g. a reroute refused on a ChatGPT seat).
 function SurfaceLines({ kind }: { kind: HandlingKind }) {
   const lines = surfaceDefaultLines(kind);
   if (!lines.length) return null;
@@ -188,7 +188,7 @@ export function WorkspaceContentHandling({ workspaceId }: { workspaceId: string 
                         {kind.isDefault ? <> <span className="work-badge work-badge--neutral" data-testid="content-handling-default">default</span></> : null}
                         <SurfaceLines kind={kind} />
                       </td>
-                      <td>{actionText(kind.defaultAction)}</td>
+                      <td data-testid={`content-handling-shipped-${kind.kind}`}>{shippedDefaultText(kind)}</td>
                       {data.canEdit ? (
                         <td><KindEditor workspaceId={workspaceId} kind={kind} data={data} onSaved={replaceKind} /></td>
                       ) : null}

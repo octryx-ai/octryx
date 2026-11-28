@@ -59,6 +59,7 @@ async def create_coding_audit_event(
             action="secure_work.coding_audit_event_created",
             resource_type="work_item",
             resource_id=item.id,
+            project_id=item.project_id,
             details={"event_id": row.id, "event_type": row.event_type, "source_key": item.source_key},
         )
     )

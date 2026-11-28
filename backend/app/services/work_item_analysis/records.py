@@ -1,9 +1,4 @@
-"""Where a finished analysis is recorded: the Work Item note and the board ``info`` message.
-
-The note joins the item's ``platform_notes`` list (the list ``work_item_note`` and ``work_item_context`` use)
-with ``kind: analysis``, ``author_type: agent`` and the analysis id; it changes nothing else on the item.
-The board message is an ``info`` from the analysis run's agent identity, linked to the item.
-"""
+"""Where a finished analysis is recorded: the Work Item note and the board ``info`` message."""
 
 from __future__ import annotations
 
@@ -26,9 +21,6 @@ def analysis_agent_hash(analysis: WorkItemAnalysis) -> str:
 
 async def append_analysis_note(db: AsyncSession, *, item: WorkItem, analysis: WorkItemAnalysis, user: User,
                                text: str, summary: str) -> str:
-    """Append the rendered analysis as an agent note; returns its timestamp.
-
-    ``summary`` is the analysis summary alone: the ServiceNow work note sends only that field."""
     at = utc_now().isoformat()
     fields = dict(item.source_fields_json or {})
     notes = [entry for entry in fields.get("platform_notes") or [] if isinstance(entry, dict)]

@@ -1,35 +1,4 @@
-"""A workflow that runs in phases: its graph and its closed validation.
-
-"Runs in phases" is the third execution kind on the flow storage: a flow version whose
-``definition_json.execution_kind`` is ``phased``. Its nodes are a closed set:
-
-- ``start``: the entry (exactly one);
-- ``phase``: an inline workflow definition (``workflow_id``, ``workflow_class``, ``workflow_contract`` with its
-  capability class, steps, checks and ``path_rules``, ``tool_policy``) the agent follows for one or more turns;
-  it ends when its blocking checks pass;
-- ``gate``: deterministic checks over the evidence the last completed phase recorded (``passed`` | ``failed``);
-- ``decision``: routes on the recorded result of an earlier node (explicit values, never text; a phase's declared
-  ``result_values``), with the reserved fallback route ``otherwise``, or compares a work item field and routes
-  ``yes`` | ``no`` (``conditions``);
-- ``outcome``: ends the run (``delivered`` | ``done`` | ``blocked`` | ``stopped``); a triage's outcome may carry
-  ``routing`` (its follow-up workflow per type, ``triage_routing``);
-- ``platform_action``: one governed tool call the server makes (``succeeded`` | ``failed``);
-- ``user_conversation``, ``user_confirmation``, ``watch``, ``approval``: the four human-in-the-loop kinds;
-- ``sub_workflow``: runs another published workflow and routes on its outcome.
-- ``review``: the independent reviewer reviews the change and records its verdict; a following gate with
-  ``review_passed`` decides.
-- ``parallel_work``: runs the work plan an earlier phase (``config.plan``, ``output: work_plan``) submitted: one agent
-  session per item, by ``config.roles``, merged as each ends (``teamwork``); routes ``done`` | ``replan``, and
-  ``replan`` is a way back to the plan phase. The only parallelism the engine runs: a static fork stays refused.
-- ``pause`` (``reason: action_failed``): entered only through platform actions' ``failed`` exits; a recoverable
-  failure pauses the run for the requester (retry / change / abort), any other takes its one exit
-  (``action_failures``). Every platform action that can fail routes ``failed``.
-
-Edges are ``next`` or ``loop``. The ``next`` edges form a DAG. A cycle exists only through a ``loop`` edge:
-a back-edge (its target precedes its source) with a ``max_iterations`` *n* ≥ 1, so every loop is bounded.
-Every node but an outcome has a ``next`` exit, so every path reaches an outcome. A node with several exits
-routes on its closed values (``when``); one value has at most one edge.
-"""
+"""A workflow that runs in phases: its graph and its closed validation."""
 
 from __future__ import annotations
 
@@ -72,7 +41,6 @@ PASSED, FAILED = "passed", "failed"
 CONFIRMED, CHANGED, STOPPED = "confirmed", "changed", "stopped"
 APPROVED, REJECTED = "approved", "rejected"
 SUCCEEDED = "succeeded"
-# Decisions (``conditions``): what a decision checks, its reserved fallback route, a field condition's routes.
 DECISION_CHECK_RESULT, DECISION_CHECK_FIELD = "result", "field"
 OTHERWISE = "otherwise"
 YES, NO = "yes", "no"
@@ -83,11 +51,8 @@ SUBJECT_FUNCTIONAL_ACCEPTANCE = "functional_acceptance"
 SUBJECT_PUBLICATION = "publication"
 SUBJECT_FOLLOWUP = "followup"
 SUBJECT_EXCEPTION = "exception"
-# The product owner's review of a change (ticket delivery): ship it, or send answers back to the agent.
 SUBJECT_DECISIONS = "decisions"
-# Before the build: the open questions the readiness check found in the spec for this work item.
 SUBJECT_READINESS = "readiness"
-# Spec writing: the spec agent's questions to the product owner before it writes the specification.
 SUBJECT_INTERVIEW = "interview"
 ACCEPTED, NOT_TESTABLE_YET = "accepted", "not_testable_yet"
 CONFIRMATION_SUBJECTS = frozenset({"test_contract", "ticket_draft", "reproduction", "retry_choice", "advance",
@@ -100,14 +65,12 @@ SUBJECT_ROUTES: dict[str, frozenset[str]] = {
 WATCH_CONDITIONS = frozenset({
     "pr.approved", "pr.merged", "pr.declined", "ci.succeeded", "ci.failed", "jira.status", "approval.decided",
 })
-# What a gate can judge from the evidence a phase recorded (tool calls, artifacts, citations, test gate).
 GATE_CHECK_TYPES = frozenset({
     "tool_called", "tool_not_called", "evidence_count", "artifact_created", "citations_present", "test_command_passed",
     "tests_red", "tests_green", "confirmed_tests_intact", "ci_green", "reproduces", "review_passed", "slices_merged",
-    "definition_of_ready", "lint_passed", "artefact_review_passed", "specification_ready", "evidence_families",
+    "definition_of_ready", "artefact_review_passed", "specification_ready", "evidence_families",
 })
 
-# The closed values a node's exits route on; ``None``: a single unconditional exit.
 _FIXED_ROUTES: dict[str, frozenset[str] | None] = {
     NODE_START: None,
     NODE_PHASE: None,
@@ -148,7 +111,6 @@ class PhasedGraph:
     edges: list[PhasedEdge]
     order: list[str] = field(default_factory=list)
     budget: dict[str, Any] = field(default_factory=dict)
-    # The phase "change plan" returns to (default: the first phase).
     plan_node: str = ""
     # Compiled node id -> the fragment it came from (``runtime_settings.composition.provenance`` of the run's
     # version; ``fragments.provenance``). Empty for a plain graph; ``parse_phased_definition`` never fills it.
@@ -232,7 +194,6 @@ def parse_phased_definition(definition: dict[str, Any]) -> PhasedGraph:
 
 
 def _topological_order(graph: PhasedGraph) -> list[str] | None:
-    """The ``next`` edges' order, or ``None`` when they form a cycle."""
     incoming = {node_id: 0 for node_id in graph.nodes}
     for edge in graph.edges:
         if edge.kind == EDGE_NEXT and edge.target in incoming and edge.source in graph.nodes:
@@ -258,7 +219,7 @@ async def graph_for_run(db: AsyncSession, run: WorkflowRun) -> PhasedGraph:
     graph.provenance = version_provenance(version)
     from .size_class.merge import merged_graph
 
-    return merged_graph(graph, run)  # a size class that lays one phase into a later one (``merge``)
+    return merged_graph(graph, run)
 
 
 __all__ = [

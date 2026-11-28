@@ -1,13 +1,4 @@
-"""Whether Knowledge is enabled for a Workspace, and enabling it where connectors need it.
-
-A Source Sync connector projects into the Workspace's Evidence index, so configuring a connector
-and "Run now" ensure Knowledge is enabled first, through the one governed path
-(:func:`enable_workspace_knowledge`, the same as ``POST /knowledge/enable``: idempotent, audited).
-
-The state shown is the last recorded enablement (its audit row): ``ready`` or ``needs_configuration``,
-with its closed outcome and time, or ``unknown`` when nobody has enabled Knowledge through the
-product yet. Only a non-``ready`` state triggers a new enablement.
-"""
+"""Whether Knowledge is enabled for a Workspace, and enabling it where connectors need it."""
 
 from __future__ import annotations
 
@@ -29,7 +20,6 @@ _KNOWN_STATES = frozenset({STATE_READY, STATE_NEEDS_CONFIGURATION})
 
 
 async def knowledge_state(db: AsyncSession, project_id: str) -> dict[str, str | None]:
-    """The last recorded enablement of the Workspace: ``{state, outcome, checked_at}``."""
     row = (
         await db.execute(
             select(AuditLog.details, AuditLog.created_at)
@@ -53,7 +43,6 @@ async def knowledge_state(db: AsyncSession, project_id: str) -> dict[str, str | 
 async def ensure_knowledge_enabled(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, actor_id: str
 ) -> dict[str, str | None]:
-    """Enable Knowledge unless the last enablement is ``ready``; answer the resulting state."""
     current = await knowledge_state(db, authorized.project_id)
     if current["state"] == STATE_READY:
         return current

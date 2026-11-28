@@ -19,8 +19,6 @@ _PUBLIC_MODULES = frozenset(
         "process",
         "queries",
         "repository",
-        "semantic_build",
-        "semantic_store",
         "structure",
         "symbol_analysis",
     }

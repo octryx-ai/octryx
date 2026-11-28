@@ -1,9 +1,4 @@
-"""HTTP request metrics: Prometheus counters and a bounded in-memory window.
-
-Requests are counted in memory only, never in the database: the Prometheus counter on ``/metrics`` and a one-hour window
-of (time, status, duration) samples that Observability → Health reads for the API row (request rate, 5xx, p95). Per
-process; a restart starts empty.
-"""
+"""HTTP request metrics: Prometheus counters and a bounded in-memory window."""
 
 from __future__ import annotations
 
@@ -25,7 +20,6 @@ _UUID_PATH_SEGMENT_RE = re.compile(
 
 
 def _normalize_endpoint(endpoint: str) -> str:
-    """Normalize endpoint path for consistent metrics bucketing."""
     if not endpoint:
         return "unknown"
     normalized = endpoint.strip().rstrip("/") or "/"
@@ -40,7 +34,6 @@ def record_request_counter(endpoint: str, method: str, status_code: int, duratio
 
 
 def recent_request_summary(window_seconds: int = WINDOW_SECONDS) -> dict[str, Any]:
-    """Requests, 5xx and p95 duration of this process in the last ``window_seconds``."""
     cutoff = time.monotonic() - window_seconds
     while _RECENT and _RECENT[0][0] < cutoff:
         _RECENT.popleft()

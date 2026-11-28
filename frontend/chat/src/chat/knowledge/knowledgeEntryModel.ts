@@ -1,12 +1,3 @@
-// Pure rules of the Knowledge → Search entry overview, stated only from existing API fields (no invented totals
-// or dates).
-//
-// - Whether the workspace holds documents comes from the first newest-first page of /knowledge/sources; a next
-//   cursor means "more".
-// - The indexing backlog comes from `projection_backlog`, the per-state count of indexing jobs of the workspace
-//   (backend models/project/knowledge_evidence.py OUTBOX_STATE_*: pending, claimed, applied, dead_letter).
-// - Research websites come from /web-search/sources (mode and decided entries).
-
 import type { SourceListing, WebSearchOverview } from "../../admin/components/workspaceKnowledge/workspaceKnowledgeTypes";
 
 export function hasNoDocuments(listing: Pick<SourceListing, "sources" | "next_cursor"> | null): boolean {
@@ -17,8 +8,7 @@ export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`;
 }
 
-// Indexing jobs per state (jobs, not documents: one document can have several). "Waiting" covers
-// queued and running jobs; failed jobs need attention.
+// Jobs, not documents: one document can have several.
 export function indexingJobs(listing: Pick<SourceListing, "projection_backlog">): { indexed: number; waiting: number; failed: number } {
   const backlog = listing.projection_backlog ?? {};
   const count = (state: string) => Math.max(0, Number(backlog[state]) || 0);

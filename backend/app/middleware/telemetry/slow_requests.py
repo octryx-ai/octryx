@@ -1,10 +1,4 @@
-"""Every request slower than a threshold is logged with its route, so a stall has a name.
-
-the local API stood still for minutes (12:40-12:46, 12:55-13:04): no log said which request held
-the event loop. The cause was module compilation inside the loop (no bytecode in the container); this log is the
-cheap guard that names the next one. Pure ASGI (no body re-streaming), threshold ``OCTRYX_SLOW_REQUEST_SECONDS``
-(default 1.0).
-"""
+"""Every request slower than a threshold is logged with its route, so a stall has a name."""
 
 from __future__ import annotations
 
@@ -25,7 +19,6 @@ def threshold_seconds() -> float:
 
 
 def route_of(scope: dict[str, Any]) -> str:
-    """The route's path template (``/api/v1/workflow-runs/{run_id}``) when the router matched one, else the path."""
     route = scope.get("route")
     return str(getattr(route, "path", "") or scope.get("path") or "")
 

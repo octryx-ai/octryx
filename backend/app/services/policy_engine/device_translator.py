@@ -1,14 +1,4 @@
-"""The generated ``run_on_device`` policies: platform, classification matrix and Workspace ``device_runs``.
-
-- ``platform:device-run-permit`` grants the action; ``platform:device-run-folder-not-allowlisted`` denies a
-  folder outside the device's reported allowlist (the code checks the same before the job is offered);
-- ``classification:<level>:device-runs-not-allowed`` for a level whose matrix rule ``device_runs_allowed`` is off
-  (D10: on at every level by default);
-- ``workspace:<id>:device-runs-disabled`` while the Workspace has not opted in (the default), and
-  ``workspace:<id>:device-profile-not-allowed`` for a profile outside ``allowed_profiles``.
-
-The platform kill switch and the ownership invariant are code, not Cedar: no policy can switch them.
-"""
+"""The generated ``run_on_device`` policies: platform, classification matrix and Workspace ``device_runs``."""
 
 from __future__ import annotations
 
@@ -43,7 +33,6 @@ def device_level_policies(level: str, *, device_runs_allowed: bool) -> list[Gene
 
 
 def workspace_device_policies(workspace_id: str, raw_policy: Mapping[str, Any] | None) -> list[GeneratedPolicy]:
-    """``raw_policy`` ``None``: the Workspace's gateway policy is invalid, so device runs are off there."""
     scope = f"context.workspace == {entity(ENTITY_WORKSPACE, workspace_id)}"
     prefix = f"workspace:{workspace_id}"
     section = device_runs_section(dict(raw_policy) if raw_policy is not None else None)

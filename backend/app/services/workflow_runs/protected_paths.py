@@ -1,27 +1,4 @@
-"""The paths a phase of a workflow run never lets its agent change (also for slice children).
-
-One rule for every place an edit is decided — the chat write decision (``path_rules``), an octryx-claude session's
-PreToolUse (``octryx/tool_policy``) and a slice's child in its own worktree:
-
-- **every run phase**: git's own files (anything under ``.git/``, ``.gitattributes``) — the repository's config could
-  make the platform's git run a command or hide a change from the reviewer — and environments (``.venv/``,
-  ``venv/``, ``.tox/``, ``node_modules/``, ``site-packages/``), whose binaries a phase's commands run;
-- **with** ``protect_confirmed_tests`` an **allow-list** (with ``path_rules.write_tests`` every test file but the
-  confirmed ones is writable too: a size class's phase that writes the reproduction and the fix in one turn): a
-  phase that makes code pass confirmed tests changes only
-  - an **existing** file that is neither a test (a test file name or anything in a test directory, so also its
-    ``__init__.py``) nor configuration of a test runner or interpreter (``conftest.py``, any pytest config,
-    ``pyproject.toml``, ``setup.cfg``, ``tox.ini``, ``sitecustomize.py``, ``*.pth``, ``package.json``, jest / vitest /
-    vite / babel config, ``go.mod`` / ``go.work``), and
-  - a **new** file only under a pattern the phase's ``path_rules.create`` names, never at the repository's top level
-    (a new top-level module would shadow what ``python -m pytest`` imports), and never a new package or module named
-    like an installed distribution (``import_name``; the caller checks the environment, ``environment_names``);
-  - never packaging metadata or bytecode: ``*.dist-info/`` / ``*.egg-info/`` (``entry_points.txt`` registers
-    pytest plugins), ``*.egg-link``, ``*.pth``, ``__pycache__/``, ``*.pyc``.
-
-Paths compare case-folded after normalisation (``TESTS/Test_Repro.py`` is the confirmed ``tests/test_repro.py`` on a
-case-insensitive file system); callers resolve symlinks (``realpath``) before asking and say whether the file exists.
-"""
+"""The paths a phase of a workflow run never lets its agent change (also for slice children)."""
 
 from __future__ import annotations
 
@@ -56,7 +33,6 @@ IMPORT_ROOTS = frozenset({"src", "lib"})
 
 
 def fold(path: str) -> str:
-    """A relative path, normalised and case-folded (``./A/../Tests/x.py`` → ``tests/x.py``)."""
     return posixpath.normpath(str(path or "").replace("\\", "/")).lstrip("/").casefold()
 
 
@@ -66,8 +42,6 @@ def is_test_path(folded: str) -> bool:
 
 
 def import_name(relative: str) -> tuple[str, str] | None:
-    """``(path of the importable top-level name, the name)`` a file defines: its first component, or the one under
-    ``src/`` / ``lib/`` (``src/iniconfig/__init__.py`` → ``("src/iniconfig", "iniconfig")``); ``None`` for none."""
     parts = fold(relative).split("/")
     index = 1 if parts[0] in IMPORT_ROOTS and len(parts) > 1 else 0
     if index >= len(parts) - 1 and not parts[index].endswith(".py"):
@@ -79,11 +53,6 @@ def import_name(relative: str) -> tuple[str, str] | None:
 def protected_kind(relative: str, *, confirmed_files: Iterable[str], protect_tests: bool, exists: bool | None = True,
                    create: Iterable[str] = (), shadows: bool = False, flat: bool = False,
                    tests_free: bool = False) -> str | None:
-    """Why ``relative`` (to the working copy) may not be changed in the phase; ``None`` when it may.
-
-    ``exists`` is whether the file is there now (``None``: unknown, treated as new); ``shadows`` whether a new file
-    starts a package or module named like an installed distribution (the caller checks the environment).
-    ``tests_free`` (``path_rules.write_tests``) leaves every test file but the confirmed ones writable."""
     folded = fold(relative)
     parts = folded.split("/")
     if ".git" in parts or parts[-1] in GIT_INTERNAL_NAMES:
@@ -110,22 +79,17 @@ def protected_kind(relative: str, *, confirmed_files: Iterable[str], protect_tes
     patterns = [fold(pattern) for pattern in create if str(pattern or "").strip()]
     if len(parts) > 1 and any(fnmatchcase(folded, pattern) for pattern in patterns):
         return None
-    # A flat repository (none of the create folders exists, e.g. an empty one): its modules live at the top level, so
-    # a new top-level source file is the change itself (e.g. greeting.py in a flat repository). Shadowing an installed
-    # distribution, test files, runner configuration and packaging stay refused above.
+    # A flat repository keeps its modules at the top level, so a new top-level source file is the change itself.
     if flat and len(parts) == 1:
         return None
     return KIND_NEW_FILE
 
 
 def path_matches(path: str, pattern: str) -> bool:
-    """``fnmatch`` plus ``**/`` matching no folder too: ``**/test_*`` covers a top-level ``test_greeting.py`` (live
-    a flat repository's tests were refused in the tests-first phase)."""
     return fnmatchcase(path, pattern) or (pattern.startswith("**/") and fnmatchcase(path, pattern[3:]))
 
 
 def is_flat_repository(copy: object, create: Iterable[str]) -> bool:
-    """None of the folders the create patterns name exists in the working copy ``copy`` (a ``Path``)."""
     from pathlib import Path
 
     tops = {str(pattern).strip().split("/", 1)[0] for pattern in create if str(pattern or "").strip()}
@@ -153,8 +117,6 @@ CONFIRMED_BY_PERSON, CONFIRMED_BY_RUN = "person", "run"
 
 
 def protected_message(kind: str, relative: str, title: str, confirmed_by: str = CONFIRMED_BY_PERSON) -> str:
-    """Why ``relative`` is protected; a confirmed test says who bound it (a person, or the run's own reproduction in
-    a size class that skips the confirmation: ``test_runs.confirmed_by``)."""
     if kind == KIND_CONFIRMED_TEST:
         from .run_texts import run_text
 
@@ -164,7 +126,6 @@ def protected_message(kind: str, relative: str, title: str, confirmed_by: str = 
 
 
 def environment_names(root: Path) -> frozenset[str]:
-    """The importable top-level names of the working copy's virtual environments and of the standard library."""
     names = set(sys.stdlib_module_names)
     for venv in (root / ".venv", root / "venv"):
         for site in venv.glob("lib/python*/site-packages"):
@@ -192,8 +153,6 @@ def _read_lines(path: Path) -> list[str]:
 
 
 def shadows_installed(copy: Path, relative: str, names: frozenset[str]) -> bool:
-    """A new file that starts a top-level package or module (not yet in the working copy) named like an installed
-    distribution."""
     found = import_name(relative)
     if found is None:
         return False

@@ -1,11 +1,4 @@
-"""The draft of a proposed check: the cheapest check that catches the repeated correction.
-
-The reviewer's model of the newest occurrence's run gets the signature's message and its occurrences' excerpts, every
-one with secrets redacted the way the review does (``redaction_policy.redact_secret_text``), never a whole file, and
-the checks the stack offers (stacks.json ``check_tools``), cheapest first: a linter rule, an ast-grep pattern, an
-architecture rule, a regression test, a design work item. Its answer is one JSON object; a draft without a valid rule
-for its tool or without the message's "instead" is refused and asked once more with the reason.
-"""
+"""The draft of a proposed check: the cheapest check that catches the repeated correction."""
 
 from __future__ import annotations
 
@@ -44,7 +37,6 @@ def _stack_tools(stack: str) -> dict[str, Any]:
 
 
 def task(signature: dict[str, Any], stack: str) -> str:
-    """The model's task: the correction, its redacted excerpts and the checks the stack offers."""
     from ..content_security.untrusted_fence import fenced_untrusted, new_fence
     from ..redaction_policy import redact_secret_text
 
@@ -64,7 +56,6 @@ def task(signature: dict[str, Any], stack: str) -> str:
 
 
 def checked(answer: Any, stack: str) -> dict[str, Any]:
-    """The validated draft and message; raises ``ValueError`` with what is wrong."""
     if not isinstance(answer, dict):
         raise ValueError("the answer is one JSON object")
     kind = str(answer.get("kind") or "")
@@ -105,7 +96,6 @@ def _parsed(text: Any) -> Any:
 
 
 async def write_draft(model: Any, signature: dict[str, Any], stack: str) -> tuple[dict[str, Any] | None, str]:
-    """``(draft and message, "")`` or ``(None, why)`` after :data:`ATTEMPTS` answers, each told the refusals."""
     prompt = task(signature, stack)
     refusals: list[str] = []
     for _attempt in range(ATTEMPTS):
@@ -120,7 +110,6 @@ async def write_draft(model: Any, signature: dict[str, Any], stack: str) -> tupl
 
 async def draft_proposal(db: AsyncSession, proposal: CheckProposal, signature: dict[str, Any], stack: str,
                          model: Any) -> bool:
-    """Fill an undrafted proposal's draft and message; ``False`` (and the reason kept) when none was valid."""
     found, problem = await write_draft(model, signature, stack)
     if found is None:
         proposal.draft = {**dict(proposal.draft or {}), "problem": problem}

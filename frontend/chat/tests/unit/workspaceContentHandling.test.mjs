@@ -9,8 +9,8 @@ import { test } from "node:test";
 import {
   ACTION_EXPLANATIONS, ALIAS_IN_USE_TEXT, ALIAS_REQUIRED_TEXT, CONFLICT_TEXT, NO_ALIASES_TEXT, PLATFORM_ONLY_TEXT,
   actionText, aliasBody, aliasProblem, aliasText, choiceBody, choicePreviewLines, choiceProblem, choiceUnchanged,
-  contentHandlingLoadErrorText, contentHandlingSaveErrorText, effectiveText, initialChoice, readContentHandling,
-  readHandlingKind, reroutingKinds, surfaceDefaultLines,
+  contentHandlingLoadErrorText, contentHandlingSaveErrorText, defaultOptionText, effectiveText, initialChoice, readContentHandling,
+  readHandlingKind, reroutingKinds, shippedDefaultText, surfaceDefaultLines,
 } from "../../src/admin/components/contentSecurity/workspaceContentHandlingModel.ts";
 import { act, byTestId, change, click, render, server, text, tick } from "./settingsRenderHarness.mjs";
 
@@ -37,8 +37,14 @@ const pointAt = (surface, configured, gatewayDefault = "none") => {
   return { surface, label: POINT_LABELS[surface], configured_action: value, action: value, reason: null };
 };
 const points = (configured, gatewayDefault) => Object.keys(POINT_LABELS).map((surface) => pointAt(surface, configured, gatewayDefault));
+// The shipped default per path (backend `SHIPPED_DEFAULTS`): only email differs, recorded on gateway routes.
+const GATEWAY_SHIPPED = { email: "report" };
 const kindEntry = (kind, label, action, defaultAction, isDefault, gatewayDefault = "none") => ({
   kind, label, action, default_action: defaultAction, is_default: isDefault,
+  default_actions: [
+    { surface: "platform", label: "Platform calls", action: defaultAction },
+    { surface: "gateway", label: "Coding agent gateway routes", action: GATEWAY_SHIPPED[kind] ?? defaultAction },
+  ],
   reroute_unavailable: [], reroute_masked_at: [],
   surface_defaults: points(isDefault ? "default" : action, gatewayDefault),
   surface_choices: Object.fromEntries(["refuse", "mask", "reroute", "mask_reroute", "report", "default"]
@@ -103,9 +109,9 @@ test("the read model keeps the kinds, the default marker, the fixed rules and ne
 test("action words: none reads as not acted on", () => {
   assert.equal(actionText("none"), "Not acted on");
   assert.equal(actionText("mask_reroute"), "Mask and reroute");
-  assert.equal(actionText("report"), "Report only");
+  assert.equal(actionText("report"), "Allow (recorded)");
   assert.deepEqual(ACTION_EXPLANATIONS.map((line) => line.action), ["report", "mask", "refuse", "reroute", "mask_reroute"]);
-  assert.match(ACTION_EXPLANATIONS[0].text, /unchanged.*only recorded/);
+  assert.match(ACTION_EXPLANATIONS[0].text, /unchanged.*recorded/);
 });
 
 test("the starting choice: default while it follows the shipped default, else the stored action", () => {
@@ -116,6 +122,15 @@ test("the starting choice: default while it follows the shipped default, else th
   assert.equal(choiceUnchanged("reroute", kindOf("secrets")), true);
   assert.equal(choiceUnchanged("mask_reroute", kindOf("secrets")), false);
   assert.equal(choiceUnchanged("default", kindOf("internal_ip")), false);
+});
+
+test("the shipped default per path: email is masked on platform calls and recorded on gateway routes", () => {
+  assert.equal(shippedDefaultText(kindOf("email")), "Platform calls: Mask; Coding agent gateway routes: Allow (recorded)");
+  assert.equal(defaultOptionText(kindOf("email")),
+    "Use default (Platform calls: Mask; Coding agent gateway routes: Allow (recorded))");
+  assert.equal(shippedDefaultText(kindOf("internal_ip")), "Allow (recorded)", "the same on both paths: one action");
+  const { default_actions: _paths, ...older } = ANSWER.kinds[1];
+  assert.equal(shippedDefaultText(readHandlingKind(older)), "Allow (recorded)", "without paths: the one default");
 });
 
 test("action validation: a rerouting action needs the Workspace's governance alias", () => {
@@ -152,33 +167,33 @@ test("governance alias validation: a listed alias, and no clearing while kinds r
 test("the effective action per enforcement point: shipped credentials are refused on the gateway, masked elsewhere", () => {
   // Credential assignments are reported on the gateway by default.
   assert.deepEqual(surfaceDefaultLines(kindOf("credential_assignment")),
-    ["Elsewhere: Coding agents (Anthropic route): Report only; Codex on a ChatGPT seat: Report only."]);
+    ["Elsewhere: Coding agents (Anthropic route): Allow (recorded); Codex on a ChatGPT seat: Allow (recorded)."]);
   // Email is platform calls only: the gateway does not act on it, whatever is saved.
   const savedMask = readHandlingKind(kindEntry("email", "Email addresses", "mask", "mask", false));
-  assert.deepEqual(surfaceDefaultLines(savedMask), [`${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
-  assert.deepEqual(surfaceDefaultLines(kindOf("email")), [`${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`],
+  assert.deepEqual(surfaceDefaultLines(savedMask), [`${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
+  assert.deepEqual(surfaceDefaultLines(kindOf("email")), [`${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`],
     "the shipped email mask applies to platform calls only");
   // A credential mask is platform calls only too: on the gateway credentials stay refused.
   const credentialMask = readHandlingKind(kindEntry("secrets", "Secrets", "mask", "mask", false, "refuse"));
   assert.deepEqual(surfaceDefaultLines(credentialMask),
-    [`${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Refuse; Codex on a ChatGPT seat: Refuse.`]);
+    [`${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Refuse; Codex on a ChatGPT seat: Refuse.`]);
   assert.deepEqual(surfaceDefaultLines(kindOf("iban")).length, 1);
 });
 
 test("before saving: what the chosen action does where it differs, the gateway refusal first", () => {
   const email = kindOf("email");
   assert.deepEqual(choicePreviewLines("reroute", email), [
-    `${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`,
+    `${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`,
     "At these places this request is refused with content_route_unavailable instead: Direct provider driver.",
     "At these places the value is masked instead of rerouted: Model replies.",
   ]);
-  assert.deepEqual(choicePreviewLines("mask", email), [`${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
-  assert.deepEqual(choicePreviewLines("report", email), [`${PLATFORM_ONLY_TEXT} On the gateway: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
+  assert.deepEqual(choicePreviewLines("mask", email), [`${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
+  assert.deepEqual(choicePreviewLines("report", email), [`${PLATFORM_ONLY_TEXT} There: Coding agents (Anthropic route): Not acted on; Codex on a ChatGPT seat: Not acted on.`]);
   assert.deepEqual(choicePreviewLines("report", kindOf("secrets")), []);
   assert.deepEqual(choicePreviewLines("default", kindOf("secrets")),
     ["Elsewhere: Coding agents (Anthropic route): Refuse; Codex on a ChatGPT seat: Refuse."]);
   assert.deepEqual(choicePreviewLines("mask", { ...email, surfaceChoices: {} }), []);
-  assert.match(PLATFORM_ONLY_TEXT, /^Platform calls only: the coding-agent gateway acts only on credentials/);
+  assert.match(PLATFORM_ONLY_TEXT, /^Not acted on at every place/);
 });
 
 test("the actual point dispositions: tool results defer, Command safety reviews and denies, the gateway is credentials only", () => {
@@ -204,7 +219,7 @@ test("the actual point dispositions: tool results defer, Command safety reviews 
   });
   assert.deepEqual(kind.surfaceChoices.refuse[0].conditions, [older]);
   assert.deepEqual(surfaceDefaultLines(kind), [
-    `${PLATFORM_ONLY_TEXT} On the gateway: ${anthropic}: Not acted on.`,
+    `${PLATFORM_ONLY_TEXT} There: ${anthropic}: Not acted on.`,
     "At these places the content goes on unchanged; the action applies where it next reaches a model: Tool results.",
     `Here the command is sent for review instead (a command cannot be masked): ${commands}.`,
   ]);
@@ -243,12 +258,15 @@ test("rendered for a member: the table, the default marker, the fixed rules, rea
     assert.equal(srv.calls[0].url, "/api/v1/workspaces/ws-1/content-handling");
     assert.match(text(byTestId(view, "content-handling-kind-email")[0]), /Email addresses.*Mask.*default.*Mask/);
     assert.match(text(byTestId(view, "content-handling-kind-iban")[0]), /IBANs.*Not acted on.*default.*Not acted on/);
+    assert.equal(text(byTestId(view, "content-handling-shipped-email")[0]),
+      "Platform calls: Mask; Coding agent gateway routes: Allow (recorded)");
+    assert.equal(text(byTestId(view, "content-handling-shipped-secrets")[0]), "Mask");
     assert.match(text(byTestId(view, "content-handling-kind-secrets")[0]), /Reroute to eu-private/);
     assert.equal(text(byTestId(view, "content-handling-governance-alias")[0]), "eu-private");
     assert.deepEqual(byTestId(view, "content-handling-alias"), [], "a member cannot change the alias");
     assert.equal(byTestId(view, "content-handling-default").length, 3);
     assert.equal(text(byTestId(view, "content-handling-surfaces-credential_assignment")[0]),
-      "Elsewhere: Coding agents (Anthropic route): Report only; Codex on a ChatGPT seat: Report only.");
+      "Elsewhere: Coding agents (Anthropic route): Allow (recorded); Codex on a ChatGPT seat: Allow (recorded).");
     assert.match(text(byTestId(view, "content-handling-surfaces-email")[0]), /Coding agents \(Anthropic route\): Not acted on/);
     const fixed = text(byTestId(view, "content-handling-fixed")[0]);
     assert.match(fixed, /Platform model calls.*Unfinished part: Withhold, always.*Prompt injection in any part: Refuse, always/);
@@ -271,7 +289,7 @@ test("rendered for an admin: one alias selector, per kind only the action, the r
     assert.equal(byTestId(view, "content-handling-alias").length, 1);
     await change(view, "content-handling-action-email", "reroute");
     const preview = text(byTestId(view, "content-handling-preview-email")[0]);
-    assert.match(preview, /Platform calls only: the coding-agent gateway acts only on credentials/);
+    assert.match(preview, /Not acted on at every place/);
     assert.match(preview, /content_route_unavailable instead: Direct provider driver/);
     assert.match(preview, /masked instead of rerouted: Model replies/);
     assert.equal(saveButton().props.disabled, false);
@@ -345,7 +363,7 @@ test("rendered: a save that lost a concurrent edit says so and nothing is replac
   const view = await render(COMPONENT, "WorkspaceContentHandling", srv, { workspaceId: "ws-1" });
   try {
     await change(view, "content-handling-action-email", "mask");
-    assert.match(text(byTestId(view, "content-handling-preview-email")[0]), /Platform calls only: the coding-agent gateway acts only on credentials/);
+    assert.match(text(byTestId(view, "content-handling-preview-email")[0]), /Not acted on at every place/);
     await click(view, "content-handling-save-email");
     await tick();
     assert.equal(text(byTestId(view, "content-handling-message-email")[0]), CONFLICT_TEXT);

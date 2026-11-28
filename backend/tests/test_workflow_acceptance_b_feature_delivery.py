@@ -1,18 +1,5 @@
-"""DevOps workflows acceptance: Feature delivery (B) end to end, and Incident analysis (E) from a signed test alert.
-
-B against the Jira work stub and a local bare git remote (the GitHub stub): the ticket is created (the Work item has
-none) → feature branch → clarify submits the test contract → the server drafts the Work item's change plan from it →
-the plan confirmed (the payload rebuilt at decision time) → tests written and red → two slices delegated to sub-agents in their own worktrees,
-merged → green → independent review → the read-only documentation draft (the reviewed tree proven unchanged) → push →
-PR with the requester as reviewer → CI watched on the pushed SHA (a green run of another commit does not count) →
-merge watched (signed webhook) → the final documentation → functional acceptance (a) → publication card (b) → the page
-published on the Confluence Cloud v2 fake → audience and outsider proofs → "go to deployment" → four-eyes approval by
-another admin → the Workspace's deploy job → its result watched (signed Jenkins webhook) → done check → done.
-
-E: a signed test alert starts the Action that names the workflow; its session becomes the run's first phase, the
-alert is data on the run; evidence → the hypothesis submitted as data → the owner confirms it → a bug ticket written
-from it → Bug fix (C) as sub-workflow, which receives the hypothesis.
-"""
+"""DevOps workflows acceptance: Feature delivery (B) end to end against stubs and a local bare remote, and
+Incident analysis (E) from a signed test alert through Bug fix (C)."""
 
 
 from __future__ import annotations
@@ -27,16 +14,13 @@ from app.services.workflow_runs.binding import run_turn_resolution
 from app.services.workflow_runs.documentation import s1_graph
 from app.services.workflow_runs.platform import deploy
 from app.services.workflow_runs.review.runner import run_due_reviews
-from app.services.workflow_runs.slices import delegate as delegate_module
-from app.services.workflow_runs.slices.delegate import delegate_slices
-from app.services.workflow_runs.slices.results import merge_slices
 from app.services.workflow_runs.watch import poll_watching_runs
 from tests.device_job_session_parity_support import B_KEY
 from tests.documentation_acceptance_support import DOCUMENTATION
 from tests.phased_workflow_fixtures import admin_user
 from tests.policy_engine_support import bearer
 from tests.prompt_catalog_publish_support import second_admin
-from tests.test_workflow_run_tdd_evidence import phase_turn_with_history
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_b_e_support import _server_pipeline  # noqa: F401
 from tests.workflow_acceptance_b_support import (
     CONFIRMED,
@@ -60,10 +44,10 @@ from tests.workflow_acceptance_support import (  # noqa: F401 - the stubbed Jira
 )
 from tests.workflow_run_review_support import ScriptedReviewer
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 def _stub_jenkins_and_children(monkeypatch):
-    """Stub the deploy's Jenkins client and the sub-agent launcher; return the Jenkins class (it records triggers)."""
-
     class Jenkins:
         triggered: list[str] = []
 
@@ -82,10 +66,6 @@ def _stub_jenkins_and_children(monkeypatch):
 
     monkeypatch.setattr(deploy, "jenkins_client", jenkins)
 
-    async def no_children(_db, **_kwargs):  # the sub-agents' turns are played below, in their worktrees
-        return None
-
-    monkeypatch.setattr(delegate_module, "launch_children", no_children)
     return Jenkins
 
 
@@ -137,37 +117,16 @@ async def _clarify_and_confirm_plan(client, auth_headers, db, run_id, session_id
     assert view["current_node"]["id"] == "tests_first"
 
 
-async def _tests_first_then_merged_slices(client, auth_headers, db, run_id, session_id, working_copy):
+async def _tests_first_then_implement(client, auth_headers, db, run_id, session_id, working_copy):
     # Tests first: written and red on their assertions.
     (working_copy / "tests" / "test_totals.py").write_text(TOTALS_TEST)
     (working_copy / "tests" / "test_fees.py").write_text(FEES_TEST)
     await _phase_turn(db, session_id, [EDIT, _pytest(working_copy)])
     assert (await _view(client, auth_headers, run_id))["current_node"]["id"] == "implement"
 
-    # Implement: two slices for two sub-agents, each in its own worktree branch, then merged.
-    session = await db.get(Session, session_id)
-    delegated = await delegate_slices(db, parent_session=session, slices=[
-        {"key": "totals", "title": "Round half up", "task": "Fix round_total.", "tests": [CONFIRMED[0]]},
-        {"key": "fees", "title": "Two percent fee", "task": "Fix fee.", "tests": [CONFIRMED[1]]}])
-    assert [item_["status"] for item_ in delegated["slices"]] == ["running", "running"]
-    await db.commit()
-    run = await db.get(WorkflowRun, run_id)
-    fixes = {"totals": ("pay/totals.py", "def round_total(value: float) -> int:\n    return int(value + 0.5)\n",
-                        "tests/test_totals.py"),
-             "fees": ("pay/fees.py", "def fee(amount: int) -> int:\n    return amount * 2 // 100\n", "tests/test_fees.py")}
-    for key, (path, code, test) in fixes.items():
-        slice_ = run.context["slices"][key]
-        worktree = Path(slice_["path"])
-        (worktree / path).write_text(code)
-        child = await db.get(Session, slice_["child_session_id"])
-        resolution = await run_turn_resolution(db, child, user_message="Work on the slice.")
-        assert resolution["phase_agent"]["key"] == "engineer"  # a slice child runs as its phase's agent
-        await phase_turn_with_history(db, child.id, resolution, [EDIT, _pytest(worktree, test)])
-    assert {key: item_["status"] for key, item_ in run.context["slices"].items()} == {"totals": "completed",
-                                                                                     "fees": "completed"}
-    merged = await merge_slices(db, parent_session=session)
-    assert {item_["key"]: item_["status"] for item_ in merged["slices"]} == {"totals": "merged", "fees": "merged"}
-    await db.commit()
+    # Implement: both fixes in the run's working copy (a runner's engine may split the work among its own sub-agents).
+    (working_copy / "pay" / "totals.py").write_text("def round_total(value: float) -> int:\n    return int(value + 0.5)\n")
+    (working_copy / "pay" / "fees.py").write_text("def fee(amount: int) -> int:\n    return amount * 2 // 100\n")
     await _phase_turn(db, session_id, [EDIT, _pytest(working_copy)])
     run = await db.get(WorkflowRun, run_id)
     assert run.gate_results["green"]["state"] == "passed", run.gate_results["green"]
@@ -275,7 +234,7 @@ async def test_feature_delivery_from_a_missing_ticket_to_a_watched_deployment(cl
     assert (clarify["phase_agent"]["key"], clarify["phase_agent"]["definition_id"]) == ("engineer", engineer.id)
 
     await _clarify_and_confirm_plan(client, auth_headers, db, run_id, session_id)
-    await _tests_first_then_merged_slices(client, auth_headers, db, run_id, session_id, working_copy)
+    await _tests_first_then_implement(client, auth_headers, db, run_id, session_id, working_copy)
     await _review_draft_push_and_watch_ci(client, auth_headers, db, run_id, session_id, reviewer)
     await _merge_publish_and_prove_documentation(client, auth_headers, db, monkeypatch, project, run_id, session_id,
                                                  ticket)

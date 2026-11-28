@@ -1,6 +1,6 @@
 // Live judge (screenshot 23): React Flow's zoom controls rendered empty because the shared
 // `.flow-builder button` rule won the cascade (padding 6px 12px in a 26px border-box button, icons
-// 0×0), and the "Run & results" dock toggle covered the lower controls. This resolves the cascade
+// 0×0). This resolves the cascade
 // for the real element chain across the app's CSS and React Flow's own stylesheet; the winning rule
 // must win outright by specificity, so stylesheet order cannot change the result.
 import assert from "node:assert/strict";
@@ -107,14 +107,4 @@ test("the control icons have an explicit 12px size and do not shrink", () => {
   assert.equal(winner("width", ICON, ancestors).top.value, "12px");
   assert.equal(winner("height", ICON, ancestors).top.value, "12px");
   assert.equal(winner("flex", ICON, ancestors).top.value, "none");
-});
-
-test("the controls stack starts above the Run & results dock toggle", () => {
-  const margin = winner("margin-bottom", PANEL, CHAIN).top;
-  const reserved = [...margin.value.matchAll(/(\d+(?:\.\d+)?)px/g)].reduce((sum, m) => sum + Number(m[1]), 0);
-  const dock = STYLESHEETS.find(({ file }) => file === "flowBuilderPanelSections.css").css;
-  const rule = dock.slice(dock.indexOf(".flow-builder__dock-toggle {"), dock.indexOf("}", dock.indexOf(".flow-builder__dock-toggle {")));
-  const px = (name) => Number(new RegExp(`${name}:\\s*(\\d+)px`).exec(rule)?.[1]);
-  const dockTop = px("bottom") + px("min-height");
-  assert.ok(reserved >= dockTop + 8, `controls start ${reserved}px above the graph bottom; the dock toggle reaches ${dockTop}px`);
 });

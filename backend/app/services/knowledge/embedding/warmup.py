@@ -1,11 +1,4 @@
-"""Loads the local query embedder once at startup, in the background.
-
-The local embedder verifies its model artifact and loads the model on first use. On nonprod the first search
-of a process paid that (``embed`` 9 s of a 15 s search). A background task started by the application lifespan
-does it right after start, so no search waits for it. Only a local space is warmed: a remote space would spend a
-provider call on nothing. Failures leave the embedder as it was (the next search loads it again) and are logged
-with a fixed state only.
-"""
+"""Loads the local query embedder once at startup, in the background."""
 
 from __future__ import annotations
 
@@ -24,7 +17,6 @@ WARMUP_TEXT = "warm up"
 
 
 async def warm_embedder(embedding: EmbeddingRuntime | None) -> bool:
-    """Load and exercise a local embedder once; ``True`` when it answered. Never raises."""
     if embedding is None or embedding.space.provider is not EmbeddingProvider.LOCAL:
         return False
     try:
@@ -57,7 +49,6 @@ _TASK: asyncio.Task[bool] | None = None
 def start_embedder_warmup(
     embedding: Callable[[], EmbeddingRuntime | None] = _configured_embedding,
 ) -> asyncio.Task[bool]:
-    """Schedule the warm-up on the running loop and return its task; the lifespan does not wait for it."""
     global _TASK
 
     async def run() -> bool:

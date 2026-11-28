@@ -1,6 +1,5 @@
-"""Device jobs without an agent (the review bot's scan and the check proof): stored by any process, claimed
-by one connected candidate that has the tools, answered raw, judged by the platform; a job nobody runs times out.
-"""
+"""Device jobs without an agent (review-bot scan, check proof): claimed by one connected candidate with the tools,
+answered raw, judged by the platform; a job nobody runs times out."""
 
 from __future__ import annotations
 
@@ -40,7 +39,7 @@ async def test_a_job_goes_to_one_connected_candidate_with_the_tools_and_its_answ
     assert await tool_jobs.devices_of(db, [user.id]) == [first.id, second.id]
     job = await _job(db, [first.id, second.id])
     assert job.needs == ["gitleaks"] and await tool_jobs.result(db, job.id) is None
-    assert (await _job(db, ["elsewhere"], needs=[])).needs == []  # a job that runs with what the device has
+    assert (await _job(db, ["elsewhere"], needs=[])).needs == []
     stranger, without, mac = (_Connection("other", {"gitleaks": "8.30.1"}), _Connection(second.id, {"gitleaks": None}),
                               _Connection(first.id, {"gitleaks": "8.30.1"}))
     assert [await tool_jobs.deliver(db, connection) for connection in (stranger, without, mac, mac)] == [0, 0, 1, 0]
@@ -58,7 +57,7 @@ async def test_a_job_goes_to_one_connected_candidate_with_the_tools_and_its_answ
     assert done["state"] == "done" and done["device_id"] == first.id
     (step,) = done["steps"]
     assert step["files"] == {"g.sarif": '{"runs": []}'} and len(step["stdout"]) == tool_jobs.TAIL
-    assert not await tool_jobs.apply_message(db, first.id, "tool_job_failed", {"job_id": job.id})  # ended once
+    assert not await tool_jobs.apply_message(db, first.id, "tool_job_failed", {"job_id": job.id})
     assert (await db.execute(select(DeviceToolJobArchive).where(DeviceToolJobArchive.job_id == job.id))).first() is None
 
 

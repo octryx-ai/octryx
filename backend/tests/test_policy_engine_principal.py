@@ -1,10 +1,4 @@
-"""Policy UX: the request's user and session reach every enforcement point.
-
-If only the coding-agent tool check carried the user, seat, model admission, remote models and tool admission would
-evaluate as ``User::"unknown"``, so a role-, group- or session-scoped custom policy would never apply there. These
-tests publish such a policy in enforce mode and check that it bites inside a request for its principal, stays out for
-other principals, and stays out without a request (a background job is ``User::"unknown"``).
-"""
+"""Policy UX: the request's user and session reach every enforcement point."""
 
 from __future__ import annotations
 
@@ -12,7 +6,6 @@ import uuid
 
 import pytest
 
-from app.agent.engine._engine_run_scope import run_scope
 from app.models import Project
 from app.services.agent_gateway.seat_policy import workspace_seat_decision
 from app.services.classification_tool_policy import REASON_CEDAR_POLICY_DENIED, classification_tool_decision
@@ -50,7 +43,7 @@ async def _member(db, role: str) -> str:
 
 
 @pytest.mark.asyncio
-async def test_the_scope_binds_the_principal_and_restores_the_previous_one(client, db):  # client: principals load through the test DB
+async def test_the_scope_binds_the_principal_and_restores_the_previous_one(client, db):
     member, other = await _member(db, "ops"), await make_user(db, admin=False)
     assert current_principal() is None
     async with policy_principal_scope(member) as outer:
@@ -68,19 +61,10 @@ async def test_the_scope_binds_the_principal_and_restores_the_previous_one(clien
         assert off is None, "the engine is off: nothing to load"
 
 
-@pytest.mark.asyncio
-async def test_a_run_binds_the_runs_user_and_session(client, db):  # client: principals load through the test DB
-    member = await _member(db, "ops")
-    session_id = str(uuid.uuid4())
-    async with run_scope(db, session_id=session_id, origin=None, user_id=member):
-        principal, records = current_principal()
-        assert principal.label() == f"AgentSession::{session_id}"
-        assert records[0]["uid"] == {"type": "User", "id": member}
-    assert current_principal() is None
 
 
 @pytest.mark.asyncio
-async def test_model_admission_decides_for_the_principal_it_was_built_for(client, db):  # client: principals load through the test DB
+async def test_model_admission_decides_for_the_principal_it_was_built_for(client, db):
     member, other = await _member(db, "ops"), await make_user(db, admin=False)
     workspace = await _workspace(db)
     use_custom_policies(ROLE_POLICY.format(role="ops", action="call_model"), mode="enforce")
@@ -102,7 +86,7 @@ async def test_model_admission_decides_for_the_principal_it_was_built_for(client
 
 
 @pytest.mark.asyncio
-async def test_tool_admission_listing_and_calls_decide_per_principal(client, db):  # client: principals load through the test DB
+async def test_tool_admission_listing_and_calls_decide_per_principal(client, db):
     member, other = await _member(db, "ops"), await make_user(db, admin=False)
     use_custom_policies(ROLE_POLICY.format(role="ops", action="call_tool"), mode="enforce")
     config = {"classification_tool_policy": {"level": "internal", "workspace_id": "ws", "connectors": {}}}
@@ -122,7 +106,7 @@ async def test_tool_admission_listing_and_calls_decide_per_principal(client, db)
 
 
 @pytest.mark.asyncio
-async def test_the_seat_check_decides_for_the_user_and_the_seat_session(client, db):  # client: principals load through the test DB
+async def test_the_seat_check_decides_for_the_user_and_the_seat_session(client, db):
     member, other = await _member(db, "ops"), await make_user(db, admin=False)
     workspace = await _workspace(db, agent_gateway_policy={"seat_mode": "allowed"})
     use_custom_policies(ROLE_POLICY.format(role="ops", action="use_seat"), mode="enforce")
@@ -138,7 +122,7 @@ async def test_the_seat_check_decides_for_the_user_and_the_seat_session(client, 
 
 
 @pytest.mark.asyncio
-async def test_remote_models_use_the_bound_principal(client, db):  # client: principals load through the test DB
+async def test_remote_models_use_the_bound_principal(client, db):
     member = await _member(db, "ops")
     classification = WorkspaceDataClassification("internal", "project_config", "")
     async with policy_principal_scope(member):

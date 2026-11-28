@@ -1,5 +1,3 @@
-"""The facts for the platform's checks: formatters and linters, translations and confirmed tests in app folders."""
-
 from __future__ import annotations
 
 import hashlib
@@ -12,8 +10,6 @@ from .gitrepo import make_repo, requires_git
 
 def test_the_platform_runs_the_official_formatter_and_linter_and_reports_a_missing_one(
         tmp_path, monkeypatch):
-    """Code style step iv: ruff / prettier as the style names them, the repository's own config
-    first, a tool that is not installed reported missing (never a silent pass)."""
     import stat
 
     from octryx_claude.style_tools import run_tools
@@ -43,7 +39,6 @@ def test_the_platform_runs_the_official_formatter_and_linter_and_reports_a_missi
 
 
 def test_the_builds_own_formatter_wins_and_each_package_is_its_build_folder(tmp_path, monkeypatch):
-    """Java's Spotless in the Gradle build first, else google-java-format; Rust per Cargo.toml."""
     import stat
 
     from octryx_claude.style_tools import run_tools
@@ -72,7 +67,6 @@ def test_the_builds_own_formatter_wins_and_each_package_is_its_build_folder(tmp_
 
 
 def test_the_translations_and_new_ui_text_are_read_for_the_platforms_check(tmp_path):
-    """One catalog per language, the same keys and placeholders, no UI text written into new code."""
     import json
     import subprocess
 
@@ -134,8 +128,6 @@ def test_the_features_translations_merge_per_language_and_a_shared_key_fails(tmp
 
 @requires_git
 def test_a_confirmed_test_of_an_app_in_a_subfolder_is_found_in_its_app_folder(state, tmp_path, monkeypatch):
-    """The confirmed id test/app/x_test.dart names its file from the app folder (a subfolder), not the repository
-    root."""
     repo = make_repo(tmp_path, monkeypatch)
     app = repo / "coffee" / "flutter" / "claude" / "test" / "app"
     app.mkdir(parents=True)

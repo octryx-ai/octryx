@@ -19,12 +19,9 @@ from .turn_offered import _offered_after_commit
 
 async def _start_continuation_turn(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any], node: PhasedNode,
                                    turn_node: PhasedNode, thread: Session, target: dict[str, Any], suffix: str) -> Any:
-    """Start the continuation's device turn on ``target``: the resumed or fresh session and the platform's prompt."""
     from ...devices.chat_turn import start_device_turn
 
-    # A fresh session per pass costs 3-19 min of re-orientation each; plain
-    # Claude Code builds a story in one session. A pass of the same phase resumes that phase's session.
-    # "Continue in a new chat" starts the pass over in a fresh session (:func:`continue_in_new_thread`).
+    # A pass of the same phase resumes that phase's session: a fresh session costs minutes of re-orientation.
     resume, why = ("", "") if marker.get(FRESH_KEY) else await _resumable_session(db, run, turn_node, target)
     from .compaction import compacts_itself
     from .context_cap import over_cap, source_run_id
@@ -45,7 +42,6 @@ async def _start_continuation_turn(db: AsyncSession, run: WorkflowRun, marker: d
 
 async def _continuation_prompt(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any], node: PhasedNode,
                                turn_node: PhasedNode, *, resume: str, why: str, capped: bool) -> str:
-    """The continuation turn's prompt in the run's texts (its workflow's and Workspace's catalog versions)."""
     from .run_session import RESUME_RUN, next_phase_prompt
 
     async with run_texts(db, run):
@@ -62,11 +58,11 @@ async def _continuation_prompt(db: AsyncSession, run: WorkflowRun, marker: dict[
 
 def _turn_refused(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any], node: PhasedNode, started: Any,
                   target: dict[str, Any]) -> None:
-    """The device refused the continuation turn: the run waits for the device, or with a card saying why."""
     from ..runtime_target.device_wait import WAITABLE_REASONS, wait_for_device
+    from ..states import PAUSE_SEAT_REQUIRED
     from .seat_fallback import REASON_NO_SAME_CLASS
 
-    if started.reason == REASON_NO_SAME_CLASS:  # the run paused with the seat model and the reset
+    if started.reason in (REASON_NO_SAME_CLASS, PAUSE_SEAT_REQUIRED):
         _set_marker(run, None)
         return
 
@@ -83,7 +79,6 @@ def _turn_refused(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any], no
 
 async def _turn_started(db: AsyncSession, run: WorkflowRun, marker: dict[str, Any], node: PhasedNode,
                         started: Any) -> str:
-    """The continuation turn started: the marker names its job and an open chat shows the offered turn."""
     from ....models import DeviceJob
     from ....time_utils import utc_now
 

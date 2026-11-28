@@ -1,9 +1,4 @@
-"""Bitbucket user lookup tools.
-
-Server/Data Center: users by a ``filter`` (username, display name, email). Bitbucket Cloud has no user search; there
-the tool reads one account by its Atlassian ``account_id`` (``GET /users/<account id>``; it verifies a linked account,
-``services/linked_accounts``).
-"""
+"""Bitbucket user lookup tools."""
 
 from typing import Any
 from urllib.parse import quote

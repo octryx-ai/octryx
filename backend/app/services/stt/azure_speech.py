@@ -1,13 +1,4 @@
-"""Azure Speech Service STT with built-in Speaker Diarization.
-
-Uses Azure Cognitive Services Speech SDK (REST API variant) for
-speech-to-text with optional speaker diarization.
-
-References:
-    https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-to-text
-    https://learn.microsoft.com/en-us/azure/ai-services/speech-service/get-started-stt-diarization
-    https://learn.microsoft.com/en-us/rest/api/speechtotext/transcriptions
-"""
+"""Azure Speech Service STT with built-in Speaker Diarization."""
 
 from __future__ import annotations
 
@@ -25,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class AzureSpeechSegment:
-    """A transcribed segment with optional speaker info."""
-
     text: str
     speaker_id: str | None = None
     offset_ms: int = 0
@@ -36,8 +25,6 @@ class AzureSpeechSegment:
 
 @dataclass
 class AzureSpeechResult:
-    """Result from Azure Speech with diarization info."""
-
     text: str
     segments: list[AzureSpeechSegment] = field(default_factory=list)
     num_speakers: int = 0
@@ -45,14 +32,7 @@ class AzureSpeechResult:
 
 
 class AzureSpeechSTTService:
-    """Transcribe audio using Azure Cognitive Services Speech-to-Text.
-
-    Supports two modes:
-    1. Simple recognition (short audio <60s) via REST API
-    2. Batch transcription (longer audio) via Batch Transcription API
-
-    Both support speaker diarization when enabled.
-    """
+    """Transcribe audio using Azure Cognitive Services Speech-to-Text."""
 
     def __init__(
         self,
@@ -92,11 +72,7 @@ class AzureSpeechSTTService:
         *,
         diarization: bool | None = None,
     ) -> AzureSpeechResult:
-        """Transcribe with full diarization result.
-
-        For short audio (<60s), uses the real-time REST API with conversation transcription.
-        For longer audio, uses the Batch Transcription API.
-        """
+        """Transcribe with full diarization result."""
         use_diarization = diarization if diarization is not None else self.enable_diarization
         duration_sec = self._estimate_duration(audio_bytes)
 
@@ -108,7 +84,6 @@ class AzureSpeechSTTService:
             return await self._batch_transcribe(audio_bytes, use_diarization)
 
     async def _simple_recognize(self, audio_bytes: bytes) -> AzureSpeechResult:
-        """Use the simple REST recognition endpoint (no diarization)."""
         url = (
             f"https://{self.region}.stt.speech.microsoft.com"
             f"/speech/recognition/conversation/cognitiveservices/v1"
@@ -153,14 +128,6 @@ class AzureSpeechSTTService:
     async def _batch_transcribe(
         self, audio_bytes: bytes, use_diarization: bool
     ) -> AzureSpeechResult:
-        """Use the Batch Transcription API (supports diarization).
-
-        Flow:
-        1. Create transcription job with inline audio content (base64)
-        2. Poll for completion
-        3. Fetch results with speaker labels
-        """
-
         # For the batch API, we need to provide audio via a URL.
         # Since we have bytes, we'll use the real-time conversation transcription
         # via the Speech SDK REST approach instead.
@@ -170,11 +137,6 @@ class AzureSpeechSTTService:
     async def _fast_transcription(
         self, audio_bytes: bytes, use_diarization: bool
     ) -> AzureSpeechResult:
-        """Use the Azure Fast Transcription API (supports diarization, no S3 needed).
-
-        This is the recommended approach for files < 2 hours.
-        Endpoint: POST /speechtotext/transcriptions:transcribe?api-version=2024-11-15
-        """
         url = (
             f"https://{self.region}.api.cognitive.microsoft.com"
             f"/speechtotext/transcriptions:transcribe?api-version=2024-11-15"
@@ -234,7 +196,6 @@ class AzureSpeechSTTService:
     def _parse_fast_transcription_result(
         self, data: dict, use_diarization: bool
     ) -> AzureSpeechResult:
-        """Parse Azure Fast Transcription response."""
         combined_phrases = data.get("combinedPhrases", [])
         phrases = data.get("phrases", [])
 
@@ -289,7 +250,6 @@ class AzureSpeechSTTService:
 
     @staticmethod
     def _content_type(audio_bytes: bytes) -> str:
-        """Detect content type from audio bytes."""
         if audio_bytes[:4] == b"RIFF":
             return "audio/wav"
         if audio_bytes[:3] == b"ID3" or audio_bytes[:2] == b"\xff\xfb":
@@ -302,7 +262,6 @@ class AzureSpeechSTTService:
 
     @staticmethod
     def _estimate_duration(audio_bytes: bytes) -> float:
-        """Estimate audio duration in seconds from WAV header."""
         if audio_bytes[:4] == b"RIFF" and len(audio_bytes) > 44:
             try:
                 buf = io.BytesIO(audio_bytes)

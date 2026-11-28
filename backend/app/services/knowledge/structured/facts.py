@@ -1,10 +1,4 @@
-"""What a rule-based extractor returns: typed nodes and edges, each cited.
-
-Extractors are pure: they read the spans (or the text) of one source revision and return an
-:class:`Extraction`. Citations inside it are :class:`SpanRef` values of that revision (a span and,
-for a file, the 1-based line), so the store can attach the revision without the extractor knowing
-it. A node is identified across revisions by :func:`node_id`, the digest of its type and key.
-"""
+"""What a rule-based extractor returns: typed nodes and edges, each cited."""
 
 from __future__ import annotations
 
@@ -29,8 +23,6 @@ def clip(text: str, limit: int = MAX_TEXT_PROPERTY_CHARS) -> str:
 
 @dataclass(frozen=True, slots=True)
 class SpanInput:
-    """One evidence span with its locator, as the extractors read it."""
-
     ordinal: int
     text: str
     kind: str | None = None
@@ -81,8 +73,6 @@ class EdgeFact:
 
 @dataclass
 class Extraction:
-    """Nodes keyed by reference (first statement wins) and edges deduplicated by endpoints and type."""
-
     nodes: dict[NodeRef, NodeFact] = field(default_factory=dict)
     edges: dict[tuple[str, NodeRef, NodeRef], EdgeFact] = field(default_factory=dict)
     warnings: Counter = field(default_factory=Counter)

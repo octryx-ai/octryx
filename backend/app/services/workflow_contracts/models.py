@@ -9,15 +9,6 @@ from typing import Any
 
 @dataclass(frozen=True)
 class WorkflowPhase:
-    """One planned phase of a workflow.
-
-    ``preferred_tools`` are the tools the planner prefers for this phase.
-    ``required_tools`` declares explicit completion criteria: tools that must have
-    a successful tool-history entry for the phase to count as complete. It is
-    carried in the serialized phase only; no runtime evaluator reads it yet. It
-    defaults to empty, in which case the phase declares no explicit criteria.
-    """
-
     id: str
     preferred_tools: tuple[str, ...]
     required_tools: tuple[str, ...] = ()
@@ -36,8 +27,6 @@ class WorkflowPhase:
 
 @dataclass(frozen=True)
 class WorkflowDefinition:
-    """Registry entry describing one code-defined workflow family."""
-
     workflow_id: str
     intent_type: str
     description: str

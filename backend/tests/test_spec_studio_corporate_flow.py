@@ -1,6 +1,5 @@
-"""The Corporate Identity in the Spec Studio: preselected, every deviation from a
-template value needs a reason and goes into SPEC.md, locked values are read-only, an approved version keeps its
-snapshot, a feature keeps the approved app's look."""
+"""The Corporate Identity in the Spec Studio: preselected, deviations need a reason and go into SPEC.md,
+locked values are read-only, an approved version keeps its snapshot, a feature keeps the approved look."""
 
 from __future__ import annotations
 
@@ -9,8 +8,11 @@ import pytest
 from app.services.office_identity import build_corporate_identity
 from app.services.workflow_runs.spec_studio import corporate_link
 from tests import test_spec_studio_flow as flow
-from tests.test_corp_identity_workspace import _profiles
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+from tests.services.corp_identity.test_corp_identity_workspace import _profiles
 from tests.test_spec_studio_corporate import _TEMPLATE
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture
@@ -48,9 +50,8 @@ async def test_the_company_look_is_preselected_and_the_specs_directions_are_the_
     assert corporate["sources"]["light.accent"] == "ci" and corporate["icons"] == {"cup": "icons/general/cup.svg"}
     assert studio["deviations"] == [] and studio["open_points"] == []
     await client.get(_url(run), headers=auth_headers)
-    assert brief == ["house"]  # the snapshot is kept while the profile, its choice and its locks stay the same
+    assert brief == ["house"]
 
-    # Another direction of the spec: one deviation, a reason is needed before approval.
     switched = (await client.patch(_url(run), headers=auth_headers, json={"op": "design", "direction": "crema"})).json()
     assert switched["deviations"] == [{"path": "direction", "corporate": "Corporate: Example Brand",
                                        "chosen": switched["design"]["name"], "reason": ""}]
@@ -69,11 +70,10 @@ async def test_a_changed_company_colour_needs_a_reason_and_spec_md_and_the_hando
                                       "reason": ""}]
     assert changed["open_points"][0]["target"] == "deviation:light.accent"
     await db.refresh(run)
-    assert agent_open_points(run) == []  # the product owner's to settle: never sent back to the agent
+    assert agent_open_points(run) == []
     refused = await client.post(f"{_url(run)}/approve", headers=auth_headers)
     assert refused.status_code == 409 and "differs from Corporate" in refused.text
 
-    # A derived value (the dark theme) changes without a reason.
     await client.patch(_url(run), headers=auth_headers,
                        json={"op": "design", "theme": "dark", "key": "accent", "value": "#5AA0E0"})
     reasoned = await client.patch(_url(run), headers=auth_headers,
@@ -90,7 +90,6 @@ async def test_a_changed_company_colour_needs_a_reason_and_spec_md_and_the_hando
     assert "Corporate: Example Brand (the company's Corporate Identity)" in spec
     assert "Differs from Corporate (#0B5FA5), because: AA on the new header." in spec
 
-    # The approved version keeps its snapshot: a new company default does not reach it.
     await _profiles(db, "other")
     brief.clear()
     await client.get(_url(run), headers=auth_headers)
@@ -121,7 +120,7 @@ async def test_a_feature_keeps_the_approved_apps_look(db, tmp_path, brief, monke
     record = run.context["outputs"]["spec_studio"]
     monkeypatch.setattr("app.services.workflow_runs.spec_studio.service.base_of",
                         lambda _run, artefact: {"design": {}} if artefact.get("mode") == "feature" else None)
-    assert corporate_link.snapshot(run) is not None  # taken when the draft submitted the Studio
+    assert corporate_link.snapshot(run) is not None
     newest = record[-1] if isinstance(record, list) else record
     newest["record"]["mode"] = "feature"
     assert await corporate_link.refresh(db, run) is True and corporate_link.snapshot(run) is None
@@ -144,14 +143,12 @@ async def test_the_mock_gets_the_ci_logo_and_icons_but_no_other_file(client, aut
     asset = f"{_url(run)}/corporate-asset"
     logo = await client.get(asset, headers=auth_headers, params={"path": "assets/logo.png"})
     assert logo.status_code == 200 and logo.content == b"PNG-logo"
-    for path in ("secret.txt", "../profile/secret.txt", "icons/general/cup.svg"):  # unlisted, or listed but missing
+    for path in ("secret.txt", "../profile/secret.txt", "icons/general/cup.svg"):
         assert (await client.get(asset, headers=auth_headers, params={"path": path})).status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_the_agent_hears_the_company_look_and_never_the_product_owners_points(db, tmp_path, monkeypatch):
-    """A company colour below AA is the product owner's to settle (deviate with a reason): sent to the agent, it would
-    revise forever without being allowed to change the company's look."""
     from app.services.workflow_runs.spec_studio.hooks import submit_answer
     from app.services.workflow_runs.spec_studio.service import evaluate
 
@@ -165,4 +162,4 @@ async def test_the_agent_hears_the_company_look_and_never_the_product_owners_poi
     answer = await submit_answer(db, run)
     assert answer["open_points"] == []
     assert '"Brand house"' in answer["corporate"] and "alternatives" in answer["corporate"]
-    assert [p["by"] for p in evaluate(run)["open_points"]] == ["product_owner"]  # muted on card, light: below AA
+    assert [p["by"] for p in evaluate(run)["open_points"]] == ["product_owner"]

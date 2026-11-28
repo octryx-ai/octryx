@@ -1,9 +1,4 @@
-"""A catalog skill as a portable bundle (export packages and backups) and its governed import.
-
-The portable form is the published version itself: the Agent Skills files, the platform extension, the category and
-the surfaces. Importing never publishes: a new skill lands as draft v1 and an existing one gets the bundle as its open
-draft, so every imported change goes through the four-eyes catalog lifecycle.
-"""
+"""A catalog skill as a portable bundle (export packages and backups) and its governed import."""
 
 from __future__ import annotations
 
@@ -25,7 +20,6 @@ PORTABLE_FORMAT = "skill_bundle"
 
 
 async def portable_skill(db: AsyncSession, skill: Skill) -> dict[str, Any] | None:
-    """The published version of ``skill`` as a portable bundle; ``None`` while nothing is published."""
     published = await published_version(db, skill)
     if published is None:
         return None
@@ -57,7 +51,6 @@ def _bundle_files(entity: dict[str, Any]) -> dict[str, str]:
 async def import_portable_skill(
     db: AsyncSession, entity: dict[str, Any], *, name: str, overwrite_existing: bool, actor_id: str
 ) -> tuple[Skill, bool]:
-    """``(skill, created)``: a new skill as draft v1, or the bundle as the open draft of the existing one."""
     files = _bundle_files(entity)
     category = await ensure_top_category(db, str(entity.get("category") or "Uncategorized"))
     surfaces = {key: bool(entity.get(key, True)) for key in ("available_platform_chat", "available_octryx_claude")}

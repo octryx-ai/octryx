@@ -1,17 +1,5 @@
-"""Frozen inputs of the read-only Library evaluation: manifest, prior queries, evidence inventory.
-
-A manifest is frozen before any capture. It names the cases, their required facts with equivalent evidence
-alternatives, the exclusions, the declared principal and environment, and a request budget that may not
-exceed the hard ceilings below. Two further offline inputs are root-provided and immutable:
-
-* prior queries: every query already used (the ``spring_boot`` golden set is always included). A holdout case whose
-  normalized query matches one is refused. Equality detects known reuse only; it does not certify novelty.
-* an evidence inventory: which labelled spans exist, with verification provenance. Without it, required
-  evidence stays unverified and no holdout case is eligible for acceptance.
-
-Every document is hashed from its canonical content (sorted keys, compact UTF-8), never from a stored field.
-Nothing here performs I/O beyond reading the given files.
-"""
+"""Frozen inputs of the read-only Library evaluation: manifest, prior queries, evidence inventory. Every document is
+hashed from its canonical content."""
 
 from __future__ import annotations
 
@@ -42,7 +30,6 @@ def spring_boot_golden_queries() -> list[str]:
 
 
 def load_prior_queries(paths: list[str | Path]) -> tuple[set[str], list[dict[str, Any]]]:
-    """Normalized prior queries plus provenance; accepts prior_queries/v1 or a frozen case document."""
     queries = spring_boot_golden_queries()
     provenance: list[dict[str, Any]] = [{"source": "golden:spring_boot", "queries": len(queries)}]
     normalized = {normalize_query(query) for query in queries}
@@ -130,7 +117,6 @@ def _overlap_check(
 
 
 def load_manifest(document: dict[str, Any], *, prior_query_paths: list[str | Path] | None = None) -> Manifest:
-    """Validate a manifest completely; any problem refuses it."""
     problems: list[str] = []
     if not isinstance(document, dict) or document.get("schema") != MANIFEST_SCHEMA:
         raise EvaluationInputError([f"manifest: schema must be {MANIFEST_SCHEMA}"])

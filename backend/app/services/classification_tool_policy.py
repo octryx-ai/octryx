@@ -1,28 +1,5 @@
-"""The classification policy matrix at the tool admission: connector families and log reads.
-
-One decision, :func:`classification_tool_decision`, called by the existing admission points:
-
-- chat: ``tools/visibility.tool_visibility_decision`` (every tool listing, discovery and the dispatch
-  visibility check) and ``tools/registry._run_governed_tool_checks`` (the call, with its arguments);
-- MCP / the octryx-claude Knowledge MCP (one server): ``CatalogFastMCP.list_tools`` (``tools/list``) and
-  ``McpConnectorReadTool`` (the call).
-
-The rules come from the Workspace's level in the matrix (``data_classification/policy_matrix``). They reach
-the decision as :data:`CLASSIFICATION_TOOL_POLICY_KEY` in the project config, which
-``project/service.get_project_config`` sets last from the project row's own classification, so neither a
-stored config key nor session metadata can supply it. A Workspace without a resolved classification has no
-level and therefore no classification tool rule.
-
-Rules:
-
-- ``connectors[family]``: ``none`` hides and refuses every tool of the family; ``read`` hides and refuses
-  the family's write tools (``risk`` write/admin, ``mutates_state``, ``change_only``) and every
-  ``run_kubectl`` command that is not read-only (``tools/kubernetes_kubectl_argv.py``); ``read_write``
-  keeps today's behaviour (the tool's own policies apply);
-- ``log_masking_required``: until masking exists the log-reading tools are refused with
-  ``log_masking_not_available`` (``get_pod_logs``, the CloudWatch log tools, ``run_kubectl logs`` and
-  ``aws_read_operation`` on service ``logs``).
-"""
+"""The classification policy matrix at the tool admission: connector families and log reads. One decision, called by
+every admission point of the chat and the MCP server."""
 
 from __future__ import annotations
 
@@ -96,7 +73,6 @@ def _kubernetes_tool_names() -> frozenset[str]:
 
 
 def tool_connector_family(tool_name: str) -> str | None:
-    """The connector family a tool belongs to, from its definition metadata; ``None`` for any other tool."""
     if tool_name in _kubernetes_tool_names():
         return "kubernetes"
     from ..tools.definitions import get_tool_definition_metadata
@@ -145,7 +121,6 @@ def _reads_logs(tool_name: str, params: Mapping[str, Any] | None) -> bool:
 def builtin_tool_decision(
     name: str, section: Any, params: Mapping[str, Any] | None
 ) -> ToolClassificationDecision:
-    """The decision from the classification section alone (also the policy test bench's comparison)."""
     if not isinstance(section, Mapping) or not section.get("level"):
         return ToolClassificationDecision(True, REASON_ALLOWED)
     level = str(section["level"])
@@ -163,7 +138,7 @@ def builtin_tool_decision(
 
 
 def _shadow_key(name: str, section: Any, params: Mapping[str, Any] | None) -> tuple | None:
-    """The memo key of a listing decision (``params`` ``None``); calls are evaluated every time."""
+    # Only listings are memoized; calls are evaluated every time.
     if params is not None:
         return None
     from .policy_engine.request_principal import principal_memo_key
@@ -180,13 +155,7 @@ def _shadow_key(name: str, section: Any, params: Mapping[str, Any] | None) -> tu
 def classification_tool_decision(
     tool_name: str, project_config: Mapping[str, Any] | None, params: Mapping[str, Any] | None = None
 ) -> ToolClassificationDecision:
-    """Whether the Workspace's level admits this tool. ``params`` ``None``: the listing decision.
-
-    The Cedar policy engine evaluates the same question, with ``context.connections`` the
-    named-connection ids the call is planned to run on (``named_connections/route_planner.py``). In shadow
-    mode its answer never changes this decision; in enforce mode a Cedar denial of an admitted tool is
-    ``cedar_policy_denied`` with the policy ids (hidden from listings, refused at the call).
-    """
+    # In shadow mode Cedar never changes this decision; in enforce mode a Cedar denial hides and refuses the tool.
     name = str(tool_name or "").strip()
     section = (project_config or {}).get(CLASSIFICATION_TOOL_POLICY_KEY) if project_config else None
     decision = builtin_tool_decision(name, section, params)
@@ -218,7 +187,6 @@ tool_reads_logs = _reads_logs
 def classification_tool_refusal(
     tool_name: str, project_config: Mapping[str, Any] | None, params: Mapping[str, Any] | None
 ) -> dict[str, Any] | None:
-    """The chat dispatch refusal payload, or ``None`` when the call is admitted."""
     decision = classification_tool_decision(tool_name, project_config, params)
     if decision.allowed:
         return None
@@ -234,7 +202,6 @@ def classification_tool_refusal(
 async def classification_tool_policy_section(
     db: AsyncSession, stored_config: Any, *, project_id: str | None = None
 ) -> dict[str, Any]:
-    """The section ``get_project_config`` sets, from the project row's own ``data_policy``."""
     from .policy_engine.runtime import maintain_policy_runtime
 
     await maintain_policy_runtime()

@@ -1,18 +1,4 @@
-"""The model calls behind one chat answer, for the chat's trace view (what was really sent).
-
-An answer the agent loop wrote through the model gateway (seat or API route) is one of many calls: every call is a
-``turn_traces`` row of the thread, and only the call that wrote the answer is linked to it. The turn's calls are the
-thread's rows after the previous answer, up to that call.
-
-A device turn runs Claude Code on the user's machine: its own row holds no prompt. When the device sent its model
-calls through the platform's gateway, they are the rows of the gateway session its launcher registered for that turn
-(``devices.run_trace.stamp_gateway_session``: job and turn on the session; the launcher registers every device turn
-with its job). Without a match the list is empty and ``promptOnDevice`` is true, which means only "no gateway call is
-linked".
-
-Each call is listed with its model, tokens and time only; its stored (redacted, bounded) content is loaded per call
-from the trace route when the person opens it.
-"""
+"""The model calls behind one chat answer, for the chat's trace view."""
 
 from __future__ import annotations
 
@@ -76,7 +62,6 @@ def _context(trace: TurnTrace) -> dict[str, Any]:
 
 
 async def _turn_gateway_sessions(db: AsyncSession, trace: TurnTrace, user_id: str) -> list[str]:
-    """The gateway sessions the launcher registered for this device turn (a retried start registers again)."""
     context = _context(trace)
     job_id, turn_id = str(context.get("job_id") or ""), str(context.get("turn_id") or "")
     if not job_id or not turn_id:
@@ -89,7 +74,6 @@ async def _turn_gateway_sessions(db: AsyncSession, trace: TurnTrace, user_id: st
 
 
 async def turn_calls(db: AsyncSession, trace: TurnTrace, *, user_id: str) -> dict[str, Any]:
-    """``{"calls": [...], "promptOnDevice": bool}`` for the trace of an answer; empty for any other trace."""
     if trace.created_at is None:
         return {"calls": [], "promptOnDevice": False}
     if trace.provider == DEVICE_PROVIDER:

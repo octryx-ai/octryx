@@ -23,8 +23,6 @@ def tool_project_policy_decision(
     tool_name: str,
     project_config: dict[str, Any] | None,
 ) -> ToolProjectPolicyDecision:
-    """Return the auditable project policy decision for a tool execution."""
-
     normalized_name = str(tool_name or "").strip()
     if not normalized_name:
         metadata = get_tool_definition_metadata(normalized_name)
@@ -68,14 +66,10 @@ def tool_project_policy_decision(
 
 
 def tool_is_allowed_by_project_policy(tool_name: str, project_config: dict[str, Any] | None) -> bool:
-    """Return whether *tool_name* may run under the project tool policy."""
-
     return tool_project_policy_decision(tool_name, project_config).allowed
 
 
 def explain_tool_project_policy_denial(tool_name: str, project_config: dict[str, Any] | None) -> str | None:
-    """Return a user-facing denial reason when project policy blocks a tool."""
-
     decision = tool_project_policy_decision(tool_name, project_config)
     if decision.allowed:
         return None
@@ -88,15 +82,8 @@ def filter_tool_definitions_for_project_policy(
     *,
     confirmed_per_call: Callable[[str], bool] | None = None,
 ) -> list[dict[str, Any]]:
-    """Filter tool definitions using the resolved project tool policy.
-
-    ``confirmed_per_call`` names the tools the person confirms call by call (a chat's connector writes,
-    ``run_capability/chat_writes.py``): for them that confirmation answers the "high-risk tool needs an explicit
-    allow" rule, exactly as the dispatch does (``tools/registry._chat_write_answers_explicit_allow``). If the
-    dispatch waived the rule but this filter did not, a Workspace with any deny rule (its disabled AWS/Kubernetes
-    tools) would drop ``create_jira_ticket`` from the chat's offered tools and the model would never see it.
-    Deny lists and allow rules that leave a tool out still refuse.
-    """
+    # Confirmed-per-call tools answer the high-risk explicit-allow rule exactly as dispatch does, so the offered tools
+    # and dispatch agree.
 
     visibility_policy = _project_tool_visibility_policy(project_config)
     if not tool_policy_has_rules(visibility_policy) and not project_enforces_read_only_tools(project_config):

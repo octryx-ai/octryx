@@ -35,8 +35,7 @@ _BULLET = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.*)$")
 
 
 def markdown_storage(text: str) -> str:
-    """A plain Markdown file as Confluence storage: headings, lists, code blocks, tables as preformatted text,
-    paragraphs. Everything is escaped; no inline markup is interpreted (a file never injects storage)."""
+    # Everything is escaped so a file can never inject Confluence storage markup.
     out: list[str] = []
     paragraph: list[str] = []
     items: list[str] = []
@@ -71,7 +70,7 @@ def markdown_storage(text: str) -> str:
             block = []
         elif heading := _HEADING.match(line):
             flush()
-            level = min(len(heading.group(1)) + 1, 6)  # the page title is the h1
+            level = min(len(heading.group(1)) + 1, 6)
             out.append(f"<h{level}>{escape(heading.group(2).strip())}</h{level}>")
         elif bullet := _BULLET.match(line):
             if paragraph:

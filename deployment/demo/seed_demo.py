@@ -185,6 +185,7 @@ async def _knowledge(workspace_id: str) -> None:
 
     from app.db import async_session_factory
     from app.models import Project, User
+    from app.services.data_access import platform_maintenance
     from app.services.knowledge.access.authorization import authorize_workspace
     from app.services.knowledge.ingestion.text_ingest import ingest_text_source
     from app.services.knowledge.projection.workspace_classification_default import set_workspace_classification
@@ -197,7 +198,7 @@ async def _knowledge(workspace_id: str) -> None:
     except EvidenceStoreNotConfiguredError:
         print("knowledge: this stack has no usable Knowledge object store, the Demo Shop docs are skipped")
         return
-    async with async_session_factory() as db:
+    async with platform_maintenance("demo seed: the Demo Shop knowledge sources"), async_session_factory() as db:
         admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
         project = (await db.execute(select(Project).where(Project.id == workspace_id))).scalar_one()
         if not ((project.config or {}).get("data_policy") or {}).get("classification"):
@@ -379,8 +380,21 @@ async def seed_sample_run() -> None:
     if not SAMPLE_RUN.exists():
         print(f"sample run: none recorded yet ({SAMPLE_RUN.parent.name}/{SAMPLE_RUN.name})")
         return
-    await _bundle_tool().import_bundle(json.loads(SAMPLE_RUN.read_text(encoding="utf-8")), workspace=WORKSPACE,
-                                    github=GIT_BASE, app_base=os.environ.get("OCTRYX_DEMO_APP_BASE", API_BASE))
+    await _bundle_tool().import_bundle(closed_sample(json.loads(SAMPLE_RUN.read_text(encoding="utf-8"))),
+                                    workspace=WORKSPACE, github=GIT_BASE,
+                                    app_base=os.environ.get("OCTRYX_DEMO_APP_BASE", API_BASE))
+
+
+# The sample's pull request is closed: an open one would block every new run of its Work item (one open pull request
+# per Work item), and the demo's first run is on that item.
+def closed_sample(bundle: dict) -> dict:
+    pull = bundle.get("pull") or {}
+    if isinstance(pull.get("pull"), dict):
+        pull["pull"]["state"] = "closed"
+    for row in (bundle.get("tables") or {}).get("workflow_runs") or []:
+        if row.get("id") == bundle.get("main_run") and isinstance(row.get("pull_request"), dict):
+            row["pull_request"]["state"] = "closed"
+    return bundle
 
 
 async def _steps(api: Api) -> None:

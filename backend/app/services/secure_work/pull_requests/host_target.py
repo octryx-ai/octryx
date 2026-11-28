@@ -1,19 +1,4 @@
-"""Where a recorded pull request lives and which connection may read it.
-
-A ``WorkPullRequest`` row names its host by its identity (``record_identity``): ``provider``, the host
-(``provider_instance``), ``project_key`` / ``repository_slug`` and ``pr_id``. The connection is never invented: it is
-the tool router's plan for the repository's binding key (``named_connections.service_config``) in the PR's
-Workspace (its Work item's), exactly the connection the governed Bitbucket/GitHub
-tools would run on; it must serve the recorded host, and the connection's repository allowlist applies as it does for
-those tools.
-
-Every refusal is a :class:`PullRequestHostError` with a closed ``code``:
-
-``provider_unsupported`` · ``repository_unresolved`` · ``pr_id_invalid`` · ``record_out_of_scope`` ·
-``connection_refused`` · ``host_mismatch`` ·
-``connection_not_configured`` · ``repository_not_allowed`` · ``host_not_found`` ·
-``host_permission`` · ``host_unavailable`` · ``host_rejected`` · ``unknown_host_state`` · ``unknown_build_state``.
-"""
+"""Where a recorded pull request lives and which connection may read it."""
 
 from __future__ import annotations
 
@@ -46,8 +31,7 @@ MAX_ERROR_CHARS = 300
 
 
 class PullRequestHostError(Exception):
-    """The host could not be asked or refused; ``code`` is closed, ``message`` bounded and credential-free."""
-
+    # ``message`` is bounded and credential-free.
     def __init__(self, code: str, message: str, *, status_code: int | None = None,
                  details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
@@ -86,7 +70,7 @@ def error_from_status(status: int, host: str) -> PullRequestHostError:
 
 
 def host_error(error: BaseException, host: str) -> PullRequestHostError:
-    """The closed error for an exception of a provider call (never the URL, header or credential)."""
+    # Never the URL, a header or a credential.
     if isinstance(error, PullRequestHostError):
         return error
     if isinstance(error, CloudApiError):
@@ -104,8 +88,6 @@ def host_error(error: BaseException, host: str) -> PullRequestHostError:
 
 
 async def workspace_of(db: AsyncSession, row: WorkPullRequest) -> str:
-    """The PR's Workspace: its ``scope_key`` when the record is bound to its Work Item's Workspace
-    (``in_item_workspace``); any other record is never read."""
     bound = await db.scalar(select(WorkPullRequest.scope_key).where(WorkPullRequest.id == row.id, in_item_workspace()))
     if not bound:
         raise PullRequestHostError("record_out_of_scope",
@@ -114,8 +96,6 @@ async def workspace_of(db: AsyncSession, row: WorkPullRequest) -> str:
 
 
 def connection_host(provider: str, config: dict[str, Any]) -> str:
-    """The web host the connection serves: GitHub's web base of its API URL, GitLab's URL, Bitbucket Cloud's, or the
-    Bitbucket Server URL's."""
     if provider == "github":
         return web_host(github_web_base_url(config.get("github_url")))
     if provider == "gitlab":

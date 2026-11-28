@@ -1,7 +1,4 @@
-"""The seat route's fake Anthropic upstream: an ``httpx.MockTransport`` that records every request.
-
-``anthropic`` is the fixture; a test module imports it by name.
-"""
+"""The seat route's fake Anthropic upstream: an ``httpx.MockTransport`` that records every request."""
 
 from __future__ import annotations
 

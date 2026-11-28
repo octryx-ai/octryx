@@ -19,7 +19,6 @@ _http_json = connection_http_json(CONNECTION_GITLAB)
 
 
 def _git_failure(error: str, exit_code: int, stderr: str = "") -> dict[str, Any]:
-    """A failed git step: its class and git's last line with secrets removed (``git_errors``), never more."""
     from .git_errors import git_failure
 
     return git_failure(error, exit_code, stderr)

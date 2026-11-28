@@ -125,8 +125,6 @@ def test_session_end_posts_a_redacted_digest_built_by_the_shared_ingest_code(sta
 
 
 def test_a_tool_check_that_could_not_connect_is_sent_once_more_and_then_fails_closed(state, monkeypatch, capsys):
-    """A platform the hook cannot reach (e.g. during a deploy) gets one retry after a short pause; still unreachable:
-    denied."""
     from octryx_claude import platform
 
     monkeypatch.setattr(platform.time, "sleep", lambda _seconds: None)
@@ -156,8 +154,6 @@ def test_a_tool_check_that_could_not_connect_is_sent_once_more_and_then_fails_cl
 
 
 def test_a_gateway_refusal_or_a_read_timeout_is_never_sent_twice(state, monkeypatch):
-    """Only a call that never reached the platform is repeated: the gateway's own answer, or a call it may have acted
-    on (read timeout), stands."""
     from octryx_claude import platform
 
     monkeypatch.setattr(platform.time, "sleep", lambda _seconds: None)
@@ -181,8 +177,6 @@ def test_a_gateway_refusal_or_a_read_timeout_is_never_sent_twice(state, monkeypa
 
 
 def test_claude_codes_own_compaction_helper_is_never_gated(state, monkeypatch, capsys):
-    """Claude Code sends ``agent_type: ""`` for its own forks (its compaction): never gated. A Task agent (a type) and
-    a SubagentStop without the field stay gated."""
     posted = []
     monkeypatch.setattr(hooks, "call_control_plane", lambda *args, **kwargs: posted.append(args) or _ok(
         {"state": "blocked", "detail": "Not done."}))
@@ -201,8 +195,6 @@ def test_claude_codes_own_compaction_helper_is_never_gated(state, monkeypatch, c
 
 
 def test_a_browser_call_the_platform_allowed_still_stays_on_the_apps_loopback(state, monkeypatch, capsys):
-    """The hook denies a browser URL off loopback (or on the platform's own port) for Claude
-    Code and Codex alike, also when the platform said allow; the platform is still asked (and records the call)."""
     seen: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:

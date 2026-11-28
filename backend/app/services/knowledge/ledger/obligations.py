@@ -1,8 +1,5 @@
-"""Outbox obligations of a revision: owed once, and reopened when a completed one is needed again.
-
-Like the rest of the lifecycle, every function here runs inside the caller's transaction and
-never commits.
-"""
+"""Outbox obligations of a revision: owed once, and reopened when a completed one is needed again. Runs in the caller's
+transaction and never commits."""
 
 from __future__ import annotations
 
@@ -27,7 +24,6 @@ _REOPENABLE_OUTBOX_STATES = frozenset({OUTBOX_STATE_APPLIED})
 
 
 async def _reopen(db: AsyncSession, project_id: str, revision_id: str, operation: str) -> bool:
-    """Make one obligation of ``revision_id`` due again from its first span. True when it exists."""
     entry = (
         await db.execute(
             select(KnowledgeProjectionOutboxEntry.id, KnowledgeProjectionOutboxEntry.state).where(
@@ -61,7 +57,6 @@ async def _reopen(db: AsyncSession, project_id: str, revision_id: str, operation
 
 
 async def _ensure_obligation(db: AsyncSession, project_id: str, revision_id: str, operation: str) -> None:
-    """Owe ``operation`` for this revision: a new pending entry, or the completed one reopened."""
     if await _reopen(db, project_id, revision_id, operation):
         return
     db.add(
@@ -77,15 +72,12 @@ async def _ensure_obligation(db: AsyncSession, project_id: str, revision_id: str
 
 
 async def ensure_projection(db: AsyncSession, project_id: str, revision_id: str) -> None:
-    """Owe the projection of a revision whose spans were just parsed."""
     await _ensure_obligation(db, project_id, revision_id, OUTBOX_OPERATION_PROJECT_REVISION)
 
 
 async def ensure_graph_extraction(db: AsyncSession, project_id: str, revision_id: str) -> None:
-    """Owe the extraction of a current revision into the Workspace knowledge graph."""
     await _ensure_obligation(db, project_id, revision_id, OUTBOX_OPERATION_EXTRACT_GRAPH)
 
 
 async def ensure_retirement(db: AsyncSession, project_id: str, revision_id: str) -> None:
-    """Owe the removal of this revision's spans from the Workspace database."""
     await _ensure_obligation(db, project_id, revision_id, OUTBOX_OPERATION_RETIRE_REVISION)

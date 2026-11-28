@@ -1,19 +1,4 @@
-"""Jira Cloud and Server/Data Center differences, in one place (Jira Cloud compatibility).
-
-A connection is **Cloud** when its URL host is ``*.atlassian.net`` or its declared auth mode is
-``cloud_api_token`` (``services/atlassian_auth``); every other connection is Server/DC.
-
-- **Search** (:func:`jira_search`): Cloud uses
-  ``POST /rest/api/3/search/jql`` with explicit ``fields`` and ``nextPageToken`` paging (it returns no
-  ``total``; ``isLast`` / a missing token ends the result). Server/DC keeps ``/search`` with ``startAt``.
-- **Users**: Cloud identifies people by ``accountId`` only (no ``name``/``username``);
-  :func:`assignee_field` never sends ``name`` on Cloud.
-- **Rich text**: Cloud v3 bodies (descriptions, comments) are Atlassian Document Format (ADF).
-  :func:`adf_to_text` reads them as plain text with light Markdown for evidence;
-  :func:`rich_text_body` writes ADF built from plain text on Cloud and the plain wiki text on Server/DC.
-
-Nothing here logs or returns credentials or response bodies.
-"""
+"""Jira Cloud and Server/Data Center differences, in one place (Jira Cloud compatibility)."""
 
 from __future__ import annotations
 
@@ -34,7 +19,6 @@ _MAX_ADF_DEPTH = 40
 
 
 def is_jira_cloud(jira_url: str, config: Mapping[str, Any] | None = None) -> bool:
-    """True for an ``*.atlassian.net`` host or the declared ``cloud_api_token`` auth mode."""
     host = (urlsplit(str(jira_url or "")).hostname or "").lower()
     if host.endswith(CLOUD_HOST_SUFFIX):
         return True
@@ -73,14 +57,6 @@ async def jira_search(
     api_get: Callable[..., Awaitable[tuple[dict[str, Any], str]]] | None = None,
     page_token: str | None = None,
 ) -> JiraSearchResult:
-    """One search page of up to ``max_results`` issues from ``start_at``, on the connection's own API.
-
-    ``server_params`` (e.g. ``validateQuery``) are Server/DC-only and never sent to Cloud. ``api_get`` is the
-    caller's own ``_jira_api_get`` binding for the Server/DC request (so its seams keep working); HTTP
-    errors raise ``httpx.HTTPStatusError``, so callers keep their own error mapping. On Cloud a bulk
-    caller pages natively with ``page_token`` (from ``next_page_token``, ``start_at`` 0); a single offset
-    (``start_at``) walks the tokens from the start, bounded by ``MAX_CLOUD_SEARCH_PAGES``.
-    """
     if not cloud:
         if api_get is None:
             from . import _jira_helpers_api
@@ -148,7 +124,6 @@ async def _cloud_search(
 
 
 def assignee_field(user: Mapping[str, Any] | None, *, cloud: bool) -> dict[str, str] | None:
-    """The ``assignee`` field for a resolved user: ``accountId`` on Cloud, ``name`` on Server/DC; else ``None``."""
     if not isinstance(user, Mapping):
         return None
     key = "accountId" if cloud else "name"
@@ -157,7 +132,6 @@ def assignee_field(user: Mapping[str, Any] | None, *, cloud: bool) -> dict[str, 
 
 
 def text_to_adf(text: str) -> dict[str, Any]:
-    """An ADF document from plain text: blank lines separate paragraphs, single newlines are hard breaks."""
     paragraphs: list[dict[str, Any]] = []
     for block in str(text or "").replace("\r\n", "\n").split("\n\n"):
         lines = block.split("\n")
@@ -172,21 +146,14 @@ def text_to_adf(text: str) -> dict[str, Any]:
 
 
 def rich_text_body(text: str, *, cloud: bool) -> str | dict[str, Any]:
-    """A description or comment body to write: ADF on Cloud, the plain (wiki) text on Server/DC."""
     return text_to_adf(text) if cloud else str(text or "")
 
 
 def readable_body(value: Any) -> Any:
-    """A description or comment body for evidence: an ADF document as text, anything else unchanged (Server/DC)."""
     return adf_to_text(value) if isinstance(value, Mapping) else value
 
 
 def adf_to_text(value: Any) -> str:
-    """Plain text (with light Markdown) of an ADF document; a string is returned unchanged, anything else is ``""``.
-
-    Never raises: a node whose ``type``, ``attrs``, ``marks`` or ``content`` is malformed degrades to the
-    text it still carries (or to nothing), so one bad description or comment never fails a read or a sync.
-    """
     if isinstance(value, str):
         return value
     if not isinstance(value, Mapping) or value.get("type") != "doc":
@@ -211,7 +178,6 @@ def _attrs(node: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 def _string(*values: Any) -> str:
-    """The first non-empty string among ``values``; anything that is not a string counts as missing."""
     return next((value for value in values if isinstance(value, str) and value), "")
 
 

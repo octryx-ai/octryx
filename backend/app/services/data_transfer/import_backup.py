@@ -119,7 +119,6 @@ async def _restore_definitions(
     errors: list[str],
     summary: dict[str, Any],
 ) -> None:
-    """Restore the tasks section, then the agents section, in that order."""
     for section, rows_importer, count_key in (
         ("tasks", _import_task_rows, "task_count"),
         ("agents", _import_agent_rows, "agent_count"),

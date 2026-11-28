@@ -1,9 +1,4 @@
-"""Device job decisions (O2): dispatch refusals and the owner's approvals of a device job.
-
-A refused dispatch (not the owner, revoked, offline, paused, folder not allow-listed, profile unavailable, busy, or
-the device policy) is a ``device_job`` decision; an admitted dispatch is counted. Device approvals are decided by
-the job owner only; each request, decision and expiry is a record.
-"""
+"""Device job decisions (O2): dispatch refusals and the owner's approvals of a device job."""
 
 from __future__ import annotations
 
@@ -50,7 +45,6 @@ def record_device_dispatch(decision: Any, *, user_id: str, profile: str, folder:
 
 
 def record_device_approval(job: Any, approval: Any, *, status: str, actor_id: str | None = None) -> None:
-    """``status``: ``pending`` (requested) or the decided status of the device approval row."""
     outcome = OUTCOME_NEEDS_APPROVAL if status == "pending" else _APPROVAL_OUTCOMES.get(status)
     if outcome is None:
         return

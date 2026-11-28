@@ -1,11 +1,4 @@
-"""Check-digit validators of the content detectors.
-
-- :func:`mod10_valid`: the mod 10 check digit (Luhn algorithm) many identifiers carry; a custom detector's
-  ``mod10`` check;
-- :func:`iban_valid`: the per-country IBAN length and the ISO 7064 mod-97 check.
-
-The functions take the digits/characters only (separators removed) and never log or keep them.
-"""
+"""Check-digit validators of the content detectors: mod 10 (Luhn) and the IBAN mod-97."""
 
 from __future__ import annotations
 
@@ -38,7 +31,6 @@ def mod10_valid(digits: str) -> bool:
 
 
 def iban_valid(compact: str) -> bool:
-    """``compact``: the IBAN without spaces, upper case."""
     if len(compact) < 5 or not compact.isascii() or not compact.isalnum():
         return False
     expected = IBAN_LENGTHS.get(compact[:2])

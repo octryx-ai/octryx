@@ -1,8 +1,4 @@
-"""Revalidate the human authority of the original publication confirmation.
-
-Publication may be at another node. Its authorising decision is resolved against the
-original node of the pinned graph, without transferring the requester's execution identity.
-"""
+"""Revalidate the human authority of the original publication confirmation."""
 from __future__ import annotations
 
 from sqlalchemy import select
@@ -17,12 +13,6 @@ from ..work_roles import active_human, lock_actor_membership
 
 async def publication_decision_problem(db: AsyncSession, run: WorkflowRun,
                                        decision: WorkflowRunDecision | None) -> str:
-    """Empty only for the stored exact confirmation and a currently authorised human actor.
-
-    Run -> membership locks retain the decider service's ordering. Select scalar bindings to
-    avoid replacing the caller's in-flight node state while it transitions to publication.
-    Hash, latest-confirmation, target, governance and tool checks remain with the callers.
-    """
     if decision is None:
         return "the publication decision does not exist"
     stored = await db.get(WorkflowRunDecision, decision.id, populate_existing=True)

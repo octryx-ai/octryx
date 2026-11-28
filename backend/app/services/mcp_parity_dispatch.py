@@ -1,25 +1,5 @@
-"""One governed runner for the workflow and work-status MCP tools.
-
-These tools are platform reads and governed decisions, not chat tool classes. Each one runs through
-the same chain as the governed Knowledge tools (``mcp_governed_knowledge``):
-
-1. its OAuth scope;
-2. an active user;
-3. the shared MCP rate limit (60 per minute per grant);
-4. the connection's Workspace (grant binding or ``X-Octryx-Workspace``, never an argument),
-   authorized for the user like a tool run;
-5. the handler;
-6. the activity row on the grant's auto session and a bounded audit row (state only).
-
-Scopes:
-
-- ``workflow:read``: the catalog and a selection;
-- ``workflow:execute``: confirming a workflow approval, acting on and recording for the session's run;
-- ``sessions:read``: approvals and Product Run status, which are session-bound records.
-
-No handler takes a mode or an ``agent_type``. Capability comes from the selected definition and its
-governed approval.
-"""
+"""One governed runner for the workflow and work-status MCP tools. The same chain as the governed Knowledge tools:
+scope, active user, rate limit, connection Workspace, audit."""
 
 from __future__ import annotations
 
@@ -72,13 +52,24 @@ PARITY_MCP_TOOLS.update(EXTRA_HANDLER_MCP_TOOLS)
 _RECORDED_ARGUMENTS = frozenset({"workflow_key", "approval_id", "run_id", "action", "file_name", "work_item"})
 
 
+async def run_parity_handler(
+    db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str, tool_name: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    # Inside the session MCP endpoint's chain (``mcp_registry_tools``), which already checked the user, the rate
+    # limit and the Workspace and audits the call; only the tool's own scope is left.
+    from .content_security.knowledge_fence import unfenced_result
+
+    handler, required_scope = PARITY_MCP_TOOLS[tool_name]
+    if required_scope not in caller.scopes:
+        return failure("scope_required")
+    return await handler(db, caller=caller, user=user, workspace_id=workspace_id,
+                         arguments=dict(unfenced_result(arguments)))
+
+
 async def run_parity_mcp_tool(
     db: AsyncSession, *, caller: McpCaller, tool_name: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """Run one parity tool for an MCP caller; the caller commits.
-
-    The arguments lose any fence marker the device's model copied from a fenced result (fence only at a model's
-    input): Work item fields, workflow actions and approvals carry the body only."""
+    # Fence markers the device's model copied are dropped: the fence is only for a model's input.
     from .content_security.knowledge_fence import unfenced_result
 
     arguments = unfenced_result(arguments)
@@ -125,4 +116,4 @@ async def run_parity_mcp_tool(
     return result
 
 
-__all__ = ["PARITY_MCP_TOOLS", "run_parity_mcp_tool"]
+__all__ = ["PARITY_MCP_TOOLS", "run_parity_handler", "run_parity_mcp_tool"]

@@ -25,7 +25,7 @@ from tests.model_gateway.conftest import (
     gateway_section,
 )
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
@@ -121,12 +121,6 @@ async def test_catalog_pricing_requires_usable_reported_usage(
 
 
 async def test_a_billable_alias_can_never_settle_at_zero_cost(gateway, build_gateway_client) -> None:
-    """The budget attribution reads 0 as "unknown", so 0 must never be produced.
-
-    A zero per-token rate in either direction is an admission denial (a positive sum
-    can hide it), so nothing dispatches and nothing is billed for a cost of 0.
-    """
-
     for rates in (
         {"input_per_million_usd": 0.0, "output_per_million_usd": 2.0},
         {"input_per_million_usd": 1.0, "output_per_million_usd": 0.0},
@@ -144,13 +138,6 @@ async def test_a_billable_alias_can_never_settle_at_zero_cost(gateway, build_gat
 
 
 def test_the_response_contract_still_refuses_a_non_positive_computed_cost() -> None:
-    """Defence in depth behind admission: the post-dispatch guard is still there.
-
-    Admission can no longer produce an entry that prices a turn at zero, so this
-    states the guard directly against a hand-built entry. Keeping it means a
-    future change to admission cannot silently re-open a zero-cost billable turn.
-    """
-
     entry = AliasEntry(
         alias=ALIAS,
         model_group=MODEL_GROUP,

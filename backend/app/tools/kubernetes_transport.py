@@ -1,8 +1,4 @@
-"""Verified Kubernetes API TLS settings for typed reads and connection tests.
-
-A configured public PEM bundle is an explicit trust source, never a filename, environment override, or reason
-not to verify the API server. In-cluster CA files remain the existing fallback when no bundle is configured.
-"""
+"""Verified Kubernetes API TLS settings for typed reads and connection tests."""
 from __future__ import annotations
 
 import re
@@ -13,15 +9,10 @@ _CA_BLOCK = re.compile(r"-----BEGIN CERTIFICATE-----[A-Za-z0-9+/=\s]+-----END CE
 
 
 class KubernetesTLSConfigurationError(ValueError):
-    """A safe configuration refusal; the message never includes the supplied certificate or token."""
+    pass
 
 
 def kubernetes_tls_verify(config: dict[str, Any], *, in_cluster_ca: str | None = None) -> bool | str | ssl.SSLContext:
-    """Use a verified SSL context for an explicit PEM, else preserve the existing flags/in-cluster CA.
-
-    The explicit context does not load ambient trust files, SSL_CERT_* settings or the operating system store.
-    Both certificate-chain and API-server hostname verification remain mandatory.
-    """
     verify = config.get("k8s_verify_tls", True)
     value = config.get("k8s_ca_certificate")
     if value is None or value == "":

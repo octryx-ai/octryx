@@ -64,23 +64,6 @@ test("skills page: status card, tabs, detail, editor, update review and the thre
   assert.equal(digest(failed), "7a476e3015957b3b2aed31f3bb90132be3111400dc69c16a715bf124ccee3da4");
 });
 
-// --- Scenario basic section -----------------------------------------------------------------------------------------
-
-test("scenario basic section: name, scope, priority, status and description, active and inactive", async () => {
-  const path = "admin/components/ScenarioBasicSection.tsx";
-  const props = {
-    projects: [{ id: "p-1", name: "Claims" }], scenarioName: "Jira research", setScenarioName: noop, scenarioProjectId: "p-1",
-    setScenarioProjectId: noop, scenarioPriority: 7, setScenarioPriority: noop, scenarioActive: true, setScenarioActive: noop,
-    scenarioDescription: "Heavy Jira use", setScenarioDescription: noop,
-  };
-  const view = await mount(path, "ScenarioBasicSection", props);
-  assert.match(text(view.root), /Active — participates in matching/);
-  assert.equal(digest(view), "21292276a8c76d6ff8cce2d61ec0731d04439ec11d161ac2476ec9632e6eda39");
-  const inactive = await mount(path, "ScenarioBasicSection", { ...props, scenarioActive: false, projects: [] });
-  assert.match(text(inactive.root), /Inactive — ignored/);
-  assert.equal(digest(inactive), "558aea11f62bc3cec5f041b03f2b2d05481463c0ea7acc0f95facf26bc95be6d");
-});
-
 // --- Tool catalog ---------------------------------------------------------------------------------------------------
 
 const TOOL_CATALOG = [

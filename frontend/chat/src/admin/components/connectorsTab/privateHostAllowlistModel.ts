@@ -1,8 +1,5 @@
-// Pure model of the admin private-host egress allowlist (#S6).
-// Contract: backend/app/web/routers/panel_egress.py and
-// backend/app/services/outbound_egress/private_hosts.py. The server is authoritative;
-// the client check here only catches obvious shape errors before a round trip.
-// Only fixed reason codes are ever shown; server free text never reaches the UI.
+// The server is authoritative; this only catches obvious shape errors before a round trip.
+// Only fixed reason codes are shown; server free text never reaches the UI.
 
 export const MAX_PRIVATE_HOST_ENTRIES = 50;
 
@@ -47,7 +44,6 @@ export function connectionLabel(connection: string): string {
   return CONNECTION_LABELS[connection] ?? connection;
 }
 
-/** A fixed reason code, or a neutral fallback when the value is not a plain code. */
 export function safeReasonCode(value: unknown): string {
   return typeof value === "string" && REASON_CODE.test(value)
     ? value
@@ -58,7 +54,6 @@ export function normalizeEntryInput(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
-/** Client-side shape check with the server's reason codes; null when the shape is fine. */
 export function entryShapeRefusal(entry: string): string | null {
   if (!entry) return "entry_malformed";
   const match = BRACKETED.exec(entry) ?? PLAIN.exec(entry);
@@ -95,7 +90,6 @@ export function draftFromEntries(
   };
 }
 
-/** The GET body as drafts, in the server's allowlistable order; unknown shapes are dropped. */
 export function draftsFromPayload(payload: unknown): PrivateHostDraft[] {
   if (!payload || typeof payload !== "object") return [];
   const body = payload as { allowlistable?: unknown; connections?: unknown };
@@ -149,7 +143,6 @@ export function removeEntry(
   };
 }
 
-/** Marks the refused entry (by index of the list that was sent) and keeps the draft editable. */
 export function applyRefusal(
   draft: PrivateHostDraft,
   refusal: PrivateHostRefusal,
@@ -166,7 +159,6 @@ export function applyRefusal(
   };
 }
 
-/** The 400 refusal body of the PUT, or null for anything else. */
 export function parsePrivateHostRefusal(
   status: number,
   payload: unknown,
@@ -190,7 +182,6 @@ export function parsePrivateHostRefusal(
   };
 }
 
-/** The fixed state code of a failed GET (409 allowlist unavailable), else an HTTP code. */
 export function loadFailureCode(status: number, payload: unknown): string {
   const detail =
     payload && typeof payload === "object"
@@ -204,12 +195,6 @@ export function loadFailureCode(status: number, payload: unknown): string {
   return `http_${Number.isInteger(status) ? status : 0}`;
 }
 
-/**
- * Which connection types get an allowlist form: a type with a
- * configured connector, a type that already has saved or unsaved entries, or
- * one the admin opened through "Add on-prem host". The rest stay hidden but
- * reachable; nothing about the stored allowlist changes.
- */
 export function partitionAllowlistDrafts(
   drafts: ReadonlyArray<PrivateHostDraft>,
   configuredConnectors: ReadonlyArray<string>,
@@ -231,7 +216,6 @@ export function partitionAllowlistDrafts(
   return { shown, hidden };
 }
 
-// A refused entry reads as a sentence, never as the server's reason code.
 const REFUSAL_SENTENCES: Record<string, string> = {
   entry_malformed: "Not a host:port entry.",
   entry_port_required: "Add the port, for instance :443.",

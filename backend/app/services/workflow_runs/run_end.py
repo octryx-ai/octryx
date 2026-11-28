@@ -20,10 +20,10 @@ async def _finish(db: AsyncSession, run: WorkflowRun, *, outcome: str, actor_id:
         return
     from .triage_routing import route_after_triage
 
-    await route_after_triage(db, run, actor_id=actor_id)  # a triage starts its type's follow-up
+    await route_after_triage(db, run, actor_id=actor_id)
     from .epic_chain import continue_epic
 
-    await continue_epic(db, run, actor_id=actor_id)  # an epic works through its stories by itself
+    await continue_epic(db, run, actor_id=actor_id)
 
 
 async def fail_run(db: AsyncSession, run: WorkflowRun, message: str) -> None:

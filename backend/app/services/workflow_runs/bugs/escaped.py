@@ -1,11 +1,4 @@
-"""An escaped defect: a bug in work the platform delivered (maintenance metrics).
-
-At the bug flow's intake the platform looks for the work item the bug is about: the report's linked issues (a Jira
-link's key), its parent, or a work item key the report names (````). When one of them was delivered by a
-completed platform run of another workflow than this bug flow's, the run records ``bug_escaped_from`` with that key
-and the delivering workflow; ``octryx_item_escaped_defects_total`` counts the event (never a query at metric time).
-Revert pull requests as a second source follow later.
-"""
+"""An escaped defect: a bug in work the platform delivered (maintenance metrics)."""
 
 from __future__ import annotations
 
@@ -25,7 +18,6 @@ MAX_CANDIDATES = 10
 
 
 def candidate_keys(item: WorkItem) -> list[str]:
-    """The keys the bug points at: linked issues, the parent, then keys its text names (not its own)."""
     from ...secure_work.jira.jira_scope import _linked_key
 
     keys = [_linked_key(link) for link in item.linked_issues_json or [] if isinstance(link, dict)]
@@ -36,7 +28,6 @@ def candidate_keys(item: WorkItem) -> list[str]:
 
 
 async def record_escape(db: AsyncSession, run: WorkflowRun, item: WorkItem | None) -> dict[str, Any] | None:
-    """Record the work item this bug escaped from, once per run; ``None`` when none is known."""
     if item is None or dict(run.context or {}).get("bug_escaped_from"):
         return None
     keys = candidate_keys(item)

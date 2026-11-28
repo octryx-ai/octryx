@@ -1,9 +1,4 @@
-"""Saved policy test cases: a bench question plus its expected answer.
-
-All cases run on every draft save (the report is stored on the version) and again when a version is published
-(the baseline or the entities may have changed since the save); a failing case blocks publishing. A case whose
-Workspace no longer exists fails with its error instead of being skipped.
-"""
+"""Saved policy test cases: a bench question plus its expected answer."""
 
 from __future__ import annotations
 
@@ -69,7 +64,6 @@ async def delete_case(db: AsyncSession, *, case_id: str, actor_id: str) -> None:
 
 
 async def run_cases(db: AsyncSession, custom: CustomText) -> dict[str, Any]:
-    """Every saved case against the baseline plus ``custom``; ``ok`` only when all pass."""
     results: list[dict[str, Any]] = []
     for row in await list_cases(db):
         try:

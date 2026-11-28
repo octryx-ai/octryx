@@ -14,11 +14,6 @@ async def _clear_runtime_targets(db):
 
 
 async def _set_provider_api_key_secret(db, provider, value):
-    """Store a provider API key through the encrypted secret store.
-
-    There is no plaintext ``llm_providers.api_key`` column; runtime key
-    resolution goes through ``api_key_secret_ref`` / the provider secret scope.
-    """
     entry = await set_secret_value(
         db,
         tool_name=f"control_plane_provider:{provider.id}",

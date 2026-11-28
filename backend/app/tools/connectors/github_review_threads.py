@@ -1,14 +1,5 @@
-"""The review bot's inline threads on GitHub: which comment each posted finding got,
-and the answer to a finding a later pass found fixed or still open.
-
-- ``inline_ids``: after ``POST /pulls/{n}/reviews`` (whose answer has no comment ids), the review's own comments
-  (``GET /pulls/{n}/reviews/{id}/comments``), matched to the sent ones by path and body, in order;
-- ``answer_threads``: a reply in the thread (``POST /pulls/{n}/comments/{id}/replies``) and, when asked, the thread
-  resolved (GraphQL ``resolveReviewThread``; the thread of a comment is found through ``reviewThreads``).
-
-A thread that cannot be answered (a deleted comment, a token without the right) is named in the answer with its
-reason, never a failed post: the review itself was posted.
-"""
+"""The review bot's inline threads on GitHub: which comment each posted finding got, and the answer to a finding a later
+pass found fixed or still open."""
 
 from __future__ import annotations
 
@@ -27,14 +18,12 @@ MAX_REPLY = 2000
 
 
 def graphql_url(base: str) -> str:
-    """``https://api.github.com/graphql``; GitHub Enterprise Server ``https://host/api/v3`` → ``/api/graphql``."""
     base = base.rstrip("/")
     return f"{base[:-len('/v3')]}/graphql" if base.endswith("/api/v3") else f"{base}/graphql"
 
 
 async def inline_ids(http: Any, headers: dict[str, str], base: str, number: str, review_id: Any,
                      sent: list[dict[str, Any]]) -> list[Any]:
-    """The id of each sent comment (``None`` where it was not found), in the order sent."""
     if not review_id or not sent:
         return [None] * len(sent)
     got: list[dict[str, Any]] = []
@@ -58,7 +47,6 @@ async def inline_ids(http: Any, headers: dict[str, str], base: str, number: str,
 
 async def _threads(http: Any, headers: dict[str, str], url: str, owner: str, repo: str,
                    number: int) -> dict[int, tuple[str, bool]]:
-    """``{first comment's database id: (thread id, resolved)}`` of every review thread of the pull request."""
     found: dict[int, tuple[str, bool]] = {}
     after = None
     while True:
@@ -86,7 +74,6 @@ def _why(error: Exception) -> str:
 
 async def answer_threads(http: Any, headers: dict[str, str], base: str, owner: str, repo: str,
                          number: str, answers: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Each answer ``{comment_id, reply, resolve}`` carried out; ``{comment_id, replied, resolved, reason}`` each."""
     done: list[dict[str, Any]] = []
     threads: dict[int, tuple[str, bool]] | None = None
     for answer in answers:

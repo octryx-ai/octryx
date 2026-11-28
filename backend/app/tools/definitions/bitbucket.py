@@ -208,6 +208,5 @@ _BITBUCKET_REPOSITORY_DEFINITIONS: dict[str, dict] = {
 
 
 def get_bitbucket_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for bitbucket tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy({**_BITBUCKET_REPOSITORY_DEFINITIONS, **BITBUCKET_PULL_REQUEST_DEFINITIONS})

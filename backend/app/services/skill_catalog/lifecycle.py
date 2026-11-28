@@ -1,20 +1,4 @@
-"""Skill versions: draft → in_review → published → retired, four-eyes publish (the policy-set pattern).
-
-- **Edit** continues the open draft (at most one per skill) or starts one from the published version.
-- **Save** needs ``If-Match: <draft digest>`` (428 without, 409 ``skill_draft_conflict`` when stale). The check is
-  a conditional ``UPDATE … WHERE digest = <If-Match>`` that holds the row lock until the commit, so of two saves
-  with the same ``If-Match`` the second one is refused instead of overwriting the first. Each save reruns the spec
-  validation and the security scanner.
-- **Submit** refuses while merge conflicts are open, freezes the bundle and opens a governance ``Approval``
-  (``workspace_id`` NULL: platform admins) whose action binds the version id **and** its content digest.
-- **Publish** needs that approval ``approved`` by a platform admin who is neither the author, the submitter nor
-  the requester (``skill_self_approval``), unless the platform approval rule allows self-approval (the shared
-  gate ``services.governance.four_eyes``); then ``publish(..., self_approve=True)`` approves and publishes at once.
-  It also refuses open conflicts, unacknowledged high-severity findings, secrets, a licence outside the allowlist
-  and an MCP container image without a recorded digest. Publishing retires the previous published version.
-- **Retire** withdraws a draft or a version in review; retiring the published version removes the skill from
-  every surface (a narrowing, so one admin may do it). **Rollback** creates a new draft from an earlier version.
-"""
+"""Skill versions: draft → in_review → published → retired, four-eyes publish (the policy-set pattern)."""
 
 from __future__ import annotations
 
@@ -115,7 +99,6 @@ async def published_version(db: AsyncSession, skill: Skill) -> SkillVersion | No
 
 async def draft_from(db: AsyncSession, skill: Skill, source: SkillVersion, *, actor_id: str | None, note: Any,
                      base_version: int | None) -> SkillVersion:
-    """A new draft carrying ``source``'s content and provenance (no merge state)."""
     row = await new_draft_row(db, skill, actor_id=actor_id, note=note, base_version=base_version)
     db.add(row)
     content = content_of(source, await bundle_files(db, source.files))
@@ -129,7 +112,6 @@ async def draft_from(db: AsyncSession, skill: Skill, source: SkillVersion, *, ac
 
 
 async def start_draft(db: AsyncSession, skill: Skill, *, actor_id: str) -> tuple[SkillVersion, bool]:
-    """``(draft, created)``: the open draft continues; otherwise a new one from the published version."""
     opened = await open_version(db, skill)
     if opened is not None:
         if opened.state != REVISION_STATE_DRAFT:
@@ -190,7 +172,6 @@ def _edited_files(files: list[BundleFile], payload: dict[str, Any]) -> list[Bund
 
 
 def _resolved(row: SkillVersion, files: list[BundleFile], resolutions: Any) -> list[BundleFile]:
-    """Conflicted files rebuilt from the merge layout with ``resolutions`` (resolve before editing them by hand)."""
     if not isinstance(row.merge_report, dict) or not isinstance(resolutions, dict):
         raise SkillCatalogError("skill_no_merge_to_resolve", 422)
     report = {**row.merge_report, "resolutions": resolutions}
@@ -283,7 +264,6 @@ class PublishGate:
 
 
 async def _version_authors(db: AsyncSession, row: SkillVersion) -> set[str]:
-    """Everyone who shaped this version: its creator, submitter, script allower and every draft editor."""
     editors = (await db.execute(select(AuditLog.user_id).where(
         AuditLog.action == AUDIT_DRAFT_SAVED, AuditLog.resource_type == "skill_version",
         AuditLog.resource_id == row.id))).scalars().all()
@@ -308,12 +288,11 @@ async def check_publish_gate(db: AsyncSession, row: SkillVersion, approval_id: s
     if not await _user_is_admin(db, approver):
         raise SkillCatalogError("skill_approver_not_platform_admin")
     record_self_approval_audit(db, decision, resource_type="skill_version", resource_id=row.id,
-                               approval_id=approval.id)
+                               approval_id=approval.id, project_id=None)
     return PublishGate(approval.id, str(approval.requested_by), approver, decision.self_approved)
 
 
 async def self_approve_review(db: AsyncSession, row: SkillVersion, *, actor_id: str) -> str:
-    """The single-step publish: the submitter approves their own pending review (approval rule permitting)."""
     approval = await db.get(Approval, row.approval_id) if row.approval_id else None
     if approval is None:
         raise SkillCatalogError("skill_approval_required")
@@ -325,7 +304,6 @@ async def self_approve_review(db: AsyncSession, row: SkillVersion, *, actor_id: 
 
 
 def blocking_findings(row: SkillVersion) -> dict[str, list[str]]:
-    """Unacknowledged high findings and findings that no acknowledgement clears (``blocks``: secrets)."""
     report = row.security_report if isinstance(row.security_report, dict) else {}
     acknowledged = set(row.acknowledged_findings or [])
     blocked: dict[str, list[str]] = {"unacknowledged": [], "blocking": []}
@@ -417,7 +395,6 @@ async def rollback(db: AsyncSession, skill: Skill, version: int, *, actor_id: st
 
 
 async def create_skill(db: AsyncSession, payload: dict[str, Any], *, actor_id: str) -> tuple[Skill, SkillVersion]:
-    """A new skill written on the platform: identity + draft v1 (licence ``Internal``)."""
     name = str(payload.get("name") or "").strip()
     issue = name_issue(name)
     if issue is not None:

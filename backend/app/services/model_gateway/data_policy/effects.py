@@ -1,25 +1,4 @@
-"""What each data classification level admits in one Workspace ("What this means here").
-
-A read helper for the classification settings: for every level of :data:`DATA_CLASSIFICATION_ORDER` it
-computes plain facts from the same decisions the runtime makes, never a separate rule set:
-
-- ``reranker_allowed``: the search runtime can rerank (``rerank/admission_state.reranker_runtime_precondition``:
-  key, catalog, Bedrock region hold) and the data-policy gate admits the level for its ``data_policy_class``;
-  ``reranker_state`` is ``ok``, ``needs_configuration`` (runtime hold, with its reason) or ``denied``;
-- ``remote_embeddings_allowed``: the Instance embedding space is remote and admits the level; a local space
-  sends nothing out and is reported as ``embedding_space_local`` (``knowledge/embedding/selection``);
-- ``seat_mode_allowed``: ``octryx-claude --profile seat`` with the Workspace's current seat switch
-  (``agent_gateway/seat_policy.seat_decision_for``);
-- ``governed_models``: the aliases of the active LiteLLM gateway providers whose ``data_policy_class``
-  admits the level, narrowed by the level's ``allowed_model_aliases`` (the Workspace's own model grants may
-  narrow it further);
-- ``connectors``, ``log_masking_required``: the level's tool rules.
-
-Every fact also applies the level's rules of the classification policy matrix
-(``data_classification/policy_matrix``): a matrix rule only narrows, with its own reason code.
-
-Each false fact carries the fixed reason in ``reasons``. Nothing here writes or calls a model.
-"""
+"""What each data classification level admits in one Workspace, for the classification settings."""
 
 from __future__ import annotations
 
@@ -62,12 +41,9 @@ def _admits(level: str, allowance: str | None) -> tuple[bool, str]:
     return decision.allowed, "" if decision.allowed else decision.reason
 
 
+# The runtime admission's precondition (rerank/admission_state): no key, an unknown key or the Bedrock hold is
+# needs_configuration with its reason, never an allowed reranker.
 def _reranker_class() -> tuple[str | None, str]:
-    """``(allowance, "")`` when the search runtime can rerank at all, else ``(None, its hold reason)``.
-
-    Same precondition as the runtime admission (``rerank/admission_state``): no key, an unknown key and the
-    Bedrock region/runtime hold are ``needs_configuration`` with their reason, never an allowed reranker.
-    """
     from ...knowledge.rerank.admission_state import STATE_OK, reranker_runtime_precondition
 
     precondition = reranker_runtime_precondition()
@@ -77,7 +53,6 @@ def _reranker_class() -> tuple[str | None, str]:
 
 
 def _embedding_space() -> tuple[str | None, str]:
-    """``(remote allowance, "")``, ``(None, embedding_space_local)`` or ``(None, not configured)``."""
     from ...knowledge.embedding.catalog import EmbeddingProvider
     from ...knowledge.embedding.port import EmbeddingError
     from ...knowledge.embedding.selection import embedding_config_from_environment
@@ -92,7 +67,6 @@ def _embedding_space() -> tuple[str | None, str]:
 
 
 async def gateway_aliases(db: AsyncSession) -> list[tuple[str, str]]:
-    """``(alias, data_policy_class)`` of every admitted alias of the active LiteLLM gateway providers."""
     from ..litellm.alias_catalog import admitted_alias_entries
     from ..litellm.runtime_admission import LITELLM_GATEWAY_DRIVER
 
@@ -108,7 +82,6 @@ async def gateway_aliases(db: AsyncSession) -> list[tuple[str, str]]:
 
 
 def _remote_model(level: str, allowance: str | None, hold: str, matrix_allows: bool, denial: str) -> tuple[bool, str]:
-    """A remote Knowledge model: the runtime hold, then the data-policy gate, then the matrix rule."""
     if not allowance:
         return False, hold
     admitted, reason = _admits(level, allowance)
@@ -118,7 +91,6 @@ def _remote_model(level: str, allowance: str | None, hold: str, matrix_allows: b
 
 
 async def classification_effects(db: AsyncSession, *, workspace_id: str) -> list[dict[str, Any]]:
-    """``[{value, rank, description, rules, effects}]`` for every level, least sensitive first."""
     from ...agent_gateway.policy import load_workspace_policy
     from ...agent_gateway.seat_policy import seat_decision_for
     from ...data_classification.policy_matrix import load_classification_policy

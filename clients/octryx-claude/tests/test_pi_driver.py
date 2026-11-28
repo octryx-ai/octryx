@@ -1,5 +1,3 @@
-"""The pi harness: a governed chat turn on pi instead of Claude Code, through the same gateway."""
-
 from __future__ import annotations
 
 import asyncio
@@ -28,7 +26,6 @@ EVENTS = [
 
 
 def _fake_pi(tmp_path: Path) -> Path:
-    """A ``pi`` that records its argv, cwd and config, and prints the JSON stream."""
     script = tmp_path / "pi"
     script.write_text("#!/usr/bin/env python3\nimport json, os, sys\n"
                       f"open({str(tmp_path / 'call.json')!r}, 'w').write(json.dumps({{'argv': sys.argv[1:], "

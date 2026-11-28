@@ -1,19 +1,4 @@
-"""The contract an item's session follows: its role's phase, narrowed to the item (design section 3, "Item contract").
-
-The item is a synthetic phase node (id = the ``parallel_work`` node's id, so every run fact keyed by node — carried
-findings, the pipeline's failure, review findings — reaches it) built from the role template plus:
-
-- the item's ``instructions``, the shared ``contract`` and the team (who builds what, which paths) in its contract;
-- ``path_rules.write = paths``: the item writes only what it owns, and a phase with path rules is never offered a
-  shell (``phase_contract``);
-- its own proofs as its task list (never the whole story's list: an item's Stop must not ask for another item's
-  proof tests);
-- ``result_values: ["done", "blocked"]``: the item ends with ``submit_phase_result``; ``blocked`` hands it back to the
-  coordinator instead of waiting for anyone (server agents have no board yet: the coordinator gets it on replan).
-
-It goes through the unchanged ``phase_definition``, so class, tools, checks and the result check apply as for any
-phase.
-"""
+"""The contract an item's session follows: its role's phase, narrowed to the item."""
 
 from __future__ import annotations
 
@@ -38,7 +23,6 @@ ITEM_RULE = (
 
 
 def appends_rule() -> str:
-    """The rule of an item's ``appends_to`` (catalog ``run.item.appends_rule``; no stack's file names in code)."""
     from ..run_texts import run_text
 
     return run_text("item.appends_rule")
@@ -61,21 +45,19 @@ REVIEW_FIX_RULE = (
 
 
 def item_node(run: Any, node: PhasedNode, item: dict[str, Any]) -> PhasedNode:
-    """The synthetic phase an item's turns run as (``run`` for one signature with the device contract, which
-    calls it the same way)."""
     config = copy.deepcopy(roles_of(node).get(str(item.get("role") or "")) or {})
     config.pop("needs_proof", None)
     config.pop("starts_at_once", None)
     contract = dict(config.get("workflow_contract") or {})
     rules = dict(contract.get("path_rules") or {})
-    rules["write"] = write_paths(item)  # its own paths and the shared files it appends to (``plan.appends_to``)
+    rules["write"] = write_paths(item)
     contract["path_rules"] = rules
     config["workflow_contract"] = contract
     config["result_values"] = list(ITEM_RESULT_VALUES)
     from ..phase_contract import ITEM_ITERATION_KEY, ITEM_TASKS_KEY
 
-    config[ITEM_ITERATION_KEY] = int(item.get("iteration") or 1)  # a first pass gets no rework facts
-    config[ITEM_TASKS_KEY] = [item_task(item)] if item.get("proofs") else []  # its own proofs, nobody else's
+    config[ITEM_ITERATION_KEY] = int(item.get("iteration") or 1)
+    config[ITEM_TASKS_KEY] = [item_task(item)] if item.get("proofs") else []
     if item.get("model"):
         config["model"] = str(item["model"])
     config["title"] = str(item.get("title") or item.get("id") or "")
@@ -83,14 +65,12 @@ def item_node(run: Any, node: PhasedNode, item: dict[str, Any]) -> PhasedNode:
 
 
 def item_task(item: dict[str, Any]) -> dict[str, Any]:
-    """The item as one task of the run's task list (``task_list``'s item shape)."""
     proofs = [str(proof) for proof in item.get("proofs") or []]
     return {"id": str(item.get("id") or ""), "text": str(item.get("title") or ""), "proof": proofs[0] if proofs else "",
             "proofs": proofs, "roles": [str(item.get("role") or "")]}
 
 
 def team_view(run: Any) -> list[dict[str, Any]]:
-    """Who builds what: every item's id, role, status and paths (the board identities are added on top)."""
     items = dict(work_of(run).get("items") or {})
     return [{"id": key, "role": value.get("role"), "title": value.get("title"), "status": value.get("status"),
              "paths": list(value.get("paths") or []), "depends_on": list(value.get("depends_on") or []),
@@ -99,7 +79,6 @@ def team_view(run: Any) -> list[dict[str, Any]]:
 
 
 def item_definition(run: Any, node: PhasedNode, item: dict[str, Any]) -> dict[str, Any]:
-    """The item's phase definition with the run facts and its own part of the work."""
     from ..phase_contract import phase_definition
 
     synthetic = item_node(run, node, item)
@@ -140,8 +119,6 @@ def item_definition(run: Any, node: PhasedNode, item: dict[str, Any]) -> dict[st
 
 async def session_item_node(db: Any, run: Any, node: PhasedNode,
                             session_id: str | None) -> PhasedNode | None:
-    """The synthetic phase of the item ``session_id`` runs, ``None`` for any other session (the main thread at a
-    ``parallel_work`` node is no phase: it writes nothing)."""
     from ....models import Session
     from . import item_key_of, session_works_on
 

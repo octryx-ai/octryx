@@ -22,8 +22,6 @@ from .normalized_template_manifest import (
 
 @dataclass(frozen=True)
 class ResolvedTemplate:
-    """Which template file a consumer should open, and on what grounds."""
-
     path: Path
     origin: str
     status: str
@@ -44,7 +42,6 @@ class ResolvedTemplate:
 def resolve_profile_template_path(
     profile_root: str | Path, source_path: str | Path
 ) -> ResolvedTemplate:
-    """The template file to compose from: the derivative when it is current."""
     root = Path(profile_root).expanduser()
     source = Path(source_path).expanduser()
     derivative = root / NORMALIZED_TEMPLATE_NAME
@@ -98,7 +95,6 @@ def resolve_profile_template_path(
 
 
 def resolve_template_for_profile(profile: dict[str, Any]) -> ResolvedTemplate:
-    """``resolve_profile_template_path`` for a profile record as consumers hold it."""
     return resolve_profile_template_path(
         str(profile.get("profile_root") or ""), str(profile.get("source_path") or "")
     )
@@ -107,7 +103,6 @@ def resolve_template_for_profile(profile: dict[str, Any]) -> ResolvedTemplate:
 def normalization_record_fields(
     profile_root: str | Path, result: dict[str, Any]
 ) -> dict[str, Any]:
-    """Registry fields for a normalisation result — absolute paths, bounded summary."""
     root = Path(profile_root).expanduser()
     normalized_rel = result.get("normalized_path")
     snapshot_rel = result.get("snapshot_path")

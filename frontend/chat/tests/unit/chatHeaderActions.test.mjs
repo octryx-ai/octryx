@@ -49,12 +49,12 @@ function load(relative, mocks = {}) {
 
 const { WorkspaceHeaderActions } = load("chat/header/WorkspaceHeaderActions.tsx", { StatsPopover: { StatsPopover: () => null } });
 
-function render(layoutMode) {
+function render(layoutMode, extra = {}) {
   const props = {
     layoutMode, hasSelectedSession: true, taskError: "", taskErrorSummary: "", taskErrorOpen: false, setTaskErrorOpen() {},
     selectedSessionIsRunning: false, onContinue() {}, workspaceOpen: false, onToggleWorkspace() {}, onExportEvidencePdf() {},
     onExportAnalysisJson() {}, chatTheme: "dark", setChatTheme() {}, statsOpen: false, setStatsOpen() {}, stats: null,
-    codeIntelligence: null, traceEventCount: 3, onOpenTrace() {},
+    codeIntelligence: null, traceEventCount: 3, onOpenTrace() {}, ...extra,
   };
   let view;
   act(() => { view = TestRenderer.create(createElement(WorkspaceHeaderActions, props)); });
@@ -86,4 +86,17 @@ test("the header tooltip is styled like the rail's and shows on hover and keyboa
   const css = readCssWithImports(path.join(SRC, "styles/chat/approvals-workspace/workspace-feed.css"));
   assert.match(css, /\.workspace__actions \.icon-action-button\[data-tooltip\]::after \{[^}]*content: attr\(data-tooltip\)/);
   assert.match(css, /\[data-tooltip\]:focus-visible::after/);
+});
+
+test("the holder hands the open chat into the session pool from its own Hand over menu", () => {
+  const chosen = [];
+  const view = render("desktop", { poolItem: { label: "Put into the session pool", disabled: false, onSelect: () => chosen.push("pool") } });
+  const buttons = view.root.findAllByType("button");
+  const label = (button) => button.findAllByType("span").map((span) => span.children.join("")).join(" ");
+  assert.deepEqual(buttons.map(label), ["Files", "Export", "Hand over", "Usage", "Trace 3"]);
+  const [menu] = view.root.findAll((node) => node.props.trigger?.label === "Hand over" && typeof node.type !== "string");
+  assert.equal(JSON.stringify(menu.props.items.map((item) => item.label)), JSON.stringify(["Put into the session pool"]));
+  menu.props.items[0].onSelect();
+  assert.deepEqual(chosen, ["pool"]);
+  act(() => view.unmount());
 });

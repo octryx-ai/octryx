@@ -1,9 +1,4 @@
-"""Contract tests for the inbound OpenAI Responses gateway (Codex through the launcher).
-
-The platform route runs in-process; LiteLLM is an ``httpx.MockTransport`` that records every request, so a
-refusal is proven to dispatch *nothing*. Identity, admission and budget are the Anthropic route's steps; these
-tests prove the ``/openai`` surface runs them and answers in the OpenAI shape.
-"""
+"""Contract tests for the inbound OpenAI Responses gateway (Codex through the launcher)."""
 
 from __future__ import annotations
 
@@ -87,7 +82,6 @@ async def test_models_lists_the_admitted_aliases_in_the_openai_shape(client, res
 
 
 async def test_an_upstream_naming_the_model_only_at_the_end_is_held_checked_then_relayed(client, responses_setup):  # noqa: F811
-    """llama.cpp's server names the model only in ``response.completed``: nothing goes out before it is checked."""
     fake, build = responses_setup
     fake.model_in_created = False
     headers = await build()
@@ -106,7 +100,6 @@ async def test_an_upstream_naming_the_model_only_at_the_end_is_held_checked_then
 
 
 async def test_namespace_tools_reach_the_upstream_flat_and_the_call_comes_back_namespaced(client, responses_setup):  # noqa: F811
-    """Codex's MCP tools (a ``namespace``) are plain function tools upstream; the answer's call has its namespace."""
     fake, build = responses_setup
     namespace = "mcp__octryx_knowledge"
     flat = f"{namespace}__workflow_catalog"
@@ -142,7 +135,6 @@ async def test_namespace_tools_reach_the_upstream_flat_and_the_call_comes_back_n
 
 
 async def test_the_alias_answer_budget_is_asked_for_when_the_client_sends_none(client, responses_setup, monkeypatch):  # noqa: F811
-    """Codex sends no ``max_output_tokens``; an alias that declares one gets it upstream (never over the client's)."""
     from dataclasses import replace
 
     from app.services.model_gateway.inbound import service as service_module
@@ -180,7 +172,6 @@ def test_an_alias_answer_budget_must_be_a_positive_int_within_the_context():
 
 
 async def test_a_local_model_gets_at_least_8k_to_answer(client, responses_setup, monkeypatch):  # noqa: F811
-    """A local reasoning model stops mid-thought below about 8k output tokens."""
     from app.services.model_gateway.inbound import openai_service
 
     fake, build = responses_setup

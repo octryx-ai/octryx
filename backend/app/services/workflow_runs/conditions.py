@@ -1,15 +1,4 @@
-"""Decisions: a condition routes on an earlier result or on a field of the run's work item (D2b2).
-
-A ``decision`` node checks one of two things (``config.check``; missing means ``result``):
-
-- ``result``: the recorded result of ``source`` — the exit value of a gate, approval, confirmation, watch,
-  platform action or sub-workflow, or one of the ``result_values`` a phase declares (its agent records one before
-  the phase is done, ``phase_outputs``). ``options`` are the values it routes explicitly (each with its edge); the
-  reserved route ``otherwise`` (at most one edge) takes every other value. Without an otherwise edge every value
-  of the source needs its own route, so a run never meets a value its decision cannot route.
-- ``field``: ``{field, operator, value}`` compares a work item field (``work_item_fields``) and routes ``yes`` or
-  ``no``; both need a route, and there is no otherwise.
-"""
+"""Decisions: a condition routes on an earlier result or on a field of the run's work item."""
 
 from __future__ import annotations
 
@@ -38,7 +27,7 @@ _RESULT_VALUE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 class ConditionUnavailableError(Exception):
-    """The condition cannot be judged for this run (it compares a work item the run does not have)."""
+    pass
 
 
 def _text(value: Any) -> str:
@@ -54,18 +43,15 @@ def decision_check(node: PhasedNode) -> str:
 
 
 def declared_result_values(config: dict[str, Any]) -> tuple[str, ...]:
-    """The results a phase config declares (``result_values``)."""
     raw = config.get(RESULT_VALUES_KEY)
     return tuple(_text(item) for item in raw if _text(item)) if isinstance(raw, list) else ()
 
 
 def phase_result_values(node: PhasedNode | None) -> tuple[str, ...]:
-    """The results a phase's agent ends with (``config.result_values``), as declared."""
     return declared_result_values(node.config) if node is not None and node.kind == NODE_PHASE else ()
 
 
 def result_values_errors(node: PhasedNode) -> list[dict[str, str]]:
-    """A phase's ``result_values``: distinct snake_case names, never the reserved ``otherwise``."""
     if RESULT_VALUES_KEY not in node.config:
         return []
     raw = node.config[RESULT_VALUES_KEY]
@@ -81,7 +67,6 @@ def result_values_errors(node: PhasedNode) -> list[dict[str, str]]:
 
 
 def source_values(source: PhasedNode, graph: PhasedGraph) -> frozenset[str] | None:
-    """The values a ``result`` decision can branch on when it looks at ``source`` (``None``: it has none)."""
     if source.kind == NODE_PHASE:
         return frozenset(phase_result_values(source)) or None
     values = route_values(source, graph)
@@ -121,7 +106,6 @@ def _field_errors(node: PhasedNode, graph: PhasedGraph) -> list[dict[str, str]]:
 
 
 def decision_errors(node: PhasedNode, graph: PhasedGraph) -> list[dict[str, str]]:
-    """A decision's closed validation: what it checks, its options and that every value has a route."""
     check = decision_check(node)
     if check == DECISION_CHECK_FIELD:
         return _field_errors(node, graph)
@@ -147,8 +131,6 @@ def decision_errors(node: PhasedNode, graph: PhasedGraph) -> list[dict[str, str]
 
 
 async def decision_route(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node: PhasedNode) -> Any:
-    """The value the decision routes on now: ``yes``/``no`` for a field, else the source's recorded result —
-    ``otherwise`` when that value has no route of its own and the decision has an otherwise edge."""
     if node.kind != NODE_DECISION:
         raise ValueError(node.id)
     if decision_check(node) == DECISION_CHECK_FIELD:

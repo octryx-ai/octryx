@@ -14,7 +14,7 @@ RECORD_KEY = "run_memory"
 CONTEXT_KEY = "run_memory"
 EVENT_USED = "run_memory_used"
 EVENT_LEARNED = "run_memory_learned"
-SETTING = "run_memory"  # device_runs.run_memory: on by default (DEFAULTS), a Workspace switches it off
+SETTING = "run_memory"
 
 
 @lru_cache(maxsize=1)
@@ -27,7 +27,6 @@ def bounded(text: Any) -> str:
 
 
 def app_of(run: WorkflowRun) -> str:
-    """The run's app folder (``context.app``), ``.`` for the repository root or a run without one."""
     from ..workspace.run_app import run_environment_file
     from ..workspace.spec import app_folder
 
@@ -50,7 +49,6 @@ def memory_of(record: Any, app: str) -> dict[str, list[dict[str, Any]]]:
 
 
 async def remember(db: Any, run: WorkflowRun, kind: str, key: str, entry: dict[str, Any]) -> bool:
-    """Keep ``entry`` under ``kind`` for the run's app (newest first, one per ``key``, bounded); ``True`` if new."""
     from ...observability.workflow_metrics import memory_learned
 
     record = await record_of(db, run)
@@ -70,7 +68,6 @@ async def remember(db: Any, run: WorkflowRun, kind: str, key: str, entry: dict[s
 
 
 async def _enabled(db: Any, run: WorkflowRun) -> bool:
-    """On unless the Workspace switches it off (``device_runs.run_memory: false``): information by default."""
     from ...agent_gateway.policy import load_workspace_policy
     from ...devices.device_runs_keys import device_runs_section
 

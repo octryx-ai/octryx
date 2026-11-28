@@ -1,28 +1,4 @@
-"""Slow repository actions run after the request that reached them, never inside it.
-
-Without this, parallel run starts (17 at once) each ran ``scm.create_branch`` inside ``POST /workflow-runs``:
-the GitHub API, then clone/fetch/checkout of the platform's working copy under the per-repository cache clone lock.
-The starts queued on that lock for minutes, each holding its request transaction; 15 filled the pool (5 + 10), every
-other request failed with a QueuePool timeout and the client gave up after 60 s.
-
-So the engine only marks such a step (:func:`defer`): ``context.deferred_action`` names the pass, the step waits,
-and the request commits and returns. After that commit the step is started in the background (the same post-commit
-hook as ``server_continuation``); the worker's sweep (:func:`sweep_deferred_actions`) starts a step whose start was
-lost (a restart) or whose lease ran out (a crash). The executor (:func:`execute`):
-
-1. claims the run in a short transaction: the marker gets a lease (token, since, attempt) and is committed;
-2. waits for a free executor slot **without a database session** (:func:`max_concurrent`: a third of the process's
-   connection pool; each run clones into its own session workspace, so there is no shared clone lock to wait on);
-3. in one transaction: claims the run again, checks that the pass and the lease are still its own (else it writes
-   nothing), runs the action (``run_platform_action``: ledger, events, failure) and continues the run
-   (``resolve_current_node``), then commits.
-
-Why a bound at all: a step holds its session across its git and HTTP work (``scm.create_branch`` writes to the run
-between them). That is the real cause; the bound is a resource rule tied to the pool, not a throttle: at most a third
-of the pool (5 of 5 + 10) is held by deferred steps, the rest stays for requests, the others wait without a
-connection, and a step's writes stay one transaction. After the alpha the step should hold no session during its I/O
-(OPEN-POINTS); then the bound goes.
-"""
+"""Slow repository actions run after the request that reached them, never inside it."""
 
 from __future__ import annotations
 
@@ -45,12 +21,12 @@ from .states import EVENT_WAITING, STATUS_RUNNING
 
 logger = logging.getLogger(__name__)
 
-DEFERRED_ACTIONS = frozenset({catalog.SCM_CREATE_BRANCH, catalog.SCM_CHECKOUT})  # clone/fetch under the clone lock
+DEFERRED_ACTIONS = frozenset({catalog.SCM_CREATE_BRANCH, catalog.SCM_CHECKOUT})
 MARKER_KEY = "deferred_action"
 STATE_PENDING, STATE_STARTED = "pending", "started"
 LEASE_SECONDS = 10 * 60  # a started step whose executor is gone is started again after this
 MAX_ATTEMPTS = 3
-POOL_SHARE = 3  # deferred steps hold at most 1/POOL_SHARE of the pool (module doc: why)
+POOL_SHARE = 3  # deferred steps hold at most 1/POOL_SHARE of the pool; the rest stays for requests
 _SLOTS: dict[int, asyncio.Semaphore] = {}  # per event loop (a semaphore belongs to the loop it first waits in)
 _AFTER_COMMIT_KEY = "workflow_deferred_actions"
 _EXECUTING: ContextVar[bool] = ContextVar("octryx_deferred_action_executing", default=False)
@@ -60,7 +36,6 @@ RUN_INLINE = False
 
 
 def is_deferred(key: str) -> bool:
-    """True when the step ``key`` is marked and run after the request (never while the executor runs it)."""
     return key in DEFERRED_ACTIONS and not _EXECUTING.get() and not RUN_INLINE
 
 
@@ -94,7 +69,6 @@ def _startable(run: WorkflowRun, marker: dict[str, Any], now: datetime) -> bool:
 
 
 async def defer(db: AsyncSession, run: WorkflowRun, node: PhasedNode, key: str, *, actor_id: str | None) -> None:
-    """Mark the current pass of ``node`` for the executor; it starts once ``db`` commits."""
     _set_marker(run, {"node_id": node.id, "entry": dict(run.node_state or {}).get("entry"), "action": key,
                       "state": STATE_PENDING, "attempts": 0, "actor_id": actor_id})
     record_event(db, run, EVENT_WAITING, node_id=node.id, detail={"action": key, "deferred": True})
@@ -119,7 +93,6 @@ def _drop_pending(sync_session: Any) -> None:
 
 
 def schedule(run_id: str, *, session_factory=None) -> None:
-    """Start the run's deferred step in the background (no-op without a running event loop: the sweep starts it)."""
     from ..chat_turn_background import schedule_chat_turn_background_task
 
     try:
@@ -131,7 +104,6 @@ def schedule(run_id: str, *, session_factory=None) -> None:
 
 
 def max_concurrent() -> int:
-    """Deferred steps holding a connection at once: a third of the pool (``db_pool_size + db_max_overflow``)."""
     from ...config import get_settings
 
     settings = get_settings()
@@ -139,12 +111,10 @@ def max_concurrent() -> int:
 
 
 def executor_slots() -> asyncio.Semaphore:
-    """The process's slots for deferred steps (created in the running event loop on first use)."""
     return _SLOTS.setdefault(id(asyncio.get_running_loop()), asyncio.Semaphore(max_concurrent()))
 
 
 async def _claim(db: AsyncSession, run_id: str) -> tuple[str, str] | None:
-    """Lease the run's deferred pass: ``(token, repository)``, or ``None`` when there is nothing to start."""
     from .records import lock_run
 
     run = await db.get(WorkflowRun, run_id)
@@ -163,7 +133,6 @@ async def _claim(db: AsyncSession, run_id: str) -> tuple[str, str] | None:
 
 
 async def _give_up(db: AsyncSession, run: WorkflowRun, node: PhasedNode, marker: dict[str, Any]) -> None:
-    """A step whose executor never finished in ``MAX_ATTEMPTS`` leases: a failed step (its ``failed`` route)."""
     from .action_failures import record_failure
     from .engine import resolve_current_node
     from .engine_context import _set_context
@@ -208,7 +177,6 @@ async def _run_step(db: AsyncSession, run_id: str, token: str) -> None:
 
 
 async def execute(run_id: str, *, session_factory=None) -> None:
-    """Run the deferred step of ``run_id`` (module doc: claim, wait without a session, act in one transaction)."""
     from ...db import core as db_core
 
     factory = session_factory or db_core.async_session_factory
@@ -232,7 +200,6 @@ async def execute(run_id: str, *, session_factory=None) -> None:
 
 
 async def sweep_deferred_actions(db: AsyncSession, *, now: datetime | None = None) -> int:
-    """Start every deferred step whose start was lost or whose lease ran out; returns how many."""
     now = now or utc_now()
     runs = (await db.execute(select(WorkflowRun).where(WorkflowRun.status == STATUS_RUNNING))).scalars().all()
     due = [run.id for run in runs if _startable(run, _marker(run), now)]

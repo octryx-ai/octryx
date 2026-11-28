@@ -88,7 +88,7 @@
   color: var(--text);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -105,7 +105,7 @@
 .tool-burst__title {
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-burst__count,
@@ -141,12 +141,12 @@
   align-items: center;
   gap: 0.25rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -155,7 +155,7 @@
   content: "";
   width: 0.24rem;
   height: 0.24rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: currentColor;
 }
 

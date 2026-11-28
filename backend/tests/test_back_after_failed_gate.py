@@ -1,6 +1,5 @@
-"""Back in a phase after its gate failed, the agent reads that gate's failed
-checks first: in the pass's prompt (once), at every Stop that finds the phase not done, and in the Stop summary only the
-loops the run took."""
+"""Back in a phase after its gate failed, the agent reads that gate's failed checks first: in the pass's prompt (once),
+at every Stop that finds the phase not done, and in the Stop summary only the loops the run took."""
 
 from __future__ import annotations
 
@@ -13,6 +12,9 @@ from app.services.workflow_runs.octryx import gate_failure
 from app.services.workflow_runs.octryx.contract import contract_summary
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _back_in_work(db):
@@ -41,7 +43,7 @@ async def test_the_failed_gate_is_the_first_thing_the_phase_reads_when_the_run_i
         prompt = next_phase_prompt(run, node)  # the same-turn loop back (size class phase_change: same_turn)
         assert prompt.startswith("Gate 'Evidence read' failed: A source was read")
         assert "moves on to its next phase" not in prompt
-        assert "Gate 'Evidence read' failed" not in _prompt(run, node)  # once
+        assert "Gate 'Evidence read' failed" not in _prompt(run, node)
         assert gate_failure.stop_line(run, "work").startswith("Back here because gate 'Evidence read' failed")
 
 

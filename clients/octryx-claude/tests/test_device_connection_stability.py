@@ -1,16 +1,3 @@
-"""The device stays connected, or says why not.
-
-- D2: a persisted ``revoked`` is asked again at start and periodically; only the platform's own
-  ``device_revoked`` keeps it.
-- D3: a grant or token refusal is a credential problem (one forced refresh), never a revocation; a forced refresh
-  that led to a session does not turn a later 4401 into ``needs_login``.
-- D4: every failed attempt is logged (once a minute per reason) and reported in the status file.
-- D5: after an announced platform restart (1012) the device retries every 1-3 s instead of doubling.
-- D6: an idle device stops at once on SIGTERM / an update.
-- D8: the token provider runs off the event loop.
-- D10: the device reports its build, not the static series version.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -24,8 +11,6 @@ from octryx_claude.state import CREDENTIAL_SET_DEVICE
 from tests.device_channel_support import FakeConnection, FakePlatform, _client, _enabled, _handshake
 from tests.device_connection_stability_support import _revoked_locally, _until
 from tests.test_device_renewal import FakeTokenPlatform, _device_credential
-
-# --- D2 -----------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -104,9 +89,6 @@ def test_a_recheck_answered_device_revoked_keeps_the_flag(state):
 
     assert revocation_check(state, http_factory=platform_tokens.factory(), recheck=True) == "revoked"
     assert device_state.load_device(state)["revoked"] is True
-
-
-# --- D3 -----------------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio

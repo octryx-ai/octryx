@@ -1,8 +1,3 @@
-// A person's name for a device model id, never the raw id ("Model: claude-opus-5-5"). The platform's rows
-// carry the model catalog's display name (backend services/devices/device_models.subscription_model_names); this is
-// the same rule for an id no row names yet (rows not loaded, a model the profile no longer offers, the job header):
-// "claude-opus-5-5" -> "Claude Opus 5.5", "claude-haiku-4-5-20251001" -> "Claude Haiku 4.5". Another shape stays.
-
 const ACRONYMS: Record<string, string> = { gpt: "GPT" };
 
 const MODEL_ID = /^[a-z][a-z0-9.]*(?:-[a-z0-9.]+)*$/;

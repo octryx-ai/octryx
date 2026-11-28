@@ -1,21 +1,5 @@
-"""The work state of a handoff: a WIP branch of the session's git repository (root freeze 3c).
-
-:func:`capture_work_state` records uncommitted and untracked (non-ignored) changes as a WIP commit **without
-touching the user's working tree, index or current branch**:
-
-- a temporary index (``GIT_INDEX_FILE``) is filled from HEAD, ``git add -A`` stages the working tree into it
-  (``.gitignore`` is honoured), secret-bearing paths are reset to HEAD in that index, and ``write-tree`` plus
-  ``commit-tree`` make the commit; the user's ``.git/index``, files and checked-out branch are never written;
-- the commit is authored by the user and based on the current HEAD; a clean tree hands over HEAD itself;
-- each handed-over item gets its own new branch ``octryx-handoff/<KEY>/<user>-<yyyymmdd-hhmm>`` (``update-ref``
-  create-only: an existing branch is never moved).
-
-Secret-bearing paths (:func:`is_secret_path`: the gateway's ``.env``/``.aws`` rules plus ``.env*``, key and
-credential files) are always left out and reported by name, never by content.
-
-:func:`push_branch` pushes exactly that one ref, never forced, and only when the caller allowed it;
-:func:`create_bundle` writes a ``git bundle`` of the branch for the fallback upload.
-"""
+"""The work state of a handoff: a WIP branch of the session's git repository, made without touching the
+user's working tree, index or current branch."""
 
 from __future__ import annotations
 
@@ -69,7 +53,6 @@ class WorkState:
 
 
 def is_secret_path(path: str) -> bool:
-    """Case-insensitive (``ID_RSA``, ``server.PEM``, ``My.Key``; judge-s4c L2)."""
     parts = [part.lower() for part in path.replace("\\", "/").split("/") if part]
     if any(part in SECRET_DIRECTORIES for part in parts[:-1]):
         return True
@@ -104,7 +87,6 @@ def repository_root(cwd: Path | str) -> Path | None:
 
 
 def _remote(root: Path) -> tuple[str, str, list[str]]:
-    """``(name, fetch URL, every push URL)``; push URLs apply ``pushurl`` and ``pushInsteadOf`` (judge-s4c B1)."""
     names = sorted(name for name in git(root, "remote", check=False).splitlines() if name.strip())
     if not names:
         return "", "", []
@@ -120,14 +102,12 @@ _IN_PROGRESS = (("MERGE_HEAD", "merge_in_progress"), ("rebase-merge", "rebase_in
 
 
 def _refuse_in_progress(root: Path) -> None:
-    """judge-s4c L3: a half-done merge, rebase, cherry-pick or revert is no state to hand over."""
     for name, code in _IN_PROGRESS:
         if Path(git(root, "rev-parse", "--path-format=absolute", "--git-path", name)).exists():
             raise WorkStateError(code)
 
 
 def safe_segment(value: str) -> str:
-    """A valid ref component: no ``..``, no ``.lock`` ending, no leading/trailing ``-``/``.``."""
     segment = re.sub(r"\.{2,}", ".", _UNSAFE.sub("-", value)).strip("-.")[:60]
     while segment.lower().endswith(".lock"):
         segment = segment[:-5].rstrip("-.")
@@ -139,7 +119,6 @@ def branch_name(key: str, user: str, now: datetime) -> str:
 
 
 def capture_work_state(root: Path, *, user_name: str, user_email: str, message: str) -> WorkState:
-    """The WIP commit of the working tree (or HEAD when clean); the user's tree, index and branch stay as they were."""
     head = git(root, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
     if not _SHA.match(head):
         raise WorkStateError("head_missing")
@@ -172,7 +151,6 @@ def capture_work_state(root: Path, *, user_name: str, user_email: str, message: 
 
 
 def _require_excluded(root: Path, tree: str, head: str, excluded: list[str]) -> None:
-    """judge-s4c L2: verify that no left-out path differs from HEAD in the WIP tree (a new one is absent)."""
     if not excluded:
         return
     literal = {"GIT_LITERAL_PATHSPECS": "1"}
@@ -183,12 +161,10 @@ def _require_excluded(root: Path, tree: str, head: str, excluded: list[str]) -> 
 
 
 def create_branch(root: Path, branch: str, commit: str) -> None:
-    """A new branch at ``commit``; create-only, so an existing branch is never moved."""
     git(root, "update-ref", f"refs/heads/{branch}", commit, "0" * 40)
 
 
 def free_branch_name(root: Path, branch: str) -> str:
-    """``branch``, or ``branch-2``, ``branch-3``… when a handoff in the same minute already took the name."""
     candidate, number = branch, 1
     while git(root, "rev-parse", "--verify", "--quiet", f"refs/heads/{candidate}", check=False):
         number += 1
@@ -201,9 +177,8 @@ def _normalized(url: str) -> str:
     return (value[:-4] if value.endswith(".git") else value).lower()
 
 
+# Every URL a push really goes to (``pushurl``, ``pushInsteadOf``) must be registered.
 def may_push(policy_push: str, remote_url: str, registered: list[str], push_urls: list[str] | None = None) -> bool:
-    """Only with ``push: branch`` and only when the remote **and every URL a push really goes to** (``git remote
-    get-url --push --all``: ``pushurl``, ``pushInsteadOf``) is a registered repository (judge-s4c B1)."""
     if policy_push != "branch" or not remote_url or not push_urls:
         return False  # the push targets are unknown: never push (fail closed)
     allowed = {_normalized(url) for url in registered if url}
@@ -216,11 +191,6 @@ PUSH_FLAGS = ("--no-verify", "--no-follow-tags", "--recurse-submodules=no")
 
 
 def push_branch(state: WorkState, branch: str, registered: list[str] | None = None) -> bool:
-    """Push exactly ``refs/heads/<branch>``: never forced, no tags, no submodules, no other ref; ``False`` otherwise.
-
-    The real push targets must be the checked ones: every push URL must be registered (``registered``) or, without
-    that list, equal to the remote URL ``may_push`` checked. A ``pushurl``/``pushInsteadOf`` elsewhere refuses.
-    """
     if not state.remote_name or not state.push_urls:
         return False
     if registered is not None:
@@ -237,7 +207,6 @@ def push_branch(state: WorkState, branch: str, registered: list[str] | None = No
 
 
 def create_bundle(state: WorkState, branch: str, target: Path) -> bytes:
-    """A bundle of the branch; thin (``--not --remotes``) when that leaves something, else the full branch."""
     if git(state.root, "rev-list", "-n", "1", f"refs/heads/{branch}", "--not", "--remotes", check=False):
         git(state.root, "bundle", "create", "-q", str(target), f"refs/heads/{branch}", "--not", "--remotes",
             check=False)

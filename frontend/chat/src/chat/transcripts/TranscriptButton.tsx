@@ -14,7 +14,6 @@ export function TranscriptIcon() {
   );
 }
 
-/** The viewer for `items`, opened by whatever control the page renders. */
 export function useTranscriptViewer(items: TranscriptItem[]) {
   const [open, setOpen] = useState(false);
   return {
@@ -24,10 +23,6 @@ export function useTranscriptViewer(items: TranscriptItem[]) {
   };
 }
 
-/**
- * A quiet "Transcript" text link that appears only when the session, run or device job has a stored transcript
- * (run details, device job line). Renders nothing otherwise.
- */
 export function TranscriptLink({ projectId, filter, testId = "transcript-link" }: {
   projectId: string | null | undefined;
   filter: TranscriptFilter;

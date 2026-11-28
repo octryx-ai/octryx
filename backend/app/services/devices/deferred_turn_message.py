@@ -1,12 +1,4 @@
-"""A run continuation's prompt reaches the chat only when its agent turn really starts.
-
-The launcher runs a run's pending CI pipeline and hands-on test before the agent of the turn (``device_session``):
-green ends the job with ``pipeline_done`` / ``hands_on_done`` and no agent runs; only then, or when there was nothing
-to run first, does it accept the turn (``job_accepted``). Storing the continuation's prompt as the thread's user
-message when the turn is offered would leave "the CI pipeline ran … and they are red … Fix exactly that" in the
-chat after every green pipeline. So the message waits on the thread (:data:`PENDING_KEY`) and is stored at
-``job_accepted`` (:func:`release`); a rejected turn, any reason, drops it (:func:`drop`).
-"""
+"""A run continuation's prompt reaches the chat only when its agent turn really starts."""
 
 from __future__ import annotations
 
@@ -19,11 +11,11 @@ from ...models import Message, Session
 PENDING_KEY = "pending_turn_message"
 
 
-def hold(thread: Session, *, job_id: str, turn_id: str, prompt: str, idempotency_key: str | None) -> None:
-    """Keep the turn's prompt on the thread until the device accepts the turn."""
+def hold(thread: Session, *, job_id: str, turn_id: str, prompt: str, idempotency_key: str | None,
+         author_user_id: str | None = None) -> None:
     metadata = dict(thread.metadata_ or {})
     metadata[PENDING_KEY] = {"job_id": job_id, "turn_id": turn_id, "prompt": prompt,
-                             "idempotency_key": idempotency_key}
+                             "idempotency_key": idempotency_key, "author_user_id": author_user_id}
     thread.metadata_ = metadata
 
 
@@ -42,18 +34,16 @@ def _clear(thread: Session) -> None:
 
 
 async def release(db: AsyncSession, job: Any) -> bool:
-    """At ``job_accepted``: the held prompt becomes the thread's user message; ``False`` when none was held."""
     thread, held = await _pending(db, job)
     if thread is None:
         return False
     db.add(Message(session_id=thread.id, role="user", content=str(held.get("prompt") or ""),
-                   idempotency_key=held.get("idempotency_key")))
+                   idempotency_key=held.get("idempotency_key"), author_user_id=held.get("author_user_id")))
     _clear(thread)
     return True
 
 
 async def drop(db: AsyncSession, job: Any) -> bool:
-    """At ``job_rejected``: no agent turn ran, so the prompt never reaches the chat."""
     thread, _held = await _pending(db, job)
     if thread is None:
         return False

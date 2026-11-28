@@ -1,29 +1,4 @@
-"""Graph extraction profiles as validated data (``profiles/*.json``; open point K4).
-
-A profile says how Graphiti extracts one revision's spans. It is data, not code, so adding a domain
-(a payment scheme's change log, a legal register) is a JSON file plus a test. Each file holds:
-
-- ``key`` and ``version``: the profile id ``<key>-v<version>`` is recorded with every episode
-  (``knowledge_graph_episodes.extraction_profile``). Any change to the types, their descriptions
-  or the instructions needs a new version, because episodes of a profile that is no longer
-  loaded are purged and re-extracted (``profile_migration.py``);
-- ``applies_to``: which revisions the profile extracts. ``revisions`` is ``versioned_product``
-  (the revision carries a product and a version) or ``any``. ``products`` optionally narrows it
-  to revisions whose graph group (their first product) is listed;
-- ``edge_types``: the closed fact types Graphiti offers the model, in prompt order. Each has its
-  ``name``, the ``model`` class name Graphiti receives, the ``description`` the model reads, and
-  ``action_required`` (whether the fact can require a change in existing code);
-- ``instructions``: the custom extraction instructions, one line per entry, with the
-  placeholders ``{product}`` and ``{version}`` only; ``null`` for none;
-- ``self_check``: whether the fact answer carries the typed ``states_version_change`` check
-  (``change_self_check.py``). It needs edge types and versioned revisions.
-
-Loading is strict and fails when the catalog is read: an unknown or missing field, a duplicate
-JSON key, a duplicate profile id or edge type, a placeholder other than the two, and two profiles
-that could claim the same revision are all refused. Exactly one profile applies to any revision.
-Selection is deterministic: a profile narrowed to products before one for every product, then a
-versioned one before one for any revision.
-"""
+"""Graph extraction profiles as validated data (``profiles/*.json``). A profile is data, not code."""
 
 from __future__ import annotations
 
@@ -56,7 +31,7 @@ MAX_INSTRUCTION_LINE_CHARS = 1000
 
 
 class ExtractionProfileError(ValueError):
-    """A profile file the catalog refuses; the message names the file and the rule, never content."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,7 +188,6 @@ def _specificity(profile: ExtractionProfile) -> tuple[int, int]:
 
 
 def build_catalog(paths: list[Path]) -> dict[str, ExtractionProfile]:
-    """The validated catalog of these files, keyed by profile id, in selection order."""
     profiles = [load_profile(path) for path in sorted(paths)]
     catalog: dict[str, ExtractionProfile] = {}
     for path, profile in zip(sorted(paths), profiles, strict=True):
@@ -233,14 +207,12 @@ def build_catalog(paths: list[Path]) -> dict[str, ExtractionProfile]:
 
 @cache
 def extraction_profiles() -> dict[str, ExtractionProfile]:
-    """The loaded catalog (``profiles/*.json``), keyed by profile id."""
     return build_catalog(list(PROFILE_DIR.glob("*.json")))
 
 
 def select_profile(
     products: tuple[str, ...], version: str | None, catalog: dict[str, ExtractionProfile] | None = None
 ) -> ExtractionProfile:
-    """The one profile that extracts a revision with these products and this version."""
     profiles = extraction_profiles() if catalog is None else catalog
     return next(profile for profile in profiles.values() if profile.applies_to(tuple(products), version))
 

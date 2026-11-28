@@ -1,38 +1,4 @@
-"""Write a gateway qualification report to the allowlisted evidence path.
-
-Qualification evidence is operator-facing, so it is written to a file rather than
-only logged. That makes the *destination* a security decision: a caller must not be
-able to steer the write into the source tree, a deployment manifest, a dotfile, or
-anywhere outside the repository. One allowlisted root exists —
-``<repo>/evidence/`` (git-ignored)
-— and this module refuses everything else.
-
-The payload is validated the same way: the report is already built from the closed
-evidence allowlist (``evidence.py``, ``qualification.py``), and this module
-re-checks it before writing, rejecting any sensitive-looking key and any string
-that could be a URL or an authorization header. A leak therefore has to defeat two
-independent structural guards, not one filter.
-
-Some values are admitted by shape rather than by that generic scan, and only
-under the closed keys that are *defined* to hold them: a bare host, a rendered
-network hop rule, an operator- or cluster-supplied identifier, and a request
-path (``evidence_value_shape``). The shared policy matches a credential prefix
-as a substring, which is right for free text but refuses an ordinary internal
-hostname such as ``litellm.nonprod.example.com``, a cluster model
-group such as ``task-router``, and a governance reference such as
-``desk-pricing-2026`` — ``desk-``, ``task-`` and ``nonprod`` all contain
-``sk-``. A key, a token, an auth header or a credential-bearing URL under those
-same keys still fails closed, because none of them has the promised shape.
-
-A refusal names the closed evidence key it came from, so an operator can act on
-it. The key is echoed only when it is one of the closed evidence keys, so the
-message stays a fixed code plus a known label.
-
-Numbers are checked too: a ``NaN`` or an infinity has no JSON representation, so
-it is refused here *and* the encoder runs with ``allow_nan=False``. An evidence
-file is read by other tools, and ``NaN``/``Infinity`` are a Python extension
-that a strict JSON parser rejects.
-"""
+"""Write a gateway qualification report to the allowlisted evidence path ``<repo>/evidence/``."""
 
 from __future__ import annotations
 
@@ -65,13 +31,8 @@ EVIDENCE_SUFFIX = ".json"
 
 
 class EvidenceWriteDeniedError(Exception):
-    """Fixed-code refusal. Carries no path, no payload, and no OS message.
-
-    ``denial_field`` names the closed evidence key the refusal came from, and is
-    echoed only when it really is one of those keys — so the message stays a
-    fixed code plus a known label, and an operator is not left with a refusal
-    that names nothing to fix.
-    """
+    """Fixed-code refusal without path, payload or OS message; ``denial_field`` is echoed only when it is a closed
+    evidence key."""
 
     def __init__(self, denial_reason: str, *, denial_field: str = ""):
         field_name = denial_field if denial_field in ECHOABLE_EVIDENCE_KEYS else ""
@@ -81,18 +42,10 @@ class EvidenceWriteDeniedError(Exception):
         self.denial_field = field_name
 
 
+# Every component is checked after symlink resolution against the constructed canonical <repo>/evidence: a symlinked
+# evidence folder resolves inside its own resolved parent while both have left the repository, so resolving the root
+# alone is not enough.
 def resolve_evidence_path(*, repo_root: Any, slug: Any, filename: Any) -> Path:
-    """Resolve ``<repo>/evidence/<slug>/<filename>.json``, or refuse.
-
-    Every path component is checked *after* symlink resolution, and the resolved
-    evidence root has to still be the canonical ``<repo>/evidence`` under
-    the resolved repository root. Resolving the root alone is not enough: it is
-    exactly what a symlinked ``evidence`` folder exploits, because the resolved
-    target then sits faithfully inside its own resolved parent while both have
-    left the repository. Comparing against the constructed canonical location
-    instead refuses that, and refuses it before any directory is created.
-    """
-
     if not isinstance(repo_root, (str, Path)) or not str(repo_root).strip():
         raise EvidenceWriteDeniedError(EVIDENCE_DENIAL_REPO_ROOT_INVALID) from None
     root = Path(str(repo_root)).expanduser()
@@ -137,26 +90,10 @@ def write_qualification_evidence(
     return target
 
 
+# Opened relative to already-open parents with O_DIRECTORY|O_NOFOLLOW, so the check and the write describe one object;
+# written to a private temporary inode and renamed relative to the slug descriptor, so an existing hardlink is replaced,
+# never truncated; ELOOP or ENOTDIR is a path refusal.
 def _write_private_json(target: Path, payload: Mapping[str, Any]) -> str:
-    """Create ``target`` through its directory descriptor, or return a denial code.
-
-    ``resolve_evidence_path`` already refuses a symlinked evidence root, slug
-    directory or report file — but it decides that on a resolved path, and the
-    write happens later. This is the same discipline the CA bundle read applies
-    (``ca_bundle._read_bounded_regular_file``), so the check and the write
-    cannot describe different filesystem objects:
-
-    - every component below the resolved repository root (``evidence`` and the
-      slug) is opened relative to its already-open parent
-      with ``O_DIRECTORY|O_NOFOLLOW``; an intermediate symlink swap therefore
-      cannot redirect the final open;
-    - the report is written to a new private temporary inode and atomically
-      renamed relative to the slug descriptor. Existing hardlinks are replaced,
-      never truncated, so an allowlisted name cannot modify another inode;
-    - ``ELOOP``/``ENOTDIR`` is reported as a path refusal, because that is what a
-      symlink appearing under a validated path means.
-    """
-
     if not _descriptor_relative_writes_supported():
         return EVIDENCE_DENIAL_WRITE_FAILED
     if (

@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Strin
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -33,7 +34,8 @@ class CapabilityType(Base):
     workspace_bindings = relationship("WorkspaceCapabilityBinding", back_populates="capability_type")
 
 
-class WorkspaceCapabilityBinding(Base):
+class WorkspaceCapabilityBinding(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workspace_capability_bindings"
     __table_args__ = (
         UniqueConstraint("workspace_id", "binding_key", name="uq_workspace_capability_bindings_workspace_key"),
@@ -63,7 +65,8 @@ class WorkspaceCapabilityBinding(Base):
     capability_type = relationship("CapabilityType", back_populates="workspace_bindings")
 
 
-class WorkspacePolicy(Base):
+class WorkspacePolicy(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workspace_policy"
     __table_args__ = (UniqueConstraint("workspace_id", name="uq_workspace_policy_workspace_id"),)
 

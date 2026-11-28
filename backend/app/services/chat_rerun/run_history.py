@@ -1,12 +1,4 @@
-"""Append-only run history across a chat re-run.
-
-A re-run replaces the conversation after the target message, but what already happened stays
-recorded: approvals, turn traces and usage events are never deleted. The
-replaced run's records are marked superseded instead — a still-pending approval is cancelled
-so it cannot be decided into the new run, and traces drop their link to
-the removed message while keeping it in a ``superseded`` marker. Usage events are left as they
-are: the spend happened and still counts.
-"""
+"""Append-only run history across a chat re-run."""
 
 from __future__ import annotations
 
@@ -94,7 +86,6 @@ async def supersede_rerun_history(
     later_message_ids: list[str],
     superseded_at: datetime,
 ) -> None:
-    """Mark the replaced run's approvals and traces superseded (no deletes)."""
     await _cancel_pending_approvals(db, session_id=session_id, cutoff=cutoff, superseded_at=superseded_at)
     window = {"session_id": session_id, "cutoff": cutoff, "later_message_ids": later_message_ids}
     await _supersede_traces(db, **window, superseded_at=superseded_at)

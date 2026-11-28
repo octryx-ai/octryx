@@ -1,15 +1,4 @@
-"""A run's opened pull request moves its Work item to Review on the board.
-
-Like the coding path (``lifecycle_transitions``: agent start -> development, pull request -> review), a workflow
-run moves its Work item at this flow point, so a story's epic-delivery run with its pull request open is in Review
-on the board, as epic-delivery says the platform keeps "the work item's status".
-
-An epic is not moved: its run's pull request carries the specification, and its stories are built afterwards, each
-with its own pull request. The move is best effort through the write-back mapping (a Jira item follows its configured
-definition, a platform item the shared states, a Jira item without a definition Jira's status category,
-``jira_default_states``); it never fails the pull request step. The epic of a story moves to development (Jira "In
-Progress") when the story starts and when its pull request opens; done stays for the merge (the person merges).
-"""
+"""A run's opened pull request moves its Work item to Review on the board."""
 
 from __future__ import annotations
 
@@ -21,13 +10,11 @@ from ....models.runtime.secure_work import WorkItem
 from ..records import record_event
 
 EVENT_KIND = "work_state"
-STATE_DEVELOPMENT, STATE_REVIEW = "development", "review"  # lifecycle_transitions' keys
+STATE_DEVELOPMENT, STATE_REVIEW = "development", "review"
 
 
 async def move_item(db: AsyncSession, run: WorkflowRun, item: WorkItem, user: User, to_state: str,
                     reason: str) -> dict:
-    """Move ``item`` through its write-back definition; a Jira item without one moves by Jira's status category
-    (``jira_default_states``). The outcome is a ``work_state`` run event."""
     from ...secure_work.jira.jira_default_states import move_by_status_category  # noqa: PLC0415
     from ...secure_work.lifecycle_transitions import auto_transition_work_item  # noqa: PLC0415
 
@@ -52,9 +39,6 @@ async def _epic_of(db: AsyncSession, item: WorkItem) -> WorkItem | None:
 
 
 async def epic_in_progress(db: AsyncSession, run: WorkflowRun, story: WorkItem, user: User | None) -> None:
-    """A story of an epic runs: the epic is in development (Jira "In Progress") while its stories run.
-
-    Without it, the epic stayed "To Do" while its stories were built."""
     epic = await _epic_of(db, story) if user is not None else None
     if epic is not None and str(epic.work_state or "") in ("", "intake", "clarification", "ready_for_plan", "planning",
                                                           "plan_review", "ready_for_development"):
@@ -63,7 +47,6 @@ async def epic_in_progress(db: AsyncSession, run: WorkflowRun, story: WorkItem, 
 
 
 async def pull_request_opened(db: AsyncSession, run: WorkflowRun, item: WorkItem, user: User | None) -> None:
-    """Move ``item`` to Review (its epic to development) and record the outcomes on the run (``work_state``)."""
     if user is None or str(item.issue_type or "").strip().lower() == "epic":
         return
     await move_item(db, run, item, user, STATE_REVIEW, f"Workflow run '{run.title}' opened its pull request.")

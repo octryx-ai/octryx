@@ -1,8 +1,4 @@
-"""Call monitoring/debugging panel API endpoints.
-
-Exposes live in-memory call state (active calls, transcript segments,
-enrollment sessions, playback locks) for real-time debugging via the admin UI.
-"""
+"""Call monitoring and debugging panel API endpoints."""
 
 from __future__ import annotations
 
@@ -21,25 +17,14 @@ router = APIRouter()
 
 @router.get("/chat/api/panel/calls/live")
 async def panel_live_calls(request: Request, db: AsyncSession = Depends(get_db)):
-    """Return live in-memory state of all active Teams calls.
-
-    This is used by the call monitoring page to show real-time call state:
-    - Active calls and their metadata
-    - Transcript segments per call
-    - Whether bot is currently speaking
-    - Enrollment sessions in progress
-    - Recording queue status
-    """
+    """Return live in-memory state of all active Teams calls."""
     await _require_admin_api(request, db)
     return JSONResponse(build_live_calls_payload())
 
 
 @router.get("/chat/api/panel/calls/{call_id}/events")
 async def panel_call_events(call_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    """Return the message history from the DB session for a specific call.
-
-    Works for both live calls (from memory) and ended calls (from DB).
-    """
+    """Return the message history from the DB session for a specific call."""
     await _require_admin_api(request, db)
     return JSONResponse(await build_call_events_payload(db, call_id))
 
@@ -51,12 +36,7 @@ async def panel_call_log(
     call_id: str | None = None,
     limit: int = 150,
 ):
-    """Return call-debug lines from the uvicorn log, optionally filtered by call_id.
-
-    Args:
-        call_id: If provided, only return log lines containing this call ID.
-        limit: Max lines to return (default 150).
-    """
+    """Return call-debug lines from the uvicorn log, optionally filtered by call_id."""
     await _require_admin_api(request, db)
     bounded_limit = max(1, min(int(limit or 150), 500))
     lines = read_call_log_lines(call_id, bounded_limit)
@@ -70,10 +50,7 @@ async def panel_call_history(
     limit: int = 50,
     search: str | None = None,
 ):
-    """Return recent calls from the DB (both active and completed).
-
-    Supports searching by call_id, db_session_id, caller name, or date (YYYY-MM-DD).
-    """
+    """Return recent calls from the DB (both active and completed)."""
     await _require_admin_api(request, db)
 
     from ...models import Session as OctryxSession

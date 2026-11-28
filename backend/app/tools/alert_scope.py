@@ -1,14 +1,4 @@
-"""The alert scope of a tool call: the mapped target and window of the run the session is bound to.
-
-An alert-started run of incident analysis carries its mapped target (``context.alert_target``) and the alert
-window (``context.alert.window``). The evidence tools read both here, from the server's run record and never
-from the model's parameters, and bind their query to them: Kubernetes to the target's namespace (and connection),
-Loki and Prometheus to its selectors and the window, Jenkins to its jobs. ``None``: the call is not under an alert
-scope (chat, or a run without a mapped target) and the tools behave.
-
-The helpers here are pure: the time window arithmetic (RFC3339, ``since``, the 24 h span cap, the clamp to the
-scope) and the selector containment check for LogQL and PromQL.
-"""
+"""The alert scope of a tool call: the mapped target and window of the run the session is bound to."""
 
 from __future__ import annotations
 
@@ -55,7 +45,6 @@ def _section(target: Mapping[str, Any], key: str) -> Mapping[str, Any]:
 
 
 def scope_from(target: Mapping[str, Any] | None, window: tuple[datetime, datetime | None] | None) -> AlertScope | None:
-    """The scope of an alert target context (``AlertTarget.as_context``) and the alert window."""
     if not isinstance(target, Mapping):
         return None
     target_id = _text(target.get("id") or target.get("target_id"))
@@ -77,7 +66,6 @@ def scope_from(target: Mapping[str, Any] | None, window: tuple[datetime, datetim
 
 
 async def run_alert_scope(context: ToolContext) -> AlertScope | None:
-    """The alert scope of the run ``context``'s session is bound to; ``None`` without one."""
     if context.db is None or not context.session_id:
         return None
     from ..services.workflow_checks.evidence_families import _alert_readers
@@ -123,13 +111,6 @@ def parse_duration(value: Any) -> timedelta | None:
 
 def query_window(params: Mapping[str, Any], scope: AlertScope | None, *, now: datetime,
                  default_span: timedelta = DEFAULT_SPAN) -> tuple[datetime, datetime] | str:
-    """``(start, end)`` of a query, or the refusal code.
-
-    ``start``/``end`` (RFC3339) and ``since`` (``30m``) come from the model; the default is the scope's window, else
-    the last ``default_span``. Under a scope the window is clamped to the scope's (``end`` defaults to the query
-    time); a window wholly outside it is refused. The span is at most 24 h: under a scope a longer one keeps its
-    start (the alert's onset), otherwise its end.
-    """
     now = as_utc(now)
     raw_start, raw_end, since = params.get("start"), params.get("end"), params.get("since")
     start, end = parse_rfc3339(raw_start), parse_rfc3339(raw_end)
@@ -165,7 +146,6 @@ _PROMQL_WORDS = frozenset({"and", "or", "unless", "bool", "offset", "by", "witho
 
 
 def selector_matchers(selector: str | None) -> dict[str, str]:
-    """The exact ``label="value"`` matchers of a target selector (``{namespace="shop",app="checkout"}``)."""
     return {name: value for name, op, value in _MATCHER.findall(str(selector or "")) if op == "="}
 
 
@@ -189,7 +169,6 @@ def logql_scope_refusal(query: str, selector: str | None) -> str | None:
 
 
 def promql_scope_refusal(query: str, selector: str | None) -> str | None:
-    """PromQL: every vector selector names the target's labels exactly, and no bare metric name selects others."""
     required = selector_matchers(selector)
     if not required:
         return None

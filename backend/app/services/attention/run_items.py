@@ -33,7 +33,6 @@ def _iso(value: Any) -> str | None:
 
 
 async def run_context(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
-    """``workspace``, ``run``, ``work_item`` and ``session_id`` of an entry about ``run``."""
     from ..workflow_runs.records import main_session_id
 
     workspace = await db.get(Project, run.project_id) if run.project_id else None
@@ -47,7 +46,6 @@ async def run_context(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
 
 
 async def _node_title(db: AsyncSession, run: WorkflowRun) -> str:
-    """The current node's display title (its id when the flow cannot be read)."""
     from ..workflow_runs.views import run_nodes
 
     try:
@@ -91,8 +89,6 @@ def _text(run: WorkflowRun, kind: str) -> str:
 
 
 async def run_entries(db: AsyncSession, user: User) -> list[dict[str, Any]]:
-    """The person's own runs, and the runs they are responsible for: a run of
-    someone else is listed only while it offers the person a decision (their actions are their run access's)."""
     from ..workflow_runs.access import run_access
     from ..workflow_runs.actions import available_actions
 
@@ -131,7 +127,6 @@ async def run_entries(db: AsyncSession, user: User) -> list[dict[str, Any]]:
 
 
 async def finished_entries(db: AsyncSession, user: User, dismissed: set[str]) -> list[dict[str, Any]]:
-    """The person's runs that ended delivered within the last 72 hours and were not dismissed."""
     rows = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.requested_by == user.id, WorkflowRun.status == "completed",
         WorkflowRun.completed_at >= (utc_now() - DONE_WITHIN).replace(tzinfo=None),
@@ -155,28 +150,4 @@ async def finished_entries(db: AsyncSession, user: User, dismissed: set[str]) ->
     return entries
 
 
-async def handover_entries(db: AsyncSession, user: User) -> list[dict[str, Any]]:
-    """Runs someone wants to hand over to the person: accept or decline."""
-    from ..workflow_runs.run_handover import handover, pending_for_user
-
-    entries: list[dict[str, Any]] = []
-    for run in await pending_for_user(db, user):
-        value = handover(run)
-        giver = await db.get(User, str(value.get("from") or ""))
-        context = await run_context(db, run)
-        name = (giver.display_name or giver.username) if giver is not None else "someone"
-        path = f"/api/v1/workflow-runs/{run.id}/handover"
-        entries.append({
-            "key": f"handover:{run.id}:{value.get('at')}", "kind": "handover", "id": run.id, "title": run.title,
-            "subtitle": f"from {name}", "text": str(value.get("reason") or ""),
-            "branch": value.get("branch"), "created_at": value.get("at"), "severity": "action", **context,
-            "link": _link(context),
-            "actions": [action("accept", "Take over", path=f"{path}/accept", tone="primary"),
-                        action("decline", "Decline", path=f"{path}/decline", body={},
-                               input_={"kind": "text", "field": "reason", "label": "Why not?", "placeholder": "",
-                                       "required": False})],
-        })
-    return entries
-
-
-__all__ = ["finished_entries", "handover_entries", "run_context", "run_entries"]
+__all__ = ["finished_entries", "run_context", "run_entries"]

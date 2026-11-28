@@ -19,7 +19,6 @@ DEFAULT_HOME = Path.home() / ".octryx" / "claude"
 
 
 def session_dir(env: Any = None) -> Path | None:
-    """The hook's session folder (``LocalState.session_dir`` without importing it), ``None`` without a session."""
     source = os.environ if env is None else env
     try:
         key = str(uuid.UUID(str(source.get(SESSION_ENV) or "")))
@@ -38,7 +37,6 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def load_policy(folder: Path | None) -> dict[str, Any] | None:
-    """The session's local decision policy, ``None`` when this session decides nothing locally."""
     if folder is None:
         return None
     policy = _read_json(folder / POLICY_FILE)
@@ -46,8 +44,6 @@ def load_policy(folder: Path | None) -> dict[str, Any] | None:
 
 
 def write_policy(folder: Path, offered: dict[str, Any], *, root: str, state_root: str) -> dict[str, Any]:
-    """The offer's ``local_decisions`` block plus what only the device knows (the repository folder, its own state
-    folder), written private next to the session's other state."""
     policy = {
         "root": os.path.realpath(root),
         "state_root": str(state_root),

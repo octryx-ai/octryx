@@ -1,5 +1,5 @@
-// Render guards for admin parts split into smaller functions: the evidence grounding card, the models overview, the
-// REST definition fields, the turn explainer, the REST add panel with its import result, and the setup guide card
+// Render guards for admin parts split into smaller functions: the models overview, the
+// REST definition fields, the turn explainer, and the REST add panel with its import result
 // render the same structure and make the same calls.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -8,40 +8,6 @@ import { act, byTestId, text, tick } from "./settingsRenderHarness.mjs";
 import { all, buttons, create, createAsync, includesAll, plain } from "./adminGuardRenderers.mjs";
 import { jsonRoutes, loadStubbed, stubs } from "./adminGuardStubLoader.mjs";
 import { button, hostCount } from "./adminGuardTreeReaders.mjs";
-
-test("the evidence grounding card loads the list in words and saves or resets it", async () => {
-  const requests = [];
-  let answer = { ok: true, data: { high_risk_agent_types: ["document_updater"], high_risk_agent_types_source: "configured",
-    default_high_risk_agent_types: ["document_updater", "code-reviewer"] } };
-  const governed = { governedRequest: async (url, init) => { requests.push([url, init.method, init.body]); return answer; } };
-  const { RuntimeEvidenceGroundingSection } = loadStubbed("admin/components/runtimeTab/RuntimeEvidenceGroundingSection.tsx",
-    ["/GovernedIssueList"], {}, { "/governedRequest": governed });
-  const view = await createAsync(createElement(RuntimeEvidenceGroundingSection));
-  includesAll(text(view.root), ["Evidence grounding", "A saved list applies", " · default: Document updater, Code reviewer",
-    "High-risk agent types (one per line)", "Save agent types", "Reset to the default list"]);
-  assert.equal(all(view, "textarea")[0].props.value, "document_updater");
-  assert.equal(hostCount(view), 12);
-  act(() => all(view, "textarea")[0].props.onChange({ target: { value: "a\nb, a" } }));
-  answer = { ok: true, data: { high_risk_agent_types: ["a", "b"], high_risk_agent_types_source: "configured" } };
-  await act(async () => button(view, "Save agent types").props.onClick());
-  await tick();
-  assert.deepEqual(plain(requests[1].slice(1)), ["PUT", { high_risk_agent_types: ["a", "b"] }]);
-  includesAll(text(view.root), ["High-risk agent types saved."]);
-  answer = { ok: true, data: {} };
-  await act(async () => button(view, "Reset to the default list").props.onClick());
-  await tick();
-  assert.deepEqual(plain(requests[2][2]), { high_risk_agent_types: null });
-  includesAll(text(view.root), ["Reset to the default list.", "The default list applies"]);
-  assert.equal(button(view, "Reset to the default list").props.disabled, true);
-  answer = { ok: false, issues: [{ path: "x", message: "bad" }] };
-  await act(async () => button(view, "Save agent types").props.onClick());
-  await tick();
-  assert.equal(plain(stubs(view, "GovernedIssueList")[0].props.issues).length, 1);
-  const loading = create(createElement(loadStubbed("admin/components/runtimeTab/RuntimeEvidenceGroundingSection.tsx",
-    ["/GovernedIssueList"], {}, { "/governedRequest": { governedRequest: () => new Promise(() => {}) } }).RuntimeEvidenceGroundingSection));
-  includesAll(text(loading.root), ["Loading…"]);
-  assert.equal(button(loading, "Save agent types").props.disabled, true);
-});
 
 const overview = {
   workspaces: 3, platform_default: "Haiku",
@@ -173,28 +139,4 @@ test("the REST add panel imports or adds by hand, and the import result sets the
   assert.equal(byTestId(view, "rest-import-template").length, 1);
   act(() => byTestId(view, "rest-import-open")[0].props.onClick());
   assert.deepEqual(opened, ["d2", "d1"]);
-});
-
-test("the setup guide card shows stats and steps and asks once before starting the local model", () => {
-  const { ProvidersSetupGuideCard } = loadStubbed("admin/components/providerTab/ProvidersSetupGuideCard.tsx", []);
-  const actions = [];
-  const setupGuide = { ready: false, summary: "", stats: { active_provider_count: 2, api_provider_count: 1, local_provider_count: 1,
-    active_runtime_count: 0 }, steps: [
-    { key: "a", title: "Provider", status: "completed", description: "d", detail: "ok", blocking: true, action: "add", action_label: "Add" },
-    { key: "b", title: "Local model", status: "open", description: "d", detail: "", blocking: true, action: "configure_local_anchor",
-      action_label: "Set up" },
-    { key: "c", title: "Keys", status: "open", description: "d", detail: "x", blocking: false, action: "keys", action_label: "Rotate" },
-    { key: "d", title: "Info", status: "open", description: "d", detail: "", blocking: false, action: "", action_label: "" }] };
-  const view = create(createElement(ProvidersSetupGuideCard, { ctx: { setupGuide, handleSetupGuideAction: (name) => actions.push(name) } }));
-  includesAll(text(view.root), ["Platform setup guide", "Needs action", "2 active", "1 API", "0 runtimes",
-    "Ready", "Required", "Recommended", "Set up", "Rotate"]);
-  assert.deepEqual(buttons(view), ["Set up", "Rotate"]);
-  assert.equal(all(view, "details")[0].props.open, true);
-  assert.equal(hostCount(view), 35);
-  act(() => button(view, "Set up").props.onClick());
-  assert.deepEqual(actions, []);
-  act(() => button(view, "Confirm: start it now").props.onClick());
-  act(() => button(view, "Rotate").props.onClick());
-  assert.deepEqual(actions, ["configure_local_anchor", "keys"]);
-  assert.equal(create(createElement(ProvidersSetupGuideCard, { ctx: { setupGuide: null } })).toJSON(), null);
 });

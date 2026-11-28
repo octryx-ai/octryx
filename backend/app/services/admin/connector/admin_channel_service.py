@@ -1,9 +1,4 @@
-"""Admin-panel service helpers for channel management.
-
-Channel instances, channel and call sessions, and the shared serialization live in
-the ``_admin_channel_*`` modules next to this one; importers use those modules. The Teams
-delivery targets, with the target formats the panel explains, stay in this module.
-"""
+"""Admin-panel service helpers for channel management."""
 
 from __future__ import annotations
 
@@ -92,7 +87,7 @@ async def create_channel_delivery_target(
     admin_id: str,
 ) -> dict[str, Any]:
     project_id = str(body.get("project_id") or "").strip() or None
-    await require_existing_workspace(db, project_id)  # an admin panel route: platform admins see every Workspace
+    await require_existing_workspace(db, admin_id, project_id)
     event_type = str(body.get("event_type") or "").strip()
     target = str(body.get("target") or "").strip()
     channel_config_id = body.get("channel_config_id")

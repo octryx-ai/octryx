@@ -82,7 +82,6 @@ async def save_uploaded_corp_identity_profile(
 
 
 def _upload_suffix(file_name: str) -> tuple[str, str]:
-    """The upload's suffix and its document type; refuses a file that is no supported template."""
     suffix = Path(file_name or "template.potx").suffix.lower()
     supported_suffixes = {item for suffixes in CORP_IDENTITY_TEMPLATE_SUFFIXES.values() for item in suffixes}
     if suffix not in supported_suffixes:
@@ -98,7 +97,6 @@ def _upload_suffix(file_name: str) -> tuple[str, str]:
 
 
 def _write_upload_source(svc: Any, profile_id: str, file_name: str, file_bytes: bytes) -> tuple[Path, Path, str]:
-    """Store the upload under the new profile's ``source`` folder: ``(profile_root, source_path, safe_name)``."""
     profile_root = svc._profile_root(profile_id)
     source_dir = profile_root / "source"
     source_dir.mkdir(parents=True, exist_ok=True)
@@ -111,7 +109,6 @@ def _write_upload_source(svc: Any, profile_id: str, file_name: str, file_bytes: 
 def _extract_presentation(
     svc: Any, source_path: Path, profile_root: Path, profile_id: str, profile_name: str
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Extract a presentation template; a failed extraction leaves no half-written profile root behind."""
     try:
         extraction = _extract_corp_identity_profile(
             source_path,
@@ -196,7 +193,6 @@ async def _save_non_presentation_profile(
 def _write_office_profile_files(
     svc: Any, profile_root: Path, *, doc_type: str, guide: str, brand_profile: dict[str, Any]
 ) -> None:
-    """The brand profile, empty layout and icon catalogs and the guide of a docx/xlsx profile."""
     write_json(profile_root / "brand-profile.json", brand_profile)
     write_json(
         profile_root / "layout-catalog.json",

@@ -1,10 +1,5 @@
-"""A push or pull request only for the tree the run's CI pipeline ran green on.
-
-The pipeline report is bound to the server's own tree of the change it holds (``base + device_change``); the
-device's reported tree only cross-checks it. ``scm.push`` / ``scm.open_pr`` go out only when the last green pipeline
-is for exactly the tree about to be pushed; otherwise the run re-runs the pipeline once, then pauses
-``pipeline_not_for_head``. Workflows without a pipeline are unchanged.
-"""
+"""A push or pull request only for the server-held tree the run's CI pipeline ran green on; otherwise one
+re-run of the pipeline, then a ``pipeline_not_for_head`` pause."""
 
 from __future__ import annotations
 
@@ -19,6 +14,9 @@ from app.services.workflow_runs.binding import run_turn_resolution
 from app.services.workflow_runs.platform.dispatch import SUCCEEDED, ToolOutcome
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 COMMANDS = [".venv/bin/python -m pytest -q"]
 
@@ -53,8 +51,6 @@ def _git(root: Path, *args: str, env: dict | None = None) -> str:
 
 
 class Repo:
-    """The server's working copy of the run: a base commit and changes as the device reports them (patches)."""
-
     def __init__(self, root: Path):
         self.root = root
         root.mkdir()
@@ -67,7 +63,6 @@ class Repo:
         self.base = _git(root, "rev-parse", "HEAD")
 
     def change(self, files: dict[str, str]) -> tuple[str, str]:
-        """``(patch against base, its tree)``; the working copy is back at base afterwards."""
         for name, text in files.items():
             (self.root / name).write_text(text)
         _git(self.root, "add", "-A")
@@ -78,10 +73,8 @@ class Repo:
         return patch, tree
 
 
-
 @pytest.fixture
 def scm_calls(monkeypatch):
-    """The push and the pull request as recorded calls; the push records a real commit carrying the reviewed tree."""
     calls: list[str] = []
 
     async def push(_db, run, _params):
@@ -103,7 +96,7 @@ def scm_calls(monkeypatch):
 
 async def _run(db, monkeypatch, *, with_pipeline: bool = True, runtime: str = "device"):
     async def commands(_db, _run):
-        return list(COMMANDS), []
+        return list(COMMANDS), [], COMMANDS[-1] if len(COMMANDS) > 1 else ""
 
     async def runtime_of(_db, _run):
         return runtime
@@ -129,7 +122,6 @@ async def _phase_done(db, session):
 
 
 def _holds(run, repo: Repo, patch: str, reviewed: str) -> None:
-    """The server holds the device's change ``patch``; the reviewer reviewed tree ``reviewed``."""
     run.context = {**dict(run.context or {}), "local_path": str(repo.root), "base_sha": repo.base,
                    "device_change": {"base": repo.base, "patch": patch}, "review": {"tree": reviewed}}
 

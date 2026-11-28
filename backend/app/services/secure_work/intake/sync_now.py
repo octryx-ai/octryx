@@ -1,12 +1,4 @@
-"""Sync now: run an enabled intake's sync on request, for Jira and ServiceNow alike (intake redesign §3.5).
-
-The same sync the scheduler runs (``setup.first_run``: ServiceNow ``run_intake``, Jira
-``run_jira_work_item_sync``), recorded as a ``manual`` run and audited
-(:data:`SYNC_NOW_AUDIT_ACTION`, with the run id). A disabled intake is refused
-(409 ``intake_not_enabled``): it is enabled only after a preview of its current settings, and a sync now must
-not bypass that. The answer is explicit: ``state`` is ``ran`` for a completed run, else the run's own status
-(e.g. ``blocked``), with the run, its summary and the trigger.
-"""
+"""Sync now: run an enabled intake's sync on request."""
 
 from __future__ import annotations
 
@@ -25,7 +17,7 @@ STATE_RAN = "ran"
 
 
 async def sync_now(db: AsyncSession, *, user: User, row: WorkItemSyncConfig) -> dict[str, Any]:
-    """Run the enabled intake's sync now; raises 409 ``intake_not_enabled`` for a disabled one."""
+    # Enabled only after a preview of its current settings: a sync now must not bypass that
     if not row.is_active:
         raise HTTPException(status_code=409, detail={"state": "needs_configuration", "code": CODE_NOT_ENABLED,
                                                      "message": "Enable the intake before syncing it."})
@@ -34,6 +26,7 @@ async def sync_now(db: AsyncSession, *, user: User, row: WorkItemSyncConfig) -> 
     status = str(run.get("status") or "")
     state = STATE_RAN if status == "completed" else status or "failed"
     db.add(AuditLog(user_id=user.id, action=SYNC_NOW_AUDIT_ACTION, resource_type="work_item_sync_config",
+                    project_id=row.project_id,
                     resource_id=row.id, details={"project_id": row.project_id, "source_type": row.source_type,
                                                  "sync_run_id": run.get("id"), "state": state}))
     await db.flush()

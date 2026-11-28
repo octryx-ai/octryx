@@ -1,10 +1,4 @@
-"""Where the documentation page goes: the publish & prove Cloud v2 target.
-
-The publication pins its whole target in the write intent (``write_intent``): the named connection, the instance,
-the ``spaceId`` (resolved from the space key through REST v2), the direct parent, the title, create or update and
-the base version. It is resolved through the bounded Cloud v2 adapter (``confluence_v2``); an update targets the
-page the Work item is bound to (``work_item_documents``) on the same connection and instance.
-"""
+"""Where the documentation page goes: the publish & prove Cloud v2 target."""
 
 from __future__ import annotations
 
@@ -24,8 +18,6 @@ MODE_CREATE = "create"
 
 async def _bound_page(db: AsyncSession, run: WorkflowRun, space_key: str, connection_id: str, instance: str
                       ) -> WorkItemDocument | None:
-    """The Work item's page in this space **on this connection and instance** (another system's page with the same
-    id is not it)."""
     if not run.work_item_id:
         return None
     return (await db.execute(
@@ -38,7 +30,7 @@ async def _bound_page(db: AsyncSession, run: WorkflowRun, space_key: str, connec
 
 @dataclass(frozen=True, slots=True)
 class ServedConfluence:
-    """The connection that serves the documentation space now (secrets stay in ``config``, never logged)."""
+    # Secrets stay in config and are never logged.
 
     connection_id: str
     name: str
@@ -53,7 +45,6 @@ class ConnectionUnavailableError(Exception):
 
 
 async def served_confluence(db: AsyncSession, run: WorkflowRun, space_key: str) -> ServedConfluence:
-    """The one resolver (``named_connections``) for the space, or :class:`ConnectionUnavailableError`."""
     from ...named_connections.service_config import ConnectionRefusalError, service_connection_config
 
     try:
@@ -102,7 +93,6 @@ def _space_allowed(config: dict[str, Any], space_key: str) -> bool:
 
 
 async def _bound_page_id(db: AsyncSession, run: WorkflowRun, space_key: str, served: ServedConfluence) -> str:
-    """The page this Work item (or this run's last confirmed write) already owns on this connection/instance."""
     from ....models import DocumentationWriteIntent
     from ....models.runtime.documentation_publication import DOCUMENTATION_SLOT, INTENT_SENT_CONFIRMED
 
@@ -121,7 +111,7 @@ async def _bound_page_id(db: AsyncSession, run: WorkflowRun, space_key: str, ser
 
 async def resolve_v2_target(db: AsyncSession, run: WorkflowRun, settings: DocumentationSettings, *, title: str,
                             transport: Any = None) -> V2Target:
-    """The current Cloud v2 target (read-only provider calls). Blockers never resolve to a guess."""
+    # Blockers never resolve to a guess.
     from .confluence_v2 import STATUS_CURRENT, CloudV2Client
     from .confluence_v2_errors import V2Error, V2ProfileRefusalError
 

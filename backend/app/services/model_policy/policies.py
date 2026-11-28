@@ -1,12 +1,4 @@
-"""Model Policy registry: create, save draft, admission, submit / publish / retire.
-
-A Model Policy draft must be *well-formed* to be saved
-(:func:`.entries.normalize_entries` refuses malformed entries): it is a short
-structured list. Whether each alias is
-actually available is a separate, live question (:func:`policy_admission`) and
-is enforced at submit and publish: a policy with any ``needs_configuration``
-alias cannot move forward.
-"""
+"""Model Policy registry: create, save draft, admission, submit / publish / retire."""
 
 from __future__ import annotations
 
@@ -38,7 +30,6 @@ from .naming import next_revision_number, normalize_name
 
 
 async def gateway_catalog_configs(db: AsyncSession, workspace_id: str) -> list[Any]:
-    """``config_json`` of every active gateway provider visible to the Workspace."""
     rows = (
         await db.execute(
             select(LLMProvider.config_json)
@@ -106,6 +97,7 @@ async def create_policy(
         action="model_policy.create",
         resource_type=KIND_MODEL_POLICY,
         resource_id=policy.id,
+        project_id=workspace_id,
         details={"workspace_id": workspace_id, "revision": 1, "digest": revision.digest},
     )
     return policy, revision
@@ -141,6 +133,7 @@ async def save_policy_draft(db: AsyncSession, *, policy: ModelPolicy, entries: A
         action="model_policy.save_draft",
         resource_type=KIND_MODEL_POLICY,
         resource_id=policy.id,
+        project_id=policy.workspace_id,
         details={"revision": revision.revision, "digest": revision.digest},
     )
     return revision
@@ -191,7 +184,7 @@ async def retire_policy_revision(
     db: AsyncSession, *, policy: ModelPolicy, revision: ModelPolicyRevision, user: User
 ) -> ModelPolicyRevision:
     return await lifecycle.retire_revision(
-        db, kind=KIND_MODEL_POLICY, parent_id=policy.id, revision=revision, user=user
+        db, kind=KIND_MODEL_POLICY, parent_id=policy.id, workspace_id=policy.workspace_id, revision=revision, user=user
     )
 
 

@@ -12,7 +12,7 @@ test("Observability opens on Overview; the navigation is Overview · Operate · 
     ["", "Operate", "Govern", "Cost"]);
   assert.deepEqual(listAdminAreaTabRefs("operations").filter((ref) => !ref.hidden).map((ref) => ref.id), [
     // Operations › Live leads the Operate group.
-    "observabilityOverview", "operationsLive", "operationsCosts", "observabilityHealth", "observabilityRuns", "observabilityDecisions", "observabilityAudit", "usage",
+    "observabilityOverview", "operationsLive", "operationsCosts", "observabilityHealth", "observabilityRuns", "observabilityDecisions", "observabilityAudit", "complianceAudit", "usage",
   ]);
 });
 
@@ -22,6 +22,18 @@ test("Costs shows only to platform admins and admins of the active Workspace; Li
   assert.ok(!ids(false, false).includes("operationsCosts") && ids(false, false).includes("operationsLive"));
   assert.ok(ids(false, true).includes("operationsCosts"), "a Workspace admin");
   assert.ok(ids(true, true).includes("operationsCosts"), "a platform admin");
+});
+
+test("Compliance audit shows to an admin of any Workspace, also when the active one is not theirs", () => {
+  const shows = (isAdmin, canAdminWorkspace, canAdminAnyWorkspace) => listAdminAreaTabRefs("operations")
+    .filter((ref) => isAdminTabRefVisible(ref, isAdmin, {}, canAdminWorkspace, canAdminAnyWorkspace))
+    .some((ref) => ref.id === "complianceAudit");
+  assert.equal(shows(false, false, true), true, "admin of another Workspace, member of the active one");
+  assert.equal(shows(false, false, false), false, "admin of no Workspace");
+  assert.equal(shows(false, true, false), true, "admin of the active Workspace");
+  assert.equal(shows(true, true, true), true, "a platform admin");
+  const costs = listAdminAreaTabRefs("operations").find((ref) => ref.id === "operationsCosts");
+  assert.equal(isAdminTabRefVisible(costs, false, {}, false, true), false, "Costs still follows the active Workspace");
 });
 
 test("the attention and decision tiles say what they count", () => {

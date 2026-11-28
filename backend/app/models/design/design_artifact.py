@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class DesignArtifact(Base):
+class DesignArtifact(WorkspaceBound, Base):
     __tablename__ = "design_artifacts"
     __table_args__ = (
         Index("ix_design_artifacts_project_kind", "project_id", "artifact_kind"),

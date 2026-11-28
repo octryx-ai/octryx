@@ -18,7 +18,7 @@ from app.tools.result_content import content_checked, mcp_result_checked
 from tests.agent_gateway.test_tool_execution_evidence import _post_tool_use
 from tests.model_gateway.test_inbound_anthropic_gateway import ROUTE
 from tests.policy_engine_support import use_custom_policies
-from tests.test_agent_gateway_control_plane import BASE, _gateway, _workspace
+from tests.services.agent_gateway.test_agent_gateway_control_plane import BASE, _gateway, _workspace
 
 PHONE = "+49 30 1234567"
 MASKED_PHONE = "[PHONE *******4567 #1]"
@@ -47,14 +47,14 @@ async def test_platform_tool_result_masked_in_enforce_unchanged_in_shadow(client
     result = {"logs": [f"caller {PHONE} declined", "ok"], "count": 2}
     use_custom_policies(MASK_RESULTS, mode="shadow")
     assert await content_checked("get_pod_logs", result, _context()) == result
-    [shadow] = await _records(db)  # one record per release: what the policy would have done
+    [shadow] = await _records(db)
     assert shadow.gate == "content_security" and shadow.obligation["released"] == "unchanged"
     assert shadow.obligation["cedar"]["would"] == "deny" and shadow.obligation["cedar"]["obligation"] == "mask"
     use_custom_policies(MASK_RESULTS, mode="enforce")
     masked = await content_checked("get_pod_logs", result, _context())
     assert masked["logs"][0] == f"caller {MASKED_PHONE} declined" and masked["count"] == 2
     assert masked["content_policy"]["found"] == {"phone": 1} and masked["content_policy"]["masked"] == 1
-    assert result["logs"][0].endswith("declined") and PHONE in result["logs"][0]  # the input is not changed
+    assert result["logs"][0].endswith("declined") and PHONE in result["logs"][0]
     assert PHONE not in json.dumps([row.content for row in await _records(db)])
 
 
@@ -67,7 +67,7 @@ async def test_a_plain_block_replaces_the_result_and_mcp_origin_is_explicit(clie
     blocked = await content_checked("mcp__logs__tail", result, _context())
     assert blocked["error_category"] == "policy_denied" and PHONE not in json.dumps(blocked)
     assert blocked["content_policy"]["policies"] == ["no-phones-from-mcp"]
-    assert await content_checked("get_pod_logs", result, _context()) == result  # origin connector: not this policy
+    assert await content_checked("get_pod_logs", result, _context()) == result
     assert (await mcp_result_checked("knowledge_search", result, "ws-1"))["error_category"] == "policy_denied"
     assert await mcp_result_checked("knowledge_search", result, {"error": "x"}) == result
 
@@ -108,9 +108,6 @@ def test_registry_runs_the_content_check_last(monkeypatch):
     assert asyncio.run(registry.execute_tool_with_plugins("p", {}, _context())) == {"value": 2, "checked": "p"}
 
 
-# --- the coding-agent client --------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_launcher_report_answers_with_counts_and_the_masked_mcp_output(client, db):
     headers, _session = await _gateway(db, await _workspace(db))
@@ -148,15 +145,12 @@ def _history_body(tool_output: str) -> dict:
                 {"role": "user", "content": "summarize"}]}
 
 
-ASSIGNMENT = "password=Hunter2024x"  # a credential assignment: a gateway kind (reported by default)
+ASSIGNMENT = "password=Hunter2024x"
 MASK_ASSIGNMENTS = MASK_RESULTS.replace('["email", "phone"]', '["credential_assignment"]')
 
 
 @pytest.mark.asyncio
 async def test_the_gateway_refuses_client_tool_results_a_policy_denies(client, db, gateway_setup):
-    """The gateway changes nothing: a mask obligation on a client tool's (re-sent) results refuses the request
-    (``content_handling_gateway_refused``), shadow sends unchanged. C12F-08: a platform-only kind (a phone number) in
-    the same results reaches no gateway policy question or record: the request is forwarded."""
     from tests.model_gateway.conftest import ALIAS
     fake, build = gateway_setup
     headers = await build()
@@ -171,7 +165,7 @@ async def test_the_gateway_refuses_client_tool_results_a_policy_denies(client, d
     assert PHONE in fake.requests[0].content.decode()
     use_custom_policies(MASK_ASSIGNMENTS, mode="shadow")
     assert (await client.post(ROUTE, json=body, headers=headers)).status_code == 200
-    assert "Hunter2024x" in fake.requests[1].content.decode()  # shadow: unchanged
+    assert "Hunter2024x" not in fake.requests[1].content.decode()
     await flush_decision_log(db)
     await db.commit()
     rows = [row for row in (await db.execute(select(PolicyDecisionLog))).scalars() if row.resource.startswith("gateway ")]
@@ -223,12 +217,12 @@ async def test_the_gateway_policy_check_groups_by_the_tool_that_produced_the_res
     assert fake.requests == []
     other = json.loads(json.dumps(body).replace('"name": "Bash"', '"name": "Read"'))
     assert (await client.post(ROUTE, json=other, headers=headers)).status_code == 200
-    assert "Hunter2024x" in fake.requests[0].content.decode()
+    assert "Hunter2024x" not in fake.requests[0].content.decode()  # the Workspace's default masks it
 
 
 def test_the_gateway_policy_check_fails_closed_when_the_policy_set_cannot_be_evaluated(monkeypatch):
     from app.services.content_routing import client_tool_results
-    from app.services.content_routing.gateway import scan_request
+    from app.services.content_security.format_request_body import examine_request_body
     from app.services.policy_engine.engine import PolicySetInvalidError
 
     def broken(_text):
@@ -238,7 +232,7 @@ def test_the_gateway_policy_check_fails_closed_when_the_policy_set_cannot_be_eva
     monkeypatch.setattr(client_tool_results, "compile_policy_set", broken)
 
     def denial(output: str):
-        results = scan_request(_history_body(output), "ws-1", RequestBudget()).tool_results
+        results = examine_request_body(_history_body(output), "ws-1", RequestBudget()).tool_results
         return client_tool_results.client_tool_result_denial(results, workspace_id="ws-1", principal=None)
 
     found = denial(f"login {ASSIGNMENT} failed")
@@ -249,7 +243,7 @@ def test_the_gateway_policy_check_fails_closed_when_the_policy_set_cannot_be_eva
 
 @pytest.mark.asyncio
 async def test_launcher_report_is_decided_for_the_session_principal(client, db, monkeypatch):
-    from app.api.routes import agent_gateway
+    from app.api.routes.agent_gateway import agent_gateway
 
     seen = {}
 
@@ -267,8 +261,6 @@ async def test_launcher_report_is_decided_for_the_session_principal(client, db, 
 
 @pytest.mark.asyncio
 async def test_a_tool_result_release_has_one_record_written_after_its_final_disposition(client, db, monkeypatch):
-    """I-4 / C12C-07: the content handling's report and the Workspace policy's mask are one record, written once the
-    result is released masked; a refused result has one denied record; Cedar writes none of its own."""
     from app.services.content_routing import tool_result_handling, tool_results
     from app.services.content_security.handling import plan_for
     from app.services.policy_engine import shadow
@@ -289,7 +281,7 @@ async def test_a_tool_result_release_has_one_record_written_after_its_final_disp
         (entry,) = written
         if action == "report":
             assert not outcome.blocked and MASKED_PHONE in json.dumps(outcome.result)
-            # C12D-06: the policy's mask replaced the reported value, so the record says mask, never report
+            # The policy's mask replaced the reported value, so the record says mask, never report
             assert entry["obligation"]["released"] == "masked" and entry["obligation"]["applied"] == {"phone": "mask"}
             assert entry["obligation"]["cedar"]["masked"] == 1 and outcome.notice["decision_id"] == entry["id"]
         else:
@@ -299,8 +291,6 @@ async def test_a_tool_result_release_has_one_record_written_after_its_final_disp
 
 @pytest.mark.asyncio
 async def test_every_release_writes_its_one_record_in_the_finally_and_counts_the_badge_after_it(monkeypatch):
-    """C12C-07: clean → no record; unfinished, unavailable, a failing check → one record of what was (not) released;
-    the badge counts only what entered the context, after the release (a blocked result adds nothing)."""
     from app.services.content_routing import tool_result_handling, tool_results
     from app.services.content_security.handling import ContentHandlingUnavailableError, plan_for
 
@@ -353,8 +343,6 @@ async def test_every_release_writes_its_one_record_in_the_finally_and_counts_the
 
 @pytest.mark.asyncio
 async def test_a_tool_result_check_cancelled_before_its_return_writes_nothing(monkeypatch):
-    """C12F-05: the record is written once the result is decided and the badge counted after it; a check cancelled
-    while it is still deciding writes nothing and counts nothing."""
     from app.services.content_routing import tool_result_handling, tool_results
     from app.services.content_security.handling import plan_for
 
@@ -388,9 +376,6 @@ async def test_a_tool_result_check_cancelled_before_its_return_writes_nothing(mo
 
 
 def test_a_tool_result_record_states_each_kind_as_the_released_result_carries_it(monkeypatch):
-    """C12E-05: per kind from the released result — a report only for a kind it carries, a mask only for a kind found
-    and absent from it; a policy's staged part only for a released result; nothing claimed when nothing was released;
-    the fixed record for an unfinished examination."""
     from app.services.content_routing import tool_result_handling as handling
     from app.services.content_security.handling import SURFACE_PLATFORM, plan_for
 

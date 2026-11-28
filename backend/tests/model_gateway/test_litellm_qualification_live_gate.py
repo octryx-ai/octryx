@@ -71,13 +71,6 @@ async def test_a_missing_required_check_keeps_the_gate_closed() -> None:
 
 
 async def test_two_declarations_alone_cannot_close_the_live_gate() -> None:
-    """``evidence_origin`` and ``verified_against`` are both caller-supplied.
-
-    One is an argument, the other a string in the provider config, so on their own
-    two edits would let the local fixture present itself as live proof. The state
-    therefore also requires facts the run cannot assert about itself.
-    """
-
     loopback_section = qualification_section(
         host_allowlist=["127.0.0.1"],
         content_logging={**CONTENT_LOGGING_POSTURE, "verified_against": VERIFIED_AGAINST_LIVE},
@@ -88,7 +81,6 @@ async def test_two_declarations_alone_cannot_close_the_live_gate() -> None:
         config_json={"litellm_gateway": loopback_section},
     )
 
-    # Both declarations say "live". The endpoint says otherwise, and it wins.
     report = build_qualification_report(
         config=config,
         evidence_origin=EVIDENCE_ORIGIN_EXTERNAL_LIVE,
@@ -120,7 +112,6 @@ async def test_a_plaintext_transport_is_never_live_evidence() -> None:
     assert live_evidence_blocking_reason(config, EVIDENCE_ORIGIN_EXTERNAL_LIVE) == (
         REASON_PLAINTEXT_TRANSPORT_NOT_SHARED
     )
-    # A TLS endpoint on loopback is still refused, by the endpoint rule.
     assert live_evidence_blocking_reason(
         build_gateway_config(
             endpoint_url="https://127.0.0.1:4000/v1",

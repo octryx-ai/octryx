@@ -27,7 +27,6 @@ _DANGEROUS_ENV_VARS: frozenset[str] = frozenset({
 
 
 def _sanitize_env(env: dict[str, str]) -> dict[str, str]:
-    """Remove dangerous environment variables from env dict."""
     return {k: v for k, v in env.items() if k not in _DANGEROUS_ENV_VARS}
 
 

@@ -1,12 +1,5 @@
-"""Which embedding space an Instance uses, and whether a Workspace may use it.
-
-The space is an explicit operator setting per Instance, never inferred: without
-``OCTRYX_KNOWLEDGE_EMBEDDING_SPACE`` the vector mode is ``needs_configuration``. Local spaces
-keep text in-process, so every classification may use them. A remote space is admitted per
-Workspace through the platform's data-policy gate (``model_gateway/data_policy``): the Workspace's
-server-resolved classification must sit at or below the space's allowance, and an unresolved
-classification is refused like at every other model boundary.
-"""
+"""Which embedding space an Instance uses, and whether a Workspace may use it. The space is an explicit operator
+setting; a remote one passes the data-policy gate."""
 
 from __future__ import annotations
 
@@ -51,7 +44,6 @@ class EmbeddingConfig:
 
 
 def embedding_config_from_environment(environ: Mapping[str, str] | None = None) -> EmbeddingConfig:
-    """The Instance's embedding configuration; ``needs_configuration`` when no space is chosen."""
     source = os.environ if environ is None else environ
     key = str(source.get(SPACE_ENV) or "").strip()
     if not key:
@@ -75,7 +67,6 @@ def build_embedder(config: EmbeddingConfig) -> Embedder:
 
 
 async def admit_space(db: AsyncSession, *, project_id: str, space: EmbeddingSpace) -> None:
-    """Refuse a remote space for a Workspace whose data may not reach that provider."""
     if space.provider is EmbeddingProvider.LOCAL:
         return
     await admit_remote(
@@ -84,11 +75,7 @@ async def admit_space(db: AsyncSession, *, project_id: str, space: EmbeddingSpac
 
 
 async def admit_remote(db: AsyncSession, *, project_id: str, data_policy_class: str | None, model_kind: str) -> None:
-    """Refuse a remote model (embedding or rerank) above its approved data classification.
-
-    The level's classification policy matrix rule (``reranker_allowed`` / ``remote_embeddings_allowed``)
-    can only narrow what the data-policy gate admits; so can a Cedar denial in enforce mode.
-    """
+    # The classification matrix and Cedar can only narrow what the data-policy gate admits.
     rule = _MATRIX_RULES[model_kind]
     await maintain_policy_runtime()
     classification = await resolve_workspace_data_classification(db, project_id=project_id)
@@ -109,7 +96,6 @@ async def admit_remote(db: AsyncSession, *, project_id: str, data_policy_class: 
 
 
 def _shadow(project_id, classification, data_policy_class, model_kind, rules, allowed: bool, reason: str):
-    """The Cedar policy engine's evaluation of the same question; in shadow mode only compared."""
     return shadow_decision(
         POINT_REMOTE_MODEL,
         LegacyDecision(allowed, reason),

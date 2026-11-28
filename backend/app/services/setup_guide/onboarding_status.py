@@ -1,11 +1,4 @@
-"""First-run setup status for the Setup guide.
-
-Seven steps in the order a new installation needs them: Workspace → Connectors → Sources → Models → SSO →
-Roles → Agents. Workspace, Models and SSO are platform steps; Connectors, Sources, Roles and Agents are steps of
-one Workspace (the one the person has switched to). Each step is ``done``, ``open`` or ``attention`` (something
-exists but does not work, with a one-sentence reason); SSO and Roles are recommended, not required. Every state is
-read from stored rows; nothing is guessed.
-"""
+"""First-run setup status for the Setup guide."""
 
 from __future__ import annotations
 
@@ -45,8 +38,6 @@ RECOMMENDED_STEPS = {"sso", "roles"}
 def _step(
     key: str, status: str, reason: str = "", *, scope: str | None = None, target: str | None = None
 ) -> dict[str, Any]:
-    """``scope`` overrides the step's level when the fact that decides it lives elsewhere (a shared connection is a
-    platform fact); ``target`` names the admin page that fixes the step when it is not the step's usual one."""
     return {
         "key": key,
         "scope": scope or ("platform" if key in PLATFORM_STEPS else "workspace"),
@@ -216,8 +207,6 @@ async def _agents_step(db: AsyncSession, workspace_id: str) -> dict[str, Any]:
 
 
 async def onboarding_status(db: AsyncSession, *, workspace_id: str | None) -> dict[str, Any]:
-    """The seven setup steps; Workspace steps are ``open`` without a Workspace to check."""
-
     workspace = None
     if workspace_id:
         workspace = (

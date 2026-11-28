@@ -5,6 +5,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import safe_json_dict
 
@@ -13,7 +14,8 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class TaskQueueEntry(Base):
+class TaskQueueEntry(WorkspaceBound, Base):
+    __workspace_owners__ = {"task_run_id": "task_runs"}
     __tablename__ = "task_queue_entries"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

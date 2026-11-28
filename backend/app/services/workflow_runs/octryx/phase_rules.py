@@ -15,6 +15,7 @@ from ...work_role_model.commands import role_command_allowed
 from ..protected_paths import KIND_CONFIRMED_TEST, path_matches, protected_kind, protected_message
 from ..run_texts import run_text
 from .declared_commands import declared_command, declared_part, declared_with_readers
+from .plan_scope_rule import scope_decision
 from .pytest_args import pytest_without_test_names
 from .read_only_commands import read_only
 from .shell_rules import SHELL_STRICT, free_shell, strict_shell_allows
@@ -37,8 +38,7 @@ def _mutates(tool_name: str, command: str, exec_config: dict[str, Any]) -> bool:
     if tool_name in SHELL_TOOLS:
         segments = strict_argv(command)
         return segments is None or not all(read_only(segment) for segment in segments)
-    # a tool the platform does not know is no change by default (it was refused while the run
-    # waited); only file tools and shell commands that write count.
+    # A tool the platform does not know is no change by default; only file tools and shell commands that write count.
     return False
 
 
@@ -54,7 +54,7 @@ def _path_decision(phase: dict[str, Any], tool_input: dict[str, Any], cwd: str, 
     paths = candidate_paths(str(raw), cwd)[-1:] if raw else []
     relative = _relative(paths[0], root) if paths else None
     if relative is None:
-        return None  # outside the root: the capability decision denies it
+        return None
     # The launcher resolves the path on the device (symlinks) and says whether it exists: both names must pass.
     resolved = facts.get("resolved_path")
     names = [relative] + ([str(resolved)] if isinstance(resolved, str) and resolved else [])
@@ -80,15 +80,18 @@ def _path_decision(phase: dict[str, Any], tool_input: dict[str, Any], cwd: str, 
             from .format_only import formatting_only
 
             if formatting_only(tool_input, name):
-                continue  # the formatter's wish changes no test (format_only)
+                continue
         if kind is not None:
             reason = REASON_CONFIRMED_TEST if kind == KIND_CONFIRMED_TEST else REASON_PROTECTED_PATH
             return _deny(reason, run_text("block.protected", detail=protected_message(
                 kind, name, phase["title"], str(phase.get("protected_by") or "person"))))
+    scoped = scope_decision(names[:1], defaults)
+    if scoped is not None:
+        return scoped
     patterns = list(phase["path_rules"].get("write") or [])
     if patterns and not all(any(path_matches(name, pattern) for pattern in patterns) for name in names):
         if (defaults or {}).get("path_rules", "log") == "log" and defaults is not None:
-            return allowed_by_default("path_rules")  # logged in the run, not refused
+            return allowed_by_default("path_rules")
         refused = _deny(REASON_PHASE_PATH, run_text("block.path_rules", phase=phase["title"],
                                                     patterns=", ".join(patterns)))
         return _with_remedy(refused, "path_rules", "log", defaults)
@@ -96,8 +99,6 @@ def _path_decision(phase: dict[str, Any], tool_input: dict[str, Any], cwd: str, 
 
 
 def pytest_with_names(command: str, test_prefixes: tuple[tuple[str, ...], ...]) -> dict[str, Any] | None:
-    """A single pytest command with ``-v`` instead of ``-q``: the input Claude Code runs instead (corrected, not
-    refused). ``None`` when the command is not one plain segment."""
     segments = strict_argv(command) or []
     if len(segments) != 1:
         return None
@@ -121,12 +122,8 @@ def _tool_decision(phase: dict[str, Any], tool_name: str, command: str,
     if runs_tests and tool_name in SHELL_TOOLS and (declared_command(command, declared)
                                                      or declared_with_readers(command, declared)
                                                      or declared_part(command, declared, app_folder)):
-        # The repository's declared test / lint command, verbatim or one ``&&`` step of it (piped into a reader,
-        # after a ``cd`` into the app folder).
         return None
-    # Before a CI pipeline step the agent's own test output is no evidence the platform reads (the pipeline writes
-    # its own JUnit report): ``pytest -q`` is fine there (otherwise the agent was asked again with -v
-    # over and over. Elsewhere (TDD gates over the agent's runs) the platform still needs the names.
+    # Before a pipeline step the pipeline writes its own report, so pytest -q is fine; elsewhere gates need names.
     if runs_tests and tool_name in SHELL_TOOLS and not phase.get("pipeline_after") and pytest_without_test_names(
             command, test_prefixes):
         if defaults is not None and defaults.get("shell") != "strict":
@@ -137,13 +134,8 @@ def _tool_decision(phase: dict[str, Any], tool_name: str, command: str,
     if tool_name in SHELL_TOOLS and not free_shell(phase) and not strict_shell_allows(
             command, runs_tests=runs_tests, test_prefixes=test_prefixes,
             protected=bool(phase["path_rules"].get("protect_confirmed_tests")), exec_config=exec_config):
-        # a phase that changes files runs any command in its folder by default (logged); the hard
-        # rules, the Workspace's destructive patterns and the push / SCM rules still apply. A read-only phase keeps
-        # its read-only shell (its contract is to change nothing; no evidence checks that yet). A phase that
-        # protects confirmed tests runs the default
-        # shell too; the confirmed tests are guarded by evidence (their digests, ``confirmed_test_drift``, judged by
-        # the gates) and the environment file by its pin, not by parsing commands. The strict shell is the team's
-        # choice: the Workspace's ``tool_defaults.shell: strict`` or the node's ``shell: strict``.
+        # A changing phase runs any command in its folder by default (logged); the hard and SCM rules still apply, and
+        # confirmed tests are guarded by evidence, not by parsing commands.
         writes = bool(allowed & PLATFORM_WRITE_TOOLS)
         opens = writes and phase.get("shell") != SHELL_STRICT
         if defaults is not None and defaults.get("shell") != "strict" and opens:
@@ -155,8 +147,6 @@ def _tool_decision(phase: dict[str, Any], tool_name: str, command: str,
 
 
 def _hard_core(command: str, cwd: str, root: str | None) -> ToolDecision | None:
-    """A path the command writes or removes that no setting opens (``hard_core``: git's files, environments,
-    outside the repository); a confirmed test and the environment file are left to the evidence and the pin."""
     from .hard_core import refusal
 
     found = refusal(command, cwd, root)
@@ -169,8 +159,7 @@ def _hard_core(command: str, cwd: str, root: str | None) -> ToolDecision | None:
 
 
 def _agent_tools_deny(phase: dict[str, Any], tool_name: str) -> ToolDecision | None:
-    """A platform MCP tool the phase denies, or a native tool that stands for one the published agent denies
-    (the explicit ``NATIVE_EQUIVALENTS`` table, never a name heuristic)."""
+    # The explicit NATIVE_EQUIVALENTS table, never a name heuristic.
     from ...agent_tools_deny import native_tool_denied
 
     if tool_name.startswith(PLATFORM_MCP_TOOL_PREFIX):

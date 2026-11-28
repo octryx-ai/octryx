@@ -1,20 +1,11 @@
-"""ServiceNow connector tools.
-
-The connector's record limit (``servicenow_assignment_groups``/``servicenow_services``,
-``services/servicenow_record_limit.py``) limits every read: a Table API listing ANDs the limit's condition to the
-query server-side and reads display values *and* values (``sysparm_display_value=all``) so each record is
-re-checked client-side before it is returned in the representation the caller asked for; a single record outside
-the limit answers like a missing one. While a limit is set, a query must be plain narrowing conditions (no leading
-``OR``, no ``^NQ``, ``EQ`` or ``RLQUERY``; trailing ``ORDERBY`` is fine): anything else is refused, because an
-ANDed condition cannot narrow it.
-"""
+"""ServiceNow connector tools."""
 
 from __future__ import annotations
 
 from typing import Any
 
+from app.services.connector_auth.servicenow import CODE_API_INVALID, ServiceNowAuth, resolve_servicenow_auth
 from app.services.outbound_egress import CONNECTION_SERVICENOW
-from app.services.servicenow_auth import CODE_API_INVALID, ServiceNowAuth, resolve_servicenow_auth
 from app.services.servicenow_record_limit import FIELDS, collapse, record_in_limit, record_limit
 from app.services.servicenow_record_query import widens, with_clause
 from app.services.servicenow_scripted import CODE_TABLE_API_DISABLED, STYLE_SCRIPTED, STYLE_TABLE, api_style
@@ -39,7 +30,6 @@ def _servicenow_table_allowed(context: ToolContext, table: str) -> bool:
 
 
 def _servicenow_auth(context: ToolContext) -> ServiceNowAuth | None:
-    """The explicit mode's credential (``services/servicenow_auth.py``)."""
     return resolve_servicenow_auth(context.project_config)
 
 
@@ -49,14 +39,12 @@ async def _servicenow_headers(context: ToolContext) -> dict[str, str]:
 
 
 def _servicenow_token_auth(context: ToolContext) -> dict[str, Any]:
-    """For client credentials, the token auth (cached, retried once on a 401); else nothing."""
     auth = _servicenow_auth(context)
     http_auth = auth.http_auth() if auth else None
     return {"auth": http_auth} if http_auth else {}
 
 
 def _style_answer(context: ToolContext) -> dict[str, Any] | None:
-    """For a generic table tool: ``None`` on the Table API, else the coded refusal (scripted or unknown style)."""
     style = api_style(context.project_config)
     if style == STYLE_TABLE:
         return None
@@ -66,7 +54,6 @@ def _style_answer(context: ToolContext) -> dict[str, Any] | None:
 
 
 async def _scripted_list(context: ToolContext, table: str, list_key: str, params: dict) -> dict[str, Any] | None:
-    """The incident/change listing on a Scripted REST connection; ``None`` on the Table API."""
     refused = _style_answer(context)
     if refused is None:
         return None
@@ -80,11 +67,6 @@ async def _scripted_list(context: ToolContext, table: str, list_key: str, params
 
 
 def with_record_source(record: dict[str, Any], base: str, table: str) -> dict[str, Any]:
-    """A record names its form page on the configured instance: ``{base}/{table}.do?sys_id={sys_id}``.
-
-    The form the ServiceNow Source Sync links (``services/knowledge/sources/sync/servicenow.py``); no
-    configured base, table or alphanumeric ``sys_id``: no source fields.
-    """
     sys_id = _string(record.get("sys_id"))
     url = item_url(base, f"{table}.do", query=f"sys_id={sys_id}") if table and sys_id.isalnum() else None
     title = " ".join(part for part in (_string(record.get("number")), _string(record.get("short_description"))) if part)
@@ -104,7 +86,6 @@ def _fields(value: Any) -> str | None:
 
 
 def _with_limit_fields(fields: str | None, scope: Any) -> str | None:
-    """The requested fields plus the limited fields (the client-side check reads them) under a record limit."""
     if scope is None or not fields:
         return fields
     names = [name.strip() for name in fields.split(",") if name.strip()]
@@ -112,7 +93,6 @@ def _with_limit_fields(fields: str | None, scope: Any) -> str | None:
 
 
 def _in_limit(records: list[Any], scope: Any, display: str) -> list[Any]:
-    """Without a limit, ``records`` as answered; with one, only records inside it, in the asked representation."""
     if scope is None:
         return records
     return [collapse(record, display) for record in records

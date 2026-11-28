@@ -1,25 +1,4 @@
-"""Product Run persistence: open a run, move its attempt, keep the audit.
-
-Every write happens inside one SAVEPOINT, so a refused or concurrent transition
-leaves neither a state change nor an audit row behind, and the caller's
-transaction stays usable. The service flushes but never commits: the caller owns
-the transaction boundary.
-
-State moves are compare-and-set on ``(workspace, state, version)`` of both the run
-and its attempt, so a handle carrying another Workspace can never write audit.
-The audit ``sequence`` equals the run's version after the move, so it is gap-free
-per run and needs no extra read.
-
-Rows are written with Core statements, and any run or attempt object the caller
-already holds in the session is reloaded after a move, so a later read in the same
-session never sees a superseded state.
-
-Execution-gate facts are write-once: they are accepted only on the gate's decision
-for a requested attempt, and only with the status and source that decision implies.
-
-Errors carry a stable ``code`` and a fixed message; no identifier, state value, or
-database text is ever placed into an error.
-"""
+"""Product Run persistence: open a run, move its attempt, keep the audit."""
 
 from __future__ import annotations
 
@@ -70,8 +49,6 @@ _RECORDABLE_GATE_STATUSES = GATE_STATUSES | {UNKNOWN_VALUE}
 
 @dataclass(frozen=True, slots=True)
 class ProductRunHandle:
-    """The caller's view of one open attempt; every move returns a fresh handle."""
-
     run_id: str
     attempt_id: str
     workspace_id: str
@@ -82,8 +59,6 @@ class ProductRunHandle:
 
 @dataclass(frozen=True, slots=True)
 class GateFacts:
-    """Allow-listed execution-gate facts recorded on the attempt."""
-
     status: str
     decision_source: str
     execution_profile_id: str | None = None
@@ -143,12 +118,6 @@ async def open_run(
     turn_user_message_id: str | None = None,
     actor: str = TRANSITION_ACTOR_RUNTIME,
 ) -> ProductRunHandle:
-    """Open a run with its first attempt in ``requested`` and audit it.
-
-    The Workspace must be the session's own project and the owner the session's
-    user; anything else is refused before a row is written. The session row is
-    locked for the rest of the caller's transaction where the database supports it.
-    """
     if type(workspace_id) is not WorkspaceId or origin not in RUN_ORIGINS or actor not in TRANSITION_ACTORS:
         raise InvalidProductRunInputError()
     owner = _canonical_uuid(owner_user_id)
@@ -225,13 +194,6 @@ async def transition(
     gate: GateFacts | None = None,
     final_trace_id: str | None = None,
 ) -> ProductRunHandle:
-    """Move the attempt (and the run's mirrored state) from ``handle.state``.
-
-    Raises :class:`IllegalProductRunTransitionError` for a move, end reason or gate
-    facts outside the closed tables and :class:`StaleProductRunTransitionError` when
-    the stored Workspace, state or version no longer matches the handle. Neither
-    leaves a row behind.
-    """
     if actor not in TRANSITION_ACTORS:
         raise InvalidProductRunInputError()
     if not is_legal_transition(handle.state, to_state) or not is_legal_end_reason(handle.state, to_state, end_reason):

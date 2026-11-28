@@ -1,19 +1,4 @@
-"""Whose seat reviews a pull request for the bot.
-
-The bot's runs start as the Workspace's bot user, which has no device and no subscription. A review on a seat needs a
-person:
-
-1. **broadcast** (stage (i), ``broadcast``): every Workspace member who allows it is offered the review; the first
-   device that takes it reviews;
-2. **the pull request's author**: the person whose linked account (Profile → Linked accounts) is the author: GitHub
-   login, Bitbucket Server username, or Atlassian account id on Bitbucket Cloud. A linked account counts unverified
-   too: it only chooses whose seat is offered, and the seat itself is the person's own device;
-3. otherwise the company route (the existing, visible fallback of ``review.seat``).
-
-**Review seat opt-in** per person and Workspace (``Project.config["pr_review_bot"]["review_seats"]``, no migration):
-a stored choice wins; without one the seat is on for the Workspace's admins and owners and off for everyone else.
-Only a member of the Workspace is ever chosen.
-"""
+"""Whose seat reviews a pull request for the bot."""
 
 from __future__ import annotations
 
@@ -65,7 +50,6 @@ def stored_seats(project: Project | None) -> dict[str, bool]:
 
 
 async def review_seat_on(db: AsyncSession, project_id: str, user_id: str) -> bool:
-    """The person's review seat in this Workspace: their stored choice, else on for admins and owners."""
     role = await _role(db, user_id, project_id)
     if role is None:
         return False
@@ -82,7 +66,6 @@ async def set_review_seat(db: AsyncSession, project: Project, user_id: str, enab
 
 
 def _author_account(facts: dict[str, Any]) -> tuple[str, str, str] | None:
-    """``(platform, column, value)`` of the pull request's author, or ``None`` when the event names none."""
     provider = str(facts.get("repository") or "").partition(":")[0]
     if provider == "bitbucket" and facts.get("author_id"):
         provider = "bitbucket_cloud"  # Cloud names its author by Atlassian account id; Server/DC by username
@@ -92,7 +75,6 @@ def _author_account(facts: dict[str, Any]) -> tuple[str, str, str] | None:
 
 
 async def linked_users(db: AsyncSession, repository: str, author: str, author_id: str = "") -> list[User]:
-    """The active people whose linked account is this SCM account (an ``@octryx`` commenter, stage D)."""
     account = _author_account({"repository": repository, "author": author, "author_id": author_id})
     if account is None:
         return []
@@ -106,7 +88,6 @@ async def linked_users(db: AsyncSession, repository: str, author: str, author_id
 
 
 async def author_person(db: AsyncSession, run: WorkflowRun) -> User | None:
-    """The Workspace member whose linked account is the pull request's author, with the review seat on."""
     if not run.project_id:
         return None
     facts = dict(dict(run.context or {}).get(CONTEXT_KEY) or {})
@@ -121,14 +102,12 @@ async def author_person(db: AsyncSession, run: WorkflowRun) -> User | None:
 
 
 async def bot_seat_person(db: AsyncSession, run: WorkflowRun) -> SeatPerson | None:
-    """The pull request author's seat (the second phase of :func:`bot_seat_phases`)."""
     user = await author_person(db, run)
     source = SOURCE_COMMENTER if run.workflow_key == EXPLAIN_KEY else SOURCE_AUTHOR
     return SeatPerson(user, source) if user is not None else None
 
 
 async def broadcast_people(db: AsyncSession, run: WorkflowRun, *, besides: set[str]) -> list[User]:
-    """The Workspace's members with the review seat on, but the bot user and ``besides`` (the author)."""
     from ...models.security.user import UserProject
 
     if not run.project_id:
@@ -146,7 +125,6 @@ async def broadcast_people(db: AsyncSession, run: WorkflowRun, *, besides: set[s
 
 
 async def bot_seat_phases(db: AsyncSession, run: WorkflowRun) -> list[list[SeatPerson]]:
-    """§12 in order: the team's seats at once (the first device that takes the offer reviews), then the author's."""
     author = await author_person(db, run)
     team = await broadcast_people(db, run, besides={author.id} if author is not None else set())
     phases = [[SeatPerson(user, SOURCE_BROADCAST) for user in team]]
@@ -155,8 +133,6 @@ async def bot_seat_phases(db: AsyncSession, run: WorkflowRun) -> list[list[SeatP
 
 
 async def seat_login(db: AsyncSession, user_id: str, repository: str) -> str:
-    """How the pull request names the person: their linked login on its platform, else their name
-    (not "System Administrator's seat" for an admin whose GitHub login is linked)."""
     provider = repository.partition(":")[0]
     platforms = {"github": ("github",), "gitlab": ("gitlab",),
                  "bitbucket": ("bitbucket_server", "atlassian")}.get(provider, ())

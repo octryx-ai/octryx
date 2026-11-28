@@ -1,12 +1,4 @@
-"""Where the Studio meets the run's flow: the decisions confirmation, the auto-accept and the push.
-
-- A person confirms the spec's ``decisions`` gate (Studio or decision card): refused while open points are left,
-  else frozen and written back as their approval.
-- The platform would auto-accept: open points the agent can fix go back to it first, as a product owner answer,
-  within the node's automatic revisions (the same budget as the review's findings).
-- The push: a run confirmed without a person (auto-accept after the revisions) still freezes and writes back, so
-  SPEC.md always carries the decisions the stories build on; the frozen version keeps the open points it had.
-"""
+"""Where the Studio meets the run's flow: the decisions confirmation, the auto-accept and the push."""
 
 from __future__ import annotations
 
@@ -35,7 +27,6 @@ async def on_decisions_confirmed(db: Any, run: Any, user: Any) -> None:
 
 
 def agent_open_points(run: Any) -> list[dict[str, str]]:
-    """The open points the agent fixes itself (not the product owner's own changes, which go through revision)."""
     view = evaluate(run)
     if view is None or view["frozen"]:
         return []
@@ -53,8 +44,6 @@ def note_open_points(run: Any, points: list[dict[str, str]]) -> None:
 
 
 async def submit_answer(db: Any, run: Any) -> dict[str, Any]:
-    """What the agent hears after ``submit_spec_studio``: the open points it fixes before it ends its phase (never
-    the product owner's own: deviation reasons, the company's colours), and the Corporate Identity it starts from."""
     await refresh(db, run)
     view = evaluate(run) or {}
     answer: dict[str, Any] = {"open_points": [p["text"] for p in view.get("open_points") or []

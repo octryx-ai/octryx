@@ -101,7 +101,6 @@ async def _load_or_create_provider(
     db: AsyncSession,
     payload: dict[str, Any],
 ) -> tuple[IdentityProvider, dict[str, Any] | None]:
-    """The provider the payload names (404 when unknown) with its audit snapshot, or a new one without."""
     provider_id = str(payload.get("id") or "").strip()
     if provider_id:
         stmt = select(IdentityProvider).where(IdentityProvider.id == provider_id)
@@ -209,6 +208,7 @@ async def upsert_identity_provider(
         action="admin.security.identity_provider.saved",
         resource_type="identity_provider",
         resource_id=provider.id,
+        project_id=None,
         before=before_audit,
         after=_identity_provider_audit_snapshot(provider),
         details={

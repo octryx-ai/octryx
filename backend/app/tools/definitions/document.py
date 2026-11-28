@@ -6,7 +6,6 @@ from __future__ import annotations
 
 
 def get_document_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for the document composer."""
     return {
         "create_document": {
             "type": "function",

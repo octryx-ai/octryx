@@ -1,9 +1,4 @@
-"""Registry names and revision numbering of model policies.
-
-A registry name is referenced as ``name@revision``, so it must never contain
-``@`` or whitespace. The accepted shape is a closed charset (lower-case letters,
-digits, ``.``, ``_``, ``-``), checked as input validation only.
-"""
+"""Registry names and revision numbering of model policies."""
 
 from __future__ import annotations
 

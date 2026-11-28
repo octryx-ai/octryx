@@ -1,37 +1,4 @@
-"""The device channel: one outbound WebSocket per device, authenticated and sequenced.
-
-Handshake (every step has a deadline; any failure closes with a fixed code):
-
-1. The device connects with its 15-minute channel token (``Authorization: Bearer``; audience
-   ``octryx-device``, scope ``device:connect``, a device grant of an active device).
-2. The platform sends ``challenge {nonce}``.
-3. The device answers ``hello {device_id, signature, folders, profiles_available, max_parallel_jobs, paused,
-   seat_login, codex_seat_login, client_version, service_kind}``; the signature is Ed25519 over :func:`hello_payload`
-   with the key registered for the device, so a copied token alone cannot impersonate it.
-4. The platform stores the device's own report, attaches the connection to the hub and answers ``welcome``
-   with the platform pause and the last acknowledged ``seq`` per stream, so the device replays only what the
-   platform has not stored.
-
-Then:
-
-- every message is ``{v, type, id, stream?, seq?, ts, body}``. A message with ``stream`` and ``seq`` is a
-  sequenced device event: it is stored exactly once in order and answered ``ack {stream, seq}``; an
-  already-stored ``seq`` is acknowledged again (a replay), a gap is answered ``nack {stream, expected}``
-  and the device replays from there. Nothing is lost or stored twice across reconnects.
-- ``token {access_token}`` replaces the channel token before it expires, without a reconnect; a token that
-  expires unreplaced, a revoked device or grant (checked every ``RECHECK_SECONDS``) closes the channel. Only a
-  revoked *device* closes as ``revoke`` (4410); a grant or token refusal (a refresh replay, the grant's end)
-  closes 1000 with its reason, so the device refreshes or renews its credential instead of treating it as a
-  revocation.
-- the tick (offers, cancels, ``last_seen_at``, token and revocation checks) survives a failing round (a database
-  hiccup): it logs, backs off and goes on; after ``TICK_FAILURES_MAX`` failures in a row, or should the tick task
-  end on its own, the channel closes 1011 so the device reconnects. A connection whose tick has not succeeded
-  for ``STALE_AFTER_SECONDS`` is not counted as connected (``hub``).
-- ``state {...}`` updates the device's report (folders, paused, limits).
-- the platform side pushes ``pause``, ``resume`` and ``revoke`` through the hub; the job layer
-  (``ChannelHandlers``) delivers offers, approval decisions and cancels from the database on every tick
-  (≤ 1 s; the database is the bus between replicas).
-"""
+"""The device channel: one outbound WebSocket per device, authenticated and sequenced."""
 
 from __future__ import annotations
 
@@ -40,11 +7,12 @@ import contextlib
 import logging
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 from ...models import AuditLog, UserDevice
 from ...time_utils import utc_now
+from ..data_access import as_viewer
 from .channel_protocol import (
     CLOSE_FORBIDDEN,
     CLOSE_PROTOCOL,
@@ -73,6 +41,8 @@ from .channel_protocol import (
 from .credential import DeviceCredential, resolve_device_credential
 from .hub import device_hub
 from .registry import report_device_state
+from .runner_pool import RUNNER_SERVICE_KIND
+from .runner_tenant import runner_channel_viewer
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +65,18 @@ class DeviceChannelSession:
         self.clock = clock
         self.connection: DeviceChannelConnection | None = None
         self._last_recheck = self._last_seen = 0.0
+        self._runner = False
+
+    @contextlib.asynccontextmanager
+    async def _for_turns(self, db: Any, device_id: str) -> AsyncIterator[None]:
+        # A server runner's account is a member of nothing: its channel reads as the person whose open turns it
+        # holds (``runner_tenant``), so a turn in that person's private Workspace is offered and its events land.
+        owner = await runner_channel_viewer(db, device_id) if self._runner else None
+        if owner is None:
+            yield
+            return
+        with as_viewer(owner):
+            yield
 
     async def _credential(self, token: str) -> DeviceCredential | str:
         async with self.session_factory() as db:
@@ -126,8 +108,10 @@ class DeviceChannelSession:
             return None
         async with self.session_factory() as db:
             device = await db.get(UserDevice, credential.device.id)
+            self._runner = device.service_kind == RUNNER_SERVICE_KIND
             await report_device_state(db, device, body)
-            streams = await self.handlers.welcome_streams(db, device)
+            async with self._for_turns(db, device.id):
+                streams = await self.handlers.welcome_streams(db, device)
             db.add(AuditLog(user_id=credential.user_id, action="device.channel.connected", resource_type="user_device",
                             resource_id=device.id, details={"client_version": device.client_version}))
             await db.commit()
@@ -211,7 +195,8 @@ class DeviceChannelSession:
                     await report_device_state(db, device, body)
                 apply_reported_state(connection, body)
             elif message.get("stream") and isinstance(message.get("seq"), int):
-                result = await self.handlers.stream_event(db, connection, message)
+                async with self._for_turns(db, connection.device_id):
+                    result = await self.handlers.stream_event(db, connection, message)
                 await db.commit()
                 if result in (RESULT_STORED, RESULT_DUPLICATE):
                     await connection.send("ack", {"stream": message["stream"], "seq": message["seq"]})
@@ -219,7 +204,8 @@ class DeviceChannelSession:
                     await connection.send("nack", {"stream": message["stream"], "expected": int(result)})
                 return
             else:
-                await self.handlers.message(db, connection, message)
+                async with self._for_turns(db, connection.device_id):
+                    await self.handlers.message(db, connection, message)
             await db.commit()
 
     async def _replace_token(self, connection: DeviceChannelConnection, token: str) -> None:
@@ -257,7 +243,6 @@ class DeviceChannelSession:
             connection.last_tick_at = time.monotonic()
 
     async def _tick(self, connection: DeviceChannelConnection) -> bool:
-        """One round; ``False`` when it closed the channel. A failed check is retried on the next round."""
         now = self.clock()
         if connection.token_expires_at and now >= connection.token_expires_at:
             await connection.close(REASON_TOKEN_EXPIRED)
@@ -273,7 +258,8 @@ class DeviceChannelSession:
                 device = await db.get(UserDevice, connection.device_id)
                 if device is not None:
                     device.last_seen_at = utc_now()
-            await self.handlers.tick(db, connection)
+            async with self._for_turns(db, connection.device_id):
+                await self.handlers.tick(db, connection)
             await db.commit()
         if now - self._last_seen >= LAST_SEEN_SECONDS:
             self._last_seen = now

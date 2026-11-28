@@ -15,7 +15,7 @@ UNSUPPORTED_BACKGROUND_TRIGGER_OWNERS = {
 
 
 class UnsupportedPollingTriggerError(ValueError):
-    """Raised when a watcher config implies an unavailable provider/background poller."""
+    pass
 
 
 def normalize_connector_watcher_polling_config(value: Any, *, mode: str) -> dict[str, Any]:

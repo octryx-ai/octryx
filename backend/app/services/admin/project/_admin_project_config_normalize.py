@@ -1,8 +1,4 @@
-"""Owner normalization of each project config key before it is stored.
-
-The keys are checked in one fixed order; the checks are split over two helpers only
-to keep each one short, and a key no helper owns is stored as given.
-"""
+"""Owner normalization of each project config key before it is stored."""
 
 from __future__ import annotations
 
@@ -13,11 +9,6 @@ from fastapi import HTTPException
 from app.services.agent_gateway.policy_keys import AGENT_GATEWAY_POLICY_CONFIG_KEY, AgentGatewayPolicyError
 from app.services.agent_gateway.policy_normalize import normalize_agent_gateway_policy
 
-from ...evidence_grounding_settings import (
-    EVIDENCE_GROUNDING_POLICY_CONFIG_KEY,
-    EvidenceGroundingPolicyError,
-    normalize_evidence_grounding_policy,
-)
 from ...model_gateway.data_policy import (
     DATA_CLASSIFICATION_LEVELS,
     DATA_CLASSIFICATION_ORDER,
@@ -33,7 +24,7 @@ from ...standing_approvals.tool_rules import (
     StandingToolApprovalError,
     normalize_standing_tool_approvals,
 )
-from ...tool_approval_policy import APPROVAL_POLICY_CONFIG_KEY, ToolApprovalPolicyError, normalized_workspace_policy
+from ...tool_approval.policy import APPROVAL_POLICY_CONFIG_KEY, ToolApprovalPolicyError, normalized_workspace_policy
 from ...work_item_analysis.settings import CONFIG_KEY as WORK_ITEM_ANALYSIS_CONFIG_KEY
 from ...work_item_analysis.settings import AnalysisSettingsError, normalize_config_value
 from ...workflow_routing.proposal_policy import (
@@ -63,13 +54,6 @@ def _normalize_policy_section(key: str, value: Any) -> Any:
         try:
             return normalize_standing_tool_approvals(value)
         except StandingToolApprovalError as error:
-            raise HTTPException(
-                status_code=400, detail={"errors": [{"code": error.code, "message": str(error)}]}
-            ) from None
-    if key == EVIDENCE_GROUNDING_POLICY_CONFIG_KEY:
-        try:
-            return normalize_evidence_grounding_policy(value)
-        except EvidenceGroundingPolicyError as error:
             raise HTTPException(
                 status_code=400, detail={"errors": [{"code": error.code, "message": str(error)}]}
             ) from None
@@ -157,15 +141,6 @@ def _normalize_project_config_value(key: str, value: Any) -> Any:
 
 
 def _normalize_project_data_policy(value: Any) -> dict[str, Any]:
-    """Validate the workspace data classification before it is persisted.
-
-    An out-of-vocabulary value is rejected with a stable 400 rather than dropped:
-    a dropped classification would leave the project silently unclassified, and
-    gateway dispatch would then deny for "missing" while the operator believes
-    they configured it. An absent/empty field is the explicit "not configured"
-    state and stays allowed.
-    """
-
     section = dict(value) if isinstance(value, dict) else {}
     if "overrides" in section:
         # Stricter-only Workspace overrides: the shape here, "stricter than the level" on write.
@@ -199,8 +174,6 @@ def _normalize_project_data_policy(value: Any) -> dict[str, Any]:
 
 
 def _normalize_agent_gateway_policy(value: Any) -> dict[str, Any]:
-    """Reject an invalid client policy with a stable 400 naming the field and a fixed reason."""
-
     try:
         return normalize_agent_gateway_policy(value)
     except AgentGatewayPolicyError as error:

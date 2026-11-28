@@ -1,29 +1,5 @@
-"""The workflow run an octryx-claude session follows, as the platform last described it (S10).
-
-The platform answers every hook of a run-bound session with the run contract v2 (``workflow_run``: the current
-phase, its class, tools and path rules, loop i of n, what the run waits for and the link where the person
-decides). This module only remembers it and reports facts back; it never decides — every decision is taken
-again on the server at the next hook.
-
-- :func:`remember`: keep the newest contract per session (private state file);
-- :func:`facts`: what the launcher reports from the working copy with PreToolUse and Stop, bound to the pass of
-  the contract it answers (``node_id`` + ``entry``; the server ignores a report for another pass): the content hash
-  of each confirmed test file the contract names (``phase.protected_files``; a checked file that is gone is
-  reported missing), the edited path after resolving symlinks, whether it exists and whether a new file would
-  shadow an installed distribution, and at Stop the change
-  against the run's base commit as a binary patch **with untracked files** (a temporary index), or
-  ``base_unavailable``. git runs without anything the working copy configures (no hooks, fsmonitor, external diff
-  or textconv);
-- :func:`changed_notice`: one line when the contract changed since it was last shown (a new phase, a pause, a
-  decision waiting in the platform);
-- :func:`pending_notice`: the pending decision and where it is taken, for the prompt hook (a requester
-  decision — user confirmation, user question, a pause — here through ``workflow_decide`` and Claude Code's permission
-  prompt, or in the platform; four-eyes approvals only in the platform; watched states by nobody);
-- :func:`banner`: the run banner at launch (workflow, phase, loop i/n, what it waits for);
-- :func:`agent_notice`: the platform agent the session works as — the phase's agent from the
-  contract (``phase.agent``), or outside a run the read-only Assistant from the registration answer
-  (``platform_agent``, :func:`remember_platform_agent`); its instructions reach the model once per digest.
-"""
+"""The workflow run an octryx-claude session follows, as the platform last described it.
+It only remembers the contract and reports facts back; every decision is taken on the platform."""
 
 from __future__ import annotations
 
@@ -93,7 +69,6 @@ def _edit_target(hook_input: dict[str, Any], root: Path) -> Path | None:
 
 
 def resolved_path(hook_input: dict[str, Any], root: Path) -> str | None:
-    """The path an edit tool writes, symlinks resolved, relative to the repository ('..' when outside)."""
     target = _edit_target(hook_input, root)
     if target is None:
         return None
@@ -102,7 +77,6 @@ def resolved_path(hook_input: dict[str, Any], root: Path) -> str | None:
 
 
 def _environment_names(root: Path) -> set[str]:
-    """Top-level import names of the project's virtual environment, the launcher's interpreter and the stdlib."""
     names = set(sys.stdlib_module_names)
     venvs = [Path(os.environ["VIRTUAL_ENV"])] if os.environ.get("VIRTUAL_ENV") else []
     for venv in [*venvs, root / ".venv", root / "venv"]:
@@ -124,8 +98,6 @@ def _environment_names(root: Path) -> set[str]:
 
 
 def shadows_installed(root: Path, relative: str) -> bool:
-    """Whether a new file at ``relative`` starts a top-level package or module (its first component, or the one
-    under ``src/`` / ``lib/``) that the working copy does not have yet and an installed distribution names."""
     parts = relative.casefold().split("/")
     if relative == ".." or not parts or not parts[0]:
         return True
@@ -140,7 +112,6 @@ def shadows_installed(root: Path, relative: str) -> bool:
 
 def facts(contract: dict[str, Any] | None, *, root: Path, with_diff: bool,
           hook_input: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """The working copy's facts the contract asks for, for the contract's pass; ``None`` without a run."""
     if not contract:
         return None
     run = contract.get("run") if isinstance(contract.get("run"), dict) else {}

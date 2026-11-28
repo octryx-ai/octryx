@@ -1,21 +1,4 @@
-"""The guarded switch from shadow to enforce.
-
-Enforcement is available only when all of these hold:
-
-- the instance is in ``shadow`` and has been since ``policy_engine.shadow_since`` (written whenever an admin selects
-  shadow) for at least ``policy_engine.enforce_window_hours`` (default 24, 1..720);
-- the decision log has no ``mismatch`` and no ``error`` record since the window started (buffered records are
-  written first in their own session; if that fails, readiness refuses with ``decision_log_pending``);
-- no decision-log record was dropped (buffer overflow) since shadow was selected: a ``dropped`` marker record
-  since ``shadow_since``, or a drop this process has not written yet (``decision_log_records_dropped``) — a
-  window with lost records is not a proven clean window;
-- the Cedar engine is available and the published custom set loads.
-
-An instance that never selected shadow explicitly (the default) has no start time: the admin selects shadow once,
-then the window runs. In enforce mode the existing checks remain the fallback when Cedar is unavailable; an
-evaluation error denies (``shadow.enforced_denial``); a published set that no longer parses is not applied (the
-baseline alone decides, ``runtime``).
-"""
+"""The guarded switch from shadow to enforce."""
 
 from __future__ import annotations
 
@@ -87,7 +70,6 @@ def _engine_available() -> bool:
 
 
 async def _flushed() -> bool:
-    """Write the buffered records in their own session first; ``False`` when some could not be written."""
     try:
         await flush_decision_log(prune=False)
     except Exception:  # noqa: BLE001 - the records stay buffered; readiness then refuses

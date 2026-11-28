@@ -148,7 +148,8 @@ test("my notifications list in-app and each channel with its switch, set up, tes
 test("the chat statistics show the cards, the rows, the model costs and nothing without data", async () => {
   const { StatsPopover } = load("chat/StatsPopover.tsx", {
     statsPopoverSections: { codeIntelligenceSection: () => createElement("section", { "data-testid": "code" }),
-      workflowRoiSection: () => createElement("section", { "data-testid": "roi" }) },
+      workflowRoiSection: () => createElement("section", { "data-testid": "roi" }),
+      pullRequestsSection: (pullRequests) => createElement("section", { "data-testid": "prs" }, String(pullRequests.length)) },
   });
   const stats = { contextTokens: 1200, inputTokens: 3400, outputTokens: 560, requestCount: 7, llmRequestCount: 0, toolCallCount: 3,
     deterministicStepCount: 2, totalCost: 0.42, messageCount: 9, userMessageCount: 4, assistantMessageCount: 5, lastModel: "model-x",
@@ -169,12 +170,29 @@ test("the chat statistics show the cards, the rows, the model costs and nothing 
   assert.equal(text(classes(root, "stats-panel__section-title")[0]), "Model cost");
   assert.equal(root.findAllByProps({ "data-testid": "roi" }).length, 1);
   assert.equal(root.findAllByProps({ "data-testid": "code" }).length, 1);
-  act(() => view.update(createElement(StatsPopover, { stats: null, codeIntelligence: null })));
+  assert.equal(text(root.findByProps({ "data-testid": "prs" })), "0");
+  const pullRequests = [{ url: "https://git.example/pr/1", title: "PAY-1: Totals", state: "open", run_id: "r1" }];
+  act(() => view.update(createElement(StatsPopover, { stats: null, codeIntelligence: null, pullRequests })));
   assert.equal(text(classes(root, "stats-panel__empty")[0]), "No usage data for this chat yet.");
+  assert.equal(text(root.findByProps({ "data-testid": "prs" })), "1");
   act(() => view.update(createElement(StatsPopover, { stats: { ...stats, llmRequestCount: 1, lastModel: "", costByModel: [],
     cacheReadInputTokens: 0, nonCachedInputTokens: 0, workflowRoi: null }, codeIntelligence: null })));
   assert.deepEqual(classes(root, "stats-panel__row").map((node) => node.findByType("span").children.join("")),
     ["Messages", "User", "Assistant", "Provider", "Usage note"]);
+  act(() => view.unmount());
+});
+
+test("the session's pull requests list title, link and state, and nothing without any", async () => {
+  const { pullRequestsSection } = load("chat/statsPopoverSections.tsx", {});
+  assert.equal(pullRequestsSection([]), null);
+  const view = await render(() => pullRequestsSection([
+    { url: "https://git.example/pr/1", title: "PAY-1: Totals", state: "open", run_id: "r1" },
+    { url: "https://git.example/pr/2", title: "", state: "", run_id: null },
+  ]), {});
+  const links = view.root.findAllByType("a");
+  assert.deepEqual(links.map((link) => [link.props.href, text(link)]),
+    [["https://git.example/pr/1", "PAY-1: Totals"], ["https://git.example/pr/2", "https://git.example/pr/2"]]);
+  assert.deepEqual(view.root.findAllByType("strong").map(text), ["open", "unknown"]);
   act(() => view.unmount());
 });
 

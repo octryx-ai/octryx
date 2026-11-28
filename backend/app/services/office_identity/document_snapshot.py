@@ -1,16 +1,4 @@
-"""Deterministic evidence brief of a Word template — its *style* catalog.
-
-The PowerPoint composer builds from a template's layouts; the Word composer
-builds from a template's named styles. This module reads a ``.docx``/``.dotx``
-and records, deterministically, which paragraph and character styles it offers,
-their resolved formatting (font, size, weight, colour, spacing), and — the half
-the composer actually needs — a role map that says *this template's* name for
-the title, each heading level, body text, quotes, captions and lists.
-
-Nothing here invents formatting. A style the template does not define is simply
-absent from the role map, and the composer falls back to a plainer role rather
-than fabricating one.
-"""
+"""Deterministic evidence brief of a Word template — its *style* catalog."""
 
 from __future__ import annotations
 
@@ -75,12 +63,6 @@ def _pt(length: Any) -> float | None:
 
 
 def _resolved_font(style: Any) -> dict[str, Any]:
-    """Font attributes with base-style inheritance applied.
-
-    python-docx returns ``None`` for anything a style inherits; walking the
-    ``base_style`` chain fills those so the catalog states the effective
-    formatting rather than only what a style overrides.
-    """
     name = size = bold = italic = color = None
     seen: set[int] = set()
     current = style
@@ -139,7 +121,6 @@ def _page(document: Document) -> dict[str, Any]:
 
 
 def _collect_styles(document: Document) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    """Paragraph and character style records, plus the role -> style-name map."""
     styles: list[dict[str, Any]] = []
     role_to_style: dict[str, str] = {}
     for style in document.styles:
@@ -217,7 +198,6 @@ def build_document_snapshot(template_path: str | Path) -> dict[str, Any]:
 
 
 def style_for_role(snapshot: dict[str, Any], role: str, *, default: str = "Normal") -> str:
-    """The template's style name for a semantic role, or a safe fallback."""
     roles = snapshot.get("roles") if isinstance(snapshot, dict) else None
     if isinstance(roles, dict) and roles.get(role):
         return str(roles[role])

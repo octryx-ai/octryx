@@ -1,9 +1,4 @@
-"""Every Jira issue that is returned, stored, indexed or counted belongs to an allowed project.
-
-Defence in depth behind the JQL confinement (``_jira_jql_confine.py``): whatever a query returned, an issue
-is kept only when the project in its key is allowed, and a ``fields.project`` naming another project
-disqualifies it. Callers drop the others silently and never report how many there were.
-"""
+"""Every Jira issue that is returned, stored, indexed or counted belongs to an allowed project."""
 
 from __future__ import annotations
 
@@ -15,7 +10,6 @@ ISSUE_KEY = re.compile(r"^[A-Z][A-Z0-9_]+-\d+$")
 
 
 def key_project(key: object) -> str:
-    """The project of an issue key (``OPS-12`` → ``OPS``); ``""`` for anything that is no issue key."""
     text = str(key or "").strip().upper()
     return text.rsplit("-", 1)[0] if ISSUE_KEY.fullmatch(text) else ""
 
@@ -30,7 +24,6 @@ def _declared_project(issue: dict[str, Any]) -> str:
 
 
 def issue_in_allowlist(issue: object, allowed: Iterable[str] | None) -> bool:
-    """Whether ``issue`` may be returned: its key's project is allowed and ``fields.project`` agrees."""
     if allowed is None:
         return True
     if not isinstance(issue, dict):
@@ -44,7 +37,6 @@ def issue_in_allowlist(issue: object, allowed: Iterable[str] | None) -> bool:
 
 
 def allowed_issues(issues: Iterable[object], allowed: Iterable[str] | None) -> list[dict[str, Any]]:
-    """The issues of ``issues`` inside the allowlist (all of them when unrestricted)."""
     keys = None if allowed is None else frozenset(str(key).strip().upper() for key in allowed)
     return [issue for issue in issues if isinstance(issue, dict) and issue_in_allowlist(issue, keys)]
 

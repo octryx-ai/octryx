@@ -150,8 +150,6 @@ def _allowed_program_verdict(name: str, args: Sequence[str], depth: int) -> Fore
 
 
 def _without_heredoc_bodies(text: str) -> str | None:
-    """``text`` without here-document bodies (data, not commands); ``None`` when an unquoted body substitutes a
-    command (``$(…)``/backticks run there) or a body is not terminated."""
     lines = text.split("\n")
     kept: list[str] = []
     index = 0
@@ -173,9 +171,6 @@ def _without_heredoc_bodies(text: str) -> str | None:
 
 
 def classify_command(command: str | Sequence[str], *, _depth: int = 0) -> ForeignBuildVerdict:
-    """Whether ``command`` runs repository build/test tooling (or anything not known to be read-only) on the server.
-
-    The first blocking segment decides; an empty command is allowed (it runs nothing)."""
     raw: str | list[str] | None = [str(word) for word in command] if not isinstance(command, str) else command
     if isinstance(raw, str) and "<<" in raw:
         raw = _without_heredoc_bodies(raw)

@@ -1,28 +1,4 @@
-"""Sending an analysis back to ServiceNow as a work note: prepared, and off by default.
-
-Read-only towards ServiceNow unless write-back is explicitly enabled **and** configured on the connector:
-
-- ``servicenow_worknote_mode``: ``off`` (default) | ``scripted_post`` | ``table_api``;
-- ``servicenow_worknote_path``: the Scripted REST POST path for ``scripted_post`` (validated like paths).
-
-There is never an automatic post. One explicit action posts one analysis note of a ServiceNow work item, with
-the human confirmation pattern: without ``confirm`` the answer is ``needs_confirmation`` with the exact text and
-target; only a confirmed repeat posts. What is posted is the analysis **summary** (the note's ``summary``, else
-its first paragraph), never the raw evidence; a text the secret scan flags is refused. A note is posted once.
-
-- ``table_api``: ``PATCH /api/now/table/<table>/<sys_id>`` with ``{"work_notes": text}``;
-- ``scripted_post``: ``POST <path>`` with ``{"table", "sys_id", "number", "work_notes"}``.
-
-Every post is audited (field names and counts, never the text). Failures are closed codes, never a body.
-
-**Once, also under concurrency.** A confirmed post first claims the note: the work item row is locked
-(``SELECT … FOR UPDATE``, the plan-write lock statement), the note re-read past the session's identity map and
-re-checked, the ``worknote_posted_at`` marker written and committed, and only then is ServiceNow called. A
-concurrent confirmation waits for the lock and then sees the marker (``servicenow_worknote_already_posted``).
-A failed call releases the claim, so the post can be retried. A crash between claim and call leaves the note
-marked as sent: the failure mode is a missing note, never a duplicate. (SQLite ignores ``FOR UPDATE``; there
-the committed claim before the call is what a test proves.)
-"""
+"""Sending an analysis back to ServiceNow as a work note: confirmed, and off by default."""
 
 from __future__ import annotations
 
@@ -35,10 +11,12 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from ....models import AuditLog, User, WorkItem
 from ....time_utils import utc_now
+from ...ai_marking import MarkingFacts, marker_line, with_marker
+from ...ai_marking_responsible import display_name
+from ...connector_auth.oidc_client_credentials import OidcTokenError
+from ...connector_auth.servicenow import resolve_servicenow_auth
 from ...model_gateway.inbound.secret_scan import contains_secret
-from ...oidc_client_credentials import OidcTokenError
 from ...outbound_egress import CONNECTION_SERVICENOW, egress_transport
-from ...servicenow_auth import resolve_servicenow_auth
 from ...servicenow_scripted import (
     WORKNOTE_MODES,
     WORKNOTE_OFF,
@@ -76,7 +54,6 @@ def _analysis_note(item: WorkItem, note_at: str | None) -> tuple[int, dict[str, 
 
 
 def worknote_text(note: dict[str, Any]) -> str:
-    """The analysis summary: the note's ``summary``, else the first paragraph of its text; bounded."""
     summary = note.get("summary")
     if not isinstance(summary, str) or not summary.strip():
         summary = str(note.get("note") or "").strip().split("\n\n", 1)[0]
@@ -86,7 +63,6 @@ def worknote_text(note: dict[str, Any]) -> str:
 async def send_worknote(
     db: AsyncSession, *, item: WorkItem, user: User, note_at: str | None, confirm: bool
 ) -> dict[str, Any]:
-    """Preview (no ``confirm``) or post one analysis summary as a work note; raises coded refusals."""
     if item.source_type != SOURCE_TYPE:
         raise _refuse(409, "denied", CODE_NOT_SERVICENOW, "Only a ServiceNow work item has a ServiceNow work note.")
     config, refused = await work_item_connection_config(db, item, SOURCE_TYPE)
@@ -108,10 +84,17 @@ async def send_worknote(
         raise _refuse(404, "not_found", CODE_NO_ANALYSIS, "The analysis note has no summary.")
     if contains_secret(text):
         raise _refuse(422, "denied", CODE_SECRET, "The summary contains secret material; it is never sent.")
+    # The person who confirms the send answers for it; the preview shows the line that goes out.
+    if display_name(user):
+        facts = MarkingFacts(responsible=display_name(user))
+        room = MAX_WORKNOTE_CHARS - len(marker_line(facts)) - 2
+        text = with_marker(text[:room].rstrip(), facts)
     fields = dict((item.source_fields_json or {}).get("servicenow") or {})
     target = {"mode": mode, "table": fields.get("table") or item.issue_type, "number": item.source_key}
     if not confirm:
         return {"state": "needs_confirmation", "preview": {**target, "text": text}}
+    # Claimed and committed before the call: a crash leaves a missing note, never a duplicate; a failed call releases
+    # the claim so the post can be retried.
     index = await _claim(db, item, note, user)
     try:
         await _post(config, mode, target, str(fields.get("sys_id") or item.source_id or ""), text)
@@ -119,6 +102,7 @@ async def send_worknote(
         await _release(db, item, index)
         raise
     db.add(AuditLog(user_id=user.id, action=POST_AUDIT_ACTION, resource_type="work_item", resource_id=item.id,
+                    project_id=item.project_id,
                     details={"mode": mode, "table": target["table"], "chars": len(text)}))
     await db.flush()
     return {"state": "posted", **target}
@@ -133,7 +117,8 @@ async def _set_note(db: AsyncSession, item: WorkItem, index: int, note: dict[str
 
 
 async def _claim(db: AsyncSession, item: WorkItem, note: dict[str, Any], user: User) -> int:
-    """Under the row lock, on the stored note: refuse a sent one, else mark it sent and commit; its index."""
+    # Under the row lock: refuse a sent note, else mark it sent and commit.
+    # A concurrent confirmation waits here and then sees the marker (SQLite ignores FOR UPDATE)
     locked = (await db.execute(work_item_lock_statement(item.id))).scalar_one()
     current = _analysis_note(locked, note.get("at"))
     if current is None or current[1].get("worknote_posted_at"):
@@ -146,7 +131,7 @@ async def _claim(db: AsyncSession, item: WorkItem, note: dict[str, Any], user: U
 
 
 async def _release(db: AsyncSession, item: WorkItem, index: int) -> None:
-    """Remove the claim of a post that failed, under the same lock."""
+    # Under the same row lock as the claim.
     locked = (await db.execute(work_item_lock_statement(item.id))).scalar_one()
     note = dict(locked.source_fields_json["platform_notes"][index])
     note.pop("worknote_posted_at", None)

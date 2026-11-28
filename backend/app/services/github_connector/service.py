@@ -41,7 +41,8 @@ async def _resolved_github_config(db: AsyncSession) -> dict[str, Any]:
     if entry is None or not entry.is_active:
         raise HTTPException(status_code=400, detail="GitHub connector is not configured")
     config = dict(entry.config or {})
-    resolved = await resolve_secret_refs(db, config, tool_name="github", project_id=None)
+    resolved = await resolve_secret_refs(db, config, tool_name="github", project_id=None,
+                                         purpose="connector.github")
     token = str(resolved.get("github_token") or "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="GitHub connector token is missing")

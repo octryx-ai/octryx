@@ -14,7 +14,7 @@ from .read_only_commands import _PYTHON_NAME, read_only
 
 
 def declared_commands(environment: Any) -> tuple[str, ...]:
-    """The declared test and lint commands of a run's prepared environment (never a CI-derived proposal)."""
+    # Never a CI-derived proposal.
     from ..workspace.spec import SOURCE_CODING_SETUP, SOURCE_DECLARED, SOURCE_ENVIRONMENT_FILE
 
     # The repository's own file (``environment_file``) is a person's declaration too: setting the pointer is the
@@ -27,15 +27,12 @@ def declared_commands(environment: Any) -> tuple[str, ...]:
 
 
 def declared_command(command: str, declared: tuple[str, ...]) -> bool:
-    """``command`` is one of the declared commands, argv for argv (plain argv only, as the strict shell parses it)."""
     segments = strict_argv(command)
     return segments is not None and any(strict_argv(item) == segments for item in declared)
 
 
 def declared_with_readers(command: str, declared: tuple[str, ...]) -> bool:
-    """A declared command followed by read-only pipe stages only (``<declared> 2>&1 | tail -30``). For the shell
-    policy only: the phase's evidence (``declared_command``) still needs the verbatim command, whose exit code a pipe
-    into ``tail`` would hide."""
+    # Shell policy only: the evidence still needs the verbatim command, whose exit code a pipe would hide.
     segments = strict_argv(command)
     if not segments:
         return False
@@ -48,10 +45,6 @@ def declared_with_readers(command: str, declared: tuple[str, ...]) -> bool:
 
 
 def declared_part(command: str, declared: tuple[str, ...], app_folder: str = "") -> bool:
-    """A declared command, or one ``&&`` step of it on its own (``flutter analyze`` of the declared lint ``dart format
-    … && flutter analyze && …``), behind a ``cd`` into the app folder and followed by read-only pipe stages only. A step
-    runs nothing the whole declared command would not run (otherwise the fix phase was refused
-    ``flutter analyze``). For the shell policy only, like :func:`declared_with_readers`."""
     segments = in_app_folder(strict_argv(command), app_folder)
     if not segments:
         return False
@@ -74,7 +67,6 @@ _OUTPUT_VALUE = frozenset({"--tb", "--maxfail", "--durations", "-n", "--timeout"
 
 
 def _runner_args(segment: Segment) -> tuple[str, ...] | None:
-    """The arguments after ``pytest`` / ``<python> -m pytest`` (any interpreter path), ``None`` for no pytest."""
     segment = without_timeout(segment)
     if segment and posixpath.basename(segment[0]) in ("pytest", "py.test"):
         return tuple(segment[1:])
@@ -84,7 +76,6 @@ def _runner_args(segment: Segment) -> tuple[str, ...] | None:
 
 
 def _selection(arguments: tuple[str, ...]) -> tuple[str, ...]:
-    """The arguments without output-only options (``-q -v -x --tb=short -rA -p no:cacheprovider`` …)."""
     kept: list[str] = []
     index = 0
     while index < len(arguments):
@@ -106,9 +97,6 @@ def _selection(arguments: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def in_app_folder(segments: list[Segment] | None, app_folder: str = "") -> list[Segment] | None:
-    """``segments`` without a leading ``cd <app folder>``: the declared commands run in the environment file's app
-    folder, so ``cd <app folder> && <declared>`` from the repository root is the declared command (otherwise
-   ``cd coffee/flutter/claude && flutter test 2>&1 | tail -5`` was no full run, three Stop blocks)."""
     folder = posixpath.normpath(str(app_folder or "").strip().rstrip("/") or ".")
     if not segments or folder == "." or len(segments) < 2:
         return segments
@@ -119,8 +107,6 @@ def in_app_folder(segments: list[Segment] | None, app_folder: str = "") -> list[
 
 
 def full_suite_run(command: str, declared: str, app_folder: str = "") -> bool:
-    """``command`` runs the declared command's whole selection (module docstring); readers may follow a pipe, and a
-    ``cd`` into the app folder may lead (:func:`in_app_folder`)."""
     got, want = in_app_folder(strict_argv(command), app_folder), strict_argv(declared)
     if not got or not want or len(got) < len(want):
         return False
@@ -137,17 +123,14 @@ GREEN, RED, UNKNOWN = "green", "red", "unknown"
 
 
 def run_outcome(command: str, declared: str, *, succeeded: bool, output: str, app_folder: str = "") -> str:
-    """A full run's result: by the exit code when nothing hides it, by the runner's printed summary when
-    a pipe does (a pipe into ``tail`` exits 0 whatever pytest said). ``unknown`` when a pipe hid the exit code and no
-    summary could be read (fail open: the caller passes it with a note)."""
+    # A pipe into tail exits 0 whatever the runner said, so the printed summary decides then.
     from .system_tests import summary_counts
 
     if len(in_app_folder(strict_argv(command), app_folder) or []) <= len(strict_argv(declared) or []):
         return GREEN if succeeded else RED
     counts = summary_counts(output)
     if not counts and (dart := _DART_END.search(str(output or ""))):
-        # flutter test / dart test end on "+N ~S -F: All tests passed!" or "Some tests failed." (without this,
-        # a piped green Dart run never counted, so "the full test suite must be green" could not pass).
+        # flutter test / dart test end on "+N ~S -F: All tests passed!" or "Some tests failed."
         return GREEN if succeeded and dart.group("end") == "All tests passed!" and not dart.group("failed") else RED
     if not counts:
         return UNKNOWN if succeeded else RED
@@ -156,7 +139,6 @@ def run_outcome(command: str, declared: str, *, succeeded: bool, output: str, ap
 
 
 def run_green(command: str, declared: str, *, succeeded: bool, output: str, app_folder: str = "") -> bool:
-    """:func:`run_outcome` is green."""
     return run_outcome(command, declared, succeeded=succeeded, output=output, app_folder=app_folder) == GREEN
 
 

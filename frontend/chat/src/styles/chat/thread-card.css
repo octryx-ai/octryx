@@ -5,7 +5,7 @@
   gap: 0.5rem;
   min-height: 2rem;
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   flex: 1 1 auto;
   width: auto;
   max-width: 100%;
@@ -47,7 +47,7 @@
   top: 0.38rem;
   bottom: 0.38rem;
   width: 2px;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--accent);
 }
 
@@ -62,7 +62,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.25;
   overflow: hidden;
   white-space: nowrap;
@@ -88,7 +88,7 @@
   min-width: 0;
   flex: 1 1 auto;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.2;
   white-space: nowrap;
 }
@@ -108,7 +108,7 @@
   display: inline-block;
   width: 0.46rem;
   height: 0.46rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
 }
 
 .thread-card__status--none {
@@ -122,7 +122,7 @@
 }
 
 .thread-card__status--attention {
-  border-radius: 0.12rem;
+  border-radius: 0;
   background: var(--status-attention);
   transform: rotate(45deg);
 }
@@ -155,7 +155,7 @@
   gap: 0.25rem;
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-variant-numeric: tabular-nums;
 }
 
@@ -172,11 +172,11 @@
   padding: 0.08rem 0.25rem;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -221,7 +221,7 @@
   flex: 0 0 auto;
   width: 0.88rem;
   height: 0.88rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--accent-strong);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
@@ -247,10 +247,10 @@
   flex: 0 0 auto;
   padding: 0.05rem 0.25rem;
   border: 1px dashed var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }

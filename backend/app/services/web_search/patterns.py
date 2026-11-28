@@ -1,16 +1,4 @@
-"""Source patterns of the trusted-source registry: what one entry means, and when a URL matches it.
-
-A pattern is a host, optionally followed by a path prefix: ``docs.spring.io`` or
-``github.com/spring-projects/spring-boot/wiki``. A host pattern covers the host and its
-subdomains; a path prefix covers that path and everything below it, on whole segments.
-
-Two guards keep one entry from trusting strangers:
-
-- a host that serves many unrelated owners (a code forge, a blog platform) needs a path prefix,
-  because ``github.com`` alone would trust every repository on it;
-- a hosting suffix (``github.io``, ``readthedocs.io``) is never a pattern by itself; only one
-  owner's subdomain is (``spring.readthedocs.io``).
-"""
+"""Source patterns of the trusted-source registry: what one entry means, and when a URL matches it."""
 
 from __future__ import annotations
 
@@ -86,7 +74,6 @@ def _is_address(host: str) -> bool:
 
 
 def normalize_pattern(raw: object) -> str:
-    """The canonical pattern of ``raw`` (a host, a host with a path, or a URL); refuses a weak one."""
     text = str(raw or "").strip()
     if not text or len(text) > MAX_PATTERN_CHARS:
         raise InvalidSourcePatternError("empty_or_too_long")
@@ -123,7 +110,6 @@ def pattern_host(pattern: str) -> str:
 
 
 def suggested_pattern(url: str) -> str | None:
-    """The narrowest sensible pattern for a URL an agent found: its host, or host plus owner path."""
     parts = urlsplit(url)
     host = _host_of(parts.hostname or "")
     segments = [segment for segment in parts.path.split("/") if segment]

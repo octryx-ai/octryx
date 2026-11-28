@@ -8,8 +8,11 @@ from app.models.runtime.secure_work import WorkItemWorkflowDefinition
 from app.services.workflow_runs.actions import available_actions, perform_action
 from app.services.workflow_runs.views import run_view
 from tests.phased_workflow_fixtures import admin_user, phased_definition
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.test_workflow_run_platform_actions import FakeTools, _item, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _with_policy(max_iterations: int = 1) -> dict:

@@ -4,6 +4,7 @@ from sqlalchemy import Column, Date, DateTime, ForeignKey, Index, Numeric, Strin
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import dump_json_dict, safe_json_dict
 
@@ -12,7 +13,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class CostAllocationRule(Base):
+class CostAllocationRule(WorkspaceBound, Base):
     __tablename__ = "cost_allocation_rules"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -25,7 +26,7 @@ class CostAllocationRule(Base):
     project = relationship("Project")
 
 
-class MonthlyCostReport(Base):
+class MonthlyCostReport(WorkspaceBound, Base):
     __tablename__ = "monthly_cost_reports"
     __table_args__ = (
         Index(

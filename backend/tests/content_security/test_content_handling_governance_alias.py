@@ -1,11 +1,4 @@
-"""A Workspace's governance alias through ``PUT /api/v1/workspaces/{ws}/content-handling/governance-alias``.
-
-One governed model alias per Workspace, the only target of every ``reroute`` / ``mask_reroute`` kind: only the
-Workspace's admins (and platform admins) set it; it must be an active governed alias; a kind may reroute only while
-it is set and it cannot be cleared while a kind reroutes; every change is audited (``content_handling.changed``, kind
-``governance_alias``) and concurrent edits are serialized (the loser is a typed 409). The plan carries it
-(``HandlingPlan.governance_alias``).
-"""
+"""A Workspace's governance alias through ``PUT /api/v1/workspaces/{ws}/content-handling/governance-alias``."""
 
 from __future__ import annotations
 
@@ -15,9 +8,10 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, Project, UserProject, WorkspaceContentGovernance, WorkspaceContentHandling
+from app.models import AuditLog, UserProject, WorkspaceContentGovernance, WorkspaceContentHandling
 from app.services.content_security import handling_settings
 from app.services.content_security.handling import SURFACE_GATEWAY, SURFACE_PLATFORM, content_handling
+from tests.factories import make_project
 from tests.policy_engine_support import bearer, make_user
 
 ALIAS = "approved-model"
@@ -25,10 +19,7 @@ OTHER = "approved-other"
 
 
 async def _workspace(db) -> str:
-    project = Project(id=str(uuid.uuid4()), name=f"governance-{uuid.uuid4().hex[:6]}", is_active=True)
-    db.add(project)
-    await db.commit()
-    return project.id
+    return (await make_project(db, name=f"governance-{uuid.uuid4().hex[:6]}", commit=True)).id
 
 
 async def _member(db, workspace_id: str, role: str) -> str:

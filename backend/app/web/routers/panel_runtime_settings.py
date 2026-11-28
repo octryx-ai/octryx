@@ -46,7 +46,7 @@ async def panel_update_runtime_settings(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, admin.id, project_id)
     return JSONResponse(
         await admin_update_runtime_settings(
             db,

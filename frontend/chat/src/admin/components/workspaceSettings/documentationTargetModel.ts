@@ -1,19 +1,5 @@
-// Workspace settings › Knowledge › "Documentation target": where runs publish feature documentation (project config
-// `feature_documentation`, backend workflow_runs/documentation/page.py `documentation_settings`). Pure: no React.
-//
-// - `confluence_space_key` (required to publish): the space; the server upper-cases it.
-// - `parent_page_id` (required to publish since): the page new pages go under. Without it the run's `docs` step
-//   skips with `no_parent_page` (documentation/auto_pages.py) and the confirmed publication blocks (target.py).
-// - The Confluence connection is not a field: the server routes the space to its named connection
-//   (`named_connections`, `served_confluence`), whose space allowlist applies.
-// - `knowledge_connector_key` (optional): the Workspace's Confluence Knowledge source that syncs the page; the server
-//   matches it against the Knowledge sources' `connector_key` only (documentation/knowledge.py `covering_source`), so a
-//   named connection is not a valid value. Empty: the source whose scope covers the space or the parent's tree.
-// - `auto_publish` (default off): runs publish spec and feature pages unattended under the parent.
-//
-// PUT /api/v1/projects/<id>/config merges top-level keys and a dict value one level deep
-// (admin_project_config_service.apply_project_config_patch), so the body carries only `feature_documentation` and
-// its other keys (e.g. `audience_proof`) stay. An empty field is sent as "" (the server reads it as not set).
+// The server matches only Knowledge sources' connector_key, so a named connection is not a valid value.
+// The server merges config one level deep, so the body carries only feature_documentation; "" means not set.
 
 import { ROOT_PAGE_ID, SPACE_KEY } from "../workspaceKnowledge/confluencePageTree";
 
@@ -27,7 +13,6 @@ export const EMPTY_DOC_TARGET: DocTarget = { spaceKey: "", parentPageId: "", con
 
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "");
 
-/** The stored target of a project config (`{config: {...}}` or the config itself). */
 export function readDocTarget(raw: unknown): DocTarget {
   const holder = (raw ?? {}) as { config?: unknown };
   const config = (holder.config && typeof holder.config === "object" ? holder.config : raw ?? {}) as Record<string, unknown>;
@@ -40,7 +25,6 @@ export function readDocTarget(raw: unknown): DocTarget {
   };
 }
 
-/** The draft's problems at their fields; empty when it can be saved. */
 export function docTargetProblems(draft: DocTarget): DocTargetErrors {
   const errors: DocTargetErrors = {};
   const space = draft.spaceKey.trim();
@@ -53,7 +37,6 @@ export function docTargetProblems(draft: DocTarget): DocTargetErrors {
   return errors;
 }
 
-/** Non-blocking warnings: the target saves, but runs will skip documentation. */
 export function docTargetWarnings(draft: DocTarget): Partial<Record<"parentPageId", string>> {
   if (draft.parentPageId.trim()) return {};
   if (draft.autoPublish) return { parentPageId: PARENT_MISSING_AUTO };
@@ -61,7 +44,6 @@ export function docTargetWarnings(draft: DocTarget): Partial<Record<"parentPageI
   return {};
 }
 
-/** The PUT body: only `feature_documentation`, its four keys; other config keys and sub-keys stay. */
 export function docTargetBody(draft: DocTarget): Record<string, Record<string, string | boolean>> {
   return {
     [DOC_KEY]: {
@@ -79,7 +61,6 @@ export const sameDocTarget = (a: DocTarget, b: DocTarget) =>
 
 export type ConfluenceSource = { key: string; spaces: string[] };
 
-/** The Workspace's Confluence Knowledge sources and the spaces their scope names (whole spaces and page trees). */
 export function confluenceSources(connectors: readonly { connector_key?: unknown; kind?: unknown; scope?: unknown }[]): ConfluenceSource[] {
   return connectors.flatMap((connector) => {
     const key = text(connector.connector_key);
@@ -93,13 +74,11 @@ export function confluenceSources(connectors: readonly { connector_key?: unknown
   });
 }
 
-/** The spaces to offer for the chosen source (all sources' spaces when none is chosen). */
 export function offeredSpaces(sources: readonly ConfluenceSource[], connectorKey: string): string[] {
   const chosen = sources.filter((source) => !connectorKey || source.key === connectorKey);
   return [...new Set(chosen.flatMap((source) => source.spaces))].sort();
 }
 
-/** A refused save in words, at its field where the server names one. */
 export function docTargetSaveErrors(status: number, body: unknown): DocTargetErrors {
   const detail = (body as { detail?: unknown } | null)?.detail;
   const words = typeof detail === "string" ? detail : JSON.stringify(detail ?? "");

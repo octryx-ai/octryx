@@ -28,13 +28,11 @@ CLIENT_DIR = Path(__file__).resolve().parents[2] / "clients" / "octryx-claude"
 BRANCH = "feature/OCX-91-search"
 
 
-_DEVICE_RUN = pytest.mark.usefixtures("actions")  # the SCM and workspace steps succeed; the pipeline waits
+_DEVICE_RUN = pytest.mark.usefixtures("actions")
 
 
 @pytest.fixture
 def agent_checks_pass(monkeypatch):
-    """The agents' tool evidence is not under test here: their phases' own checks pass (an item still needs its
-    recorded result, ``stop._item_result_missing``)."""
     from app.services.workflow_runs.octryx import stop as stop_module
 
     monkeypatch.setattr(stop_module, "evaluate_checks", lambda checks, evidence: [])
@@ -66,7 +64,7 @@ def _repository(tmp_path: Path) -> tuple[Path, str]:
 
 def _item(key: str, role: str, paths: list[str], depends_on=None) -> dict:
     return {"id": key, "title": f"Build {key}", "role": role, "depends_on": depends_on or [],
-            "paths": [*paths, f"tests/test_{key.replace('-', '_')}.py"],  # its own proof test
+            "paths": [*paths, f"tests/test_{key.replace('-', '_')}.py"],
             "instructions": f"Build {key}.", "proofs": [f"tests/test_{key.replace('-', '_')}.py::test_it"]}
 
 
@@ -83,8 +81,6 @@ FILES = {"core-domain": "src/core/corpus.py", "frontend-shell": "web/shell/app.j
 
 
 class Device:
-    """The device side of the rehearsal: its launcher's git work and its jobs' events."""
-
     def __init__(self, db, admin, project, run, main: Path, base: str):
         self.db, self.admin, self.project, self.run, self.main, self.base = db, admin, project, run, main, base
         self.work_git, self.prep = _launcher()
@@ -93,8 +89,6 @@ class Device:
         return await self.db.get(DeviceJob, job_id)
 
     async def prepares_main(self, gateway) -> dict:
-        """What every main-thread job does first (the coordinator's turn, the git work, the pipeline): the launcher
-        prepares the main folder from the run's contract, the run's WIP restored (``device_session``)."""
         from app.services.workflow_runs.octryx.contract import run_contract
 
         contract = await run_contract(self.db, self.run, session=gateway)
@@ -103,7 +97,6 @@ class Device:
         return report
 
     async def git_work(self, main_gateway=None) -> None:
-        """The main thread's git job: the launcher runs the ops, reports them and ends with ``work_git_done``."""
         if main_gateway is not None:
             await self.prepares_main(main_gateway)
         state = self.run.context[device_work_state.GIT_KEY]
@@ -115,8 +108,6 @@ class Device:
                           limits={})
 
     async def item_turn(self, key: str, value: str = "done") -> None:
-        """One item's job: its gateway session binds, prepares the worktree from its contract, writes its file,
-        reads its contract and records done over MCP as its agent does; its Stop passes; its turn ends."""
         from app.services.workflow_runs.octryx.attach import bind_device_session
         from app.services.workflow_runs.octryx.contract import run_contract
         from app.services.workflow_runs.octryx.stop import run_stop
@@ -147,7 +138,6 @@ class Device:
 
 
     def caller(self, gateway) -> McpCaller:
-        """The item agent's MCP connection: the launcher's session key of its gateway session."""
         from app.services.agent_gateway.contract import SESSION_KEY_METADATA
 
         return McpCaller(user_id=self.admin.id, grant_id="mcp", scopes=("workflow:read", "workflow:execute"),
@@ -155,8 +145,6 @@ class Device:
                          transport="mcp")
 
     async def agent_submits(self, gateway, key: str, value: str = "done") -> dict:
-        """What the item's agent does at its end, through the real MCP tools and the gateway's PreToolUse check: it
-        reads its contract (workflow_run_status, no arguments), then calls submit_phase_result."""
         from app.services.agent_gateway.policy import load_workspace_policy
         from app.services.mcp_workflow_run_tools import PHASE_OUTPUT_MCP_HANDLERS, mcp_workflow_run_status
         from app.services.workflow_runs.octryx.hooks import run_pre_tool_use
@@ -165,7 +153,7 @@ class Device:
         status = await mcp_workflow_run_status(self.db, caller=caller, user=self.admin, workspace_id=self.project.id,
                                                arguments={})
         phase = status["workflow_run"]["phase"]
-        assert phase is not None and phase["work_item"]["id"] == key, status["workflow_run"]  # was: phase null
+        assert phase is not None and phase["work_item"]["id"] == key, status["workflow_run"]
         assert "submit_phase_result" in phase["tools"]["allow"]
         policy = (await load_workspace_policy(self.db, self.project.id)).policy
         decision, _contract = await run_pre_tool_use(self.db, session=gateway, policy=policy, hook_input={
@@ -196,7 +184,6 @@ async def _story_run(db, tmp_path, *, slots: int = 4):
     run.branch = BRANCH
     from app.services.workflow_runs.workspace.preparation import CONTEXT_KEY
 
-    # The run's folder was prepared on its branch (``workspace.prepare``, stood in by ``actions``).
     run.context = {**run.context, "base_sha": base, CONTEXT_KEY: {
         "state": "ready", "runtime": "device", "node_id": "prepare", "entry": 2,
         "spec": {"branch": BRANCH, "head": base, "repository": None, "environment": None}}}
@@ -211,14 +198,12 @@ async def _thread_job(db, session_id):
 
 
 async def coordinator_plans(db, admin, project, thread, run, plan=PLAN):
-    """The coordinator's turn on the main thread: the plan recorded, its Stop passes, its job ends (its gateway
-    session is returned)."""
     from app.services.workflow_runs.octryx.attach import bind_device_session
     from app.services.workflow_runs.octryx.stop import run_stop
     from app.services.workflow_runs.phase_outputs import submit_output
 
     job = await _thread_job(db, thread.id)
-    assert job is not None and job.status in ACTIVE_STATUSES  # the plan phase's continuation on the device
+    assert job is not None and job.status in ACTIVE_STATUSES
     gateway = await _gateway_session(db, admin, project.id, str(uuid.uuid4()))
     assert await bind_device_session(db, gateway_session=gateway, user=admin, workspace_id=project.id,
                                      run_id=run.id, job_id=job.id)

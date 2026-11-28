@@ -9,7 +9,7 @@ from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import join, selectinload
 
 from app.services.worker_pool.helpers import (
     _derive_expertise_level,
@@ -84,7 +84,7 @@ async def _refresh_rate_limit_usage(db: AsyncSession, row: WorkerRateLimit) -> N
     minute_start = now - timedelta(minutes=1)
     hour_start = now - timedelta(hours=1)
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    usage_scope = UsageEvent.__table__.join(Session.__table__, UsageEvent.session_id == Session.id)
+    usage_scope = join(UsageEvent, Session, UsageEvent.session_id == Session.id)
 
     rpm = (
         await db.execute(
@@ -223,7 +223,7 @@ async def record_capacity_snapshot(db: AsyncSession, *, worker_id: str) -> None:
         )
     ).scalar() or 0
     hour_start = utc_now() - timedelta(hours=1)
-    usage_scope = UsageEvent.__table__.join(Session.__table__, UsageEvent.session_id == Session.id)
+    usage_scope = join(UsageEvent, Session, UsageEvent.session_id == Session.id)
     hourly_cost = (
         await db.execute(
             select(func.coalesce(func.sum(UsageEvent.cost), 0))

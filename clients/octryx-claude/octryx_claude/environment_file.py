@@ -1,15 +1,4 @@
-"""The repository's own environment file, read in the run's folder .
-
-When the run's repository record points at an environment file (``coding_setup.environment_file``, e.g.
-``coffee/web/claude/.octryx/environment.json``), the platform sends only that pointer: the preparation and the
-pipeline (``pipeline``) read the file here, in the run's own branch, every time. Its format is exactly the record's
-``coding_setup.environment`` (setup, test, system_test, lint, path, check, browser) and it is validated by the same
-rules as the platform's (``backend/app/services/workflow_runs/workspace/spec.py``: ``validate_environment``,
-``refused_command``; the backend's tests load this module and compare both on the same inputs). Stdlib only.
-
-Everything is scoped to the **app folder**: the directory that contains ``.octryx/`` (else the file's directory).
-The commands run there, ``path`` is relative to it; nothing outside it is read or run.
-"""
+"""The repository's own environment file, read in the run's folder."""
 
 from __future__ import annotations
 
@@ -97,7 +86,6 @@ def _serve(raw: Any, errors: list[str], warnings: list[str] | None = None) -> di
 
 
 def validate_environment(raw: Any) -> tuple[dict[str, Any] | None, list[str]]:
-    """``(normalized, errors)``, the platform's rules (``spec.validate_environment``)."""
     if raw in (None, {}, ""):
         return None, []
     if not isinstance(raw, dict):
@@ -147,9 +135,7 @@ def _pointer_error(environment_file: str) -> str | None:
 
 
 def resolve(root: Path, environment_file: str, pin: dict[str, Any] | None = None) -> dict[str, Any]:
-    """The run's environment file: its pinned content when the platform sent one for this file
-    (the file is the run's contract, pinned at its first valid read; a file the agent rewrote in the
-    working tree is never what the run executes), else the file in ``root``."""
+    # Pinned at its first valid read: a file the agent rewrote in the working tree is never what the run executes.
     file = str(environment_file or "")
     pinned = pin if isinstance(pin, dict) and pin.get("file") == file and isinstance(pin.get("environment"), dict) \
         else None
@@ -160,12 +146,11 @@ def resolve(root: Path, environment_file: str, pin: dict[str, Any] | None = None
                              "sha256": str(pinned.get("sha256") or "")}
     if environment is None or errors:
         return {**found, "state": INVALID, "errors": errors or ["the pinned environment is empty"]}
-    commands = [command for command in (environment["test"], environment["system_test"]) if command]
+    commands = [command for key in ("test", "lint", "system_test") if (command := environment[key])]
     return {**found, "state": OK, "environment": environment, "commands": commands}
 
 
 def read(root: Path, environment_file: str) -> dict[str, Any]:
-    """``{file, app_folder, state, errors, environment, sha256, commands}`` of the file in ``root``."""
     file = str(environment_file or "")
     found: dict[str, Any] = {"file": file, "app_folder": app_folder(file), "errors": []}
     if problem := _pointer_error(file):
@@ -189,18 +174,15 @@ def read(root: Path, environment_file: str) -> dict[str, Any]:
         errors = ["environment.test (the test command) is required"]
     if errors:
         return {**found, "state": INVALID, "errors": errors}
-    commands = [command for command in (environment["test"], environment["system_test"]) if command]
+    commands = [command for key in ("test", "lint", "system_test") if (command := environment[key])]
     return {**found, "state": OK, "environment": environment, "commands": commands}
 
 
 def folder_of(root: Path, account: dict[str, Any]) -> Path:
-    """The app folder inside ``root`` (it exists: the file is in it)."""
     return Path(os.path.realpath(root)) / str(account.get("app_folder") or ".")
 
 
 def exclude(root: Path, account: dict[str, Any]) -> None:
-    """The app folder's environment (its ``path`` tops, ``.venv``), test reports and caches never enter the change
-    or the pipeline's tree: local excludes (``.git/info/exclude``), never a commit."""
     folder = str(account.get("app_folder") or ".")
     if folder == ".":
         return  # the repository root: ``work_git.RUNTIME_EXCLUDES`` and the preparation cover it
@@ -222,9 +204,7 @@ def exclude(root: Path, account: dict[str, Any]) -> None:
 
 
 def setup(folder: Path, environment: dict[str, Any], env: dict[str, str]) -> tuple[bool, list[dict[str, Any]]]:
-    """Make the app folder ready: nothing when every ``check`` passes, else the ``setup`` commands in order (a
-    failing one stops). Without ``check`` the setup runs every time (it is expected to be idempotent). The checks and
-    the setup run exactly like a declaration on the record (``workspace_env._probe`` / ``_run``)."""
+    # Without a check the setup runs every time, so it must be idempotent.
     from . import browser, workspace_env  # noqa: PLC0415
 
     checks = list(environment.get("check") or [])

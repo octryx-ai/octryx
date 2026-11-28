@@ -1,12 +1,4 @@
-"""General knowledge-graph tables (tier 2): typed entities, relations, aliases,
-and version-temporal claims.
-
-Modeled on the engineering-knowledge graph but for the general knowledge base,
-with a ``description`` + ``embedding`` on nodes/edges (LightRAG-style dual-level
-retrieval) and aliases for entity resolution (e.g. "Alice Example" and the
-connector user "alice" resolve to one node). Claims capture GraphRAG-style
-covariates with a validity window for versioned facts (e.g. release PDFs).
-"""
+"""General knowledge-graph tables (tier 2): typed entities, relations, aliases, and version-temporal claims."""
 
 from __future__ import annotations
 
@@ -27,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -34,7 +27,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeGraphNode(Base):
+class KnowledgeGraphNode(WorkspaceBound, Base):
     __tablename__ = "knowledge_graph_nodes"
     __table_args__ = (
         UniqueConstraint("project_id", "node_type", "node_key", name="uq_knowledge_graph_nodes_type_key"),
@@ -71,7 +64,9 @@ class KnowledgeGraphNode(Base):
     )
 
 
-class KnowledgeGraphAlias(Base):
+class KnowledgeGraphAlias(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"node_id": "knowledge_graph_nodes"}
     __tablename__ = "knowledge_graph_aliases"
     __table_args__ = (
         UniqueConstraint("project_scope", "normalized_alias", name="uq_knowledge_graph_aliases_scope_value"),
@@ -92,7 +87,8 @@ class KnowledgeGraphAlias(Base):
     node = relationship("KnowledgeGraphNode", back_populates="aliases")
 
 
-class KnowledgeGraphEdge(Base):
+class KnowledgeGraphEdge(WorkspaceBound, Base):
+    __workspace_owners__ = {"source_node_id": "knowledge_graph_nodes"}
     __tablename__ = "knowledge_graph_edges"
     __table_args__ = (
         UniqueConstraint(
@@ -126,13 +122,10 @@ class KnowledgeGraphEdge(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeMergeProposal(Base):
-    """A fuzzy identity match awaiting human review (staged identity resolution).
-
-    Deterministic identifiers (connector ids, emails, exact aliases) merge at
-    upsert time; anything weaker becomes a proposal — entities, and especially
-    people, are never silently merged on a fuzzy signal.
-    """
+class KnowledgeMergeProposal(WorkspaceBound, Base):
+    """A fuzzy identity match awaiting human review. Only deterministic identifiers merge at upsert time; entities are
+    never silently merged on a fuzzy signal."""
+    __workspace_owners__ = {"keep_node_id": "knowledge_graph_nodes"}
 
     __tablename__ = "knowledge_merge_proposals"
     __table_args__ = (
@@ -155,13 +148,8 @@ class KnowledgeMergeProposal(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeCommunity(Base):
-    """A cluster of related graph nodes with a summary report (tier 3).
-
-    Communities are detected deterministically over the edge structure; the
-    report (title/summary) is produced by the governed summarize runtime and
-    answers global "how does the system work" questions.
-    """
+class KnowledgeCommunity(WorkspaceBound, Base):
+    """A cluster of related graph nodes with a summary report (tier 3)."""
 
     __tablename__ = "knowledge_communities"
     __table_args__ = (
@@ -189,13 +177,9 @@ class KnowledgeCommunity(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeOntologyVersion(Base):
-    """A versioned, reviewable ontology (entity + relation types) per scope.
-
-    The active version steers the extraction prompt and validates extractor
-    output. Prompt auto-tuning creates *draft* versions that require activation
-    (review gate) — the ontology never changes silently.
-    """
+class KnowledgeOntologyVersion(WorkspaceBound, Base):
+    """A versioned, reviewable ontology (entity and relation types) per scope. Auto-tuning creates drafts that need
+    activation: the ontology never changes silently."""
 
     __tablename__ = "knowledge_ontology_versions"
     __table_args__ = (
@@ -217,8 +201,9 @@ class KnowledgeOntologyVersion(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeClaim(Base):
+class KnowledgeClaim(WorkspaceBound, Base):
     """A versioned/temporal fact (GraphRAG covariate) about a subject node."""
+    __workspace_owners__ = {"subject_node_id": "knowledge_graph_nodes"}
 
     __tablename__ = "knowledge_claims"
     __table_args__ = (

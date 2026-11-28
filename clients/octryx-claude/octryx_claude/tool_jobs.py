@@ -1,13 +1,4 @@
-"""A device job without an agent (server ``services/devices/tool_jobs``): the platform sends
-``tool_job {job_id, archives, steps, timeout}``; the launcher fetches each archive into one temporary folder
-(``tree_archive.fetch``: sha256 checked, unpacked safely), runs the steps in order with :func:`tool_run.run_tool`
-(pinned tools only, no shell, minimal environment) and answers ``tool_job_result {job_id, steps}`` raw: the status,
-exit code, output and the files each step wrote. A file the step cut at ``max_output`` goes up whole as an upload
-(``tree_archive.upload``) and is answered by its id. The folder is removed afterwards, whatever happened.
-
-In a step's ``args`` ``{archive:<name>}`` is that archive's folder and ``{out:<file>}`` a file in ``out/``; every
-step starts in the job's folder. The launcher judges nothing: the platform reads the result.
-"""
+"""A device job without an agent: fetch the archives, run the pinned tool steps and answer the raw results."""
 
 from __future__ import annotations
 
@@ -44,7 +35,6 @@ def _upload_cut(state: Any, root: Path, name: str, upload: Callable[..., Any]) -
 def run_job(state: Any, body: dict[str, Any], *, fetch: Callable[..., Any] = tree_archive.fetch,
             upload: Callable[..., Any] = tree_archive.upload,
             run: Callable[..., dict[str, Any]] = tool_run.run_tool) -> tuple[str, dict[str, Any]]:
-    """``(message type, body)`` of the answer; blocking, run it off the event loop."""
     job_id = str(body.get("job_id") or "")
     root = Path(tempfile.mkdtemp(prefix="octryx-tool-job-"))
     try:
@@ -83,7 +73,6 @@ def run_job(state: Any, body: dict[str, Any], *, fetch: Callable[..., Any] = tre
 
 
 async def serve(state: Any, body: dict[str, Any], send: Callable[[str, dict[str, Any]], Awaitable[bool]]) -> None:
-    """Run one offered job off the receive loop and answer it."""
     if not _ID.match(str(body.get("job_id") or "")):
         return
     try:

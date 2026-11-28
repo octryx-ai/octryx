@@ -31,8 +31,6 @@ __all__ = ["SelectedChatSessionState", "_load_selected_chat_session_state"]
 
 @dataclass(slots=True)
 class SelectedChatSessionState:
-    """Materialized selected-session state used by the chat bootstrap payload."""
-
     status: str
     stop_reason: str | None
     task_error: str

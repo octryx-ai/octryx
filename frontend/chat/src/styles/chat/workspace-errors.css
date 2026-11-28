@@ -9,33 +9,8 @@
   color: var(--status-error-ink);
 }
 
-.workspace__error--task {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.workspace__error--dock {
-  margin: 0 0 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: var(--ds-radius-xl);
-  background: color-mix(in srgb, var(--status-error) 12%, transparent);
-}
-
 .workspace__error--boundary {
   margin: 1rem 1.5rem;
-}
-
-.workspace__error-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.workspace__error-heading span {
-  color: var(--status-error-ink);
-  font-size: var(--ds-text-xs);
 }
 
 .workspace__error-action {
@@ -46,11 +21,11 @@
   margin-top: 0.25rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--border-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--highlight);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace__error-action svg {

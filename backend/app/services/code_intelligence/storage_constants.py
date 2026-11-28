@@ -50,22 +50,6 @@ _LANGUAGE_TO_LSP_LANGUAGE: dict[str, str] = {
     "cpp": "cpp",
     "rust": "rust",
 }
-_LANGUAGE_SCIP_BINARIES: dict[str, tuple[str, ...]] = {
-    "go": ("scip-go",),
-    "java": ("scip-java",),
-    "python": ("scip-python",),
-    "typescript": ("scip-typescript",),
-    "javascript": ("scip-typescript",),
-    "c": ("scip-clang",),
-    "cpp": ("scip-clang",),
-}
-_SCIP_BUILDABLE_LANGUAGES = {"go", "python", "typescript", "javascript", "c", "cpp"}
-_SCIP_SNAPSHOT_METADATA_PATTERN = re.compile(
-    r"^\s*//\s+(?P<key>display_name|signature_documentation|kind)\s+(?P<value>.+?)\s*$"
-)
-_SCIP_SNAPSHOT_OCCURRENCE_PATTERN = re.compile(
-    r"^\s*//\s*(?P<carets>\^+)\s+(?P<kind>definition|reference)\s+.+\s+(?P<symbol>\S+)\s*$"
-)
 _SYMBOL_PATTERNS: dict[str, list[tuple[str, re.Pattern[str]]]] = {
     "python": [
         ("class", re.compile(r"^\s*class\s+([A-Za-z_][A-Za-z0-9_]*)\b", re.MULTILINE)),

@@ -1,19 +1,5 @@
-"""The pet's commands: run the tray icon, start it at login, set its quiet hours.
-
-    octryx-claude pet run                 # macOS (the LaunchAgent calls this)
-    octryx-pet run                        # native Windows (python -m octryx_claude.pet; the Run key calls it)
-    ... enable | disable                  # on now and at every login (macOS LaunchAgent, Windows Run key), or off
-    ... autostart [--restart]             # the installers: on unless the person turned it off
-    ... status                            # platform, autostart, settings and the current state
-    ... quiet 19:00-08:00                 # quiet hours (local time); `quiet off` / `quiet on`
-    ... notifications on|off
-
-The pet is on by default: install.sh / install.ps1 call ``pet autostart`` after every install, which
-turns it on unless the person turned it off (``pet disable`` or "Turn off Octryx" in the menu leave
-``pet-autostart-off``; ``pet enable`` removes it again).
-
-Inside WSL2 there is no tray: ``octryx-claude pet run|enable`` there points at the native ``octryx-pet``.
-"""
+"""The pet's commands: run the tray icon, start it at login, set its quiet hours and notifications.
+Inside WSL2 there is no tray, so ``run`` and ``enable`` point at the native ``octryx-pet``."""
 
 from __future__ import annotations
 
@@ -103,8 +89,6 @@ def _run(args: argparse.Namespace, account: Account) -> int:
 
 
 def _start_windows_updates(account: Account, tray: Any, updated: list[str]) -> Callable[[], None]:
-    """Native Windows: the pet keeps its own venv up to date (``win_update``); elsewhere the client's self-update does
-    it. Returns how to stop the watcher."""
     if os.name != "nt":
         return lambda: None
     import threading  # noqa: PLC0415
@@ -129,7 +113,6 @@ def _restart_after_update(version: str) -> None:
 
 
 def _command(action: str) -> str:
-    """How the person types a pet command here: ``octryx-pet`` on native Windows, else ``octryx-claude pet``."""
     return f"octryx-pet {action}" if os.name == "nt" else f"octryx-claude pet {action}"
 
 
@@ -193,8 +176,6 @@ def _launch_agent():  # noqa: ANN202 - the macOS LaunchAgent
 
 
 def _autostart(command: str, account: Account, *, restart: bool = True) -> int:
-    """``enable`` (on, and the person's choice), ``disable`` (off, remembered) or ``autostart`` (the installers: on
-    unless turned off; without the pet extra the login item goes, so it cannot fail at every login)."""
     from .service import PetServiceError, RunKey  # noqa: PLC0415
 
     if sys.platform != "darwin" and os.name != "nt":

@@ -20,7 +20,7 @@
 .decision-card__title {
   margin: 0;
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .decision-card__summary,
@@ -47,7 +47,7 @@
 .decision-card__label {
   margin: 0;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 /* A finding is a row of the card, not a card in the card (README.md, UI set): a divider above, no frame. */
@@ -124,12 +124,12 @@
   align-items: center;
   gap: 0.5rem 0.5rem;
 }
-.decision-card__task-id { font-weight: 600; font-variant-numeric: tabular-nums; }
+.decision-card__task-id { font-weight: var(--ds-weight-strong); font-variant-numeric: tabular-nums; }
 @media (max-width: 640px) {
   .decision-card__task { grid-template-columns: auto minmax(0, 1fr); }
   .decision-card__task > :nth-child(n + 3) { grid-column: 2; justify-self: start; }
 }
-.decision-card__task-done { color: var(--status-active, currentColor); font-weight: 600; }
+.decision-card__task-done { color: var(--status-active, currentColor); font-weight: var(--ds-weight-strong); }
 .decision-card__task-note {
   grid-column: 2 / -1;
   margin: 0;

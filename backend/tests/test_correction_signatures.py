@@ -1,8 +1,5 @@
-"""From Correction to Check: capture and signature store.
-
-Every correction of an agent's work is kept per Workspace, repository and app under a signature (check kind, file
-pattern, normalised message) and its repeats are counted; a check is proposed when a signature reaches the
-Workspace's threshold (default 2). A signature never holds a secret or a person's name."""
+"""From Correction to Check: corrections are kept per Workspace, repository and app under a signature and counted;
+a signature never holds a secret or a person's name."""
 
 from __future__ import annotations
 
@@ -88,11 +85,11 @@ async def test_repeats_reach_the_threshold_once_and_the_workspace_can_raise_it(d
         await db.commit()
     [row] = await _signatures(db, project)
     assert {key: row.occurrences[0].get(key) for key in ("before_tree", "after_tree", "paths")} == {
-        "before_tree": "t-red", "after_tree": "t-green", "paths": ["shop/pricing/cart.py"]}  # the proposal's proof
+        "before_tree": "t-red", "after_tree": "t-green", "paths": ["shop/pricing/cart.py"]}
     assert (await corrections.get_signature(db, row.id))["repeats"] == 3
     assert row.repeats == 3 and row.over_threshold_at is not None and len(row.occurrences) == 3
     assert correction_metrics.CAPTURED.series[("review_fixed",)] == 3
-    assert correction_metrics.OVER_THRESHOLD.series[("pattern",)] == 1  # crossed at the second, counted once
+    assert correction_metrics.OVER_THRESHOLD.series[("pattern",)] == 1
 
     raised, _mara, other = await _workspace(db, check_proposals={"threshold": 3})
     assert corrections.settings(raised)["threshold"] == {"value": 3, "source": "workspace"}
@@ -119,10 +116,10 @@ async def test_every_source_keeps_its_correction_and_a_switched_off_source_none(
     comment = SimpleNamespace(repository="github:octryx/demo-shop", pr_id="7", comment_id="c1", author="mara-gh",
                               author_id="", body="Please keep the prices in cents as integers here, mara-gh.")
     await corrections.pr_comment(db, project.id, comment)
-    await corrections.pr_comment(db, project.id, comment)  # the webhook and the poll: one occurrence
+    await corrections.pr_comment(db, project.id, comment)
     for body in ("@octryx explain why", "**🔴 High** · F1\n\nUse Decimal", "Octryx: this pull request is closed.",
-                 "octryx-e2e nightly 2026-11-19-levers-2: case done",  # the harness posts under a person's login
-                 "Merged into main with the whole epic chain in f4ea424."):  # status, no correction
+                 "octryx-e2e nightly 2026-11-19-levers-2: case done",
+                 "Merged into main with the whole epic chain in f4ea424."):
         await corrections.pr_comment(db, project.id, SimpleNamespace(**{**comment.__dict__, "comment_id": body,
                                                                         "body": body}))
     await corrections.pr_comment(db, project.id, SimpleNamespace(**{**comment.__dict__, "author": "stranger",

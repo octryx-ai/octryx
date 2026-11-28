@@ -127,7 +127,7 @@ async def panel_post_import_package(
     db: AsyncSession = Depends(get_db),
 ):
     current_user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.target_project_id)
+    await require_existing_workspace(db, current_user.id, payload.target_project_id)
     return JSONResponse(
         await import_package(
             db,

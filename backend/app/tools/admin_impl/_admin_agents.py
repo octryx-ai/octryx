@@ -110,12 +110,6 @@ class AdminGetAgentTool:
 def _validated_step_payloads(
     steps: list[Any],
 ) -> tuple[list[dict[str, Any]], str | None]:
-    """Check the shape of every requested step before anything is written.
-
-    Returns the steps unchanged plus ``None``, or an empty list plus the same error
-    message the create tool has always returned for a malformed step. Separated out so
-    the check can run ahead of the governed write scope; see the call site.
-    """
     for index, raw_step in enumerate(steps, start=1):
         if not isinstance(raw_step, dict):
             return [], f"steps[{index - 1}] must be an object"

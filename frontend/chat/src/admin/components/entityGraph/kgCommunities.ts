@@ -1,14 +1,10 @@
-// Groups from the graph's own structure, for a Workspace whose entities carry no types (Preview's Acme Orders:
-// "Entity types are not classified"). Louvain community detection over the shown entities, deterministic and in
-// the browser; each group is named after its most connected entity ("around JMS"). Entities with no or almost no
-// links form one group, "Loosely connected", which the layout puts on an outer ring instead of the middle.
+// Louvain groups for Workspaces whose entities carry no types; deterministic, so the same graph gives the same groups.
 
 export type GroupNode = { id: string; display_name: string; node_type: string };
 export type GroupEdge = { source: string; target: string };
 
 export const LOOSE_GROUP = "Loosely connected";
 export const SMALL_GROUPS = "Smaller groups";
-// A community smaller than this is "loosely connected"; at most this many groups keep their own name.
 export const MIN_GROUP_SIZE = 3;
 export const MAX_NAMED_GROUPS = 12;
 
@@ -25,7 +21,6 @@ function buildGraph(size: number, links: [number, number, number][]): Graph {
   return { size, adj, self };
 }
 
-// One Louvain level: local moves until no node changes its community. Returns the community of each node.
 function oneLevel(graph: Graph, order: number[]): number[] {
   const strength = graph.adj.map((row, i) => {
     let total = 2 * graph.self[i];
@@ -58,7 +53,6 @@ function oneLevel(graph: Graph, order: number[]): number[] {
   return community;
 }
 
-/** Louvain communities: node id → community number (0, 1, …). The same graph always gives the same result. */
 export function louvain(nodes: { id: string }[], edges: GroupEdge[]): Map<string, number> {
   const ids = nodes.map((node) => node.id).sort();
   const index = new Map(ids.map((id, i) => [id, i]));
@@ -75,7 +69,7 @@ export function louvain(nodes: { id: string }[], edges: GroupEdge[]): Map<string
     const degree = graph.adj.map((row) => row.size);
     const order = Array.from({ length: size }, (_, i) => i).sort((a, b) => degree[b] - degree[a] || a - b);
     const community = oneLevel(graph, order);
-    // Renumber in order of first appearance, so the numbers are stable.
+    // Renumber in order of first appearance so the numbers are stable.
     const renumber = new Map<number, number>();
     for (let i = 0; i < size; i += 1) if (!renumber.has(community[i])) renumber.set(community[i], renumber.size);
     if (renumber.size === size) break;
@@ -99,12 +93,6 @@ export function louvain(nodes: { id: string }[], edges: GroupEdge[]): Map<string
 export type Group = { label: string; hubId: string; size: number };
 export type Grouping = { groupOf: Map<string, string>; groups: Group[]; hubs: Set<string> };
 
-/**
- * Named groups for the shown entities: Louvain communities of at least MIN_GROUP_SIZE, largest first, each named
- * "around <its most connected entity>"; the rest (and entities without links) are LOOSE_GROUP. Beyond
- * MAX_NAMED_GROUPS, smaller communities share SMALL_GROUPS. `hubs`: the one or two entities per group whose labels
- * stay on the canvas (two for groups of ten or more).
- */
 export function structureGroups(nodes: GroupNode[], edges: GroupEdge[]): Grouping {
   const ids = new Set(nodes.map((node) => node.id));
   const inView = edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target) && edge.source !== edge.target);
@@ -153,12 +141,10 @@ export function structureGroups(nodes: GroupNode[], edges: GroupEdge[]): Groupin
   return { groupOf, groups, hubs };
 }
 
-/** Whether the view needs groups instead of types: entities present, but no more than one type among them. */
 export function needsStructureGroups(nodes: { node_type: string }[]): boolean {
   return nodes.length >= 2 && new Set(nodes.map((node) => node.node_type)).size <= 1;
 }
 
-/** The group of an entity an Expand added: the most common group among its linked entities, else loose. */
 export function groupOfAdded(id: string, edges: GroupEdge[], groupOf: Map<string, string>): string {
   const counts = new Map<string, number>();
   for (const edge of edges) {
@@ -174,7 +160,6 @@ export function groupOfAdded(id: string, edges: GroupEdge[], groupOf: Map<string
   return best;
 }
 
-/** What the legend says when colours show groups instead of types. */
 export function groupsNote(onlyType: string | undefined): string {
   const why = !onlyType || onlyType === "entity"
     ? "Entity types are not classified for this Workspace, so there is no type to colour by."

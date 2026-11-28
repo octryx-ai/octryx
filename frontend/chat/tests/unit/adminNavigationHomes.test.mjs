@@ -26,7 +26,7 @@ const BEFORE_E6 = {
   providers: "Models", modelCatalog: "Models", modelOrder: "Models", runtimePolicyLists: "Models", runtimeLimits: "Models",
   connectors: "Connections", mcp: "Connections", databases: "Connections", channels: "Connections",
   webhooks: "Connections", schedulers: "Connections", tasks: "Connections",
-  runtimeExecution: "Platform", runtimeCompression: "Platform", tts: "Platform", backupRestore: "Platform",
+  runtimeExecution: "Platform", tts: "Platform", backupRestore: "Platform",
   branding: "Platform", corpIdentity: "Platform", promptCatalog: "Platform",
 };
 

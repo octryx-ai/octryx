@@ -1,6 +1,5 @@
 """The PreToolUse hook command (``hooks.run_pre_tool_use``): the platform decides (``POST /sessions/tool-check``),
-fail closed; a session that decides on the device decides the hard-deny list itself (``local_decisions``). A governed
-confirmation or run decision first gets the supervisor signer's proof."""
+fail closed; a session that decides on the device decides the hard-deny list itself (``local_decisions``)."""
 
 from __future__ import annotations
 
@@ -46,8 +45,6 @@ PROOF_UNAVAILABLE_REASON = pipeline_texts.FALLBACK_TEXTS["run.launcher.proof_una
 
 def _local_deny(state: LocalState, context: SessionContext, hook_input: dict[str, Any], code: str,
                 message: str) -> dict[str, Any]:
-    """A denial the launcher decides itself, also spooled for the platform (``tool_denied``, source launcher; without it
-    these left no trace on the server, so metrics and the e2e could not see them)."""
     try:
         local_decisions.spool(state.session_dir(context.session_key), "pre", hook_input,
                               decision=local_decisions.DENY, reason=code, message=message)
@@ -58,11 +55,6 @@ def _local_deny(state: LocalState, context: SessionContext, hook_input: dict[str
 
 def _local_pre_tool_use(state: LocalState, context: SessionContext,
                         hook_input: dict[str, Any]) -> dict[str, Any] | None:
-    """The device's own decision in a session that decides locally (``local_decisions``, epic-delivery): ``{}`` for an
-    allow without output, the output of a denial or of a wrapped test run, ``None`` when the platform decides.
-
-    The fast hook (``octryx_claude_entry``) hands a test run here: it is allowed on the device too, and this hook
-    still records its evidence and wraps it to run outside the sandbox (``test_run_output``)."""
     folder = state.session_dir(context.session_key)
     policy = local_decisions.load_policy(folder)
     if policy is None:
@@ -99,18 +91,13 @@ def run_pre_tool_use(state: LocalState, http: httpx.Client) -> int:
             if codex_hook_input.is_deny(output):
                 break
         hook_timings.mark("decided", tool=hook_input.get("tool_name") or "")
-        _emit(output)
+        _emit(codex_hook_input.decided(output) if codex_hook_input.guarded() else output)
     except Exception:  # noqa: BLE001 - any internal failure must still deny
         _emit(pre_tool_use_output(PlatformResult("unreachable", reason="hook_internal_error")))
     return 0
 
 
 def browser_refusal(hook_input: dict[str, Any]) -> dict[str, Any] | None:
-    """The denial of a browser call (``mcp__playwright__*``, Claude Code and Codex alike) that leaves loopback, runs
-    free Playwright code or opens the platform's own port, on the device (the browser server's origin lists are no
-    boundary, its README says), also when the platform allowed it; ``None`` for any other call. The platform's own
-    rule (``workflow_runs/octryx/browser_tools``) is asked first and records the call; a session that decides locally
-    applies the same rule in ``local_decisions``."""
     name = str(hook_input.get("tool_name") or "")
     if not name.startswith(browser_rules.BROWSER_TOOL_PREFIX):
         return None
@@ -121,7 +108,6 @@ def browser_refusal(hook_input: dict[str, Any]) -> dict[str, Any] | None:
 
 def _pre_tool_use_decision(state: LocalState, http: httpx.Client, context: SessionContext,
                            hook_input: dict[str, Any]) -> dict[str, Any] | None:
-    """The output of one PreToolUse decision (``None``: allowed without output)."""
     redirected = spill_copy.redirect(state, context.session_key, hook_input)
     if redirected is not None:  # the session's own spilled tool output, read from a copy (``spill_copy``)
         hook_input = {**hook_input, "tool_input": redirected}

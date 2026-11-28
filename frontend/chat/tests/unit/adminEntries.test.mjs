@@ -60,7 +60,7 @@ const OLD_MENU = {
   workRoles: ["people", "workroles"], workRoleFunctions: ["people", "workroles"], workRoleAudit: ["people", "workroles"], identityGroups: ["people", "groups"],
   identityProviders: ["people", "signin"], identityAccess: ["people", "access"],
   platformVersion: ["platform", "version"], platformDevices: ["platform", "devices"], plugins: ["platform", "plugins"],
-  runtimeExecution: ["platform", "advanced"], runtimeCompression: ["platform", "advanced"], tts: ["platform", "advanced"],
+  runtimeExecution: ["platform", "advanced"], tts: ["platform", "advanced"],
   backupRestore: ["platform", "advanced"], branding: ["platform", "advanced"], corpIdentity: ["platform", "advanced"],
   promptCatalog: ["platform", "advanced"],
 };

@@ -1,9 +1,6 @@
-// A fixed Source Sync reason that is a policy refusal, not a source-system failure, gets an explicit notice with its
-// code in the run report. `egress_refused`: the platform's outbound policy refused the connection's target
-// before anything was sent. The report carries no URL or host, and neither does the notice.
+// The report carries no URL or host, and neither does the notice.
 
 export const REASON_EGRESS_REFUSED = "egress_refused";
-// A configuration gap of this Workspace, not a source-system failure.
 export const REASON_OWN_CONNECTION_INCOMPLETE = "own_connection_incomplete";
 
 export type ReasonNotice = { code: string; title: string; text: string };
@@ -30,7 +27,6 @@ export function reasonNotice(reason: string | null | undefined): ReasonNotice | 
 }
 
 
-// The notice a run report shows: the run's own reason first, else the first item reason that has one.
 export function runReasonNotice(runReason: string | null | undefined, itemReasons: Array<string | null | undefined>): ReasonNotice | null {
   return reasonNotice(runReason) ?? itemReasons.map(reasonNotice).find((notice) => notice !== null) ?? null;
 }

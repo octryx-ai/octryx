@@ -1,13 +1,4 @@
-"""Pause, resume and guarded removal of a platform connector.
-
-* **Usage.** What still depends on the platform connection: Workspaces that switched the connector
-  on (they inherit its credentials unless they hold their own), its named connections, and the
-  Knowledge sources of that kind. Shown as names in the drawer's danger zone.
-* **Pause / Resume** only flips ``is_active`` on the platform row (audited). The full save path
-  is not used for it, because a save rewrites the connector's policy.
-* **Remove** is refused (409, ``connector_in_use``) while anything references the connector, and
-  the caller must repeat the connector's name. Nothing that inherited the credentials breaks silently.
-"""
+"""Pause, resume and guarded removal of a platform connector."""
 
 from __future__ import annotations
 
@@ -85,6 +76,7 @@ async def set_connector_active(
         action="admin.connector.resumed" if is_active else "admin.connector.paused",
         resource_type="connector_config",
         resource_id=tool_name,
+        project_id=None,
         before={"is_active": before},
         after={"is_active": bool(is_active)},
         details={"connector_name": tool_name},

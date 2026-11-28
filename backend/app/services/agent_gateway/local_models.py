@@ -1,11 +1,4 @@
-"""Which local model licences the launchers may use.
-
-Some small local models are not open for every company: Liquid AI's LFM family (the launcher's router model d1-2B,
-LFM2.5, LFM3) is under the "LFM Open License v1.0", which allows commercial use only below USD 10M annual revenue.
-The platform switch ``local_models.permissive_only`` (``SystemConfig``, default **on**) lets the launchers use only
-permissive licences (Apache-2.0, MIT); a platform admin switches it off, and even then a person loads a restricted
-model only on an explicit choice after the licence notice. The launchers read it in ``/client-policy``.
-"""
+"""Which local model licences the launchers may use (``local_models.permissive_only``)."""
 
 from __future__ import annotations
 
@@ -18,7 +11,6 @@ AUDIT_PERMISSIVE_ONLY = "admin.local_models.permissive_only_updated"
 
 
 async def permissive_only(db: AsyncSession) -> bool:
-    """On unless a platform admin stored ``false``."""
     row = await db.get(SystemConfig, PERMISSIVE_ONLY_KEY)
     return not (row is not None and str(row.value or "").strip().lower() == "false")
 

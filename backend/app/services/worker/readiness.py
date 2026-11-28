@@ -24,12 +24,6 @@ async def project_connector_checks(
     connector_test_func,
     db: AsyncSession | None = None,
 ) -> list[dict[str, Any]]:
-    """Test each connector the Workspace has an active tool entry for.
-
-    The tested config is the governed merge of the tool entries (``get_project_config``), never the raw
-    ``Project.config``: a URL, secret or credential selector stored there is never sent to a connection
-    test. Without a session there is no governed source, so nothing is tested.
-    """
     if db is None:
         return []
     config = await get_project_config(project.id, db)

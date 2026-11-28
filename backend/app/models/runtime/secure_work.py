@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class WorkItemSyncConfig(Base):
+class WorkItemSyncConfig(WorkspaceBound, Base):
     __tablename__ = "work_item_sync_configs"
     __table_args__ = (
         Index("ix_work_item_sync_configs_project_active", "project_id", "is_active"),
@@ -47,7 +48,7 @@ class WorkItemSyncConfig(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkItem(Base):
+class WorkItem(WorkspaceBound, Base):
     __tablename__ = "work_items"
     __table_args__ = (
         UniqueConstraint("source_type", "source_instance", "source_key", name="uq_work_items_source_key"),
@@ -104,7 +105,9 @@ class WorkItem(Base):
     sync_config = relationship("WorkItemSyncConfig")
 
 
-class WorkItemSyncRun(Base):
+class WorkItemSyncRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"sync_config_id": "work_item_sync_configs"}
     __tablename__ = "work_item_sync_runs"
     __table_args__ = (
         Index("ix_work_item_sync_runs_config_created", "sync_config_id", "created_at"),
@@ -129,7 +132,7 @@ class WorkItemSyncRun(Base):
     user = relationship("User")
 
 
-class WorkItemWorkflowDefinition(Base):
+class WorkItemWorkflowDefinition(WorkspaceBound, Base):
     __tablename__ = "work_item_workflow_definitions"
     __table_args__ = (
         Index("ix_work_item_workflows_project_active", "project_id", "is_active"),
@@ -155,7 +158,9 @@ class WorkItemWorkflowDefinition(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkItemStateEvent(Base):
+class WorkItemStateEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_item_state_events"
     __table_args__ = (
         Index("ix_work_item_state_events_item_created", "work_item_id", "created_at"),
@@ -181,7 +186,7 @@ class WorkItemStateEvent(Base):
     actor = relationship("User")
 
 
-class WorkRepositoryProfile(Base):
+class WorkRepositoryProfile(WorkspaceBound, Base):
     __tablename__ = "work_repository_profiles"
     __table_args__ = (
         Index("ix_work_repository_profiles_project_active", "project_id", "is_active"),
@@ -241,7 +246,7 @@ class WorkRepositoryProfile(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkTechnologyBaseline(Base):
+class WorkTechnologyBaseline(WorkspaceBound, Base):
     __tablename__ = "work_technology_baselines"
     __table_args__ = (
         Index("ix_work_technology_baselines_project_active", "project_id", "is_active"),
@@ -272,7 +277,7 @@ class WorkTechnologyBaseline(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCodingPipelineConfig(Base):
+class WorkCodingPipelineConfig(WorkspaceBound, Base):
     __tablename__ = "work_coding_pipeline_configs"
     __table_args__ = (
         Index("ix_work_coding_pipeline_configs_project_active", "project_id", "is_active"),
@@ -299,7 +304,9 @@ class WorkCodingPipelineConfig(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCodingPipelineRun(Base):
+class WorkCodingPipelineRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_coding_pipeline_runs"
     __table_args__ = (
         Index("ix_work_coding_pipeline_runs_item_created", "work_item_id", "started_at"),
@@ -356,60 +363,9 @@ class WorkCodingPipelineStage(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCodingWorkspace(Base):
-    __tablename__ = "work_coding_workspaces"
-    __table_args__ = (
-        UniqueConstraint(
-            "pipeline_run_id",
-            "change_unit_id",
-            "restart_generation",
-            name="uq_work_coding_workspace_run_unit_generation",
-        ),
-        Index("ix_work_coding_workspaces_item_created", "work_item_id", "created_at"),
-        Index("ix_work_coding_workspaces_pipeline_run", "pipeline_run_id"),
-        Index("ix_work_coding_workspaces_change_unit", "change_unit_id"),
-        Index("ix_work_coding_workspaces_status", "status"),
-        Index("ix_work_coding_workspaces_branch", "repository_slug", "feature_branch"),
-    )
-
-    id = Column(String(36), primary_key=True, default=uuid_pk)
-    work_item_id = Column(String(36), ForeignKey("work_items.id"), nullable=False, index=True)
-    pipeline_run_id = Column(String(36), ForeignKey("work_coding_pipeline_runs.id"), nullable=False, index=True)
-    change_unit_id = Column(String(36), ForeignKey("work_item_change_units.id"), nullable=False, index=True)
-    repository_profile_id = Column(String(36), ForeignKey("work_repository_profiles.id"), nullable=True)
-    session_id = Column(String(36), ForeignKey("sessions.id"), nullable=True, index=True)
-    provider = Column(String(50), nullable=False, default="bitbucket")
-    provider_instance = Column(String(220), nullable=False, default="default")
-    project_key = Column(String(120), nullable=True)
-    repository_name = Column(String(220), nullable=False)
-    repository_slug = Column(String(220), nullable=False)
-    repository_url = Column(Text, nullable=True)
-    base_branch = Column(String(260), nullable=True)
-    resolved_base_branch = Column(String(260), nullable=True)
-    feature_branch = Column(String(260), nullable=False)
-    base_commit = Column(String(80), nullable=True)
-    workspace_path = Column(Text, nullable=False)
-    source_repository_root = Column(Text, nullable=True)
-    source_evidence_cutoff = Column(DateTime, nullable=True)
-    restart_generation = Column(Integer, nullable=False, default=0)
-    status = Column(String(80), nullable=False, default="prepared")
-    evidence_json = Column(JSON, default=dict, nullable=False)
-    is_active = Column(Boolean, nullable=False, default=True)
-    created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
-    updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=utc_now, nullable=False)
-    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
-
-    work_item = relationship("WorkItem")
-    pipeline_run = relationship("WorkCodingPipelineRun")
-    change_unit = relationship("WorkItemChangeUnit")
-    repository_profile = relationship("WorkRepositoryProfile")
-    session = relationship("Session")
-    creator = relationship("User", foreign_keys=[created_by])
-    updater = relationship("User", foreign_keys=[updated_by])
-
-
-class WorkCodingReviewEvent(Base):
+class WorkCodingReviewEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_coding_review_events"
     __table_args__ = (
         Index("ix_work_coding_review_events_item_created", "work_item_id", "created_at"),
@@ -442,7 +398,9 @@ class WorkCodingReviewEvent(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCodingAuditEvent(Base):
+class WorkCodingAuditEvent(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_coding_audit_events"
     __table_args__ = (
         Index("ix_work_coding_audit_events_item_created", "work_item_id", "created_at"),
@@ -478,7 +436,7 @@ class WorkCodingAuditEvent(Base):
     actor = relationship("User", foreign_keys=[actor_id])
 
 
-class WorkCicdProviderConfig(Base):
+class WorkCicdProviderConfig(WorkspaceBound, Base):
     __tablename__ = "work_cicd_provider_configs"
     __table_args__ = (
         Index("ix_work_cicd_provider_configs_project_active", "project_id", "is_active"),
@@ -514,7 +472,9 @@ class WorkCicdProviderConfig(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCicdBuild(Base):
+class WorkCicdBuild(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items", "provider_config_id": "work_cicd_provider_configs"}
     __tablename__ = "work_cicd_builds"
     __table_args__ = (
         Index("ix_work_cicd_builds_work_item_created", "work_item_id", "created_at"),
@@ -562,7 +522,9 @@ class WorkCicdBuild(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCicdPipelineTrace(Base):
+class WorkCicdPipelineTrace(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items", "provider_config_id": "work_cicd_provider_configs"}
     __tablename__ = "work_cicd_pipeline_traces"
     __table_args__ = (
         Index("ix_work_cicd_pipeline_traces_work_item_created", "work_item_id", "created_at"),
@@ -616,7 +578,9 @@ class WorkCicdPipelineTrace(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCicdFinding(Base):
+class WorkCicdFinding(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items", "provider_config_id": "work_cicd_provider_configs"}
     __tablename__ = "work_cicd_findings"
     __table_args__ = (
         Index("ix_work_cicd_findings_item_created", "work_item_id", "created_at"),
@@ -665,7 +629,7 @@ class WorkCicdFinding(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCicdActionPolicy(Base):
+class WorkCicdActionPolicy(WorkspaceBound, Base):
     __tablename__ = "work_cicd_action_policies"
     __table_args__ = (
         Index("ix_work_cicd_action_policies_project_active", "project_id", "is_active"),
@@ -696,7 +660,9 @@ class WorkCicdActionPolicy(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkCicdActionRequest(Base):
+class WorkCicdActionRequest(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items", "provider_config_id": "work_cicd_provider_configs"}
     __tablename__ = "work_cicd_action_requests"
     __table_args__ = (
         Index("ix_work_cicd_action_requests_item_created", "work_item_id", "created_at"),
@@ -736,7 +702,9 @@ class WorkCicdActionRequest(Base):
     executor = relationship("User", foreign_keys=[executed_by])
 
 
-class WorkItemChangeUnit(Base):
+class WorkItemChangeUnit(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_item_change_units"
     __table_args__ = (
         Index("ix_work_item_change_units_item_order", "work_item_id", "dependency_order"),
@@ -768,18 +736,13 @@ class WorkItemChangeUnit(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkPullRequest(Base):
+class WorkPullRequest(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items", "repository_profile_id": "work_repository_profiles"}
     __tablename__ = "work_pull_requests"
     __table_args__ = (
-        UniqueConstraint(
-            "scope_key",
-            "provider",
-            "provider_instance",
-            "project_key",
-            "repository_slug",
-            "pr_id",
-            name="uq_work_pull_requests_provider_pr",
-        ),
+        UniqueConstraint("scope_key", "provider", "provider_instance", "project_key", "repository_slug", "pr_id",
+                         name="uq_work_pull_requests_provider_pr"),
         Index("ix_work_pull_requests_item_updated", "work_item_id", "source_updated_at"),
         Index("ix_work_pull_requests_change_unit", "change_unit_id"),
         Index("ix_work_pull_requests_repository_profile", "repository_profile_id"),
@@ -824,6 +787,9 @@ class WorkPullRequest(Base):
     refresh_error = Column(Text, nullable=True)
     refresh_attempted_at = Column(DateTime, nullable=True)
     refresh_requested_at = Column(DateTime, nullable=True)
+    # The platform session and run that opened it (plain ids: a deleted session never blocks the record).
+    session_id = Column(String(36), nullable=True, index=True)
+    run_id = Column(String(36), nullable=True)
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     updated_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -878,7 +844,9 @@ class WorkEngineeringProfile(Base):
     updater = relationship("User", foreign_keys=[updated_by])
 
 
-class WorkReviewerOverride(Base):
+class WorkReviewerOverride(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_reviewer_overrides"
     __table_args__ = (
         Index("ix_work_reviewer_overrides_item_created", "work_item_id", "created_at"),
@@ -902,7 +870,9 @@ class WorkReviewerOverride(Base):
     actor = relationship("User")
 
 
-class WorkChangePlan(Base):
+class WorkChangePlan(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_change_plans"
     __table_args__ = (
         UniqueConstraint("work_item_id", "version", name="uq_work_change_plans_item_version"),
@@ -953,7 +923,9 @@ class WorkChangePlan(Base):
     decider = relationship("User", foreign_keys=[decided_by])
 
 
-class WorkChangePlanDecision(Base):
+class WorkChangePlanDecision(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_change_plan_decisions"
     __table_args__ = (
         Index("ix_work_change_plan_decisions_plan_created", "change_plan_id", "created_at"),
@@ -979,7 +951,7 @@ class WorkChangePlanDecision(Base):
     actor = relationship("User")
 
 
-class WorkCodingPolicy(Base):
+class WorkCodingPolicy(WorkspaceBound, Base):
     __tablename__ = "work_coding_policies"
     __table_args__ = (
         Index("ix_work_coding_policies_project_active", "project_id", "is_active"),

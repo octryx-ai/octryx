@@ -1,7 +1,5 @@
 """Counters of what devices report besides their turns (``octryx_device_change_*``, ``octryx_device_mcp_*``): the
-changes a Stop reported without a patch or after a retry, and the launcher's removed MCP authentication marks.
-They are rendered with the workflow metrics (``workflow_metrics.METRICS``).
-"""
+changes a Stop reported without a patch or after a retry, and the launcher's removed MCP authentication marks."""
 
 from __future__ import annotations
 
@@ -22,8 +20,6 @@ _CHANGE_STEPS = ("cat-file", "read-tree", "add", "diff")
 
 
 def device_change_reported(change: dict) -> None:
-    """A Stop's change as the run keeps it (``octryx/facts``), counted when it is recorded (so a
-    repeat after the retry is seen, not guessed)."""
     attempts = change.get("attempts")
     unavailable = bool(change.get("base_unavailable"))
     if isinstance(attempts, int) and attempts > 1:
@@ -39,6 +35,4 @@ def device_change_reported(change: dict) -> None:
 
 
 def mcp_auth_cache_cleared(profile: str) -> None:
-    """A device session's launcher removed the platform server's "needs authentication" mark (one
-    broken turn's mark would cost the following turns their platform tools), counted at the session's registration."""
     DEVICE_MCP_AUTH_CLEARED.inc(profile=profile)

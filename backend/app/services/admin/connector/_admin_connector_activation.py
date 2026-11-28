@@ -189,8 +189,6 @@ def _active_connector_names(entries: list[Any]) -> set[str]:
 
 
 def build_connector_runtime_project_config(entries: list[Any]) -> dict[str, Any]:
-    """Build a secret-free project-config snapshot for runtime visibility checks."""
-
     entry_map = {entry.tool_name: entry for entry in entries}
     runtime_config: dict[str, Any] = {}
     disabled_runtime_connectors: list[str] = []

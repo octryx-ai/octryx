@@ -1,10 +1,5 @@
-"""octryx run UX, step 2: requester decisions answered in the terminal, never on the user's behalf.
-
-A user confirmation, a user question or a paused run of the session's run is decided through ``workflow_decide`` only
-with the ticket of the user's accepted permission prompt (PreToolUse with the launcher's ``decide`` proof), bound to
-the platform's payload hash and recorded by the platform's own decision function. A changed payload, a four-eyes
-approval and a watched external state are refused; a session without a run gets nothing.
-"""
+"""Requester decisions answered in the terminal, never on the user's behalf: only with the ticket of the
+user's accepted permission prompt, bound to the platform's payload hash."""
 
 from __future__ import annotations
 
@@ -28,6 +23,9 @@ from app.services.workflow_runs.records import WorkflowRunError, main_session_id
 from tests.agent_gateway_hook_support import decide_hook_input, new_hook_key, register
 from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import PHASE, member_admin, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CONFIRM = {"id": "go", "type": "user_confirmation", "label": "Go on?", "config": {"subject": "advance"}}
 ASK = {"id": "ask", "type": "user_conversation", "label": "Scope", "config": {"question": "Which component?"}}
@@ -52,8 +50,6 @@ def _definition(node: dict) -> dict:
 
 
 class Terminal:
-    """A launcher session bound to the run, with its hook key: what octryx-claude's hooks and MCP calls do."""
-
     def __init__(self, db, run: WorkflowRun, gateway, key: str, hook_key: bytes, workspace_id: str, admin):
         self.db, self.run, self.gateway, self.key, self.hook_key = db, run, gateway, key, hook_key
         self.workspace_id, self.admin = workspace_id, admin
@@ -212,8 +208,6 @@ async def test_a_session_without_a_run_cannot_decide_and_keeps_its_other_tools(d
 
 @pytest.mark.asyncio
 async def test_no_path_answers_for_the_user_without_the_launchers_decide_proof(db):
-    """Guarantees: no proof (a Bash process, a crafted hook input, bypass mode) mints no ticket; a confirmation proof
-    is not a decision proof; the platform's chat decision of the same run is untouched by the terminal path."""
     from tests.agent_gateway_hook_support import confirm_hook_input
 
     terminal = await _terminal(db, CONFIRM)

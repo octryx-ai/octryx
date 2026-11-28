@@ -1,10 +1,4 @@
-"""An Action runs either a workflow run or an agent with a prompt.
-
-Checked at save (every writer of an Action's config) and again at admission:
-
-- ``config.workflow_run`` and ``config.agent_definition_id`` together → ``action_agent_and_workflow`` (the agents of
-  a workflow run come from its phases).
-"""
+"""An Action runs either a workflow run or an agent with a prompt."""
 
 from __future__ import annotations
 

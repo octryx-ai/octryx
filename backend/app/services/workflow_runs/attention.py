@@ -1,8 +1,4 @@
-"""Workflow runs that need a person: Observability → Needs attention and the Inbox.
-
-A paused run needs its requester's decision (continue, change plan, abort); a run that has waited longer than a
-day is overdue. Both are listed with one link into the screen that owns the decision; nothing is decided here.
-"""
+"""Workflow runs that need a person: Observability → Needs attention and the Inbox."""
 
 from __future__ import annotations
 
@@ -14,9 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import WorkflowRun
 from ...time_utils import ensure_utc
+from ..project.private_workspace import outside_foreign_private
 from .limits import pause_message
 from .product_owner_wait import REASON_SPEC_APPROVAL, studio_address
 from .records import main_session_id
+from .runtime_target.seat_required import ACTION_LABEL, seat_paused
 from .states import STATUS_PAUSED, STATUS_WAITING, WAITING_APPROVAL, WAITING_CONFIRMATION, WAITING_WATCH
 
 WAITING_OVERDUE = timedelta(hours=24)
@@ -32,14 +30,14 @@ _OWN_PR_SUBTITLES = {
 }
 
 
-async def attention_counts(db: AsyncSession, now: datetime) -> list[tuple[str, int, Any, str]]:
-    """``(kind, count, oldest, cause)`` rows for the Overview: paused runs and overdue waiting runs."""
+async def attention_counts(db: AsyncSession, now: datetime, *, viewer_id: str) -> list[tuple[str, int, Any, str]]:
+    visible = outside_foreign_private(WorkflowRun.project_id, viewer_id)
     paused = (await db.execute(
-        select(func.count(), func.min(WorkflowRun.updated_at)).where(WorkflowRun.status == STATUS_PAUSED)
+        select(func.count(), func.min(WorkflowRun.updated_at)).where(WorkflowRun.status == STATUS_PAUSED, visible)
     )).one()
     overdue = (await db.execute(
         select(func.count(), func.min(WorkflowRun.updated_at)).where(
-            WorkflowRun.status == STATUS_WAITING, WorkflowRun.updated_at < now - WAITING_OVERDUE)
+            WorkflowRun.status == STATUS_WAITING, WorkflowRun.updated_at < now - WAITING_OVERDUE, visible)
     )).one()
     rows = []
     if paused[0]:
@@ -53,7 +51,7 @@ async def attention_counts(db: AsyncSession, now: datetime) -> list[tuple[str, i
 
 
 def _web_page(url: Any) -> bool:
-    """Only an http(s) page is linked (an SCM answer is never trusted as a link scheme)."""
+    # An SCM answer is never trusted as a link scheme.
     return isinstance(url, str) and url.lower().startswith(("https://", "http://"))
 
 
@@ -66,7 +64,6 @@ def _waiting_reason(run: WorkflowRun) -> str:
 
 
 async def _responsible_confirms(db: AsyncSession, run: WorkflowRun, user_id: str) -> bool:
-    """The run waits for a confirmation its responsible person ``user_id`` may give."""
     from ...models import User
     from .hitl_actions import _may_confirm
 
@@ -74,16 +71,17 @@ async def _responsible_confirms(db: AsyncSession, run: WorkflowRun, user_id: str
     return run.waiting_kind == WAITING_CONFIRMATION and user is not None and await _may_confirm(db, run, user)
 
 
+def _paused_title(run: WorkflowRun) -> str:
+    return f"{ACTION_LABEL if seat_paused(run) else 'Run paused'}: {run.title}"
+
+
 async def inbox_items(db: AsyncSession, user_id: str, *, approver: bool = False) -> list[dict[str, Any]]:
-    """The user's own paused runs, confirmations (decided in the run's chat card) and pull requests to review
-    themselves (they are the author, a four-eyes exception), the confirmations of the runs they are responsible
-    for, and, for an approver, the run approvals that wait for a second person (decided in Observability → Runs →
-    Workflow runs)."""
     from ..governance.four_eyes import decide_four_eyes
 
     rows = (await db.execute(
         select(WorkflowRun).where(or_(WorkflowRun.requested_by == user_id, WorkflowRun.responsible_user_id == user_id),
-                                  WorkflowRun.status.in_((STATUS_PAUSED, STATUS_WAITING)))
+                                  WorkflowRun.status.in_((STATUS_PAUSED, STATUS_WAITING)),
+                                  outside_foreign_private(WorkflowRun.project_id, user_id))
         .order_by(WorkflowRun.updated_at.desc()).limit(50)
     )).scalars().all()
     items = []
@@ -95,7 +93,7 @@ async def inbox_items(db: AsyncSession, user_id: str, *, approver: bool = False)
                 else RUNS_LINK)
         if run.status == STATUS_PAUSED:
             items.append({
-                "kind": "workflow_run_paused", "id": run.id, "title": f"Run paused: {run.title}",
+                "kind": "workflow_run_paused", "id": run.id, "title": _paused_title(run),
                 "created_at": _iso(run.updated_at), "link": link,
                 # The pause's own message, else the catalog's (run.pause.<reason>): why, and what to do next.
                 "subtitle": pause_message(run, str(run.pause_reason or ""),

@@ -19,11 +19,11 @@ Export (on the stack that ran it) leaves out what a demo must not carry:
 It refuses a bundle with a secret (``secret_patterns.py``), a recording device's id, a stack's private binding or
 more than 2 MB (the scrub reads no bigger file).
 
-Import runs only in the demo (``OCTRYX_DEMO=1`` and a non-production runtime profile, fail closed): the demo is its own
-install with its own database, so the sample counts there like any run (costs, dashboards), which is what a demo
-should show. Every imported run carries the bundle's id in its context (``sample_bundle``), the run views show a
-"Sample run" badge for it and the main run's title starts with "Sample run: ". A bundle already imported into the
-Workspace is skipped.
+Export and import run only in the demo (``OCTRYX_DEMO=1`` and a non-production runtime profile, fail closed; the
+export reads every Workspace): the demo is its own install with its own database, so the sample counts there like
+any run (costs, dashboards), which is what a demo should show. Every imported run carries the bundle's id in its
+context (``sample_bundle``), the run views show a "Sample run" badge for it and the main run's title starts with
+"Sample run: ". A bundle already imported into the Workspace is skipped.
 """
 
 from __future__ import annotations
@@ -79,16 +79,17 @@ _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 # ---- refusal: only in the demo ---------------------------------------------------------------------------------------
 
-def require_demo() -> None:
-    """Import only where the demo is switched on and the runtime is no production one (same switch as the seed)."""
+def require_demo(action: str) -> None:
+    """Export and import only where the demo is switched on and the runtime is no production one (same switch as the
+    seed): the export reads every Workspace."""
     if os.environ.get("OCTRYX_DEMO") != "1":
-        raise SystemExit("run_bundle: refusing to import a sample run outside the demo (OCTRYX_DEMO is not 1)")
+        raise SystemExit(f"run_bundle: refusing to {action} a sample run outside the demo (OCTRYX_DEMO is not 1)")
     from app.config import get_settings
     from app.four_eyes_dev_policy import DEV_SELF_APPROVAL_PROFILES
 
     profile = str(get_settings().runtime_profile or "").strip().lower()
     if profile not in DEV_SELF_APPROVAL_PROFILES:
-        raise SystemExit(f"run_bundle: refusing to import a sample run in the runtime profile '{profile}'")
+        raise SystemExit(f"run_bundle: refusing to {action} a sample run in the runtime profile '{profile}'")
 
 
 # ---- values ----------------------------------------------------------------------------------------------------------
@@ -434,6 +435,8 @@ def replay_pull(github: str, recorded: dict[str, Any]) -> dict[str, str]:
             continue
         _http("POST", f"{api}/statuses/{target}", {key: sha(str(status.get(key) or "")) for key in
                                                     ("state", "context", "description", "target_url")})
+    if pull.get("state") and pull["state"] != "open":  # replayed as recorded: a closed pull request stays closed
+        _http("PATCH", f"{api}/pulls/{number}", {"state": pull["state"]})
     return _pull_pairs(recorded, number, shas)
 
 
@@ -515,8 +518,10 @@ def dumps(bundle: dict[str, Any]) -> str:
 
 async def export(run_id: str, *, github: str = "", app_base: str = "") -> dict[str, Any]:
     from app.db import async_session_factory
+    from app.services.data_access import platform_maintenance
 
-    async with async_session_factory() as db:
+    require_demo("export")
+    async with platform_maintenance("run bundle: export a recorded run as a sample"), async_session_factory() as db:
         collected = await collect(db, run_id)
     main = next(row for row in collected["tables"]["workflow_runs"] if row["id"] == collected["main_run"])
     bundle = {"format": FORMAT, "version": VERSION, "sample": True, "id": str(uuid.uuid4()),
@@ -611,13 +616,15 @@ async def already_imported(db: Any, bundle_id: str, project_id: str) -> bool:
 async def import_bundle(bundle: dict[str, Any], *, workspace: str, github: str, app_base: str = "",
                         username: str = "admin", session_factory: Any = None) -> str | None:
     """Write ``bundle`` into ``workspace`` as a sample run; the new main run's id, ``None`` when already there."""
-    require_demo()
+    require_demo("import")
     if bundle.get("format") != FORMAT or bundle.get("version") != VERSION or bundle.get("sample") is not True:
         raise SystemExit("run_bundle: not a sample run bundle of this version")
     if session_factory is None:
         from app.db import async_session_factory as session_factory
+    from app.services.data_access import platform_maintenance
+
     models = _models()
-    async with session_factory() as db:
+    async with platform_maintenance("run bundle: import a sample run (demo seeding)"), session_factory() as db:
         return await _import(db, models, bundle, workspace=workspace, github=github, app_base=app_base,
                              username=username)
 
@@ -798,7 +805,7 @@ def main(argv: list[str] | None = None) -> int:
         problems = check(Path(args.file).read_text(encoding="utf-8"))
         print("\n".join(problems) or "run_bundle: ok")
         return 1 if problems else 0
-    require_demo()
+    require_demo("import")
     bundle = json.loads(Path(args.file).read_text(encoding="utf-8"))
     asyncio.run(import_bundle(bundle, workspace=args.workspace, github=args.github, app_base=args.app_base,
                               username=args.user))

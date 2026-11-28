@@ -8,10 +8,6 @@ from functools import partial
 from ...services.clarification_service import expire_overdue_clarification_questions
 from ...services.resume_checkpoint_service import find_all_recoverable_sessions
 from ...services.session.run_timeout import timeout_stalled_sessions
-from ...services.sub_agent_group.service import (
-    SUB_AGENT_GROUP_STATUS_TIMED_OUT,
-    _reconcile_group_progress,
-)
 from ...services.worker_pool.task_queue_recovery_service import recover_stale_task_queue_entries
 from ...time_utils import utc_now
 from ..coordination.fingerprint import (
@@ -28,12 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class SchedulerRegistrationMixin:
-    """Startup, APScheduler registration, and session tree cleanup.
-
-    Jobs are registered only by the owner of the scheduler lease through the coordinator's
-    reconciliation. A change to a task or scheduler row calls ``request_reconcile``, which is a no-op
-    in processes that do not schedule (API-only).
-    """
+    """Startup, APScheduler registration, and session tree cleanup."""
 
     async def _task_run_owns_session(self, db, task_run) -> bool:
         from ...models import Session as AgentSession
@@ -73,12 +64,6 @@ class SchedulerRegistrationMixin:
         logger.warning("[scheduler] Marked %d stale running task runs after startup", len(stale_runs))
 
     async def _recover_interrupted_runs(self, db):
-        """Recover sessions with active checkpoints that were interrupted.
-
-        Finds sessions with run_status=in_progress and an active ContextCheckpoint.
-        For auto_retry policy: schedules a recovery turn.
-        For manual_resume policy: leaves them for explicit user-triggered resume.
-        """
         try:
             from ...services.runtime_ownership.process_lease import live_process_ids
 
@@ -112,37 +97,7 @@ class SchedulerRegistrationMixin:
         except Exception:
             logger.exception("[scheduler] Error during run recovery scan")
 
-    async def _reconcile_sub_agent_groups(self, db):
-        """Recover orphaned SubAgentGroup children after a worker restart.
-
-        Finds SubAgentGroup records with status=running where children are still
-        in status=running past the group timeout. Marks timed-out children as
-        timed_out and triggers parent session resume.
-        """
-        try:
-            from sqlalchemy import select
-
-            from ...models import SubAgentGroup
-
-            result = await db.execute(
-                select(SubAgentGroup).where(SubAgentGroup.status == SUB_AGENT_GROUP_STATUS_TIMED_OUT)
-            )
-            stale_groups = result.scalars().all()
-            for group in stale_groups:
-                all_done = await _reconcile_group_progress(db, group)
-                if all_done:
-                    group.status = SUB_AGENT_GROUP_STATUS_TIMED_OUT  # already timed out
-            await db.commit()
-            logger.info("[scheduler] Reconciled %d stale sub-agent groups", len(stale_groups))
-        except Exception:
-            logger.exception("[scheduler] Error during sub-agent group reconciliation")
-
     async def _recover_stale_task_queue_entries(self, db):
-        """Recover task queue entries with stale heartbeats after worker crash.
-
-        Finds entries in status=in_progress where assigned_to is set but the
-        worker's heartbeat has gone stale. Resets them to pending for re-dispatch.
-        """
         try:
             count = await recover_stale_task_queue_entries(db)
             if count:
@@ -151,7 +106,6 @@ class SchedulerRegistrationMixin:
             logger.exception("[scheduler] Error during stale task queue entry recovery")
 
     async def _expire_overdue_clarifications(self, db):
-        """Expire open clarification questions past their expires_at deadline."""
         try:
             count = await expire_overdue_clarification_questions(db)
             if count:
@@ -160,7 +114,6 @@ class SchedulerRegistrationMixin:
             logger.exception("[scheduler] Error during clarification expiration")
 
     async def _timeout_stalled_sessions(self, db):
-        """Timeout sessions stuck in in_progress beyond the allowed duration."""
         try:
             count = await timeout_stalled_sessions(db, timeout_minutes=60)
             if count:
@@ -177,7 +130,6 @@ class SchedulerRegistrationMixin:
         async with session_factory() as db:
             await self._mark_stale_running_runs(db)
             await self._recover_interrupted_runs(db)
-            await self._reconcile_sub_agent_groups(db)
             await self._recover_stale_task_queue_entries(db)
             await self._expire_overdue_clarifications(db)
             await self._timeout_stalled_sessions(db)
@@ -200,7 +152,6 @@ class SchedulerRegistrationMixin:
             coordinator.request_reconcile()
 
     def _register_job(self, record: ScheduleRecord) -> None:
-        """Register (or replace) one schedule's job with the guarded fire callback."""
         try:
             trigger = build_cron_trigger(record.expression)
         except ValueError:

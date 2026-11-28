@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from app.agent.core.runtime.runtime_admission_contract import (
+from app.agent.runtime.runtime_admission_contract import (
     RUNTIME_ADMISSION_DENIAL_KEY,
     RUNTIME_ADMISSION_DENIED_STATUS,
     build_admission_denied_attempt,
 )
-from app.agent.core.runtime.runtime_errors import (
+from app.agent.runtime.runtime_errors import (
     NON_FALLBACKABLE_RUNTIME_ERROR_CLASSES,
     RUNTIME_ERROR_ALIAS_DENIED,
     RUNTIME_ERROR_DATA_POLICY_DENIED,
@@ -30,10 +30,6 @@ from tests.model_gateway.conftest import (
     workspace_classification,
 )
 from tests.model_gateway.litellm_data_policy_support import _alias_section
-
-# ---------------------------------------------------------------------------
-# The runtime boundary: zero dispatch, closed evidence
-# ---------------------------------------------------------------------------
 
 
 def test_a_permitted_classification_admits_the_gateway_runtime() -> None:
@@ -61,7 +57,6 @@ def test_an_excessive_classification_annotates_instead_of_dispatching() -> None:
     assert denial["evidence"]["gateway_state"] == GATEWAY_STATE_DATA_POLICY_DENIED
     assert denial["evidence"]["workspace_data_classification"] == "restricted"
     assert denial["evidence"]["data_policy_class"] == "internal"
-    # The message names neither the project nor the classification.
     assert PROJECT_ID not in denial["message"] and "restricted" not in denial["message"]
     # The non-gateway target is untouched: only gateway targets are governed here.
     assert RUNTIME_ADMISSION_DENIAL_KEY not in admitted[1]
@@ -86,7 +81,6 @@ def test_a_missing_or_unknown_classification_denies_at_the_runtime_boundary() ->
         denial = admitted[0][RUNTIME_ADMISSION_DENIAL_KEY]
         observed[expected] = denial["reason"]
         assert denial["error_class"] == RUNTIME_ERROR_DATA_POLICY_DENIED
-        # An unusable classification carries no classification value.
         assert denial["evidence"]["workspace_data_classification_source"] == CLASSIFICATION_SOURCE_UNRESOLVED
         assert "workspace_data_classification" not in denial["evidence"]
 
@@ -94,8 +88,6 @@ def test_a_missing_or_unknown_classification_denies_at_the_runtime_boundary() ->
 
 
 def test_an_omitted_classification_denies_rather_than_defaulting() -> None:
-    """The kwarg default is the unresolved value, so forgetting it fails closed."""
-
     admitted = apply_model_policy_to_runtimes(
         [gateway_runtime()],
         project_config=granted_project_config(),
@@ -106,8 +98,6 @@ def test_an_omitted_classification_denies_rather_than_defaulting() -> None:
 
 
 def test_an_unestablishable_alias_class_denies_before_a_client_exists() -> None:
-    """A catalog the runtime boundary cannot read is not a permissive allowance."""
-
     runtimes = (
         gateway_runtime(config_json=_alias_section("not-a-class")),
         gateway_runtime(config_json={}),
@@ -151,8 +141,6 @@ def test_the_denial_is_a_zero_dispatch_attempt_the_chain_survives() -> None:
 
 
 async def test_the_run_preparation_seam_resolves_and_admits(db) -> None:
-    """The one seam run preparation calls: project row -> classification -> chain."""
-
     project = Project(
         id="project-seam",
         name="seam-project",

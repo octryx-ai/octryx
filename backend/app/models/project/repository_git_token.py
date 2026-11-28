@@ -1,15 +1,4 @@
-"""A per-repository Git token of a Workspace: Git over HTTPS for one Bitbucket repository.
-
-A Bitbucket Data Center connection signed in with the OpenID Connect client credentials grant reads the REST API,
-but ``/scm/...`` answers 500 for that Bearer token, so a server-side clone or push fails. An author therefore enters
-a Bitbucket HTTP access token (repository or project scope) when registering the repository; it is checked against
-exactly that repository and then used for Git only (``services/knowledge/sources/repository_git_token.py``).
-
-One row per Workspace and repository (``host_base`` + ``repository_key`` ``bitbucket:<KEY>/<slug>``): the Knowledge
-source sync and the workflow runs of the same Workspace on the same repository use it. The value lives only in
-``stored_secrets`` (Fernet with the instance ``encryption_key``, ``services/secret``); this row holds its id and who
-set it when, never the value. The foreign key makes this table a secret holder for ``services/secret/release.py``.
-"""
+"""A Workspace's Git token for one Bitbucket repository (Git over HTTPS); the value lives in stored_secrets."""
 
 from __future__ import annotations
 
@@ -18,6 +7,7 @@ import uuid
 from sqlalchemy import Column, DateTime, ForeignKey, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -25,7 +15,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class RepositoryGitToken(Base):
+class RepositoryGitToken(WorkspaceBound, Base):
     __tablename__ = "repository_git_tokens"
     __table_args__ = (
         UniqueConstraint("project_id", "host_base", "repository_key", name="uq_repository_git_tokens_repository"),

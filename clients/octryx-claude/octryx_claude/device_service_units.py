@@ -15,15 +15,10 @@ SYSTEMD_UNIT = "octryx-claude-device.service"
 WSL_TASK_NAME = "octryx-claude device"
 
 
+# launchd labels live in the per-user domain, not in HOME: a second install with the same label would
+# boot out the real one. ``installer/install.sh`` derives the same label.
 def instance_label(base: str, *, home: Path | None = None, state_root: Path | None = None,
                    account_home: Path | None = None) -> str:
-    """The launchd label of this installation: ``base`` for the standard one (the account's own HOME and the default
-    state dir), ``base.<10 hex of the state dir>`` for every other one (a temporary HOME, ``OCTRYX_CLAUDE_HOME``).
-
-    launchd labels live in the per-user domain ``gui/<uid>``, not in HOME: a second install with the same label
-    would boot out the person's real pet with its ``bootstrap``. The standard install keeps the plain label, so its
-    login items stay valid. ``installer/install.sh`` (``agent_label``) derives the same label.
-    """
     import pwd  # noqa: PLC0415 - POSIX only; the native Windows pet imports this module too
 
     from .state import default_root  # noqa: PLC0415 - the state dir, as every command resolves it
@@ -51,15 +46,14 @@ def _ps_quote(text: str) -> str:
 # --- unit contents (pure) -------------------------------------------------------------------------------------
 
 
+# launchd itself starts with /usr/bin:/bin:/usr/sbin:/sbin.
 def service_path() -> str:
-    """The PATH the service runs with: the enabling user's PATH, so the service finds the same ``claude``,
-    ``git`` and test tools as their shell (launchd itself starts with /usr/bin:/bin:/usr/sbin:/sbin)."""
     return os.environ.get("PATH", "") or "/usr/bin:/bin:/usr/sbin:/sbin"
 
 
+# ``ProcessType`` Background throttles CPU and I/O, which the SDK's 60 s initialize handshake does not
+# survive well.
 def launchd_plist(shim: Path, log_file: Path, *, path: str | None = None, label: str = LAUNCHD_LABEL) -> bytes:
-    """``ProcessType`` is ``Standard``: ``Background`` throttles CPU and I/O, which Claude Code turns do not survive
-    well (the SDK's initialize handshake has 60 s)."""
     return plistlib.dumps({
         "Label": label,
         "ProgramArguments": [str(shim), "device", "run"],
@@ -90,7 +84,6 @@ def systemd_unit(shim: Path) -> str:
 
 
 def wsl_task_script(distro: str, shim: Path) -> str:
-    """PowerShell that registers the logon task for the current Windows user only (no admin needed)."""
     arguments = f"-d {distro} -e {shim} device run"
     return (
         "$ErrorActionPreference = 'Stop'; "
@@ -112,8 +105,6 @@ BOOTOUT_POLL_SECONDS = 0.25
 
 def launchd_reload(run: Callable[..., subprocess.CompletedProcess], *, uid: int, label: str, plist: Path,
                    sleep: Callable[[float], None] = time.sleep) -> None:
-    """``bootout`` the service, wait until launchd no longer lists it, then ``bootstrap`` it (one retry).
-    ``run(argv, required=...)`` raises on a required failure."""
     run(["launchctl", "bootout", f"gui/{uid}/{label}"], required=False)
     waited = 0.0
     while waited < BOOTOUT_WAIT_SECONDS:

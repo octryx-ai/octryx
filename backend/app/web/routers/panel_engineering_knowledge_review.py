@@ -28,7 +28,7 @@ from app.services.admin.engineering_knowledge._admin_engineering_knowledge_versi
 )
 from app.web._helpers.api_guards import _require_admin_api
 
-from ...services.access_control import require_existing_workspace
+from ...services.engineering_knowledge.workspace_scope import require_scope_workspaces
 
 router = APIRouter()
 
@@ -40,7 +40,8 @@ async def panel_upsert_engineering_knowledge_graph_node(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_scope_workspaces(db, admin.id, scope_type=payload.scope_type, scope_id=payload.scope_id,
+                                   workspace_id=payload.workspace_id)
     return JSONResponse(
         await upsert_engineering_knowledge_graph_node(
             db,
@@ -57,6 +58,7 @@ async def panel_upsert_engineering_knowledge_graph_edge(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
+    await require_scope_workspaces(db, admin.id, scope_type=payload.scope_type, scope_id=payload.scope_id)
     return JSONResponse(
         await upsert_engineering_knowledge_graph_edge(
             db,
@@ -75,7 +77,8 @@ async def panel_get_engineering_knowledge_graph_entity(
     include_related: bool = True,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
+    admin = await _require_admin_api(request, db)
+    await require_scope_workspaces(db, admin.id, scope_type=scope_type, scope_id=scope_id)
     return JSONResponse(
         await get_engineering_knowledge_graph_entity(
             db,
@@ -164,7 +167,8 @@ async def panel_assign_engineering_knowledge_pack_version(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_scope_workspaces(db, admin.id, scope_type=payload.scope_type, scope_id=payload.scope_id,
+                                   workspace_id=payload.workspace_id)
     return JSONResponse(
         await assign_engineering_knowledge_pack_version(
             db,

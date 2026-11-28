@@ -1,16 +1,4 @@
-"""Exact-name ``@mention`` resolution of an owned Agent Definition.
-
-A mention is an explicit user choice only when it names a configured agent exactly:
-``@`` at the start of the prompt or after whitespace or an opening bracket/quote, then
-the agent's configured name (compared case-insensitively), then the end of the prompt or
-a character that cannot continue a name. ``@Backend`` therefore never selects
-"Backend Engineer Agent", and ``@Backendish`` never selects "Backend". When two
-configured names both match at one mention (``Backend`` and ``Backend Engineer Agent``
-for ``@Backend Engineer Agent``), the longer, fully named one is the mention.
-
-A prompt whose mentions name different agents, or a name several owned agents share, is
-``agent_mention_ambiguous``: it is never resolved by picking one.
-"""
+"""Exact-name ``@mention`` resolution of an owned Agent Definition."""
 
 from __future__ import annotations
 
@@ -52,7 +40,6 @@ def _names_exactly(text: str, name: str) -> bool:
 
 
 def mentioned_agent_id(prompt: str, agents: Iterable[NamedAgent]) -> str:
-    """The one agent the prompt mentions by exact name; ``""`` when it mentions none."""
     named = [agent for agent in agents if agent.name.strip() == agent.name and agent.name]
     mentioned: set[str] = set()
     for position, character in enumerate(prompt):
@@ -72,10 +59,7 @@ def mentioned_agent_id(prompt: str, agents: Iterable[NamedAgent]) -> str:
 async def resolve_mentioned_agent_id(
     db: AsyncSession, *, owner_id: str, prompt: str, project_id: str | None = None
 ) -> str:
-    """The visible agent (own, Workspace-shared, global, built-in) the prompt mentions by exact name, if any.
-
-    In a Workspace turn only global, built-in and that Workspace's agents are candidates.
-    """
+    # In a Workspace turn only global, built-in and that Workspace's agents are candidates.
     if "@" not in prompt:
         return ""
     query = select(AgentDefinition.id, AgentDefinition.name).where(await visible_agent_clause(db, owner_id))

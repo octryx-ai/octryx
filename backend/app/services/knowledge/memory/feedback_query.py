@@ -1,13 +1,5 @@
-"""Read answer feedback: the Workspace's learning surface and each person's own ratings.
-
-- ``list_feedback`` and ``summarize_feedback`` are pinned to one authorized Workspace; the route
-  gates them to the Workspace admin or owner. Filters are closed values (``rating``, ``aspect``) or a
-  bounded workflow token, validated like the write path; anything else is ``invalid_request``.
-- ``own_feedback_entries`` returns only the caller's own records for a page of messages: the chat
-  shows a person their own rating to edit, never someone else's.
-
-Everything is counted and filtered in SQL; at most ``MAX_LISTED`` records come back.
-"""
+"""Read answer feedback: the Workspace's learning surface and each person's own ratings. A person sees only their own
+ratings, never someone else's."""
 
 from __future__ import annotations
 
@@ -101,7 +93,6 @@ def _iso(value: datetime | None) -> str | None:
 
 
 async def list_feedback(db: AsyncSession, *, authorized: AuthorizedWorkspace, where: FeedbackFilter) -> list[dict]:
-    """The Workspace's feedback, newest first, with its links and the memory item's state."""
     row = KnowledgeAnswerFeedback
     rows = list(
         (
@@ -155,7 +146,6 @@ async def list_feedback(db: AsyncSession, *, authorized: AuthorizedWorkspace, wh
 
 
 async def summarize_feedback(db: AsyncSession, *, authorized: AuthorizedWorkspace, where: FeedbackFilter) -> dict:
-    """Good/bad per workflow and liked/disliked per aspect, over the same filters as the list."""
     row = KnowledgeAnswerFeedback
     conditions = _filtered(authorized.project_id, where)
     by_workflow: dict[str | None, dict[str, int]] = {}
@@ -190,7 +180,6 @@ async def summarize_feedback(db: AsyncSession, *, authorized: AuthorizedWorkspac
 
 
 async def own_feedback_entries(db: AsyncSession, *, user_id: str, message_ids: Sequence[str]) -> list[dict[str, Any]]:
-    """The caller's own feedback on these messages, for the chat to show and edit."""
     if not message_ids:
         return []
     row = KnowledgeAnswerFeedback

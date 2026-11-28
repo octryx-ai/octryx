@@ -1,15 +1,4 @@
-"""Writing the content of a skill version: bundle files, spec validation, digests, listing columns.
-
-:func:`write_content` is the one writer of reviewed content on a draft. It refuses a bundle that breaks the
-limits or the Agent Skills spec (``skill_spec_invalid`` with the issues), stores the blobs, sets the parsed
-frontmatter/body, the manifest, the bundle digest and the **content digest** — the digest a submit freezes and an
-approval binds. The content digest covers everything that changes what an agent receives or who receives it
-(files, extension, category, availability, licence, scripts permission, acknowledged findings, launch spec,
-upstream provenance, merge state).
-
-:func:`sync_identity` copies the published version onto the identity row's listing columns (published version,
-category, surfaces).
-"""
+"""Writing the content of a skill version: bundle files, spec validation, digests, listing columns."""
 
 from __future__ import annotations
 
@@ -105,7 +94,6 @@ async def _category(db: AsyncSession, category_id: str | None) -> SkillCategory:
 
 
 def _checked_launch_spec(skill: Skill, content: VersionContent, texts: dict[str, str]) -> dict[str, Any]:
-    """The launch spec of an MCP server entry: command and args come from the files, never from the request."""
     servers = servers_in_plugin(texts)
     requested = content.launch_spec or {"server": skill.name}
     if str(requested.get("server") or "") != skill.name or skill.name not in servers:
@@ -115,8 +103,6 @@ def _checked_launch_spec(skill: Skill, content: VersionContent, texts: dict[str,
 
 
 def _check_availability(skill: Skill, content: VersionContent) -> None:
-    """Availability invariants: an MCP server entry never reaches platform chat (a local stdio server
-    cannot run there), and a name outside the Agent Skills spec is never delivered to Claude Code."""
     if skill.kind == SKILL_KIND_MCP_SERVER and content.available_platform_chat:
         raise SkillCatalogError("skill_mcp_not_on_platform_chat", 422,
                                 message="An MCP server entry is delivered to octryx-claude only.")
@@ -128,11 +114,6 @@ def _check_availability(skill: Skill, content: VersionContent) -> None:
 async def write_content(
     db: AsyncSession, skill: Skill, row: SkillVersion, content: VersionContent
 ) -> None:
-    """Validate and write ``content`` onto the draft ``row``; flushes. Raises :class:`SkillCatalogError`.
-
-    A stored name outside the spec is kept as a warning; such a skill stays in platform chat but is never delivered
-    to Claude Code (the manifest withholds invalid names).
-    """
     files = _normalized_files(content.files)
     await _category(db, content.category_id)
     texts = {item.path: item.content for item in files}
@@ -207,7 +188,6 @@ async def new_draft_row(
 
 
 async def sync_identity(db: AsyncSession, skill: Skill, published: SkillVersion | None) -> None:
-    """Copy the published version onto the identity row's listing columns."""
     if published is None:
         skill.published_version_id = None
         skill.available_platform_chat = skill.available_octryx_claude = False

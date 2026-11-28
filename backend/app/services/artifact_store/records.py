@@ -1,8 +1,4 @@
-"""Tool artifact records: persist a payload with its row, load, read and delete them.
-
-The storage helpers come from ``service``, where tests and the archive stores patch the backend
-clients and the filesystem root; the default arguments below bind those same functions.
-"""
+"""Tool artifact records: persist a payload with its row, load, read and delete them."""
 
 from __future__ import annotations
 

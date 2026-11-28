@@ -1,21 +1,4 @@
-"""How the pipeline runs one declared command (``pipeline``).
-
-Every command writes a JUnit report: one that names none (``--junitxml``) runs with
-``PYTEST_ADDOPTS=--junitxml=test-reports/pipeline-<n>.xml``, so pytest writes it wherever the command starts it
-(``cd app && pytest``, ``make test``, ``tox``) while the command's text stays exactly the declared one; a command
-that runs no pytest simply writes none. The platform reads every test of the pipeline from it (``pytest -q``
-prints no test name). The report goes up with the test files its classnames name (``test_report``), so
-the server resolves ``tests.test_x`` to ``tests/test_x.py`` without the device's tree.
-
-**The device's Chrome and a re-run of failed tests**: every command runs with the browser
-default and the pytest plugin (``browser``: Playwright starts the installed Google Chrome, nothing is downloaded).
-A red pytest command runs once more with only the tests that failed (the plugin's ``OCTRYX_PYTEST_FAILED_FILE`` and
-``OCTRYX_PYTEST_ONLY_FILE``, so it works with any command form and without pytest's cache) before the pipeline
-reports; the report carries that ``rerun`` (exit code, duration, output end, its JUnit report) and the ``flaky``
-tests: the ones that failed and then passed with no change in between. The platform decides what that means for the
-run (``workflow_runs/pipeline``), so a test that goes red and green without a code change does not send the story
-back to the agent.
-"""
+"""How the pipeline runs one declared command (``pipeline``)."""
 
 from __future__ import annotations
 
@@ -31,6 +14,8 @@ from . import test_report
 
 COMMAND_TIMEOUT = 3600  # a guard against a hung suite, far above a real one
 TAIL_CHARS = 20_000
+REPORT_CHARS = 2_000_000  # a verbose run's whole output is its per-test report: about a JUnit file's size
+_SHELL_MARKS = ("|", ";", ">", "<", "`", "$(")
 _JUNIT = re.compile(r"--junit-?xml(?:=|\s+)(\S+)")
 REPORTS = "test-reports"
 FAILED_ENV = "OCTRYX_PYTEST_FAILED_FILE"  # the plugin's names (``octryx_pytest``)
@@ -45,8 +30,6 @@ def _env(folder: Path, path: list[str], environment: dict[str, Any] | None = Non
 
 
 def report_path(command: str, index: int) -> tuple[str, bool]:
-    """``(report, added)``: the JUnit report the command writes — its own ``--junitxml`` target, else
-    ``test-reports/pipeline-<n>.xml`` that the pipeline adds through ``PYTEST_ADDOPTS``."""
     match = _JUNIT.search(command)
     if match:
         try:
@@ -56,12 +39,8 @@ def report_path(command: str, index: int) -> tuple[str, bool]:
     return f"{REPORTS}/pipeline-{index}.xml", True
 
 
+# node's file reporter does not create the report's folder.
 def report_env_for(env: dict[str, str], report: Path, report_env: dict[str, str] | None = None) -> dict[str, str]:
-    """The environment that makes the command's runner write ``report`` (absolute: the command may ``cd`` first), its
-    output unchanged: the platform's ``report_env`` of every runner (stacks.json; pytest's ``PYTEST_ADDOPTS``,
-    node's ``NODE_OPTIONS`` reporters; the pipeline view always carries it, ``workflow_runs.pipeline``), each added to
-    what the variable already holds. A stale report of an earlier run is removed, and the report's folder exists:
-    pytest makes it, node's file reporter does not (`node --test` ended ENOENT on test-reports/, exit 7)."""
     report.unlink(missing_ok=True)
     try:
         report.parent.mkdir(parents=True, exist_ok=True)
@@ -87,13 +66,27 @@ def _junit(report_file: str, folder: Path, started: float) -> str | None:
     return None
 
 
+# For a runner without a per-test report file (unittest), its flag that names every test in the output; never for a
+# pipe or redirect, where the flag would land on another program.
+def verbose_command(command: str, report_args: list[dict[str, Any]] | None) -> str | None:
+    if not report_args or any(mark in command for mark in _SHELL_MARKS):
+        return None
+    words = command.split("&&")[-1].split()
+    for spec in report_args:
+        if any(word in words for word in spec.get("unless") or []):
+            continue
+        prefixes = [list(prefix) for prefix in spec.get("commands") or []]
+        if any(words[at:at + len(prefix)] == prefix for prefix in prefixes for at in range(len(words))):
+            return f"{command} {spec.get('add')}"
+    return None
+
+
 def _run_once(command: str, folder: Path, env: dict[str, str], report: str, added: bool,
-              report_env: dict[str, str] | None = None) -> dict[str, Any]:
-    """One run of ``command``: exit code, duration, output end and the JUnit report it wrote."""
+              report_env: dict[str, str] | None = None, verbose: str | None = None) -> dict[str, Any]:
     started = time.time()
     try:
         run_env = _with_report(env, folder / report, report_env) if added else env
-        done = subprocess.run(["/bin/sh", "-c", command], cwd=folder, env=run_env, stdin=subprocess.DEVNULL,
+        done = subprocess.run(["/bin/sh", "-c", verbose or command], cwd=folder, env=run_env, stdin=subprocess.DEVNULL,
                               capture_output=True, text=True, errors="replace", timeout=COMMAND_TIMEOUT)
         code, output = done.returncode, f"{done.stdout}\n{done.stderr}"
     except subprocess.TimeoutExpired as expired:
@@ -103,7 +96,8 @@ def _run_once(command: str, folder: Path, env: dict[str, str], report: str, adde
     xml = xml.replace(f"{folder.resolve()}/", "").replace(f"{folder}/", "") if xml else xml
     files = test_report.hint_files(xml, folder, folder) if xml else []
     return {"exit_code": code, "seconds": round(time.time() - started, 1), "output_tail": str(output)[-TAIL_CHARS:],
-            "junit_xml": xml, **({"junit_files": files} if files else {})}
+            "junit_xml": xml, **({"junit_files": files} if files else {}),
+            **({"ran": verbose, "report_text": str(output)[-REPORT_CHARS:]} if verbose and not xml else {})}
 
 
 def _ids(path: Path) -> list[str]:
@@ -114,14 +108,14 @@ def _ids(path: Path) -> list[str]:
 
 
 def run_command(command: str, index: int, folder: Path, env: dict[str, str],
-                reruns: list[dict[str, Any]] | None = None, report_env: dict[str, str] | None = None
-                ) -> dict[str, Any]:
-    """The command, and once more with only its failed tests when it was red (``rerun``, ``flaky``)."""
+                reruns: list[dict[str, Any]] | None = None, report_env: dict[str, str] | None = None,
+                report_args: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     report, added = report_path(command, index)
+    verbose = verbose_command(command, report_args)
     marks = folder / REPORTS / f".pipeline-{index}"
     failed_file, only_file = marks.with_suffix(".failed"), marks.with_suffix(".rerun")
     failed_file.unlink(missing_ok=True)
-    first = _run_once(command, folder, {**env, FAILED_ENV: str(failed_file)}, report, added, report_env)
+    first = _run_once(command, folder, {**env, FAILED_ENV: str(failed_file)}, report, added, report_env, verbose)
     result = {"command": command, **first}
     failed = _ids(failed_file) if first["exit_code"] != 0 else []
     if first["exit_code"] != 0 and not failed and reruns:
@@ -137,7 +131,7 @@ def run_command(command: str, index: int, folder: Path, env: dict[str, str],
     rerun_failed = marks.with_suffix(".rerun-failed")
     rerun_failed.unlink(missing_ok=True)
     again = _run_once(command, folder, {**env, ONLY_ENV: str(only_file), FAILED_ENV: str(rerun_failed)},
-                      again_report, added, report_env)
+                      again_report, added, report_env, verbose)
     still = set(_ids(rerun_failed)) if again["exit_code"] != 0 else set()
     if again["exit_code"] != 0 and not still:
         still = set(failed)  # red again without naming tests (a crash, a collection error): nothing proven flaky
@@ -167,10 +161,6 @@ def _relative(file: str, folder: Path) -> str | None:
 
 def _rerun_singly(result: dict[str, Any], folder: Path, env: dict[str, str],
                   reruns: list[dict[str, Any]]) -> dict[str, Any]:
-    """A red run of a non-pytest runner (stack data ``test_runner.rerun``, sent as ``reruns``): its failed tests,
-    read from the output, run once more one at a time with the runner's single-test argv (no shell). A test that
-    passes there is ``flaky``; the platform's flaky rule decides (a frame-time
-    test went red, then green on the same tree, and cost a fix round)."""
     spec = _spec_for(result["command"], reruns)
     if spec is None:
         return result
@@ -209,8 +199,6 @@ SKIPPED_STYLE_RED = "not run: the code style is red"
 
 
 def _red(result: dict[str, Any]) -> bool:
-    """Red after its own re-run: a passing re-run (a flaky test) does not hold the pass back here; the platform
-    judges flakiness."""
     if result.get("exit_code") == 0 or result.get("skipped"):
         return False
     rerun = result.get("rerun") if isinstance(result.get("rerun"), dict) else {}
@@ -219,12 +207,6 @@ def _red(result: dict[str, Any]) -> bool:
 
 def run_commands(view: dict[str, Any], folder: Path,
                  style_gate: Callable[[], str] | None = None) -> list[dict[str, Any]]:
-    """Run the commands in their declared order. Fail fast: the system test (the environment's
-    ``system_test``, minutes per pass) starts only when every command before it is green; after a red one it is
-    reported as not run, so the agent fixes the fast failure first and knows the system test is still due. Every other
-    command always runs, and a green pass runs everything. Step 2: before the system test,
-    ``style_gate`` asks the platform whether the change's code style is red (the platform judges, the device never
-    does); a non-empty answer skips it the same way."""
     environment = {"browser": view["browser"]} if view.get("browser") else None
     from .build_cache import shim_env  # noqa: PLC0415
 
@@ -233,6 +215,7 @@ def run_commands(view: dict[str, Any], folder: Path,
                    view.get("build_artifacts"))
     reruns = [item for item in view.get("reruns") or [] if isinstance(item, dict)]
     report_env = {str(key): str(value) for key, value in dict(view.get("report_env") or {}).items()}
+    report_args = [item for item in view.get("report_args") or [] if isinstance(item, dict)]
     expensive = str(view.get("system_test_command") or "")
     results: list[dict[str, Any]] = []
     for index, command in enumerate([str(item) for item in view.get("commands") or []], start=1):
@@ -242,5 +225,5 @@ def run_commands(view: dict[str, Any], folder: Path,
         if expensive and command == expensive and style_gate is not None and (why := style_gate()):
             results.append({"command": command, "skipped": f"{SKIPPED_STYLE_RED} ({why})"[:500]})
             continue
-        results.append(run_command(command, index, folder, env, reruns, report_env))
+        results.append(run_command(command, index, folder, env, reruns, report_env, report_args))
     return results

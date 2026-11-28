@@ -1,27 +1,5 @@
-"""The durable cursor of one connector: which listing pass, and where inside it the next run resumes.
-
-Stored as JSON on ``KnowledgeSourceConnector.cursor``. ``pass_number`` counts listing passes;
-``token`` is the connector's opaque page token inside the open pass (``None`` at a pass start);
-``pass_started_at`` is set while a pass is open and cleared when it completes, at which point
-``last_completed_at`` and ``completed_passes`` advance. A malformed stored value is a contract
-violation, never silently reset: resetting would restart a pass and could hide a defect.
-
-Incremental change detection keeps three more optional fields in the same JSON:
-``changes_since`` is the instant from which the next incremental listing asks for
-changed items (the start of the last completed full pass or incremental listing);
-``incremental_started_at`` and ``incremental_token`` describe an open incremental listing. A
-completed full pass sets ``changes_since`` to its own start, so nothing changed during the pass is
-missed. A cursor without them (no completed pass yet) starts with a full pass.
-
-A pass counts as a *clean* reconciliation only when none of its items failed or had their fetch
-deferred: only then do ``last_completed_at``, ``completed_passes`` and ``changes_since``
-advance, so a failed item is still inside the next change window. Every closed pass records
-``last_pass_closed_at`` and ``last_pass_failures``; ``pass_failures`` counts inside the open pass.
-
-``pass_scheduled`` says whether a scheduled run began the open pass. A scheduled run never resumes a
-pass a manual run began: the items before its cursor would miss that interval's
-ACL check, so it begins a fresh header pass instead.
-"""
+"""The durable cursor of one connector: which listing pass, and where inside it the next run resumes. A malformed value
+is a contract violation, never reset."""
 
 from __future__ import annotations
 
@@ -29,6 +7,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 
 from ...ledger.errors import EvidenceLedgerContractError
+from .stored_types import StoredSyncCursor
 
 # A Confluence Cloud page token carries the source's own ``_links.next`` (an opaque cursor).
 MAX_TOKEN_CHARS = 1000
@@ -156,7 +135,7 @@ class SyncCursor:
             self, changes_since=self.incremental_started_at, incremental_started_at=None, incremental_token=None
         )
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self) -> StoredSyncCursor:
         return {
             "pass_number": self.pass_number,
             "token": self.token,

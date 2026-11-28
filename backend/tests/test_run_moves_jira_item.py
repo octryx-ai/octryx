@@ -1,13 +1,4 @@
-"""A workflow run moves a Jira Work item without a write-back definition by Jira's status category.
-
-Without a write-back definition in scope, spec-writing and epic-delivery would leave the epic and its stories in
-Intake on the board and "To Do" in Jira even after their pull requests opened. So:
-
-- the default picks the transition Jira offers into ``indeterminate`` (review prefers a "review" status, then
-  "progress"; development prefers "progress"); nothing fitting clearly is no Jira write, the board moves anyway;
-- an issue outside ``jira_allowed_projects`` gets no request at all;
-- an opened pull request moves the Jira story to Review and its epic to development, recorded as run events.
-"""
+"""A workflow run moves a Jira Work item without a write-back definition by Jira's status category."""
 
 from __future__ import annotations
 
@@ -23,8 +14,11 @@ from app.models.runtime.secure_work import WorkItem
 from app.services.secure_work.jira import jira_default_states
 from app.services.secure_work.jira.jira_default_states import move_by_status_category, pick_transition
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_run_pr_moves_work_item import PR_FLOW
 from tests.test_workflow_run_platform_actions import FakeTools, _repository, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 TO_DO, IN_PROGRESS, DONE = "new", "indeterminate", "done"
 
@@ -39,14 +33,14 @@ WITH_REVIEW = [*SIMPLE, _offer("41", "In Review", IN_PROGRESS)]
 
 def test_the_default_target_is_chosen_from_what_jira_offers():
     assert pick_transition(WITH_REVIEW, "review")["id"] == "41"
-    assert pick_transition(SIMPLE, "review")["id"] == "21"  # no review status: In Progress
+    assert pick_transition(SIMPLE, "review")["id"] == "21"
     assert pick_transition(WITH_REVIEW, "development")["id"] == "21"
-    assert pick_transition(WITH_REVIEW, "review", "In Review")["id"] == "21"  # never the status it already has
-    assert pick_transition(SIMPLE, "review", "In Progress") is None  # already there, nothing else in progress
+    assert pick_transition(WITH_REVIEW, "review", "In Review")["id"] == "21"
+    assert pick_transition(SIMPLE, "review", "In Progress") is None
     unclear = [_offer("51", "Doing", IN_PROGRESS), _offer("52", "Testing", IN_PROGRESS)]
-    assert pick_transition(unclear, "review") is None  # several without a fitting name: never a guess
-    assert pick_transition(unclear[:1], "review")["id"] == "51"  # the only one into the category
-    assert pick_transition(WITH_REVIEW, "done") is None  # done is the person's merge, never set here
+    assert pick_transition(unclear, "review") is None
+    assert pick_transition(unclear[:1], "review")["id"] == "51"
+    assert pick_transition(WITH_REVIEW, "done") is None
 
 
 def _key() -> str:
@@ -124,7 +118,7 @@ async def test_an_opened_pull_request_moves_the_jira_story_to_review_and_its_epi
     assert run.outcome == "done", run.context
     await db.flush()
     assert (story.work_state, epic.work_state) == ("review", "development")
-    assert sum(1 for method, _p, _b in calls if method == "POST") == 2  # both moved in Jira (In Progress)
+    assert sum(1 for method, _p, _b in calls if method == "POST") == 2
     events = (await db.execute(select(WorkflowRunEvent).where(
         WorkflowRunEvent.run_id == run.id, WorkflowRunEvent.kind == "work_state"))).scalars().all()
     assert [(e.detail["item"], e.detail["to_state"], e.detail["result"], e.detail["jira"]["status"])

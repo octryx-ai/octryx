@@ -1,13 +1,4 @@
-"""Secret scan of a git bundle (handoff attachments).
-
-A bundle's pack is compressed, so a scan of its raw bytes would find nothing. This reads the bundle header
-(``# v2``/``# v3 git bundle``, capabilities, prerequisites, refs), then walks the pack's objects, inflates each
-one and runs the gateway's secret scan over blobs and deltas (a delta's inserted bytes are new content).
-
-Fail closed: a malformed bundle or a pack that inflates past :data:`MAX_INFLATED_BYTES` is refused with a fixed
-code; :func:`scan_bundle` returns ``""`` for a clean bundle, else the refusal code. Names and contents are never
-returned.
-"""
+"""Secret scan of a git bundle (handoff attachments)."""
 
 from __future__ import annotations
 
@@ -56,7 +47,6 @@ def _skip_offset(data: bytes, position: int) -> int:
 
 
 def _inflate(view: memoryview, position: int, budget: int) -> tuple[bytes, int]:
-    """One zlib stream from ``position``, fed in small chunks; ``(content, next position)``. Raises past budget."""
     stream = zlib.decompressobj()
     content = bytearray()
     while not stream.eof:

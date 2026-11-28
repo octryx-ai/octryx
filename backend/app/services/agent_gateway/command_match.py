@@ -1,28 +1,4 @@
-"""Structural shell command matching for the agent gateway tool policy.
-
-A Bash command is not matched as text. It is tokenized like a POSIX shell would
-(``shlex`` with shell punctuation), split into simple-command segments on the
-control operators (``&&``, ``||``, ``;``, ``|``, ``&``, newlines, subshell
-parentheses, backticks), and each segment is normalized:
-
-- leading ``NAME=value`` environment assignments are dropped;
-- a small fixed set of transparent wrappers (``env``, ``sudo``, ``command``,
-  ``exec``, ``nohup``, ``time``) is dropped when it directly precedes the command;
-- redirection operators and their targets are dropped.
-
-The first token of a segment is compared by basename (``/x/.venv/bin/python``
-matches ``python``), every further prefix token exactly. Nested commands are
-parsed as segments too: the string after ``sh -c`` / ``bash -c`` / ``zsh -c``,
-``eval`` arguments and ``$(...)`` / backtick command substitutions inside words.
-
-A command that cannot be tokenized (unbalanced quotes) is ``None``: callers decide
-explicitly what an unparseable command means. Heredoc bodies are data; when a
-command only fails to tokenize because of a heredoc body, the bodies are removed
-and tokenization is retried.
-
-This is a guardrail against mistakes, not a sandbox: a determined shell program
-(variables, ``xargs``, aliases, scripts) can always express a command indirectly.
-"""
+"""Structural shell command matching for the gateway tool policy: a guardrail against mistakes, not a sandbox."""
 
 from __future__ import annotations
 
@@ -77,8 +53,6 @@ def _split(tokens: list[str]) -> list[list[str]]:
 
 
 def _substitutions(word: str) -> list[str]:
-    """Inner command texts of ``$(...)`` and backtick substitutions inside one word."""
-
     inner: list[str] = []
     start = word.find("$(")
     if start >= 0:
@@ -151,14 +125,10 @@ def _parse_raw(command: str, depth: int) -> list[Segment] | None:
 
 
 def raw_command_segments(command: str) -> list[Segment] | None:
-    """The simple-command segments as written: environment assignments and wrappers NOT dropped.
-
-    A read-only decision asks these before :func:`command_segments` normalizes them away
-    (``HOME=/x kubectl …``, ``env PATH=/x kubectl …``, ``timeout 5 kubectl …``).
-    """
     text = str(command or "")
     if len(without_data_heredocs(text)) > MAX_COMMAND_CHARS:  # a file's content written by a heredoc is no command
         return None
+    # Wrappers and assignments stay: a read-only decision must see ``env PATH=/x kubectl``.
     segments = _parse_raw(text, 0)
     if segments is None or len(segments) > MAX_SEGMENTS:
         return None
@@ -166,13 +136,10 @@ def raw_command_segments(command: str) -> list[Segment] | None:
 
 
 def is_env_assignment(token: str) -> bool:
-    """``NAME=value`` as a shell reads it before a command."""
     return _is_env_assignment(token)
 
 
 def command_segments(command: str) -> list[Segment] | None:
-    """The normalized simple-command segments of a shell command, or ``None`` if unparseable."""
-
     text = str(command or "")
     if len(without_data_heredocs(text)) > MAX_COMMAND_CHARS:  # a file's content written by a heredoc is no command
         return None
@@ -188,8 +155,6 @@ _GIT_OPTIONS_WITH_VALUE = frozenset({"-C", "-c", "--git-dir", "--work-tree", "--
 
 
 def git_normalized(segment: Segment) -> Segment:
-    """A ``git`` segment without its global options; any other segment unchanged."""
-
     if not segment or posixpath.basename(segment[0]) != "git":
         return segment
     index = 1
@@ -199,8 +164,6 @@ def git_normalized(segment: Segment) -> Segment:
 
 
 def segment_matches(segment: Segment, prefix: Sequence[str]) -> bool:
-    """First token by basename, every further prefix token exactly (git after its global options)."""
-
     segment = git_normalized(segment) if prefix and prefix[0] == "git" else segment
     if not prefix or len(segment) < len(prefix):
         return False
@@ -210,18 +173,10 @@ def segment_matches(segment: Segment, prefix: Sequence[str]) -> bool:
 
 
 def segment_has_argument(segment: Segment, argument: str) -> bool:
-    """``argument`` as its own token or in ``argument=value`` form, after the command name."""
-
     return any(token == argument or token.startswith(f"{argument}=") for token in segment[1:])
 
 
 def writes_by_redirection(command: str) -> bool | None:
-    """Whether a shell command redirects output into a file (``>``, ``>>``, ``&>``); ``None`` if unparseable.
-
-    Segments drop redirections (they are not part of the command), so a read-only classification
-    asks this separately. Heredoc bodies are data. ``2>&1`` and ``>&2`` duplicate descriptors and
-    write no file; ``<`` reads.
-    """
     text = _strip_heredoc_bodies(str(command or ""))
     try:
         tokens = _tokenize(text)
@@ -231,6 +186,7 @@ def writes_by_redirection(command: str) -> bool | None:
         if not _is_operator(token) or ">" not in token:
             continue
         following = tokens[index + 1] if index + 1 < len(tokens) else ""
+        # ``2>&1`` and ``>&2`` duplicate a descriptor and write no file.
         if following.startswith("&") or (token.endswith("&") and following.isdigit()):
             continue
         return True

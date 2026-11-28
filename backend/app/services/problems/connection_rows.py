@@ -1,17 +1,4 @@
-"""``connection`` problems from the connections themselves.
-
-- **failing**: an active connection whose ``state`` is ``failing`` (a connection test, or a runtime use refused as
-  unauthenticated, ``named_connections/runtime_state.py``) is a problem; the title is its ``state_reason``. Its
-  Workspace is its owner (``owner_workspace_id``, a Workspace row's ``project_id``), else it is platform-wide.
-- **unlinked**: a Knowledge source of a connection type without ``connection_id``, or a ticket intake without one or
-  still naming ``default``, needs attention (``connection_unlinked``): it reads through the connector's entry until
-  an admin links it. The fix opens the connections page. A Confluence source whose spaces the one resolver serves
-  with several connections reads each space with its own connection (``confluence_multi.py``) and cannot be linked to
-  one (every run would be refused, ``connection_pin_mismatch``): it is no problem.
-
-Every problem names the connection it is about (``Problem.connection_id``) where there is one, so the connection page
-counts it (``services/connections/problems_view.py``).
-"""
+"""``connection`` problems from the connections themselves."""
 
 from __future__ import annotations
 
@@ -52,7 +39,6 @@ async def _failing(db: AsyncSession, ctx: CollectContext) -> list[Problem]:
 
 
 async def _spanning(db: AsyncSession, sources: list[KnowledgeSourceConnector]) -> set[str]:
-    """The Confluence sources whose spaces several connections serve in their Workspace (``routes.served_by``)."""
     from ..knowledge.sources.sync.scope_connections import scope_items
 
     routes: dict[str, NamedConnectionRoutes] = {}

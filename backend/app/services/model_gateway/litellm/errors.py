@@ -1,14 +1,4 @@
-"""Fixed-message error contract for the governed LiteLLM gateway client.
-
-Every message in this module is a constant. Nothing derived from a response
-body, a response header, a prompt, or a transport exception is ever formatted
-into an error, because the engine copies ``str(exc)`` into the persisted runtime
-attempt evidence (``TurnTrace.raw_output["runtime_attempts"][...]["error"]``),
-which is truncated but not redacted.
-
-Errors are raised with ``from None`` so no ``__cause__``/``__context__`` chain
-carries a transport string into a traceback or a logged exception.
-"""
+"""Fixed-message error contract for the governed LiteLLM gateway client."""
 
 from __future__ import annotations
 
@@ -16,7 +6,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from ....agent.core.runtime.runtime_errors import (
+from app.agent.runtime.runtime_errors import (
     CLASSIFICATION_SOURCE_EXCEPTION_TYPE,
     CLASSIFICATION_SOURCE_EXPLICIT,
     RUNTIME_ERROR_ALIAS_DENIED,
@@ -140,20 +130,13 @@ def normalize_denial_reason(value: object) -> str:
 
 
 def _safe_detail(state: str, reason: str, status_code: int | None, upstream_detail: str) -> str:
-    """The closed state, reason and status, plus the already sanitized upstream text (``upstream_detail.py``)."""
     head = state + (f"/{reason}" if reason else "") + (f" (HTTP {int(status_code)})" if status_code is not None else "")
     return f"{head}: {upstream_detail}" if upstream_detail else head
 
 
 class LiteLLMGatewayError(ProviderRuntimeError):
-    """Typed gateway failure carrying a stable state and a fixed message.
-
-    ``denial_reason`` is a closed audit code (an endpoint/alias/contract denial
-    code from this package), never free text and never derived from a remote
-    payload. The message is the state's constant plus, at most, that code. ``upstream_detail`` is the
-    *sanitized* upstream error text (``upstream_detail.upstream_error_detail``); it never enters the
-    message, only ``safe_detail``.
-    """
+    """A typed gateway failure: a stable state and a fixed message plus at most a closed ``denial_reason`` code.
+    The sanitized ``upstream_detail`` never enters the message, only ``safe_detail``."""
 
     def __init__(
         self,
@@ -200,14 +183,9 @@ _TRANSPORT_CLASS_STATES: dict[str, str] = {
 }
 
 
+# Classified from the exception type; any other transport failure was never sent to a gateway that answered, so it stays
+# gateway_unreachable.
 def gateway_transport_error(exc: BaseException | None) -> LiteLLMGatewayError:
-    """The typed gateway error for a failed ``httpx`` request; nothing of ``exc`` is kept.
-
-    Connect failures, timeouts and a connection closed mid-response are classified from
-    the exception type (source ``exception_type``). Any other transport failure (a local
-    protocol error) was never sent to a gateway that answered, so it stays the gateway's
-    explicit ``gateway_unreachable`` decision.
-    """
     state = _TRANSPORT_CLASS_STATES.get(transport_error_class(exc) or "")
     if state is None:
         return LiteLLMGatewayError(GATEWAY_STATE_UNREACHABLE)
@@ -215,8 +193,6 @@ def gateway_transport_error(exc: BaseException | None) -> LiteLLMGatewayError:
 
 
 def gateway_state_for_status(status_code: int) -> str:
-    """Map an HTTP status to a stable gateway state without reading the body."""
-
     if 300 <= status_code < 400:
         # Redirects are never followed (the virtual key must not travel to a
         # host the endpoint allowlist never approved), so a 3xx is a pinned

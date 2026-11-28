@@ -30,8 +30,6 @@ export type RuntimeSettingsActionArgs = {
   runtimeLlmSecurityReviewThresholdDraft: string;
   runtimeLlmSecurityDenyThresholdDraft: string;
   runtimeSecurityAnalyzerChainDraft: string;
-  runtimeDefaultCompletionDraft: string;
-  runtimeExtendedCompletionDraft: string;
   runtimeApproxCharsDraft: string;
   runtimeTraceMaxStringDraft: string;
   runtimeTraceMaxListDraft: string;
@@ -40,11 +38,6 @@ export type RuntimeSettingsActionArgs = {
   runtimeRequestTimeoutDraft: string;
   runtimeSessionCostLimitDraft: string;
   runtimeRequestCostLimitDraft: string;
-  runtimeCacheTtlDraft: string;
-  runtimeToolsCacheTtlDraft: string;
-  runtimeToolPlannerTraceCallEnabled: boolean;
-  runtimeToolPlannerMaxTokensDraft: string;
-  runtimeToolPlannerTimeoutDraft: string;
   setRuntimeSettings: Dispatch<SetStateAction<AdminRuntimeSettings>>;
   setRuntimeGlobalOutputDraft: Dispatch<SetStateAction<string>>;
   setRuntimeDefaultModelDraft: Dispatch<SetStateAction<string>>;
@@ -73,8 +66,6 @@ export type RuntimeSettingsActionArgs = {
   setRuntimeLlmSecurityReviewThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeLlmSecurityDenyThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSecurityAnalyzerChainDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeDefaultCompletionDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeExtendedCompletionDraft: Dispatch<SetStateAction<string>>;
   setRuntimeApproxCharsDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxStringDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxListDraft: Dispatch<SetStateAction<string>>;
@@ -83,9 +74,4 @@ export type RuntimeSettingsActionArgs = {
   setRuntimeRequestTimeoutDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSessionCostLimitDraft: Dispatch<SetStateAction<string>>;
   setRuntimeRequestCostLimitDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolsCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTraceCallEnabled: Dispatch<SetStateAction<boolean>>;
-  setRuntimeToolPlannerMaxTokensDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTimeoutDraft: Dispatch<SetStateAction<string>>;
 };

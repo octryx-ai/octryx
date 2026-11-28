@@ -1,19 +1,4 @@
-"""Bitbucket Cloud operations of the Bitbucket tools, in the shapes the Server/Data Center tools return.
-
-- **repository**: the default branch is the repository's ``mainbranch``; a branch head is ``refs/branches/<name>``;
-- **branch**: ``POST refs/branches`` from the start point's commit;
-- **pull request**: created with ``source``/``destination`` branches and reviewers by Atlassian account id. Every
-  reviewer is checked first (``GET /users/<account id>``): an unknown one is listed in ``reviewers_unresolved``
-  and not sent. Bitbucket never lets the pull request's author review it: a requester who is the connection's own
-  account is mentioned in the description instead (``scm_requester_rule``, ``reviewer_skipped``; the account lookup is
-  best-effort, a refused requester-reviewer with an unknown author opens the PR without them: ``reviewer_refused``);
-- **pull request state**: ``OPEN`` / ``MERGED`` / ``DECLINED`` / ``SUPERSEDED``, with each reviewer's approval from
-  the participants;
-- **comment**: ``POST pullrequests/<id>/comments`` (markdown ``raw``);
-- **build statuses**: ``commit/<sha>/statuses`` (Bitbucket Pipelines and any other reporter), each with its state
-  ``SUCCESSFUL`` / ``FAILED`` / ``INPROGRESS`` / ``STOPPED``; a Pipelines build's per-step test reports
-  (``pipelines/<n>/steps/<uuid>/test_reports/test_cases``) on request; a step without a report has none.
-"""
+"""Bitbucket Cloud operations of the Bitbucket tools, in the shapes the Server/Data Center tools return."""
 
 from __future__ import annotations
 
@@ -23,7 +8,6 @@ from urllib.parse import quote
 
 from app.tools.context import ToolContext
 
-from ...services.ai_marking import MarkingFacts, with_marker
 from ..scm_requester_rule import REVIEWER_REFUSED, apply_requester_rule, connection_author, refused_note
 from ._bitbucket_cloud import CloudApiError, cloud_request, repo_path, web_url
 
@@ -58,7 +42,6 @@ async def create_branch(context: ToolContext, workspace: str, slug: str, name: s
 
 
 def pr_summary(pr: dict[str, Any]) -> dict[str, Any]:
-    """A Cloud pull request in the Server tool's summary shape, plus ``url`` and reviewers' account ids."""
     reviewers = [
         {"name": (item.get("user") or {}).get("display_name"), "account_id": (item.get("user") or {}).get("account_id"),
          "approved": bool(item.get("approved"))}
@@ -95,7 +78,6 @@ async def get_pr(context: ToolContext, workspace: str, slug: str, pr_id: str) ->
 
 
 async def _checked_reviewers(context: ToolContext, reviewers: list[str]) -> tuple[list[str], list[str]]:
-    """``(known account ids, unresolved)``: an id Bitbucket does not know is reported and not sent."""
     known: list[str] = []
     unresolved: list[str] = []
     for account_id in dict.fromkeys(item.strip() for item in reviewers if item and item.strip()):
@@ -111,7 +93,7 @@ async def _checked_reviewers(context: ToolContext, reviewers: list[str]) -> tupl
 
 async def create_pr(
     context: ToolContext, workspace: str, slug: str, *, title: str, description: str, from_branch: str,
-    to_branch: str, reviewers: list[str], requester: str = "", marking: MarkingFacts | None = None,
+    to_branch: str, reviewers: list[str], requester: str = "",
 ) -> dict[str, Any]:
     existing = await find_open_pr(context, workspace, slug, from_branch)
     if existing is not None:
@@ -130,7 +112,7 @@ async def create_pr(
 
     async def create(with_reviewers: list[str], text: str) -> Any:
         return await cloud_request(context, "POST", f"{repo_path(workspace, slug)}/pullrequests", payload={
-            "title": title, "description": with_marker(text, marking), "close_source_branch": False,
+            "title": title, "description": text, "close_source_branch": False,
             "source": {"branch": {"name": from_branch}}, "destination": {"branch": {"name": target}},
             "reviewers": [{"account_id": item} for item in with_reviewers],
         })
@@ -168,15 +150,11 @@ MAX_TEST_CASES = 2000
 
 
 def pipeline_number(url: str) -> str:
-    """The Pipelines build number a build status links to (``…/pipelines/results/<n>``), else ``''``."""
     match = _PIPELINE_RESULT.search(str(url or ""))
     return match["number"] if match else ""
 
 
 async def pipeline_test_cases(context: ToolContext, workspace: str, slug: str, number: str) -> list[dict[str, Any]]:
-    """Every test case the build's steps reported (``{"classname", "name", "file", "status", "message"}``).
-
-    A step without a test report (Bitbucket's 404 on its ``test_cases``) contributes none; any other refusal raises."""
     pipeline = f"{repo_path(workspace, slug)}/pipelines/{quote(number, safe='')}"
     steps = await cloud_request(context, "GET", f"{pipeline}/steps/", params={"pagelen": 100})
     cases: list[dict[str, Any]] = []

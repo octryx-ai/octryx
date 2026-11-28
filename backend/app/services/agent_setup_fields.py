@@ -1,7 +1,5 @@
-"""The agent setup fields as request input: capability ceiling, default workflow, execution mode.
-
-Each value is checked against a closed set; an unknown value is refused (422), never remapped.
-"""
+"""The agent setup fields as request input: capability ceiling, default workflow, execution mode. An unknown value is
+refused (422), never remapped."""
 
 from __future__ import annotations
 

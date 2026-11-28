@@ -1,15 +1,5 @@
-"""Screenshots of the system tests, uploaded at Stop of a changing phase for the independent review.
-
-They are the screenshots of the **last run of the declared system test command** (the CI-like run the gate counts,
-which already uses Playwright):
-the launcher notes when that command starts (PreToolUse) and uploads the images written since. Without such a run
-in the session, the images written since the pass was entered.
-
-The system test rule saves a screenshot of every page under ``test-reports/screenshots/`` (git-ignored, so not part
-of the change). The server's reviewer cannot read the device, so at Stop of a ``change``/``deliver`` phase the
-launcher uploads the images written during the last hours (``POST /sessions/screenshots``), each bound to the pass
-(node and entry), before the verification that ends the phase. Best effort and bounded; the server decides.
-"""
+"""Screenshots of the last declared system test run, uploaded at Stop of a changing phase for the review.
+The server's reviewer cannot read the device; best effort and bounded."""
 
 from __future__ import annotations
 
@@ -38,7 +28,6 @@ def _declared(contract: dict[str, Any] | None) -> str:
 
 
 def note_run(session_dir: Path, contract: dict[str, Any] | None, hook_input: dict[str, Any]) -> bool:
-    """Note the start of a Bash call that runs exactly the declared system test command; ``True`` when noted."""
     tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), dict) else {}
     command = _declared(contract)
     if hook_input.get("tool_name") != "Bash" or not command or str(tool_input.get("command") or "").strip() != command:
@@ -50,7 +39,6 @@ def note_run(session_dir: Path, contract: dict[str, Any] | None, hook_input: dic
 
 
 def last_run(session_dir: Path) -> float | None:
-    """When the session's last run of the declared system test command started, else ``None``."""
     import json
 
     try:
@@ -61,7 +49,6 @@ def last_run(session_dir: Path) -> float | None:
 
 def pending(contract: dict[str, Any] | None, root: Path, *, now: float | None = None,
             since: float | None = None) -> list[Path]:
-    """The screenshots to upload for the contract's pass, newest first; ``[]`` outside a changing phase."""
     phase = (contract or {}).get("phase")
     if not isinstance(phase, dict) or str(phase.get("capability_class") or "") not in CHANGING:
         return []
@@ -79,8 +66,6 @@ CLOCK_SLACK_SECONDS = 120
 
 
 def _pass_start(contract: dict[str, Any] | None) -> float | None:
-    """When the server entered this pass (``run.entered_at``), less a little clock slack: only screenshots written
-    during the pass are its own (older files in the folder are not the reviewer's to judge)."""
     from datetime import datetime
 
     run = (contract or {}).get("run") if isinstance((contract or {}).get("run"), dict) else {}
@@ -96,7 +81,6 @@ def _pass_start(contract: dict[str, Any] | None) -> float | None:
 
 
 def upload(post: Any, contract: dict[str, Any] | None, root: Path, *, since: float | None = None) -> int:
-    """Upload the pass's screenshots with ``post(body)``; the number the server kept."""
     run = (contract or {}).get("run") if isinstance((contract or {}).get("run"), dict) else {}
     node = run.get("current_node") if isinstance(run.get("current_node"), dict) else {}
     kept = 0

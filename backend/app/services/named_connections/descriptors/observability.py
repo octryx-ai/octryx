@@ -1,10 +1,4 @@
-"""Grafana, Loki and Prometheus: one named connection per instance, bound to instance labels.
-
-The tools of these connectors name no account or cluster of their own, so a connection is bound to free
-instance labels (``prod-eu``, ``risk``) and a call names one with ``instance`` (or the ``connection``). Without
-either and with named connections, a call is refused with the candidates. Grafana's connection is its URL and
-API token; Loki and Prometheus are a URL. A named connection without them is refused before the call.
-"""
+"""Grafana, Loki and Prometheus: one named connection per instance, bound to instance labels."""
 
 from __future__ import annotations
 

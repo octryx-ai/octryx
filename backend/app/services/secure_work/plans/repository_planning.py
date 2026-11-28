@@ -57,11 +57,10 @@ async def list_repository_profiles(
     *,
     project_id: str | None = None,
     include_inactive: bool = False,
-    project_scope: set[str] | None = None,
+    project_scope: set[str] | None,
+    viewer_id: str,
 ) -> list[dict[str, Any]]:
-    stmt = select(WorkRepositoryProfile)
-    if project_scope is not None:  # r10 C-8f: the caller's Workspaces and the global rows (read-only)
-        stmt = stmt.where(scope_filter(WorkRepositoryProfile, project_scope))
+    stmt = select(WorkRepositoryProfile).where(scope_filter(WorkRepositoryProfile, project_scope, viewer_id))
     if project_id:
         stmt = stmt.where(WorkRepositoryProfile.project_id == project_id)
     if not include_inactive:
@@ -133,9 +132,9 @@ def suggest_branch_name(item: WorkItem, profile: WorkRepositoryProfile | None, o
     return re.sub(r"[/_-]+$", "", branch[:240]) or f"feature/{jira_key.lower()}"
 
 
-async def normalized_profile_payload(db: AsyncSession, payload: dict[str, Any]) -> dict[str, Any]:
+async def normalized_profile_payload(db: AsyncSession, user_id: str, payload: dict[str, Any]) -> dict[str, Any]:
     project_id = blank_to_none(payload.get("project_id"))
-    await require_existing_workspace(db, project_id)
+    await require_existing_workspace(db, user_id, project_id)
     code_repository_id = blank_to_none(payload.get("code_repository_id"))
     code_repository = await _get_code_repository(db, code_repository_id)
     fallback_name = code_repository.name if code_repository else ""
@@ -145,7 +144,7 @@ async def normalized_profile_payload(db: AsyncSession, payload: dict[str, Any]) 
     return {
         "project_id": project_id,
         "code_repository_id": code_repository_id,
-        "technology_baseline_id": None,  # D10
+        "technology_baseline_id": None,
         "name": name[:220],
         "provider": str(
             payload.get("provider") or (code_repository.provider if code_repository else "bitbucket")

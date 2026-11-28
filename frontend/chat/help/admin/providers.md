@@ -2,27 +2,16 @@
 title: Providers
 ---
 
-The connections to model providers, with their health and the setup steps that are still open. Which models are offered, approved and used is set in the Model catalog.
+Every model call goes through LiteLLM. Models of the bundled LiteLLM are managed in the **Models (bundled LiteLLM)** table; an external LiteLLM gateway is added here as a provider. Which models are offered, approved and used is set in the Model catalog.
 
 ### What you do here
-- Add a provider with **+ Add provider** and test its connection.
-- Work through the setup guide until every required step is ready.
+- Add a model to the bundled LiteLLM and test it.
+- Add an external LiteLLM gateway with **Add provider**.
 - Assign providers to Workspaces.
 
 ### Next steps
 - [Review the model catalog](/chat?area=admin&tab=modelCatalog)
 - [Set the default model](/chat?area=admin&tab=modelOrder)
-
-### The setup guide
-- **Required** steps must be done before the platform answers; **Recommended** ones improve it.
-- Hover a step to see why it matters.
-
-### Adding a provider
-- **Ollama** is a local runtime for models like Gemma 4. Use `http://localhost:11434` on host setups or `http://ollama:11434` in Docker. A `gemma4` bootstrap request can resolve to installed variants such as `gemma4:e4b`.
-- **OpenAI** and **Custom** need no API key for local gateways.
-- **AWS Bedrock** takes a region and either an IAM role or an access key; the session token is optional.
-- **Google** signs in with Google login or with a Gemini API key.
-- The **LiteLLM gateway** has its own governed form and never asks for a key.
 
 ### The LiteLLM gateway panel
 - **State** is the gateway's last check in words; hover it for the check's code.

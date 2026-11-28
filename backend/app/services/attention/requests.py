@@ -1,9 +1,4 @@
-"""Every attention action carries the exact request that answers it (the UI knows no decision endpoints).
-
-``action`` = ``{key, label, tone, input?, request: {method, path, body}}``. ``body`` holds the fixed fields; an
-``input`` names the ``field`` of ``body`` the UI fills with the person's text. Answers go only through the existing
-endpoints, so rights and audit are theirs.
-"""
+"""Every attention action carries the exact request that answers it (the UI knows no decision endpoints)."""
 
 from __future__ import annotations
 
@@ -26,10 +21,6 @@ def text_input(field: str, label: str, *, required: bool = True, placeholder: st
 
 
 def run_actions(run_id: str, offered: list[dict[str, Any]], *, payload_hash: str | None) -> list[dict[str, Any]]:
-    """A workflow run's offered actions (``workflow_runs.actions.available_actions``) as requests.
-
-    Changing the runtime and continuing in a new chat stay in the run card (they need its context), as does taking
-    the run over (the case page's button): the queue lists decisions."""
     path = f"/api/v1/workflow-runs/{run_id}/actions"
     actions = []
     for offer in offered:

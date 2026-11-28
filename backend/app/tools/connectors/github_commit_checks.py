@@ -1,17 +1,4 @@
-"""``get_github_commit_checks``: the CI results of one commit of an allowed GitHub repository (read only).
-
-The PR review bot reads them for the commit it reviewed (``pr_review_bot.ci_results``): a red check is a finding, a
-running one is named. GitHub has two kinds, both read page by page so none is missed:
-
-- **commit statuses** (``GET /repos/{o}/{r}/commits/{sha}/statuses``, newest first): the latest state per
-  ``context``: ``success`` / ``failure`` / ``error`` / ``pending``;
-- **check runs** (``GET /repos/{o}/{r}/commits/{sha}/check-runs``): ``status`` ``queued`` / ``in_progress`` /
-  ``completed`` with a ``conclusion`` (``success``, ``failure``, ``timed_out``, ``cancelled``, ``neutral``,
-  ``skipped``, ``action_required``, ``stale``).
-
-Every check is returned as ``{name, kind, state, url, description}`` with ``state`` one of ``success``, ``failure``,
-``pending`` or ``other``.
-"""
+"""``get_github_commit_checks``: the CI results of one commit of an allowed GitHub repository (read only)."""
 
 from __future__ import annotations
 

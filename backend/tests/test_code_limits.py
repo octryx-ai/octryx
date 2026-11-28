@@ -1,9 +1,4 @@
-"""The Workspace's code limits come from its code style only.
-
-A changing phase gets the resolved code style in its run contract; at Stop the launcher's counts of the pass's changed
-files are compared and a file over the limit keeps the phase open like a red test. The device-run settings carry no
-conventions of their own.
-"""
+"""The Workspace's code limits come from its code style only."""
 
 from __future__ import annotations
 
@@ -17,7 +12,10 @@ from app.services.devices.device_runs_keys import DeviceRunsPolicyError, normali
 from app.services.workflow_runs.octryx.stop import run_stop
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import ROOT, _bound_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)

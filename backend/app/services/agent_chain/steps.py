@@ -1,25 +1,27 @@
-"""One agent-chain step: a sub-agent session that runs the step's agent, with SQLite lock retries."""
+"""One agent-chain step: a sub-session whose runner turn runs the step, with SQLite lock retries."""
 
 from __future__ import annotations
 
 import asyncio
 import uuid
 from collections.abc import AsyncIterator
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from app.agent import engine
-
 from ...models import AgentChainRun, AgentChainTemplate, Session, User
 from ..run_capability.worker_profiles import worker_session_capability_metadata
 
 
-async def _default_run_agent(**kwargs: Any) -> AsyncIterator[Any]:
-    # Resolved through the engine module at call time, so patching ``engine.run_agent`` takes effect.
-    async for event in engine.run_agent(**kwargs):
-        yield event
+async def _default_run_agent(*, session_id: str, user_message: str, user_id: str, db: AsyncSession,
+                             **_unused: Any) -> AsyncIterator[Any]:
+    # The step is a runner turn in its sub-session; its answer is the step's content.
+    from ..devices.agent_runtime import runner_turn
+
+    turn = await runner_turn(db, user_id=user_id, prompt=user_message, session_id=session_id)
+    yield SimpleNamespace(role="assistant", content=turn.answer)
 
 
 def _sub_session(

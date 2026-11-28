@@ -141,8 +141,8 @@ async def panel_create_code_repository(
     payload: CodeRepositoryRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(await admin_create_code_repository(db, payload.model_dump()))
 
 
@@ -153,8 +153,8 @@ async def panel_update_code_repository(
     payload: CodeRepositoryUpdateRequest,
     db: AsyncSession = Depends(get_db),
 ):
-    await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    admin = await _require_admin_api(request, db)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(await admin_update_code_repository(db, repository_id, payload.model_dump(exclude_unset=True)))
 
 

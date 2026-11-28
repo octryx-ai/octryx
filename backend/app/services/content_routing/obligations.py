@@ -1,19 +1,4 @@
-"""Obligations of content policies: repair a request instead of refusing it — never widen access.
-
-A custom content policy is a ``forbid``. When it is the reason a request is denied and it carries an obligation
-annotation, the enforcement point may change the request and ask again:
-
-- ``@obligation("mask" | "reroute" | "mask_reroute")`` — ``receive_tool_result`` allows ``mask`` only;
-- ``@mask("email,phone")`` — the detectors whose findings are masked; ``@mask_style("last4")``;
-- ``@reroute_to("<alias>")`` — the governed alias the request goes to instead.
-
-:func:`resolve` is steps 3–5 of the concept's precedence: a denial by anything but custom policies (the baseline)
-is never repaired; any deciding custom policy without an obligation is a plain block (it wins); the masks of the
-deciding policies are joined; more than one route target is ``content_obligation_conflict``. What happens next
-(shadow: would-remedy; enforce: change the request, check the target, scan and evaluate once more) is the
-enforcement point's job (governed chat, ``chat``; tool results, ``tool_results``). The inbound gateway applies no
-obligation: a deciding policy refuses there (``gateway_plan``).
-"""
+"""Obligations of content policies: repair a request instead of refusing it, never widen access."""
 
 from __future__ import annotations
 
@@ -24,6 +9,7 @@ from functools import lru_cache
 
 from ..content_detection.vocabulary import BUILTIN_DETECTOR_IDS, CUSTOM_PREFIX, MASK_STYLES
 from ..policy_engine.policy_text import index_statements, split_statements
+from ..policy_engine.runtime import current_runtime
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +48,12 @@ class Obligation:
 
 @dataclass(frozen=True, slots=True)
 class Unresolved:
-    """No repair: refuse with ``reason`` naming ``policies``."""
-
     reason: str
     policies: tuple[str, ...]
 
 
 @lru_cache(maxsize=16)
 def policy_annotations(custom_text: str) -> Mapping[str, Mapping[str, str]]:
-    """``{@id: annotations}`` of the published custom set (cached per text)."""
     if not custom_text or not split_statements(custom_text).statements:
         return {}
     return {item.policy_id: dict(item.annotations) for item in index_statements(custom_text)}
@@ -122,6 +105,12 @@ def resolve(determining: Iterable[str], custom_ids: frozenset[str], custom_text:
     return Obligation(kind, policies, frozenset(masks), styles[0] if styles else None, next(iter(targets), ""))
 
 
+# Every surface resolves a denial against the Workspace's published set as it is loaded now.
+def workspace_obligation(determining: Iterable[str], *, tool_result: bool = False) -> Obligation | Unresolved:
+    runtime = current_runtime()
+    return resolve(determining, runtime.custom_ids, runtime.custom_text, tool_result=tool_result)
+
+
 __all__ = [
     "ANNOTATION_MASK",
     "ANNOTATION_MASK_STYLE",
@@ -140,4 +129,5 @@ __all__ = [
     "Unresolved",
     "policy_annotations",
     "resolve",
+    "workspace_obligation",
 ]

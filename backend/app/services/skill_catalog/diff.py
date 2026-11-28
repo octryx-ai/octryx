@@ -9,7 +9,6 @@ MAX_DIFF_LINES = 4000
 
 
 def line_diff(old: str, new: str) -> list[dict[str, str]]:
-    """``[{kind: same|added|removed, text}]`` in reading order."""
     old_lines, new_lines = old.splitlines(), new.splitlines()
     rows: list[dict[str, str]] = []
     matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
@@ -23,7 +22,6 @@ def line_diff(old: str, new: str) -> list[dict[str, str]]:
 
 
 def bundle_diff(old: dict[str, str], new: dict[str, str]) -> list[dict[str, Any]]:
-    """One entry per path: ``status`` added/removed/changed/unchanged, the ``+/-`` counts and the line diff."""
     entries: list[dict[str, Any]] = []
     for path in sorted(set(old) | set(new)):
         before, after = old.get(path), new.get(path)

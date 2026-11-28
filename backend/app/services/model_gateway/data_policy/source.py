@@ -1,21 +1,4 @@
-"""The server-owned classification source for model-gateway dispatch.
-
-This module reads ``Project.config`` itself instead of accepting a project-config
-mapping from its caller, and that is the point of it. The merged turn
-``project_config`` that ``prepare_agent_run`` passes around is not a trustworthy
-classification source:
-
-- ``services/project/service.get_project_config`` merges the tool configs into it;
-- ``agent/core/context/run_context_config.assemble_turn_project_config``
-  additionally patches the same dict from session metadata.
-
-Either could let model-reachable state name its own data classification. The
-project row is the only place the classification is read from, so caller and
-model input cannot choose it — they can only fail to configure it, which denies.
-
-The session raise is read from the session row's metadata and is bounded by the
-raise-only rule in :mod:`.classification`.
-"""
+"""The server-owned classification source for model-gateway dispatch: the project row and the session metadata."""
 
 from __future__ import annotations
 
@@ -44,14 +27,8 @@ async def resolve_workspace_data_classification(
     db: AsyncSession,
     *,
     project_id: Any,
-    session_metadata: Mapping[str, Any] | None = None,
+    session_metadata: Mapping[str, Any] | None = None,  # the session row's own metadata, never a merged config
 ) -> WorkspaceDataClassification:
-    """Resolve the effective classification for one turn, server-side only.
-
-    A missing project id or a project row that carries no classification yields
-    the unresolved value, which denies every gateway dispatch.
-    """
-
     normalized_project_id = str(project_id or "").strip()
     if not normalized_project_id:
         return UNRESOLVED_DATA_CLASSIFICATION

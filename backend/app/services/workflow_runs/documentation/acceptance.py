@@ -1,36 +1,4 @@
-"""Publish & prove: statement (a), its pending state, the follow-up intent, the exception, ``done``.
-
-**Two independent statements.** After the merge the PM stage shows two sequential cards, each with its own payload,
-hash and ``WorkflowRunDecision``; neither implies the other:
-
-- (a) ``functional_acceptance``: the server's statement that the merged change was observed to meet the acceptance
-  criteria on a **named** environment and an **observed** build (the tested commit and its CI result, never a
-  claim that a pre-merge CI build ran on the merge commit). Actions: accept (environment and build required), not
-  testable yet, reject (with a reason).
-- (b) ``publication`` (:func:`publication_payload`): this page, body and target, with the marker the reserved write
-  intent carries, to the named audience. When (a) is still pending the body itself says "functional acceptance pending
-  as of <time>" and links the run.
-
-**Immutable AS-OF semantics.** A page published while (a) is pending is a dated fact about that page version. A
-later (a) is a separate, dated decision shown next to it; the page is never edited silently, and refreshing it needs
-a new (b) → compare-and-set → sync → proof cycle (a new publication of this run or a new run).
-
-**Pending.** ``acceptance_open`` waits (``functional_acceptance``: owner the requester, Inbox, 24 h reminder, pause
-``acceptance_timeout`` after 72 h) until (a) is recorded or rejected. A **late rejection** follows exactly the path of
-an initial one: the authorised follow-up intent (card ``followup``) → create → read back → ``blocked``; there is no
-direct-blocked shortcut and no revert.
-
-**Exception** (subject ``exception``): only from the declared missing-proof pauses (``audience_unproven``,
-``documentation_missing``, ``acceptance_timeout``): the requester sees the exact follow-up intent, authorises it, the
-platform creates and reads it back, then the requester confirms the exception bound to {reason, missing proof, owner,
-follow-up key}; only then ``done_with_exception``.
-
-**Done** (:func:`done_check`) requires a resolved (a) **and** a valid, currently bound publication proof: the newest
-write intent of the run sent and confirmed for the published page/version, Knowledge at that version, and the
-audience receipt (positive) and the outsider receipt (negative) consumed for it.
-
-There is no ``handed_over`` offer or outcome on this path (no cross-owner handoff).
-"""
+"""Publish & prove: statement (a), its pending state, the follow-up intent, the exception, ``done``."""
 
 from __future__ import annotations
 
@@ -73,11 +41,7 @@ def _iso(value: Any) -> str | None:
     return ensure_utc(value).isoformat().replace("+00:00", "Z") if value is not None else None
 
 
-# --- Statement (a) ---------------------------------------------------------------------------------------------
-
 def acceptance_state(run: WorkflowRun) -> dict[str, Any]:
-    """The newest (a) of this run: ``open`` (none), ``accepted``, ``pending`` (not testable yet, with ``as_of``),
-    ``rejected``."""
     latest = dict(facts(run).get("acceptance") or {})
     if not latest:
         return {"state": STATE_OPEN}
@@ -88,7 +52,6 @@ def acceptance_state(run: WorkflowRun) -> dict[str, Any]:
 
 
 def _build(run: WorkflowRun) -> tuple[dict[str, Any], list[str]]:
-    """The **observed** build: the tested (pushed) commit and its CI result as the run recorded them."""
     context = dict(run.context or {})
     ci = dict(context.get("ci") or {})
     pushed = str(context.get("head_sha") or "")
@@ -110,7 +73,6 @@ def _build(run: WorkflowRun) -> tuple[dict[str, Any], list[str]]:
 
 
 async def confirmed_criteria(db: AsyncSession, run: WorkflowRun) -> list[dict[str, Any]]:
-    """Only the newest human-confirmed test contract supplies the criteria; a later draft is not acceptance fact."""
     decision = (await db.execute(select(WorkflowRunDecision).where(
         WorkflowRunDecision.run_id == run.id, WorkflowRunDecision.kind == "confirmation",
         WorkflowRunDecision.subject == "test_contract").order_by(
@@ -163,7 +125,6 @@ def _refresh_waiting(db: AsyncSession, run: WorkflowRun, waiting: dict[str, Any]
 
 async def decide_acceptance(db: AsyncSession, run: WorkflowRun, *, user: User, action: str,
                             body: dict[str, Any]) -> None:
-    """Record (a) on its card or, later, at ``acceptance_open``: a separate, dated decision with its own hash."""
     from ..confirmation_payloads import confirmation_payload
     from ..engine import resolve_current_node
     from ..engine_context import _set_context
@@ -223,7 +184,6 @@ async def decide_acceptance(db: AsyncSession, run: WorkflowRun, *, user: User, a
 
 
 async def acceptance_open(db: AsyncSession, run: WorkflowRun, node: Any) -> tuple[ToolOutcome, str]:
-    """After the proof: (a) accepted routes on, a pending (a) waits for its separate, dated decision."""
     from ..pause import payload_hash
     from ..platform_actions import WAIT
 

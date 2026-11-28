@@ -1,12 +1,5 @@
-"""What a workflow run writes becomes Workspace knowledge at once: knowledge first, web search second, so a later
-spec builds on a spec of the same Workspace that is already published instead of researching the web from scratch.
-
-Every Confluence page the run writes (``documentation.*``: ``documentation_page_written``) and the specification it
-publishes (``SPEC.md``) is recorded as an evidence source of the run's Workspace: a stable ``source_key`` per page /
-spec file (a new content is a new revision), its link as ``source_url`` (the ``cite_as`` of every hit), written as
-the run's requester. The projection worker indexes it like any other source. Best effort: a refused or failed
-ingestion is a run event, never a failed documentation step. The Workspace switches it off with
-``config.knowledge.auto_ingest: false`` (on by default: allow by default)."""
+"""What a workflow run writes becomes Workspace knowledge at once: knowledge first, web search second, so a later spec
+builds on a spec of the same Workspace that is already published instead of researching the web from scratch."""
 
 from __future__ import annotations
 
@@ -35,13 +28,11 @@ def auto_ingest(project: Project | None) -> bool:
 
 
 def source_key(kind: str, *parts: str) -> str:
-    """A ledger source key (``[a-z0-9._-]``, at most 200 characters)."""
     key = _KEY_CLEAN.sub("-", ".".join([kind, *parts]).lower()).strip("-.")
     return key[:200] or kind
 
 
 def storage_to_markdown(storage: str) -> str:
-    """Confluence storage XHTML as plain Markdown: headings, list items, paragraphs; every other tag dropped."""
     text = re.sub(r"<h([1-6])[^>]*>(.*?)</h\1>", lambda m: "\n" + "#" * int(m.group(1)) + " " + m.group(2) + "\n",
                   storage, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r"<li[^>]*>", "\n- ", text, flags=re.IGNORECASE)
@@ -53,7 +44,6 @@ def storage_to_markdown(storage: str) -> str:
 
 async def ingest_run_document(db: AsyncSession, run: WorkflowRun, *, key: str, title: str, text: str,
                               source_url: str | None, detail: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Record one document the run wrote; returns ``{state, ...}`` and writes a run event. Never raises."""
     from ..records import record_event
 
     project = await db.get(Project, run.project_id) if run.project_id else None
@@ -99,7 +89,6 @@ async def _ingest_isolated(*, project_id: str, user_id: str, key: str, title: st
 
 
 def spec_url(run: WorkflowRun, path: str, head: str) -> str | None:
-    """The spec file's link on GitHub (``github:<owner>/<repo>``) at the pushed commit."""
     repository = str(run.repository or "")
     if repository.startswith("github:") and head:
         return f"https://github.com/{repository.removeprefix('github:')}/blob/{head}/{path}"

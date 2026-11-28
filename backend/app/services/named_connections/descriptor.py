@@ -1,40 +1,4 @@
-"""The connector descriptor: all one connector type contributes to named connections.
-
-Named connections are one generic model for every connector with credentials or endpoints: one table
-(``connector_named_connections``), one resolver (``resolver.py``), one tool router (``tool_routing.py``),
-one admin API (``web/routers/panel_named_connections.py``) and one UI component (``NamedConnections.tsx``).
-A connector type takes part only through a :class:`ConnectorDescriptor` registered in
-``descriptors/__init__.py``; none of those modules branches on a connector name.
-
-A descriptor declares:
-
-- **fields** (:class:`Field`): the connection unit an admin edits, which of them are secrets (stored in the
-  secret store under ``<field>#<connection id>``, write-only) and which the UI renders how;
-- **binding** (:class:`Binding`): the kind of key a connection is bound to (a space, a cluster, an account),
-  its form and canonical case, and whether keys nest (``group/sub/project`` is served by ``group``);
-- **request_keys**: the binding keys a tool call names (from its parameters; ``()`` for none);
-- **request_params**: optional tool parameters the connector adds so a call can name its key
-  (e.g. ``cluster``); every routed tool also gets the generic ``connection`` parameter;
-- **allowlist** (:class:`Allowlist`) or **default_key_fields**: which keys the connector's default entry
-  serves today, and how a named connection's allowlist is narrowed to its bound keys;
-- **unscoped**: what a call without a key does when named connections exist: ``default`` (run on the
-  default, whose allowlist no longer holds any bound key) or ``single`` (run on the one candidate; several
-  candidates are refused with the list, ``connection_ambiguous``);
-- **complete** / **runtime_guard** / **request_guard**: when a unit is complete at save; the check right
-  before a call runs on a named connection (a connector whose client would otherwise fall back to a host
-  or platform credential refuses instead); a per-call restriction ``(tool_name, config, params)`` of a
-  named connection (e.g. its namespaces);
-- **usable_field** / **default_usable_fields**: the URL a connection needs, and the other fields that make
-  the connector's default entry usable (e.g. a kubeconfig);
-- **tool_names** / **shared_tools**: tools routed besides the preset's own list; tools several connectors
-  serve (e.g. CI logs of GitHub or GitLab), routed to this connector when the call's ``provider`` names it;
-- **visible_scopes**: an optional read-only probe listing the keys the account can see
-  (``connector_test/visible_scopes.py``); an admin connection test compares them with the configured or bound
-  keys and warns per key the account cannot see (``connector_test/scope_check.py``);
-- **form** and **testable**: the UI form kind (``fields`` renders :attr:`fields`; ``atlassian_auth`` and
-  ``servicenow_auth`` are the existing sign-in forms with auth modes) and whether the connector has a
-  connection test (``connector_test_service.run_connector_connection_test``).
-"""
+"""The connector descriptor: all one connector type contributes to named connections."""
 
 from __future__ import annotations
 
@@ -51,8 +15,6 @@ FIELD_KINDS = ("text", "url", "secret", "bool", "list", "select", "int")
 
 
 class UnitIncompleteError(ValueError):
-    """A connection unit that cannot serve a call; ``code`` is fixed, the message names fields only."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -60,8 +22,6 @@ class UnitIncompleteError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class Field:
-    """One field of a connection unit; ``kind`` ``secret`` is write-only and lives in the secret store."""
-
     name: str
     label: str
     kind: str = "text"
@@ -82,8 +42,6 @@ class Field:
 
 @dataclass(frozen=True, slots=True)
 class Binding:
-    """The keys a connection is bound to: their name, form and canonical case."""
-
     label: str
     plural: str
     pattern: str
@@ -103,7 +61,6 @@ class Binding:
         return isinstance(value, str) and re.fullmatch(self.pattern, value.strip()) is not None
 
     def candidates(self, key: str) -> tuple[str, ...]:
-        """``key``, then each parent when keys nest (``a/b/c``, ``a/b``, ``a``): the most specific binding wins."""
         if not self.hierarchical:
             return (key,)
         parts = key.split("/")
@@ -117,7 +74,6 @@ class Binding:
 
 
 def rule_key(entry: Any) -> str:
-    """The key of one allowlist rule: a plain key or a dict rule (``space_key``, ``key``, ``table``)."""
     if isinstance(entry, dict):
         return str(entry.get("space_key") or entry.get("key") or entry.get("table") or "").strip()
     return str(entry or "").strip()
@@ -129,13 +85,6 @@ def _key_entry(key: str) -> Any:
 
 @dataclass(frozen=True, slots=True)
 class Allowlist:
-    """The default entry's allowlist field: which keys it serves and how a connection's list is narrowed.
-
-    ``serves_unlisted``: an empty list means unrestricted (Jira, ServiceNow) or nothing (Confluence).
-    ``single_key_field``: a one-key setting used while the list is empty (``confluence_space_key``).
-    ``entry``: the rule a bound key gets in a named connection's list when the default has none for it.
-    """
-
     field: str
     serves_unlisted: bool = True
     single_key_field: str | None = None
@@ -244,7 +193,6 @@ def _set(value: Any) -> bool:
 
 
 def present(config: dict, name: str) -> bool:
-    """A field with a value (a stored secret counts by its ``*_secret_ref``)."""
     value = config.get(name)
     if isinstance(value, str):
         return bool(value.strip())
@@ -252,14 +200,12 @@ def present(config: dict, name: str) -> bool:
 
 
 def require_fields(config: dict, *names: str, code: str = "connection_invalid") -> None:
-    """:class:`UnitIncompleteError` naming the first missing field."""
     for name in names:
         if not present(config, name):
             raise UnitIncompleteError(code, f"An own connection needs {name}.")
 
 
 def listed_entries(raw: Any) -> list[Any]:
-    """An allowlist value as a list: a list as is, a comma/space separated string split, nothing as ``[]``."""
     if raw is None:
         return []
     if isinstance(raw, list | tuple):

@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 async def lock_parent_chain(db: AsyncSession, parent_id: str) -> None:
-    """A nested typed offer locks its outer ancestors first, checking observed relationships afterward."""
     chain, seen, cursor = [], set(), parent_id
     with db.no_autoflush:
         for _ in range(3):
@@ -40,7 +39,7 @@ async def lock_parent_chain(db: AsyncSession, parent_id: str) -> None:
 
 
 async def child_offer(db: AsyncSession, run: WorkflowRun) -> WorkflowHandoff | None:
-    """Identify current AND historical receivers from durable relationships, never context alone."""
+    # From durable relationships, never context alone.
     if not run.parent_run_id or not run.parent_node_id:
         return None
     rows = (await db.execute(select(WorkflowHandoff).where(
@@ -56,7 +55,7 @@ async def child_offer(db: AsyncSession, run: WorkflowRun) -> WorkflowHandoff | N
 
 
 async def prelock_receiver(db: AsyncSession, run: WorkflowRun) -> WorkflowHandoff | None:
-    """Before child CAS or direct locks: suppress autoflush until the parent lock is acquired."""
+    # Must run before the child CAS or direct locks.
     with db.no_autoflush:
         row = await child_offer(db, run)
         if row is None:
@@ -66,7 +65,7 @@ async def prelock_receiver(db: AsyncSession, run: WorkflowRun) -> WorkflowHandof
 
 
 async def guard_receiver(db: AsyncSession, run: WorkflowRun) -> WorkflowHandoff | None:
-    """Run before continuation, dispatch and result writes; roles never substitute current rights."""
+    # Roles never substitute current rights.
     if await prelock_receiver(db, run) is None:
         return None
     await db.flush()
@@ -93,7 +92,6 @@ async def guard_receiver(db: AsyncSession, run: WorkflowRun) -> WorkflowHandoff 
 
 
 async def start_accepted_child(db: AsyncSession, binding: dict) -> dict:
-    """Called only AFTER acceptance commits; claim the exact pending child before engine initialization."""
     from ..engine import _run_from
     from ..graph import graph_for_run
     from ..limits import initial_limits
@@ -126,7 +124,6 @@ async def start_accepted_child(db: AsyncSession, binding: dict) -> dict:
 
 
 async def sweep_handoffs(db: AsyncSession) -> None:
-    """Resume committed pending starts and terminal children without a child-first parent callback."""
     from ..engine import resolve_current_node
     from ..records import lock_run
 
@@ -174,7 +171,6 @@ async def sweep_handoffs(db: AsyncSession) -> None:
 
 
 async def abort_children(db: AsyncSession, parent: WorkflowRun) -> None:
-    """Parent action already owns its claim; typed detach and child stopping remain explicit."""
     ids = list((await db.execute(select(WorkflowHandoff.id).where(
         WorkflowHandoff.parent_run_id == parent.id,
         WorkflowHandoff.state.in_(("offered", "accepted", "owner_lost"))))).scalars())
@@ -183,7 +179,6 @@ async def abort_children(db: AsyncSession, parent: WorkflowRun) -> None:
 
 
 async def guard_tool_context(context) -> None:
-    """Governed tool dispatch checks the actual Session's receiver, not a supplied tool argument."""
     from ..run_sessions import run_for_session
 
     if context.db is None or not context.session_id:
@@ -198,7 +193,6 @@ async def guard_tool_context(context) -> None:
 
 
 async def resolved_owner(db: AsyncSession, run: WorkflowRun) -> tuple[tuple[str, ...], str]:
-    """An offered decision reads current durable ownership; its final writer locks/rechecks all rights."""
     from .authority import candidates
 
     row = await child_offer(db, run)

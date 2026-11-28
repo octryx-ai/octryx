@@ -1,17 +1,4 @@
-"""The tray icon (pystray): image, tooltip, menu and notifications, driven by :class:`runner.Runner`.
-
-macOS details pystray leaves open, handled here:
-
-- AppKit is touched only on the main thread: the poll loop runs in pystray's setup thread and hands every change
-  to the main thread (``PyObjCTools.AppHelper.callAfter``);
-- the image is drawn at the menu bar's pixel size (44 px on Retina) and given its point size, instead of pystray's
-  own downscale to points, which blurs it;
-- the mascot's colour follows the status item's appearance (light or dark menu bar), checked at every redraw;
-- the process is an accessory app: no Dock icon, no app menu.
-
-Windows (native, ``pythonw``): pystray's win32 backend; changes are applied directly (pystray posts them to its
-window thread); the mascot's colour follows the taskbar (``SystemUsesLightTheme``), dark by default.
-"""
+"""The tray icon (pystray): image, tooltip, menu and notifications, driven by :class:`runner.Runner`."""
 
 from __future__ import annotations
 
@@ -31,7 +18,6 @@ MACOS = sys.platform == "darwin"
 
 
 def windows_appearance() -> str:
-    """``light`` or ``dark`` for the Windows taskbar (``SystemUsesLightTheme``); dark when it cannot be read."""
     try:
         import winreg  # noqa: PLC0415
 
@@ -61,8 +47,6 @@ def _icon_class() -> type:
     import Foundation  # noqa: PLC0415
 
     class RetinaIcon(pystray.Icon):  # type: ignore[misc, valid-type]
-        """pystray's macOS icon, drawn by the pet itself at the screen's pixel size and appearance."""
-
         pet_display: Display | None = None
 
         def _appearance(self) -> str:
@@ -174,8 +158,6 @@ class Tray:
 
     @staticmethod
     def _act(func: Callable[[], None]) -> Callable[[Any, Any], None]:
-        """A menu action; the menu is rebuilt after it (pystray's macOS backend does not), so checks follow."""
-
         def action(icon: Any, _item: Any) -> None:
             func()
             icon.update_menu()
@@ -201,7 +183,6 @@ class Tray:
         self.icon.stop()
 
     def turn_off(self) -> None:
-        """Quit, and do not come back at login until ``pet enable`` (the caller of :meth:`run` turns it off)."""
         self.turned_off = True
         self.quit()
 

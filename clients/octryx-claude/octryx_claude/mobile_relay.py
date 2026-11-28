@@ -1,31 +1,5 @@
 """The relay between the person's phone and their running Claude Code sessions (Octryx Mobile "live").
-
-A running Claude Code session can be reached only by another Claude Code session, with a cross-session message to its
-inbox (``uds:<socket>``, see ``live_sessions``). So the device service keeps one small headless session, the relay
-``octryx-mobile`` (``claude -p``, stream-json in and out, the Team profile's login, a small model):
-
-- **to a session:** :meth:`Relay.send` asks the relay to call ``SendMessage`` with exactly the person's text, marked
-  as coming from them through Octryx Mobile, to that session's peer address;
-- **from a session:** a session that answers ``octryx-mobile`` lands in the relay's inbox; Claude Code shows it on the
-  relay's stdout as a ``user`` event with ``<cross-session-message from=… from-name=…>``. :func:`parse_incoming` turns
-  it into ``(from address, from name, text)`` for the phone. The relay itself never answers anything;
-- the relay runs in bypass mode like the person's sessions: Claude Code only delivers a cross-session message
-  automatically between sessions of the same permission-mode class.
-
-What the relay can do (a prompt injection through the payload or an incoming message must get
-nowhere):
-
-- **one tool:** ``--tools SendMessage`` (``--allowedTools`` only pre-approves, it restricts nothing), with every
-  other built-in tool also in ``--disallowedTools``;
-- **nothing of the person's setup:** no MCP servers (``--strict-mcp-config`` with an empty config), no settings,
-  hooks or plugins of any source (``--setting-sources ""``), no skills or commands;
-- **only the requested mail:** a PreToolUse hook (:func:`guard`, given with ``--settings``) lets a ``SendMessage``
-  through only when its address and text are exactly one the bridge asked for and not yet sent; everything else is
-  refused before it runs. A text is reported delivered only when that call succeeded;
-- **an empty folder:** it runs in its own temporary folder (0700), outside octryx's state and its credentials.
-
-The relay restarts when its process ends. Nothing it receives is acted on by it; the text goes to the phone as data.
-"""
+Only another Claude Code session can message a running session, so the service keeps one headless relay session."""
 
 from __future__ import annotations
 
@@ -128,7 +102,6 @@ class Relay:
 
     @property
     def folder(self) -> Path:
-        """An empty private folder outside octryx's state (no credentials next to the relay)."""
         if self._folder is None or not self._folder.is_dir():
             self._folder = Path(tempfile.mkdtemp(prefix="octryx-relay-"))
             os.chmod(self._folder, 0o700)
@@ -169,7 +142,6 @@ class Relay:
                     logger.warning("relay forward failed", exc_info=True)
 
     async def _delivered(self, to: str, message: str) -> None:
-        """A SendMessage call went through: the guard let only an exact requested mail pass."""
         for index, (key, peer, expected) in enumerate(self._expected):
             if peer == to and expected == message:
                 del self._expected[index]
@@ -190,7 +162,6 @@ class Relay:
                 return
 
     async def start(self) -> None:
-        """Start the relay ahead of any message, so sessions can reach the phone right away (idempotent)."""
         async with self._lock:
             await self._ensure()
 
@@ -199,7 +170,6 @@ class Relay:
         return self._process is not None and self._process.returncode is None
 
     async def send(self, peer: str, text: str, sender: str = "the owner", key: str = "") -> bool:
-        """Ask the relay to deliver ``text`` to ``peer``; ``False`` for an invalid address or empty text."""
         if not PEER.match(peer or "") or not (text or "").strip():
             return False
         message = marked_text(text, sender)

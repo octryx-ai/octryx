@@ -38,8 +38,6 @@ RESULT_DUPLICATE = "duplicate"
 
 
 def reported_tools(value: Any) -> dict[str, str | None]:
-    """The device's ``tools`` ``{id: version | None}`` (the launcher brings its pinned tools),
-    bounded; anything else dropped. A tool reported ``None`` is not available on that device."""
     if not isinstance(value, dict):
         return {}
     return {str(key)[:40]: (str(version)[:40] if isinstance(version, str) and version else None)
@@ -76,30 +74,24 @@ class ChannelSocket(Protocol):
 
 
 class ChannelHandlers:
-    """The job layer's hooks into the channel (``services/devices/jobs_channel``). The base class does nothing."""
-
     async def welcome_streams(self, db: AsyncSession, device: UserDevice) -> dict[str, int]:
-        """The last stored ``seq`` per stream (job) still open on this device."""
         return {}
 
     async def stream_event(self, db: AsyncSession, connection: DeviceChannelConnection,
                            message: dict[str, Any]) -> str | int:
-        """Store one sequenced event: ``stored``, ``duplicate`` or the expected ``seq`` (a gap)."""
         return RESULT_STORED
 
     async def message(self, db: AsyncSession, connection: DeviceChannelConnection, message: dict[str, Any]) -> None:
-        """An unsequenced device message (``job_accepted``, ``job_rejected``, …)."""
+        pass
 
     async def tick(self, db: AsyncSession, connection: DeviceChannelConnection) -> None:
-        """Deliver what the database holds for this device (offers, decisions, cancels)."""
+        pass
 
     async def disconnected(self, db: AsyncSession, device_id: str) -> None:
-        """The device went away (the offline grace starts)."""
+        pass
 
 
 class DeviceChannelConnection:
-    """One live device socket; ``send`` is safe from any task (the hub, the tick, the receive loop)."""
-
     def __init__(self, socket: ChannelSocket, device: UserDevice, *, user_id: str, token_expires_at: float) -> None:
         self.socket = socket
         self.device_id = device.id
@@ -114,7 +106,6 @@ class DeviceChannelConnection:
         self._send_lock = asyncio.Lock()
 
     def healthy(self) -> bool:
-        """Open and ticking: a connection whose tick keeps failing is not a device the platform can reach."""
         return not self.closed.is_set() and time.monotonic() - self.last_tick_at < STALE_AFTER_SECONDS
 
     async def send(self, message_type: str, body: dict[str, Any], **extra: Any) -> None:
@@ -137,7 +128,6 @@ class DeviceChannelConnection:
 
 
 def apply_reported_state(connection: DeviceChannelConnection, body: dict[str, Any]) -> None:
-    """A ``state`` message's live report on the connection: only the keys the device sent change."""
     if "seat_login" in body:
         connection.seat_login = body["seat_login"] is True
     if "codex_seat_login" in body:
@@ -151,7 +141,6 @@ _CLOSE_CODES = {"revoke": CLOSE_REVOKED, REASON_REPLACED: CLOSE_REPLACED, REASON
 
 
 def _close_reason(refusal: str) -> str:
-    """How a credential refusal ends a live channel: only a revoked device is a ``revoke``."""
     return "revoke" if refusal == REASON_REVOKED else refusal
 
 
@@ -172,7 +161,6 @@ _handlers: ChannelHandlers | None = None
 
 
 def channel_handlers() -> ChannelHandlers:
-    """The job layer's handlers once registered (``jobs_channel``), else the no-op base."""
     return _handlers or ChannelHandlers()
 
 

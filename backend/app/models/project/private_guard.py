@@ -1,11 +1,4 @@
-"""No Work in a private Workspace.
-
-Work items, workflow runs and Actions (Tasks) are not available in a person's private Workspace yet: the Work and
-Action surfaces give platform admins every Workspace (``secure_work.access.work_scope_project_ids`` answers
-``None``; the Action panel lists, triggers and edits every Task), so nothing of that kind may ever exist there. Every
-insert, and every move of an existing row into a private Workspace, is refused here, at the one place all creation
-paths pass (platform items, Jira and ServiceNow imports, workflow and handoff runs, Actions).
-"""
+"""No Work items, workflow runs, Actions or agent chains in a private Workspace."""
 
 from __future__ import annotations
 

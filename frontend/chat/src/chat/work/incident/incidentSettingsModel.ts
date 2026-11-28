@@ -1,11 +1,7 @@
-// The incident analysis settings per Workspace (B/D) and refusals in words. Pure: no requests, no React.
-// The ServiceNow intake itself is set up in Work → Intake (`chat/work/intake/`).
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const text = (value: unknown) => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "");
 
-/** A refused intake request, in words. */
 export function intakeErrorText(error: unknown, action: string, subject = "the ServiceNow intake"): string {
   const record = isRecord(error) ? error : null;
   if (record?.status === 404) return `This server does not offer ${subject} yet, or the Workspace is not visible to you.`;
@@ -20,14 +16,8 @@ export function intakeErrorText(error: unknown, action: string, subject = "the S
   return `Could not ${action}: ${message}.`;
 }
 
-// ---- analysis settings ---------------------------------------------------------------------------
-//
-// Backend (work_item_analysis/settings.py, Project.config.work_item_analysis):
-//   GET/PUT /api/v1/secure-work/work-item-analysis-settings/{project_id} -> {project_id, model_policy, cost_cap_usd,
-//   auto_analyze: {servicenow_new_incidents, jira_label}, ask_reporter, runner: governed|seat, max_output_tokens
-//   (1024..32000, default 8192), source, can_edit}. PUT takes some or all keys; unknown keys are refused (422), so
-//   only these are sent; model_policy and cost_cap_usd are sent back as loaded. `runner: seat`: each user analyses in
-//   their own seat session (`octryx-claude analyze <KEY>`); the server never starts a run, not even an automatic one.
+// Unknown keys are refused (422), so only these are sent; model_policy and cost_cap_usd go back as loaded.
+// `runner: seat`: the server never starts a run, not even an automatic one.
 
 export type AnalysisRunner = "governed" | "seat";
 
@@ -37,7 +27,6 @@ export type AnalysisSettings = {
   jiraLabel: string;
   askReporter: boolean;
   runner: AnalysisRunner;
-  // As typed; validated by analysisSettingsError.
   maxOutputTokens: string;
   modelPolicy: string | null;
   maxCostUsd: number | null;
@@ -77,7 +66,6 @@ export function analysisSettingsError(settings: AnalysisSettings): string | null
   return null;
 }
 
-/** The complete settings object of a valid draft; the values not edited here are sent back as loaded. */
 export function analysisSettingsPayload(settings: AnalysisSettings): Record<string, unknown> {
   return {
     model_policy: settings.modelPolicy,

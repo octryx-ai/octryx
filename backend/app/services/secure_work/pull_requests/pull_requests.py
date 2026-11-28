@@ -1,16 +1,4 @@
-"""The internal pull request record (``work_pull_requests``); there is no user-facing sync, refresh or reviewer route.
-
-Written when a workflow run or a coding session opens a pull request for a Work Item
-(``workflow_runs/platform/pr_details``, ``coding/coding_pr_delivery``) and read again from the host by the refresh
-worker (``refresh``). A record always belongs to a Work Item of the Workspace the run or coding session resolved
-(``workspace_id``; an item of another Workspace answers like a missing one). Its identity is exact: ``scope_key``
-(that Workspace) + the identity the caller derived when the pull request was opened (``record_identity``); a Work
-Item never changes Workspace after creation (``workspace_immutable``), so a record's scope stays its item's.
-
-The change unit a record names must be its item's own; the repository profile (the unit's) is loaded through
-``related_rows`` for that Workspace: by the acting user when the record is written, by the record's creator when it
-is refreshed.
-"""
+"""The internal pull request record (``work_pull_requests``); no user-facing route syncs, refreshes or reviews it."""
 
 from __future__ import annotations
 
@@ -37,10 +25,8 @@ STALE_DAYS = 7
 async def sync_pull_request(
     db: AsyncSession, *, current_user: User, workspace_id: str | None, payload: dict[str, Any]
 ) -> dict[str, Any]:
-    """Record (or update) the pull request a run or coding session opened for ``payload["work_item_id"]``;
-    ``workspace_id`` is the run's or session's resolved Workspace, the item's and the record's scope;
-    ``payload["identity"]`` is the pull request's identity (``record_identity.pull_request_identity``)."""
     item = await db.get(WorkItem, payload["work_item_id"])
+    # An item of another Workspace answers like a missing one
     if item is None or not workspace_id or item.project_id != workspace_id:
         raise HTTPException(status_code=404, detail="Work Item not found")
     unit_id = blank_to_none(payload.get("change_unit_id"))
@@ -65,6 +51,7 @@ async def sync_pull_request(
             action="secure_work.pull_request_synced",
             resource_type="secure_work_pull_request",
             resource_id=row.id,
+            project_id=row.scope_key,
             details={
                 "work_item_id": row.work_item_id,
                 "change_unit_id": row.change_unit_id,
@@ -82,21 +69,17 @@ async def sync_pull_request(
 
 
 async def item_unit(db: AsyncSession, unit_id: str, work_item_id: str | None) -> WorkItemChangeUnit | None:
-    """The change unit ``unit_id`` when it is the item's own, else ``None``."""
+    # Only the item's own change unit.
     unit = await db.get(WorkItemChangeUnit, unit_id)
     return unit if unit is not None and work_item_id and unit.work_item_id == work_item_id else None
 
 
 async def recorded_profile(db: AsyncSession, row: WorkPullRequest) -> WorkRepositoryProfile | None:
-    """A stored record's repository profile through the scoped loader, as its creator, for the record's Workspace
-    (``scope_key``, checked against its item's by ``host_target.workspace_of`` before the refresh reads).
-
-    A reference the creator may no longer use or that no longer fits that Workspace is removed from the record
-    (never used, never serialized)."""
     if not row.repository_profile_id:
         return None
     profile = await load_usable_related(db, await db.get(User, row.created_by), REPOSITORY_PROFILE,
                                         row.repository_profile_id, for_workspace=row.scope_key)
+    # A reference the creator may no longer use, or of another Workspace, is never used again
     if profile is None:
         row.repository_profile_id = None
     return profile
@@ -125,12 +108,12 @@ def _normalize_payload(
         "raw_summary_json": object_value(payload.get("raw_summary")),
         "last_synced_at": utc_now(),
         "updated_by": None,
+        # Set by the platform when its run or session opens the PR; a later sync without them keeps them.
+        **{key: str(payload[key]) for key in ("session_id", "run_id") if payload.get(key)},
     }
 
 
 async def find_record(db: AsyncSession, *, scope_key: str, identity: dict[str, Any]) -> WorkPullRequest | None:
-    """The record of this exact identity (``record_identity.pull_request_identity``) in the Workspace ``scope_key``,
-    bound to a Work Item of that Workspace."""
     return (await db.execute(select(WorkPullRequest).where(
         WorkPullRequest.scope_key == scope_key, in_item_workspace(),
         *(getattr(WorkPullRequest, column) == identity[column] for column in IDENTITY_COLUMNS),
@@ -140,7 +123,6 @@ async def find_record(db: AsyncSession, *, scope_key: str, identity: dict[str, A
 async def detect_mismatches(
     db: AsyncSession, row: WorkPullRequest, profile: WorkRepositoryProfile | None
 ) -> list[dict[str, Any]]:
-    """``profile``: the record's repository profile as the scoped loader returned it (or none)."""
     mismatches: list[dict[str, Any]] = []
     unit = await item_unit(db, row.change_unit_id, row.work_item_id) if row.change_unit_id else None
     policy = object_value(unit.reviewer_policy_json) if unit else {}

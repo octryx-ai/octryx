@@ -1,9 +1,4 @@
-"""Which reranker an Instance uses (explicit setting, optional).
-
-Without ``OCTRYX_KNOWLEDGE_RERANKER`` hybrid retrieval keeps its fused order and reports
-``rerank: needs_configuration``. A configured reranker is remote, so each Workspace is admitted
-through the data-policy gate before the query and the candidate passages leave the process.
-"""
+"""Which reranker an Instance uses (explicit setting, optional)."""
 
 from __future__ import annotations
 
@@ -26,7 +21,6 @@ class RerankerRuntime:
 
 
 def reranker_from_environment(environ: Mapping[str, str] | None = None) -> RerankerRuntime:
-    """The configured reranker, or ``needs_configuration`` with a fixed reason."""
     source = os.environ if environ is None else environ
     key = str(source.get(RERANKER_ENV) or "").strip()
     if not key:
@@ -41,7 +35,6 @@ def reranker_from_environment(environ: Mapping[str, str] | None = None) -> Reran
 
 
 def reranker_region(environ: Mapping[str, str]) -> str | None:
-    """The AWS region the reranker client is built for, or ``None``."""
     region = str(environ.get("OCTRYX_KNOWLEDGE_EMBEDDING_REGION") or environ.get("AWS_REGION") or "").strip()
     return region or None
 

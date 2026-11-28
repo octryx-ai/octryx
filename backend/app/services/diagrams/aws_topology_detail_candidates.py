@@ -123,9 +123,6 @@ def _application_detail_candidates(
     selected_nodes: list[dict[str, Any]],
     selected_edges: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """One focused candidate per application, derived from the normalized
-    load-balancer name: the LB plus everything wired to it (target groups,
-    security groups, WAF)."""
     from .aws_diagram_naming import normalize_label
 
     ref_types: dict[str, str] = {}
@@ -178,9 +175,6 @@ _APP_DETAIL_MIN_EDGES = 2
 
 
 def _rank_detail_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Rank purely by evidence size — no fixed per-category boni; the account
-    content decides which details exist and in which order."""
-
     def _score(candidate: dict[str, Any]) -> tuple[int, int, int]:
         return (
             int(candidate.get("estimated_edges") or 0) * 3

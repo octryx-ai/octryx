@@ -25,49 +25,7 @@ class ProviderDriverSpec:
 
 
 DRIVER_SPECS: dict[str, ProviderDriverSpec] = {
-    "openrouter_api": ProviderDriverSpec(
-        driver="openrouter_api",
-        provider_family="openrouter",
-        runtime_kind="api",
-        default_name="openrouter",
-        display_name="OpenRouter",
-    ),
-    "bedrock_api": ProviderDriverSpec(
-        driver="bedrock_api",
-        provider_family="aws",
-        runtime_kind="api",
-        default_name="bedrock",
-        display_name="AWS Bedrock",
-        default_auth_mode="aws_role",
-    ),
-    "copilot_api": ProviderDriverSpec(
-        driver="copilot_api",
-        provider_family="github",
-        runtime_kind="api",
-        default_name="copilot",
-        display_name="GitHub Copilot",
-        default_auth_mode="auth_session",
-    ),
-    "gemini_api": ProviderDriverSpec(
-        driver="gemini_api",
-        provider_family="google",
-        runtime_kind="api",
-        default_name="google",
-        display_name="Google Gemini API",
-    ),
-    "openai_compatible": ProviderDriverSpec(
-        driver="openai_compatible",
-        provider_family="openai",
-        runtime_kind="api",
-        default_name="openai_compatible",
-        display_name="OpenAI-Compatible API",
-        requires_endpoint_url=True,
-        config_hint=(
-            "Generic URL + API-token vendor. Provide a display name, the base "
-            "URL (endpoint_url, e.g. https://api.minimax.io/v1), the API key, and "
-            "add the model ids you want to use."
-        ),
-    ),
+    # Every model call goes through LiteLLM: the bundled one (``model_gateway/bundled_litellm``) or an external one.
     "litellm_gateway": ProviderDriverSpec(
         driver="litellm_gateway",
         provider_family="litellm",
@@ -89,14 +47,6 @@ DRIVER_SPECS: dict[str, ProviderDriverSpec] = {
             "variables are never used. Aliases are deny-by-default and must also "
             "be granted per project via the project model_policy."
         ),
-    ),
-    "ollama": ProviderDriverSpec(
-        driver="ollama",
-        provider_family="local",
-        runtime_kind="local",
-        default_name="ollama",
-        display_name="Ollama",
-        default_auth_mode="none",
     ),
 }
 

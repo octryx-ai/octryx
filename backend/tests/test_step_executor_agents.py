@@ -22,10 +22,6 @@ from app.services.agent_definition_execution_states import (
 )
 from tests.step_executor_support import make_scheduler, make_step, make_task, make_task_run
 
-# ---------------------------------------------------------------------------
-# Agent loading
-# ---------------------------------------------------------------------------
-
 
 class TestAgentLoading:
     @pytest.mark.asyncio
@@ -54,9 +50,6 @@ class TestAgentLoading:
         step.runtime_selector = {"runtime_target_id": "rt-step"}
         task = make_task(config={"agent_definition_id": "agent-task", "thinking_level": "light"})
 
-        # The loader does not query and serialize the live row itself.
-        # It asks the explicit resolution boundary and takes the runtime target
-        # and thinking level from the *resolved* header.
         db = AsyncMock()
         resolution = AgentDefinitionResolution(
             definition_id="agent-step",
@@ -86,13 +79,6 @@ class TestAgentLoading:
 
     @pytest.mark.asyncio
     async def test_unpublished_definition_fails_the_step_with_typed_state(self):
-        """Published mode refuses unpublished content instead of executing it.
-
-        A background step has no caller to answer 409 to, so it fails: running the
-        step without the agent definition it was configured with would execute a
-        different turn than the one that was configured. The typed refusal is
-        persisted on the step, which is what a run log has to show.
-        """
         ex = StepExecutor(make_scheduler())
         step = make_step(
             connector_params_json='{"agent_definition_id": "agent-step"}',
@@ -115,7 +101,6 @@ class TestAgentLoading:
             with pytest.raises(AgentDefinitionExecutionError) as raised:
                 await ex._load_agent_for_step(step, task, AsyncMock())
 
-            # The dispatcher turns it into a failed step carrying the typed state.
             result = await ex._execute_step(
                 step, {}, AsyncMock(), task, make_task_run()
             )
@@ -125,13 +110,7 @@ class TestAgentLoading:
         assert result.error == NOT_PUBLISHED_ERROR_CODE
         assert result.refusal["status"] == STATUS_NEEDS_PUBLICATION
         assert result.refusal["definition_id"] == "agent-step"
-        # It survives into the persisted step log, not only in memory.
         assert result.to_dict()["refusal"]["code"] == NOT_PUBLISHED_ERROR_CODE
-
-
-# ---------------------------------------------------------------------------
-# sub_agent_spawn step
-# ---------------------------------------------------------------------------
 
 
 class TestSubAgentSpawn:
@@ -148,17 +127,16 @@ class TestSubAgentSpawn:
 
     @pytest.mark.asyncio
     async def test_concurrency_limit_respected(self):
-        """Ensure max_concurrent_agents limits simultaneous executions."""
         concurrent_count = 0
         max_seen = 0
 
-        async def fake_run_agent(**kwargs):
+        async def fake_runner_turn(*_args, **_kwargs):
             nonlocal concurrent_count, max_seen
             concurrent_count += 1
             max_seen = max(max_seen, concurrent_count)
             await asyncio.sleep(0.01)
             concurrent_count -= 1
-            yield SimpleNamespace(role="assistant", content="done", tool_results=None)
+            return SimpleNamespace(answer="done")
 
         items = [{"key": f"T-{i}"} for i in range(6)]
         step = make_step(
@@ -183,10 +161,9 @@ class TestSubAgentSpawn:
                 new_callable=AsyncMock,
                 return_value=(None, None, None),
             ),
-            patch("app.scheduler.execution.step_executor.async_session_factory") as mock_factory,
-            patch("app.scheduler.execution.step_executor.run_agent", side_effect=fake_run_agent),
+            patch("app.scheduler.execution._step_agent_kinds.async_session_factory") as mock_factory,
+            patch("app.scheduler.execution._step_agent_kinds.runner_turn", side_effect=fake_runner_turn),
         ):
-            # async context manager mock for setup_db
             setup_db_mock = MagicMock()
             setup_db_mock.add = MagicMock()
             setup_db_mock.commit = AsyncMock()

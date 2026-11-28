@@ -22,7 +22,6 @@ EXPORT_DIR = TRANSFER_DIR / "exports"
 
 
 async def _is_admin_user(db: AsyncSession, user: User) -> bool:
-    """Platform-admin role check (the account name is irrelevant)."""
     from ..admin.governance.admin_access_service import is_global_admin
 
     return await is_global_admin(db, user.id)

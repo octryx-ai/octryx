@@ -26,8 +26,6 @@ def _name_key(node: KnowledgeGraphNode) -> str:
 
 
 class _Proposer:
-    """Records proposals once per unordered pair, skipping pairs that already have one."""
-
     def __init__(self, db: AsyncSession, project_id: str | None, existing_pairs: set[tuple[str, str]]) -> None:
         self.db = db
         self.project_id = project_id
@@ -55,7 +53,6 @@ class _Proposer:
 
 
 def _propose_by_name(proposer: _Proposer, nodes: list[KnowledgeGraphNode], limit: int) -> None:
-    """Signal 1: identical normalized display name within the same node_type."""
     by_name: dict[tuple[str, str], list[KnowledgeGraphNode]] = {}
     for node in nodes:
         key = (node.node_type, _name_key(node))
@@ -79,7 +76,6 @@ def _propose_by_name(proposer: _Proposer, nodes: list[KnowledgeGraphNode], limit
 
 
 def _propose_by_embedding(proposer: _Proposer, nodes: list[KnowledgeGraphNode], limit: int) -> None:
-    """Signal 2: near-identical description embeddings within the same node_type."""
     embedded = [n for n in nodes if isinstance(n.embedding, list) and n.embedding]
     by_type: dict[str, list[KnowledgeGraphNode]] = {}
     for node in embedded:
@@ -111,14 +107,7 @@ async def propose_identity_merges(
     node_types: list[str] | None = None,
     limit: int = 50,
 ) -> list[KnowledgeMergeProposal]:
-    """Scan for fuzzy duplicate candidates and record needs_review proposals.
-
-    Candidates: two distinct active nodes of the same type whose normalized
-    display names are identical (strong-ish but not deterministic — e.g. two
-    'John Smith' person nodes may be different people), or whose description
-    embeddings are near-identical. Existing proposals (any status) suppress
-    re-proposing the same pair.
-    """
+    """Scan for fuzzy duplicate candidates and record needs_review proposals."""
     stmt = select(KnowledgeGraphNode).where(KnowledgeGraphNode.status == "active")
     if project_id is not None:
         stmt = stmt.where(

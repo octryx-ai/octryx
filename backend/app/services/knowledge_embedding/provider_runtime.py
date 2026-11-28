@@ -1,12 +1,4 @@
-"""Governed embedding runtime resolution via the control plane.
-
-An embedding model is chosen like a chat model: a control-plane runtime target
-tagged ``embedding`` (in ``use_case_tags``) selects the provider and model. This
-resolver reads that selection, wires per-provider Bedrock credentials through the
-existing ``build_provider_client_kwargs_async`` machinery, and falls back to the
-environment/local default when nothing is configured. A provider tagged for
-embeddings but not embedding-capable fails loudly (no silent hash).
-"""
+"""Governed embedding runtime resolution via the control plane."""
 
 from __future__ import annotations
 
@@ -93,11 +85,8 @@ async def _resolve_from_control_plane(db: AsyncSession) -> KnowledgeEmbeddingPro
 
 
 def _embedding_family_for_provider(provider: LLMProvider) -> str | None:
-    driver = str(getattr(provider, "driver", "") or "").strip().lower()
     family = str(getattr(provider, "provider_family", "") or "").strip().lower()
-    if driver == "bedrock_api" or family == "aws":
-        return FAMILY_BEDROCK
-    return None
+    return FAMILY_BEDROCK if family == "aws" else None
 
 
 def _bedrock_client_kwargs(provider_kwargs: dict[str, Any]) -> dict[str, Any]:

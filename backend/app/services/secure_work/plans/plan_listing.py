@@ -1,21 +1,4 @@
-"""Cross-item Change Plan listing: one bounded, workspace-scoped summary read.
-
-Listing contract:
-
-- The persisted ``work_change_plans.status`` is authoritative. Review eligibility is a backend
-  rule (``PLAN_REVIEW_QUEUE_STATUSES``), never inferred from Work Item states or decisions.
-- Every version is listed, including several non-superseded plans of one item. ``superseded``
-  history is hidden by the default filter only; nothing is deleted.
-- Scope: ``scope`` is ``work_scope_project_ids`` (``None`` = verified platform admin, every
-  workspace including items without one; otherwise ``WorkItem.project_id IN scope``, which
-  excludes items without a workspace). It is applied to the page and to the counts on every
-  request, so a cursor never carries authorization.
-- Order: ``updated_at desc, id desc`` (``updated_at`` is NOT NULL).
-- ``status_counts`` cover the authorized scope with the ``project_id``/``work_item_id`` filters and
-  the effective superseded setting, before the status/queue filter and the cursor.
-- Queries per page: the page select (plans JOIN work items, OUTER JOIN creator) and one
-  ``GROUP BY status`` count. No per-row reads; no evidence blobs beyond ``evidence.plan_type``.
-"""
+"""Cross-item Change Plan listing: one bounded, workspace-scoped summary read."""
 
 from __future__ import annotations
 
@@ -38,7 +21,7 @@ from .plan_records import OPEN_PLAN_STATUSES
 
 SUPERSEDED_PLAN_STATUS = "superseded"
 KNOWN_PLAN_STATUSES = frozenset({*OPEN_PLAN_STATUSES, *PLAN_DECISIONS.values(), SUPERSEDED_PLAN_STATUS})
-# The only persisted status that means "waiting for a reviewer" (inventory section 2).
+# The only persisted status that means "waiting for a reviewer".
 PLAN_REVIEW_QUEUE_STATUSES = frozenset({"ready_for_review"})
 PLAN_QUEUES = {"review": PLAN_REVIEW_QUEUE_STATUSES}
 
@@ -73,7 +56,7 @@ def resolve_plan_list_filters(
     limit: int,
     cursor: str | None,
 ) -> PlanListFilters:
-    """Validate the query; every contradiction is a 422, never a silent reinterpretation."""
+    # Every contradiction is a 422, never a silent reinterpretation.
     requested = {str(value or "").strip() for value in statuses}
     if "" in requested:
         raise _invalid("Empty status filter")
@@ -115,7 +98,7 @@ def encode_plan_cursor(sort_at: datetime, plan_id: str) -> str:
 
 
 def decode_plan_cursor(cursor: str) -> tuple[datetime, str]:
-    """Parse an untrusted cursor: bounded length, exact shape and types, or 422."""
+    # The cursor is untrusted: bounded length, exact shape and types, or 422.
     if len(cursor) > CURSOR_MAX_LENGTH:
         raise _invalid("Malformed cursor")
     try:

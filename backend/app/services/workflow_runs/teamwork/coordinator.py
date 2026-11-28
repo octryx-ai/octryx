@@ -1,26 +1,4 @@
-"""The board wakes the coordinator while its items run.
-
-An item agent that needs the coordinator never waits: it posts a ``question`` to the coordinator's agent hash and
-finishes ``blocked``. While the run is at its ``parallel_work`` node nobody else drives the coordinator, and its
-Claude Code session has ended (one device job is one turn), so a post addressed to ``context.work.coordinator_hash``
-starts one coordinator turn on the run's main device thread:
-
-- the turn resumes the coordinator's own session (the plan phase's remembered session, same device, folder and
-  profile) on the plan phase's model, with a prompt that names the new message ids; the coordinator answers with
-  ``board_post reply_to`` and may submit a revised plan;
-- **once per message**: a message already woken for, or already waiting, starts nothing; messages that arrive while
-  a wake waits ride along with it;
-- **deferred while the main thread is busy** (the turn that submitted the plan, a work-git step, the previous wake):
-  the wake waits in ``context.coordinator_wake.pending`` and starts when that job ends (:func:`main_turn_ended`,
-  called from the device job end);
-- **nothing when the run is not at ``parallel_work``**: before the split exists, after it resolved (the coordinator
-  gets the findings and the story's board thread at ``replan``), or on a paused run.
-
-The coordinator's hash is the board agent hash of the gateway session that submitted the plan
-(``context.work.coordinator_session_id``, :func:`coordinator_hash`); it stays the address for the whole split, even
-though each woken turn runs in a gateway session of its own. Only device runs have one: server agents have no board
-tools yet and go through ``replan``.
-"""
+"""The board wakes the coordinator while its items run."""
 
 from __future__ import annotations
 
@@ -44,14 +22,12 @@ PROVENANCE = "teamwork_coordinator_wake"
 
 
 def at_parallel_work(run: WorkflowRun) -> bool:
-    """The run stands at its ``parallel_work`` node with the split still open (the only time a wake starts)."""
     work = work_of(run)
     return (run.status == STATUS_RUNNING and bool(work.get("node_id"))
             and run.current_node_id == work.get("node_id") and not work.get("route"))
 
 
 async def coordinator_hash(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """The board agent hash of the session that submitted the plan (stored, else derived from its session key)."""
     work = work_of(run)
     if work.get("coordinator_hash"):
         return str(work["coordinator_hash"])
@@ -65,7 +41,6 @@ async def coordinator_hash(db: AsyncSession, run: WorkflowRun) -> str | None:
 
 
 async def fill_coordinator_hash(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """Store :func:`coordinator_hash` on ``context.work`` (the run view and the team block show it)."""
     value = await coordinator_hash(db, run)
     work = work_of(run)
     if value and work and work.get("coordinator_hash") != value:
@@ -74,7 +49,6 @@ async def fill_coordinator_hash(db: AsyncSession, run: WorkflowRun) -> str | Non
 
 
 async def _run_of_coordinator(db: AsyncSession, project_id: str, agent_hash: str) -> WorkflowRun | None:
-    """The Workspace's running run at ``parallel_work`` whose coordinator has ``agent_hash``."""
     runs = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.project_id == project_id, WorkflowRun.status == STATUS_RUNNING))).scalars().all()
     for run in runs:
@@ -93,8 +67,7 @@ def _set_wake(run: WorkflowRun, wake: dict[str, Any]) -> None:
 
 
 async def board_posted(db: AsyncSession, message: Any) -> str | None:
-    """A board post was stored: when it is addressed to a running split's coordinator, wake it (the job id, or
-    ``None`` when nothing started now). Never fails the post."""
+    # Never fails the post.
     if not message.to_agent_hash or message.author_agent_hash == message.to_agent_hash:
         return None
     try:
@@ -126,7 +99,6 @@ def _prompt(run: WorkflowRun, message_ids: list[str]) -> str:
 
 
 async def _coordinator_session(db: AsyncSession, run: WorkflowRun, target: dict[str, Any]) -> str:
-    """The Claude Code session the coordinator's plan pass ran in, on this device, folder and profile."""
     from ..octryx.phase_sessions import _node_session, _pass_session, _session_here
 
     plan_node = str(work_of(run).get("plan_node") or "")
@@ -138,10 +110,6 @@ async def _coordinator_session(db: AsyncSession, run: WorkflowRun, target: dict[
 
 
 async def start_pending_wake(db: AsyncSession, run: WorkflowRun) -> str | None:
-    """Start the waiting wake on the run's main device thread when it is free; the job id, else ``None``.
-
-    The caller holds the run claim. A run that left ``parallel_work`` drops what waits: the coordinator reads the
-    board thread at its replan pass instead."""
     wake = _wake(run)
     pending = [str(value) for value in wake.get("pending") or []]
     if not pending:
@@ -162,7 +130,7 @@ async def start_pending_wake(db: AsyncSession, run: WorkflowRun) -> str | None:
     thread = await db.get(Session, thread_id) if thread_id else None
     target = _device_target(thread)
     if target is None:
-        _set_wake(run, {**wake, "pending": []})  # not a device run: no board, nothing to wake
+        _set_wake(run, {**wake, "pending": []})
         return None
     busy = await thread_job(db, thread.id)
     if busy is not None and busy.status in ACTIVE_STATUSES:
@@ -195,7 +163,6 @@ async def start_pending_wake(db: AsyncSession, run: WorkflowRun) -> str | None:
 
 
 async def main_turn_ended(db: AsyncSession, session_id: str) -> str | None:
-    """A device job of a thread ended: a wake that waited for the run's main thread starts now."""
     from ..records import active_run_for_session, lock_run
 
     run = await active_run_for_session(db, session_id)

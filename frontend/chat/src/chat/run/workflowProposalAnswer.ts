@@ -1,4 +1,3 @@
-// Answers to a workflow proposal: the request body, the refusal wording and the "Other workflow…" choices.
 import type { WorkflowOption } from "../../chatOptionTypes";
 import { answerModel, type StartBudgetBody } from "./startCardChoices";
 import { text } from "./workflowStartValues";
@@ -11,17 +10,11 @@ export type ProposalAnswerBody = {
   workflow_key?: string;
   run_on?: string;
   repository?: string;
-  // A device location's model; never without `run_on`.
   model?: string;
-  // The run budget for the Work item; only with Start.
   budget?: StartBudgetBody;
 };
 
-/**
- * The body of `POST /chat/api/sessions/{id}/workflow-proposal`: `run_on` only with Start (apply), and
- * `model` only with a device `run_on` (the server refuses it otherwise); `workflow_key` only with "other" (which
- * needs one). Null when the answer cannot be sent.
- */
+/** `model` only with a device `run_on`, `workflow_key` only with "other": the server refuses them otherwise. */
 export function proposalAnswerBody({
   proposalId,
   decision,
@@ -56,12 +49,6 @@ export function proposalAnswerBody({
   return null;
 }
 
-/**
- * A refused answer in words. The server's sentence wins (409: "Choose the repository the run works in (…)." or "no
- * longer pending"; 422: "Choose one of the repositories the card offers."); without one, 422 and 409 have their own.
- */
-/** The refusal's own sentence: a plain detail, or the `message` of a typed one (`needs_configuration` /
- * `workspace_required`: a chat without a Workspace). */
 export function answerDetailText(detail: unknown): string | null {
   if (typeof detail === "string") return detail;
   if (detail && typeof detail === "object" && typeof (detail as { message?: unknown }).message === "string")
@@ -79,7 +66,6 @@ export function proposalAnswerProblem(status: number, detail?: string | null): s
 
 export type OtherWorkflowChoice = { key: string; title: string; description: string };
 
-/** "Other workflow…": the composer's catalog without the current workflow and the "No workflow" entry, filtered. */
 export function otherWorkflowChoices(
   options: readonly Pick<WorkflowOption, "key" | "title" | "description" | "selection">[] | null | undefined,
   currentKey: string | null | undefined,

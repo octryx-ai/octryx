@@ -1,38 +1,4 @@
-"""The repository's test environment as the run's runtimes prepare it. Pure, except :func:`environment_for_run`.
-
-**Declared** (the law): the Workspace's repository registration, ``coding_setup.environment``::
-
-    {"setup": ["python3 -m venv .venv", ".venv/bin/pip install -r requirements.txt pytest flake8"],
-     "test": "python -m pytest -v tests/ --junitxml=test-reports/report.xml",
-     "lint": "flake8 .", "path": [".venv/bin"], "check": []}
-
-``setup`` runs in the repository folder (``/bin/sh -c``, one command after the other, bounded, recorded) only when the
-environment is not ready; ``path`` (folder-relative directories) is prepended to ``PATH`` for the probes, the setup and
-the agent's own commands; ``check`` are explicit readiness probes (exit 0 = ready), else the probes are derived from
-``test`` / ``lint``: the executable must resolve, and ``<python> -m <module>`` must find the module. Without an
-``environment`` object the coding setup's ``setup_commands`` / ``test_commands`` / ``lint_commands`` are the
-declaration.
-
-``browser`` (optional): ``chrome`` (default) runs Playwright on the device's installed Google Chrome, ``chromium`` on
-Playwright's bundled browser (the repository's setup then installs it).
-
-**Derived** from the CI configuration (``bitbucket-pipelines.yml``) when nothing is declared: its test and lint lines
-give the probes, and a proposal of the whole environment (a virtual environment in the folder instead of the CI image's
-global installs) is shown with ``environment_not_ready`` — derived setup commands are never executed: a CI script runs
-in a disposable container, installs globally and may deploy; only a person's declaration makes them the law.
-
-A declared command that installs outside the folder (``sudo``, ``--global``, ``pip install --user``, a system package
-manager) is refused when it is saved and again before it runs.
-
-**Declared in the repository**: ``coding_setup.environment_file`` on the record is a
-repo-relative path (``coffee/web/claude/.octryx/environment.json``). Setting it is the person's opt-in that this file,
-as it is in the run's own branch, is the law for the Workspace's runs, so a story declares the tests of the stack it
-chose. The file has exactly the ``environment`` schema above and is validated (:func:`validate_environment`, refused
-commands) every time it is read; it wins over ``environment``. Everything is scoped to the **app folder**: the
-directory that contains ``.octryx/`` (else the file's own directory): the commands run there and ``path`` is relative
-to it, so another Workspace's record pointing at another folder never reads this one. The pipeline's runtime reads
-it (a device: the launcher, ``octryx_claude.environment_file``; the server's copy: :func:`read_environment_file`).
-"""
+"""The repository's test environment as the run's runtimes prepare it."""
 
 from __future__ import annotations
 
@@ -79,7 +45,6 @@ _INSTALL_LINE = re.compile(r"^(pip3?|python3?\s+-m\s+pip)\s+install\s+(?P<args>.
 
 
 def refused_command(command: str) -> str | None:
-    """Why a declared command may not run on a runtime (it installs outside the folder), or ``None``."""
     text = str(command or "").strip()
     if not text:
         return "an empty command"
@@ -105,7 +70,6 @@ def _relative_dirs(value: Any) -> list[str]:
 
 
 def validate_environment(raw: Any) -> tuple[dict[str, Any] | None, list[str]]:
-    """``(normalized, errors)`` of a declared ``coding_setup.environment``; ``None`` clears it."""
     if raw in (None, {}, ""):
         return None, []
     if not isinstance(raw, dict):
@@ -180,7 +144,6 @@ def _serve(raw: Any, errors: list[str], warnings: list[str] | None = None) -> di
 
 
 def validate_environment_file(raw: Any) -> tuple[str | None, list[str]]:
-    """``(path, errors)`` of ``coding_setup.environment_file``; ``None`` (no error) clears it."""
     if raw in (None, ""):
         return None, []
     text = str(raw).strip() if isinstance(raw, str) else ""
@@ -193,22 +156,18 @@ def validate_environment_file(raw: Any) -> tuple[str | None, list[str]]:
 
 
 def app_folder(environment_file: str) -> str:
-    """The folder the file's commands run in: the directory that contains ``.octryx/``, else the file's own
-    directory; ``.`` is the repository root."""
     parent = PurePosixPath(environment_file).parent
     folder = parent.parent if parent.name == ".octryx" else parent
     return folder.as_posix() or "."
 
 
 def environment_file_of(setup: dict[str, Any]) -> str | None:
-    """The record's valid ``environment_file`` pointer, or ``None``."""
     path, errors = validate_environment_file(setup.get(ENVIRONMENT_FILE_KEY))
     return None if errors else path
 
 
 def read_environment_file(root: Path, environment_file: str) -> dict[str, Any]:
-    """The file in ``root`` read and validated: ``{file, app_folder, state, errors, environment, sha256}``;
-    ``state`` is ``ok``, ``missing`` or ``invalid`` (a file outside ``root`` through a link is invalid)."""
+    # A file outside root through a link is invalid.
     found: dict[str, Any] = {"file": environment_file, "app_folder": app_folder(environment_file), "errors": []}
     base = Path(root).resolve()
     target = (base / environment_file).resolve()
@@ -233,7 +192,6 @@ def read_environment_file(root: Path, environment_file: str) -> dict[str, Any]:
 
 
 def declared_environment(setup: dict[str, Any]) -> dict[str, Any] | None:
-    """The repository's declared environment, with its source; ``None`` when it declares no test command."""
     raw = setup.get(ENVIRONMENT_KEY)
     if isinstance(raw, dict):
         environment, _errors = validate_environment(raw)
@@ -264,7 +222,7 @@ def _ci_lines(document: Any) -> list[str]:
 
 
 def derive_from_ci(files: dict[str, str]) -> dict[str, Any] | None:
-    """The environment a CI configuration implies (a proposal; its setup is never executed), or ``None``."""
+    # A proposal: its setup is never executed.
     import yaml
 
     for name in CI_FILES:
@@ -287,7 +245,7 @@ def derive_from_ci(files: dict[str, str]) -> dict[str, Any] | None:
 
 
 def probes(environment: dict[str, Any]) -> list[dict[str, Any]]:
-    """The readiness probes a runtime runs (argv lists, never a shell; ``which`` = the executable must resolve)."""
+    # Argv lists, never a shell.
     if environment.get("check"):
         return [{"what": f"readiness check '{command[:120]}'", "shell": command} for command in environment["check"]]
     found: list[dict[str, Any]] = []
@@ -311,8 +269,6 @@ def probes(environment: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def local_excludes(environment: dict[str, Any] | None) -> list[str]:
-    """What never enters the change (``.git/info/exclude`` patterns): the top directory of every declared ``path``
-    entry and the JUnit report the declared test command writes (``--junitxml=<path>`` / ``--junit-xml <path>``)."""
     if not environment:
         return []
     tops = {PurePosixPath(str(item)).parts[0] for item in environment.get("path") or []
@@ -335,7 +291,6 @@ def local_excludes(environment: dict[str, Any] | None) -> list[str]:
 
 
 def runtime_environment(environment: dict[str, Any] | None) -> dict[str, Any] | None:
-    """What a runtime needs: the setup it may run (declared only), the path, the probes; ``None`` without any."""
     if not environment:
         return None
     if environment.get("source") == SOURCE_ENVIRONMENT_FILE:
@@ -358,7 +313,6 @@ def runtime_environment(environment: dict[str, Any] | None) -> dict[str, Any] | 
 
 
 async def environment_for_run(db: Any, run: Any) -> dict[str, Any] | None:
-    """The run repository's declared environment, else the one its CI configuration implies (server working copy)."""
     from pathlib import Path
 
     from ..platform.repo_ref import _record, _setup, parse_repository
@@ -399,9 +353,7 @@ async def environment_for_run(db: Any, run: Any) -> dict[str, Any] | None:
 
 
 async def expected_repository(db: Any, run: Any) -> dict[str, Any] | None:
-    """The repository a launcher's folder must be before it changes anything there: the hosts of the Workspace's
-    connection and the run's ``<owner>/<repo>`` path (``None`` when the run names none or no host is known; the server
-    checks the reported remote again either way)."""
+    # The server checks the reported remote again either way.
     from ...agent_gateway.repository_root import connection_hosts
     from ..platform.repo_ref import parse_repository
 

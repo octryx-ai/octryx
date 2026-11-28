@@ -1,8 +1,4 @@
-"""Content digest of a registry document (``sha256:<hex>`` over canonical JSON).
-
-Canonical JSON: keys sorted, no insignificant whitespace, UTF-8, no ASCII escaping, non-finite floats
-rejected, and a float with an integral value written as that integer (``20.0`` and ``20`` are one number).
-"""
+"""Content digest of a registry document (``sha256:<hex>`` over canonical JSON)."""
 
 from __future__ import annotations
 
@@ -30,7 +26,6 @@ def canonical_bytes(document: dict[str, Any]) -> bytes:
 
 
 def content_digest(document: dict[str, Any]) -> str:
-    """Return ``sha256:<hex>`` over the canonical JSON of *document*."""
     return DIGEST_PREFIX + hashlib.sha256(canonical_bytes(document)).hexdigest()
 
 

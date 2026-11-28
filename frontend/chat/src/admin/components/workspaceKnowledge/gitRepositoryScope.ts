@@ -1,18 +1,12 @@
 import type { ConnectorConfig, ConnectorScope, SourceConnector } from "./connectorTypes";
 
-// The Git repository connector's form fields, their validation and their read-back from a listed scope. The bounds
-// mirror what the server validates: checked here only to explain a refusal before it happens; the server stays the
-// authority. Public github.com repositories, or bitbucket.org repositories read with the Workspace's Bitbucket Cloud
-// connection bound to the repository (the server resolves it; the form has no credential field). The form configures fetch_mode
-// remote_git only; a local_snapshot connector is created and fed by a launcher upload and is read-only here.
+// The bounds mirror the server's validation only to explain a refusal early; the server stays the authority.
 
 export type GitRepositoryFields = {
   repositoryUrl: string;
   ref: string;
-  // One posix glob per line.
   includeGlobs: string;
   excludeGlobs: string;
-  // Empty sends null: the server default applies.
   maxFiles: string;
   maxFileBytes: string;
 };
@@ -27,16 +21,13 @@ const MAX_GLOBS = 20;
 const MAX_GLOB_CHARS = 200;
 const MAX_REF_CHARS = 100;
 
-// https://github.com/<owner>/<repo> or https://bitbucket.org/<workspace>/<repo>: nothing before or after, no .git
-// suffix, no trailing slash or path.
 const REPOSITORY_URLS: Record<string, RegExp> = {
   "github.com": /^https:\/\/github\.com\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]{1,100})$/,
   "bitbucket.org": /^https:\/\/bitbucket\.org\/([a-z0-9][a-z0-9_-]{0,61})\/([A-Za-z0-9._-]{1,100})$/,
 };
 const REF_CHARS = /^[A-Za-z0-9._/-]+$/;
 const COMMIT_SHA = /^[0-9a-f]{40}$/i;
-// owner/repo of a listed remote (its last two path segments, so a Bitbucket Data Center address .../scm/PROJ/repo.git
-// reads PROJ/repo); a local snapshot's remote may carry a .git suffix or a trailing slash.
+// The last two path segments, so a Bitbucket Data Center .../scm/PROJ/repo.git reads PROJ/repo.
 const REMOTE_REPOSITORY = /^https:\/\/[^/]+\/(?:[^/]+\/)*?([^/]+)\/([^/]+?)(?:\.git)?\/?$/;
 const SHORT_SHA = 12;
 const MAX_REPOSITORY_URL_CHARS = 300;
@@ -48,8 +39,7 @@ type ScopeResult = { scope: Partial<ConnectorConfig> } | { problem: string };
 export function repositoryUrlProblem(raw: string): string | null {
   const url = raw.trim();
   if (!url) return "Enter the repository URL (https://github.com/<owner>/<repo> or https://bitbucket.org/<workspace>/<repo>).";
-  // A local repository (the demo's fake GitHub, a test server) is not a Knowledge source: runs use it through a
-  // connection (fresh-install test: "must use https" was the only answer to http://127.0.0.1:…).
+  // A local repository is no Knowledge source: runs use it through a connection.
   if (/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i.test(url)) {
     return "A local repository is not read as a Knowledge source. To let runs work in it, add it in Work › Repositories › "
       + "Add a repository for runs, through its connection.";
@@ -90,7 +80,6 @@ function globsProblem(globs: string[], label: string): string | null {
   return bad === undefined ? null : `Each ${label} glob is at most ${MAX_GLOB_CHARS} characters.`;
 }
 
-// null for an empty field (server default), NaN for anything that is not a whole number in its bounds.
 function boundedInteger(raw: string, bounds: { min: number; max: number }): number | null {
   const text = raw.trim();
   if (!text) return null;
@@ -98,8 +87,6 @@ function boundedInteger(raw: string, bounds: { min: number; max: number }): numb
   return Number.isInteger(value) && value >= bounds.min && value <= bounds.max ? value : Number.NaN;
 }
 
-// A repository read through a connection keeps the URL the connection listed: any https address on its host (the
-// server checks the host).
 function connectionRepositoryUrlProblem(raw: string): string | null {
   const url = raw.trim();
   if (!url.startsWith("https://") || url.length > MAX_REPOSITORY_URL_CHARS || CONTROL_CHARS.test(url)) {
@@ -108,11 +95,7 @@ function connectionRepositoryUrlProblem(raw: string): string | null {
   return null;
 }
 
-/**
- * The scope of a Git repository connector. With a connection id (a repository added "From a connection") every save
- * sends it, or the server would read the URL as a public repository; the access mode is left out, so the server keeps
- * the stored one (it changes in the source's panel).
- */
+// Every save sends the connection id, or the server reads the URL as a public repository.
 export function gitRepositoryScope(fields: GitRepositoryFields & { connectionId?: string }): ScopeResult {
   const connectionId = fields.connectionId?.trim() ?? "";
   const problem = (connectionId ? connectionRepositoryUrlProblem(fields.repositoryUrl) : repositoryUrlProblem(fields.repositoryUrl))
@@ -158,7 +141,6 @@ export function gitFieldsFromScope(scope: ConnectorScope): GitRepositoryFields {
   };
 }
 
-// "512 KiB", "2 MiB", "1500 bytes": a byte limit in the largest whole unit.
 export function bytesText(bytes: number): string {
   if (bytes >= 1024 * 1024 && bytes % (1024 * 1024) === 0) return `${bytes / (1024 * 1024)} MiB`;
   if (bytes >= 1024 && bytes % 1024 === 0) return `${bytes / 1024} KiB`;
@@ -169,13 +151,11 @@ export function isLocalSnapshot(connector: SourceConnector): boolean {
   return connector.kind === "git_repository" && connector.scope.fetch_mode === "local_snapshot";
 }
 
-// "synced at 0123456789ab (dirty)" from the last completed pass, or "not synced yet".
 export function headText(scope: ConnectorScope): string {
   if (!scope.head_commit) return "not synced yet";
   return `synced at ${scope.head_commit.slice(0, SHORT_SHA)}${scope.head_dirty ? " (dirty)" : ""}`;
 }
 
-// The listing's scope of a Git repository connector, as short display lines.
 export function gitScopeSummary(scope: ConnectorScope): {
   repository: string;
   ref: string;

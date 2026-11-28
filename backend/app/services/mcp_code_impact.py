@@ -1,22 +1,5 @@
-"""``knowledge_code_impact`` over MCP: where a version change applies in the client's codebase.
-
-The MCP tool is the chat tool (``tools/knowledge_evidence/code_impact``), with the same resolver,
-the same rendering and the same evidence. Over MCP it differs in two explicit ways only:
-
-1. it is built with the connection's launcher session key (``X-Octryx-Session``), so the
-   codebase resolver can use the session's **recorded repository binding** from octryx-claude
-   (a resolver step);
-2. it takes ``files=[{path, content}]``: the build files, configuration and sources the client sends
-   explicitly (``knowledge/code/client_files``). This is an MCP-only input and it wins. ``commit``
-   may name their commit, and nothing is stored.
-
-``path`` is refused (``path_not_available_over_mcp``): it names a directory on the server, which an
-external client does not have. ``files`` together with ``repository`` is ``invalid_request``
-(``files_and_repository``).
-
-Every answer adds ``session_bound``: whether the answer's repository is the one the session's
-launcher bound.
-"""
+"""``knowledge_code_impact`` over MCP: where a version change applies in the client's codebase. The chat tool with the
+same resolver, rendering and evidence."""
 
 from __future__ import annotations
 

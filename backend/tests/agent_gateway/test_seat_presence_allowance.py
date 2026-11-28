@@ -53,7 +53,7 @@ async def test_allowance_is_shown_only_to_workspace_admins_and_owners(client, db
         "model": "claude-sonnet-5"}
     assert gateway["x-octryx-session"] not in json.dumps(owner_view)
     assert owner_item["session_key_hash"] == hashlib.sha256(gateway["x-octryx-session"].encode()).hexdigest()[:24]
-    assert outsider.status_code == 404 and "items" not in outsider.text  # the answer of an unknown Workspace
+    assert outsider.status_code == 404 and "items" not in outsider.text
 
 
 @pytest.mark.asyncio
@@ -94,9 +94,6 @@ async def test_the_mcp_presence_tool_has_the_same_rules(db, client, anthropic):
     assert getattr(refused.value, "status_code", None) == 403
 
 
-# --- allowance parsing ---------------------------------------------------------------------------------
-
-
 def test_allowance_parsing_ignores_missing_and_malformed_values():
     assert not parse_allowance({}).observed
     parsed = parse_allowance({"Anthropic-Ratelimit-Unified-5h-Utilization": "0.5",
@@ -110,7 +107,6 @@ def test_allowance_parsing_ignores_missing_and_malformed_values():
 
 @pytest.mark.asyncio
 async def test_a_platform_admin_gets_the_allowance_on_rest_and_mcp_alike(client, db, anthropic):
-    """REST and MCP agree for a platform admin who is no Workspace member."""
     from app.services.mcp_agent_presence_tools import agent_presence_list
     from app.services.mcp_work_access import build_work_grant_scope
 

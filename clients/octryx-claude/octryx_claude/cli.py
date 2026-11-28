@@ -1,22 +1,5 @@
 """Command dispatch for ``octryx-claude``.
-
-    octryx-claude login [--base-url URL] [--workspace ID|NAME] [--headless]
-    octryx-claude login --seat            (alias: seat-login; your own Claude subscription for the seat profile)
-    octryx-claude status
-    octryx-claude configure --base-url URL [--workspace ID|NAME]   (no sign-in; the installer runs it)
-    octryx-claude [--profile auto|governed|seat] [--workspace ID|NAME] [--work-item KEY] [--no-code-intelligence]
-                  [-- <claude args>]
-    octryx-claude api-key-helper          (run by Claude Code: apiKeyHelper)
-    octryx-claude mcp-headers             (run by Claude Code: MCP headersHelper)
-    octryx-claude hook pre-tool-use|post-tool-use|stop|stop-failure|session-end|user-prompt-submit
-    octryx-claude handoff [KEY] [--to USER] [--note TEXT] [--all]   (no model needed)
-    octryx-claude resume KEY [--no-start]
-    octryx-claude analyze KEY [--workspace ID|NAME]   (a work item analysis in a seat session)
-    octryx-claude device enable|disable|status|pause|resume|folders|parallel|logs   (remote device sessions)
-
-Messages carry fixed reason codes only; tokens, passwords and response bodies are
-never printed.
-"""
+Messages carry fixed reason codes only; tokens, passwords and response bodies are never printed."""
 
 from __future__ import annotations
 
@@ -100,10 +83,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             return cli_account.api_key_helper(state)
         if args.command == "mcp-headers":
             return cli_account.mcp_headers(state)
-        if args.command == "git-credential":
-            from .sandbox import credential_helper  # noqa: PLC0415
-
-            return credential_helper(args.action, sys.stdin, sys.stdout, state=state)
         if args.command == "device":
             return device_cli.run_device_command(args, state)
         if args.command == "pet":

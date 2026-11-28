@@ -7,7 +7,6 @@ import re
 
 from app.services.agent_gateway.command_tokens import Segment
 
-# Read-only commands and the options that would make them write or run something.
 READ_ONLY: dict[str, frozenset[str]] = {
     "ls": frozenset(), "cat": frozenset(), "head": frozenset(), "tail": frozenset(), "wc": frozenset(),
     "pwd": frozenset(), "stat": frozenset(), "diff": frozenset(), "echo": frozenset(), "which": frozenset(),
@@ -37,7 +36,6 @@ def _refused(token: str, refused: frozenset[str]) -> bool:
 
 
 def _command_name(segment: Segment) -> str | None:
-    """The command's name, or ``None`` for a path-qualified word that is no known interpreter (``./ls``)."""
     first = segment[0]
     if "/" in first and not _KNOWN_BINARY.match(first):
         return None
@@ -45,7 +43,6 @@ def _command_name(segment: Segment) -> str | None:
 
 
 def _repo_folder(segment: Segment) -> bool:
-    """``cd <folder>`` into the repository: one relative path without ``..`` (no ``~``, ``-`` or absolute path)."""
     return len(segment) == 2 and bool(_REPO_FOLDER.match(segment[1])) and ".." not in segment[1].split("/")
 
 
@@ -56,9 +53,7 @@ def read_only(segment: Segment) -> bool:
     if name == "uniq" and len([token for token in segment[1:] if not token.startswith("-")]) > 1:
         return False  # ``uniq in out`` writes ``out``
     if name == "sed":
-        # Print-only scripts (``sed -n '44,66p;217,251p' SPEC.md``), checked by the read-command grammar. When
-        # sed was refused, every implement session read the whole specification
-        # (21K tokens) instead of the sections its work item names, and read it again after each compaction.
+        # Print-only sed scripts, checked by the read-command grammar, so a session reads only the sections it needs.
         from ...security_analyzer.read_only_options import read_option_refusal
 
         return read_option_refusal(("sed", *segment[1:])) is None

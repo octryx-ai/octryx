@@ -1,23 +1,4 @@
-"""The platform worker process: the background workers, never the API.
-
-``python -m app.worker_main`` builds the same :class:`~app.runtime_setup.PlatformRuntime` the API
-lifespan uses and runs its startup with the background workers on (scheduler and task queue
-dispatcher, channels and the channel router, intake pollers, knowledge projection, approval
-timeouts, connector health, ...). It serves no API route. A minimal HTTP probe endpoint
-(:class:`WorkerHealthServer`) answers on its own port:
-
-* ``GET /livez``  200 while the event loop answers (liveness).
-* ``GET /health`` 200 once startup completed and the critical loops run; 503 while starting,
-  stopping or when the queue dispatcher or the runtime ownership loop has stopped (readiness).
-* ``GET /metrics`` the agent counters of this process (``octryx_*``) for a Prometheus scraper presenting
-  ``METRICS_SCRAPE_TOKEN`` as a bearer token; without the token 401.
-
-With ``OCTRYX_METRICS_PORT`` set, the same counters are also served without authentication on that port
-(``services/observability/metrics_listener.py``), for a Prometheus in the deployment's private network.
-
-The API then runs with ``OCTRYX_DISABLE_BACKGROUND_WORKERS=1``. This process ignores that
-flag: it exists to run the workers, so it always turns them on.
-"""
+"""The platform worker process: the background workers, never the API."""
 
 from __future__ import annotations
 
@@ -47,7 +28,6 @@ _MAX_REQUEST_BYTES = 8192
 
 
 def health_port(env: dict[str, str] | None = None) -> int | None:
-    """The probe port; ``None`` when set to ``off`` (no endpoint)."""
     source = os.environ if env is None else env
     raw = str(source.get(HEALTH_PORT_ENV) or "").strip().lower()
     if not raw:
@@ -61,7 +41,6 @@ def health_port(env: dict[str, str] | None = None) -> int | None:
 
 
 def apply_worker_role_environment(env: Any = None) -> None:
-    """This process runs the background workers and never builds or serves the chat frontend."""
     target = os.environ if env is None else env
     if str(target.get(DISABLE_BACKGROUND_WORKERS_ENV) or "").strip() not in {"", "0"}:
         logger.warning(
@@ -78,7 +57,6 @@ def _task_alive(task: Any) -> bool:
 
 
 def worker_health(runtime: Any, *, phase: str) -> tuple[int, dict[str, object]]:
-    """Readiness of the worker process: started, and the loops it cannot work without still run."""
     if phase != "ready":
         return 503, {"status": phase, "role": "worker"}
     checks = {
@@ -90,9 +68,6 @@ def worker_health(runtime: Any, *, phase: str) -> tuple[int, dict[str, object]]:
 
 
 class WorkerHealthServer:
-    """A tiny HTTP/1.1 responder: GET/HEAD ``/livez`` and ``/health`` for kubelet probes, and GET ``/metrics`` (agent
-    counters of this process, only with the scrape token) for Prometheus."""
-
     def __init__(self, runtime: Any, *, host: str, port: int) -> None:
         self._runtime = runtime
         self._host = host
@@ -117,7 +92,6 @@ class WorkerHealthServer:
             await server.wait_closed()
 
     async def _metrics(self, headers: dict[str, str]) -> tuple[int, str]:
-        """The worker's agent counters for a scraper presenting ``metrics_scrape_token`` (no token: 401)."""
         from .config import get_settings
         from .services.observability.metrics_render import render_worker_metrics
 

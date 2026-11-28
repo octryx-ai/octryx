@@ -1,8 +1,4 @@
-"""A turn the device refuses because it is full (``device_busy``) waits and is offered again, up to a limit.
-
-The limit and the retry interval are data (``busy_wait.json``). Past the limit the run pauses with
-"device saturated for N min"; every finished wait is measured in ``octryx_device_busy_wait_seconds``.
-"""
+"""A turn the device refuses because it is full (``device_busy``) waits and is offered again, up to a limit."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ RETRY_SECONDS = float(_SETTINGS["retry_seconds"])
 
 
 def is_busy(reason: str | None) -> bool:
-    """``device_busy`` as the device or the dispatch gate names it (``seat_turn_failed:device_busy`` included)."""
     return str(reason or "").rsplit(":", 1)[-1].strip() == REASON
 
 
@@ -44,7 +39,6 @@ def saturated_message(waited: float) -> str:
 
 
 def observe(path: str, outcome: str, waited: float) -> None:
-    """``path``: phase | review; ``outcome``: ran (the turn started after the wait) | saturated (the run paused)."""
     DEVICE_BUSY_WAIT.observe(waited, path=path, outcome=outcome)
 
 

@@ -1,19 +1,4 @@
-"""The enforcement points of sensitive-content handling (``content_security.handling``): the one table of what each
-configured action does at each point (:data:`POINTS`), and what the fixed rules do there.
-
-``reroute`` / ``mask_reroute`` reroute to the Workspace's governance alias (``HandlingPlan.governance_alias``); mask
-instead on a reply (the reply goes back to the user; replies write no per-kind evidence); or, where nothing sensible
-applies, the typed refusal ``content_route_unavailable``; on the gateway points they are platform calls only
-(``REROUTE_PLATFORM_ONLY``, ``handling.GATEWAY_ACTIONS``). A point may leave actions to the model entrance
-(``deferred``: the tool-result check applies ``none`` there and records ``applies_at: model_entrance``), apply another
-action than the configured one (``applied_as``: Command safety sends a mask for review and denies a refusal or a
-reroute), and apply a conditional rule to part of its content (``conditions``: older history on the platform's model
-calls).
-``content_security.handling_preview`` derives the settings preview from this table.
-
-**Fixed**, per point (``EnforcementPoint.fixed``): what an unfinished examination, unreadable content, prompt injection
-and the final check get there; ``report`` and ``reroute`` never apply to an unfinished examination.
-"""
+"""The enforcement points of sensitive-content handling: what each action and each fixed rule does at each point."""
 
 from __future__ import annotations
 
@@ -30,8 +15,6 @@ from .handling import (
     ACTION_REVIEW,
     ACTIONS,
     COMMAND_KINDS,
-    GATEWAY_ACTIONS,
-    GATEWAY_KINDS,
     KIND_IDS,
     MASKING,
     POINT_CODEX_SEAT,
@@ -61,16 +44,13 @@ ACTION_WITHHOLD = "withhold"
 
 @dataclass(frozen=True, slots=True)
 class FixedOutcome:
-    """What a fixed rule (:data:`FIXED_UNFINISHED`, :data:`FIXED_UNREADABLE`, :data:`FIXED_PROMPT_INJECTION`) does
-    at one point, before and whatever any kind's configured action."""
-
     rule: str
     action: str
     label: str
 
 
 _UNREADABLE_REFUSED = FixedOutcome(FIXED_UNREADABLE, ACTION_REFUSE, "Content of an unreadable shape refuses it")
-#: ``content_security.model_call``: unfinished withheld, injection in any field refused, the final request verified.
+#: ``content_security.enforcement_call``: unfinished withheld, injection in any field refused, final request verified.
 _MODEL_CALL_FIXED = (
     FixedOutcome(FIXED_UNFINISHED, ACTION_WITHHOLD, "A part the detectors could not finish examining is withheld "
                                                     "from the request"),
@@ -99,7 +79,10 @@ _GATEWAY_FIXED = (
     FixedOutcome(FIXED_UNFINISHED, ACTION_REFUSE, "A request too large or dense to check before its deadline is "
                                                   "refused"),
     FixedOutcome(FIXED_UNREADABLE, ACTION_REFUSE, "A body that is not valid JSON, or over the size limit, is refused"),
-    FixedOutcome(FIXED_PROMPT_INJECTION, ACTION_REFUSE, "Prompt injection in a tool result refuses the request"),
+    FixedOutcome(FIXED_PROMPT_INJECTION, ACTION_REFUSE, "Prompt injection in the newest turn or a tool result refuses "
+                                                        "the request"),
+    FixedOutcome(FIXED_FINAL_BYTES, ACTION_REFUSE, "A masked request that still carries a mask kind is refused: "
+                                                   "nothing is sent"),
 )
 #: ``security_analyzer.content_command``.
 _COMMANDS_FIXED = (
@@ -114,14 +97,10 @@ _COMMANDS_FIXED = (
 REROUTE_APPLIED = "reroute"
 REROUTE_AS_MASK = "mask"
 REROUTE_UNAVAILABLE = "unavailable"
-REROUTE_PLATFORM_ONLY = "platform_only"
 
 
 @dataclass(frozen=True, slots=True)
 class PointCondition:
-    """A rule of one point for part of its content: ``kinds`` found ``where`` get ``action`` (``reason``) when the
-    configured action is one of ``when`` (the shipped default ``none`` examines nothing)."""
-
     where: str
     label: str
     kinds: frozenset[str]
@@ -132,12 +111,6 @@ class PointCondition:
 
 @dataclass(frozen=True, slots=True)
 class EnforcementPoint:
-    """One enforcement point: its surface, what ``reroute`` / ``mask_reroute`` does there (``reroute``), the kinds it
-    acts on, the configurable actions it applies as configured (``supported``; any other one refuses there), the
-    actions it leaves to the model entrance (``deferred``), the configured actions it applies as another one
-    (``applied_as``: configured → (applied, reason)), its conditional rules (``conditions``) and what the fixed rules
-    do there (``fixed``)."""
-
     id: str
     label: str
     surface: str
@@ -151,7 +124,7 @@ class EnforcementPoint:
 
 
 
-#: ``content_security.model_call``: a ``refuse`` kind refuses the call in the newest turn and the offered tool
+#: ``content_security.enforcement_call``: a ``refuse`` kind refuses the call in the newest turn and the offered tool
 #: definitions; in earlier turns the client re-sends it is masked instead (it never leaves, the conversation goes on).
 OLDER_HISTORY_MASKED = PointCondition(
     "older_history", "Earlier turns and replayed tool-call arguments re-sent with the request", KIND_IDS,
@@ -167,12 +140,14 @@ POINTS: tuple[EnforcementPoint, ...] = (
                      fixed=_MODEL_OUTPUT_FIXED),
     EnforcementPoint(POINT_TOOL_RESULTS, "Tool results (refused here; the rest where they reach a model)",
                      SURFACE_PLATFORM, REROUTE_APPLIED, deferred=MASKING | REROUTING, fixed=_TOOL_RESULTS_FIXED),
+    # ``content_security.enforcement_inbound``: a Claude subscription seat reroutes to the company route.
     EnforcementPoint(POINT_GATEWAY_MESSAGES, "External coding agents on the Anthropic route (the whole request)",
-                     SURFACE_GATEWAY, REROUTE_PLATFORM_ONLY, GATEWAY_KINDS, GATEWAY_ACTIONS, fixed=_GATEWAY_FIXED),
+                     SURFACE_GATEWAY, REROUTE_APPLIED, conditions=(OLDER_HISTORY_MASKED,), fixed=_GATEWAY_FIXED),
     EnforcementPoint(POINT_GATEWAY_RESPONSES, "Codex on the Responses route (the whole request)", SURFACE_GATEWAY,
-                     REROUTE_PLATFORM_ONLY, GATEWAY_KINDS, GATEWAY_ACTIONS, fixed=_GATEWAY_FIXED),
-    EnforcementPoint(POINT_CODEX_SEAT, "Codex on a ChatGPT seat", SURFACE_GATEWAY, REROUTE_PLATFORM_ONLY,
-                     GATEWAY_KINDS, GATEWAY_ACTIONS, fixed=_GATEWAY_FIXED),
+                     REROUTE_APPLIED, conditions=(OLDER_HISTORY_MASKED,), fixed=_GATEWAY_FIXED),
+    # The ChatGPT backend serves only the person's own login: there is no governed alias to send it to.
+    EnforcementPoint(POINT_CODEX_SEAT, "Codex on a ChatGPT seat", SURFACE_GATEWAY, REROUTE_UNAVAILABLE,
+                     conditions=(OLDER_HISTORY_MASKED,), fixed=_GATEWAY_FIXED),
     # ``security_analyzer.content_command``: a command cannot be masked or rerouted.
     EnforcementPoint(POINT_COMMANDS, "Commands (Command safety)", SURFACE_COMMANDS, REROUTE_UNAVAILABLE,
                      COMMAND_KINDS, fixed=_COMMANDS_FIXED, applied_as={
@@ -193,7 +168,6 @@ __all__ = [
     "POINTS",
     "REROUTE_APPLIED",
     "REROUTE_AS_MASK",
-    "REROUTE_PLATFORM_ONLY",
     "REROUTE_UNAVAILABLE",
     "EnforcementPoint",
     "FixedOutcome",

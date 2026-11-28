@@ -41,7 +41,6 @@ async def _scope_graph(db: AsyncSession, project_id: str | None) -> tuple[list[A
 async def _cluster_report(
     members: list[Any], edges: list[Any], generate: GenerateFn | None, prompts: Any
 ) -> tuple[str, str, str, bool]:
-    """``(title, summary, summary_source, llm_reported)`` of one cluster."""
     title = ""
     summary = _structural_summary(members, edges)
     summary_source = "deterministic"
@@ -76,7 +75,6 @@ def _write_row(
     scope: str,
     report: tuple[str, str, str, bool],
 ) -> tuple[Any, bool]:
-    """The community row of ``key``, created or updated; ``True`` when created."""
     title, summary, summary_source, _ = report
     row = existing.get(key)
     if row is None:

@@ -11,10 +11,6 @@ from .device_work_state import RELEASED_KEPT, _is_turn, _set_state, _state
 
 
 async def left_node(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None) -> None:
-    """The run leaves its ``parallel_work`` node while items still run (a person restarts it at another step):
-    their turns are stopped and they go back to ``pending`` with their sessions and worktrees, so the next pass
-    resumes them (teamwork design, "Leaving the node"). The scheduler itself never leaves while an item runs: it
-    routes only when nothing runs or waits for its merge."""
     from .scheduler import _store
 
     work = work_of(run)
@@ -32,9 +28,6 @@ async def left_node(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None)
 
 
 async def stop_jobs(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None) -> list[str]:
-    """Stop the run's item turns and its git work on the device (an abort, a handover, a failed run). Otherwise,
-    after the abort an item job kept running until it was stopped by hand. The ids of
-    the jobs asked to stop."""
     from sqlalchemy import select
 
     from app.services.devices.job_state import ACTIVE_STATUSES
@@ -55,7 +48,7 @@ async def stop_jobs(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None)
         if job.id in main_jobs and not any(_is_turn(entry, job) for entry in main_turns):
             continue  # the main thread's job runs another turn now (the coordinator's): never teamwork's to stop
         if job.stop_state or job.turn_state == "cancelled":
-            continue  # already asked to stop (the main thread's turn, by the caller)
+            continue
         await request_stop(db, job, actor_id=actor_id or job.owner_user_id)
         stopped.append(job.id)
     _release_main_turns(run)
@@ -63,9 +56,7 @@ async def stop_jobs(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None)
 
 
 def _release_main_turns(run: WorkflowRun) -> None:
-    """Teamwork lets go of its turns on the main thread (the git work, a sequential item) when the run stops or
-    leaves the node: their ops go back to the queue for the next pass, and their turn ids stay known
-    (``released``) so that their end, whenever it comes, is still teamwork's own and never the run's phase turn."""
+    # Released turn ids stay known, so their end is still teamwork's own and never the run's phase turn.
     state = _state(run)
     sent, sequential = dict(state.get("sent") or {}), dict(state.get("sequential_job") or {})
     if not sent and not sequential:

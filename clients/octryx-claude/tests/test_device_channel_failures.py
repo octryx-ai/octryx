@@ -15,8 +15,6 @@ from tests.device_channel_support import FakeConnection, FakePlatform, _client, 
 
 
 class RawConnection(FakeConnection):
-    """Sends the given texts verbatim (a garbled frame) before the scripted messages."""
-
     def __init__(self, *raw: str) -> None:
         super().__init__()
         self.raw = list(raw)
@@ -98,8 +96,6 @@ async def test_a_confirmed_revoke_marks_the_device_revoked_and_stops_connecting(
 
 @pytest.mark.asyncio
 async def test_a_slow_or_garbled_handshake_reconnects_instead_of_ending_the_service(state, monkeypatch):
-    """A challenge that does not arrive within the handshake timeout (a slow platform) or a garbled welcome makes the
-    service reconnect; neither ends it."""
     import octryx_claude.device_channel_wire as channel
 
     monkeypatch.setattr(channel, "HANDSHAKE_TIMEOUT", 0.05)

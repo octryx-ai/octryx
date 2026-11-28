@@ -1,6 +1,5 @@
-"""Whether a command is a test run that may leave the sandbox (``local_tests``), with the code style's tools, and the
-forms that are one only after a rewrite. Stdlib only.
-"""
+"""Whether a command is a test run that may leave the sandbox (``local_tests``), with the code style's tools, and
+the forms that are one only after a rewrite. Stdlib only."""
 
 from __future__ import annotations
 
@@ -30,7 +29,6 @@ def _repository_mkdir(args: list[str], root: str) -> bool:
 
 
 def _tool_prefix(template: str) -> list[str]:
-    """The words of a style tool's command before its first option or placeholder (``dart format``, ``ruff check``)."""
     words = []
     for word in str(template or "").split():
         if word.startswith(("-", "{")):
@@ -40,8 +38,6 @@ def _tool_prefix(template: str) -> list[str]:
 
 
 def style_tools(contract: dict[str, Any] | None) -> list[tuple[list[str], bool]]:
-    """``[(prefix, outside_sandbox)]`` of the code style's formatter and linter commands in the run contract
-    (``phase.code_style``): the platform's own style check, which the agent may run the same way."""
     phase = contract.get("phase") if isinstance(contract, dict) else None
     style = phase.get("code_style") if isinstance(phase, dict) else None
     languages = style.get("languages") if isinstance(style, dict) else None
@@ -62,16 +58,13 @@ def style_tools(contract: dict[str, Any] | None) -> list[tuple[list[str], bool]]
 
 
 def style_run(words: list[str], root: str, tools: list[tuple[list[str], bool]] | None) -> bool:
-    """``words`` run one of the code style's tools on paths inside the repository (its options as the agent likes)."""
     return any(words[:len(prefix)] == prefix and all(arg.startswith("-") or _inside(arg, root)
                                                     for arg in words[len(prefix):]) for prefix, _ in tools or [])
 
 
+# Inside the sandbox ``dart format`` cannot write the SDK's cache and silently changes nothing.
 def is_test_run(command: str, root: str = "", pinned: dict[str, Any] | None = None,
                 tools: list[tuple[list[str], bool]] | None = None) -> bool:
-    """Whether ``command`` is a test run that may run outside the sandbox (module docstring); with the code style's
-    ``tools`` also a run of one of them on its own (inside the sandbox `dart format` cannot write the Dart SDK's
-    cache, prints only "Operation not permitted" and changes nothing)."""
     tokens = _tokens(command)
     segments = _segments(tokens) if tokens else None
     if not segments:
@@ -110,8 +103,6 @@ _AFTER_FILE = re.compile(r"\s*(?:;|&&)\s*(?:cat|tail|head|grep)\b[^;&|]*$")
 
 
 def system_test_commands(root: str, pinned: dict[str, Any] | None = None) -> list[str]:
-    """The declared system test commands (they start the app and a browser), as declared: the pinned environment
-    file's, else every environment file's in the repository."""
     import json  # noqa: PLC0415
 
     texts: list[str] = []
@@ -141,10 +132,8 @@ def system_test_commands(root: str, pinned: dict[str, Any] | None = None) -> lis
     return found
 
 
+# Inside the sandbox the browser cannot start and the run would hang until its timeout.
 def compound_system_test(command: str, root: str = "", pinned: dict[str, Any] | None = None) -> str | None:
-    """The declared system test when ``command`` runs it among other commands (it would run inside the sandbox,
-    where the browser cannot start, and hang until the timeout); ``None`` otherwise, e.g. for
-    `python3 - <<'EOF' … EOF …; python3 system_test/run_system_test.py | tail -12`."""
     text = str(command or "")
     if is_test_run(text, root, pinned):
         return None
@@ -152,8 +141,6 @@ def compound_system_test(command: str, root: str = "", pinned: dict[str, Any] | 
 
 
 def compound_style_tool(command: str, root: str = "", tools: list[tuple[list[str], bool]] | None = None) -> str | None:
-    """The style tool (its command words) when ``command`` runs one that cannot run inside the sandbox among other
-    commands; ``None`` otherwise. Such a tool there fails without saying so in a way an agent reads as clean."""
     text = " " + " ".join(str(command or "").split()) + " "
     if is_test_run(str(command or ""), root, tools=tools):
         return None
@@ -162,8 +149,6 @@ def compound_style_tool(command: str, root: str = "", tools: list[tuple[list[str
 
 
 def plain_form(command: str, root: str = "") -> str | None:
-    """The form of a test run that runs outside the sandbox when ``command`` is one only by writing to a file;
-    ``None`` when it is already a test run or no test run at all."""
     text = str(command or "")
     if is_test_run(text, root):
         return None

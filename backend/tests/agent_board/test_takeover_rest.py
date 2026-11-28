@@ -17,8 +17,6 @@ from tests.agent_board.work_item_claims_support import _claim, _fenced
 
 
 class Board(Team):
-    """Team (owner, admin, Anna with an agent, Ben, outsider, platform admin) plus Ben's agent and BRD-6."""
-
     async def build(self, db):
         await super().build(db)
         self.ben_key = await seed_presence(db, self.ben, self.ws)
@@ -58,7 +56,7 @@ async def test_only_the_receiving_person_or_an_admin_confirms(client, db, board,
     assert answer.status_code == status
     if status == 200:
         assert answer.json()["takeover"]["status"] == "confirmed"
-        assert answer.json()["takeover"]["decided_by"] == {  # freeze 3b shape
+        assert answer.json()["takeover"]["decided_by"] == {
             "kind": "human", "user": answer.json()["takeover"]["decided_by"]["user"]}
         assert answer.json()["takeover"]["decided_by"]["user"]["id"] == getattr(board, who)
 
@@ -71,7 +69,7 @@ async def test_only_the_receiving_person_or_an_admin_declines(client, db, board,
     assert answer.status_code == status
     claim = await db.get(WorkItemClaim, board.claim["claim_id"])
     await db.refresh(claim)
-    assert claim.released_at is None  # a decline never moves the claim
+    assert claim.released_at is None
 
 
 @pytest.mark.asyncio
@@ -96,7 +94,6 @@ async def test_confirm_transfers_the_claim_and_fences_the_old_holder(client, db,
     assert new.paths == ["src"] and new.lease_until > utc_now() + timedelta(seconds=800)
     assert body["takeover"]["status"] == "confirmed" and body["takeover"]["handoff"]["version"] == 2
 
-    # The old holder is fenced: with or without its epoch, its writes are claim_lost.
     _, anna_scope = await scope_for(db, board.anna)
     for arguments in ({"work_item": board.item.id}, {"work_item": board.item.id, "claim_epoch": board.claim["epoch"]}):
         with pytest.raises(Exception) as fenced:
@@ -105,7 +102,6 @@ async def test_confirm_transfers_the_claim_and_fences_the_old_holder(client, db,
     with pytest.raises(Exception) as handoff:
         await board.handoff(db, "v3")
     assert handoff.value.detail["code"] == "claim_lost"
-    # The new holder writes.
     _, ben_scope = await scope_for(db, board.ben, grant_id="grant-b")
     written, _ = await _fenced(db, board.ben, ben_scope, "work_item_note", {"work_item": board.item.id,
                                                                             "claim_epoch": new.epoch},
@@ -131,14 +127,12 @@ async def test_confirm_and_decline_race_has_one_winner(client, db, board):
     assert second.status_code == third.status_code == 409
     assert second.json()["detail"] == {"code": "takeover_not_pending"}
 
-    # A decider holding a stale, still-pending copy loses at the compare-and-set as well.
     from app.services.agent_board.takeovers import decide_takeover
 
     other = await Pair.call(board, db, board.owner, "work_item_takeover_request", grant="grant-o",
                             work_item_id=board.item.id)
     stale = await db.get(WorkItemTakeover, other["takeover"]["id"])
     assert stale.status == "pending"
-    # Another decider wins in the database; this copy is not refreshed (still "pending" in memory).
     await db.execute(update(WorkItemTakeover).where(WorkItemTakeover.id == stale.id).values(status="declined")
                      .execution_options(synchronize_session=False))
     with pytest.raises(Exception) as lost:

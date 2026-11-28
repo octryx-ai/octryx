@@ -83,7 +83,7 @@
 .work-repo-form__section > span {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -93,7 +93,7 @@
   gap: 0.25rem;
   color: var(--muted);
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-repo-form input,
@@ -138,7 +138,7 @@
   align-items: center;
   gap: 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay);
   padding: 0.25rem 0.5rem;
   letter-spacing: 0;

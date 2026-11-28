@@ -1,5 +1,3 @@
-"""The declared test command's JUnit report goes with its PostToolUse — only when this call wrote it."""
-
 from __future__ import annotations
 
 import io
@@ -89,8 +87,6 @@ def test_a_report_outside_the_repository_is_never_read(state, monkeypatch, tmp_p
 
 
 def test_the_report_carries_the_test_files_its_classnames_name(state, monkeypatch, tmp_path):
-    """A classname names a module: the launcher, which has the folder, names the files so the server can key the
-    results canonically (``tests/test_textkit.py::test_slug``) without guessing."""
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     (tmp_path / "tests").mkdir()
     (tmp_path / "tests" / "test_textkit.py").write_text("def test_slug():\n    assert False\n")

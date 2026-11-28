@@ -1,25 +1,5 @@
-"""Jira issues of the configured projects, on the Source Sync contract.
-
-**Listing.** Server/Data Center: ``GET /rest/api/2/search``, paged by offset (the token is the offset).
-Jira Cloud (``*.atlassian.net``), which withdrew ``/search``: ``POST /rest/api/3/search/jql`` with explicit
-fields, paged by Jira's opaque ``nextPageToken`` (the token is ``c:<nextPageToken>``). Both list
-``project in (...)``, optionally narrowed by an author-supplied JQL filter that is always ANDed
-inside the project clause, so it can never widen the scope, ordered by creation
-(``jira_releases.search_issue_page``). The issue's ``updated`` time is the version marker and the stable issue
-``id`` (not the key, which changes when an issue moves) is the external id.
-
-**ACL.** An issue with an issue security level is readable by fewer people than the project
-audience, so it is restricted; the level's name is kept in the ACL facet. Its members cannot be
-listed through the Server/DC REST API without administrator rights, so :meth:`expand_acl` answers
-``None`` and such an issue stays withheld even where the Workspace enforces source ACLs (5b).
-
-**Content.** The search already returns every rendered field, so ``fetch`` renders the listed issue
-(``jira_render.py``) without another request: Markdown with fixed headings, ingested in-process.
-**Releases.** With an active release configuration, the pass continues after the last issue page
-with the projects' versions, one release-notes source per version (``jira_releases.py``).
-
-The connector only reads; it has no code path that writes to Jira.
-"""
+"""Jira issues of the configured projects, on the Source Sync contract. An author's JQL filter is always ANDed inside
+the project clause."""
 
 from __future__ import annotations
 
@@ -134,7 +114,8 @@ class JiraConnector:
                           source_changed_at=source_date(updated))
 
     async def expand_acl(self, acl: AclFacet) -> AclExpansion | None:
-        # An issue security level's members are not readable without Jira administrator rights.
+        # A security level's members are not readable without Jira administrator rights, so such an issue stays
+        # withheld even where the Workspace enforces source ACLs.
         return None
 
     async def fetch(self, item: SourceItem) -> ItemContent:

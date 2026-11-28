@@ -152,7 +152,6 @@ _GITHUB_REPOSITORY_DEFINITIONS: dict[str, dict] = {
 
 
 def get_github_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for github tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(
         {

@@ -40,8 +40,6 @@ from .policy_version_store import (
 
 async def save_draft(db: AsyncSession, *, levels: Any, default_level: Any, note: Any, actor_id: str,
                      level_catalog: Any = None, effect_rules: Any = None) -> ClassificationPolicyVersion:
-    """Create or replace the open draft. Raises ``ClassificationPolicyError``, ``LevelCatalogError`` or
-    ``ClassificationVersionError``."""
     base = await base_content(db)
     content = await normalized_content(db, levels=levels, default_level=default_level, base=base,
                                        level_catalog=level_catalog, effect_rules=effect_rules)
@@ -67,7 +65,6 @@ async def save_draft(db: AsyncSession, *, levels: Any, default_level: Any, note:
 
 
 async def discard_draft(db: AsyncSession, *, actor_id: str) -> None:
-    """Withdraw the open draft or review (it is kept as retired history)."""
     row = await open_draft(db)
     if row is None:
         raise ClassificationVersionError(REFUSAL_NO_DRAFT, 404)
@@ -83,7 +80,6 @@ async def discard_draft(db: AsyncSession, *, actor_id: str) -> None:
 
 
 async def run_draft_cases(db: AsyncSession, content: Mapping[str, Any]) -> dict[str, Any]:
-    """The saved policy test cases, with the published custom policies, against ``content``'s matrix."""
     from ..policy_engine.test_bench import custom_text
     from ..policy_engine.test_cases import run_cases
 

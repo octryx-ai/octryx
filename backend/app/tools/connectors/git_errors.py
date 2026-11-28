@@ -1,12 +1,5 @@
 """Why a git step against GitHub, GitLab or Bitbucket failed, as a class plus git's last line with secrets removed;
-transient failures are retried in the same step.
-
-Without it, the providers kept
-only the step's name, so a refused credential, an unreachable service, a rate limit and a full disk looked the same,
-and nothing said whether trying again could help. Now every failed step names its class (:data:`CLASSES`) and the
-last line git wrote, after redaction (credentialed URLs, tokens); ``network``, ``rate_limit`` and ``server_error``
-are tried again with a backoff (:func:`retryable`); ``disk`` is the environment's (the run pauses with that cause).
-"""
+transient failures are retried in the same step."""
 
 from __future__ import annotations
 
@@ -49,21 +42,17 @@ _SECRET = re.compile(r"(https?://)[^/\s@]+@|\b(gh[pousr]_[A-Za-z0-9_]{8,}|github
 
 
 def classify(stderr: str, exit_code: int = 1) -> str:
-    """The failure's class from git's output; ``network`` for git's own timeout (124), else ``""``."""
     text = str(stderr or "").lower()
     found = next((name for name, _sentence, _status, markers in CLASSES if any(m in text for m in markers)), "")
     return found or ("network" if exit_code == 124 else "")
 
 
 def retryable(command: list[str], code: int, stderr: str) -> bool:
-    """A git network step that failed fast for a reason another try can clear (a step that ran into its own long
-    timeout, exit 124, is not tried again)."""
     return (code not in (0, 124) and len(command) > 1 and command[0] == "git" and command[1] in NETWORK_COMMANDS
             and classify(stderr, code) in RETRYABLE)
 
 
 async def run_with_retry(run_once: Any, command: list[str], **kwargs: Any) -> tuple[int, str, str]:
-    """``run_once(command, **kwargs)``, tried again after :data:`BACKOFF_SECONDS` while :func:`retryable`."""
     import asyncio
 
     result = await run_once(command, **kwargs)
@@ -79,7 +68,6 @@ _PATH = re.compile(r"(?<![\w:/.])/(?:[\w.~-]+/)*[\w.~-]+")
 
 
 def last_line(stderr: str) -> str:
-    """git's last non-empty line, without credentials, tokens or the platform's own paths, at most 300 characters."""
     lines = [line.strip() for line in str(stderr or "").splitlines() if line.strip()]
     if not lines:
         return ""
@@ -88,7 +76,6 @@ def last_line(stderr: str) -> str:
 
 
 def git_failure(error: str, exit_code: int, stderr: str = "", **extra: Any) -> dict[str, Any]:
-    """A failed git step: its name, the class and its sentence, git's redacted last line; without output."""
     code = re.sub(r"[^a-z0-9]+", "_", error.lower()).strip("_")
     found = classify(stderr, exit_code)
     if not found:

@@ -1,22 +1,5 @@
-"""The Docling sandbox adapter of the parser port.
-
-The sandbox is ``docling-serve`` pinned by image digest, running in a container **without any
-network** (``network_mode: none`` locally). Its only channel is a Unix socket on a volume shared
-with the API, so it cannot fetch a URL a document points to and cannot send a document anywhere.
-
-Fixed parse profile (:data:`PARSE_PROFILE`): JSON output only, pictures as placeholders (no
-image bytes), OCR for scanned pages, accurate table structure, and the ``pypdfium2`` PDF backend,
-which keeps word spacing that the default backend loses on LaTeX-produced PDFs (measured). The
-profile is part of the parser identity recorded on every revision, so a changed profile is a
-changed parser. Two per-request options vary it: ``do_ocr`` (off for a born-digital PDF;
-the choice is recorded in the revision's parser version, ``ocr_choice.py``) and the text-layer probe
-(a ``page_range``, with table structure off because the probe only counts text).
-
-Before a submission the adapter checks that the sandbox runs the pinned ``docling-serve``
-version; a different one is a contract violation, never a silent re-parse with other models.
-Every response is bounded and every failure is mapped to the port's fixed taxonomy; no sandbox
-text leaves this module.
-"""
+"""The Docling sandbox adapter of the parser port. The sandbox has no network; another ``docling-serve`` version is a
+contract violation, never a re-parse."""
 
 from __future__ import annotations
 
@@ -77,7 +60,6 @@ class DoclingSandboxConfig:
 
 
 def docling_config_from_environment(environ: Mapping[str, str]) -> DoclingSandboxConfig:
-    """The sandbox configuration, or the fixed ``needs_configuration`` state."""
     socket_path = (environ.get(SOCKET_ENV) or "").strip()
     version = (environ.get(VERSION_ENV) or "").strip()
     if not socket_path and not version:
@@ -99,8 +81,6 @@ def _task_ref(value: object) -> str:
 
 
 class DoclingSandboxParser:
-    """``DocumentParser`` over the sandbox's Unix socket."""
-
     def __init__(self, config: DoclingSandboxConfig, *, transport: httpx.AsyncBaseTransport | None = None) -> None:
         self._config = config
         self._identity = ParserIdentity(

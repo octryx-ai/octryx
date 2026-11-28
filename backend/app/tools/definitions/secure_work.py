@@ -1,10 +1,4 @@
-"""Tool definitions for platform-native work items (secure-work domain).
-
-Platform tasks are agent working memory: created locally, never synced to
-Jira or any tracker, session-linked for handover between workers. These
-definitions expose the same operations the MCP tools offer, so platform
-chat agents plan with epics/tasks exactly like external CLIs do.
-"""
+"""Tool definitions for platform-native work items (secure-work domain)."""
 
 from __future__ import annotations
 
@@ -241,21 +235,13 @@ _COORDINATION_DEFINITIONS: dict[str, dict] = {
 
 
 def get_secure_work_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for platform work items."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(_SECURE_WORK_DEFINITIONS)
 
 
 def get_client_work_definitions() -> dict[str, dict]:
-    """The Octryx client's work-item lifecycle tools, offered to the chat.
-
-    Same names, arguments and handlers as the client's MCP tools (``services/mcp_secure_work_tools``)."""
     return {**copy.deepcopy(_CLIENT_WORK_DEFINITIONS), **get_coordination_definitions()}
 
 
 def get_coordination_definitions() -> dict[str, dict]:
-    """The client's coordination tools between agents, the chat acting as its own chat-session agent.
-
-    Same names, arguments and handlers as the client's MCP tools (``mcp_agent_board_tools``, ``mcp_work_claim_tools``,
-    ``mcp_work_handoff_tools``, ``mcp_agent_presence_tools``)."""
     return copy.deepcopy(_COORDINATION_DEFINITIONS)

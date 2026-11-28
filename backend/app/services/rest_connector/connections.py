@@ -1,12 +1,4 @@
-"""Connections of a custom REST definition: base URL and the technical account, per Workspace or platform-wide.
-
-At most one connection per definition and scope (a Workspace, or ``global``). A call in a Workspace uses that
-Workspace's own connection when it has an active one, else the platform connection; there is no other fallback.
-
-Secrets are write-only: stored in the secret store under ``rest_api_connection:<id>`` / ``<field>`` with the
-connection's Workspace, the row keeps only ``<field>_secret_ref``, and no read returns a value (only whether one is
-set). A ref copied to another connection never resolves, because the store checks tool, field and Workspace.
-"""
+"""Connections of a custom REST definition: base URL and the technical account, per Workspace or platform-wide."""
 
 from __future__ import annotations
 
@@ -160,7 +152,6 @@ async def delete_connection(db: AsyncSession, definition_id: str, connection_id:
 async def connection_for_call(
     db: AsyncSession, definition_id: str, workspace_id: str | None
 ) -> RestApiConnection | None:
-    """The Workspace's own active connection, else the platform's active one; ``None`` when neither exists."""
     rows = (await db.execute(
         select(RestApiConnection).where(
             RestApiConnection.definition_id == definition_id,
@@ -173,10 +164,9 @@ async def connection_for_call(
 
 
 async def resolved_config(db: AsyncSession, connection: RestApiConnection) -> dict[str, Any]:
-    """The connection's fields with its own secrets resolved; refs removed."""
     config = dict(connection.config or {})
     resolved = await resolve_secret_refs(db, config, tool_name=secret_scope(connection.id),
-                                         project_id=connection.project_id)
+                                         project_id=connection.project_id, purpose="rest_connector.call")
     return {key: value for key, value in resolved.items() if not key.endswith("_secret_ref")}
 
 

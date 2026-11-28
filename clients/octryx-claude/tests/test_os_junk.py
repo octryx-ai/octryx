@@ -1,9 +1,3 @@
-"""Operating-system files never enter the device's change, its pipeline tree or its hand-over commit.
-
-A ``.DS_Store`` Finder writes into the working copy must not make the device's tree differ from the tree the server
-builds from the reported change (the push would be refused ``pipeline_not_for_head``).
-"""
-
 from __future__ import annotations
 
 import os
@@ -28,7 +22,6 @@ def _junk(repo: Path) -> None:
 
 
 def _server_tree(repo: Path, base: str, patch: str, scratch: Path) -> str:
-    """What the server builds: ``base`` plus the reported patch in a throwaway index (``safe_git.patch_tree``)."""
     env = {**os.environ, "GIT_INDEX_FILE": str(scratch / "index")}
     subprocess.run(["git", "read-tree", base], cwd=repo, env=env, check=True)
     subprocess.run(["git", "apply", "--cached", "--binary", "-"], cwd=repo, env=env, input=patch.encode(), check=True)
@@ -54,10 +47,7 @@ def test_os_files_stay_out_of_the_change_and_the_device_tree_matches_the_servers
 
 @requires_git
 def test_the_device_tree_sees_a_same_size_edit_made_in_the_second_of_the_last_commit(tmp_path, monkeypatch):
-    """The digest's copy of the index keeps the index's mtime, so git re-reads entries as old as the index (racy git).
-
-    With a fresh mtime on the copy, a file rewritten with the same size in the second of the commit looked unchanged
-    once the digest ran a second later (a loaded machine), and the device tree missed the edit."""
+    # The digest's index copy keeps the index's mtime, so git re-reads racily clean entries.
     while time.time() % 1 > 0.3:  # commit and edit early in one second
         time.sleep(0.01)
     repo = make_repo(tmp_path, monkeypatch)

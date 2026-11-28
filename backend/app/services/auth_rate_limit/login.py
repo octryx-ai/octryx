@@ -1,8 +1,4 @@
-"""The password login's brute-force limits: per client address and per username.
-
-A login attempt is refused while either the address's or the username's failure window is full; a failure
-counts against both, and a successful login clears both.
-"""
+"""The password login's brute-force limits: per client address and per username."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ from .service import (
 
 
 def state(request: Request, username: str) -> AuthRateLimitState:
-    """The address's window when it is full, else the username's (whichever refuses first)."""
     by_address = get_auth_rate_limit_state(AUTH_LOGIN_SCOPE, request)
     return by_address if by_address.limited else get_username_login_state(username)
 

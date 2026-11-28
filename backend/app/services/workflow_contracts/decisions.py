@@ -1,21 +1,4 @@
-"""Explicit workflow decisions: the structured answer to a closed decision question.
-
-A run-capability refusal (``services/run_capability/escalation``) stops a turn at a decision
-boundary. The user's answer is never read from the prompt text. It arrives as the structured
-``workflow_decisions`` field of the next send request (``{"<decision key>": "<value>"}``) on
-``/api/v1/sessions/{id}/messages`` or ``/chat/api`` send, is validated against the closed
-catalog below, is recorded in session metadata (``workflow_decisions``), and is folded into
-every later turn's workflow contract and run capability. Readers take the decision from there only.
-
-A recorded decision stays in force for the session until a later request records a different
-value for the same key.
-
-When a decision is asked, the loop persists a structured *decision request*
-(:func:`build_workflow_decision_request`) on the clarification message's trace
-(``raw_output.workflow_decision_request``). The turn execution summary re-validates it
-(:func:`read_workflow_decision_request`) and hands the closed options to the chat UI, which
-renders them as buttons. Clients never parse the options from the message text.
-"""
+"""Explicit workflow decisions: the structured answer to a closed decision question."""
 
 from __future__ import annotations
 
@@ -49,11 +32,10 @@ WORKFLOW_DECISION_OPTION_LABELS: dict[str, dict[str, str]] = {
 
 
 class WorkflowDecisionError(ValueError):
-    """A requested decision names an unknown key or a value outside its closed options."""
+    pass
 
 
 def validate_workflow_decisions(raw: Any) -> dict[str, str]:
-    """Return the decisions as a clean mapping, or raise :class:`WorkflowDecisionError`."""
     if raw is None:
         return {}
     if not isinstance(raw, dict):
@@ -72,7 +54,6 @@ def validate_workflow_decisions(raw: Any) -> dict[str, str]:
 
 
 def recorded_workflow_decisions(session_metadata: dict[str, Any] | None) -> dict[str, str]:
-    """The valid decisions recorded on a session; malformed entries are dropped (fail closed)."""
     stored = (session_metadata or {}).get(WORKFLOW_DECISIONS_KEY)
     if not isinstance(stored, dict):
         return {}
@@ -84,7 +65,6 @@ def recorded_workflow_decisions(session_metadata: dict[str, Any] | None) -> dict
 
 
 def record_workflow_decisions(metadata: dict[str, Any], decisions: dict[str, str] | None) -> None:
-    """Merge validated ``decisions`` into the session ``metadata`` in place (a later value wins)."""
     if not decisions:
         return
     metadata[WORKFLOW_DECISIONS_KEY] = {**recorded_workflow_decisions(metadata), **decisions}
@@ -94,7 +74,6 @@ def apply_workflow_decisions_to_contract(
     workflow_contract: dict[str, Any] | None,
     session_metadata: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Carry the session's recorded decisions on the turn's workflow contract."""
     if not isinstance(workflow_contract, dict) or not workflow_contract:
         return workflow_contract
     decisions = recorded_workflow_decisions(session_metadata)
@@ -104,17 +83,11 @@ def apply_workflow_decisions_to_contract(
 
 
 def workflow_decision(workflow_contract: dict[str, Any] | None, key: str) -> str:
-    """The contract's recorded value for ``key``, or ``""`` when the decision is still open."""
     contract = workflow_contract if isinstance(workflow_contract, dict) else {}
     return recorded_workflow_decisions(contract).get(key, "")
 
 
 def build_workflow_decision_request(key: str, workflow_contract: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The structured request for decision ``key`` with its closed options, or ``None``.
-
-    ``recorded_value`` is the value already recorded on the contract (``None`` while open),
-    so a hold notice can offer the other option without repeating the current one.
-    """
     options = WORKFLOW_DECISION_OPTIONS.get(str(key or ""))
     if options is None:
         return None
@@ -127,11 +100,6 @@ def build_workflow_decision_request(key: str, workflow_contract: dict[str, Any] 
 
 
 def read_workflow_decision_request(raw: Any) -> dict[str, Any] | None:
-    """Re-validate a persisted decision request against the closed catalog (fail closed).
-
-    The options and labels are always re-derived from the catalog, so a stored value can only
-    select a known decision, never inject its own options or text.
-    """
     if not isinstance(raw, dict):
         return None
     key = raw.get("decision_key")

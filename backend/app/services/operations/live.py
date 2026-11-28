@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import User
 from ...time_utils import utc_now
 from ..problems import activity
-from ..problems.model import CollectContext, iso
+from ..problems.model import iso
 from ..problems.scope import ProblemScope
 from . import fleet
 from .runs import STATES, live_runs
@@ -20,7 +20,7 @@ from .runs import STATES, live_runs
 async def live_view(db: AsyncSession, user: User, scope: ProblemScope, *, now: datetime | None = None
                     ) -> dict[str, Any]:
     now = now or utc_now()
-    ctx = CollectContext(now=now, workspace_ids=scope.workspace_ids)
+    ctx = scope.context(now)
     problems = await activity.collect(db, ctx)
     runs = await live_runs(db, viewer_id=user.id, scope=ctx.scope, now=now, problems=problems)
     states = Counter(row["state"] for row in runs)

@@ -1,8 +1,4 @@
-"""A finding the change fixes only in part stays open with only what is left.
-
-A medium like "The result is not rounded to 2 decimals … Also add tests" must not stay open whole after the rounding
-came in. The follow-up may answer ``partly_fixed`` with ``remaining``: the finding keeps only that part, its thread
-says what was fixed and what is left, and the reviewer is told that one finding is one problem."""
+"""A finding the change fixes only in part stays open with only what is left."""
 
 from app.services.pr_review_bot.incremental import effective, thread_answers
 from app.services.workflow_runs.review.convergence import Scope, previous_findings, settle_follow_up
@@ -28,7 +24,7 @@ def test_a_partly_fixed_finding_stays_open_with_only_its_remaining_part():
     (kept,) = settled["findings"]
     assert (kept["id"], kept["severity"]) == ("F2", "medium")
     assert kept["fix"] == "Add tests for a valid code, an unknown code and the rounding."
-    assert "suggestion" not in kept  # the old suggestion was for the part that is done
+    assert "suggestion" not in kept
     assert settled["follow_up"][0]["remaining"].startswith("Add tests")
 
 

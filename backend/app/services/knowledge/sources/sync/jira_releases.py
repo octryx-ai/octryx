@@ -1,28 +1,4 @@
-"""The release phase of a Jira listing pass: one release-notes source per Jira version.
-
-After the issues of a pass, a Jira connector with an active release configuration
-(``jira_release_config.py``) lists the versions of every mapped project, in project order, through
-``GET /rest/api/2/project/{key}/version`` (paged, ``orderBy=sequence``). The token is
-``r:<project index>:<offset>``. For each version:
-
-- **Version.** The name is read as a version with the configured literal prefixes
-  (``release_version``); a name that is not a version is reported as skipped
-  (``version_name_unrecognized``) and never ingested.
-- **Issues.** One page at a time through :func:`search_issue_page`: Server/DC ``GET /rest/api/2/search``
-  (``startAt``), Jira Cloud ``POST /rest/api/3/search/jql`` (``nextPageToken``; no ``total``), for
-  ``project = KEY AND fixVersion = <id>``, ANDed with the
-  connector's own JQL filter, so a release note never shows an issue the issue sync would not.
-  Bounded to ``MAX_RELEASE_ISSUES``; the rendering says when that bound cut the list.
-- **ACL.** An issue with an issue security level is left out: its members cannot be expanded, so
-  it would be withheld as ``restricted_acl`` on its own, and a release note must not carry it into
-  the Workspace-wide audience. The release itself is then readable by the whole project audience.
-- **Item.** External id ``release-<version id>``, title ``Release <version>``, the version's deep
-  link, product = the project's configured product, version = the normalized version, document
-  role ``release_notes``. The version marker is the SHA-256 of the rendering, so a release is
-  re-ingested exactly when its content changed, and never otherwise.
-
-Only ``GET`` is used (``http.SourceReader``): nothing here can write to Jira.
-"""
+"""The release phase of a Jira listing pass: one release-notes source per Jira version."""
 
 from __future__ import annotations
 
@@ -79,20 +55,14 @@ def _parse_token(token: str) -> tuple[int, int]:
 
 
 def reader_is_cloud(reader: SourceReader) -> bool:
-    """A Jira Cloud site (``*.atlassian.net``); the Source Sync connection carries no auth mode."""
     return is_jira_cloud(reader.base_url)
 
 
 async def search_issue_page(
     reader: SourceReader, jql: str, *, fields: str, size: int, cursor: str | None
 ) -> tuple[list, str | None]:
-    """One page of issues and the cursor of the next one (``None`` at the end), on the site's own API.
-
-    The cursor is the ``startAt`` offset on Server/DC and Jira's opaque ``nextPageToken`` on Cloud. Every
-    answer is checked for shape; a contract violation never pages on. An empty page while the source says
-    more remain is one too (root decision): the listing can neither page on (it could loop) nor end, because
-    an ended listing completes the pass and the runner would retire every issue not yet listed.
-    """
+    # An empty page while more remain is a contract violation: paging on could loop, ending would retire unlisted
+    # issues.
     page, next_cursor, more = await _search_issue_page(reader, jql, fields=fields, size=size, cursor=cursor)
     if not page and more:
         raise ConnectorError(REASON_SOURCE_CONTRACT_VIOLATION)
@@ -102,11 +72,6 @@ async def search_issue_page(
 async def _search_issue_page(
     reader: SourceReader, jql: str, *, fields: str, size: int, cursor: str | None
 ) -> tuple[list, str | None, bool]:
-    """``search_issue_page`` plus whether the source says more issues remain.
-
-    An empty page never pages on (that could loop), even when the source says more remain; ``more`` lets a
-    caller report that stop as a truncation instead of the end.
-    """
     if reader_is_cloud(reader):
         body: dict = {"jql": jql, "fields": [name for name in fields.split(",") if name], "maxResults": size}
         if cursor:
@@ -136,12 +101,7 @@ async def _search_issue_page(
 async def search_release_issues(
     reader: SourceReader, jql: str, *, fields: str, bound: int, project_key: str
 ) -> tuple[list[tuple[str, dict]], bool]:
-    """(key, fields) of up to ``bound`` issues of ``jql``, and whether that is every matching issue.
-
-    The list is complete only when the source says it ended: an empty page while more remain is a truncation.
-    Only issues of ``project_key`` are kept (key project, matching ``fields.project``), so
-    nothing of another project is rendered or counted, whatever the query returned.
-    """
+    # Only issues of ``project_key`` are kept, whatever the query returned.
     issues: list[tuple[str, dict]] = []
     cursor: str | None = None
     complete = False
@@ -162,8 +122,6 @@ async def search_release_issues(
 
 
 class JiraReleaseLister:
-    """The release phase of one Jira connector's listing pass."""
-
     def __init__(self, reader: SourceReader, config: ReleaseConfig, *, jql_filter: str | None) -> None:
         self._reader = reader
         self._config = config
@@ -222,6 +180,8 @@ class JiraReleaseLister:
         issues, complete = await search_release_issues(
             self._reader, jql, fields=RELEASE_ISSUE_FIELDS, bound=MAX_RELEASE_ISSUES, project_key=project_key
         )
+        # The release item is readable by the whole scope; an issue with a security level must not reach readers outside
+        # its own audience.
         readable = [(key, fields) for key, fields in issues if fields.get("security") is None]
         text = render_release(
             base_url=self._reader.base_url,

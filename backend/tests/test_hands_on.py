@@ -6,12 +6,15 @@ from __future__ import annotations
 import pytest
 
 from app.services.workflow_runs.hands_on import step
-from app.services.workflow_runs.hands_on.scenarios import ScenarioError, validate
+from app.services.workflow_runs.hands_on.scenarios import COVERS, ScenarioError, validate
 from tests.hands_on_support import _answer, _at_hands_on, _Model, _reproduce_definition, _scenario
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_scenarios_cover_the_feature_and_the_whole_regression_set():
-    scenarios = validate(_answer())
+    scenarios = validate(_answer(), required=COVERS)
     assert [item["id"] for item in scenarios] == ["S1", "S2", "S3", "S4"]
     assert scenarios[3]["fresh_profile"] is False and scenarios[3]["seed"] == [{"do": "click", "text": "Skip"}]
     for broken, why in [
@@ -26,7 +29,7 @@ def test_the_scenarios_cover_the_feature_and_the_whole_regression_set():
         ({"scenarios": [{**_scenario("feature"), "steps": [{"do": "goto", "path": "http://evil"}]}]}, "path"),
     ]:
         with pytest.raises(ScenarioError, match=why):
-            validate(broken)
+            validate(broken, required=COVERS)
 
 
 @pytest.mark.asyncio
@@ -130,3 +133,23 @@ async def test_the_reproduce_check_routes_by_why_the_scenario_failed(db, monkeyp
     assert await step.record_report(db, run, report, session_id=session.id) == state
     assert run.context["hands_on_reproduce"]["state"] == state
     assert run.context["actions"]["hands_on"]["result"] == route
+
+
+def test_the_required_covers_come_from_the_hands_on_node_and_a_misspelt_one_is_refused():
+    import copy
+    import json
+    from pathlib import Path
+
+    from app.services.workflow_runs.graph_validation import validate_phased_definition
+
+    seeds = json.loads(Path("app/services/workflow_runs/seeds/phased_workflows.json").read_text())
+    nodes = {(item["key"], node["id"]): node for item in seeds for node in item["definition"]["nodes"]
+             if (node.get("config") or {}).get("action") == "hands_on.run" and node["id"] == "hands_on"}
+    assert nodes and all(node["config"]["regression_covers"] == list(COVERS) for node in nodes.values())
+    feature_only = {"scenarios": [item for item in _answer()["scenarios"] if item["part"] == "feature"]}
+    assert validate(feature_only, required=())  # a workflow that requires no cover
+    with pytest.raises(ScenarioError, match="do not cover: app_loads"):
+        validate(feature_only, required=("app_loads",))
+    definition = copy.deepcopy(next(item for item in seeds if item["key"] == "epic-delivery")["definition"])
+    next(node for node in definition["nodes"] if node["id"] == "hands_on")["config"]["regression_covers"] = ["app_load"]
+    assert "regression_covers" in {error["code"] for error in validate_phased_definition(definition)["errors"]}

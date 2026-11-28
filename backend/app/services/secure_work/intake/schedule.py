@@ -1,9 +1,4 @@
-"""One schedule value per intake: a preset, or a custom cron under Advanced.
-
-Presets: ``manual`` (no schedule), ``every_minute`` (incremental syncs make it cheap),
-``every_15_min``, ``hourly``, ``every_4_hours``, ``daily_0600``; ``custom``
-carries its own ``cron``. Options without a ``schedule`` read as ``manual``.
-"""
+"""One schedule value per intake: a preset, or a custom cron under Advanced."""
 
 from __future__ import annotations
 
@@ -25,11 +20,11 @@ PRESETS = (MANUAL, *PRESET_CRONS, CUSTOM)
 
 
 class ScheduleError(ValueError):
-    """A refused schedule; the message names the field, never a value."""
+    # The message names the field, never a value.
+    pass
 
 
 def schedule_of(options: Mapping[str, Any] | None) -> dict[str, Any]:
-    """``{preset, cron}`` of sync options (the ``schedule`` value, else ``manual``)."""
     stored = dict(options or {}).get("schedule")
     if isinstance(stored, Mapping) and stored.get("preset") in PRESETS:
         cron = str(stored.get("cron") or "").strip() or None
@@ -38,7 +33,6 @@ def schedule_of(options: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def normalize_schedule(raw: object) -> dict[str, Any]:
-    """The validated ``{preset, cron}``; raises :class:`ScheduleError`."""
     if not isinstance(raw, Mapping) or raw.get("preset") not in PRESETS:
         raise ScheduleError(f"schedule.preset must be one of: {', '.join(PRESETS)}")
     preset = raw["preset"]
@@ -53,14 +47,12 @@ def normalize_schedule(raw: object) -> dict[str, Any]:
 
 
 def with_schedule(options: Mapping[str, Any] | None, schedule: Mapping[str, Any] | None = None) -> dict[str, Any]:
-    """``options`` with one ``schedule`` (the given one validated, else the stored one)."""
     merged = dict(options or {})
     merged["schedule"] = normalize_schedule(schedule) if schedule is not None else schedule_of(merged)
     return merged
 
 
 def cron_of(schedule: Mapping[str, Any]) -> str | None:
-    """The cron the scheduler runs; ``None`` for ``manual``."""
     preset = schedule.get("preset")
     if preset == CUSTOM:
         return str(schedule.get("cron") or "") or None

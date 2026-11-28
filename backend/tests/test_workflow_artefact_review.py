@@ -10,8 +10,11 @@ from app.services.workflow_runs.graph_validation import validate_phased_definiti
 from app.services.workflow_runs.review.artefact_contract import parse_verdict, verdict_rejection
 from app.services.workflow_runs.review.artefact_gate import evaluate
 from app.services.workflow_runs.review.runner import run_due_reviews
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_artefact_review_support import CHANGES, PASS, definition, prepared
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_closed_config_and_distinct_strict_verdict():

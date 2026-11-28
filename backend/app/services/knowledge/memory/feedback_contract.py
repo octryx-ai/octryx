@@ -1,15 +1,5 @@
-"""The answer-feedback contract: closed values, bounded texts, and the memory rendering.
-
-A feedback says whether an answer was ``good`` or ``bad`` (required), optionally what was good and
-what was not good (two bounded texts), and optionally which aspects were liked or disliked (a closed
-set). Anything outside it is refused with a fixed reason (``errors.REFUSALS``), never guessed or
-coerced: ``1``/``-1``, ``"Good"``, an unknown aspect or verdict are all ``invalid_request``.
-
-The texts go through the lobe's text guard: bounded, visible characters only, and a text the shared
-redaction policy would change (credential URL, auth header or token, ``password=``, private key,
-vendor token, AWS key id) is refused as ``secret_detected``. The stored text therefore always equals
-its redacted form; nothing is silently rewritten.
-"""
+"""The answer-feedback contract: closed values, bounded texts, and the memory rendering. Anything outside it is refused
+with a fixed reason, never coerced."""
 
 from __future__ import annotations
 
@@ -78,7 +68,6 @@ def _aspects(raw: object) -> tuple[tuple[str, str], ...]:
 def parse_answer_feedback(
     *, rating: object, liked: object = None, disliked: object = None, aspects: object = None
 ) -> AnswerFeedbackInput:
-    """The validated feedback, or a fixed refusal."""
     return AnswerFeedbackInput(
         rating=_closed(rating, RATINGS),
         liked=_feedback_text(liked),
@@ -88,7 +77,6 @@ def parse_answer_feedback(
 
 
 def render_feedback_text(feedback: AnswerFeedbackInput, *, workflow_key: str | None) -> str:
-    """The memory item's text: what ``memory_recall`` matches and shows; passes the lobe's guard."""
     workflow = f" (workflow {workflow_key})" if workflow_key else ""
     lines = [f"Answer feedback: the answer was {feedback.rating}{workflow}."]
     if feedback.liked:

@@ -4,7 +4,6 @@ from typing import Any
 
 import httpx
 
-from app.services.ai_marking import marking_facts, with_marker
 from app.services.outbound_egress import CONNECTION_JIRA, egress_transport
 from app.tools.context import ToolContext
 
@@ -124,20 +123,17 @@ async def _transition_id_by_name(
 
 
 async def _comment_body(body: str, context: ToolContext) -> str:
-    """The comment as posted: usage block of a governed run appended, then the AI output marker."""
     # Governed coding runs get the platform-owned usage block appended
     # server-side; the model cannot omit or fabricate the run metrics.
     from ...services.secure_work.coding.session_usage_report import (
         append_agent_usage_block_for_governed_session,
     )
 
-    body = await append_agent_usage_block_for_governed_session(
+    return await append_agent_usage_block_for_governed_session(
         getattr(context, "db", None),
         getattr(context, "session_id", None),
         body,
     )
-    # AI output marking (EU AI Act Art. 50(2)): text level, so it reaches both the ADF and the wiki body.
-    return with_marker(body, await marking_facts(context))
 
 
 class TransitionJiraTicket:

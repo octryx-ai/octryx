@@ -222,7 +222,6 @@ def _selection_skip_reasons(
 
 
 def _model_flag(model: LLMModel | None, attr: str) -> bool | None:
-    """``None`` = unknown: no catalog row, or a row that does not state the flag (it is not "unsupported")."""
     if model is None:
         return None
     value = getattr(model, attr)

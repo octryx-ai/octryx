@@ -69,9 +69,6 @@ async def test_the_admin_sets_the_reviewer_per_engine_and_the_review_follows_it(
 
 @pytest.mark.asyncio
 async def test_a_fresh_installation_reviews_claude_code_runs_with_sonnet(db, monkeypatch):
-    """A fresh installation (no review-defaults, no Workspace or node choice) reviews with claude-sonnet-5-5, not
-    claude-haiku-5-5. The platform default is data (``review_models.json``); an admin still changes it through
-    review-defaults."""
     import json
     from pathlib import Path
 
@@ -90,5 +87,5 @@ async def test_a_fresh_installation_reviews_claude_code_runs_with_sonnet(db, mon
     monkeypatch.setattr(choice, "run_engine", claude)
     monkeypatch.setattr(choice, "workspace_choice", no_workspace)
     monkeypatch.setattr(choice, "run_route", lambda _run: "company")
-    picked = await choice.review_choice(db, SimpleNamespace(project_id=None), {})  # empty review-defaults
+    picked = await choice.review_choice(db, SimpleNamespace(project_id=None), {})
     assert (picked.model, picked.model_source) == ("claude-sonnet-5-5", "platform")

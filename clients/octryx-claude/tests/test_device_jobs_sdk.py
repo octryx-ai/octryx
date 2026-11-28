@@ -43,8 +43,6 @@ async def test_sdk_options_pin_the_launcher_session_and_map_decisions():
 
 @pytest.mark.asyncio
 async def test_an_open_sandbox_network_reaches_other_hosts_without_asking_but_never_the_platform():
-    """B12 (allow by default, block as an admin option): the sandbox's question for a host outside
-    its lists is answered allow; the platform's host and an allowlist Workspace still go to the person."""
     sdk = _fake_sdk()
     asked = []
 
@@ -106,8 +104,6 @@ def test_no_diff_of_a_secret_file_leaves_the_mac():
 
 
 def test_context_fill_comes_from_the_main_threads_last_call():
-    """The app shows how full the context is: input with cache plus output of a main-thread call,
-    never a subagent's; the window is the largest the turn's models report."""
     from octryx_claude.device_sdk_events import context_tokens, context_window
 
     class AssistantMessage:

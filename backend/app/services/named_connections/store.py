@@ -1,16 +1,4 @@
-"""Read named connections and resolve their secrets, bound to the connection they belong to.
-
-A secret ref of a named connection resolves only through the secret store's scope check for exactly
-this connector, this scope (Workspace or global) and the field ``<field>#<connection id>``
-(``contract.named_secret_field``). A ref copied from the default entry, another named connection or
-another Workspace resolves to nothing, so a connection without its own secret has no credential and
-fails closed; it never borrows one.
-
-Every row is a connection: the runtime reads the ones available in a Workspace through
-``grants.py`` / ``workspace_routes.py``; :func:`list_rows` and :func:`get_row` read one exact scope for the
-named-connection admin views, :func:`list_platform_connections` the ones every Workspace and the platform scope
-may use.
-"""
+"""Read named connections and resolve their secrets, bound to the connection they belong to."""
 
 from __future__ import annotations
 
@@ -40,7 +28,6 @@ def to_value(row: ConnectorNamedConnection) -> NamedConnection:
 
 
 async def list_rows(db: AsyncSession, tool_name: str, project_id: str | None) -> list[ConnectorNamedConnection]:
-    """The named connections of one connector in exactly one scope (a Workspace, or global), by name."""
     result = await db.execute(
         select(ConnectorNamedConnection)
         .where(
@@ -53,7 +40,6 @@ async def list_rows(db: AsyncSession, tool_name: str, project_id: str | None) ->
 
 
 async def list_platform_connections(db: AsyncSession, tool_name: str) -> list[ConnectorNamedConnection]:
-    """The connections of ``tool_name`` available everywhere (``available_in`` ``all``), by name."""
     rows = await list_rows(db, tool_name, None)
     return [row for row in rows if str(row.available_in or "all") == "all"]
 
@@ -72,7 +58,6 @@ async def get_row(
 
 
 def public_config(connection: NamedConnection) -> dict:
-    """The connection's fields without any secret value or secret ref."""
     secrets = secret_fields(connection.tool_name)
     # a stored row never holds a secret value; ignore one if it did
     return {
@@ -83,7 +68,6 @@ def public_config(connection: NamedConnection) -> dict:
 
 
 async def resolved_config(db: AsyncSession, connection: NamedConnection) -> dict:
-    """The connection's fields with each secret resolved for this connection only; refs removed."""
     config = public_config(connection)
     for field in secret_fields(connection.tool_name):
         secret_id = normalize_secret_ref(connection.config.get(secret_ref_field_name(field)))
@@ -95,6 +79,7 @@ async def resolved_config(db: AsyncSession, connection: NamedConnection) -> dict
             expected_tool_name=connection.tool_name,
             expected_field_name=named_secret_field(field, connection.id),
             expected_project_id=connection.project_id,
+            purpose="named_connection.call",
         )
         if value is not None:
             config[field] = value

@@ -1,36 +1,5 @@
-"""Workflow confirmations through Claude Code's own permission prompt.
-
-A change-class workflow selected over MCP waits for a governed approval
-(``services/mcp_workflow_tools``). The user grants it either in the Octryx UI, or in Claude
-Code:
-
-1. The agent calls the MCP tool ``workflow_confirm(approval_id)``. Claude Code runs the PreToolUse
-   hook, which sends ``POST sessions/tool-check`` with a **confirmation proof**: an HMAC signed by
-   the launcher's in-memory hook key (``hook_key.py``) over session key, tool_use id, approval id,
-   nonce and time.
-2. :func:`ask_for_confirmation` verifies the proof, refuses a reused nonce, and issues a
-   **one-time ticket**. That is a random token whose sha256 is stored on a ``ToolCall`` row
-   (``status="confirmation_asked"``) of the gateway session, bound to the approval id and the
-   tool_use id and valid for :data:`TICKET_TTL_SECONDS`. It answers ``decision: "ask"`` with the
-   token. The hook prints ``permissionDecision: "ask"`` and passes the token into the tool call
-   (``updatedInput``), so Claude Code shows the user its permission prompt.
-3. Only when the user accepts does Claude Code send the MCP call. Its ``_meta`` carries
-   ``claudecode/toolUseId`` and its arguments carry the ticket. :func:`redeem_confirmation_ticket`
-   accepts it only when all of these hold:
-   - the ticket hash matches;
-   - it is still pending and unexpired;
-   - its approval and tool_use id match;
-   - it is on the caller's own gateway session.
-
-   Redeeming consumes the ticket.
-
-A Bash process holding a gateway token cannot do any of this. It has no hook key, so it cannot
-mint a ticket; it cannot redeem a ticket it never saw; and a reused nonce or ticket is refused. The
-MCP side also refuses ``workflow_confirm`` outside the native MCP channel.
-
-The hook tool name is exact: the launcher names the MCP server ``octryx-knowledge``, and
-Claude Code calls its tools ``mcp__<server>__<tool>``. Nothing is matched by pattern.
-"""
+"""Workflow confirmations through Claude Code's own permission prompt: a hook-key proof mints a one-time
+ticket that the MCP call redeems."""
 
 from __future__ import annotations
 
@@ -40,7 +9,7 @@ import secrets
 from datetime import timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import Session, ToolCall
@@ -68,7 +37,6 @@ _ASK_MESSAGE = (
 
 
 def confirmation_scope_for_session(session_key: str) -> str:
-    """The confirmation scope of a launcher session (an MCP connection without one uses its grant)."""
     return f"session:{session_key}"
 
 
@@ -107,7 +75,6 @@ async def _hook_rows(db: AsyncSession, session_id: str) -> list[ToolCall]:
 async def ask_for_confirmation(
     db: AsyncSession, *, session: Session, session_key: str, hook_input: dict[str, Any]
 ) -> dict[str, Any]:
-    """The PreToolUse answer for ``workflow_confirm``: ``ask`` with a one-time ticket, or deny. Flushes."""
     proof = verify_confirmation_proof(session, session_key=session_key, hook_input=hook_input)
     if not isinstance(proof, ConfirmationProof):
         return _deny(proof)
@@ -145,7 +112,7 @@ async def ask_for_confirmation(
 async def redeem_confirmation_ticket(
     db: AsyncSession, *, session: Session, approval_id: str, ticket: object, tool_use_id: object
 ) -> bool:
-    """Consume the pending ticket for exactly this approval and tool_use id; ``False`` otherwise."""
+    # Single use, and only for exactly this approval and tool_use id.
     if type(ticket) is not str or not 0 < len(ticket) <= 128 or type(tool_use_id) is not str or not tool_use_id:
         return False
     digest = _ticket_hash(ticket)
@@ -160,12 +127,19 @@ async def redeem_confirmation_ticket(
             and parameters.get("tool_use_id") == tool_use_id
             and str(parameters.get("expires_at") or "") > now
         )
-        if not valid:
-            return False
-        row.status = TOOL_CALL_STATUS_CONFIRMATION_CONSUMED
-        await db.flush()
-        return True
+        return valid and await consume_ticket(db, row)
     return False
+
+
+async def consume_ticket(db: AsyncSession, row: ToolCall) -> bool:
+    # Conditional on the stored status, not the caller's read of it: of two concurrent redemptions only one matches.
+    # Relies on READ COMMITTED; under REPEATABLE READ the loser gets a serialization error instead, which fails closed.
+    consumed = await db.execute(
+        update(ToolCall)
+        .where(ToolCall.id == row.id, ToolCall.status == TOOL_CALL_STATUS_CONFIRMATION_ASKED)
+        .values(status=TOOL_CALL_STATUS_CONFIRMATION_CONSUMED)
+    )
+    return consumed.rowcount == 1
 
 
 __all__ = [
@@ -176,6 +150,7 @@ __all__ = [
     "TICKET_TTL_SECONDS",
     "WORKFLOW_CONFIRM_HOOK_TOOL",
     "ask_for_confirmation",
+    "consume_ticket",
     "confirmation_scope_for_grant",
     "confirmation_scope_for_session",
     "is_workflow_confirmation",

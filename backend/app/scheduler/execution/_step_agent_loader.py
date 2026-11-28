@@ -16,8 +16,8 @@ async def load_agent_for_step(
     db: Any,
     logger: logging.Logger,
 ) -> tuple[dict | None, str | None, str | None]:
-    """Resolve the agent definition, runtime target, and thinking level for a step."""
-    from ...agent.loops.response._loop_reply_contract import REASON_PATH_UNSUPPORTED, declares_checked_reply
+    from app.services.session.reply_contract import REASON_PATH_UNSUPPORTED, declares_checked_reply
+
     from ...services.agent_definition_execution import (
         resolve_agent_definition_for_execution,
     )
@@ -59,12 +59,10 @@ async def load_agent_for_step(
 
 
 async def _resolve_runtime_target_id(step: TaskStep, db: Any) -> str | None:
-    """The step's pinned runtime; the agent's pin wins over it (concept §4.1: agent pin › workflow step pin)."""
     return step.runtime_selector.get("runtime_target_id")
 
 
 def _resolve_agent_id(step: TaskStep, task_agent_id: str) -> str | None:
-    """Resolve step-vs-task agent precedence, including explicit suppression."""
     if "agent_definition_id" in step.connector_params:
         step_agent_id = str(step.connector_params["agent_definition_id"]).strip()
         if step_agent_id == "":

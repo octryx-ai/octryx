@@ -1,21 +1,4 @@
-"""Claude Code profiles outside octryx on this machine (P6b).
-
-Owner runs several Claude Code profiles side by side: Team (``~/.claude``, started with ``claude-work``), Private
-(``~/.claude-private``, the ``claude`` shell function sets ``CLAUDE_CONFIG_DIR``), and octryx's own. The person's
-private Workspace shows the sessions of the profiles they **connect** here, and they can take one over from the
-phone (the device job runs ``resume`` in that profile and folder).
-
-- :func:`discover`: ``~/.claude``, every ``~/.claude-*`` with a ``projects`` folder, and every ``CLAUDE_CONFIG_DIR``
-  a shell start file sets; never octryx's own config dirs.
-- :func:`connect` / :func:`disconnect`: only what the person connected is ever read or reported (concept N1:
-  connect after confirmation). Stored in ``local-profiles.json`` in the state dir.
-- :func:`report`: the connected profiles and their recent sessions (title, folder, last answer, last change),
-  titles and answers redacted like the session digest (``mobile_summary``) before anything leaves the machine.
-- :func:`session_folder`: the folder a session ran in, read from its own transcript; the device job runs a
-  take-over only there (``device_jobs``).
-- :func:`profile_env`: the environment for that profile. ``~/.claude`` is Claude Code's default and must be reached
-  by *unsetting* ``CLAUDE_CONFIG_DIR`` (pointing at it would be another profile to Claude Code).
-"""
+"""Claude Code profiles outside octryx on this machine that the person connected, and their recent sessions."""
 
 from __future__ import annotations
 
@@ -83,7 +66,6 @@ def suggested_name(config_dir: Path) -> str:
 
 
 def discover(state: LocalState, *, home: Path | None = None) -> list[Path]:
-    """Claude Code config dirs on this machine, octryx's own excluded; each only once."""
     home = home or Path.home()
     found: list[Path] = []
     candidates = [home / ".claude", *sorted(home.glob(".claude-*"))]
@@ -157,6 +139,7 @@ def find(state: LocalState, name: str) -> LocalProfile | None:
     return next((profile for profile in connected(state) if profile.name == name), None)
 
 
+# ``~/.claude`` is reached by unsetting ``CLAUDE_CONFIG_DIR``: pointing at it is another profile to Claude Code.
 def profile_env(profile: LocalProfile, base: dict[str, str] | None = None) -> dict[str, str]:
     env = dict(os.environ if base is None else base)
     for key in ("ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "CLAUDE_CODE_USE_BEDROCK"):
@@ -201,7 +184,6 @@ def _cwd(path: Path) -> str:
 
 
 def session_folder(profile: LocalProfile, session_id: str) -> str:
-    """The folder ``session_id`` ran in, from its own transcript in this profile; ``""`` when it is not there."""
     if not SESSION_ID.match(session_id or ""):
         return ""
     for path in (profile.config_dir / "projects").glob(f"*/{session_id}.jsonl"):
@@ -237,7 +219,6 @@ def _entry(profile: LocalProfile, path: Path) -> dict[str, Any] | None:
 
 
 def report(state: LocalState) -> dict[str, Any]:
-    """``{profiles, sessions}`` for the platform (channel message ``local_sessions``); never raises."""
     profiles = connected(state)
     sessions: list[dict[str, Any]] = []
     for profile in profiles:

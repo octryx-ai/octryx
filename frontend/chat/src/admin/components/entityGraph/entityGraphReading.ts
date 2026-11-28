@@ -1,23 +1,16 @@
-// Reading rules of the entity graph: the ranked entity list is the primary reading path, the drawing
-// is fitted to its content and keeps labels at a readable on-screen size. Everything is derived from
-// the returned nodes and edges; no type, edge or count is invented.
-
 import type { EntityGraphEdge, EntityGraphNode } from "./entityGraphTypes";
 
 export type ViewBox = { x: number; y: number; w: number; h: number };
 export type Point = { id: string; x: number; y: number; radius: number };
 export type RankedEntity = { id: string; name: string; links: number; selfLinks: number; matched: boolean };
 
-// Minimum on-screen label size (design guide: body small) in CSS pixels.
 export const LABEL_PX = 12.5;
 const LABEL_MAX_CHARS = 24;
 
-// An edge whose two ends are the same stored entity.
 export function isSelfEdge(edge: Pick<EntityGraphEdge, "source" | "target">): boolean {
   return edge.source === edge.target;
 }
 
-// Visible relationships per entity; a relationship with the same entity on both ends counts once.
 export function linkCounts(edges: Pick<EntityGraphEdge, "source" | "target">[]): Map<string, { links: number; selfLinks: number }> {
   const counts = new Map<string, { links: number; selfLinks: number }>();
   const bump = (id: string, self: boolean) => {
@@ -33,7 +26,7 @@ export function linkCounts(edges: Pick<EntityGraphEdge, "source" | "target">[]):
   return counts;
 }
 
-// Matches first, then by visible relationships, then by name, so equal inputs always rank equally.
+// Name is the last tie-breaker, so equal inputs always rank equally.
 export function rankEntities(
   nodes: Pick<EntityGraphNode, "id" | "display_name">[],
   edges: Pick<EntityGraphEdge, "source" | "target">[],
@@ -55,8 +48,6 @@ export function linkLabel(entity: Pick<RankedEntity, "links" | "selfLinks">): st
   return entity.selfLinks ? `${base}, ${entity.selfLinks} to itself` : base;
 }
 
-// Label priority: the selected entity, its neighbours and search matches first, the rest by rank, up
-// to `budget` ids. Placement (entityGraphLabels.ts) then skips any label that would collide.
 export function labelledIds(
   ranked: RankedEntity[], budget: number, selectedId: string, neighborIds: Set<string>, matches: Set<string>,
 ): Set<string> {
@@ -75,17 +66,13 @@ export function shortLabel(name: string, max = LABEL_MAX_CHARS): string {
   return name.length > max ? `${name.slice(0, max - 1)}…` : name;
 }
 
-// The smallest box around every node and its label, padded and never smaller than `minSize`, so a
-// small graph is not blown up and a large one fills the drawing on first view.
 export function fitViewBox(points: Point[], fallback: ViewBox, padding = 48, minSize = 320): ViewBox {
   if (!points.length) return fallback;
   let minX = Infinity; let minY = Infinity; let maxX = -Infinity; let maxY = -Infinity;
   for (const point of points) {
     minX = Math.min(minX, point.x - point.radius);
     maxX = Math.max(maxX, point.x + point.radius);
-    // Room above for a self-referencing loop.
     minY = Math.min(minY, point.y - point.radius * 2.6);
-    // Labels sit below the node.
     maxY = Math.max(maxY, point.y + point.radius + 22);
   }
   // Labels are wider than nodes, so the sides get twice the padding.
@@ -104,12 +91,10 @@ export function unitsPerPixel(box: ViewBox, widthPx: number, heightPx: number): 
   return Math.max(box.w / widthPx, box.h / heightPx);
 }
 
-// Font size in user units that renders as at least LABEL_PX on screen at the current zoom.
 export function labelFontSize(box: ViewBox, widthPx: number, heightPx: number, px = LABEL_PX): number {
   return px * unitsPerPixel(box, widthPx, heightPx);
 }
 
-// A loop drawn above a node for a relationship whose two ends are the same entity.
 export function selfLoopPath(point: Pick<Point, "x" | "y" | "radius">): string {
   const { x, y, radius: r } = point;
   const start = `${(x - r * 0.6).toFixed(1)} ${(y - r * 0.8).toFixed(1)}`;
@@ -123,7 +108,6 @@ export function isSelfRelation(detail: { id: string }, relation: { peer_id: stri
   return relation.peer_id === detail.id;
 }
 
-// Facts that are not already shown as a relationship (same statement from the same evidence).
 export function detailClaims<C extends { statement: string; evidence_key?: string }>(
   detail: { claims: C[]; relations: Array<{ description: string; evidence_key?: string }> },
 ): C[] {

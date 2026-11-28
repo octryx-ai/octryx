@@ -1,23 +1,4 @@
-"""The per-session hook key: proof that a PreToolUse call came from the launcher's own hook.
-
-The octryx-claude launcher stays alive as a supervisor of Claude Code. At launch it generates a
-random 32-byte key and keeps it **only in its own memory**: never in env, argv or a file. It
-registers the key here once, before Claude Code starts, and its hooks get HMAC signatures from it
-over a 0600 Unix socket. The agent's Bash runs inside Claude Code's OS sandbox, which denies it
-both the launcher's state directory and the platform host. So a Bash process cannot sign, even
-when it holds a gateway token.
-
-- :func:`register_hook_key` stores the key on the gateway session, **set once**. A second
-  registration is refused with ``hook_key_already_registered``, so a later caller cannot replace
-  the launcher's key.
-- The key is stored encrypted (``services/secret.encrypt_secret``) and never returned.
-- :func:`verify_confirmation_proof` checks a hook's proof for one confirmation:
-  ``HMAC-SHA256(key, "v1|confirm|<session_key>|<tool_use_id>|<approval_id>|<nonce>|<ts>")``. It
-  also checks that ``ts`` is within :data:`PROOF_WINDOW_SECONDS` and compares in constant time.
-  Whether the nonce was already used is checked by the ticket store (``confirmation.py``).
-- :func:`verify_decision_proof` checks the same proof for one terminal decision of a workflow run
-  (``workflow_decide``): verb ``decide`` and the run id in place of the approval id.
-"""
+"""The per-session hook key: proof that a PreToolUse call came from the launcher's own hook."""
 
 from __future__ import annotations
 
@@ -34,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from ...models import Session
-from ..secret.service import decrypt_secret, encrypt_secret
+from ..secret.crypto import decrypt_secret, encrypt_secret
 
 HOOK_KEY_METADATA = "hook_key_enc"
 STATE_ROOT_METADATA = "launcher_state_root"
@@ -85,19 +66,16 @@ def _state_root(raw: object) -> str | None:
 async def register_hook_key(
     db: AsyncSession, *, session: Session, raw_key: object, raw_state_root: object
 ) -> str | None:
-    """Store the launcher's key (and its state root) on ``session`` once; ``None`` or the refusal reason.
-
-    The state root joins the code-owned self-protection rules (``self_protection.py``), so a tool
-    call naming the launcher's state directory is denied even when it was moved. Flushes.
-    """
     key = _decoded_key(raw_key)
     state_root = _state_root(raw_state_root)
     if key is None or state_root is None:
         return REASON_HOOK_KEY_INVALID
     metadata = dict(session.metadata_ or {})
+    # Set once: a later caller cannot replace the launcher's key.
     if metadata.get(HOOK_KEY_METADATA):
         return REASON_HOOK_KEY_ALREADY_REGISTERED
     metadata[HOOK_KEY_METADATA] = encrypt_secret(base64.b64encode(key).decode("ascii"))
+    # Joins the self-protection rules, so a moved state directory stays protected.
     metadata[STATE_ROOT_METADATA] = state_root
     session.metadata_ = metadata
     flag_modified(session, "metadata_")
@@ -130,7 +108,6 @@ def proof_message(session_key: str, tool_use_id: str, approval_id: str, nonce: s
 def verify_confirmation_proof(
     session: Session, *, session_key: str, hook_input: dict[str, Any], now: float | None = None
 ) -> ConfirmationProof | str:
-    """The verified proof of one ``workflow_confirm`` PreToolUse, or the fixed refusal reason."""
     return _verified(session, session_key=session_key, hook_input=hook_input, now=now, verb=VERB_CONFIRM,
                      field="approval_id")
 
@@ -138,7 +115,6 @@ def verify_confirmation_proof(
 def verify_decision_proof(
     session: Session, *, session_key: str, hook_input: dict[str, Any], now: float | None = None
 ) -> ConfirmationProof | str:
-    """The verified proof of one ``workflow_decide`` PreToolUse (verb ``decide``, bound to the run id)."""
     return _verified(session, session_key=session_key, hook_input=hook_input, now=now, verb=VERB_DECIDE,
                      field="run_id")
 

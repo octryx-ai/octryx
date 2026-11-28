@@ -15,7 +15,6 @@ from .item_threads import _role_node
 
 
 def session_item(run: WorkflowRun, session: Any) -> dict[str, Any] | None:
-    """The plan item a gateway session or item thread works on in ``run`` (its marker), or ``None``."""
     marker = item_marker(session)
     if marker is None or marker.get("run_id") != run.id:
         return None
@@ -24,19 +23,12 @@ def session_item(run: WorkflowRun, session: Any) -> dict[str, Any] | None:
 
 
 def item_session_key(run: WorkflowRun, session: Any) -> str | None:
-    """The item key of a session that works for an item of ``run`` (its thread, its gateway session, a sequential
-    item's gateway session), whether or not the item still runs; ``None`` for any other session."""
     marker = item_marker(session) if session is not None else None
     return str(marker["key"]) if marker is not None and marker.get("run_id") == run.id else None
 
 
 def item_idle_reason(run: WorkflowRun, session: Any) -> str | None:
-    """Why an item's session has nothing to do now, or ``None`` while its item runs at the ``parallel_work`` node.
-
-    An item's session only ever works under its item's contract, never the run's current phase. Otherwise
-    the run went back to its plan phase while an item's agent still worked; its
-    contract and Stop became the coordinator's plan phase ("submit_phase_result … phase_agent_unavailable"), the
-    agent ended its turn, and that turn end paused the whole run ``runtime_failed``."""
+    # An item's session only ever works under its item's contract, never the run's current phase.
     from ..states import STATUS_RUNNING
     from . import session_works_on
 
@@ -67,8 +59,6 @@ def coordinator_wake_of(run: WorkflowRun, session: Any) -> bool:
 
 
 def item_phase_node(run: WorkflowRun, node: PhasedNode, item: dict[str, Any]) -> PhasedNode:
-    """The item's synthetic phase (id = the ``parallel_work`` node): ``item_definition.item_node`` when it
-    exists, else the role template with the item's paths as its write rules and ``done`` / ``blocked`` results."""
     try:
         from .item_definition import item_node  # type: ignore[attr-defined]
     except ImportError:
@@ -83,8 +73,6 @@ def item_phase_node(run: WorkflowRun, node: PhasedNode, item: dict[str, Any]) ->
 
 
 async def item_contract(db: AsyncSession, run: WorkflowRun, item: dict[str, Any]) -> dict[str, Any]:
-    """What only an item's agent sees in its contract: its own work, the shared interface and the team
-    (``team_block``, rebuilt at every hook so items that bound later show their agent hash)."""
     work = work_of(run)
     try:
         from .team_block import team_block  # type: ignore[import-not-found]
@@ -108,7 +96,6 @@ def _item(run: WorkflowRun, key: str) -> dict[str, Any]:
 
 
 def _parallel_item_key(run: WorkflowRun, session: Any) -> str | None:
-    """The item a session works on in its own worktree (not a sequential item in the main folder), or ``None``."""
     marker = item_marker(session) if session is not None else None
     if marker is None or marker.get("sequential") or marker.get("run_id") != run.id:
         return None
@@ -116,11 +103,7 @@ def _parallel_item_key(run: WorkflowRun, session: Any) -> str | None:
 
 
 def item_preparation(run: WorkflowRun, session: Any, view: dict[str, Any] | None) -> dict[str, Any] | None:
-    """The contract's ``preparation`` for ``session``: an item's worktree is on the item's branch from the commit
-    it was branched at. Otherwise the item jobs would check out the run's branch in
-    ``.octryx-items/<key>``; git refuses a branch another worktree has ("already used by worktree at
-    …/kitchen-helper"), so
-    every item job would be rejected ``environment_not_ready``."""
+    # git refuses a branch another worktree has checked out, so each item works on its own branch.
     key = _parallel_item_key(run, session)
     if view is None:
         return view
@@ -136,9 +119,7 @@ def item_preparation(run: WorkflowRun, session: Any, view: dict[str, Any] | None
 
 async def record_item_preparation(db: AsyncSession, run: WorkflowRun, session: Any,
                                   report: dict[str, Any]) -> str | None:
-    """An item session's preparation report: decided like the run's, recorded as an event, never the run's own
-    preparation state (the main folder's) and never a pause of the run — a folder that is not ready refuses the
-    item's job, which the scheduler counts (``item_start_refused``). ``None`` for any other session."""
+    # Never the run's own preparation state and never a pause of the run: the scheduler counts the refused job.
     from ..workspace.preparation import EVENT_REPORTED, STATE_NOT_READY, STATE_READY, decide
     from .item_results import note_start_problem
 

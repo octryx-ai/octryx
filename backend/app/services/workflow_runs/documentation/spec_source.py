@@ -11,10 +11,7 @@ SPEC_DEPTH = 4
 
 
 def _nearness(spec: str, touched: set[str]) -> int:
-    """How many leading folders the spec shares with the files the pushed commit changed (the deepest match).
-
-    With ``web/claude/SPEC.md`` and ``web/codex/SPEC.md`` in one repository, a story's commit (which changes no
-    SPEC.md) would otherwise pick the first by name, so the Codex epic would publish the Claude spec."""
+    # With several SPEC.md files in one repository, picking by name would publish another engine's spec.
     folder = Path(spec).parent.parts
     best = 0
     for path in touched:
@@ -29,9 +26,6 @@ def _nearness(spec: str, touched: set[str]) -> int:
 
 
 async def pushed_spec(run: WorkflowRun) -> tuple[str, str]:
-    """``(path, text)`` of the specification the run pushed (``SPEC.md`` up to :data:`SPEC_DEPTH` folders deep at the
-    pushed head, the one the pushed commit changed first), read from the run's working copy; ``("", "")`` when there
-    is none. A repository may keep it e.g. at ``app/web/<engine>/SPEC.md`` (three folders)."""
     from ..phase_workspace import run_working_copy
     from ..safe_git import git
 

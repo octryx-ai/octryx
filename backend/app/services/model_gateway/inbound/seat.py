@@ -1,28 +1,4 @@
-"""The seat route: a ``seat`` session's model calls to Anthropic with the user's own subscription.
-
-``ANTHROPIC_BASE_URL=<platform>/api/v1/model-gateway/anthropic/seat``. One call runs, in this order,
-and stops at the first explicit refusal (an Anthropic-shaped error with a fixed reason):
-
-1. identity from the session-bound seat credential (``agent_gateway/seat_credential``): bound to the
-   session key, user, Workspace and profile ``seat`` recorded at registration, re-checked on every call
-   (expiry, finalize, grant revocation, user active, Workspace membership); then the existing session;
-2. the Workspace's seat policy, re-checked on every call (``seat_mode``, ``requires_governed_routing``,
-   classification at or above ``confidential``); there is no silent fallback to the governed route;
-3. the request body (same bound and shape check as the governed route). A ``company/<alias>`` model is a
-   company model the Workspace offers to seat sessions and leaves here for the governed path
-   (``seat_company``); any other model must be in the allowlist (``seat_models``), then the gateway's content
-   decision over the forwarded body runs (``content_routing.gateway_plan``: the fixed rules, the Workspace's content
-   handling — ``secrets`` and ``credential_assignment``, ``refuse`` or ``report`` —, Cedar's ``call_model`` with
-   ``route=seat`` and the resource ``ModelAlias::"seat:<model>"``): it refuses or the body goes on unchanged;
-4. a subscription model's call goes to ``ANTHROPIC_SEAT_UPSTREAM`` with only the allowlisted request headers,
-   including the client's own ``Authorization`` (``seat_upstream``). No platform budget is spent and no LiteLLM
-   is used.
-
-The upstream answer goes back **unchanged**: status, body, and the ``anthropic-ratelimit-*`` headers,
-also for errors (a limit stop reads exactly as Anthropic wrote it). Its rate-limit headers update the
-session's allowance (``agent_gateway/presence``); the observed usage and transcript are recorded after
-the response (``seat_transcript``). The subscription token is never stored, logged or audited.
-"""
+"""The seat route: a seat session's model calls to Anthropic with the user's own subscription."""
 from __future__ import annotations
 
 import asyncio
@@ -48,20 +24,16 @@ from ...agent_gateway.seat_policy import SeatDecision, workspace_seat_decision
 from ...agent_gateway.seat_policy_keys import REASON_SEAT_MODEL_NOT_ALLOWED
 from ...agent_gateway.sessions import find_gateway_session
 from ...content_routing.gateway_outcome import STAGE_UPSTREAM, GatewayOutcome, gateway_outcome, recorded
-from ...content_routing.gateway_plan import HEADER_OBLIGATION
+from ...content_security.enforcement_inbound import HEADER_OBLIGATION, InboundPlan
 from ...policy_engine.request_principal import load_seat_principal
 from ...policy_engine.schema import ROUTE_SEAT
 from ..litellm.errors import GATEWAY_STATE_TIMEOUT, GATEWAY_STATE_UNREACHABLE
 from .anthropic_stream import Observation
 from .call_context import client_context
+from .content_reroute import planned, route_unavailable
 from .governed_dispatch import count_tokens_governed, dispatch_governed, governed_payload
 from .model_listing import COMPANY_MODEL_PREFIX
-from .refusals import (
-    MODEL_NOT_ADMITTED_HINT,
-    InboundRefusal,
-    anthropic_error_response,
-    refusal,
-)
+from .refusals import MODEL_NOT_ADMITTED_HINT, InboundRefusal, anthropic_error_response, refusal
 from .run_limits import run_limited_body
 from .seat_company import SeatCompanyCall, admit_seat_company_call
 from .seat_content import seat_content_plan
@@ -75,7 +47,7 @@ from .seat_upstream import (
     seat_upstream_problem,
 )
 from .service import _read_body
-from .upstream import COUNT_TOKENS_PATH, MESSAGES_PATH
+from .upstream import COUNT_TOKENS_PATH, MESSAGES_PATH, no_seat_route
 
 MAX_SEAT_ERROR_BODY_BYTES = 64 * 1024
 MAX_SEAT_JSON_BODY_BYTES = 16 * 1024 * 1024
@@ -96,7 +68,6 @@ def seat_refused(item: InboundRefusal | GatewayRefusal) -> Response:
 async def seat_context(
     request: Request, db: AsyncSession
 ) -> tuple[GatewayIdentity, Session, SeatDecision] | Response:
-    """Step 1 and 2: the seat identity, its session and the Workspace's seat decision for them."""
     identity = await resolve_seat_identity(db, request.headers)
     if isinstance(identity, GatewayRefusal):
         return seat_refused(identity)
@@ -113,8 +84,6 @@ async def seat_context(
 async def _admitted_seat_request(
     request: Request, db: AsyncSession
 ) -> tuple[GatewayIdentity, str, dict[str, Any], bytes] | SeatCompanyCall | Response:
-    """Steps 1-3; an admitted call carries the bytes of the payload its content decision read (a company call: the
-    governed payload, ``governed_dispatch.governed_payload``; a subscription call: the client's body)."""
     context = await seat_context(request, db)
     if isinstance(context, Response):
         return context
@@ -129,19 +98,8 @@ async def _admitted_seat_request(
     if isinstance(body, InboundRefusal):
         return seat_refused(body)
     model = body["model"].strip()
-    if model.startswith(COMPANY_MODEL_PREFIX):
-        # ``company/<alias>``: a governed call from this seat session, never the subscription.
-        company = await admit_seat_company_call(
-            db, identity=identity, session=session, decision=decision, body=body, headers=request.headers
-        )
-        if isinstance(company, InboundRefusal):
-            return seat_refused(company)
-        plan = await seat_content_plan(db, identity=identity, session=session,
-                                       body=governed_payload(body, company.admitted), model=model,
-                                       headers=request.headers, outcome=outcome, admitted=company.admitted)
-        if plan.refusal is not None:
-            return seat_refused(plan.refusal)
-        return replace(company, payload=plan.payload)
+    if model.startswith(COMPANY_MODEL_PREFIX):  # ``company/<alias>``: a governed call, never the subscription
+        return await _company_call(db, request, identity, session, decision, body, outcome)
     misconfigured = seat_upstream_problem()
     if misconfigured:
         return seat_refused(refusal(STATE_NEEDS_CONFIGURATION, misconfigured, http_status=503))
@@ -155,15 +113,38 @@ async def _admitted_seat_request(
                                    headers=request.headers, outcome=outcome)
     if plan.refusal is not None:
         return seat_refused(plan.refusal)
+    if plan.reroute:  # the content leaves the person's subscription for the Workspace's governance model
+        return await _company_call(db, request, identity, session, decision,
+                                   {**body, "model": COMPANY_MODEL_PREFIX + plan.reroute}, outcome, rerouted=True)
     await touch_presence(db, identity.session_key, model=model)
     await db.commit()
     return identity, session.id, body, plan.payload
 
 
+async def _company_call(db: AsyncSession, request: Request, identity: GatewayIdentity, session: Session,
+                        decision: SeatDecision, body: dict[str, Any], outcome: GatewayOutcome, *,
+                        rerouted: bool = False) -> SeatCompanyCall | Response:
+    async def admit(alias: str, reroute: bool = True) -> SeatCompanyCall | InboundRefusal:
+        return await admit_seat_company_call(db, identity=identity, session=session, decision=decision,
+                                             body={**body, "model": COMPANY_MODEL_PREFIX + alias},
+                                             headers=request.headers, rerouted=reroute)
+
+    async def plan_for(call: SeatCompanyCall) -> InboundPlan:
+        return await seat_content_plan(db, identity=identity, session=session,
+                                       body=governed_payload(call.body, call.admitted), model=call.body["model"],
+                                       headers=request.headers, outcome=outcome, admitted=call.admitted)
+
+    company = await admit(body["model"].strip().removeprefix(COMPANY_MODEL_PREFIX), rerouted)
+    if isinstance(company, InboundRefusal):
+        return seat_refused(route_unavailable(outcome, body["model"]) if rerouted else company)
+    plan, company = await planned(plan_for, admit, company, outcome)
+    if plan.refusal is not None:
+        return seat_refused(plan.refusal)
+    return replace(company, payload=plan.payload)
+
+
 async def _send(client: httpx.AsyncClient, path: str, content: bytes, headers: Mapping[str, str],
                 outcome: GatewayOutcome):
-    """``content``: the bytes the content decision read; a send that fails before the upstream answers is not a
-    content refusal (``GatewayOutcome.stopped``)."""
     try:
         # A header value that cannot travel (non-ASCII) is the client's request error, never a 500.
         request = client.build_request(
@@ -174,6 +155,8 @@ async def _send(client: httpx.AsyncClient, path: str, content: bytes, headers: M
         return outcome.stopped(InboundRefusal(STATE_DENIED, REASON_REQUEST_HEADER_INVALID, 400), STAGE_UPSTREAM)
     try:
         upstream = await client.send(request, stream=True)
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        return outcome.stopped(no_seat_route(), STAGE_UPSTREAM)
     except httpx.TimeoutException:
         return outcome.stopped(InboundRefusal(GATEWAY_STATE_TIMEOUT, REASON_UPSTREAM_TIMEOUT, 504), STAGE_UPSTREAM)
     except httpx.HTTPError:
@@ -279,7 +262,6 @@ def _streamed_answer(
 
 @recorded
 async def handle_seat_count_tokens(request: Request, db: AsyncSession) -> Response:
-    """Token counting, passed through to Anthropic under the same checks; never an estimate."""
     admitted = await _admitted_seat_request(request, db)
     if isinstance(admitted, Response):
         return admitted

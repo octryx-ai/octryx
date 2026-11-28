@@ -22,9 +22,6 @@ from tests.agent_gateway.seat_presence_support import _gateway_headers, _registe
 FINALIZE = "/api/v1/agent-gateway/sessions/finalize"
 
 
-# --- identity -------------------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_the_agent_identity_is_the_own_gateway_session_or_the_grant(db):
     workspace_id, anna, ben = await _two_members(db)
@@ -39,9 +36,6 @@ async def test_the_agent_identity_is_the_own_gateway_session_or_the_grant(db):
         with pytest.raises(HTTPException) as refused:
             await agent(db, ben, session_key=foreign)
         assert _code(refused) == (403, "agent_session_invalid")
-
-
-# --- claims ---------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -67,7 +61,6 @@ async def test_a_claim_is_held_renewed_by_its_holder_and_refused_to_others(db):
 
 @pytest.mark.asyncio
 async def test_a_claim_race_has_exactly_one_winner(db, monkeypatch):
-    """The second claimer read 'free' before the first insert: the partial unique index decides."""
     workspace_id, anna, ben = await _two_members(db)
     item = await seed_item(db, workspace_id)
     first, second = await agent(db, anna), await agent(db, ben, grant_id="grant-b")
@@ -163,9 +156,6 @@ async def test_mcp_claim_and_release_act_only_for_the_own_identity(db):
     assert claimed["content_is_data"] == notice["content_is_data"]
 
 
-# --- renewal and release through the gateway session ----------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_a_presence_touch_renews_only_the_live_claims_of_that_session(db):
     workspace_id, anna, _ = await _two_members(db)
@@ -179,7 +169,7 @@ async def test_a_presence_touch_renews_only_the_live_claims_of_that_session(db):
     rows = [await db.get(WorkItemClaim, claim["claim_id"]) for claim in claims]
     for row in rows:
         row.lease_until = soon
-    rows[1].lease_until = utc_now() - timedelta(seconds=1)  # already run out: stays free
+    rows[1].lease_until = utc_now() - timedelta(seconds=1)
     presence = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))).scalar_one()
     presence.last_seen_at = utc_now() - timedelta(minutes=1)
     await db.flush()

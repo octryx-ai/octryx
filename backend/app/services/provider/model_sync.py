@@ -8,7 +8,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from ...agent.core.runtime.runtime_errors import ProviderRuntimeError
+from app.agent.runtime.runtime_errors import ProviderRuntimeError
 
 try:  # httpx is part of the backend runtime; keep import defensive for narrow test contexts.
     import httpx
@@ -30,8 +30,6 @@ _MODEL_SYNC_ERROR_HTTP_STATUS = {
 }
 @dataclass(frozen=True, slots=True)
 class ModelCatalogSyncError(RuntimeError):
-    """Typed provider model-catalog sync error for adapters and services."""
-
     sync_state: str
     safe_message: str
     error_class: str = "ModelCatalogSyncError"
@@ -41,8 +39,6 @@ class ModelCatalogSyncError(RuntimeError):
 
 
 def normalize_model_catalog_payload(raw_models: Any) -> tuple[list[dict[str, Any]], int]:
-    """Normalize provider model-list payloads without accepting malformed top-level shapes."""
-
     if raw_models is None:
         raise ModelCatalogSyncError(
             MODEL_SYNC_STATE_VALIDATION_FAILED,

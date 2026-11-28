@@ -1,8 +1,4 @@
-"""Modes, sources, states and the result type of Agent Definition resolution.
-
-The resolution logic lives in :mod:`app.services.agent_definition_execution`; see its
-docstring for what each mode and state means.
-"""
+"""Modes, sources, states and the result type of Agent Definition resolution."""
 
 from __future__ import annotations
 
@@ -34,11 +30,8 @@ STATUS_INACTIVE = "inactive"
 #: Explicit states that refuse execution on every path, background included.
 REFUSAL_STATUSES = frozenset({STATUS_NEEDS_PUBLICATION, STATUS_NEEDS_CONFIGURATION, STATUS_INACTIVE})
 
-#: Typed client-facing code for a definition that published mode cannot execute.
 NOT_PUBLISHED_ERROR_CODE = "agent_definition_not_published"
-#: Typed client-facing code for a mode key that names no known mode.
 NOT_CONFIGURED_ERROR_CODE = "agent_definition_execution_mode_not_configured"
-#: Typed client-facing code for a definition that is currently deactivated.
 INACTIVE_ERROR_CODE = "agent_definition_inactive"
 
 REFUSAL_CODES: dict[str, str] = {
@@ -60,8 +53,6 @@ PAYLOAD_REVISION_NUMBER_KEY = "agentDefinitionRevisionNumber"
 
 @dataclass(frozen=True, slots=True)
 class AgentDefinitionResolution:
-    """The explicit result of resolving one definition for execution."""
-
     definition_id: str
     mode: str
     status: str
@@ -92,7 +83,7 @@ class AgentDefinitionResolution:
         return str((self.payload or {}).get("agentType") or "")
 
     def as_metadata(self) -> dict[str, Any]:
-        """Audit/trace metadata. Identifiers and states only, no authored content."""
+        # Identifiers and states only, no authored content.
         return {
             "definition_id": self.definition_id,
             "mode": self.mode,
@@ -105,12 +96,7 @@ class AgentDefinitionResolution:
 
 
 class AgentDefinitionExecutionModeError(RuntimeError):
-    """The mode key is set to a value that names no known mode.
-
-    Raised instead of returning a default, so no caller can accidentally treat a
-    misconfigured platform as one running in draft mode. The offending value is
-    deliberately not carried on the exception: it is admin-authored free text.
-    """
+    # The offending value is not carried: it is admin-authored free text.
 
     code = NOT_CONFIGURED_ERROR_CODE
 

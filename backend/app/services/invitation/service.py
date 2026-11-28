@@ -25,7 +25,6 @@ def _hash_invitation_token(token: str) -> str:
 
 
 def _verify_invitation_token_bcrypt(token: str, stored_hash: str) -> bool:
-    """Verify an invitation token against bcrypt-of-sha256 hash."""
     try:
         digest = hashlib.sha256(token.encode("utf-8")).digest()
         return bcrypt.checkpw(digest, stored_hash.encode("utf-8"))

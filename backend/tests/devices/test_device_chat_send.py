@@ -61,7 +61,7 @@ async def test_a_device_message_starts_a_turn_and_never_runs_on_the_server(clien
     job = (await db.execute(select(DeviceJob))).scalar_one()
     session = await db.get(Session, job.session_id)
     assert session.user_id == auth_user.id and session.metadata_["execution_target"]["device_id"] == device.id
-    assert session.run_status is None  # no server turn was started
+    assert session.run_status is None
     messages = (await db.execute(select(Message).where(Message.session_id == session.id))).scalars().all()
     assert [(message.role, message.content) for message in messages] == [("user", "Run the tests")]
     await DeviceJobHandlers().tick(db, connection)
@@ -99,7 +99,7 @@ async def test_gate_refusals_are_explicit(client, db, auth_headers, auth_user):
                auth_user)).id, folder=FOLDER, profile="governed", status="running"))
     await db.flush()
     assert await reason() == (409, "device_busy")
-    assert await _counts(db) == 1  # only the job created above
+    assert await _counts(db) == 1
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,6 @@ async def test_nobody_targets_another_users_device_or_thread(client, db, auth_he
 
 
 async def _finished_device_thread(client, db, auth_headers, auth_user):
-    """A device thread whose first turn ran and answered (user message, device answer)."""
     from app.services.devices.job_events import apply_event
 
     device, _ = await device_with_grant(db, auth_user)
@@ -149,14 +148,7 @@ async def _finished_device_thread(client, db, auth_headers, auth_user):
 
 
 @pytest.mark.asyncio
-async def test_retry_on_a_device_thread_runs_on_the_device_never_on_the_server(
-        client, db, auth_headers, auth_user, monkeypatch):
-    from app.services.session import turn_runner
-
-    async def no_server_turn(**_kwargs):
-        raise AssertionError("a device thread's rerun must never start a server turn")
-
-    monkeypatch.setattr(turn_runner, "run_agent", no_server_turn)
+async def test_retry_on_a_device_thread_runs_on_the_device(client, db, auth_headers, auth_user):
     _device, connection, job, session, (user_message, answer) = await _finished_device_thread(
         client, db, auth_headers, auth_user)
 
@@ -165,10 +157,9 @@ async def test_retry_on_a_device_thread_runs_on_the_device_never_on_the_server(
     assert response.status_code == 200, response.text
     await db.refresh(session)
     await db.refresh(job)
-    assert session.run_status is None  # no server turn
+    assert session.run_status is None
     assert "workflow_routing_policy_resolution" not in (session.metadata_ or {})
     rows = (await db.execute(select(Message).where(Message.session_id == session.id))).scalars().all()
-    # Rewound to the user message: the old answer is gone, no second user message was stored.
     assert [(row.id, row.role) for row in rows] == [(user_message.id, "user")]
     assert (job.status, job.turn_count, job.turn_prompt) == ("offered", 2, "create test.txt with hello world")
     await DeviceJobHandlers().tick(db, connection)

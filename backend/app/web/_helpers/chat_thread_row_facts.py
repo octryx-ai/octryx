@@ -1,11 +1,4 @@
-"""Row facts of the chat sidebar beyond the transcript.
-
-* ``session_last_activity``: when a turn was last recorded (set with the session, ``Session.last_activity_at``).
-* ``load_device_targets``: the device a thread runs on, named only when the device belongs to
-  the thread's owner — never another user's device name; with the engine of its newest device job (empty: Claude
-  Code), the profile (``seat`` / ``governed``) and the model (the one the device reported, else the one the chat
-  asked for), so the phone's run line can show them.
-"""
+"""Row facts of the chat sidebar beyond the transcript: last activity and the device a thread runs on."""
 
 from __future__ import annotations
 
@@ -25,12 +18,10 @@ def session_last_activity(session: AgentSession) -> datetime | None:
 
 
 def session_last_activity_column() -> Any:
-    """The SQL ordering of the sidebar: last activity."""
     return AgentSession.last_activity_at
 
 
 async def _newest_jobs(db: AsyncSession, session_ids: set[str]) -> dict[str, tuple[str, str]]:
-    """``{session_id: (engine, reported model)}`` of each thread's newest device job."""
     rows = (
         await db.execute(
             select(DeviceJob.session_id, DeviceJob.engine, DeviceJob.model)

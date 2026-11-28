@@ -1,8 +1,5 @@
-// REST API model: connection drafts, request bodies and secret states.
 import type { AuthScheme, PublicField, RestConnection, RestDefinition, SecretField } from "./restApisApi";
 import { connectionAuthFields } from "./restAuthModel";
-
-// ---- connections -------------------------------------------------------------------------------------------------
 
 export type ConnectionDraft = {
   workspaceId: string;
@@ -28,10 +25,7 @@ export function connectionDraft(connection: RestConnection | null, definition: P
   };
 }
 
-/**
- * The connection POST (new) or PUT (existing). Only the scheme's fields are sent; a typed secret replaces the stored
- * one, a cleared one sends clear_<field>, an untouched one is left out (secrets are write-only).
- */
+/** Secrets are write-only: a typed one replaces, a cleared one sends clear_<field>, an untouched one is left out. */
 export function connectionBody(draft: ConnectionDraft, scheme: AuthScheme, existing: RestConnection | null): Record<string, unknown> {
   const body: Record<string, unknown> = { name: draft.name.trim(), base_url: draft.baseUrl.trim() };
   if (!existing) body.project_id = draft.workspaceId || null;

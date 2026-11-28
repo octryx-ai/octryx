@@ -46,7 +46,6 @@ async def resolve_chat_runtime_selection(
     agent_id: str = "",
     agent_type: str = "",
 ) -> ChatRuntimeSelection:
-    """The selection the composer shows: the selected session's own choices, else the requested ones."""
     from app.services.runtime_options import list_chat_runtime_options
 
     session_selected = bool(selected_session and not new_thread)

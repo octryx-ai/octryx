@@ -1,9 +1,4 @@
-"""The Corporate Identity a Workspace uses and the profile's Spec Studio locks (admin).
-
-``GET/PUT /chat/api/panel/workspaces/{project_id}/corp-identity``: the Workspace's profile (empty: the installation
-default), written through the audited project-config path. ``PUT /chat/api/panel/corp-identities/{id}/studio-locks``:
-the token paths the Spec Studio shows read-only.
-"""
+"""The Corporate Identity a Workspace uses and the profile's Spec Studio locks (admin)."""
 
 from __future__ import annotations
 

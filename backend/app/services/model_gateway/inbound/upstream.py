@@ -1,21 +1,4 @@
-"""HTTP boundary from the inbound route to LiteLLM's Anthropic Messages surface.
-
-The client is built exactly like ``litellm/client.LiteLLMGatewayHttpClient``:
-from a validated config only, ``trust_env=False`` plus the governed transport
-policy, no redirects, and the virtual key as the only credential. Only
-``anthropic-version`` and ``anthropic-beta`` travel from the client request;
-its ``Authorization``/``x-api-key`` (the platform token) never leave the
-platform.
-
-Upstream failures become fixed refusals. A request the transport could not
-deliver (timeout, unreachable) is an :class:`InboundRefusal`; a non-success
-answer of the upstream is an :class:`UpstreamAnswer`. The moment the response
-headers arrive — before any error body is read or the response is closed — the
-caller's ``received`` is told the status: the body crossed the transport, so
-the request's content record says ``sent`` (``gateway_outcome``).
-The upstream body is never passed through; it is only *compared* for the one
-documented code that marks a context-window overflow.
-"""
+"""HTTP boundary from the inbound route to LiteLLM's Anthropic Messages surface."""
 
 from __future__ import annotations
 
@@ -38,7 +21,6 @@ from .refusals import InboundRefusal
 
 MESSAGES_PATH = "/v1/messages"
 COUNT_TOKENS_PATH = "/v1/messages/count_tokens"
-# LiteLLM's OpenAI Responses surface (the ``/openai`` route for Codex).
 RESPONSES_PATH = "/v1/responses"
 
 # Claude Code aborts a stream that stays silent for 300 seconds; the upstream
@@ -55,17 +37,16 @@ _CONTEXT_LENGTH_ERROR_CODE = "context_length_exceeded"
 REASON_UPSTREAM_REDIRECTED = "upstream_redirected"
 REASON_UPSTREAM_TIMEOUT = "upstream_timeout"
 REASON_UPSTREAM_UNREACHABLE = "upstream_unreachable"
+# No route to a seat provider (DNS, refused, connect timeout): the platform's egress allowlist, not a busy provider.
+REASON_SEAT_UPSTREAM_UNREACHABLE = "seat_upstream_unreachable"
 
 
 @dataclass(frozen=True, slots=True)
 class UpstreamAnswer(InboundRefusal):
-    """The upstream received the request and answered with a non-success status (a refusal to the client, but the
-    request was sent)."""
+    pass
 
 
 def upstream_transport() -> httpx.AsyncBaseTransport | None:
-    """Transport seam: ``None`` in production (httpx's own), a mock in tests."""
-
     return None
 
 
@@ -97,6 +78,8 @@ def relayed_response_headers(headers: httpx.Headers) -> dict[str, str]:
     }
 
 
+# ``received`` hears the status the moment the headers arrive, before any error body is read: the body crossed the
+# transport, so the content record says sent. The client's Authorization and x-api-key never leave the platform.
 async def send_upstream(
     client: httpx.AsyncClient,
     *,
@@ -105,9 +88,6 @@ async def send_upstream(
     headers: Mapping[str, str],
     received: Callable[[int], Awaitable[None]],
 ) -> httpx.Response | InboundRefusal:
-    """Send one request with a streamed response (``received``: told the status when the headers arrive); a refusal
-    has closed it."""
-
     request = client.build_request(
         "POST", upstream_path_for(client, path), content=body, headers=forwarded_request_headers(headers)
     )
@@ -202,3 +182,9 @@ __all__ = [
     "send_upstream",
     "upstream_transport",
 ]
+
+
+def no_seat_route() -> InboundRefusal:
+    from ...agent_gateway.contract import STATE_NEEDS_CONFIGURATION
+
+    return InboundRefusal(STATE_NEEDS_CONFIGURATION, REASON_SEAT_UPSTREAM_UNREACHABLE, 503)

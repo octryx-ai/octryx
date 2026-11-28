@@ -1,20 +1,12 @@
-// A chat's connector write waits for the person's confirmation, one call at a time (rule chat_connector_write).
-// The gate's preview names the tool, the connector, the connection and every written field as "key: value" lines
-// (backend/app/services/tool_approval_gate.py `_chat_write_preview`). This turns it into what the card shows: what is
-// written, where, and the fields. Pure, so the card and its tests share it.
 import type { StatusTone } from "../../layout/StatusLabel";
 
 export type ConnectorWriteField = { key: string; label: string; value: string };
 
 export type ConnectorWriteView = {
-  // "Create Jira ticket": the tool in words.
   action: string;
-  // The tool's own preview title when it has one ("Create Epic Kitchen helper v1 in MM"), otherwise the action.
   title: string;
-  // "Jira" and the connection's name ("Jira", "default").
   connector: string;
   connection: string;
-  // Every written field, in the order the gate listed them.
   fields: ConnectorWriteField[];
 };
 
@@ -27,7 +19,7 @@ function words(value: string): string {
   return spaced ? spaced[0].toUpperCase() + spaced.slice(1) : "";
 }
 
-// A list of plain values ("[\"a\",\"b\"]", as the gate writes JSON) reads as "a, b"; anything else stays as written.
+// The gate writes lists as JSON.
 function readable(value: string): string {
   if (!value.startsWith("[")) return value;
   try {
@@ -45,7 +37,6 @@ function capitalised(value: string): string {
   return value ? value[0].toUpperCase() + value.slice(1) : "";
 }
 
-/** The card's view of a chat connector write, or null for every other approval. */
 export function connectorWriteView(
   preview: Record<string, unknown> | null | undefined,
   toolName?: string | null,
@@ -70,7 +61,6 @@ export function connectorWriteView(
   if (!("connector" in meta)) return null;
   const connector = capitalised(meta.connector);
   const tool = text(preview.toolName) || text(toolName) || meta.tool || "";
-  // "create_jira_ticket" -> "Create jira ticket" -> "Create Jira ticket": the connector keeps its name.
   let action = words(tool) || "Write";
   if (connector) action = action.replace(new RegExp(`\\b${meta.connector}\\b`, "i"), connector);
   const own = text(preview.title);
@@ -83,7 +73,6 @@ export function connectorWriteView(
   };
 }
 
-/** The card's state in words and its tone: only the pending one asks for attention. */
 export function connectorWriteStatus(status: string | null | undefined): { label: string; tone: StatusTone } {
   const key = String(status || "pending").trim().toLowerCase();
   if (key === "approved") return { label: "Approved", tone: "success" };

@@ -1,16 +1,4 @@
-"""The data-policy comparison performed before any billable gateway dispatch.
-
-An alias' ``data_policy_class`` is the *highest* sensitivity that alias is
-approved to handle. A dispatch is permitted only when the workspace's effective
-classification sits at or below it. Everything else — an unresolvable workspace
-classification, an unresolvable alias class, or a workspace more sensitive than
-the alias allowance — is an explicit denial with a fixed code.
-
-A model may only be cleared for a level whose ``models_allowed`` is on
-(``classification.MODEL_DATA_POLICY_CLASSES``, from the level registry), and a
-workspace at a level without models (the built-in ``secret`` or a custom level
-added that way) has no admissible gateway alias at all.
-"""
+"""The data-policy comparison before any billable gateway dispatch."""
 
 from __future__ import annotations
 

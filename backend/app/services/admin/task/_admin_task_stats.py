@@ -1,11 +1,4 @@
-"""Task stats helpers shared by admin task flows.
-
-Run chronology: an Action's summary ("last run") and its run history use one ordering,
-``run_chronology_order``. A run's effective time is when it started, or, while it has not started,
-when it was queued; no start time is invented. Runs with neither time sort after every timed run
-(explicit NULLS LAST, so SQLite and PostgreSQL agree), and equal times fall back to the run id, so
-the newest run is always the same row in both reads.
-"""
+"""Task stats helpers shared by admin task flows."""
 
 from __future__ import annotations
 
@@ -19,7 +12,6 @@ from ._admin_task_serialization import serialize_task
 
 
 def run_chronology_order() -> tuple[Any, ...]:
-    """ORDER BY clauses, newest first; the query must outer-join ``TaskQueueEntry`` on its run."""
     effective_time = func.coalesce(TaskRun.started_at, TaskQueueEntry.queued_at)
     return (effective_time.desc().nulls_last(), TaskRun.id.desc())
 

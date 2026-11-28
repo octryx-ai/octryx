@@ -6,9 +6,9 @@ import os
 from dataclasses import replace
 from typing import Any
 
-from ...services.tool_result_compression.strategy_aws import build_aws_topology_diagram_brief
 from ...time_utils import utc_now
 from ..context import ToolContext
+from .aws_topology_brief import build_aws_topology_diagram_brief
 from .aws_topology_common import TopologyBuilder, bounded_int, evidence, node_id, requested_services, safe_aws_call
 from .aws_topology_deep_edges import collect_deep_edges
 from .aws_topology_flow_edges import derive_flow_edges
@@ -33,8 +33,6 @@ _MAX_REGIONS = 4
 
 
 def _requested_regions(context: ToolContext, params: dict[str, Any]) -> list[str]:
-    """Explicit `regions` param (bounded, deduplicated, order-preserving);
-    defaults to the configured region."""
     raw = params.get("regions")
     regions: list[str] = []
     if isinstance(raw, (list, tuple)):
@@ -49,8 +47,6 @@ def _requested_regions(context: ToolContext, params: dict[str, Any]) -> list[str
 
 
 def _context_for_region(context: ToolContext, region: str) -> ToolContext:
-    """Shallow context clone pinned to one region; the boto session reads
-    `project_config['aws_region']`, so this is the only override needed."""
     if _string(context.project_config.get("aws_region")) == region:
         return context
     return replace(context, project_config={**context.project_config, "aws_region": region})

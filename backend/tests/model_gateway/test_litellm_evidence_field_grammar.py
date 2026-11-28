@@ -1,30 +1,5 @@
-"""Closed value grammars for the identifier and reference evidence fields.
-
-The evidence writer runs every string through the shared redaction policy, which
-matches a credential prefix such as ``sk-`` as a *substring*. The identifier and
-reference fields are checked against closed grammars first, so the deployment's
-own naming is written instead of being refused as
-``evidence_payload_sensitive_value``:
-
-    model_group='task-router'
-    model_group='desk-nova-lite'
-    alias='task-router'
-    cost_contract_reference='desk-pricing-2026'
-    content_logging_attestation_reference=
-        'litellm-posture-task-non-prod-2026-09-27'
-
-``task-`` and ``desk-`` both contain ``sk-``, and ``model_group`` is the
-*cluster's* naming, so it cannot simply be renamed.
-
-What holds per field:
-
-- the five values above are written, verbatim, by the product;
-- a real token, an auth header, a credential-bearing URL, a secret assignment, a
-  PEM block and arbitrary free text still fail closed under every one of those
-  keys;
-- the generic scan is unchanged for every key that has no grammar, and no
-  backend-owned closed code is itself secret-shaped.
-"""
+"""Closed value grammars for the identifier and reference evidence fields: deployment names such as ``task-router``
+(which contain ``sk-``) are written, while real secrets under the same keys still fail closed."""
 
 from __future__ import annotations
 
@@ -92,8 +67,6 @@ HOSTILE_VALUES = (
 
 
 def target_section() -> dict[str, Any]:
-    """A governed config whose every identifier is the target environment's."""
-
     section = gateway_section(
         host_allowlist=[TARGET_GATEWAY_HOST],
         aliases={
@@ -119,15 +92,6 @@ def target_config():
 
 
 def target_report(*, with_alias_identity: bool = False):
-    """A complete, passing report built by the product from that config.
-
-    ``with_alias_identity`` merges the product's own per-call evidence
-    (``build_call_evidence``), which is where ``model_group``,
-    ``cost_contract_reference`` and ``data_policy_class`` are produced. Both
-    payloads are already closed to the shared allowlist, so the merge adds keys
-    rather than widening it.
-    """
-
     config = target_config()
     report = build_qualification_report(
         config=config,
@@ -146,21 +110,11 @@ def target_report(*, with_alias_identity: bool = False):
 
 
 def test_every_refused_target_identifier_is_secret_shaped_to_the_shared_policy() -> None:
-    """Without the grammars these values are refused, so the fix is load-bearing."""
-
     for value in TARGET_IDENTIFIERS:
         assert looks_like_secret_value(value) is True, value
 
 
 def test_the_target_identifiers_write_evidence_instead_of_being_refused(tmp_path) -> None:
-    """The review's reproductions, end to end, through the product writer.
-
-    Every value is produced by the product — the alias by the qualification
-    checks, the attestation reference by the posture contract, the model group
-    and the cost reference by ``build_call_evidence`` — so the test cannot pass
-    with a value the product would not actually emit.
-    """
-
     report = target_report(with_alias_identity=True)
 
     target = write_qualification_evidence(
@@ -173,14 +127,11 @@ def test_the_target_identifiers_write_evidence_instead_of_being_refused(tmp_path
     assert gateway["model_group"] == TARGET_MODEL_GROUP
     assert gateway["cost_contract_reference"] == TARGET_COST_REFERENCE
     assert gateway["content_logging_attestation_reference"] == TARGET_ATTESTATION_REFERENCE
-    # The per-check alias is the same operator naming and reaches the file too.
     assert {check["alias"] for check in payload["checks"]} == {TARGET_ALIAS}
     assert VIRTUAL_KEY not in target.read_text()
 
 
 def test_the_product_call_evidence_of_the_target_alias_is_admissible() -> None:
-    """The producer's own payload, judged key by key by the writer's grammar."""
-
     evidence = build_call_evidence(config=target_config(), entry=target_config().aliases[0])
 
     assert evidence["alias"] == TARGET_ALIAS
@@ -196,13 +147,6 @@ def test_the_product_call_evidence_of_the_target_alias_is_admissible() -> None:
 
 
 def test_a_hostile_value_under_every_grammar_field_fails_closed(tmp_path) -> None:
-    """The grammar is a shape, not a key-name allowlist: nothing hostile passes.
-
-    A secret-shaped value is reported as such; anything else that is not the
-    promised shape — arbitrary free text included — is reported as not
-    admissible. Both refuse the write, and both name the field.
-    """
-
     report = target_report()
     fields = sorted(IDENTIFIER_EVIDENCE_KEYS | PATH_EVIDENCE_KEYS)
     assert len(fields) >= 11
@@ -221,13 +165,10 @@ def test_a_hostile_value_under_every_grammar_field_fails_closed(tmp_path) -> Non
                 EVIDENCE_DENIAL_PAYLOAD_VALUE_NOT_ADMISSIBLE,
             ), (key, value)
             assert excinfo.value.denial_field == key, (key, value)
-    # Nothing was written for any of them.
     assert not (tmp_path / "evidence" / "issue-825" / "denied.json").exists()
 
 
 def test_a_hostile_callback_name_in_a_list_field_fails_closed(tmp_path) -> None:
-    """A list-valued field judges every entry under its own key."""
-
     report = target_report()
     poisoned = dataclasses.replace(
         report,

@@ -1,9 +1,4 @@
-"""A phase's ``sub_agents`` configuration: who works the slices and how many at once.
-
-``{"agent": "<built-in key or agent definition id>", "max_parallel": 1..5, "iterations": 1..10}`` — defaults: the
-phase's own agent (every phase names one), 5 in parallel, 3 iterations per slice.
-Validated at publish.
-"""
+"""A phase's ``sub_agents`` configuration: who works the slices and how many at once."""
 
 from __future__ import annotations
 

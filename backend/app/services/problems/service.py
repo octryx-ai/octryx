@@ -1,10 +1,4 @@
-"""The problems list: every collector over existing status rows, scoped, acknowledged items hidden.
-
-Collectors run one after another on the request's session (one session cannot run queries concurrently); each is
-bounded by its window and row limit. Problems of an archived Workspace (``projects.is_active`` false) are left out.
-``counts`` are the totals of the visible list before the ``kind`` and ``severity`` filters, so the page's segments
-can show them; they respect the scope and the Workspace filter.
-"""
+"""The problems list: every collector over existing status rows, scoped, acknowledged items hidden."""
 
 from __future__ import annotations
 
@@ -31,8 +25,6 @@ COLLECTORS: tuple[Collector, ...] = (
 
 
 class ProblemsQueryError(Exception):
-    """A filter value outside the closed vocabulary (422)."""
-
     def __init__(self, field: str, message: str) -> None:
         super().__init__(message)
         self.field, self.message, self.code = field, message, "invalid_filter"
@@ -46,7 +38,7 @@ def _check(field: str, value: str | None, allowed: tuple[str, ...]) -> str | Non
 
 
 async def _collect(db: AsyncSession, scope: ProblemScope, now: datetime) -> list[Problem]:
-    ctx = CollectContext(now=now, workspace_ids=scope.workspace_ids)
+    ctx = scope.context(now)
     problems: list[Problem] = []
     for collector in COLLECTORS:
         problems.extend(await collector(db, ctx))
@@ -69,7 +61,6 @@ def _order(problem: Problem) -> tuple:
 
 async def visible_problems(db: AsyncSession, user: User, scope: ProblemScope, *,
                            now: datetime | None = None) -> list[Problem]:
-    """The scoped problems the person has not acknowledged, problems first, newest first."""
     acks = await acknowledged(db, user)
     problems = [item for item in await _collect(db, scope, now or utc_now()) if not is_hidden(item, acks)]
     return sorted(problems, key=_order)
@@ -91,7 +82,6 @@ async def list_problems(db: AsyncSession, user: User, scope: ProblemScope, *, ki
 
 
 async def acknowledge_problem(db: AsyncSession, user: User, scope: ProblemScope, key: str) -> Problem | None:
-    """Acknowledge the visible problem ``key``; ``None`` when the person sees no such problem now."""
     problem = next((item for item in await visible_problems(db, user, scope) if item.key == key), None)
     if problem is not None:
         await acknowledge(db, user, problem)

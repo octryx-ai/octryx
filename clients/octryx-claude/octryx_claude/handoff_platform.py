@@ -28,7 +28,6 @@ class _Platform:
         return {"Authorization": f"Bearer {token}", **self.context.headers()}
 
     def upload(self, work_item_id: str, data: bytes) -> tuple[str, str]:
-        """``(bundle_id, "")`` or ``("", refusal code)``."""
         try:
             response = self.http.post(
                 f"{self.context.base_url}{CONTROL_PLANE_PREFIX}/handoff/attachments",

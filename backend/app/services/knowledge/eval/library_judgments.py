@@ -20,7 +20,6 @@ def _span(hit: dict[str, Any]) -> tuple[Any, Any, Any]:
 
 
 def _identities(hits: list[dict[str, Any]]) -> list[list[dict[str, Any]]]:
-    """Group hits that name the same evidence: same key, or same source, revision hash and span."""
     groups: list[list[dict[str, Any]]] = []
     for hit in hits:
         span = _span(hit)
@@ -98,7 +97,6 @@ def _judge_hit(
     where: str, judgment: Any, case: Case, group: list[dict[str, Any]], fact_ids: set[str], manifest: Manifest,
     problems: list[str],
 ) -> dict[str, Any] | None:
-    """The accepted judgment of one captured hit, or ``None`` when it is refused outright."""
     label = judgment.get("label") if isinstance(judgment, dict) else None
     supports = judgment.get("supports", []) if isinstance(judgment, dict) else None
     if label not in LABELS or not isinstance(supports, list):
@@ -124,7 +122,6 @@ def _judge_hit(
 
 
 def _hit_workspace_id(hit: dict[str, Any], case: Case, manifest: Manifest) -> str | None:
-    """The hit's Workspace id, or ``None`` when it cannot be established unambiguously."""
     own = manifest.workspaces[case.workspace]
     if MODE_SCOPE[case.mode] == "single_workspace" or hit.get("bound") is False:
         return own
@@ -135,7 +132,6 @@ def _hit_workspace_id(hit: dict[str, Any], case: Case, manifest: Manifest) -> st
 
 
 def _excluded(hit: dict[str, Any], case: Case, manifest: Manifest) -> bool | None:
-    """True for a leak, False when clean, None when a workspace exclusion cannot be checked."""
     unverifiable = False
     for exclusion in case.exclusions:
         if exclusion.kind == "evidence_key" and hit.get("evidence_key") == exclusion.value:

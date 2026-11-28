@@ -1,16 +1,4 @@
-"""Platform operation counters for Prometheus (``octryx_*``), counted where the facts are written.
-
-Metrics never go through the database. The ORM hook of :mod:`agent_metrics` hands every committed insert or update here:
-
-- a task run counts when it is queued, starts and finishes (the database-backed queue's depth is their difference,
-  an approximation; the Redis queue's depth is read from Redis, see ``metrics_render``);
-- a code graph index run that reaches a final status counts by status and backend, with its duration and files;
-- an SLA breach counts by type and severity;
-- an outbound webhook delivery counts every status it reaches;
-- a secret rotation log row counts by action;
-
-Counters start at zero with the process; ``rate()`` and ``increase()`` handle that. Grafana sums over processes.
-"""
+"""Platform operation counters for Prometheus (``octryx_*``), counted where the facts are written."""
 
 from __future__ import annotations
 
@@ -55,7 +43,6 @@ def reset() -> None:
 
 
 def _status_reached(row: Any, new: bool) -> str | None:
-    """The status the write set: on insert the row's status, on update a changed one."""
     if new:
         return inspect(row).dict.get("status")
     history = inspect(row).attrs["status"].history

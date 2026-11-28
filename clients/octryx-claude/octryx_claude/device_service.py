@@ -1,23 +1,5 @@
-"""The device background service per OS: install, remove and inspect it, as the user, never as root.
-
-- macOS: a per-user **LaunchAgent** ``~/Library/LaunchAgents/ai.octryx.claude.device.plist``
-  (``RunAtLoad``, ``KeepAlive={SuccessfulExit: false}``, ``ThrottleInterval=30``, ``ProcessType=Standard``, the
-  enabling user's ``PATH``), loaded with ``launchctl bootstrap gui/<uid>`` and removed with ``bootout``. It runs
-  while the user is logged in. ``device enable`` installs the unit; every service start reconciles it
-  (:meth:`reconcile`): an installed unit whose content is not this version's definition is replaced by it, keeping
-  the ``PATH`` chosen at enable, and loaded again (``reload_detached``).
-- Linux: a **systemd user unit** ``~/.config/systemd/user/octryx-claude-device.service``
-  (``Restart=on-failure``, ``RestartSec=10``), ``systemctl --user enable --now``. Lingering for headless hosts
-  is the user's own choice (``loginctl enable-linger``), never done here.
-- Windows (WSL2): a **scheduled task** at the user's own logon, created through PowerShell without admin
-  rights, that runs ``wsl.exe -d <distro> -e <shim> device run``; the running process keeps the WSL VM alive.
-
-Every unit calls the ``current`` shim (``~/.local/bin/octryx-claude``). The service updates itself (
-``device_runtime.update_watch``): at start and every five minutes while no job runs; it then re-executes ``device
-run`` in place, which needs no restart policy (the WSL logon task has none for an exiting process). Only if that
-re-exec fails it exits non-zero, which ``KeepAlive.SuccessfulExit=false`` and ``Restart=on-failure`` restart.
-All OS commands go through an injectable ``runner``; the tests use a fake and a temporary HOME.
-"""
+"""The device background service per OS (LaunchAgent, systemd user unit, WSL logon task), never as root.
+All OS commands go through an injectable ``runner``."""
 
 from __future__ import annotations
 
@@ -69,12 +51,8 @@ class ServiceError(Exception):
 
 
 def service_shim(home: Path | None = None) -> Path:
-    """The ``current`` shim when installed, else this copy's own launcher."""
     shim = (home or Path.home()) / ".local" / "bin" / "octryx-claude"
     return shim if shim.exists() else install_layout.launcher_shim()
-
-
-# --- managers -------------------------------------------------------------------------------------------------
 
 
 @dataclass
@@ -92,12 +70,9 @@ class _Manager:
         self.runner = runner
 
     def reconcile(self, shim: Path, log_file: Path) -> bool:
-        """Make an installed unit this version's definition; ``True`` when its file was replaced. Only the file
-        changes: a running service keeps running, :meth:`install` or :meth:`reload_detached` loads it."""
         return False
 
     def reload_detached(self) -> bool:
-        """Load the replaced unit from a helper outside the service's own process group; ``False`` if unsupported."""
         return False
 
     def _run(self, argv: Sequence[str], *, required: bool = True) -> subprocess.CompletedProcess:
@@ -150,8 +125,7 @@ class LaunchdManager(_Manager):
         return True
 
     def reload_detached(self) -> bool:
-        """``bootout`` stops this service (SIGTERM, a clean stop) and ``bootstrap`` loads the new plist. The helper
-        runs in its own session, so launchd's process-group kill on ``bootout`` does not reach it."""
+        # The helper runs in its own session, so launchd's process-group kill on bootout does not reach it.
         target = f"gui/{self.uid}"
         plist = _sh_quote(str(self.unit_path))
         script = (f"sleep {RELOAD_DELAY_SECONDS}; launchctl bootout {target}/{self.label}; "
@@ -243,8 +217,7 @@ def manager_for(os_name: str, *, home: Path | None = None, runner: Runner = defa
 
 
 def launched_by_launchd(env: dict[str, str] | None = None) -> bool:
-    """``True`` inside the LaunchAgent itself (launchd sets ``XPC_SERVICE_NAME`` to the job's label, which is
-    :data:`LAUNCHD_LABEL` or, for a second installation, that label with its suffix, see :func:`instance_label`)."""
+    # launchd sets XPC_SERVICE_NAME to the job's label.
     name = (os.environ if env is None else env).get("XPC_SERVICE_NAME") or ""
     return name == LAUNCHD_LABEL or name.startswith(LAUNCHD_LABEL + ".")
 

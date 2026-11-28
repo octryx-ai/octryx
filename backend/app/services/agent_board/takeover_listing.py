@@ -54,7 +54,6 @@ async def takeover_views(db: AsyncSession, rows: list[WorkItemTakeover]) -> list
 
 
 def _decided_by(row: WorkItemTakeover, users: dict[str, dict[str, str]]) -> dict[str, Any] | None:
-    """``{kind: "human", user}`` or ``{kind: "system"}``; ``None`` while undecided."""
     if row.decided_at is None:
         return None
     if row.decided_by_kind == DECIDED_BY_SYSTEM:

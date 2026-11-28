@@ -1,9 +1,5 @@
 """``python -m octryx_claude.logout``: revoke the platform login and forget it locally.
-
-``uninstall --purge`` runs this before it deletes the state directory, so the refresh token does
-not stay valid on the platform. The revoke is best effort (RFC 7009 answers 200 for unknown
-tokens); the local credentials are removed either way. Prints fixed reason codes only.
-"""
+The revoke is best effort (RFC 7009 answers 200 for unknown tokens); local credentials go either way."""
 
 from __future__ import annotations
 
@@ -18,7 +14,6 @@ REVOKE_TIMEOUT_SECONDS = 10.0
 
 
 def revoke(state: LocalState, http: httpx.Client) -> str:
-    """``revoked``, ``not_logged_in`` or ``revoke_failed``."""
     credentials = state.credentials()
     base_url = str(credentials.get("base_url") or "").rstrip("/")
     token = str(credentials.get("refresh_token") or "")

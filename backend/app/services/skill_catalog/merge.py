@@ -1,21 +1,4 @@
-"""Three-way merge of a skill bundle: base = upstream snapshot, ours = published, theirs = new upstream.
-
-Per file:
-
-- unchanged locally (ours == base) → theirs (including an upstream deletion or addition);
-- unchanged upstream (theirs == base) → ours;
-- both sides identical → that text;
-- otherwise a line-based diff3 (the classic merge3 sync-region algorithm, ``difflib`` matching blocks —
-  deterministic, no heuristics). Hunks changed on one side merge; overlapping hunks are **conflicts**.
-
-A conflicted file is written with the upstream text in the conflicted places, so the draft stays a valid bundle;
-the conflict is listed in the merge report and submitting is refused until every conflict has a resolution:
-``upstream`` (take upstream), ``mine`` (keep my lines), ``manual`` (given text) or ``relocate``.
-
-**Relocation**: when upstream removed a conflicted hunk's base lines from the file and exactly one file *new*
-upstream contains those base lines verbatim, the conflict offers to apply the local edit in the new place: the base
-block in that file is replaced by my lines, and the original place takes upstream.
-"""
+"""Three-way merge of a skill bundle: base = upstream snapshot, ours = published, theirs = new upstream."""
 
 from __future__ import annotations
 
@@ -53,8 +36,6 @@ def _sync_regions(base: list[str], ours: list[str], theirs: list[str]) -> list[t
 
 
 def merge_lines(base: list[str], ours: list[str], theirs: list[str]) -> list[tuple[str, Any]]:
-    """Regions in order: ``("unchanged" | "same" | "ours" | "theirs", lines)`` or
-    ``("conflict", (base, ours, theirs))``; ``ours``/``theirs`` mark a hunk changed on that side only."""
     regions: list[tuple[str, Any]] = []
     at_base = at_ours = at_theirs = 0
     for base_start, base_end, ours_start, ours_end, theirs_start, theirs_end in _sync_regions(base, ours, theirs):
@@ -112,7 +93,6 @@ def _relocation(path: str, base: list[str], ours: list[str], theirs_file: list[s
 
 
 def merge_bundle(base: dict[str, str], ours: dict[str, str], theirs: dict[str, str]) -> dict[str, Any]:
-    """``{"files": {path: text}, "report": {...}}``; conflicted places carry upstream text until resolved."""
     merged: dict[str, str] = {}
     files: list[dict[str, Any]] = []
     conflicts: list[dict[str, Any]] = []
@@ -176,7 +156,6 @@ def _serialize_layouts(layouts: dict[str, list[Any]]) -> dict[str, list[dict[str
 
 
 def resolved_files(files: dict[str, str], report: dict[str, Any]) -> dict[str, str]:
-    """``files`` with every resolved conflict applied (unresolved ones keep upstream text)."""
     conflicts = {item["id"]: item for item in report.get("conflicts") or []}
     resolutions = report.get("resolutions") or {}
     for conflict_id, resolution in resolutions.items():

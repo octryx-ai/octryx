@@ -34,12 +34,7 @@ async def resolve_engineering_runtime_context(
     budget_tokens: int = 12_000,
     target: EngineeringUpgradeTarget | None = None,
 ) -> EngineeringKnowledgeRuntimeResolution:
-    """Resolve the repository and pack for an explicit ``target``; no prompt text is an input.
-
-    Every unresolved input is a closed blocker with a clarification question (see ``context_bundle``'s
-    ``state``): missing target versions, a missing or ambiguous repository, a stack that neither the
-    target nor the repository manifest names. Nothing falls back to a default.
-    """
+    """Resolve the repository and pack for an explicit ``target``; no prompt text is an input."""
     request = build_engineering_runtime_request(target=target)
     blockers = list(request.blockers)
     resolution = EngineeringKnowledgeRuntimeResolution(
@@ -77,7 +72,6 @@ async def _attach_pack(
     max_items: int,
     budget_tokens: int,
 ) -> None:
-    """Select the pack and attach its items, or leave the blocker that explains why not."""
     request = resolution.request
     pack_resolution = await resolve_runtime_pack(db, request=request, repository=repo, project_id=project_id)
     resolution.pack_resolution = pack_resolution
@@ -111,7 +105,6 @@ async def _attach_pack(
 def _repository_blocked(
     resolution: EngineeringKnowledgeRuntimeResolution, repo_resolution: RepositoryResolution
 ) -> bool:
-    """Add the blocker and question when no repository resolved or it forbids migrations."""
     repo = repo_resolution.repository
     if repo is None:
         append_blocker(
@@ -139,7 +132,6 @@ def _repository_blocked(
 
 
 def _apply_stack(resolution: EngineeringKnowledgeRuntimeResolution, repo_resolution: RepositoryResolution) -> bool:
-    """Settle the request's stack and source versions; ``False`` (with a blocker) when no stack is known."""
     request = resolution.request
     effective_stack_key = request.stack_key or repo_resolution.detected_stack_key
     if not effective_stack_key:

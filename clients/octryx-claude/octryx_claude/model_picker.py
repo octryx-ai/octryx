@@ -1,22 +1,5 @@
-"""Company models in Claude Code's ``/model`` picker.
-
-The client policy carries the picker rows per profile (``models.governed`` / ``models.seat``), decided by the
-platform for this user and Workspace: the company aliases a tool call would be admitted for, and on a seat
-session its subscription models plus, when the Workspace opts in, the company models as ``company/<alias>``.
-
-Two mechanisms put them into the picker, both per session and inside the launcher's own settings (``~/.claude``
-is never touched):
-
-- ``modelPicker`` in the generated ``--settings`` file: the rows, after Claude Code's built-in lineup, under the
-  platform's label and description. This works for both profiles and for every model id;
-- the governed profile also sets ``CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1``: Claude Code then reads the
-  gateway's ``GET /v1/models`` at startup with the ``apiKeyHelper`` credential, so the list is fresh even when
-  the client policy was read a while ago. Claude Code keeps only ids that contain ``claude``/``anthropic``,
-  which is why ``modelPicker`` stays the authority. The seat profile sets it to ``0``: a subscription login is
-  not a credential discovery sends, so it would only be skipped.
-
-Rows are re-validated here: a malformed row is dropped, never repaired.
-"""
+"""Company models in Claude Code's ``/model`` picker, from the client policy's rows per profile.
+``modelPicker`` stays the authority: gateway model discovery keeps only ids containing claude/anthropic."""
 
 from __future__ import annotations
 
@@ -46,7 +29,6 @@ def valid_model_id(value: Any) -> bool:
 
 
 def picker_rows(policy: Mapping[str, Any], profile: str) -> list[dict[str, str]]:
-    """The validated rows of ``profile`` from the client policy body; ``[]`` when there are none."""
     models = policy.get("models")
     raw = models.get(profile) if isinstance(models, Mapping) else None
     if not isinstance(raw, list):
@@ -69,7 +51,6 @@ def picker_rows(policy: Mapping[str, Any], profile: str) -> list[dict[str, str]]
 
 
 def model_picker_setting(rows: list[dict[str, str]]) -> dict[str, Any] | None:
-    """Claude Code's ``modelPicker`` value (added after the built-in lineup); ``None`` without rows."""
     if not rows:
         return None
     options = []
@@ -92,8 +73,6 @@ def _listing(models: list[str]) -> str:
 
 
 def status_label(policy: Mapping[str, Any], profile: str) -> str:
-    """The status block's ``company models (/model)`` value for ``profile``, from the client policy's ``models``
-    (the platform's ``launcher_picker``)."""
     models = policy.get("models") if isinstance(policy.get("models"), Mapping) else {}
     company = [row["model"] for row in picker_rows(policy, profile) if row["source"] == SOURCE_COMPANY]
     if profile == "seat" and models.get("seat_allows_governed_models") is not True:

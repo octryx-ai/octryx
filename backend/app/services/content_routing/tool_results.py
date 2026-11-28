@@ -1,32 +1,4 @@
-"""The tool-result check: a tool result is scanned and decided before it enters a model's context.
-
-``receive_tool_result`` is asked with the tool (``Tool::"<name>"``, its connector family as parent; a coding
-agent's own tool is ``Tool::"client:<name>"``), its origin (``connector``, ``mcp``, ``client``) and what the scan
-found. The baseline grants (``platform:tool-result-permit``); content policies narrow it:
-
-- a plain block replaces the result with a refusal the model reads (``content_policy_denied``), in enforce mode;
-- a ``mask`` obligation masks the findings it names in every string of the result and asks again
-  (``content_obligation_insufficient`` when the masked result is still denied); tool results are never routed;
-- shadow: the result goes on unchanged and its record says what would happen (``cedar.would``);
-- in every mode, a part the scan does not finish (a string whose scan is unfinished, more strings than
-  :data:`MAX_STRINGS`, a part deeper than :data:`MAX_DEPTH`) is withheld (``masking.WITHHELD_TEXT``) before
-  the decision, and the outcome says how many (``withheld``); a result whose parts finish one by one but not
-  together is blocked (``content_scan_unfinished``). Nothing unexamined enters a context or leaves to an MCP
-  client.
-
-Before the custom policies, the Workspace's content handling (``tool_result_handling``): a kind it refuses blocks the
-result (``content_policy_denied``); ``report`` is informational; mask and reroute apply where the result next reaches
-a model. Each record names the requested and the applied action per kind.
-
-Each check has at most one decision record (``tool_result_handling.ToolResultHandling``), written once when the
-check returns the result to its caller, from what was actually released and the kinds the released result carries
-(Cedar's comparison writes none of its own here); a check that fails or is cancelled before that writes nothing. A
-coding agent's own tool whose output the launcher cannot replace (``client_keeps``) keeps it unchanged whatever was
-decided — blocked, masked or with parts withheld —: its record and notice say ``kept_by_client`` and claim no block,
-mask or withhold. Only what entered the context is remembered for the conversation, after the record: the masked
-result's findings for a mask, nothing for a block, the original for a result the client keeps. The outcome carries a
-notice (detector × count, policy, the record) for the user — never the data.
-"""
+"""The tool-result check: a tool result is scanned and decided before it enters a model's context."""
 
 from __future__ import annotations
 
@@ -35,7 +7,7 @@ from dataclasses import dataclass, field, replace
 from typing import Any
 
 from ..content_detection.examination import examine_text
-from ..content_detection.masking import WITHHELD_TEXT
+from ..content_detection.masking import WITHHELD_TEXT, PlaceholderSpans
 from ..content_detection.registry import combined_definitions, detector_set_for
 from ..content_detection.scanner import ScanReport, Segment
 from ..content_detection.vocabulary import SOURCE_TOOL_RESULT
@@ -47,17 +19,18 @@ from ..content_security.handling import (
     PlatformScope,
     content_handling_isolated,
 )
+from ..content_security.transport import mask_run
 from ..policy_engine.runtime import MODE_ENFORCE, current_runtime
-from .body_masking import MaskRun
 from .conversation_state import load_state, remember
 from .decision import (
     REASON_CONTENT_POLICY_DENIED,
     REASON_SCAN_UNFINISHED,
     ContentDecision,
     decide_tool_result,
+    enforcement_budget,
     scan_for,
 )
-from .obligations import REASON_INSUFFICIENT, Obligation, Unresolved, resolve
+from .obligations import REASON_INSUFFICIENT, Obligation, Unresolved, workspace_obligation
 from .tool_result_handling import (
     RELEASED_BLOCKED,
     RELEASED_KEPT_BY_CLIENT,
@@ -81,8 +54,6 @@ class ToolResultOutcome:
 
 
 def _strings(value: Any, depth: int = 0, out: list[str | None] | None = None) -> list[str | None]:
-    """Every string of ``value``, up to :data:`MAX_STRINGS`; a deeper part than :data:`MAX_DEPTH` adds ``None``
-    (not read: the scan is incomplete, and the masked result withholds that part)."""
     out = [] if out is None else out
     if len(out) >= MAX_STRINGS:
         return out
@@ -112,8 +83,6 @@ def _segments(result: Any) -> list[Segment]:
 
 
 def _masked(value: Any, apply, depth: int = 0) -> Any:
-    """Every string of ``value`` through ``apply``; a part deeper than :data:`MAX_DEPTH` was never read, so it is
-    withheld instead of passed on."""
     if depth > MAX_DEPTH and isinstance(value, str | Mapping | list | tuple):
         return WITHHELD_TEXT
     if isinstance(value, str):
@@ -130,8 +99,6 @@ def _overflows(strings: list[str | None]) -> bool:
 
 
 def _withheld(result: Any, workspace_id: str | None) -> tuple[Any, int]:
-    """``result`` with every part the scan does not finish withheld: strings past :data:`MAX_STRINGS`, parts deeper
-    than :data:`MAX_DEPTH`, and each string whose own scan is unfinished (new containers; the input is unchanged)."""
     runtime = current_runtime()
     detectors = detector_set_for(combined_definitions(runtime.custom_detectors, runtime.draft_detectors),
                                  workspace_id)
@@ -159,15 +126,15 @@ def _withheld(result: Any, workspace_id: str | None) -> tuple[Any, int]:
     return walk(result, 0), counts["withheld"]
 
 
-def _decide(result: Any, request: Mapping[str, Any], sensitive: frozenset[str]) -> ContentDecision:
-    scans = scan_for(_segments(result), request["workspace_id"])
+def _decide(result: Any, request: Mapping[str, Any], sensitive: frozenset[str],
+            placeholders: PlaceholderSpans | None = None) -> ContentDecision:
+    budget = enforcement_budget() if placeholders is not None else None
+    scans = scan_for(_segments(result), request["workspace_id"], budget=budget, placeholders=placeholders)
     return decide_tool_result(scans=scans, sensitive=sensitive, **request)
 
 
 def _notice(decision: ContentDecision, *, kind: str, policies: Iterable[str], masked: int = 0,
             reason: str = "") -> dict[str, Any]:
-    """The notice; ``decision_id`` names the check's one record once it is released (:func:`check_tool_result`). An
-    unfinished examination's notice is the fixed one: no finding-derived count."""
     found = {} if reason == REASON_SCAN_UNFINISHED else decision.report.counts()
     return {"kind": kind, "found": found, "masked": masked, "policies": list(policies),
             "decision_id": None, "reason": reason or "content_obligation_applied"}
@@ -190,12 +157,6 @@ async def check_tool_result(
     session_id: str | None, conversation: str, connections: Iterable[str] = (), principal: Any = None,
     classification: Any = None, client_keeps: bool = False,
 ) -> ToolResultOutcome:
-    """The tool result as released. Its one record is written once the result is decided (a check failing or
-    cancelled before that writes none), then the conversation's badge is counted (in its own session) and the result
-    is returned.
-    ``client_keeps``: the caller cannot replace the output (a coding agent's own built-in tool,
-    ``client_tool_results``): whatever was decided, the client keeps it unchanged and the record says so
-    (``kept_by_client``)."""
     request = {"tool_name": tool_name, "family": family, "origin": origin, "workspace_id": workspace_id,
                "classification": classification, "connections": tuple(connections), "principal": principal}
     record = tool_result_record(tool_name=tool_name, workspace_id=workspace_id, session_id=session_id,
@@ -225,7 +186,7 @@ def _blocked(record: ToolResultHandling, tool_name: str, notice: dict[str, Any],
 async def _checked(result: Any, request: Mapping[str, Any], record: ToolResultHandling,
                    sensitive: frozenset[str]) -> tuple[ToolResultOutcome, Badge]:
     tool_name = str(request["tool_name"])
-    # A result too large or too deep to read is unfinished (C12B-04): withheld before any decision is asked.
+    # A result too large or too deep to read is unfinished: withheld before any decision is asked.
     first = None if _overflows(_strings(result)) else _decide(result, request, sensitive)
     if first is None or not first.scans.live.finished:
         result, record.withheld = _withheld(result, request["workspace_id"])
@@ -249,18 +210,16 @@ async def _checked(result: Any, request: Mapping[str, Any], record: ToolResultHa
 
 async def _released(result: Any, request: Mapping[str, Any], first: ContentDecision, record: ToolResultHandling,
                     sensitive: frozenset[str]) -> tuple[ToolResultOutcome, Badge]:
-    """The Workspace's Cedar decision: the result as it is released."""
     tool_name = str(request["tool_name"])
     comparison = first.comparison
-    denied = comparison is not None and comparison.cedar_allowed is False and not comparison.errors
     runtime = current_runtime()
-    if not denied:
+    if not first.cedar_denied:
         if first.refusal:  # the engine cannot answer while a published policy names a finding (fail closed)
             notice = _notice(first, kind="block", policies=(), reason=first.refusal)
             return _blocked(record, tool_name, notice, first.refusal)
         record.release(RELEASED_UNCHANGED, present=first.scans.live.detected)
         return _allowed(result, record.withheld), first.report
-    resolved = resolve(comparison.determining, runtime.custom_ids, runtime.custom_text, tool_result=True)
+    resolved = workspace_obligation(comparison.determining, tool_result=True)
     if runtime.mode != MODE_ENFORCE:
         would = {"policies": list(resolved.policies), "would": "deny", "applied": "none"}
         if isinstance(resolved, Obligation):
@@ -278,7 +237,6 @@ async def _released(result: Any, request: Mapping[str, Any], first: ContentDecis
 
 
 def _allowed(result: Any, withheld: int) -> ToolResultOutcome:
-    """An allowed result; a result with withheld parts says so (``withheld``: count, never the data)."""
     if not withheld:
         return ToolResultOutcome(result)
     return ToolResultOutcome(result, notice={"kind": "withhold", "found": {}, "masked": 0, "withheld": withheld,
@@ -288,9 +246,9 @@ def _allowed(result: Any, withheld: int) -> ToolResultOutcome:
 async def _mask(result: Any, request: Mapping[str, Any], first: ContentDecision, obligation: Obligation,
                 sensitive: frozenset[str], record: ToolResultHandling) -> tuple[ToolResultOutcome, Badge]:
     detectors = detector_set_for(current_runtime().custom_detectors, request["workspace_id"])
-    run = MaskRun(detectors, obligation.mask, obligation.mask_style)  # one numbering for the whole result
+    run = mask_run(detectors, obligation.mask, obligation.mask_style)  # one numbering for the whole result
     masked_result = _masked(result, run.text)  # new containers; the input is never changed
-    second = _decide(masked_result, request, sensitive)
+    second = _decide(masked_result, request, sensitive, run.placeholders)
     cedar = {"policies": list(obligation.policies), "decision": "deny", "obligation": obligation.kind,
              "mask": sorted(obligation.mask), "mask_style": obligation.mask_style, "masked": run.masked}
     # Only an answered allow lets the masked result in (an unanswered engine must not let it pass).

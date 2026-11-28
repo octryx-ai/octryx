@@ -23,7 +23,7 @@ class PermissionDefinition:
 
 # The permissions a check in the platform actually asks for. Every other catalog
 # permission can be granted but has no effect yet; Roles shows it as "Not enforced yet". Kept in step with the code by
-# ``tests/test_permission_enforcement_markers.py``.
+# ``tests/services/security/test_permission_enforcement_markers.py``.
 ENFORCED_PERMISSIONS: Final[frozenset[tuple[str, str]]] = frozenset({
     ("auth", "login"),
     ("users", "read"), ("users", "write"),
